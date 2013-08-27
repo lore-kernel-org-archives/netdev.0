@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 07/16] sfc: Extend and abstract efx_filter_spec to
- cover Huntington/EF10
-Date: Tue, 27 Aug 2013 21:45:23 +0100
-Message-ID: <1377636323.13272.80.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 08/16] sfc: Split Falcon-arch-specific and common
+ filter state
+Date: Tue, 27 Aug 2013 21:45:53 +0100
+Message-ID: <1377636353.13272.81.camel@bwh-desktop.uk.level5networks.com>
 References: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,1194 +10,439 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6029 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6051 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752381Ab3H0Up0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:45:26 -0400
+	with ESMTP id S1752406Ab3H0Up5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:45:57 -0400
 In-Reply-To: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace type field with match_flags.  Add rss_context and match values
-covering of most of what is now in the MCDI protocol.
-
-Change some fields into bitfields so that the structure size doesn't grow
-beyond 64 bytes.
-
-Ditch the filter decoding functions as it is now easier to pick apart
-the abstract structure.
-
-Rewrite ethtool NFC rule functions to set/get filter match flags and
-values directly.
+Move the common state from struct efx_filter_state into struct efx_nic.
+Rename struct efx_filter_state to efx_farch_filter_state and change
+the type of efx_nic::filter_state to void *.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ethtool.c | 211 +++++++++--------
- drivers/net/ethernet/sfc/filter.c  | 455 +++++++++++++++++--------------------
- drivers/net/ethernet/sfc/filter.h  | 220 ++++++++++++++----
- 3 files changed, 494 insertions(+), 392 deletions(-)
+ drivers/net/ethernet/sfc/filter.c     | 100 ++++++++++++++++------------------
+ drivers/net/ethernet/sfc/net_driver.h |  13 ++++-
+ 2 files changed, 58 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index ec5cacd..58ae28b 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -799,11 +799,12 @@ static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
- 	return efx_reset(efx, rc);
- }
+diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
+index 96f8f2e..29986d3 100644
+--- a/drivers/net/ethernet/sfc/filter.c
++++ b/drivers/net/ethernet/sfc/filter.c
+@@ -77,13 +77,8 @@ struct efx_farch_filter_table {
+ 	unsigned	search_depth[EFX_FARCH_FILTER_TYPE_COUNT];
+ };
  
--/* MAC address mask including only MC flag */
--static const u8 mac_addr_mc_mask[ETH_ALEN] = { 0x01, 0, 0, 0, 0, 0 };
-+/* MAC address mask including only I/G bit */
-+static const u8 mac_addr_ig_mask[ETH_ALEN] = { 0x01, 0, 0, 0, 0, 0 };
+-struct efx_filter_state {
+-	spinlock_t	lock;
++struct efx_farch_filter_state {
+ 	struct efx_farch_filter_table table[EFX_FARCH_FILTER_TABLE_COUNT];
+-#ifdef CONFIG_RFS_ACCEL
+-	u32		*rps_flow_id;
+-	unsigned	rps_expire_index;
+-#endif
+ };
  
- #define IP4_ADDR_FULL_MASK	((__force __be32)~0)
- #define PORT_FULL_MASK		((__force __be16)~0)
-+#define ETHER_TYPE_FULL_MASK	((__force __be16)~0)
+ static void
+@@ -142,7 +137,7 @@ efx_farch_filter_table_reset_search_depth(struct efx_farch_filter_table *table)
  
- static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 				      struct ethtool_rx_flow_spec *rule)
-@@ -813,8 +814,6 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 	struct ethhdr *mac_entry = &rule->h_u.ether_spec;
- 	struct ethhdr *mac_mask = &rule->m_u.ether_spec;
- 	struct efx_filter_spec spec;
--	u16 vid;
--	u8 proto;
- 	int rc;
+ static void efx_farch_filter_push_rx_config(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table;
+ 	efx_oword_t filter_ctl;
  
- 	rc = efx_filter_get_filter_safe(efx, EFX_FILTER_PRI_MANUAL,
-@@ -827,39 +826,67 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 	else
- 		rule->ring_cookie = spec.dmaq_id;
+@@ -216,7 +211,7 @@ static void efx_farch_filter_push_rx_config(struct efx_nic *efx)
  
--	if (spec.type == EFX_FILTER_MC_DEF || spec.type == EFX_FILTER_UC_DEF) {
--		rule->flow_type = ETHER_FLOW;
--		memcpy(mac_mask->h_dest, mac_addr_mc_mask, ETH_ALEN);
--		if (spec.type == EFX_FILTER_MC_DEF)
--			memcpy(mac_entry->h_dest, mac_addr_mc_mask, ETH_ALEN);
--		return 0;
--	}
--
--	rc = efx_filter_get_eth_local(&spec, &vid, mac_entry->h_dest);
--	if (rc == 0) {
-+	if ((spec.match_flags & EFX_FILTER_MATCH_ETHER_TYPE) &&
-+	    spec.ether_type == htons(ETH_P_IP) &&
-+	    (spec.match_flags & EFX_FILTER_MATCH_IP_PROTO) &&
-+	    (spec.ip_proto == IPPROTO_TCP || spec.ip_proto == IPPROTO_UDP) &&
-+	    !(spec.match_flags &
-+	      ~(EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_OUTER_VID |
-+		EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_REM_HOST |
-+		EFX_FILTER_MATCH_IP_PROTO |
-+		EFX_FILTER_MATCH_LOC_PORT | EFX_FILTER_MATCH_REM_PORT))) {
-+		rule->flow_type = ((spec.ip_proto == IPPROTO_TCP) ?
-+				   TCP_V4_FLOW : UDP_V4_FLOW);
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_HOST) {
-+			ip_entry->ip4dst = spec.loc_host[0];
-+			ip_mask->ip4dst = IP4_ADDR_FULL_MASK;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_HOST) {
-+			ip_entry->ip4src = spec.rem_host[0];
-+			ip_mask->ip4src = IP4_ADDR_FULL_MASK;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_PORT) {
-+			ip_entry->pdst = spec.loc_port;
-+			ip_mask->pdst = PORT_FULL_MASK;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_PORT) {
-+			ip_entry->psrc = spec.rem_port;
-+			ip_mask->psrc = PORT_FULL_MASK;
-+		}
-+	} else if (!(spec.match_flags &
-+		     ~(EFX_FILTER_MATCH_LOC_MAC | EFX_FILTER_MATCH_LOC_MAC_IG |
-+		       EFX_FILTER_MATCH_REM_MAC | EFX_FILTER_MATCH_ETHER_TYPE |
-+		       EFX_FILTER_MATCH_OUTER_VID))) {
- 		rule->flow_type = ETHER_FLOW;
--		memset(mac_mask->h_dest, ~0, ETH_ALEN);
--		if (vid != EFX_FILTER_VID_UNSPEC) {
--			rule->flow_type |= FLOW_EXT;
--			rule->h_ext.vlan_tci = htons(vid);
--			rule->m_ext.vlan_tci = htons(0xfff);
-+		if (spec.match_flags &
-+		    (EFX_FILTER_MATCH_LOC_MAC | EFX_FILTER_MATCH_LOC_MAC_IG)) {
-+			memcpy(mac_entry->h_dest, spec.loc_mac, ETH_ALEN);
-+			if (spec.match_flags & EFX_FILTER_MATCH_LOC_MAC)
-+				memset(mac_mask->h_dest, ~0, ETH_ALEN);
-+			else
-+				memcpy(mac_mask->h_dest, mac_addr_ig_mask,
-+				       ETH_ALEN);
- 		}
--		return 0;
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_MAC) {
-+			memcpy(mac_entry->h_source, spec.rem_mac, ETH_ALEN);
-+			memset(mac_mask->h_source, ~0, ETH_ALEN);
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_ETHER_TYPE) {
-+			mac_entry->h_proto = spec.ether_type;
-+			mac_mask->h_proto = ETHER_TYPE_FULL_MASK;
-+		}
-+	} else {
-+		/* The above should handle all filters that we insert */
-+		WARN_ON(1);
-+		return -EINVAL;
- 	}
+ static void efx_farch_filter_push_tx_limits(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table;
+ 	efx_oword_t tx_cfg;
  
--	rc = efx_filter_get_ipv4_local(&spec, &proto,
--				       &ip_entry->ip4dst, &ip_entry->pdst);
--	if (rc != 0) {
--		rc = efx_filter_get_ipv4_full(
--			&spec, &proto, &ip_entry->ip4dst, &ip_entry->pdst,
--			&ip_entry->ip4src, &ip_entry->psrc);
--		EFX_WARN_ON_PARANOID(rc);
--		ip_mask->ip4src = IP4_ADDR_FULL_MASK;
--		ip_mask->psrc = PORT_FULL_MASK;
-+	if (spec.match_flags & EFX_FILTER_MATCH_OUTER_VID) {
-+		rule->flow_type |= FLOW_EXT;
-+		rule->h_ext.vlan_tci = spec.outer_vid;
-+		rule->m_ext.vlan_tci = htons(0xfff);
- 	}
--	rule->flow_type = (proto == IPPROTO_TCP) ? TCP_V4_FLOW : UDP_V4_FLOW;
--	ip_mask->ip4dst = IP4_ADDR_FULL_MASK;
--	ip_mask->pdst = PORT_FULL_MASK;
-+
+@@ -427,7 +422,7 @@ efx_farch_filter_to_gen_spec(struct efx_filter_spec *gen_spec,
+ static void
+ efx_farch_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table =
+ 		&state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
+ 	struct efx_farch_filter_spec *spec = &table->spec[filter_idx];
+@@ -585,7 +580,7 @@ static inline unsigned int efx_farch_filter_id_index(u32 id)
+ 
+ u32 efx_filter_get_rx_id_limit(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	unsigned int range = EFX_FARCH_FILTER_MATCH_PRI_COUNT - 1;
+ 	enum efx_farch_filter_table_id table_id;
+ 
+@@ -621,7 +616,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 			     struct efx_filter_spec *gen_spec,
+ 			     bool replace_equal)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table;
+ 	struct efx_farch_filter_spec spec;
+ 	efx_oword_t filter;
+@@ -649,7 +644,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 		rep_index = spec.type - EFX_FARCH_FILTER_UC_DEF;
+ 		ins_index = rep_index;
+ 
+-		spin_lock_bh(&state->lock);
++		spin_lock_bh(&efx->filter_lock);
+ 	} else {
+ 		/* Search concurrently for
+ 		 * (1) a filter to be replaced (rep_index): any filter
+@@ -679,7 +674,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 		ins_index = -1;
+ 		depth = 1;
+ 
+-		spin_lock_bh(&state->lock);
++		spin_lock_bh(&efx->filter_lock);
+ 
+ 		for (;;) {
+ 			if (!test_bit(i, table->used_bitmap)) {
+@@ -762,7 +757,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 	rc = efx_farch_filter_make_id(&spec, ins_index);
+ 
+ out:
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
  	return rc;
  }
  
-@@ -969,80 +996,78 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
- 			   (rule->ring_cookie == RX_CLS_FLOW_DISC) ?
- 			   EFX_FILTER_RX_DMAQ_ID_DROP : rule->ring_cookie);
- 
--	switch (rule->flow_type) {
-+	switch (rule->flow_type & ~FLOW_EXT) {
- 	case TCP_V4_FLOW:
--	case UDP_V4_FLOW: {
--		u8 proto = (rule->flow_type == TCP_V4_FLOW ?
--			    IPPROTO_TCP : IPPROTO_UDP);
--
--		/* Must match all of destination, */
--		if (!(ip_mask->ip4dst == IP4_ADDR_FULL_MASK &&
--		      ip_mask->pdst == PORT_FULL_MASK))
--			return -EINVAL;
--		/* all or none of source, */
--		if ((ip_mask->ip4src || ip_mask->psrc) &&
--		    !(ip_mask->ip4src == IP4_ADDR_FULL_MASK &&
--		      ip_mask->psrc == PORT_FULL_MASK))
--			return -EINVAL;
--		/* and nothing else */
--		if (ip_mask->tos || rule->m_ext.vlan_tci)
-+	case UDP_V4_FLOW:
-+		spec.match_flags = (EFX_FILTER_MATCH_ETHER_TYPE |
-+				    EFX_FILTER_MATCH_IP_PROTO);
-+		spec.ether_type = htons(ETH_P_IP);
-+		spec.ip_proto = ((rule->flow_type & ~FLOW_EXT) == TCP_V4_FLOW ?
-+				 IPPROTO_TCP : IPPROTO_UDP);
-+		if (ip_mask->ip4dst) {
-+			if (ip_mask->ip4dst != IP4_ADDR_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_HOST;
-+			spec.loc_host[0] = ip_entry->ip4dst;
-+		}
-+		if (ip_mask->ip4src) {
-+			if (ip_mask->ip4src != IP4_ADDR_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_HOST;
-+			spec.rem_host[0] = ip_entry->ip4src;
-+		}
-+		if (ip_mask->pdst) {
-+			if (ip_mask->pdst != PORT_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_PORT;
-+			spec.loc_port = ip_entry->pdst;
-+		}
-+		if (ip_mask->psrc) {
-+			if (ip_mask->psrc != PORT_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_PORT;
-+			spec.rem_port = ip_entry->psrc;
-+		}
-+		if (ip_mask->tos)
- 			return -EINVAL;
--
--		if (ip_mask->ip4src)
--			rc = efx_filter_set_ipv4_full(&spec, proto,
--						      ip_entry->ip4dst,
--						      ip_entry->pdst,
--						      ip_entry->ip4src,
--						      ip_entry->psrc);
--		else
--			rc = efx_filter_set_ipv4_local(&spec, proto,
--						       ip_entry->ip4dst,
--						       ip_entry->pdst);
--		if (rc)
--			return rc;
- 		break;
--	}
--
--	case ETHER_FLOW | FLOW_EXT:
--	case ETHER_FLOW: {
--		u16 vlan_tag_mask = (rule->flow_type & FLOW_EXT ?
--				     ntohs(rule->m_ext.vlan_tci) : 0);
- 
--		/* Must not match on source address or Ethertype */
--		if (!is_zero_ether_addr(mac_mask->h_source) ||
--		    mac_mask->h_proto)
--			return -EINVAL;
--
--		/* Is it a default UC or MC filter? */
--		if (ether_addr_equal(mac_mask->h_dest, mac_addr_mc_mask) &&
--		    vlan_tag_mask == 0) {
--			if (is_multicast_ether_addr(mac_entry->h_dest))
--				rc = efx_filter_set_mc_def(&spec);
-+	case ETHER_FLOW:
-+		if (!is_zero_ether_addr(mac_mask->h_dest)) {
-+			if (ether_addr_equal(mac_mask->h_dest,
-+					     mac_addr_ig_mask))
-+				spec.match_flags |= EFX_FILTER_MATCH_LOC_MAC_IG;
-+			else if (is_broadcast_ether_addr(mac_mask->h_dest))
-+				spec.match_flags |= EFX_FILTER_MATCH_LOC_MAC;
- 			else
--				rc = efx_filter_set_uc_def(&spec);
-+				return -EINVAL;
-+			memcpy(spec.loc_mac, mac_entry->h_dest, ETH_ALEN);
- 		}
--		/* Otherwise, it must match all of destination and all
--		 * or none of VID.
--		 */
--		else if (is_broadcast_ether_addr(mac_mask->h_dest) &&
--			 (vlan_tag_mask == 0xfff || vlan_tag_mask == 0)) {
--			rc = efx_filter_set_eth_local(
--				&spec,
--				vlan_tag_mask ?
--				ntohs(rule->h_ext.vlan_tci) : EFX_FILTER_VID_UNSPEC,
--				mac_entry->h_dest);
--		} else {
--			rc = -EINVAL;
-+		if (!is_zero_ether_addr(mac_mask->h_source)) {
-+			if (!is_broadcast_ether_addr(mac_mask->h_source))
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_MAC;
-+			memcpy(spec.rem_mac, mac_entry->h_source, ETH_ALEN);
-+		}
-+		if (mac_mask->h_proto) {
-+			if (mac_mask->h_proto != ETHER_TYPE_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_ETHER_TYPE;
-+			spec.ether_type = mac_entry->h_proto;
- 		}
--		if (rc)
--			return rc;
- 		break;
--	}
- 
- 	default:
- 		return -EINVAL;
- 	}
- 
-+	if ((rule->flow_type & FLOW_EXT) && rule->m_ext.vlan_tci) {
-+		if (rule->m_ext.vlan_tci != htons(0xfff))
-+			return -EINVAL;
-+		spec.match_flags |= EFX_FILTER_MATCH_OUTER_VID;
-+		spec.outer_vid = rule->h_ext.vlan_tci;
-+	}
-+
- 	rc = efx_filter_insert_filter(efx, &spec, true);
- 	if (rc < 0)
- 		return rc;
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index c547630..96f8f2e 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -32,6 +32,18 @@
-  * counter-productive. */
- #define EFX_FARCH_FILTER_CTL_SRCH_HINT_MAX 5
- 
-+enum efx_farch_filter_type {
-+	EFX_FARCH_FILTER_TCP_FULL = 0,
-+	EFX_FARCH_FILTER_TCP_WILD,
-+	EFX_FARCH_FILTER_UDP_FULL,
-+	EFX_FARCH_FILTER_UDP_WILD,
-+	EFX_FARCH_FILTER_MAC_FULL = 4,
-+	EFX_FARCH_FILTER_MAC_WILD,
-+	EFX_FARCH_FILTER_UC_DEF = 8,
-+	EFX_FARCH_FILTER_MC_DEF,
-+	EFX_FARCH_FILTER_TYPE_COUNT,		/* number of specific types */
-+};
-+
- enum efx_farch_filter_table_id {
- 	EFX_FARCH_FILTER_TABLE_RX_IP = 0,
- 	EFX_FARCH_FILTER_TABLE_RX_MAC,
-@@ -62,7 +74,7 @@ struct efx_farch_filter_table {
- 	unsigned	used;		/* number currently used */
- 	unsigned long	*used_bitmap;
- 	struct efx_farch_filter_spec *spec;
--	unsigned	search_depth[EFX_FILTER_TYPE_COUNT];
-+	unsigned	search_depth[EFX_FARCH_FILTER_TYPE_COUNT];
- };
- 
- struct efx_filter_state {
-@@ -106,33 +118,22 @@ static enum efx_farch_filter_table_id
- efx_farch_filter_spec_table_id(const struct efx_farch_filter_spec *spec)
+@@ -800,7 +795,7 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
+ 			      enum efx_filter_priority priority,
+ 			      u32 filter_id)
  {
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_IP !=
--		     (EFX_FILTER_TCP_FULL >> 2));
-+		     (EFX_FARCH_FILTER_TCP_FULL >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_IP !=
--		     (EFX_FILTER_TCP_WILD >> 2));
-+		     (EFX_FARCH_FILTER_TCP_WILD >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_IP !=
--		     (EFX_FILTER_UDP_FULL >> 2));
-+		     (EFX_FARCH_FILTER_UDP_FULL >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_IP !=
--		     (EFX_FILTER_UDP_WILD >> 2));
-+		     (EFX_FARCH_FILTER_UDP_WILD >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_MAC !=
--		     (EFX_FILTER_MAC_FULL >> 2));
-+		     (EFX_FARCH_FILTER_MAC_FULL >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_RX_MAC !=
--		     (EFX_FILTER_MAC_WILD >> 2));
-+		     (EFX_FARCH_FILTER_MAC_WILD >> 2));
- 	BUILD_BUG_ON(EFX_FARCH_FILTER_TABLE_TX_MAC !=
- 		     EFX_FARCH_FILTER_TABLE_RX_MAC + 2);
--	EFX_BUG_ON_PARANOID(spec->type == EFX_FILTER_UNSPEC);
- 	return (spec->type >> 2) + ((spec->flags & EFX_FILTER_FLAG_TX) ? 2 : 0);
- }
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	unsigned int filter_idx;
+@@ -817,7 +812,7 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
+ 		return -ENOENT;
+ 	spec = &table->spec[filter_idx];
  
--static struct efx_farch_filter_table *
--efx_farch_filter_spec_table(struct efx_filter_state *state,
--			    const struct efx_farch_filter_spec *spec)
--{
--	if (spec->type == EFX_FILTER_UNSPEC)
--		return NULL;
--	else
--		return &state->table[efx_farch_filter_spec_table_id(spec)];
--}
--
- static void
- efx_farch_filter_table_reset_search_depth(struct efx_farch_filter_table *table)
- {
-@@ -149,27 +150,27 @@ static void efx_farch_filter_push_rx_config(struct efx_nic *efx)
- 
- 	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_IP];
- 	EFX_SET_OWORD_FIELD(filter_ctl, FRF_BZ_TCP_FULL_SRCH_LIMIT,
--			    table->search_depth[EFX_FILTER_TCP_FULL] +
-+			    table->search_depth[EFX_FARCH_FILTER_TCP_FULL] +
- 			    EFX_FARCH_FILTER_CTL_SRCH_FUDGE_FULL);
- 	EFX_SET_OWORD_FIELD(filter_ctl, FRF_BZ_TCP_WILD_SRCH_LIMIT,
--			    table->search_depth[EFX_FILTER_TCP_WILD] +
-+			    table->search_depth[EFX_FARCH_FILTER_TCP_WILD] +
- 			    EFX_FARCH_FILTER_CTL_SRCH_FUDGE_WILD);
- 	EFX_SET_OWORD_FIELD(filter_ctl, FRF_BZ_UDP_FULL_SRCH_LIMIT,
--			    table->search_depth[EFX_FILTER_UDP_FULL] +
-+			    table->search_depth[EFX_FARCH_FILTER_UDP_FULL] +
- 			    EFX_FARCH_FILTER_CTL_SRCH_FUDGE_FULL);
- 	EFX_SET_OWORD_FIELD(filter_ctl, FRF_BZ_UDP_WILD_SRCH_LIMIT,
--			    table->search_depth[EFX_FILTER_UDP_WILD] +
-+			    table->search_depth[EFX_FARCH_FILTER_UDP_WILD] +
- 			    EFX_FARCH_FILTER_CTL_SRCH_FUDGE_WILD);
- 
- 	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_MAC];
- 	if (table->size) {
- 		EFX_SET_OWORD_FIELD(
- 			filter_ctl, FRF_CZ_ETHERNET_FULL_SEARCH_LIMIT,
--			table->search_depth[EFX_FILTER_MAC_FULL] +
-+			table->search_depth[EFX_FARCH_FILTER_MAC_FULL] +
- 			EFX_FARCH_FILTER_CTL_SRCH_FUDGE_FULL);
- 		EFX_SET_OWORD_FIELD(
- 			filter_ctl, FRF_CZ_ETHERNET_WILDCARD_SEARCH_LIMIT,
--			table->search_depth[EFX_FILTER_MAC_WILD] +
-+			table->search_depth[EFX_FARCH_FILTER_MAC_WILD] +
- 			EFX_FARCH_FILTER_CTL_SRCH_FUDGE_WILD);
- 	}
- 
-@@ -225,223 +226,202 @@ static void efx_farch_filter_push_tx_limits(struct efx_nic *efx)
- 	if (table->size) {
- 		EFX_SET_OWORD_FIELD(
- 			tx_cfg, FRF_CZ_TX_ETH_FILTER_FULL_SEARCH_RANGE,
--			table->search_depth[EFX_FILTER_MAC_FULL] +
-+			table->search_depth[EFX_FARCH_FILTER_MAC_FULL] +
- 			EFX_FARCH_FILTER_CTL_SRCH_FUDGE_FULL);
- 		EFX_SET_OWORD_FIELD(
- 			tx_cfg, FRF_CZ_TX_ETH_FILTER_WILD_SEARCH_RANGE,
--			table->search_depth[EFX_FILTER_MAC_WILD] +
-+			table->search_depth[EFX_FARCH_FILTER_MAC_WILD] +
- 			EFX_FARCH_FILTER_CTL_SRCH_FUDGE_WILD);
- 	}
- 
- 	efx_writeo(efx, &tx_cfg, FR_AZ_TX_CFG);
- }
- 
--static inline void __efx_filter_set_ipv4(struct efx_filter_spec *spec,
--					 __be32 host1, __be16 port1,
--					 __be32 host2, __be16 port2)
--{
--	spec->data[0] = ntohl(host1) << 16 | ntohs(port1);
--	spec->data[1] = ntohs(port2) << 16 | ntohl(host1) >> 16;
--	spec->data[2] = ntohl(host2);
--}
--
--static inline void __efx_filter_get_ipv4(const struct efx_filter_spec *spec,
--					 __be32 *host1, __be16 *port1,
--					 __be32 *host2, __be16 *port2)
--{
--	*host1 = htonl(spec->data[0] >> 16 | spec->data[1] << 16);
--	*port1 = htons(spec->data[0]);
--	*host2 = htonl(spec->data[2]);
--	*port2 = htons(spec->data[1] >> 16);
--}
--
--/**
-- * efx_filter_set_ipv4_local - specify IPv4 host, transport protocol and port
-- * @spec: Specification to initialise
-- * @proto: Transport layer protocol number
-- * @host: Local host address (network byte order)
-- * @port: Local port (network byte order)
-- */
--int efx_filter_set_ipv4_local(struct efx_filter_spec *spec, u8 proto,
--			      __be32 host, __be16 port)
-+static int
-+efx_farch_filter_from_gen_spec(struct efx_farch_filter_spec *spec,
-+			       const struct efx_filter_spec *gen_spec)
- {
--	__be32 host1;
--	__be16 port1;
--
--	EFX_BUG_ON_PARANOID(!(spec->flags & EFX_FILTER_FLAG_RX));
--
--	/* This cannot currently be combined with other filtering */
--	if (spec->type != EFX_FILTER_UNSPEC)
--		return -EPROTONOSUPPORT;
-+	bool is_full = false;
- 
--	if (port == 0)
-+	if ((gen_spec->flags & EFX_FILTER_FLAG_RX_RSS) &&
-+	    gen_spec->rss_context != EFX_FILTER_RSS_CONTEXT_DEFAULT)
- 		return -EINVAL;
- 
--	switch (proto) {
--	case IPPROTO_TCP:
--		spec->type = EFX_FILTER_TCP_WILD;
--		break;
--	case IPPROTO_UDP:
--		spec->type = EFX_FILTER_UDP_WILD;
--		break;
--	default:
--		return -EPROTONOSUPPORT;
--	}
--
--	/* Filter is constructed in terms of source and destination,
--	 * with the odd wrinkle that the ports are swapped in a UDP
--	 * wildcard filter.  We need to convert from local and remote
--	 * (= zero for wildcard) addresses.
--	 */
--	host1 = 0;
--	if (proto != IPPROTO_UDP) {
--		port1 = 0;
--	} else {
--		port1 = port;
--		port = 0;
--	}
--
--	__efx_filter_set_ipv4(spec, host1, port1, host, port);
--	return 0;
--}
-+	spec->priority = gen_spec->priority;
-+	spec->flags = gen_spec->flags;
-+	spec->dmaq_id = gen_spec->dmaq_id;
- 
--int efx_filter_get_ipv4_local(const struct efx_filter_spec *spec,
--			      u8 *proto, __be32 *host, __be16 *port)
--{
--	__be32 host1;
--	__be16 port1;
-+	switch (gen_spec->match_flags) {
-+	case (EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_IP_PROTO |
-+	      EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT |
-+	      EFX_FILTER_MATCH_REM_HOST | EFX_FILTER_MATCH_REM_PORT):
-+		is_full = true;
-+		/* fall through */
-+	case (EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_IP_PROTO |
-+	      EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT): {
-+		__be32 rhost, host1, host2;
-+		__be16 rport, port1, port2;
- 
--	switch (spec->type) {
--	case EFX_FILTER_TCP_WILD:
--		*proto = IPPROTO_TCP;
--		__efx_filter_get_ipv4(spec, &host1, &port1, host, port);
--		return 0;
--	case EFX_FILTER_UDP_WILD:
--		*proto = IPPROTO_UDP;
--		__efx_filter_get_ipv4(spec, &host1, port, host, &port1);
--		return 0;
--	default:
--		return -EINVAL;
--	}
--}
--
--/**
-- * efx_filter_set_ipv4_full - specify IPv4 hosts, transport protocol and ports
-- * @spec: Specification to initialise
-- * @proto: Transport layer protocol number
-- * @host: Local host address (network byte order)
-- * @port: Local port (network byte order)
-- * @rhost: Remote host address (network byte order)
-- * @rport: Remote port (network byte order)
-- */
--int efx_filter_set_ipv4_full(struct efx_filter_spec *spec, u8 proto,
--			     __be32 host, __be16 port,
--			     __be32 rhost, __be16 rport)
--{
--	EFX_BUG_ON_PARANOID(!(spec->flags & EFX_FILTER_FLAG_RX));
-+		EFX_BUG_ON_PARANOID(!(gen_spec->flags & EFX_FILTER_FLAG_RX));
- 
--	/* This cannot currently be combined with other filtering */
--	if (spec->type != EFX_FILTER_UNSPEC)
--		return -EPROTONOSUPPORT;
-+		if (gen_spec->ether_type != htons(ETH_P_IP))
-+			return -EPROTONOSUPPORT;
-+		if (gen_spec->loc_port == 0 ||
-+		    (is_full && gen_spec->rem_port == 0))
-+			return -EADDRNOTAVAIL;
-+		switch (gen_spec->ip_proto) {
-+		case IPPROTO_TCP:
-+			spec->type = (is_full ? EFX_FARCH_FILTER_TCP_FULL :
-+				      EFX_FARCH_FILTER_TCP_WILD);
-+			break;
-+		case IPPROTO_UDP:
-+			spec->type = (is_full ? EFX_FARCH_FILTER_UDP_FULL :
-+				      EFX_FARCH_FILTER_UDP_WILD);
-+			break;
-+		default:
-+			return -EPROTONOSUPPORT;
-+		}
- 
--	if (port == 0 || rport == 0)
--		return -EINVAL;
-+		/* Filter is constructed in terms of source and destination,
-+		 * with the odd wrinkle that the ports are swapped in a UDP
-+		 * wildcard filter.  We need to convert from local and remote
-+		 * (= zero for wildcard) addresses.
-+		 */
-+		rhost = is_full ? gen_spec->rem_host[0] : 0;
-+		rport = is_full ? gen_spec->rem_port : 0;
-+		host1 = rhost;
-+		host2 = gen_spec->loc_host[0];
-+		if (!is_full && gen_spec->ip_proto == IPPROTO_UDP) {
-+			port1 = gen_spec->loc_port;
-+			port2 = rport;
-+		} else {
-+			port1 = rport;
-+			port2 = gen_spec->loc_port;
-+		}
-+		spec->data[0] = ntohl(host1) << 16 | ntohs(port1);
-+		spec->data[1] = ntohs(port2) << 16 | ntohl(host1) >> 16;
-+		spec->data[2] = ntohl(host2);
- 
--	switch (proto) {
--	case IPPROTO_TCP:
--		spec->type = EFX_FILTER_TCP_FULL;
- 		break;
--	case IPPROTO_UDP:
--		spec->type = EFX_FILTER_UDP_FULL;
--		break;
--	default:
--		return -EPROTONOSUPPORT;
- 	}
- 
--	__efx_filter_set_ipv4(spec, rhost, rport, host, port);
--	return 0;
--}
--
--int efx_filter_get_ipv4_full(const struct efx_filter_spec *spec,
--			     u8 *proto, __be32 *host, __be16 *port,
--			     __be32 *rhost, __be16 *rport)
--{
--	switch (spec->type) {
--	case EFX_FILTER_TCP_FULL:
--		*proto = IPPROTO_TCP;
-+	case EFX_FILTER_MATCH_LOC_MAC | EFX_FILTER_MATCH_OUTER_VID:
-+		is_full = true;
-+		/* fall through */
-+	case EFX_FILTER_MATCH_LOC_MAC:
-+		spec->type = (is_full ? EFX_FARCH_FILTER_MAC_FULL :
-+			      EFX_FARCH_FILTER_MAC_WILD);
-+		spec->data[0] = is_full ? ntohs(gen_spec->outer_vid) : 0;
-+		spec->data[1] = (gen_spec->loc_mac[2] << 24 |
-+				 gen_spec->loc_mac[3] << 16 |
-+				 gen_spec->loc_mac[4] << 8 |
-+				 gen_spec->loc_mac[5]);
-+		spec->data[2] = (gen_spec->loc_mac[0] << 8 |
-+				 gen_spec->loc_mac[1]);
- 		break;
--	case EFX_FILTER_UDP_FULL:
--		*proto = IPPROTO_UDP;
-+
-+	case EFX_FILTER_MATCH_LOC_MAC_IG:
-+		spec->type = (is_multicast_ether_addr(gen_spec->loc_mac) ?
-+			      EFX_FARCH_FILTER_MC_DEF :
-+			      EFX_FARCH_FILTER_UC_DEF);
-+		memset(spec->data, 0, sizeof(spec->data)); /* ensure equality */
- 		break;
-+
- 	default:
--		return -EINVAL;
-+		return -EPROTONOSUPPORT;
- 	}
- 
--	__efx_filter_get_ipv4(spec, rhost, rport, host, port);
- 	return 0;
- }
- 
--/**
-- * efx_filter_set_eth_local - specify local Ethernet address and optional VID
-- * @spec: Specification to initialise
-- * @vid: VLAN ID to match, or %EFX_FILTER_VID_UNSPEC
-- * @addr: Local Ethernet MAC address
-- */
--int efx_filter_set_eth_local(struct efx_filter_spec *spec,
--			     u16 vid, const u8 *addr)
-+static void
-+efx_farch_filter_to_gen_spec(struct efx_filter_spec *gen_spec,
-+			     const struct efx_farch_filter_spec *spec)
- {
--	EFX_BUG_ON_PARANOID(!(spec->flags &
--			      (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_TX)));
--
--	/* This cannot currently be combined with other filtering */
--	if (spec->type != EFX_FILTER_UNSPEC)
--		return -EPROTONOSUPPORT;
--
--	if (vid == EFX_FILTER_VID_UNSPEC) {
--		spec->type = EFX_FILTER_MAC_WILD;
--		spec->data[0] = 0;
--	} else {
--		spec->type = EFX_FILTER_MAC_FULL;
--		spec->data[0] = vid;
--	}
-+	bool is_full = false;
- 
--	spec->data[1] = addr[2] << 24 | addr[3] << 16 | addr[4] << 8 | addr[5];
--	spec->data[2] = addr[0] << 8 | addr[1];
--	return 0;
--}
-+	/* *gen_spec should be completely initialised, to be consistent
-+	 * with efx_filter_init_{rx,tx}() and in case we want to copy
-+	 * it back to userland.
-+	 */
-+	memset(gen_spec, 0, sizeof(*gen_spec));
- 
--/**
-- * efx_filter_set_uc_def - specify matching otherwise-unmatched unicast
-- * @spec: Specification to initialise
-- */
--int efx_filter_set_uc_def(struct efx_filter_spec *spec)
--{
--	EFX_BUG_ON_PARANOID(!(spec->flags &
--			      (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_TX)));
-+	gen_spec->priority = spec->priority;
-+	gen_spec->flags = spec->flags;
-+	gen_spec->dmaq_id = spec->dmaq_id;
- 
--	if (spec->type != EFX_FILTER_UNSPEC)
--		return -EINVAL;
-+	switch (spec->type) {
-+	case EFX_FARCH_FILTER_TCP_FULL:
-+	case EFX_FARCH_FILTER_UDP_FULL:
-+		is_full = true;
-+		/* fall through */
-+	case EFX_FARCH_FILTER_TCP_WILD:
-+	case EFX_FARCH_FILTER_UDP_WILD: {
-+		__be32 host1, host2;
-+		__be16 port1, port2;
-+
-+		gen_spec->match_flags =
-+			EFX_FILTER_MATCH_ETHER_TYPE |
-+			EFX_FILTER_MATCH_IP_PROTO |
-+			EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT;
-+		if (is_full)
-+			gen_spec->match_flags |= (EFX_FILTER_MATCH_REM_HOST |
-+						  EFX_FILTER_MATCH_REM_PORT);
-+		gen_spec->ether_type = htons(ETH_P_IP);
-+		gen_spec->ip_proto =
-+			(spec->type == EFX_FARCH_FILTER_TCP_FULL ||
-+			 spec->type == EFX_FARCH_FILTER_TCP_WILD) ?
-+			IPPROTO_TCP : IPPROTO_UDP;
-+
-+		host1 = htonl(spec->data[0] >> 16 | spec->data[1] << 16);
-+		port1 = htons(spec->data[0]);
-+		host2 = htonl(spec->data[2]);
-+		port2 = htons(spec->data[1] >> 16);
-+		if (spec->flags & EFX_FILTER_FLAG_TX) {
-+			gen_spec->loc_host[0] = host1;
-+			gen_spec->rem_host[0] = host2;
-+		} else {
-+			gen_spec->loc_host[0] = host2;
-+			gen_spec->rem_host[0] = host1;
-+		}
-+		if (!!(gen_spec->flags & EFX_FILTER_FLAG_TX) ^
-+		    (!is_full && gen_spec->ip_proto == IPPROTO_UDP)) {
-+			gen_spec->loc_port = port1;
-+			gen_spec->rem_port = port2;
-+		} else {
-+			gen_spec->loc_port = port2;
-+			gen_spec->rem_port = port1;
-+		}
- 
--	spec->type = EFX_FILTER_UC_DEF;
--	memset(spec->data, 0, sizeof(spec->data)); /* ensure equality */
--	return 0;
--}
-+		break;
-+	}
- 
--/**
-- * efx_filter_set_mc_def - specify matching otherwise-unmatched multicast
-- * @spec: Specification to initialise
-- */
--int efx_filter_set_mc_def(struct efx_filter_spec *spec)
--{
--	EFX_BUG_ON_PARANOID(!(spec->flags &
--			      (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_TX)));
-+	case EFX_FARCH_FILTER_MAC_FULL:
-+		is_full = true;
-+		/* fall through */
-+	case EFX_FARCH_FILTER_MAC_WILD:
-+		gen_spec->match_flags = EFX_FILTER_MATCH_LOC_MAC;
-+		if (is_full)
-+			gen_spec->match_flags |= EFX_FILTER_MATCH_OUTER_VID;
-+		gen_spec->loc_mac[0] = spec->data[2] >> 8;
-+		gen_spec->loc_mac[1] = spec->data[2];
-+		gen_spec->loc_mac[2] = spec->data[1] >> 24;
-+		gen_spec->loc_mac[3] = spec->data[1] >> 16;
-+		gen_spec->loc_mac[4] = spec->data[1] >> 8;
-+		gen_spec->loc_mac[5] = spec->data[1];
-+		gen_spec->outer_vid = htons(spec->data[0]);
-+		break;
- 
--	if (spec->type != EFX_FILTER_UNSPEC)
--		return -EINVAL;
-+	case EFX_FARCH_FILTER_UC_DEF:
-+	case EFX_FARCH_FILTER_MC_DEF:
-+		gen_spec->match_flags = EFX_FILTER_MATCH_LOC_MAC_IG;
-+		gen_spec->loc_mac[0] = spec->type == EFX_FARCH_FILTER_MC_DEF;
-+		break;
- 
--	spec->type = EFX_FILTER_MC_DEF;
--	memset(spec->data, 0, sizeof(spec->data)); /* ensure equality */
--	return 0;
-+	default:
-+		WARN_ON(1);
-+		break;
-+	}
- }
- 
- static void
-@@ -455,7 +435,7 @@ efx_farch_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
- 	/* If there's only one channel then disable RSS for non VF
- 	 * traffic, thereby allowing VFs to use RSS when the PF can't.
- 	 */
--	spec->type = EFX_FILTER_UC_DEF + filter_idx;
-+	spec->type = EFX_FARCH_FILTER_UC_DEF + filter_idx;
- 	spec->priority = EFX_FILTER_PRI_MANUAL;
- 	spec->flags = (EFX_FILTER_FLAG_RX |
- 		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
-@@ -464,29 +444,6 @@ efx_farch_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
- 	table->used_bitmap[0] |= 1 << filter_idx;
- }
- 
--int efx_filter_get_eth_local(const struct efx_filter_spec *spec,
--			     u16 *vid, u8 *addr)
--{
--	switch (spec->type) {
--	case EFX_FILTER_MAC_WILD:
--		*vid = EFX_FILTER_VID_UNSPEC;
--		break;
--	case EFX_FILTER_MAC_FULL:
--		*vid = spec->data[0];
--		break;
--	default:
--		return -EINVAL;
--	}
--
--	addr[0] = spec->data[2] >> 8;
--	addr[1] = spec->data[2];
--	addr[2] = spec->data[1] >> 24;
--	addr[3] = spec->data[1] >> 16;
--	addr[4] = spec->data[1] >> 8;
--	addr[5] = spec->data[1];
--	return 0;
--}
--
- /* Build a filter entry and return its n-tuple key. */
- static u32 efx_farch_filter_build(efx_oword_t *filter,
- 				  struct efx_farch_filter_spec *spec)
-@@ -495,8 +452,8 @@ static u32 efx_farch_filter_build(efx_oword_t *filter,
- 
- 	switch (efx_farch_filter_spec_table_id(spec)) {
- 	case EFX_FARCH_FILTER_TABLE_RX_IP: {
--		bool is_udp = (spec->type == EFX_FILTER_UDP_FULL ||
--			       spec->type == EFX_FILTER_UDP_WILD);
-+		bool is_udp = (spec->type == EFX_FARCH_FILTER_UDP_FULL ||
-+			       spec->type == EFX_FARCH_FILTER_UDP_WILD);
- 		EFX_POPULATE_OWORD_7(
- 			*filter,
- 			FRF_BZ_RSS_EN,
-@@ -513,7 +470,7 @@ static u32 efx_farch_filter_build(efx_oword_t *filter,
- 	}
- 
- 	case EFX_FARCH_FILTER_TABLE_RX_MAC: {
--		bool is_wild = spec->type == EFX_FILTER_MAC_WILD;
-+		bool is_wild = spec->type == EFX_FARCH_FILTER_MAC_WILD;
- 		EFX_POPULATE_OWORD_7(
- 			*filter,
- 			FRF_CZ_RMFT_RSS_EN,
-@@ -530,7 +487,7 @@ static u32 efx_farch_filter_build(efx_oword_t *filter,
- 	}
- 
- 	case EFX_FARCH_FILTER_TABLE_TX_MAC: {
--		bool is_wild = spec->type == EFX_FILTER_MAC_WILD;
-+		bool is_wild = spec->type == EFX_FARCH_FILTER_MAC_WILD;
- 		EFX_POPULATE_OWORD_5(*filter,
- 				     FRF_CZ_TMFT_TXQ_ID, spec->dmaq_id,
- 				     FRF_CZ_TMFT_WILDCARD_MATCH, is_wild,
-@@ -573,15 +530,15 @@ static bool efx_farch_filter_equal(const struct efx_farch_filter_spec *left,
- 
- #define EFX_FARCH_FILTER_MATCH_PRI_COUNT	5
- 
--static const u8 efx_farch_filter_type_match_pri[EFX_FILTER_TYPE_COUNT] = {
--	[EFX_FILTER_TCP_FULL]	= 0,
--	[EFX_FILTER_UDP_FULL]	= 0,
--	[EFX_FILTER_TCP_WILD]	= 1,
--	[EFX_FILTER_UDP_WILD]	= 1,
--	[EFX_FILTER_MAC_FULL]	= 2,
--	[EFX_FILTER_MAC_WILD]	= 3,
--	[EFX_FILTER_UC_DEF]	= 4,
--	[EFX_FILTER_MC_DEF]	= 4,
-+static const u8 efx_farch_filter_type_match_pri[EFX_FARCH_FILTER_TYPE_COUNT] = {
-+	[EFX_FARCH_FILTER_TCP_FULL]	= 0,
-+	[EFX_FARCH_FILTER_UDP_FULL]	= 0,
-+	[EFX_FARCH_FILTER_TCP_WILD]	= 1,
-+	[EFX_FARCH_FILTER_UDP_WILD]	= 1,
-+	[EFX_FARCH_FILTER_MAC_FULL]	= 2,
-+	[EFX_FARCH_FILTER_MAC_WILD]	= 3,
-+	[EFX_FARCH_FILTER_UC_DEF]	= 4,
-+	[EFX_FARCH_FILTER_MC_DEF]	= 4,
- };
- 
- static const enum efx_farch_filter_table_id efx_farch_filter_range_table[] = {
-@@ -672,11 +629,12 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
- 	unsigned int depth = 0;
- 	int rc;
- 
--	/* XXX efx_farch_filter_spec and efx_filter_spec will diverge in future */
--	memcpy(&spec, gen_spec, sizeof(*gen_spec));
-+	rc = efx_farch_filter_from_gen_spec(&spec, gen_spec);
-+	if (rc)
-+		return rc;
- 
--	table = efx_farch_filter_spec_table(state, &spec);
--	if (!table || table->size == 0)
-+	table = &state->table[efx_farch_filter_spec_table_id(&spec)];
-+	if (table->size == 0)
- 		return -EINVAL;
- 
- 	netif_vdbg(efx, hw, efx->net_dev,
-@@ -687,8 +645,8 @@ s32 efx_filter_insert_filter(struct efx_nic *efx,
- 		/* One filter spec per type */
- 		BUILD_BUG_ON(EFX_FARCH_FILTER_INDEX_UC_DEF != 0);
- 		BUILD_BUG_ON(EFX_FARCH_FILTER_INDEX_MC_DEF !=
--			     EFX_FILTER_MC_DEF - EFX_FILTER_UC_DEF);
--		rep_index = spec.type - EFX_FILTER_UC_DEF;
-+			     EFX_FARCH_FILTER_MC_DEF - EFX_FARCH_FILTER_UC_DEF);
-+		rep_index = spec.type - EFX_FARCH_FILTER_UC_DEF;
- 		ins_index = rep_index;
- 
- 		spin_lock_bh(&state->lock);
-@@ -911,8 +869,7 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
  
  	if (test_bit(filter_idx, table->used_bitmap) &&
  	    spec->priority == priority) {
--		/* XXX efx_farch_filter_spec and efx_filter_spec will diverge */
--		memcpy(spec_buf, spec, sizeof(*spec));
-+		efx_farch_filter_to_gen_spec(spec_buf, spec);
- 		rc = 0;
- 	} else {
+@@ -829,7 +824,7 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
  		rc = -ENOENT;
-diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
-index b1170d4..1b410de 100644
---- a/drivers/net/ethernet/sfc/filter.h
-+++ b/drivers/net/ethernet/sfc/filter.h
-@@ -11,32 +11,49 @@
- #define EFX_FILTER_H
+ 	}
  
- #include <linux/types.h>
-+#include <linux/if_ether.h>
-+#include <asm/byteorder.h>
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
  
- /**
-- * enum efx_filter_type - type of hardware filter
-- * @EFX_FILTER_TCP_FULL: Matching TCP/IPv4 4-tuple
-- * @EFX_FILTER_TCP_WILD: Matching TCP/IPv4 destination (host, port)
-- * @EFX_FILTER_UDP_FULL: Matching UDP/IPv4 4-tuple
-- * @EFX_FILTER_UDP_WILD: Matching UDP/IPv4 destination (host, port)
-- * @EFX_FILTER_MAC_FULL: Matching Ethernet destination MAC address, VID
-- * @EFX_FILTER_MAC_WILD: Matching Ethernet destination MAC address
-- * @EFX_FILTER_UC_DEF: Matching all otherwise unmatched unicast
-- * @EFX_FILTER_MC_DEF: Matching all otherwise unmatched multicast
-- * @EFX_FILTER_UNSPEC: Match type is unspecified
-+ * enum efx_filter_match_flags - Flags for hardware filter match type
-+ * @EFX_FILTER_MATCH_REM_HOST: Match by remote IP host address
-+ * @EFX_FILTER_MATCH_LOC_HOST: Match by local IP host address
-+ * @EFX_FILTER_MATCH_REM_MAC: Match by remote MAC address
-+ * @EFX_FILTER_MATCH_REM_PORT: Match by remote TCP/UDP port
-+ * @EFX_FILTER_MATCH_LOC_MAC: Match by local MAC address
-+ * @EFX_FILTER_MATCH_LOC_PORT: Match by local TCP/UDP port
-+ * @EFX_FILTER_MATCH_ETHER_TYPE: Match by Ether-type
-+ * @EFX_FILTER_MATCH_INNER_VID: Match by inner VLAN ID
-+ * @EFX_FILTER_MATCH_OUTER_VID: Match by outer VLAN ID
-+ * @EFX_FILTER_MATCH_IP_PROTO: Match by IP transport protocol
-+ * @EFX_FILTER_MATCH_LOC_MAC_IG: Match by local MAC address I/G bit.
-+ *	Used for RX default unicast and multicast/broadcast filters.
-  *
-- * Falcon NICs only support the TCP/IPv4 and UDP/IPv4 filter types.
-+ * Only some combinations are supported, depending on NIC type:
-+ *
-+ * - Falcon supports RX filters matching by {TCP,UDP}/IPv4 4-tuple or
-+ *   local 2-tuple (only implemented for Falcon B0)
-+ *
-+ * - Siena supports RX and TX filters matching by {TCP,UDP}/IPv4 4-tuple
-+ *   or local 2-tuple, or local MAC with or without outer VID, and RX
-+ *   default filters
-+ *
-+ * - Huntington supports filter matching controlled by firmware, potentially
-+ *   using {TCP,UDP}/IPv{4,6} 4-tuple or local 2-tuple, local MAC or I/G bit,
-+ *   with or without outer and inner VID
-  */
--enum efx_filter_type {
--	EFX_FILTER_TCP_FULL = 0,
--	EFX_FILTER_TCP_WILD,
--	EFX_FILTER_UDP_FULL,
--	EFX_FILTER_UDP_WILD,
--	EFX_FILTER_MAC_FULL = 4,
--	EFX_FILTER_MAC_WILD,
--	EFX_FILTER_UC_DEF = 8,
--	EFX_FILTER_MC_DEF,
--	EFX_FILTER_TYPE_COUNT,		/* number of specific types */
--	EFX_FILTER_UNSPEC = 0xf,
-+enum efx_filter_match_flags {
-+	EFX_FILTER_MATCH_REM_HOST =	0x0001,
-+	EFX_FILTER_MATCH_LOC_HOST =	0x0002,
-+	EFX_FILTER_MATCH_REM_MAC =	0x0004,
-+	EFX_FILTER_MATCH_REM_PORT =	0x0008,
-+	EFX_FILTER_MATCH_LOC_MAC =	0x0010,
-+	EFX_FILTER_MATCH_LOC_PORT =	0x0020,
-+	EFX_FILTER_MATCH_ETHER_TYPE =	0x0040,
-+	EFX_FILTER_MATCH_INNER_VID =	0x0080,
-+	EFX_FILTER_MATCH_OUTER_VID =	0x0100,
-+	EFX_FILTER_MATCH_IP_PROTO =	0x0200,
-+	EFX_FILTER_MATCH_LOC_MAC_IG =	0x0400,
- };
- 
- /**
-@@ -73,29 +90,55 @@ enum efx_filter_flags {
- 
- /**
-  * struct efx_filter_spec - specification for a hardware filter
-- * @type: Type of match to be performed, from &enum efx_filter_type
-+ * @match_flags: Match type flags, from &enum efx_filter_match_flags
-  * @priority: Priority of the filter, from &enum efx_filter_priority
-  * @flags: Miscellaneous flags, from &enum efx_filter_flags
-+ * @rss_context: RSS context to use, if %EFX_FILTER_FLAG_RX_RSS is set
-  * @dmaq_id: Source/target queue index, or %EFX_FILTER_RX_DMAQ_ID_DROP for
-  *	an RX drop filter
-- * @data: Match data (type-dependent)
-+ * @outer_vid: Outer VLAN ID to match, if %EFX_FILTER_MATCH_OUTER_VID is set
-+ * @inner_vid: Inner VLAN ID to match, if %EFX_FILTER_MATCH_INNER_VID is set
-+ * @loc_mac: Local MAC address to match, if %EFX_FILTER_MATCH_LOC_MAC or
-+ *	%EFX_FILTER_MATCH_LOC_MAC_IG is set
-+ * @rem_mac: Remote MAC address to match, if %EFX_FILTER_MATCH_REM_MAC is set
-+ * @ether_type: Ether-type to match, if %EFX_FILTER_MATCH_ETHER_TYPE is set
-+ * @ip_proto: IP transport protocol to match, if %EFX_FILTER_MATCH_IP_PROTO
-+ *	is set
-+ * @loc_host: Local IP host to match, if %EFX_FILTER_MATCH_LOC_HOST is set
-+ * @rem_host: Remote IP host to match, if %EFX_FILTER_MATCH_REM_HOST is set
-+ * @loc_port: Local TCP/UDP port to match, if %EFX_FILTER_MATCH_LOC_PORT is set
-+ * @rem_port: Remote TCP/UDP port to match, if %EFX_FILTER_MATCH_REM_PORT is set
-  *
-- * Use the efx_filter_set_*() functions to initialise the @type and
-- * @data fields.
-+ * The efx_filter_init_rx() or efx_filter_init_tx() function *must* be
-+ * used to initialise the structure.  The efx_filter_set_*() functions
-+ * may then be used to set @rss_context, @match_flags and related
-+ * fields.
-  *
-  * The @priority field is used by software to determine whether a new
-  * filter may replace an old one.  The hardware priority of a filter
-- * depends on the filter type.
-+ * depends on which fields are matched.
-  */
- struct efx_filter_spec {
--	u8	type:4;
--	u8	priority:4;
--	u8	flags;
--	u16	dmaq_id;
--	u32	data[3];
-+	u32	match_flags:12;
-+	u32	priority:2;
-+	u32	flags:6;
-+	u32	dmaq_id:12;
-+	u32	rss_context;
-+	__be16	outer_vid __aligned(4); /* allow jhash2() of match values */
-+	__be16	inner_vid;
-+	u8	loc_mac[ETH_ALEN];
-+	u8	rem_mac[ETH_ALEN];
-+	__be16	ether_type;
-+	u8	ip_proto;
-+	__be32	loc_host[4];
-+	__be32	rem_host[4];
-+	__be16	loc_port;
-+	__be16	rem_port;
-+	/* total 64 bytes */
- };
- 
- enum {
-+	EFX_FILTER_RSS_CONTEXT_DEFAULT = 0xffffffff,
- 	EFX_FILTER_RX_DMAQ_ID_DROP = 0xfff
- };
- 
-@@ -104,39 +147,116 @@ static inline void efx_filter_init_rx(struct efx_filter_spec *spec,
- 				      enum efx_filter_flags flags,
- 				      unsigned rxq_id)
+ 	return rc;
+ }
+@@ -848,7 +843,7 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
+ 			       enum efx_filter_priority priority,
+ 			       u32 filter_id, struct efx_filter_spec *spec_buf)
  {
--	spec->type = EFX_FILTER_UNSPEC;
-+	memset(spec, 0, sizeof(*spec));
- 	spec->priority = priority;
- 	spec->flags = EFX_FILTER_FLAG_RX | flags;
-+	spec->rss_context = EFX_FILTER_RSS_CONTEXT_DEFAULT;
- 	spec->dmaq_id = rxq_id;
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	struct efx_farch_filter_spec *spec;
+@@ -865,7 +860,7 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
+ 		return -ENOENT;
+ 	spec = &table->spec[filter_idx];
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	if (test_bit(filter_idx, table->used_bitmap) &&
+ 	    spec->priority == priority) {
+@@ -875,7 +870,7 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
+ 		rc = -ENOENT;
+ 	}
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
+ 
+ 	return rc;
+ }
+@@ -885,11 +880,11 @@ efx_farch_filter_table_clear(struct efx_nic *efx,
+ 			     enum efx_farch_filter_table_id table_id,
+ 			     enum efx_filter_priority priority)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table = &state->table[table_id];
+ 	unsigned int filter_idx;
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	for (filter_idx = 0; filter_idx < table->size; ++filter_idx)
+ 		if (table->spec[filter_idx].priority <= priority)
+@@ -898,7 +893,7 @@ efx_farch_filter_table_clear(struct efx_nic *efx,
+ 	if (table->used == 0)
+ 		efx_farch_filter_table_reset_search_depth(table);
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
  }
  
- static inline void efx_filter_init_tx(struct efx_filter_spec *spec,
- 				      unsigned txq_id)
+ /**
+@@ -917,13 +912,13 @@ void efx_filter_clear_rx(struct efx_nic *efx, enum efx_filter_priority priority)
+ u32 efx_filter_count_rx_used(struct efx_nic *efx,
+ 			     enum efx_filter_priority priority)
  {
--	spec->type = EFX_FILTER_UNSPEC;
-+	memset(spec, 0, sizeof(*spec));
- 	spec->priority = EFX_FILTER_PRI_REQUIRED;
- 	spec->flags = EFX_FILTER_FLAG_TX;
- 	spec->dmaq_id = txq_id;
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	unsigned int filter_idx;
+ 	u32 count = 0;
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	for (table_id = EFX_FARCH_FILTER_TABLE_RX_IP;
+ 	     table_id <= EFX_FARCH_FILTER_TABLE_RX_DEF;
+@@ -936,7 +931,7 @@ u32 efx_filter_count_rx_used(struct efx_nic *efx,
+ 		}
+ 	}
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
+ 
+ 	return count;
+ }
+@@ -945,13 +940,13 @@ s32 efx_filter_get_rx_ids(struct efx_nic *efx,
+ 			  enum efx_filter_priority priority,
+ 			  u32 *buf, u32 size)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	unsigned int filter_idx;
+ 	s32 count = 0;
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	for (table_id = EFX_FARCH_FILTER_TABLE_RX_IP;
+ 	     table_id <= EFX_FARCH_FILTER_TABLE_RX_DEF;
+@@ -970,7 +965,7 @@ s32 efx_filter_get_rx_ids(struct efx_nic *efx,
+ 		}
+ 	}
+ out:
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
+ 
+ 	return count;
+ }
+@@ -978,13 +973,13 @@ out:
+ /* Restore filter stater after reset */
+ void efx_restore_filters(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	efx_oword_t filter;
+ 	unsigned int filter_idx;
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	for (table_id = 0; table_id < EFX_FARCH_FILTER_TABLE_COUNT; table_id++) {
+ 		table = &state->table[table_id];
+@@ -1005,28 +1000,28 @@ void efx_restore_filters(struct efx_nic *efx)
+ 	efx_farch_filter_push_rx_config(efx);
+ 	efx_farch_filter_push_tx_limits(efx);
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
  }
  
--extern int efx_filter_set_ipv4_local(struct efx_filter_spec *spec, u8 proto,
--				     __be32 host, __be16 port);
--extern int efx_filter_get_ipv4_local(const struct efx_filter_spec *spec,
--				     u8 *proto, __be32 *host, __be16 *port);
--extern int efx_filter_set_ipv4_full(struct efx_filter_spec *spec, u8 proto,
--				    __be32 host, __be16 port,
--				    __be32 rhost, __be16 rport);
--extern int efx_filter_get_ipv4_full(const struct efx_filter_spec *spec,
--				    u8 *proto, __be32 *host, __be16 *port,
--				    __be32 *rhost, __be16 *rport);
--extern int efx_filter_set_eth_local(struct efx_filter_spec *spec,
--				    u16 vid, const u8 *addr);
--extern int efx_filter_get_eth_local(const struct efx_filter_spec *spec,
--				    u16 *vid, u8 *addr);
--extern int efx_filter_set_uc_def(struct efx_filter_spec *spec);
--extern int efx_filter_set_mc_def(struct efx_filter_spec *spec);
-+/**
-+ * efx_filter_set_ipv4_local - specify IPv4 host, transport protocol and port
-+ * @spec: Specification to initialise
-+ * @proto: Transport layer protocol number
-+ * @host: Local host address (network byte order)
-+ * @port: Local port (network byte order)
-+ */
-+static inline int
-+efx_filter_set_ipv4_local(struct efx_filter_spec *spec, u8 proto,
-+			  __be32 host, __be16 port)
-+{
-+	spec->match_flags |=
-+		EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_IP_PROTO |
-+		EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT;
-+	spec->ether_type = htons(ETH_P_IP);
-+	spec->ip_proto = proto;
-+	spec->loc_host[0] = host;
-+	spec->loc_port = port;
-+	return 0;
-+}
-+
-+/**
-+ * efx_filter_set_ipv4_full - specify IPv4 hosts, transport protocol and ports
-+ * @spec: Specification to initialise
-+ * @proto: Transport layer protocol number
-+ * @lhost: Local host address (network byte order)
-+ * @lport: Local port (network byte order)
-+ * @rhost: Remote host address (network byte order)
-+ * @rport: Remote port (network byte order)
-+ */
-+static inline int
-+efx_filter_set_ipv4_full(struct efx_filter_spec *spec, u8 proto,
-+			 __be32 lhost, __be16 lport,
-+			 __be32 rhost, __be16 rport)
-+{
-+	spec->match_flags |=
-+		EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_IP_PROTO |
-+		EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT |
-+		EFX_FILTER_MATCH_REM_HOST | EFX_FILTER_MATCH_REM_PORT;
-+	spec->ether_type = htons(ETH_P_IP);
-+	spec->ip_proto = proto;
-+	spec->loc_host[0] = lhost;
-+	spec->loc_port = lport;
-+	spec->rem_host[0] = rhost;
-+	spec->rem_port = rport;
-+	return 0;
-+}
-+
- enum {
- 	EFX_FILTER_VID_UNSPEC = 0xffff,
+ int efx_probe_filters(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state;
++	struct efx_farch_filter_state *state;
+ 	struct efx_farch_filter_table *table;
+ 	unsigned table_id;
+ 
+-	state = kzalloc(sizeof(*efx->filter_state), GFP_KERNEL);
++	state = kzalloc(sizeof(struct efx_farch_filter_state), GFP_KERNEL);
+ 	if (!state)
+ 		return -ENOMEM;
+ 	efx->filter_state = state;
+ 
+-	spin_lock_init(&state->lock);
++	spin_lock_init(&efx->filter_lock);
+ 
+ 	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+ #ifdef CONFIG_RFS_ACCEL
+-		state->rps_flow_id = kcalloc(FR_BZ_RX_FILTER_TBL0_ROWS,
+-					     sizeof(*state->rps_flow_id),
+-					     GFP_KERNEL);
+-		if (!state->rps_flow_id)
++		efx->rps_flow_id = kcalloc(FR_BZ_RX_FILTER_TBL0_ROWS,
++					   sizeof(*efx->rps_flow_id),
++					   GFP_KERNEL);
++		if (!efx->rps_flow_id)
+ 			goto fail;
+ #endif
+ 		table = &state->table[EFX_FARCH_FILTER_TABLE_RX_IP];
+@@ -1086,7 +1081,7 @@ fail:
+ 
+ void efx_remove_filters(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 
+ 	for (table_id = 0; table_id < EFX_FARCH_FILTER_TABLE_COUNT; table_id++) {
+@@ -1094,7 +1089,7 @@ void efx_remove_filters(struct efx_nic *efx)
+ 		vfree(state->table[table_id].spec);
+ 	}
+ #ifdef CONFIG_RFS_ACCEL
+-	kfree(state->rps_flow_id);
++	kfree(efx->rps_flow_id);
+ #endif
+ 	kfree(state);
+ }
+@@ -1102,13 +1097,13 @@ void efx_remove_filters(struct efx_nic *efx)
+ /* Update scatter enable flags for filters pointing to our own RX queues */
+ void efx_filter_update_rx_scatter(struct efx_nic *efx)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	enum efx_farch_filter_table_id table_id;
+ 	struct efx_farch_filter_table *table;
+ 	efx_oword_t filter;
+ 	unsigned int filter_idx;
+ 
+-	spin_lock_bh(&state->lock);
++	spin_lock_bh(&efx->filter_lock);
+ 
+ 	for (table_id = EFX_FARCH_FILTER_TABLE_RX_IP;
+ 	     table_id <= EFX_FARCH_FILTER_TABLE_RX_DEF;
+@@ -1140,7 +1135,7 @@ void efx_filter_update_rx_scatter(struct efx_nic *efx)
+ 
+ 	efx_farch_filter_push_rx_config(efx);
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
+ }
+ 
+ #ifdef CONFIG_RFS_ACCEL
+@@ -1150,7 +1145,6 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_channel *channel;
+-	struct efx_filter_state *state = efx->filter_state;
+ 	struct efx_filter_spec spec;
+ 	const struct iphdr *ip;
+ 	const __be16 *ports;
+@@ -1196,7 +1190,7 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+ 		return rc;
+ 
+ 	/* Remember this so we can check whether to expire the filter later */
+-	state->rps_flow_id[rc] = flow_id;
++	efx->rps_flow_id[rc] = flow_id;
+ 	channel = efx_get_channel(efx, skb_get_rx_queue(skb));
+ 	++channel->rfs_filters_added;
+ 
+@@ -1211,17 +1205,17 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+ 
+ bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned quota)
+ {
+-	struct efx_filter_state *state = efx->filter_state;
++	struct efx_farch_filter_state *state = efx->filter_state;
+ 	struct efx_farch_filter_table *table =
+ 		&state->table[EFX_FARCH_FILTER_TABLE_RX_IP];
+ 	unsigned mask = table->size - 1;
+ 	unsigned index;
+ 	unsigned stop;
+ 
+-	if (!spin_trylock_bh(&state->lock))
++	if (!spin_trylock_bh(&efx->filter_lock))
+ 		return false;
+ 
+-	index = state->rps_expire_index;
++	index = efx->rps_expire_index;
+ 	stop = (index + quota) & mask;
+ 
+ 	while (index != stop) {
+@@ -1229,20 +1223,20 @@ bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned quota)
+ 		    table->spec[index].priority == EFX_FILTER_PRI_HINT &&
+ 		    rps_may_expire_flow(efx->net_dev,
+ 					table->spec[index].dmaq_id,
+-					state->rps_flow_id[index], index)) {
++					efx->rps_flow_id[index], index)) {
+ 			netif_info(efx, rx_status, efx->net_dev,
+ 				   "expiring filter %d [flow %u]\n",
+-				   index, state->rps_flow_id[index]);
++				   index, efx->rps_flow_id[index]);
+ 			efx_farch_filter_table_clear_entry(efx, table, index);
+ 		}
+ 		index = (index + 1) & mask;
+ 	}
+ 
+-	state->rps_expire_index = stop;
++	efx->rps_expire_index = stop;
+ 	if (table->used == 0)
+ 		efx_farch_filter_table_reset_search_depth(table);
+ 
+-	spin_unlock_bh(&state->lock);
++	spin_unlock_bh(&efx->filter_lock);
+ 	return true;
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 694c572..5287a3c 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -676,7 +676,6 @@ union efx_multicast_hash {
+ 	efx_oword_t oword[EFX_MCAST_HASH_ENTRIES / sizeof(efx_oword_t) / 8];
  };
  
-+/**
-+ * efx_filter_set_eth_local - specify local Ethernet address and/or VID
-+ * @spec: Specification to initialise
-+ * @vid: Outer VLAN ID to match, or %EFX_FILTER_VID_UNSPEC
-+ * @addr: Local Ethernet MAC address, or %NULL
-+ */
-+static inline int efx_filter_set_eth_local(struct efx_filter_spec *spec,
-+					   u16 vid, const u8 *addr)
-+{
-+	if (vid == EFX_FILTER_VID_UNSPEC && addr == NULL)
-+		return -EINVAL;
-+
-+	if (vid != EFX_FILTER_VID_UNSPEC) {
-+		spec->match_flags |= EFX_FILTER_MATCH_OUTER_VID;
-+		spec->outer_vid = htons(vid);
-+	}
-+	if (addr != NULL) {
-+		spec->match_flags |= EFX_FILTER_MATCH_LOC_MAC;
-+		memcpy(spec->loc_mac, addr, ETH_ALEN);
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * efx_filter_set_uc_def - specify matching otherwise-unmatched unicast
-+ * @spec: Specification to initialise
-+ */
-+static inline int efx_filter_set_uc_def(struct efx_filter_spec *spec)
-+{
-+	spec->match_flags |= EFX_FILTER_MATCH_LOC_MAC_IG;
-+	return 0;
-+}
-+
-+/**
-+ * efx_filter_set_mc_def - specify matching otherwise-unmatched multicast
-+ * @spec: Specification to initialise
-+ */
-+static inline int efx_filter_set_mc_def(struct efx_filter_spec *spec)
-+{
-+	spec->match_flags |= EFX_FILTER_MATCH_LOC_MAC_IG;
-+	spec->loc_mac[0] = 1;
-+	return 0;
-+}
-+
- #endif /* EFX_FILTER_H */
+-struct efx_filter_state;
+ struct efx_vf;
+ struct vfdi_status;
+ 
+@@ -763,6 +762,11 @@ struct vfdi_status;
+  * @loopback_mode: Loopback status
+  * @loopback_modes: Supported loopback mode bitmask
+  * @loopback_selftest: Offline self-test private state
++ * @filter_lock: Filter table lock
++ * @filter_state: Architecture-dependent filter table state
++ * @rps_flow_id: Flow IDs of filters allocated for accelerated RFS,
++ *	indexed by filter ID
++ * @rps_expire_index: Next index to check for expiry in @rps_flow_id
+  * @drain_pending: Count of RX and TX queues that haven't been flushed and drained.
+  * @rxq_flush_pending: Count of number of receive queues that need to be flushed.
+  *	Decremented when the efx_flush_rx_queue() is called.
+@@ -898,7 +902,12 @@ struct efx_nic {
+ 
+ 	void *loopback_selftest;
+ 
+-	struct efx_filter_state *filter_state;
++	spinlock_t filter_lock;
++	void *filter_state;
++#ifdef CONFIG_RFS_ACCEL
++	u32 *rps_flow_id;
++	unsigned int rps_expire_index;
++#endif
+ 
+ 	atomic_t drain_pending;
+ 	atomic_t rxq_flush_pending;
 
 
 -- 
