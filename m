@@ -1,52 +1,102 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv6:examine the IP source address legitimacy
-Date: Tue, 27 Aug 2013 19:42:24 +0800
-Message-ID: <521C90A0.60708@cn.fujitsu.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
+ use upper devices
+Date: Tue, 27 Aug 2013 13:53:04 +0200
+Message-ID: <20130827115304.GC24836@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+ <1377549162-7522-6-git-send-email-vfalico@redhat.com>
+ <20130826205338.GA3723@minipsycho.orion>
+ <20130827111648.GB24836@redhat.com>
+ <20130827112529.GA4732@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: duanj.fnst@cn.fujitsu.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:40320 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752432Ab3H0Lm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 07:42:58 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:34340 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753233Ab3H0LyU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 07:54:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20130827112529.GA4732@minipsycho.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+On Tue, Aug 27, 2013 at 01:25:29PM +0200, Jiri Pirko wrote:
+>Tue, Aug 27, 2013 at 01:16:48PM CEST, vfalico@redhat.com wrote:
+>>On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
+>>>Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
+>>...snip...
+>>>>+	rcu_read_lock();
+>>>>+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
+>>>>+		if (ip == bond_confirm_addr(upper, 0, ip)) {
+>>>>+			ret = true;
+>>>>+			break;
+>>>>+		}
+>>>
+>>>You need the same recursion __vlan_find_dev_deep() is doing. If you do
+>>>not do that, you will miss anything over the first upper level.
+>>
+>>Good point, and it's true for other uses also - bond_arp_send_all(), for
+>>example, will also miss anything that's higher than the first upper level.
+>>
+>>I can't think of a use case scenario when we would need only the first
+>>upper level - so maybe we should either make netdev_for_each_upper_dev()
+>>recursive by default (I don't know how it can be done easily, tbh, without
+>>modifying the existing code), or add something like:
+>>
+>>diff --git a/net/core/dev.c b/net/core/dev.c
+>>index 566e99a..4a4468f 100644
+>>--- a/net/core/dev.c
+>>+++ b/net/core/dev.c
+>>@@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct list_head *search_list,
+>> 	}
+>> }
+>>+struct net_device *netdev_upper_recursive_do_rcu(struct net_device *dev,
+>>+						 struct net_device *orig_dev,
+>>+						 bool (*f)(struct net_device *,
+>>+							   struct net_device *))
+>>+{
+>>+	struct netdev_upper *upper;
+>>+	struct net_device *ret = NULL;
+>>+
+>>+	list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
+>>+		if (f(orig_dev, upper->dev)) {
+>>+			ret = upper->dev;
+>>+			break;
+>>+		}
+>>+
+>>+		if (!list_empty(&upper->dev->upper_dev_list)) {
+>>+			ret = netdev_upper_recursive_do_rcu(upper->dev,
+>>+							    orig_dev, f);
+>>+			if (ret)
+>>+				break;
+>>+		}
+>>+	}
+>>+
+>>+	return ret;
+>>+}
+>>+
+>> static bool __netdev_search_upper_dev(struct net_device *dev,
+>> 				      struct net_device *upper_dev)
+>> {
+>>
+>>How do you think?
+>
+>I do not like this. How about to put all levels to upper_dev list and
+>mark those who are not direct (not level1) ? Then we can use single list
+>for all purposes.
 
-RFC4861 8.1:
-The IP source address of the Redirect is the
-same as the current first-hop router for the
-specified ICMP Destination Address.
+I don't see how it can be done on attach/removal of upper devices, cause we
+don't have a way to know the 'lower' devices, and will break scenarios like
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv6/route.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+bond -> bridge ->+ vlan
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8d9a93e..d4f0f72 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1685,6 +1685,7 @@ static int ip6_route_del(struct fib6_config *cfg)
- static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buff *skb)
- {
- 	struct net *net = dev_net(skb->dev);
-+	struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct netevent_redirect netevent;
- 	struct rt6_info *rt, *nrt = NULL;
- 	struct ndisc_options ndopts;
-@@ -1745,7 +1746,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
- 	}
- 
- 	rt = (struct rt6_info *) dst;
--	if (rt == net->ipv6.ip6_null_entry) {
-+	if (rt == net->ipv6.ip6_null_entry || !ipv6_addr_equal(&rt->rt6i_gateway, &iph->saddr)) {
- 		net_dbg_ratelimited("rt6_redirect: source isn't a valid nexthop for redirect target\n");
- 		return;
- 	}
--- 
-1.8.3.1
+when vlan is added, we can't update bond's upper_dev_list.
+
+And if we'll start doing it 'on the fly', while searching, by using
+search_list (or something new), we'll be racy and require locking, not just
+RCU.
+
+Am I again missing something? :)
