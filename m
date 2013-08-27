@@ -1,49 +1,63 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Netfilter owner match breakage
-Date: Tue, 27 Aug 2013 13:24:45 -0700
-Message-ID: <20130827202445.GA3114@linuxace.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: Re: [net-next v2 1/8] i40e: main driver core
+Date: Tue, 27 Aug 2013 20:34:04 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C617400@FMSMSX102.amr.corp.intel.com>
+References: <1377224142-25160-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1377224142-25160-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20130823.002805.1975660490102085087.davem@davemloft.net>
+	<FC41C24E35F18A40888AACA1A36F3E416C615C3B@FMSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:49918 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519Ab3H0UYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:24:52 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so5291237pad.19
-        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 13:24:52 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>, David Miller
+	<davem@davemloft.net>, "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E416C615C3B@FMSMSX102.amr.corp.intel.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In commit 90ba9b19 (tcp: tcp_make_synack() can use alloc_skb()), Eric changed
-the call to sock_wmalloc in tcp_make_synack to alloc_skb.  In doing so,
-the netfilter owner match lost its ability to block the SYNACK packet on
-outbound listening sockets.  For example:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, August 23, 2013 12:28 AM
 
-[phil@f19_main ~]$ id
-uid=1000(phil) gid=1000(phil) groups=1000(phil)
+[...]
 
-[phil@f19_main ~]$ sudo iptables -A OUTPUT -p tcp -m owner --uid-owner 1000 -j REJECT
+>
+> > +{
+> > +	int i;
+> > +	struct i40e_pf *pf = vsi->back;
+>
+> Please order local variable declarations from longest line to shortest.
 
-[phil@f19_main ~]$ echo hi | nc -l -p 8888
+I understand the aesthetics as it does make the code look a little cleaner, and we can do this with a lot of our functions.  However, there are several instances where one declaration initialization depends on a previous declaration, and trying to organize by line length breaks these relationships.  Do you mind if we're not perfect on following this one?
 
-Before this commit, attempting to connect to the port 8888 listener generated
-this:
+Also, perhaps I haven't watched closely enough, but I don't remember seeing this comment on other code.  Is this a new recommendation that will be going into the CodingStyle document?
 
-10.10.10.1.47457 > 10.10.10.110.8888: Flags [S], seq 1855270582 [...]
-10.10.10.110 > 10.10.10.110: ICMP 10.10.10.1 tcp port 47457 unreachable, length 68
+Thanks,
+sln
 
-After this commit, the session is established but the first packet of the
-session gets rejected:
 
-10.10.10.1.47453 > 10.10.10.110.8888: Flags [S], seq 2089355862 [...]
-10.10.10.110.8888 > 10.10.10.1.47453: Flags [S.], seq 2554257713, ack 2089355863 [...]
-10.10.10.1.47453 > 10.10.10.110.8888: Flags [.], ack 1, win 115 [...]
-10.10.10.110 > 10.10.10.110: ICMP 10.10.10.1 tcp port 47453 unreachable, length 63
-
-Reverting 90ba9b19 (and adjusting for the removal of s_data_desired) fixes the
-problem.  Is there a better way to do this?
-
-Phil
+------------------------------------------------------------------------------
+Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
+Discover the easy way to master current and previous Microsoft technologies
+and advance your career. Get an incredible 1,500+ hours of step-by-step
+tutorial videos with LearnDevNow. Subscribe today and save!
+http://pubads.g.doubleclick.net/gampad/clk?id=58040911&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
