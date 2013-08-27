@@ -1,37 +1,47 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v1 1/9] net: add netdev_upper_get_next_dev(dev,
- iter)
-Date: Tue, 27 Aug 2013 12:42:15 +0200
-Message-ID: <20130827104215.GA24836@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
- <1377549162-7522-2-git-send-email-vfalico@redhat.com>
- <20130826205748.GB3723@minipsycho.orion>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH] bridge: inherit slave devices needed_headroom
+Date: Tue, 27 Aug 2013 12:03:53 +0100
+Message-ID: <1377601433-22353-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	vyasevic@redhat.com, eric.dumazet@gmail.com,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44841 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2142 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752776Ab3H0Kne (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 06:43:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20130826205748.GB3723@minipsycho.orion>
+	id S1751381Ab3H0LF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 07:05:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 26, 2013 at 10:57:48PM +0200, Jiri Pirko wrote:
->Mon, Aug 26, 2013 at 10:32:34PM CEST, vfalico@redhat.com wrote:
-...snip...
->>+struct net_device *netdev_upper_get_next_dev(struct net_device *dev,
->>+					     struct list_head **iter)
->
->		This should be probably rather named
->		"netdev_upper_get_next_dev_rcu" That way it is clear
->		right away. Also if you introduce non-rcu variant in
->		future, you won't introduce confusion :)
+Some slave devices may have set a dev->needed_headroom value which is
+different than the default one, most likely in order to prepend a
+hardware descriptor in front of the Ethernet frame to send. Whenever a
+new slave is added to a bridge, ensure that we update the
+needed_headroom value accordingly to account for the slave
+needed_headroom value.
 
-Agreed, it will be easier, will do in v2.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/bridge/br_if.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index aa6c9a8..c41d5fb 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -383,6 +383,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	netdev_update_features(br->dev);
+ 
++	if (br->dev->needed_headroom < dev->needed_headroom)
++		br->dev->needed_headroom = dev->needed_headroom;
++
+ 	spin_lock_bh(&br->lock);
+ 	changed_addr = br_stp_recalculate_bridge_id(br);
+ 
+-- 
+1.8.1.2
