@@ -1,180 +1,91 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH] extensions: add SYNPROXY extension
-Date: Tue, 27 Aug 2013 08:58:09 +0200
-Message-ID: <1377586689-8119-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, jesper.brouer@gmail.com, as@one.com
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58826 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752057Ab3H0G6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 02:58:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: =?UTF-8?B?UmU6IElzIGZhbGxiYWNrIHZob3N0X25ldCB0byBxZW11IGZvciBsaXY=?=
+ =?UTF-8?B?ZSBtaWdyYXRlIGF2YWlsYWJsZe+8nw==?=
+Date: Tue, 27 Aug 2013 15:04:54 +0800
+Message-ID: <521C4F96.8000103@huawei.com>
+References: <521C1DCF.5090202@huawei.com> <20130827041935.GA7263@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <jasowang@redhat.com>, <kvm@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <qianhuibin@huawei.com>,
+	<wangfuhai@huawei.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20130827041935.GA7263@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- extensions/libxt_SYNPROXY.c           | 127 ++++++++++++++++++++++++++++++++++
- include/linux/netfilter/xt_SYNPROXY.h |  16 +++++
- 2 files changed, 143 insertions(+)
- create mode 100644 extensions/libxt_SYNPROXY.c
- create mode 100644 include/linux/netfilter/xt_SYNPROXY.h
+On 2013/8/27 12:19, Michael S. Tsirkin wrote:
+> On Tue, Aug 27, 2013 at 11:32:31AM +0800, Qin Chuanyu wrote:
+>> Hi all
+>>
+>> I am participating in a project which try to port vhost_net on Xen=E3=
+=80=82
+>>
+>> By change the memory copy and notify mechanism =EF=BC=8Ccurrently
+>> virtio-net with vhost_net could run on Xen with good
+>> performance=E3=80=82TCP receive throughput of single vnic from 2.77G=
+bps up
+>> to 6Gps=E3=80=82In VM receive side=EF=BC=8CI instead grant_copy with=
+ grant_map +
+>> memcopy=EF=BC=8Cit efficiently reduce the cost of grant_table spin_l=
+ock of
+>> dom0=EF=BC=8CSo the hole server TCP performance from 5.33Gps up to 9=
+=2E5Gps=E3=80=82
+>>
+>> Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost=
+_net
+>> use vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't=
+ manage
+>> the hole memory of VM=EF=BC=8CSo I am trying to fallback datapath fr=
+om
+>> vhost_net to qemu when doing live migrate =EF=BC=8Cand fallback data=
+path
+>> from qemu to
+>> vhost_net again after vm migrate to new server=E3=80=82
+>>
+>> My question is=EF=BC=9A
+>> 	why didn't vhost_net do the same fallback operation for live
+>> migrate on KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=
+=9F
+>> 	Is there any mechanism fault for the idea of fallback datapath from
+>> vhost_net to qemu for live migrate=EF=BC=9F
+>>
+>> any question about the detail of vhost_net on Xen is welcome=E3=80=82
+>>
+>> Thanks
+>>
+>
+> It should work, in practice.
+>
+> However, one issue with this approach that I see is that you
+> are running two instances of virtio-net on the host:
+> qemu and vhost-net, doubling your security surface
+> for guest to host attack.
+>
+> I don't exactly see why does it matter that qemu doesn't manage
+> the whole memory of a VM - vhost only needs to log
+> memory writes that it performs.
+>
+>
+> .
+>
+Thanks for your reply.
 
-diff --git a/extensions/libxt_SYNPROXY.c b/extensions/libxt_SYNPROXY.c
-new file mode 100644
-index 0000000..475590e
---- /dev/null
-+++ b/extensions/libxt_SYNPROXY.c
-@@ -0,0 +1,127 @@
-+
-+/*
-+ * Copyright (c) 2013 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <stdbool.h>
-+#include <stdio.h>
-+#include <xtables.h>
-+#include <linux/netfilter/xt_SYNPROXY.h>
-+
-+enum {
-+	O_SACK_PERM = 0,
-+	O_TIMESTAMP,
-+	O_WSCALE,
-+	O_MSS,
-+	O_ECN,
-+};
-+
-+static void SYNPROXY_help(void)
-+{
-+	printf(
-+"SYNPROXY target options:\n"
-+"  --sack-perm                        Set SACK_PERM\n"
-+"  --timestamp                        Set TIMESTAMP\n"
-+"  --wscale value                     Set window scaling factor\n"
-+"  --mss value                        Set MSS value\n"
-+"  --ecn                              Set ECN\n");
-+}
-+
-+static const struct xt_option_entry SYNPROXY_opts[] = {
-+	{.name = "sack-perm", .id = O_SACK_PERM, .type = XTTYPE_NONE, },
-+	{.name = "timestamp", .id = O_TIMESTAMP, .type = XTTYPE_NONE, },
-+	{.name = "wscale",    .id = O_WSCALE,    .type = XTTYPE_UINT32, },
-+	{.name = "mss",       .id = O_MSS,       .type = XTTYPE_UINT32, },
-+	{.name = "ecn",       .id = O_ECN,	 .type = XTTYPE_NONE, },
-+	XTOPT_TABLEEND,
-+};
-+
-+static void SYNPROXY_parse(struct xt_option_call *cb)
-+{
-+	struct xt_synproxy_info *info = cb->data;
-+
-+	xtables_option_parse(cb);
-+	switch (cb->entry->id) {
-+	case O_SACK_PERM:
-+		info->options |= XT_SYNPROXY_OPT_SACK_PERM;
-+		break;
-+	case O_TIMESTAMP:
-+		info->options |= XT_SYNPROXY_OPT_TIMESTAMP;
-+		break;
-+	case O_WSCALE:
-+		info->options |= XT_SYNPROXY_OPT_WSCALE;
-+		info->wscale = cb->val.u32;
-+		break;
-+	case O_MSS:
-+		info->options |= XT_SYNPROXY_OPT_MSS;
-+		info->mss = cb->val.u32;
-+		break;
-+	case O_ECN:
-+		info->options |= XT_SYNPROXY_OPT_ECN;
-+		break;
-+	}
-+}
-+
-+static void SYNPROXY_check(struct xt_fcheck_call *cb)
-+{
-+}
-+
-+static void SYNPROXY_print(const void *ip, const struct xt_entry_target *target,
-+                           int numeric)
-+{
-+	const struct xt_synproxy_info *info =
-+		(const struct xt_synproxy_info *)target->data;
-+
-+	printf(" SYNPROXY ");
-+	if (info->options & XT_SYNPROXY_OPT_SACK_PERM)
-+		printf("sack-perm ");
-+	if (info->options & XT_SYNPROXY_OPT_TIMESTAMP)
-+		printf("timestamp ");
-+	if (info->options & XT_SYNPROXY_OPT_WSCALE)
-+		printf("wscale %u ", info->wscale);
-+	if (info->options & XT_SYNPROXY_OPT_MSS)
-+		printf("mss %u ", info->mss);
-+	if (info->options & XT_SYNPROXY_OPT_ECN)
-+		printf("ecn ");
-+}
-+
-+static void SYNPROXY_save(const void *ip, const struct xt_entry_target *target)
-+{
-+	const struct xt_synproxy_info *info =
-+		(const struct xt_synproxy_info *)target->data;
-+
-+	if (info->options & XT_SYNPROXY_OPT_SACK_PERM)
-+		printf(" --sack-perm");
-+	if (info->options & XT_SYNPROXY_OPT_TIMESTAMP)
-+		printf(" --timestamp");
-+	if (info->options & XT_SYNPROXY_OPT_WSCALE)
-+		printf(" --wscale %u", info->wscale);
-+	if (info->options & XT_SYNPROXY_OPT_MSS)
-+		printf(" --mss %u", info->mss);
-+	if (info->options & XT_SYNPROXY_OPT_ECN)
-+		printf(" --ecn");
-+}
-+
-+static struct xtables_target synproxy_tg_reg = {
-+	.family        = NFPROTO_UNSPEC,
-+	.name          = "SYNPROXY",
-+	.version       = XTABLES_VERSION,
-+	.revision      = 0,
-+	.size          = XT_ALIGN(sizeof(struct xt_synproxy_info)),
-+	.userspacesize = XT_ALIGN(sizeof(struct xt_synproxy_info)),
-+	.help          = SYNPROXY_help,
-+	.print         = SYNPROXY_print,
-+	.save          = SYNPROXY_save,
-+	.x6_parse      = SYNPROXY_parse,
-+	.x6_fcheck     = SYNPROXY_check,
-+	.x6_options    = SYNPROXY_opts,
-+};
-+
-+void _init(void)
-+{
-+	xtables_register_target(&synproxy_tg_reg);
-+}
-diff --git a/include/linux/netfilter/xt_SYNPROXY.h b/include/linux/netfilter/xt_SYNPROXY.h
-new file mode 100644
-index 0000000..2d59fba
---- /dev/null
-+++ b/include/linux/netfilter/xt_SYNPROXY.h
-@@ -0,0 +1,16 @@
-+#ifndef _XT_SYNPROXY_H
-+#define _XT_SYNPROXY_H
-+
-+#define XT_SYNPROXY_OPT_MSS		0x01
-+#define XT_SYNPROXY_OPT_WSCALE		0x02
-+#define XT_SYNPROXY_OPT_SACK_PERM	0x04
-+#define XT_SYNPROXY_OPT_TIMESTAMP	0x08
-+#define XT_SYNPROXY_OPT_ECN		0x10
-+
-+struct xt_synproxy_info {
-+	__u8	options;
-+	__u8	wscale;
-+	__u16	mss;
-+};
-+
-+#endif /* _XT_SYNPROXY_H */
--- 
-1.8.1.4
+In fact=EF=BC=8CI am not sure that whether vhost_log could work on Xen =
+live=20
+migrate or not. Yes=EF=BC=8Cvhost_sync_dirty_bitmap work well on Kvm=EF=
+=BC=8Cbut=20
+vhost_net havn't run on Xen before=EF=BC=8Calthough the method=20
+vhost_dev_sync_region -> memory_region_set_dirty -> xen_modified_memory=
+=20
+call sequence exist.
+
+Have you considered the scene that vhost_migration_log code running on=20
+Xen=EF=BC=9F If yes=EF=BC=8Cit sames much easier then fallback datapath=
+ from vhost_net=20
+to qemu for live migrate.
+
+
