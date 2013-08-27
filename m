@@ -1,63 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/10] net: etherdevice: add address inherit
- helper
-Date: Tue, 27 Aug 2013 14:35:01 -0400 (EDT)
-Message-ID: <20130827.143501.1692335946060457637.davem@davemloft.net>
-References: <1377250513-3662-2-git-send-email-bjorn@mork.no>
-	<20130823122404.7aebb2c8@nehalam.linuxnetplumber.net>
-	<87ppt4yrbs.fsf@nemi.mork.no>
+Subject: Re: [net-next RFC 6/7] i40evf: init code and hardware support
+Date: Tue, 27 Aug 2013 14:44:08 -0400 (EDT)
+Message-ID: <20130827.144408.632457019633507990.davem@davemloft.net>
+References: <1377233609-11627-7-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1377625357.13272.54.camel@bwh-desktop.uk.level5networks.com>
+	<CALWPMBHKfzvLpi9J+tqeFtmOzPANXw5ozdiXhSku_sQtVGg5yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: john.ronciak@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58053 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58228 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753188Ab3H0SfF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:35:05 -0400
-In-Reply-To: <87ppt4yrbs.fsf@nemi.mork.no>
+	with ESMTP id S1752338Ab3H0SoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:44:11 -0400
+In-Reply-To: <CALWPMBHKfzvLpi9J+tqeFtmOzPANXw5ozdiXhSku_sQtVGg5yg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Sat, 24 Aug 2013 00:28:55 +0200
+From: John Ronciak <john.ronciak@gmail.com>
+Date: Tue, 27 Aug 2013 11:39:03 -0700
 
-> Stephen Hemminger <stephen@networkplumber.org> writes:
->> On Fri, 23 Aug 2013 11:35:04 +0200
->> Bj=F8rn Mork <bjorn@mork.no> wrote:
->>
->>>  /**
->>> + * eth_hw_addr_inherit - Copy dev_addr from another net_device
->>> + * @dst: pointer to net_device to copy dev_addr to
->>> + * @src: pointer to net_device to copy dev_addr from
->>> + *
->>> + * Copy the Ethernet address from one net_device to another along =
-with
->>> + * the addr_assign_type.
->>> + */
->>> +static inline int eth_hw_addr_inherit(struct net_device *dst,
->>> +				      struct net_device *src)
->>> +{
->>> +	if (dst->addr_len !=3D src->addr_len)
->>> +		return -EINVAL;
->>> +
->>> +	dst->addr_assign_type =3D src->addr_assign_type;
->>> +	memcpy(dst->dev_addr, src->dev_addr, dst->addr_len);
->>> +	return 0;
->>> +}
->>> +
->>
->> Since all the other code in this file assumes addr_len =3D=3D ETH_AL=
-EN
->> why does this code need to handle variable addresses. Trivial but
->> then the memcpy is fixed size and can be optimized.
->=20
-> Didn't know that. I'll make that change in the next version.  Not tha=
-t
-> optimization matters much here, but consistency is always good.
+>> I wonder why this is thought to be necessary.  I've never heard of
+>> copyright assignment conditions being accepted in the Linux kernel.
+> 
+>> Some Linux drivers are dual-licenced under a permissive licence and GPL,
+>> and all contributions to them presumably also have to be dual-licenced.
+>> It seems like that would allow you to retain the ability to reuse the
+>> core hardware code on other operating systems and under proprietary
+>> licences, even with copyrightable contributions from others.
+> 
+> The problem here is that it's a legal issue.  The Intel lawyers (and I've
+> heard form other companies on this as well) say that just because we
+> release code under a dual license does not mean that any changes (patches)
+> that come back are also under a dual license.  That cannot be assumed.  So
+> all changes would require us to ask that the patches in question are being
+> supplied under the same dual license.  This can get unmanageable fairly
+> quickly.  There is also long term tracking of those requests/responses.  So
+> using a dual license isn't the same thing unfortunately.
 
-You can bug check that addr_len ETH_ALEN if you want.
+I think it's pretty anti-social to not accept changes made outside of
+your group.
 
-I realize that some drivers don't initialize it by this call point but
-that is arguably a bug.
+I don't want Intel ethernet drivers to go the way of ACPI where nobody
+outside of you guys can make changes to the code.
+
+I guarentee I will want to make changes to your drivers if an interface
+is changed and I have to touch your code to keep the tree building when
+a function signature changes.
+
+To say that I am upset about this would be an understatement, it blocks
+normal smooth development of networking infrastructure.
