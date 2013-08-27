@@ -1,83 +1,68 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] tipc: set sk_err correctly when
-	connection fails
-Date: Tue, 27 Aug 2013 09:20:23 -0400
-Message-ID: <521CA797.2010109@windriver.com>
-References: <1377266200-26691-1-git-send-email-erik.hugne@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org, nhan.tt.vo@dektech.com.au,
-	tipc-discussion@lists.sourceforge.net
-To: <erik.hugne@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1377266200-26691-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sctp: sctp_verify_init: clean up mandatory checks and add comment
+Date: Tue, 27 Aug 2013 15:23:50 +0200
+Message-ID: <1377609830-10193-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18236 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751821Ab3H0NXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 09:23:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13-08-23 09:56 AM, erik.hugne@ericsson.com wrote:
-> From: Erik Hugne <erik.hugne@ericsson.com>
-> 
-> This fixes a problem when connect() fails and returns the error
-> code as a positive value, whereas errno itself is never set. The
-> reason is that error codes set in sk_err should never be inverted.
+Add a comment related to RFC4960 explaning why we do not check for initial
+TSN, and while at it, remove yoda notation checks and clean up code from
+checks of mandatory conditions. That's probably just really minor, but makes
+reviewing easier.
 
-That seems consistent with the other instances at least.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/sm_make_chunk.c | 26 ++++++++++++--------------
+ 1 file changed, 12 insertions(+), 14 deletions(-)
 
-~/git/linux-head$ git grep ECONNREFUSED net|grep sk_err
-net/caif/caif_socket.c:		cf_sk->sk.sk_err = ECONNREFUSED;
-net/decnet/dn_nsp_in.c:		sk->sk_err = ECONNREFUSED;
-net/ipv4/tcp_input.c:		sk->sk_err = ECONNREFUSED;
-net/tipc/socket.c:			sk->sk_err = -ECONNREFUSED;
-~/git/linux-head$
-
-What was the high level user visible symptom in this case?
-Stalled connections or ... ?
-
-Thanks,
-Paul.
---
-
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> ---
->  net/tipc/socket.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index ce8249c..6cc7ddd 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -1257,7 +1257,7 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
->  		/* Accept only ACK or NACK message */
->  		if (unlikely(msg_errcode(msg))) {
->  			sock->state = SS_DISCONNECTING;
-> -			sk->sk_err = -ECONNREFUSED;
-> +			sk->sk_err = ECONNREFUSED;
->  			retval = TIPC_OK;
->  			break;
->  		}
-> @@ -1268,7 +1268,7 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
->  		res = auto_connect(sock, msg);
->  		if (res) {
->  			sock->state = SS_DISCONNECTING;
-> -			sk->sk_err = res;
-> +			sk->sk_err = -res;
->  			retval = TIPC_OK;
->  			break;
->  		}
-> 
-
-------------------------------------------------------------------------------
-Introducing Performance Central, a new site from SourceForge and 
-AppDynamics. Performance Central is your source for news, insights, 
-analysis and resources for efficient Application Performance Management. 
-Visit us today!
-http://pubads.g.doubleclick.net/gampad/clk?id=48897511&iu=/4140/ostg.clktrk
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 01e9783..c6ca3c9 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2240,25 +2240,23 @@ int sctp_verify_init(struct net *net, const struct sctp_association *asoc,
+ 		     struct sctp_chunk **errp)
+ {
+ 	union sctp_params param;
+-	int has_cookie = 0;
++	bool has_cookie = false;
+ 	int result;
+ 
+-	/* Verify stream values are non-zero. */
+-	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
+-	    (0 == peer_init->init_hdr.num_inbound_streams) ||
+-	    (0 == peer_init->init_hdr.init_tag) ||
+-	    (SCTP_DEFAULT_MINWINDOW > ntohl(peer_init->init_hdr.a_rwnd))) {
+-
++	/* Check for missing mandatory parameters. Note: Initial TSN is also
++	 * mandatory, but not checked here since range is possible from 0 to
++	 * 2**32-1 (4294967295), RFC4960 3.3.3.
++	 */
++	if (peer_init->init_hdr.num_outbound_streams == 0 ||
++	    peer_init->init_hdr.num_inbound_streams == 0 ||
++	    peer_init->init_hdr.init_tag == 0 ||
++	    ntohl(peer_init->init_hdr.a_rwnd) < SCTP_DEFAULT_MINWINDOW)
+ 		return sctp_process_inv_mandatory(asoc, chunk, errp);
+-	}
+ 
+-	/* Check for missing mandatory parameters.  */
+ 	sctp_walk_params(param, peer_init, init_hdr.params) {
+-
+-		if (SCTP_PARAM_STATE_COOKIE == param.p->type)
+-			has_cookie = 1;
+-
+-	} /* for (loop through all parameters) */
++		if (param.p->type == SCTP_PARAM_STATE_COOKIE)
++			has_cookie = true;
++	}
+ 
+ 	/* There is a possibility that a parameter length was bad and
+ 	 * in that case we would have stoped walking the parameters.
+-- 
+1.7.11.7
