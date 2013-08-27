@@ -1,40 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6:examine the IP source address legitimacy
-Date: Tue, 27 Aug 2013 05:05:01 -0700
-Message-ID: <1377605101.8828.142.camel@edumazet-glaptop>
-References: <521C90A0.60708@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:42957 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669Ab3H0MFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 08:05:04 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so4712964pbb.20
-        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 05:05:03 -0700 (PDT)
-In-Reply-To: <521C90A0.60708@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Boris BREZILLON <b.brezillon@overkiz.com>
+Subject: [PATCH] ARM: at91/dt: fix phy address to match the reg register
+Date: Tue, 27 Aug 2013 14:04:56 +0200
+Message-ID: <1377605096-20903-1-git-send-email-b.brezillon@overkiz.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Boris BREZILLON <b.brezillon@overkiz.com>
+To: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-08-27 at 19:42 +0800, Duan Jiong wrote:
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> 
-> RFC4861 8.1:
-> The IP source address of the Redirect is the
-> same as the current first-hop router for the
-> specified ICMP Destination Address.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
+Fix phy0 address to match the reg porperty defined in phy0 node.
 
-What about updating the comment around line 1726 ?
+Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ arch/arm/boot/dts/sama5d3xmb.dtsi |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-       /* RFC2461 8.1:
-         *      The IP source address of the Redirect MUST be the same as the current
-         *      first-hop router for the specified ICMP Destination Address.
-         */
-
-Thanks
+diff --git a/arch/arm/boot/dts/sama5d3xmb.dtsi b/arch/arm/boot/dts/sama5d3xmb.dtsi
+index e9521d5..dba739b 100644
+--- a/arch/arm/boot/dts/sama5d3xmb.dtsi
++++ b/arch/arm/boot/dts/sama5d3xmb.dtsi
+@@ -84,7 +84,7 @@
+ 
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+-				phy0: ethernet-phy@0 {
++				phy0: ethernet-phy@1 {
+ 					interrupt-parent = <&pioE>;
+ 					interrupts = <30 IRQ_TYPE_EDGE_FALLING>;
+ 					reg = <1>;
+-- 
+1.7.9.5
