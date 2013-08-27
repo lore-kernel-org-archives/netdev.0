@@ -1,176 +1,244 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH next 1/6] be2net: use EQ_CREATEv2 for SH-R
-Date: Tue, 27 Aug 2013 16:57:30 +0530
-Message-ID: <1377602855-13920-2-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH next 5/6] be2net: refactor be_setup() to consolidate queue creation routines
+Date: Tue, 27 Aug 2013 16:57:34 +0530
+Message-ID: <1377602855-13920-6-git-send-email-sathya.perla@emulex.com>
 References: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:48948 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:48951 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753256Ab3H0LXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:47 -0400
+	with ESMTP id S1753266Ab3H0LXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:55 -0400
 In-Reply-To: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-EQ_CREATEv2 explicitly returns the msix-index associated with a EQ.
-For SH-R this is needed if EQs need to be deleted and re-created without
-resetting a function.
+1) Move be_cmd_if_create() above queue create routines to allow
+   TXQ creation (that requires if_handle) to be clubbed with TX-CQ creation.
+2) Consolidate all queue create routines into be_setup_queues()
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |   47 +++++++-------------------
- drivers/net/ethernet/emulex/benet/be_cmds.h |    5 +--
- drivers/net/ethernet/emulex/benet/be_main.c |    4 +-
- 4 files changed, 18 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   23 ++-----
+ drivers/net/ethernet/emulex/benet/be_main.c |   95 ++++++++++++++-------------
+ 2 files changed, 55 insertions(+), 63 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 11c815d..7c5f9f2 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -189,6 +189,7 @@ struct be_eq_obj {
- 	u32 cur_eqd;		/* in usecs */
- 
- 	u8 idx;			/* array index */
-+	u8 msix_idx;
- 	u16 tx_budget;
- 	u16 spurious_intr;
- 	struct napi_struct napi;
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 85923e2..e69835c 100644
+index 70d5db0..52c9085 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -678,31 +678,6 @@ static void be_cmd_page_addrs_prepare(struct phys_addr *pages, u32 max_pages,
- 	}
- }
+@@ -1182,25 +1182,16 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
  
--/* Converts interrupt delay in microseconds to multiplier value */
--static u32 eq_delay_to_mult(u32 usec_delay)
--{
--#define MAX_INTR_RATE			651042
--	const u32 round = 10;
--	u32 multiplier;
--
--	if (usec_delay == 0)
--		multiplier = 0;
--	else {
--		u32 interrupt_rate = 1000000 / usec_delay;
--		/* Max delay, corresponding to the lowest interrupt rate */
--		if (interrupt_rate == 0)
--			multiplier = 1023;
--		else {
--			multiplier = (MAX_INTR_RATE - interrupt_rate) * round;
--			multiplier /= interrupt_rate;
--			/* Round the multiplier to the closest value.*/
--			multiplier = (multiplier + round/2) / round;
--			multiplier = min(multiplier, (u32)1023);
--		}
--	}
--	return multiplier;
--}
--
- static inline struct be_mcc_wrb *wrb_from_mbox(struct be_adapter *adapter)
+ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
  {
- 	struct be_dma_mem *mbox_mem = &adapter->mbox_mem;
-@@ -790,13 +765,12 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
+-	struct be_mcc_wrb *wrb;
++	struct be_mcc_wrb wrb = {0};
+ 	struct be_cmd_req_eth_tx_create *req;
+ 	struct be_queue_info *txq = &txo->q;
+ 	struct be_queue_info *cq = &txo->cq;
+ 	struct be_dma_mem *q_mem = &txq->dma_mem;
+ 	int status, ver = 0;
+ 
+-	spin_lock_bh(&adapter->mcc_lock);
+-
+-	wrb = wrb_from_mccq(adapter);
+-	if (!wrb) {
+-		status = -EBUSY;
+-		goto err;
+-	}
+-
+-	req = embedded_payload(wrb);
+-
++	req = embedded_payload(&wrb);
+ 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
+-		OPCODE_ETH_TX_CREATE, sizeof(*req), wrb, NULL);
++				OPCODE_ETH_TX_CREATE, sizeof(*req), &wrb, NULL);
+ 
+ 	if (lancer_chip(adapter)) {
+ 		req->hdr.version = 1;
+@@ -1218,12 +1209,11 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
+ 	req->cq_id = cpu_to_le16(cq->id);
+ 	req->queue_size = be_encoded_q_len(txq->len);
+ 	be_cmd_page_addrs_prepare(req->pages, ARRAY_SIZE(req->pages), q_mem);
+-
+ 	ver = req->hdr.version;
+ 
+-	status = be_mcc_notify_wait(adapter);
++	status = be_cmd_notify_wait(adapter, &wrb);
+ 	if (!status) {
+-		struct be_cmd_resp_eth_tx_create *resp = embedded_payload(wrb);
++		struct be_cmd_resp_eth_tx_create *resp = embedded_payload(&wrb);
+ 		txq->id = le16_to_cpu(resp->cid);
+ 		if (ver == 2)
+ 			txo->db_offset = le32_to_cpu(resp->db_offset);
+@@ -1232,9 +1222,6 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
+ 		txq->created = true;
+ 	}
+ 
+-err:
+-	spin_unlock_bh(&adapter->mcc_lock);
+-
  	return status;
  }
  
--int be_cmd_eq_create(struct be_adapter *adapter,
--		struct be_queue_info *eq, int eq_delay)
-+int be_cmd_eq_create(struct be_adapter *adapter, struct be_eq_obj *eqo)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_eq_create *req;
--	struct be_dma_mem *q_mem = &eq->dma_mem;
--	int status;
-+	struct be_dma_mem *q_mem = &eqo->q.dma_mem;
-+	int status, ver = 0;
- 
- 	if (mutex_lock_interruptible(&adapter->mbox_lock))
- 		return -1;
-@@ -807,15 +781,18 @@ int be_cmd_eq_create(struct be_adapter *adapter,
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 		OPCODE_COMMON_EQ_CREATE, sizeof(*req), wrb, NULL);
- 
-+	/* Support for EQ_CREATEv2 available only SH-R onwards */
-+	if (!(BEx_chip(adapter) || lancer_chip(adapter)))
-+		ver = 2;
-+
-+	req->hdr.version = ver;
- 	req->num_pages =  cpu_to_le16(PAGES_4K_SPANNED(q_mem->va, q_mem->size));
- 
- 	AMAP_SET_BITS(struct amap_eq_context, valid, req->context, 1);
- 	/* 4byte eqe*/
- 	AMAP_SET_BITS(struct amap_eq_context, size, req->context, 0);
- 	AMAP_SET_BITS(struct amap_eq_context, count, req->context,
--			__ilog2_u32(eq->len/256));
--	AMAP_SET_BITS(struct amap_eq_context, delaymult, req->context,
--			eq_delay_to_mult(eq_delay));
-+		      __ilog2_u32(eqo->q.len / 256));
- 	be_dws_cpu_to_le(req->context, sizeof(req->context));
- 
- 	be_cmd_page_addrs_prepare(req->pages, ARRAY_SIZE(req->pages), q_mem);
-@@ -823,8 +800,10 @@ int be_cmd_eq_create(struct be_adapter *adapter,
- 	status = be_mbox_notify_wait(adapter);
- 	if (!status) {
- 		struct be_cmd_resp_eq_create *resp = embedded_payload(wrb);
--		eq->id = le16_to_cpu(resp->eq_id);
--		eq->created = true;
-+		eqo->q.id = le16_to_cpu(resp->eq_id);
-+		eqo->msix_idx =
-+			(ver == 2) ? le16_to_cpu(resp->msix_idx) : eqo->idx;
-+		eqo->q.created = true;
- 	}
- 
- 	mutex_unlock(&adapter->mbox_lock);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 6237192..880c85a 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -307,7 +307,7 @@ struct be_cmd_req_eq_create {
- struct be_cmd_resp_eq_create {
- 	struct be_cmd_resp_hdr resp_hdr;
- 	u16 eq_id;		/* sword */
--	u16 rsvd0;		/* sword */
-+	u16 msix_idx;		/* available only in v2 */
- } __packed;
- 
- /******************** Mac query ***************************/
-@@ -1851,8 +1851,7 @@ extern int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags,
- 			    u32 en_flags, u32 *if_handle, u32 domain);
- extern int be_cmd_if_destroy(struct be_adapter *adapter, int if_handle,
- 			u32 domain);
--extern int be_cmd_eq_create(struct be_adapter *adapter,
--			struct be_queue_info *eq, int eq_delay);
-+extern int be_cmd_eq_create(struct be_adapter *adapter, struct be_eq_obj *eqo);
- extern int be_cmd_cq_create(struct be_adapter *adapter,
- 			struct be_queue_info *cq, struct be_queue_info *eq,
- 			bool no_delay, int num_cqe_dma_coalesce);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 08f6417..6f040d8 100644
+index d34ea98..b08459d 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1939,7 +1939,7 @@ static int be_evt_queues_create(struct be_adapter *adapter)
- 		if (rc)
- 			return rc;
- 
--		rc = be_cmd_eq_create(adapter, eq, eqo->cur_eqd);
-+		rc = be_cmd_eq_create(adapter, eqo);
- 		if (rc)
- 			return rc;
+@@ -2014,7 +2014,7 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
  	}
-@@ -2443,7 +2443,7 @@ done:
- static inline int be_msix_vec_get(struct be_adapter *adapter,
- 				struct be_eq_obj *eqo)
- {
--	return adapter->msix_entries[eqo->idx].vector;
-+	return adapter->msix_entries[eqo->msix_idx].vector;
  }
  
- static int be_msix_register(struct be_adapter *adapter)
+-static int be_tx_cqs_create(struct be_adapter *adapter)
++static int be_tx_qs_create(struct be_adapter *adapter)
+ {
+ 	struct be_queue_info *cq, *eq;
+ 	struct be_tx_obj *txo;
+@@ -2042,16 +2042,7 @@ static int be_tx_cqs_create(struct be_adapter *adapter)
+ 		status = be_cmd_cq_create(adapter, cq, eq, false, 3);
+ 		if (status)
+ 			return status;
+-	}
+-	return 0;
+-}
+ 
+-static int be_tx_qs_create(struct be_adapter *adapter)
+-{
+-	struct be_tx_obj *txo;
+-	int i, status;
+-
+-	for_all_tx_queues(adapter, txo, i) {
+ 		status = be_queue_alloc(adapter, &txo->q, TX_Q_LEN,
+ 					sizeof(struct be_eth_wrb));
+ 		if (status)
+@@ -2772,6 +2763,14 @@ done:
+ 	adapter->num_vfs = 0;
+ }
+ 
++static void be_clear_queues(struct be_adapter *adapter)
++{
++	be_mcc_queues_destroy(adapter);
++	be_rx_cqs_destroy(adapter);
++	be_tx_queues_destroy(adapter);
++	be_evt_queues_destroy(adapter);
++}
++
+ static int be_clear(struct be_adapter *adapter)
+ {
+ 	int i;
+@@ -2792,10 +2791,7 @@ static int be_clear(struct be_adapter *adapter)
+ 
+ 	be_cmd_if_destroy(adapter, adapter->if_handle,  0);
+ 
+-	be_mcc_queues_destroy(adapter);
+-	be_rx_cqs_destroy(adapter);
+-	be_tx_queues_destroy(adapter);
+-	be_evt_queues_destroy(adapter);
++	be_clear_queues(adapter);
+ 
+ 	kfree(adapter->pmac_id);
+ 	adapter->pmac_id = NULL;
+@@ -3112,11 +3108,36 @@ static int be_mac_setup(struct be_adapter *adapter)
+ 	return 0;
+ }
+ 
++static int be_setup_queues(struct be_adapter *adapter)
++{
++	int status;
++
++	status = be_evt_queues_create(adapter);
++	if (status)
++		goto err;
++
++	status = be_tx_qs_create(adapter);
++	if (status)
++		goto err;
++
++	status = be_rx_cqs_create(adapter);
++	if (status)
++		goto err;
++
++	status = be_mcc_queues_create(adapter);
++	if (status)
++		goto err;
++
++	return 0;
++err:
++	dev_err(&adapter->pdev->dev, "queue_setup failed\n");
++	return status;
++}
++
+ static int be_setup(struct be_adapter *adapter)
+ {
+ 	struct device *dev = &adapter->pdev->dev;
+-	u32 en_flags;
+-	u32 tx_fc, rx_fc;
++	u32 tx_fc, rx_fc, en_flags;
+ 	int status;
+ 
+ 	be_setup_init(adapter);
+@@ -3132,47 +3153,31 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status)
+ 		goto err;
+ 
+-	status = be_evt_queues_create(adapter);
+-	if (status)
+-		goto err;
+-
+-	status = be_tx_cqs_create(adapter);
+-	if (status)
+-		goto err;
+-
+-	status = be_rx_cqs_create(adapter);
+-	if (status)
+-		goto err;
+-
+-	status = be_mcc_queues_create(adapter);
+-	if (status)
+-		goto err;
+-
+-	be_cmd_get_fn_privileges(adapter, &adapter->cmd_privileges, 0);
+-	/* In UMC mode FW does not return right privileges.
+-	 * Override with correct privilege equivalent to PF.
+-	 */
+-	if (be_is_mc(adapter))
+-		adapter->cmd_privileges = MAX_PRIVILEGES;
+-
+ 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+-			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
++		   BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
+ 	if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
+ 		en_flags |= BE_IF_FLAGS_RSS;
+ 	en_flags = en_flags & be_if_cap_flags(adapter);
+ 	status = be_cmd_if_create(adapter, be_if_cap_flags(adapter), en_flags,
+ 				  &adapter->if_handle, 0);
+-	if (status != 0)
++	if (status)
+ 		goto err;
+ 
++	status = be_setup_queues(adapter);
++	if (status)
++		goto err;
++
++	be_cmd_get_fn_privileges(adapter, &adapter->cmd_privileges, 0);
++	/* In UMC mode FW does not return right privileges.
++	 * Override with correct privilege equivalent to PF.
++	 */
++	if (be_is_mc(adapter))
++		adapter->cmd_privileges = MAX_PRIVILEGES;
++
+ 	status = be_mac_setup(adapter);
+ 	if (status)
+ 		goto err;
+ 
+-	status = be_tx_qs_create(adapter);
+-	if (status)
+-		goto err;
+-
+ 	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
+ 
+ 	if (adapter->vlans_added)
 -- 
 1.7.1
