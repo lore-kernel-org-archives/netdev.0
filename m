@@ -1,55 +1,47 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] ipnetns: fix ip batch mode when using 'netns exec'
-Date: Tue, 27 Aug 2013 09:25:34 +0200
-Message-ID: <1377588334-13538-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34562 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752321Ab3H0HZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 03:25:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Boris BREZILLON <b.brezillon@overkiz.com>
+Subject: [PATCH v3 0/2] net/cadence/macb: add support for dt phy definition
+Date: Tue, 27 Aug 2013 09:36:47 +0200
+Message-ID: <1377589007-3684-1-git-send-email-b.brezillon@overkiz.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Boris BREZILLON <b.brezillon@overkiz.com>
+To: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit a05f6511f543, ip batch mode is broken when using 'netns exec' cmd.
+Hello,
 
-When WIFEXITED() returns true, it means that the child exited normally, hence
-we must not call exit() but just returns the status. If we call exit, the next
-commands in the file file are not executed.
-If WIFEXITED() returns false, we can call exit() because it means that the
-child failed.
+This patch series adds support for ethernet phy definition using device
+tree.
 
-This patch partially reverts commit a05f6511f543.
+This may help in moving some at91 boards to dt (some of them define an
+interrupt pin).
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- ip/ipnetns.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+Tested on samad31ek.
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index c8a47920539c..11dd9b89e503 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -205,11 +205,15 @@ static int netns_exec(int argc, char **argv)
- 				exit(1);
- 			}
- 
--			/* If child failed, propagate status */
--			if (WIFEXITED(status))
--				exit(WEXITSTATUS(status));
-+			if (WIFEXITED(status)) {
-+				/* ip must returns the status of the child,
-+				 * but do_cmd() will add a minus to this,
-+				 * so let's add another one here to cancel it.
-+				 */
-+				return -WEXITSTATUS(status);
-+			}
- 
--			return 0;
-+			exit(1);
- 		}
- 	}
- 
+Best Regards,
+Boris
+
+Changes since v2:
+ - fix wrong address of phy0 dt node
+
+Changes since v1:
+ - fix wrong macb_mii_init return code when no PHY device is discovered
+
+Boris BREZILLON (2):
+  net/cadence/macb: add support for dt phy definition
+  ARM: at91/dt: define phy available on sama5d3 mother board
+
+ arch/arm/boot/dts/sama5d3xmb.dtsi   |    8 ++++++
+ drivers/net/ethernet/cadence/macb.c |   48 +++++++++++++++++++++++++++--------
+ 2 files changed, 46 insertions(+), 10 deletions(-)
+
 -- 
-1.8.2.1
+1.7.9.5
