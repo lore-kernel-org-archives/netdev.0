@@ -1,117 +1,61 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
- use upper devices
-Date: Tue, 27 Aug 2013 20:10:01 +0200
-Message-ID: <20130827181001.GD24836@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
- <1377549162-7522-6-git-send-email-vfalico@redhat.com>
- <20130826205338.GA3723@minipsycho.orion>
- <20130827111648.GB24836@redhat.com>
- <20130827112529.GA4732@minipsycho.brq.redhat.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] tipc: set sk_err correctly when connection fails
+Date: Tue, 27 Aug 2013 14:12:07 -0400
+Message-ID: <521CEBF7.4040103@windriver.com>
+References: <1377266200-26691-1-git-send-email-erik.hugne@ericsson.com> <521CA797.2010109@windriver.com> <20130827151841.GE1939@eerihug-hybrid.rnd.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
+	<ying.xue@windriver.com>, <tipc-discussion@lists.sourceforge.net>,
+	<nhan.tt.vo@dektech.com.au>
+To: Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24587 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752166Ab3H0SLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 14:11:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20130827112529.GA4732@minipsycho.brq.redhat.com>
+Received: from mail1.windriver.com ([147.11.146.13]:43456 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800Ab3H0SMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:12:17 -0400
+In-Reply-To: <20130827151841.GE1939@eerihug-hybrid.rnd.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 27, 2013 at 01:25:29PM +0200, Jiri Pirko wrote:
->Tue, Aug 27, 2013 at 01:16:48PM CEST, vfalico@redhat.com wrote:
->>On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
->>>Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
->>...snip...
->>>>+	rcu_read_lock();
->>>>+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
->>>>+		if (ip == bond_confirm_addr(upper, 0, ip)) {
->>>>+			ret = true;
->>>>+			break;
->>>>+		}
->>>
->>>You need the same recursion __vlan_find_dev_deep() is doing. If you do
->>>not do that, you will miss anything over the first upper level.
->>
->>Good point, and it's true for other uses also - bond_arp_send_all(), for
->>example, will also miss anything that's higher than the first upper level.
->>
->>I can't think of a use case scenario when we would need only the first
->>upper level - so maybe we should either make netdev_for_each_upper_dev()
->>recursive by default (I don't know how it can be done easily, tbh, without
->>modifying the existing code), or add something like:
->>
->>diff --git a/net/core/dev.c b/net/core/dev.c
->>index 566e99a..4a4468f 100644
->>--- a/net/core/dev.c
->>+++ b/net/core/dev.c
->>@@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct list_head *search_list,
->> 	}
->> }
->>+struct net_device *netdev_upper_recursive_do_rcu(struct net_device *dev,
->>+						 struct net_device *orig_dev,
->>+						 bool (*f)(struct net_device *,
->>+							   struct net_device *))
->>+{
->>+	struct netdev_upper *upper;
->>+	struct net_device *ret = NULL;
->>+
->>+	list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
->>+		if (f(orig_dev, upper->dev)) {
->>+			ret = upper->dev;
->>+			break;
->>+		}
->>+
->>+		if (!list_empty(&upper->dev->upper_dev_list)) {
->>+			ret = netdev_upper_recursive_do_rcu(upper->dev,
->>+							    orig_dev, f);
->>+			if (ret)
->>+				break;
->>+		}
->>+	}
->>+
->>+	return ret;
->>+}
->>+
->> static bool __netdev_search_upper_dev(struct net_device *dev,
->> 				      struct net_device *upper_dev)
->> {
->>
->>How do you think?
->
->I do not like this. How about to put all levels to upper_dev list and
->mark those who are not direct (not level1) ? Then we can use single list
->for all purposes.
+On 13-08-27 11:18 AM, Erik Hugne wrote:
+> On Tue, Aug 27, 2013 at 09:20:23AM -0400, Paul Gortmaker wrote:
+>> What was the high level user visible symptom in this case?
+>> Stalled connections or ... ?
+> 
+> Should the connect fail, if the publication/server is unavailable or some other
+> error. The connect() call returns the error code directly (as a positive value).
 
-I've looked at the code a bit more and I really don't see a way to do
-non-recursive, RCUed way to traverse the whole list of upper devices.
+Please send a v2 with the end-user visible symptom clearly described;
+as this information is what people use in order to triage whether
+commits belong in stable, or net vs. net-next etc.   For example:
 
-I see three ways to handle this situation:
+  Should the connect fail, say if the publication/server is unavailable or
+  some other error, then the code returns a positive return value.  Since
+  most code only checks for a negative return on connect(), it tries to
+  continue, but will ultimately fail on the 1st sendto() as the strace
+  snippet below shows.
 
-1) The one that I've posted, recursive search and calling a provided
-function (the function should also get as a parameter a user-provided void
-*pointer). It's, indeed, a bit hacky, however will work perfectly.
+I've said "most code" since I simply don't know what it was that you were
+tracing below.  It would help if we knew if this part of a common application
+or similar.
 
-2) Implementing the search (recursive) in bonding (or any further device)
-itself. Less intrusive, however it'll be code duplication actually for
-point 1).
+Thanks,
+Paul.
+--
 
-3) Adding lower_dev_list, populating it accordingly, and also adding an int
-distance to the netdev_upper (or, with this approach, rather netdev_adjacent
-or something like that), which will help to implement your idea - a device
-will have lower/upper_dev_list populated with all lower/upper devices and
-their distance (i.e. distance == 1 means that it's first level of
-lower/upper device). With this approach, we might also afterwards get rid
-of slave lists from 'grouping' devices like bonding/team/bridge/etc. and,
-thus, the locking.
-
-Now I'd rather go with 1), but if you don't like it - I can go with 2).
-And, if 3) sounds ok, I can implement it also and try to get rid of bonding
-slave list (hopefully).
-
-Do you have any other ideas/thoughts?
+> 
+> [...]
+> socket(0x1e /* PF_??? */, SOCK_SEQPACKET, 0) = 3
+> setsockopt(3, 0x10f /* SOL_?? */, 129, [0], 4) = 0
+> setsockopt(3, 0x10f /* SOL_?? */, 127, [0], 4) = 0
+> connect(3, {sa_family=0x1e /* AF_??? */, sa_data="\2\1\322\4\0\0\322\4\0\0\0\0\0\0"}, 16) = 111
+> sendto(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 66000, 0, NULL, 0) = -1 EPIPE (Broken pipe)
+> 
+> In the strace above, error checking was done as:
+> if (connect(fd,.....) < 0)
+>     perror("connect");
+> 
+> //E
+> 
