@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net/cadence/macb: add support for dt phy definition
-Date: Tue, 27 Aug 2013 12:20:56 -0400 (EDT)
-Message-ID: <20130827.122056.419758783951274884.davem@davemloft.net>
-References: <1377186980-21902-1-git-send-email-b.brezillon@overkiz.com>
-	<20130826.160450.2176892065062148718.davem@davemloft.net>
-	<521C586A.7080604@overkiz.com>
+Subject: Re: [PATCH net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
+ for xfrm tunnel mode callback
+Date: Tue, 27 Aug 2013 12:23:04 -0400 (EDT)
+Message-ID: <20130827.122304.330396034037685430.davem@davemloft.net>
+References: <20130826.162135.1765443562851401512.davem@davemloft.net>
+	<521C0104.2070906@windriver.com>
+	<20130827092856.GC7660@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, rob.herring@calxeda.com,
-	pawel.moll@arm.com, mark.rutland@arm.com, swarren@wwwdotorg.org,
-	ian.campbell@citrix.com, linux@arm.linux.org.uk,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	devicetree@vger.kernel.org
-To: b.brezillon@overkiz.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <521C586A.7080604@overkiz.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fan.du@windriver.com, saurabh.mohan@vyatta.com,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55953 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241Ab3H0QXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 12:23:06 -0400
+In-Reply-To: <20130827092856.GC7660@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: boris brezillon <b.brezillon@overkiz.com>
-Date: Tue, 27 Aug 2013 09:42:34 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 27 Aug 2013 11:28:56 +0200
 
-> Could you apply, the 3rd version of this series instead ?
+> I'd take this into ipsec-next and update the the ipv6 vti patch
+> according to your changes if David does not mind.
 
-There can never be an "instead" or reverting patches I've said I've
-applied already.
-
-If you want changes, you have to submit follow-on fixes.
+This is fine.
