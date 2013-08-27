@@ -1,99 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6:examine the IP source address legitimacy
-Date: Tue, 27 Aug 2013 16:20:59 +0200
-Message-ID: <20130827142059.GA23120@order.stressinduktion.org>
-References: <521C90A0.60708@cn.fujitsu.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH] net: fec: add the initial to set the physical mac
+ address
+Date: Tue, 27 Aug 2013 16:18:54 +0200
+Message-ID: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: b20596@freescale.com, b45643@freescale.com, davem@davemloft.net,
+	netdev@vger.kernel.org, shawn.guo@linaro.org,
+	bhutchings@solarflare.com, R49496@freescale.com,
+	stephen@networkplumber.org
+To: Fugang Duan <B38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49293 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751885Ab3H0OVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 10:21:01 -0400
-Content-Disposition: inline
-In-Reply-To: <521C90A0.60708@cn.fujitsu.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46463 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086Ab3H0OWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 10:22:12 -0400
+In-Reply-To: <1377170269-8988-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 27, 2013 at 07:42:24PM +0800, Duan Jiong wrote:
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Am Donnerstag, den 22.08.2013, 19:17 +0800 schrieb Fugang Duan:
+> For imx6slx evk platform, the fec driver cannot work since there
+> have no valid mac address set in physical mac registers.
 > 
-> RFC4861 8.1:
-> The IP source address of the Redirect is the
-> same as the current first-hop router for the
-> specified ICMP Destination Address.
+> For imx serial platform, fec/enet IPs both need the physical MAC
+> address initial, otherwise it cannot work.
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> After acquiring the valid MAC address from devices tree/pfuse/
+> kernel command line/random mac address, and then set it to the
+> physical MAC address registers.
+> 
+Yeah, we have also seen that we need to set this explicitly. The strange
+thing is that I recall this used to work without calling
+fec_set_mac_address() explicitly, so either the netdev core was calling
+it at some point, or our userspace was. I didn't got around to
+investigate this further.
+So anyway:
+Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+
+> Signed-off-by: Fugang Duan  <B38611@freescale.com>
 > ---
->  net/ipv6/route.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+>  drivers/net/ethernet/freescale/fec_main.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
 > 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 8d9a93e..d4f0f72 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1685,6 +1685,7 @@ static int ip6_route_del(struct fib6_config *cfg)
->  static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buff *skb)
->  {
->  	struct net *net = dev_net(skb->dev);
-> +	struct ipv6hdr *iph = ipv6_hdr(skb);
->  	struct netevent_redirect netevent;
->  	struct rt6_info *rt, *nrt = NULL;
->  	struct ndisc_options ndopts;
-> @@ -1745,7 +1746,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
->  	}
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 4349a9e..9b5e08c 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1867,10 +1867,12 @@ fec_set_mac_address(struct net_device *ndev, void *p)
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	struct sockaddr *addr = p;
 >  
->  	rt = (struct rt6_info *) dst;
-> -	if (rt == net->ipv6.ip6_null_entry) {
-> +	if (rt == net->ipv6.ip6_null_entry || !ipv6_addr_equal(&rt->rt6i_gateway, &iph->saddr)) {
->  		net_dbg_ratelimited("rt6_redirect: source isn't a valid nexthop for redirect target\n");
->  		return;
->  	}
+> -	if (!is_valid_ether_addr(addr->sa_data))
+> -		return -EADDRNOTAVAIL;
+> +	if (p) {
+> +		if (!is_valid_ether_addr(addr->sa_data))
+> +			return -EADDRNOTAVAIL;
+>  
+> -	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
+> +		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
+> +	}
+>  
+>  	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
+>  		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
+> @@ -1969,6 +1971,7 @@ static int fec_enet_init(struct net_device *ndev)
+>  
+>  	/* Get the Ethernet address */
+>  	fec_get_mac(ndev);
+> +	fec_set_mac_address(ndev, NULL);
+>  
+>  	/* Set receive and transmit descriptor base. */
+>  	fep->rx_bd_base = cbd_base;
 
-Hmm, that's difficult...
-
-There was once this check:
-
-        /*
-         *      RFC 2461 specifies that redirects should only be
-         *      accepted if they come from the nexthop to the target.
-         *      Due to the way default routers are chosen, this notion
-         *      is a bit fuzzy and one might need to check all default
-         *      routers.
-         */
-        if (!ipv6_addr_equal(saddr, &rt->rt6i_gateway)) {
-                if (rt->rt6i_flags & RTF_DEFAULT) {
-                        struct rt6_info *rt1;
-
-                        read_lock(&rt6_lock);
-                        for (rt1 = ip6_routing_table.leaf; rt1; rt1 = rt1->u.next) {
-                                if (ipv6_addr_equal(saddr, &rt1->rt6i_gateway)) {
-                                        dst_hold(&rt1->u.dst);
-                                        dst_release(&rt->u.dst);
-                                        read_unlock(&rt6_lock);
-                                        rt = rt1;
-                                        goto source_ok;
-                                }
-                        }
-                        read_unlock(&rt6_lock);
-                }
-                if (net_ratelimit())
-                        printk(KERN_DEBUG "rt6_redirect: source isn't a valid nexthop "
-                               "for redirect target\n");
-                goto out;
-        }
-
-
-And even got more complicated in commit
-a6279458c534d01ccc39498aba61c93083ee0372 ("NDISC: Search over all possible
-rules on receipt of redirect.").
-
-Today we even have ECMP routes maybe making this decision even a bit
-more complicated. But I agree, there should be a check, but it will be
-a bit more complicated.
-
-Greetings,
-
-  Hannes
+-- 
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
