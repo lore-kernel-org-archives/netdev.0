@@ -1,140 +1,402 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next RFC 3/7] i40evf: core ethtool functionality
-Date: Tue, 27 Aug 2013 18:23:38 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C39ED67@FMSMSX113.amr.corp.intel.com>
-References: <1377233609-11627-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377233609-11627-4-git-send-email-jeffrey.t.kirsher@intel.com>
- <1377624472.13272.43.camel@bwh-desktop.uk.level5networks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC net-next] ipv6: avoid high order memory allocations for /proc/net/ipv6_route
+Date: Tue, 27 Aug 2013 20:24:42 +0200
+Message-ID: <20130827182442.GA27466@order.stressinduktion.org>
+References: <20130821175024.GA14419@order.stressinduktion.org> <20130822031602.GA19269@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: greearb@candelatech.com, kaber@trash.net, eric.dumazet@gmail.com,
+	gaofeng@cn.fujitsu.com, kuznet@ms2.inr.ac.ru, davem@davemloft.net
+To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28381 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752286Ab3H0SXp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 14:23:45 -0400
-In-Reply-To: <1377624472.13272.43.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:49745 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237Ab3H0SYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 14:24:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20130822031602.GA19269@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIEF1Z3Vz
-dCAyNywgMjAxMyAxMDoyOCBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZl
-bUBkYXZlbWxvZnQubmV0OyBXaWxsaWFtcywgTWl0Y2ggQTsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsNCj4gZ29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBS
-ZTogW25ldC1uZXh0IFJGQyAzLzddIGk0MGV2ZjogY29yZSBldGh0b29sIGZ1bmN0aW9uYWxpdHkN
-Cj4gDQo+IE9uIFRodSwgMjAxMy0wOC0yMiBhdCAyMTo1MyAtMDcwMCwgSmVmZiBLaXJzaGVyIHdy
-b3RlOg0KPiBbLi4uXQ0KPiA+IC0tLSAvZGV2L251bGwNCj4gPiArKysgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX2V0aHRvb2wuYw0KPiBbLi4uXQ0KPiA+ICsvKioN
-Cj4gPiArICogaTQwZXZmX2dldF9zZXR0aW5ncyAtIEdldCBMaW5rIFNwZWVkIGFuZCBEdXBsZXgg
-c2V0dGluZ3MNCj4gPiArICogQG5ldGRldjogbmV0d29yayBpbnRlcmZhY2UgZGV2aWNlIHN0cnVj
-dHVyZQ0KPiA+ICsgKiBAZWNtZDogZXRodG9vbCBjb21tYW5kDQo+ID4gKyAqDQo+ID4gKyAqIFJl
-cG9ydHMgc3BlZWQvZHVwbGV4IHNldHRpbmdzLiBCZWNhdXNlIHRoaXMgaXMgYSBWRiwgd2UgZG9u
-J3Qga25vdw0KPiB3aGF0DQo+ID4gKyAqIGtpbmQgb2YgbGluayB3ZSByZWFsbHkgaGF2ZSwgc28g
-d2UgZmFrZSBpdC4NCj4gPiArICoqLw0KPiA+ICtzdGF0aWMgaW50IGk0MGV2Zl9nZXRfc2V0dGlu
-Z3Moc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gPiArCQkJICAgICAgIHN0cnVjdCBldGh0
-b29sX2NtZCAqZWNtZCkNCj4gPiArew0KPiA+ICsJZWNtZC0+c3VwcG9ydGVkID0gU1VQUE9SVEVE
-XzEwMDAwYmFzZVRfRnVsbDsNCj4gDQo+IFRoaXMgaXMgc2lsbHkuDQo+IA0KPiA+ICsJZWNtZC0+
-YXV0b25lZyA9IEFVVE9ORUdfRElTQUJMRTsNCj4gPiArCWVjbWQtPnRyYW5zY2VpdmVyID0gWENW
-Ul9EVU1NWTE7DQo+ID4gKwllY21kLT5wb3J0ID0gLTE7DQo+IA0KPiBQT1JUX05PTkUsIEkgdGhp
-bmsuDQo+IA0KPiA+ICsJcmV0dXJuIDA7DQo+ID4gK30NCj4gPiArDQo+ID4gKy8qKg0KPiA+ICsg
-KiBpNDBldmZfZ2V0X3NzZXRfY291bnQgLSBHZXQgbGVuZ3RoIG9mIHN0cmluZyBzZXQNCj4gPiAr
-ICogQG5ldGRldjogbmV0d29yayBpbnRlcmZhY2UgZGV2aWNlIHN0cnVjdHVyZQ0KPiA+ICsgKiBA
-c3NldDogaWQgb2Ygc3RyaW5nIHNldA0KPiA+ICsgKg0KPiA+ICsgKiBSZXBvcnRzIHNpemUgKGlu
-IGJ5dGVzKSBvZiBzdHJpbmcgc2V0Lg0KPiANCj4gTm90IGluIGJ5dGVzLg0KPiANCj4gPiAgVGhp
-cyBkcml2ZXIgb25seSBzdXBwb3J0cw0KPiA+ICsgKiBzdHJpbmdzIGZvciBzdGF0aXN0aWNzLg0K
-PiA+ICsgKiovDQo+IFsuLi5dDQo+ID4gKy8qKg0KPiA+ICsgKiBpNDBldmZfZ2V0X3N0cmluZ3Mg
-LSBHZXQgc3RyaW5nIHNldA0KPiA+ICsgKiBAbmV0ZGV2OiBuZXR3b3JrIGludGVyZmFjZSBkZXZp
-Y2Ugc3RydWN0dXJlDQo+ID4gKyAqIEBzc2V0OiBpZCBvZiBzdHJpbmcgc2V0DQo+ID4gKyAqIEBk
-YXRhOiBidWZmZXIgZm9yIHN0cmluZyBkYXRhDQo+ID4gKyAqDQo+ID4gKyAqIFN0cmluZ3MgYXJl
-IGNvbmNhdGVuYXRlZCBpbnRvIHRoZSBkYXRhIGJ1ZmZlciwgc2VwYXJhdGVkIGJ5IG51bGxzLg0K
-PiANCj4gVGhpcyBsb29rcyBsaWtlIGEgZGVzY3JpcHRpb24gb2YgYSBXaW5kb3dzLXN0eWxlIGRv
-dWJsZS1udWxsLXRlcm1pbmF0ZWQNCj4gc3RyaW5nIGxpc3QsIG5vdCBhbiBldGh0b29sIHN0cmlu
-ZyBzZXQuDQo+IA0KPiA+ICsgKiovDQo+ID4gK3N0YXRpYyB2b2lkIGk0MGV2Zl9nZXRfc3RyaW5n
-cyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCB1MzIgc3NldCwgdTgNCj4gKmRhdGEpDQo+ID4g
-K3sNCj4gPiArCXN0cnVjdCBpNDBldmZfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5l
-dGRldik7DQo+ID4gKwl1OCAqcCA9IGRhdGE7DQo+ID4gKwlpbnQgaTsNCj4gPiArDQo+ID4gKwlp
-ZiAoc3NldCA9PSBFVEhfU1NfU1RBVFMpIHsNCj4gPiArCQlmb3IgKGkgPSAwOyBpIDwgSTQwRVZG
-X0dMT0JBTF9TVEFUU19MRU47IGkrKykgew0KPiA+ICsJCQltZW1jcHkocCwgaTQwZXZmX2dzdHJp
-bmdzX3N0YXRzW2ldLnN0YXRfc3RyaW5nLA0KPiA+ICsJCQkgICAgICAgRVRIX0dTVFJJTkdfTEVO
-KTsNCj4gPiArCQkJcCArPSBFVEhfR1NUUklOR19MRU47DQo+ID4gKwkJfQ0KPiA+ICsJCWZvciAo
-aSA9IDA7IGkgPCBhZGFwdGVyLT52c2lfcmVzLT5udW1fcXVldWVfcGFpcnM7IGkrKykgew0KPiA+
-ICsJCQlzbnByaW50ZihwLCBFVEhfR1NUUklOR19MRU4sICIlcy50eF9xdWV1ZV8ldS5wYWNrZXRz
-IiwNCj4gPiArCQkJCSBuZXRkZXYtPm5hbWUsIGkpOw0KPiA+ICsJCQlwICs9IEVUSF9HU1RSSU5H
-X0xFTjsNCj4gPiArCQkJc25wcmludGYocCwgRVRIX0dTVFJJTkdfTEVOLCAiJXMudHhfcXVldWVf
-JXUuYnl0ZXMiLA0KPiA+ICsJCQkJIG5ldGRldi0+bmFtZSwgaSk7DQo+ID4gKwkJCXAgKz0gRVRI
-X0dTVFJJTkdfTEVOOw0KPiA+ICsJCX0NCj4gPiArCQlmb3IgKGkgPSAwOyBpIDwgYWRhcHRlci0+
-dnNpX3Jlcy0+bnVtX3F1ZXVlX3BhaXJzOyBpKyspIHsNCj4gPiArCQkJc25wcmludGYocCwgRVRI
-X0dTVFJJTkdfTEVOLCAiJXMucnhfcXVldWVfJXUucGFja2V0cyIsDQo+ID4gKwkJCQkgbmV0ZGV2
-LT5uYW1lLCBpKTsNCj4gPiArCQkJcCArPSBFVEhfR1NUUklOR19MRU47DQo+ID4gKwkJCXNucHJp
-bnRmKHAsIEVUSF9HU1RSSU5HX0xFTiwgIiVzLnJ4X3F1ZXVlXyV1LmJ5dGVzIiwNCj4gPiArCQkJ
-CSBuZXRkZXYtPm5hbWUsIGkpOw0KPiA+ICsJCQlwICs9IEVUSF9HU1RSSU5HX0xFTjsNCj4gDQo+
-IEl0IGlzIGNvbXBsZXRlbHkgcmVkdW5kYW50IHRvIHB1dCB0aGUgZGV2aWNlIG5hbWUgaW50byBz
-dGF0aXN0aWMgbmFtZXMsDQo+IGFuZCBpcyBsaWFibGUgdG8gY2F1c2UgdGhlIG5hbWVzIHRvIGJl
-IHRydW5jYXRlZC4gIFRoZXJlIHdhcyBhbHNvIGENCj4gZGlzY3Vzc2lvbiBhYm91dCBob3cgdG8g
-bmFtZSBwZXItcXVldWUgc3RhdGlzdGljcyBhIHdoaWxlIGJhY2ssIHdoaWNoDQo+IHNlZW1lZCB0
-byBlbmQgaW4gYWdyZWVtZW50Og0KPiANCj4gaHR0cDovL3RocmVhZC5nbWFuZS5vcmcvZ21hbmUu
-bGludXgubmV0d29yay8yNzMwMTQvZm9jdXM9MTIyMDUNCj4gDQo+IFNvIEkgdGhpbmsgdGhlIG5h
-bWUgZm9ybWF0cyBzaG91bGQgYmUgInR4LSV1LnBhY2tldHMiIGV0Yy4NCj4gDQo+IFsuLi5dDQo+
-ID4gKy8qKg0KPiA+ICsgKiBpNDBldmZfZ2V0X2RydmludG8gLSBHZXQgZHJpdmVyIGluZm8NCj4g
-PiArICogQG5ldGRldjogbmV0d29yayBpbnRlcmZhY2UgZGV2aWNlIHN0cnVjdHVyZQ0KPiA+ICsg
-KiBAZHJ2aW5mbzogZXRob29sIGRyaXZlciBpbmZvIHN0cnVjdHVyZQ0KPiA+ICsgKg0KPiA+ICsg
-KiBSZXR1cm5zIGluZm9ybWF0aW9uIGFib3V0IHRoZSBkcml2ZXIgYW5kIGRldmljZSBmb3IgZGlz
-cGxheSB0byB0aGUNCj4gdXNlci4NCj4gPiArICoqLw0KPiA+ICtzdGF0aWMgdm9pZCBpNDBldmZf
-Z2V0X2RydmluZm8oc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gPiArCQkJICAgICAgIHN0
-cnVjdCBldGh0b29sX2RydmluZm8gKmRydmluZm8pDQo+ID4gK3sNCj4gPiArCXN0cnVjdCBpNDBl
-dmZfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7DQo+ID4gKw0KPiA+ICsJ
-c3RybmNweShkcnZpbmZvLT5kcml2ZXIsIGk0MGV2Zl9kcml2ZXJfbmFtZSwgMzIpOw0KPiA+ICsJ
-c3RybmNweShkcnZpbmZvLT52ZXJzaW9uLCBpNDBldmZfZHJpdmVyX3ZlcnNpb24sIDMyKTsNCj4g
-PiArDQo+ID4gKwlzdHJuY3B5KGRydmluZm8tPmZ3X3ZlcnNpb24sICJOL0EiLCA0KTsNCj4gDQo+
-IElmIHRoZXJlIGlzIG5vIGZpcm13YXJlIHZlcnNpb24gdGhlbiBkb24ndCBzZXQgZndfdmVyc2lv
-biBhdCBhbGwuDQo+IA0KPiA+ICsJc3RybmNweShkcnZpbmZvLT5idXNfaW5mbywgcGNpX25hbWUo
-YWRhcHRlci0+cGRldiksIDMyKTsNCj4gDQo+IFVzZSBzdHJsY3B5KCkgbm90IHN0cm5jcHkoKSBm
-b3IgYWxsIG9mIHRoZSBvdGhlciBzdHJpbmdzLg0KPiANCj4gPiArCWRydmluZm8tPm5fc3RhdHMg
-PSBJNDBFVkZfU1RBVFNfTEVOOw0KPiA+ICsJZHJ2aW5mby0+cmVnZHVtcF9sZW4gPSAwOw0KPiAN
-Cj4gRG9uJ3Qgc2V0IHRoZXNlIGF0IGFsbCwgYXMgdGhleSBhcmUgaW5pdGlhbGlzZWQgYnkgdGhl
-IGV0aHRvb2wgY29yZQ0KPiBiYXNlZCBvbiBvdGhlciBkcml2ZXIgb3BlcmF0aW9ucy4NCj4gDQo+
-IFsuLi5dDQo+ID4gK3N0YXRpYyB2b2lkIGk0MGV2Zl9nZXRfcmluZ3BhcmFtKHN0cnVjdCBuZXRf
-ZGV2aWNlICpuZXRkZXYsDQo+ID4gKwkJCQkgIHN0cnVjdCBldGh0b29sX3JpbmdwYXJhbSAqcmlu
-ZykNCj4gPiArew0KPiA+ICsJc3RydWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2
-X3ByaXYobmV0ZGV2KTsNCj4gPiArCXN0cnVjdCBpNDBlX3JpbmcgKnR4X3JpbmcgPSAmYWRhcHRl
-ci0+dHhfcmluZ3NbMF07DQo+ID4gKwlzdHJ1Y3QgaTQwZV9yaW5nICpyeF9yaW5nID0gJmFkYXB0
-ZXItPnJ4X3JpbmdzWzBdOw0KPiA+ICsNCj4gPiArCXJpbmctPnJ4X21heF9wZW5kaW5nID0gSTQw
-RVZGX01BWF9SWEQ7DQo+ID4gKwlyaW5nLT50eF9tYXhfcGVuZGluZyA9IEk0MEVWRl9NQVhfVFhE
-Ow0KPiA+ICsJcmluZy0+cnhfbWluaV9tYXhfcGVuZGluZyA9IDA7DQo+ID4gKwlyaW5nLT5yeF9q
-dW1ib19tYXhfcGVuZGluZyA9IDA7DQo+ID4gKwlyaW5nLT5yeF9wZW5kaW5nID0gcnhfcmluZy0+
-Y291bnQ7DQo+ID4gKwlyaW5nLT50eF9wZW5kaW5nID0gdHhfcmluZy0+Y291bnQ7DQo+ID4gKwly
-aW5nLT5yeF9taW5pX3BlbmRpbmcgPSAwOw0KPiA+ICsJcmluZy0+cnhfanVtYm9fcGVuZGluZyA9
-IDA7DQo+ID4gK30NCj4gDQo+IE5vIG5lZWQgdG8gc2V0IHRoZSB1bnN1cHBvcnRlZCBmaWVsZHMg
-dG8gMC4NCj4gDQo+IFsuLi5dDQo+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX2dldF9jb2FsZXNjZShz
-dHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LA0KPiA+ICsJCQkgICAgIHN0cnVjdCBldGh0b29sX2Nv
-YWxlc2NlICplYykNCj4gPiArew0KPiA+ICsJc3RydWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVy
-ID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiArCXN0cnVjdCBpNDBlX3ZzaSAqdnNpID0gJmFk
-YXB0ZXItPnZzaTsNCj4gPiArDQo+ID4gKwllYy0+dHhfbWF4X2NvYWxlc2NlZF9mcmFtZXNfaXJx
-ID0gdnNpLT53b3JrX2xpbWl0Ow0KPiA+ICsJZWMtPnJ4X21heF9jb2FsZXNjZWRfZnJhbWVzX2ly
-cSA9IHZzaS0+d29ya19saW1pdDsNCj4gDQo+IFVzZSB0aGUgZmllbGRzIHdpdGhvdXQgdGhlICdf
-aXJxJyBzdWZmaXguICBUaGUgJ19pcnEnIHN1ZmZpeGVkIGZpZWxkcw0KPiBhcmUgdGhlcmUgZm9y
-IHNvbWUgTklDcyB0aGF0IGNoYW5nZSBjb2FsZXNjaW5nIGJlaGF2aW91ciBkZXBlbmRpbmcgb24N
-Cj4gd2hldGhlciB0aGUgcHJldmlvdXMgSVJRIGlzIHN0aWxsIGJlaW5nIGhhbmRsZWQuDQo+IA0K
-PiBbLi4uXQ0KPiA+ICtzdGF0aWMgaW50IGk0MGV2Zl9zZXRfY29hbGVzY2Uoc3RydWN0IG5ldF9k
-ZXZpY2UgKm5ldGRldiwNCj4gPiArCQkJICAgICBzdHJ1Y3QgZXRodG9vbF9jb2FsZXNjZSAqZWMp
-DQo+ID4gK3sNCj4gPiArCXN0cnVjdCBpNDBldmZfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9w
-cml2KG5ldGRldik7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9odyAqaHcgPSAmYWRhcHRlci0+aHc7DQo+
-ID4gKwlzdHJ1Y3QgaTQwZV92c2kgKnZzaSA9ICZhZGFwdGVyLT52c2k7DQo+ID4gKwlzdHJ1Y3Qg
-aTQwZV9xX3ZlY3RvciAqcV92ZWN0b3I7DQo+ID4gKwlpbnQgaTsNCj4gPiArDQo+ID4gKwlpZiAo
-ZWMtPnR4X21heF9jb2FsZXNjZWRfZnJhbWVzX2lycSB8fCBlYy0+cnhfbWF4X2NvYWxlc2NlZF9m
-cmFtZXNfaXJxKQ0KPiA+ICsJCXZzaS0+d29ya19saW1pdCA9IGVjLT50eF9tYXhfY29hbGVzY2Vk
-X2ZyYW1lc19pcnE7DQo+IFsuLi5dDQo+IA0KPiBBZ2FpbiwgdXNlIHRoZSBmaWVsZHMgd2l0aG91
-dCB0aGUgJ19pcnEnIHN1ZmZpeC4NCj4gDQo+IEJlbi4NCj4gDQoNClRoYW5rcyBmb3IgdGhlIHJl
-dmlldywgQmVuLiBJJ2xsIGZpeCBhbGwgb2YgdGhlc2UgYmVmb3JlIHdlIHNlbmQgdGhpcyBvdXQg
-YWdhaW4uDQotTWl0Y2gNCg0KDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVy
-LCBTb2xhcmZsYXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUg
-bWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0
-IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+Hello Ben and Patrick!
+
+I have a question regarding this patch:
+
+commit 2bec5a369ee79576a3eea2c23863325089785a2c
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Feb 8 05:19:03 2010 +0000
+
+    ipv6: fib: fix crash when changing large fib while dumping it
+    
+    When the fib size exceeds what can be dumped in a single skb, the
+    dump is suspended and resumed once the last skb has been received
+    by userspace. When the fib is changed while the dump is suspended,
+    the walker might contain stale pointers, causing a crash when the
+    dump is resumed.
+
+Below is a patch to switch /proc/net/ipv6_route to an iterating interface
+as well, thus avoiding large order allocations in the procfs code.
+
+Looking at the netlink dump code I think I might also need the
+serialnumber check and restart logic but I could not reproduce any NULL-ptr
+deref with my code or with your patch reverted. Maybe you remember some
+special cases how to reproduce this? There was already some doubt the
+serialnumber check would be needed in this thread:
+https://lkml.org/lkml/2012/6/12/386
+
+I also tried to check the walker logic and have not found any spots where it
+should produce such a BUG.
+
+It would also help to know the exact kernel version on which this bug was
+produced.
+
+Thanks a lot!
+
+On Thu, Aug 22, 2013 at 05:16:02AM +0200, Hannes Frederic Sowa wrote:
+> On Wed, Aug 21, 2013 at 07:50:24PM +0200, Hannes Frederic Sowa wrote:
+> > I created this patch in a hurry while trying to get the rt6i_flags of
+> > the routing entries on a system with lots of routes (I later cleaned it
+> > up a bit).
+> > 
+> > The current approach for dumping routes over netlink is to redump a tree
+> > as soon as the serialnumber on the nodes changes. Is this behavior more
+> > preferable as to just ignore the routes for that moment? I am in favour
+> > of not restarting the dump on /proc/net/ipv6_route.
+> 
+> Ok, I hit the same panics as Patrick once did
+> while some more stress testing this change
+> (http://permalink.gmane.org/gmane.linux.network/151391).
+> 
+> As I read this up, this was also the reason the serial checks where
+> introduced. It also tries to skip visited notes, so please void my
+> question above.
+> 
+> The reason is a disconnected fib6_node in FWS_U state trying to walk
+> up. I'll investigate if we can fix this up in the walker post-cleanup on
+> fib6_repair_tree/fib6_del_route (then we could also remove the serial
+> number checks on inet6_dump_fib) or I will make the appropriate serial
+> changes to this patch, too.
+
+This was actually an error in my debugging code. I could not trigger it
+afterwards. It was fully my fault.
+
+Current patch looks like this:
+
+[PATCH RFC] ipv6: avoid high order memory allocations for /proc/net/ipv6_route
+
+Dumping routes on a system with lots rt6_infos in the fibs causes up to
+11-order allocations in seq_file (which fail). While we could switch
+there to vmalloc we could just implement the streaming interface for
+/proc/net/ipv6_route. This patch switches /proc/net/ipv6_route from
+single_open_net to seq_open_net.
+
+loff_t *pos tracks dst entries.
+
+Also kill never used struct rt6_proc_arg and now unused function
+fib6_clean_all_ro.
+
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/ip6_fib.h |   7 +-
+ net/ipv6/ip6_fib.c    | 191 +++++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv6/route.c      |  46 +-----------
+ 3 files changed, 176 insertions(+), 68 deletions(-)
+
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 48ec25a..9bd5de8 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -281,10 +281,6 @@ struct fib6_node		*fib6_locate(struct fib6_node *root,
+ 					     const struct in6_addr *daddr, int dst_len,
+ 					     const struct in6_addr *saddr, int src_len);
+ 
+-extern void			fib6_clean_all_ro(struct net *net,
+-					       int (*func)(struct rt6_info *, void *arg),
+-					       int prune, void *arg);
+-
+ extern void			fib6_clean_all(struct net *net,
+ 					       int (*func)(struct rt6_info *, void *arg),
+ 					       int prune, void *arg);
+@@ -306,6 +302,9 @@ extern void			fib6_gc_cleanup(void);
+ 
+ extern int			fib6_init(void);
+ 
++extern int			ipv6_route_open(struct inode *inode,
++						struct file *file);
++
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ extern int			fib6_rules_init(void);
+ extern void			fib6_rules_cleanup(void);
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 73db48e..04192af 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1529,25 +1529,6 @@ static void fib6_clean_tree(struct net *net, struct fib6_node *root,
+ 	fib6_walk(&c.w);
+ }
+ 
+-void fib6_clean_all_ro(struct net *net, int (*func)(struct rt6_info *, void *arg),
+-		    int prune, void *arg)
+-{
+-	struct fib6_table *table;
+-	struct hlist_head *head;
+-	unsigned int h;
+-
+-	rcu_read_lock();
+-	for (h = 0; h < FIB6_TABLE_HASHSZ; h++) {
+-		head = &net->ipv6.fib_table_hash[h];
+-		hlist_for_each_entry_rcu(table, head, tb6_hlist) {
+-			read_lock_bh(&table->tb6_lock);
+-			fib6_clean_tree(net, &table->tb6_root,
+-					func, prune, arg);
+-			read_unlock_bh(&table->tb6_lock);
+-		}
+-	}
+-	rcu_read_unlock();
+-}
+ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
+ 		    int prune, void *arg)
+ {
+@@ -1782,3 +1763,175 @@ void fib6_gc_cleanup(void)
+ 	unregister_pernet_subsys(&fib6_net_ops);
+ 	kmem_cache_destroy(fib6_node_kmem);
+ }
++
++#ifdef CONFIG_PROC_FS
++
++struct ipv6_route_iter {
++	struct seq_net_private p;
++	struct fib6_walker_t w;
++	loff_t skip;
++	struct fib6_table *tbl;
++};
++
++static int ipv6_route_seq_show(struct seq_file *seq, void *v)
++{
++	struct rt6_info *rt = v;
++	struct ipv6_route_iter *iter = seq->private;
++
++	seq_printf(seq, "%pi6 %02x ", &rt->rt6i_dst.addr, rt->rt6i_dst.plen);
++
++#ifdef CONFIG_IPV6_SUBTREES
++	seq_printf(seq, "%pi6 %02x ", &rt->rt6i_src.addr, rt->rt6i_src.plen);
++#else
++	seq_puts(seq, "00000000000000000000000000000000 00 ");
++#endif
++	if (rt->rt6i_flags & RTF_GATEWAY)
++		seq_printf(seq, "%pi6", &rt->rt6i_gateway);
++	else
++		seq_puts(seq, "00000000000000000000000000000000");
++
++	seq_printf(seq, " %08x %08x %08x %08x %8s\n",
++		   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
++		   rt->dst.__use, rt->rt6i_flags,
++		   rt->dst.dev ? rt->dst.dev->name : "");
++	iter->w.leaf = NULL;
++	return 0;
++}
++
++static int ipv6_route_yield(struct fib6_walker_t *w)
++{
++	struct ipv6_route_iter *iter = w->args;
++
++	if (!iter->skip)
++		return 1;
++
++	do {
++		iter->w.leaf = iter->w.leaf->dst.rt6_next;
++		iter->skip--;
++		if (!iter->skip && iter->w.leaf)
++			return 1;
++	} while (iter->w.leaf);
++
++	return 0;
++}
++
++static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
++{
++	memset(&iter->w, 0, sizeof(iter->w));
++	iter->w.func = ipv6_route_yield;
++	iter->w.root = &iter->tbl->tb6_root;
++	iter->w.state = FWS_INIT;
++	iter->w.node = iter->w.root;
++	iter->w.args = iter;
++	INIT_LIST_HEAD(&iter->w.lh);
++	fib6_walker_link(&iter->w);
++}
++
++static struct fib6_table *ipv6_route_seq_next_table(struct fib6_table *tbl,
++						    struct net *net)
++{
++	unsigned int h;
++	struct hlist_node *node;
++
++	if (tbl) {
++		h = (tbl->tb6_id & (FIB6_TABLE_HASHSZ - 1)) + 1;
++		node = rcu_dereference_bh(hlist_next_rcu(&tbl->tb6_hlist));
++	} else {
++		h = 0;
++		node = NULL;
++	}
++
++	while (!node && h < FIB6_TABLE_HASHSZ) {
++		node = rcu_dereference_bh(
++			hlist_first_rcu(&net->ipv6.fib_table_hash[h++]));
++	}
++	return hlist_entry_safe(node, struct fib6_table, tb6_hlist);
++}
++
++static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	int r;
++	struct rt6_info *n;
++	struct net *net = seq_file_net(seq);
++	struct ipv6_route_iter *iter = seq->private;
++
++	if (!v)
++		goto iter_table;
++
++	n = ((struct rt6_info *)v)->dst.rt6_next;
++	if (n) {
++		++*pos;
++		return n;
++	}
++
++iter_table:
++	read_lock(&iter->tbl->tb6_lock);
++	r = fib6_walk_continue(&iter->w);
++	read_unlock(&iter->tbl->tb6_lock);
++	if (r > 0) {
++		if (v)
++			++*pos;
++		return iter->w.leaf;
++	} else if (r < 0) {
++		fib6_walker_unlink(&iter->w);
++		return NULL;
++	}
++	fib6_walker_unlink(&iter->w);
++
++	iter->tbl = ipv6_route_seq_next_table(iter->tbl, net);
++	if (!iter->tbl)
++		return NULL;
++
++	ipv6_route_seq_setup_walk(iter);
++	goto iter_table;
++}
++
++static void *ipv6_route_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(RCU_BH)
++{
++	struct net *net = seq_file_net(seq);
++	struct ipv6_route_iter *iter = seq->private;
++
++	rcu_read_lock_bh();
++	iter->tbl = ipv6_route_seq_next_table(NULL, net);
++	iter->skip = *pos;
++
++	if (iter->tbl) {
++		ipv6_route_seq_setup_walk(iter);
++		return ipv6_route_seq_next(seq, NULL, pos);
++	} else {
++		return NULL;
++	}
++}
++
++static bool ipv6_route_iter_active(struct ipv6_route_iter *iter)
++{
++	struct fib6_walker_t *w = &iter->w;
++	return w->node && !(w->state == FWS_U && w->node == w->root);
++}
++
++static void ipv6_route_seq_stop(struct seq_file *seq, void *v)
++	__releases(RCU_BH)
++{
++	struct ipv6_route_iter *iter = seq->private;
++
++	if (ipv6_route_iter_active(iter))
++		fib6_walker_unlink(&iter->w);
++
++	rcu_read_unlock_bh();
++}
++
++static const struct seq_operations ipv6_route_seq_ops = {
++	.start	= ipv6_route_seq_start,
++	.next	= ipv6_route_seq_next,
++	.stop	= ipv6_route_seq_stop,
++	.show	= ipv6_route_seq_show
++};
++
++int ipv6_route_open(struct inode *inode, struct file *file)
++{
++	return seq_open_net(inode, file, &ipv6_route_seq_ops,
++			    sizeof(struct ipv6_route_iter));
++}
++
++#endif /* CONFIG_PROC_FS */
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index e22c4db..42cb227 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2729,56 +2729,12 @@ static int ip6_route_dev_notify(struct notifier_block *this,
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+-struct rt6_proc_arg
+-{
+-	char *buffer;
+-	int offset;
+-	int length;
+-	int skip;
+-	int len;
+-};
+-
+-static int rt6_info_route(struct rt6_info *rt, void *p_arg)
+-{
+-	struct seq_file *m = p_arg;
+-
+-	seq_printf(m, "%pi6 %02x ", &rt->rt6i_dst.addr, rt->rt6i_dst.plen);
+-
+-#ifdef CONFIG_IPV6_SUBTREES
+-	seq_printf(m, "%pi6 %02x ", &rt->rt6i_src.addr, rt->rt6i_src.plen);
+-#else
+-	seq_puts(m, "00000000000000000000000000000000 00 ");
+-#endif
+-	if (rt->rt6i_flags & RTF_GATEWAY) {
+-		seq_printf(m, "%pi6", &rt->rt6i_gateway);
+-	} else {
+-		seq_puts(m, "00000000000000000000000000000000");
+-	}
+-	seq_printf(m, " %08x %08x %08x %08x %8s\n",
+-		   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
+-		   rt->dst.__use, rt->rt6i_flags,
+-		   rt->dst.dev ? rt->dst.dev->name : "");
+-	return 0;
+-}
+-
+-static int ipv6_route_show(struct seq_file *m, void *v)
+-{
+-	struct net *net = (struct net *)m->private;
+-	fib6_clean_all_ro(net, rt6_info_route, 0, m);
+-	return 0;
+-}
+-
+-static int ipv6_route_open(struct inode *inode, struct file *file)
+-{
+-	return single_open_net(inode, file, ipv6_route_show);
+-}
+-
+ static const struct file_operations ipv6_route_proc_fops = {
+ 	.owner		= THIS_MODULE,
+ 	.open		= ipv6_route_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+-	.release	= single_release_net,
++	.release	= seq_release_net,
+ };
+ 
+ static int rt6_stats_seq_show(struct seq_file *seq, void *v)
+-- 
+1.8.3.1
