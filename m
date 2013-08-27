@@ -1,174 +1,191 @@
 From: Jan Kaluza <jkaluza@redhat.com>
-Subject: [PATCH 1/3] Send loginuid and sessionid in SCM_AUDIT
-Date: Tue, 27 Aug 2013 16:39:58 +0200
-Message-ID: <1377614400-27122-2-git-send-email-jkaluza@redhat.com>
+Subject: [PATCH 3/3] Send cgroup_path in SCM_CGROUP
+Date: Tue, 27 Aug 2013 16:40:00 +0200
+Message-ID: <1377614400-27122-4-git-send-email-jkaluza@redhat.com>
 References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
 Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	eparis@redhat.com, rgb@redhat.com, Jan Kaluza <jkaluza@redhat.com>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64360 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753672Ab3H0Olm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 10:41:42 -0400
 In-Reply-To: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jan Kaluza <jkaluza@redhat.com>
 ---
- include/linux/socket.h |  6 ++++++
- include/net/af_unix.h  |  2 ++
- include/net/scm.h      | 28 ++++++++++++++++++++++++++--
- net/unix/af_unix.c     |  7 +++++++
- 4 files changed, 41 insertions(+), 2 deletions(-)
+ include/linux/socket.h |  1 +
+ include/net/af_unix.h  |  1 +
+ include/net/scm.h      | 15 +++++++++++++++
+ net/core/scm.c         | 18 ++++++++++++++++++
+ net/unix/af_unix.c     | 20 ++++++++++++++++++++
+ 5 files changed, 55 insertions(+)
 
 diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 445ef75..505047a 100644
+index 6c7ace0..621fff1 100644
 --- a/include/linux/socket.h
 +++ b/include/linux/socket.h
-@@ -130,6 +130,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
- #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
- #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
- #define SCM_SECURITY	0x03		/* rw: security label		*/
-+#define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
+@@ -133,6 +133,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
+ #define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
+ #define SCM_PROCINFO	0x05	/* rw: comm + cmdline (NULL terminated
+ 					   array of char *) */
++#define SCM_CGROUP	0x06		/* rw: cgroup path */
  
  struct ucred {
  	__u32	pid;
-@@ -137,6 +138,11 @@ struct ucred {
- 	__u32	gid;
- };
- 
-+struct uaudit {
-+	__u32	loginuid;
-+	__u32	sessionid;
-+};
-+
- /* Supported address families. */
- #define AF_UNSPEC	0
- #define AF_UNIX		1	/* Unix domain sockets 		*/
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index a175ba4..3b9d22a 100644
+index 05c7678..c49bf35 100644
 --- a/include/net/af_unix.h
 +++ b/include/net/af_unix.h
-@@ -36,6 +36,8 @@ struct unix_skb_parms {
- 	u32			secid;		/* Security ID		*/
- #endif
- 	u32			consumed;
-+	kuid_t			loginuid;
-+	unsigned int		sessionid;
+@@ -32,6 +32,7 @@ struct unix_skb_parms_scm {
+ 	unsigned int sessionid;
+ 	char *procinfo;
+ 	int procinfo_len;
++	char *cgroup_path;
  };
  
- #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+ struct unix_skb_parms {
 diff --git a/include/net/scm.h b/include/net/scm.h
-index 8de2d37..e349a25 100644
+index 3346030..5398826 100644
 --- a/include/net/scm.h
 +++ b/include/net/scm.h
-@@ -6,6 +6,7 @@
- #include <linux/security.h>
- #include <linux/pid.h>
- #include <linux/nsproxy.h>
-+#include <linux/audit.h>
- 
- /* Well, we should have at least one descriptor open
-  * to accept passed FDs 8)
-@@ -18,6 +19,11 @@ struct scm_creds {
- 	kgid_t	gid;
- };
- 
-+struct scm_audit {
-+	kuid_t loginuid;
-+	unsigned int sessionid;
-+};
-+
- struct scm_fp_list {
- 	short			count;
- 	short			max;
-@@ -28,6 +34,7 @@ struct scm_cookie {
- 	struct pid		*pid;		/* Skb credentials */
- 	struct scm_fp_list	*fp;		/* Passed files		*/
+@@ -41,6 +41,7 @@ struct scm_cookie {
  	struct scm_creds	creds;		/* Skb credentials	*/
-+	struct scm_audit	audit;		/* Skb audit	*/
+ 	struct scm_audit	audit;		/* Skb audit	*/
+ 	struct scm_procinfo	procinfo;	/* Skb procinfo */
++	char *cgroup_path;
  #ifdef CONFIG_SECURITY_NETWORK
  	u32			secid;		/* Passed security ID 	*/
  #endif
-@@ -58,6 +65,13 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
- 	scm->creds.gid = gid;
+@@ -52,6 +53,7 @@ extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie
+ extern void __scm_destroy(struct scm_cookie *scm);
+ extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
+ extern int scm_get_current_procinfo(char **procinfo);
++extern int scm_get_current_cgroup_path(char **cgroup_path);
+ 
+ #ifdef CONFIG_SECURITY_NETWORK
+ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
+@@ -86,6 +88,12 @@ static inline void scm_set_procinfo(struct scm_cookie *scm,
+ 	scm->procinfo.len = len;
  }
  
-+static inline void scm_set_audit(struct scm_cookie *scm,
-+				    kuid_t loginuid, unsigned int sessionid)
++static inline void scm_set_cgroup_path(struct scm_cookie *scm,
++				    char *cgroup_path)
 +{
-+	scm->audit.loginuid = loginuid;
-+	scm->audit.sessionid = sessionid;
++	scm->cgroup_path = cgroup_path;
 +}
 +
  static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
  {
  	put_pid(scm->pid);
-@@ -77,8 +91,12 @@ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
- 	memset(scm, 0, sizeof(*scm));
- 	scm->creds.uid = INVALID_UID;
- 	scm->creds.gid = INVALID_GID;
--	if (forcecreds)
--		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
-+	if (forcecreds) {
-+		scm_set_cred(scm, task_tgid(current), current_uid(),
-+			     current_gid());
-+		scm_set_audit(scm, audit_get_loginuid(current),
-+			      audit_get_sessionid(current));
-+	}
- 	unix_get_peersec_dgram(sock, scm);
- 	if (msg->msg_controllen <= 0)
- 		return 0;
-@@ -123,7 +141,13 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
- 			.uid = from_kuid_munged(current_ns, scm->creds.uid),
- 			.gid = from_kgid_munged(current_ns, scm->creds.gid),
- 		};
-+		struct uaudit uaudits = {
-+			.loginuid = from_kuid_munged(current_ns,
-+						     scm->audit.loginuid),
-+			.sessionid = scm->audit.sessionid,
-+		};
- 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
-+		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
+@@ -140,6 +148,9 @@ static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct sc
+ 			security_release_secctx(secdata, seclen);
+ 		}
+ 	}
++
++	kfree(scm->cgroup_path);
++	scm->cgroup_path = NULL;
+ }
+ #else
+ static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
+@@ -172,6 +183,10 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
+ 		put_cmsg(msg, SOL_SOCKET, SCM_PROCINFO, scm->procinfo.len,
+ 				 scm->procinfo.procinfo);
++		if (scm->cgroup_path) {
++			put_cmsg(msg, SOL_SOCKET, SCM_CGROUP,
++				 strlen(scm->cgroup_path), scm->cgroup_path);
++		}
  	}
  
  	scm_destroy_cred(scm);
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 09ec044..2d408b9 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -404,3 +404,21 @@ out:
+ 	return res;
+ }
+ EXPORT_SYMBOL(scm_get_current_procinfo);
++
++int scm_get_current_cgroup_path(char **cgroup_path)
++{
++	int ret = 0;
++
++	*cgroup_path = kmalloc(PAGE_SIZE, GFP_KERNEL);
++	if (!(*cgroup_path))
++		return -ENOMEM;
++
++	ret = task_cgroup_path(current, *cgroup_path, PAGE_SIZE);
++	if (ret < 0) {
++		kfree(*cgroup_path);
++		*cgroup_path = NULL;
++	}
++
++	return ret;
++}
++EXPORT_SYMBOL(scm_get_current_cgroup_path);
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 86de99a..c410f76 100644
+index ab0be13..b638083 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1393,6 +1393,8 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 	UNIXCB(skb).pid  = get_pid(scm->pid);
- 	UNIXCB(skb).uid = scm->creds.uid;
- 	UNIXCB(skb).gid = scm->creds.gid;
-+	UNIXCB(skb).loginuid = scm->audit.loginuid;
-+	UNIXCB(skb).sessionid = scm->audit.sessionid;
- 	UNIXCB(skb).fp = NULL;
- 	if (scm->fp && send_fds)
- 		err = unix_attach_fds(scm, skb);
-@@ -1416,6 +1418,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- 	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
- 		UNIXCB(skb).pid  = get_pid(task_tgid(current));
- 		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
-+		UNIXCB(skb).loginuid = audit_get_loginuid(current);
-+		UNIXCB(skb).sessionid = audit_get_sessionid(current);
+@@ -1344,6 +1344,7 @@ static void unix_destruct_scm(struct sk_buff *skb)
+ 	if (UNIXCB(skb).scm) {
+ 		scm.procinfo.procinfo = UNIXSCM(skb).procinfo;
+ 		scm.procinfo.len = UNIXSCM(skb).procinfo_len;
++		scm.cgroup_path = UNIXSCM(skb).cgroup_path;
+ 	}
+ 	if (UNIXCB(skb).fp)
+ 		unix_detach_fds(&scm, skb);
+@@ -1420,6 +1421,14 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
+ 			return -ENOMEM;
+ 	}
+ 
++	UNIXSCM(skb).cgroup_path = NULL;
++	if (scm->cgroup_path) {
++		UNIXSCM(skb).cgroup_path = kstrdup(scm->cgroup_path,
++						   GFP_KERNEL);
++		if (!UNIXSCM(skb).cgroup_path)
++			return -ENOMEM;
++	}
++
+ 	skb->destructor = unix_destruct_scm;
+ 	return err;
+ }
+@@ -1443,6 +1452,7 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+ 		UNIXSCM(skb).sessionid = audit_get_sessionid(current);
+ 		UNIXSCM(skb).procinfo_len = scm_get_current_procinfo(
+ 			&UNIXSCM(skb).procinfo);
++		scm_get_current_cgroup_path(&UNIXSCM(skb).cgroup_path);
  	}
  }
  
-@@ -1812,6 +1816,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+@@ -1849,6 +1859,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 						 GFP_KERNEL),
+ 					 UNIXSCM(skb).procinfo_len);
+ 		}
++		if (UNIXSCM(skb).cgroup_path) {
++			scm_set_cgroup_path(siocb->scm,
++					    kstrdup(UNIXSCM(skb).cgroup_path,
++						    GFP_KERNEL));
++		}
  	}
- 	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
-+	scm_set_audit(siocb->scm, UNIXCB(skb).loginuid, UNIXCB(skb).sessionid);
  	unix_set_secdata(siocb->scm, skb);
  
- 	if (!(flags & MSG_PEEK)) {
-@@ -1993,6 +1998,8 @@ again:
- 		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
- 			/* Copy credentials */
- 			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
-+			scm_set_audit(siocb->scm, UNIXCB(skb).loginuid,
-+				      UNIXCB(skb).sessionid);
+@@ -2042,6 +2057,11 @@ again:
+ 						GFP_KERNEL),
+ 						UNIXSCM(skb).procinfo_len);
+ 				}
++				if (UNIXSCM(skb).cgroup_path) {
++					scm_set_cgroup_path(siocb->scm,
++							    kstrdup(UNIXSCM(skb).cgroup_path,
++							    GFP_KERNEL));
++				}
+ 			}
  			check_creds = 1;
  		}
- 
 -- 
 1.8.3.1
