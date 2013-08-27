@@ -1,30 +1,41 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v2] net: sctp: sctp_verify_init: clean up
- mandatory checks and add comment
-Date: Tue, 27 Aug 2013 10:11:12 -0400
-Message-ID: <20130827141112.GC7619@hmsreliant.think-freely.org>
-References: <1377612363-10779-1-git-send-email-dborkman@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH RFC net-next] net: epoll support for busy poll
+Date: Tue, 27 Aug 2013 17:11:16 +0300
+Message-ID: <521CB384.8070406@mellanox.com>
+References: <20130821103954.30607.6819.stgit@ladj378.jer.intel.com> <20130822201135.GA4088@dcvr.yhbt.net> <52170E78.1010704@linux.intel.com> <CAPcc5PhQGB195pMsMGOEE8BhZTvfXOf+Fh+3PdPbuOS0t1SULQ@mail.gmail.com> <521AEFC2.9010201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46307 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751571Ab3H0OLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 10:11:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1377612363-10779-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Eliezer Tamir <eliezer@tamir.org.il>,
+	Willem de Bruijn <willemb@google.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Eric Wong <normalperson@yhbt.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <521AEFC2.9010201@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 27, 2013 at 04:06:03PM +0200, Daniel Borkmann wrote:
-> Add a comment related to RFC4960 explaning why we do not check for initial
-> TSN, and while at it, remove yoda notation checks and clean up code from
-> checks of mandatory conditions. That's probably just really minor, but makes
-> reviewing easier.
+On 26/08/2013 09:03, Eliezer Tamir wrote:
+> On 26/08/2013 00:30, Amir Vadai wrote:
+>> I'm on vacation, will test and have some inputs later this week when I be
+>> back.
+>>
+> Hello Amir,
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Thanks Daniel
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Ping me when you get back and I will send you my latest so you can
+> play with it.
+> 
+
+Hi Eliezer,
+
+You can send the latest version, so I can play with it and get some numbers.
+
+Thanks,
+Amir
