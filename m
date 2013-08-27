@@ -1,218 +1,44 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: add SYNPROXY core/target
-Date: Wed, 28 Aug 2013 00:53:35 +0200
-Message-ID: <1377644018-15685-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 7/8] netfilter: add IPv6 SYNPROXY target
+Date: Wed, 28 Aug 2013 00:53:37 +0200
+Message-ID: <1377644018-15685-8-git-send-email-pablo@netfilter.org>
 References: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44062 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753697Ab3H0WyH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 18:54:07 -0400
 In-Reply-To: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Add a SYNPROXY for netfilter. The code is split into two parts, the synproxy
-core with common functions and an address family specific target.
-
-The SYNPROXY receives the connection request from the client, responds with
-a SYN/ACK containing a SYN cookie and announcing a zero window and checks
-whether the final ACK from the client contains a valid cookie.
-
-It then establishes a connection to the original destination and, if
-successful, sends a window update to the client with the window size
-announced by the server.
-
-Support for timestamps, SACK, window scaling and MSS options can be
-statically configured as target parameters if the features of the server
-are known. If timestamps are used, the timestamp value sent back to
-the client in the SYN/ACK will be different from the real timestamp of
-the server. In order to now break PAWS, the timestamps are translated in
-the direction server->client.
+Add an IPv6 version of the SYNPROXY target. The main differences to the
+IPv4 version is routing and IP header construction.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Tested-by: Martin Topholm <mph@one.com>
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_extend.h   |    6 +-
- include/net/netfilter/nf_conntrack_seqadj.h   |    2 +
- include/net/netfilter/nf_conntrack_synproxy.h |   77 ++++
- include/uapi/linux/netfilter/xt_SYNPROXY.h    |   16 +
- net/ipv4/netfilter/Kconfig                    |   13 +
- net/ipv4/netfilter/Makefile                   |    1 +
- net/ipv4/netfilter/ipt_SYNPROXY.c             |  472 +++++++++++++++++++++++++
- net/netfilter/Kconfig                         |    3 +
- net/netfilter/Makefile                        |    3 +
- net/netfilter/nf_conntrack_core.c             |    6 +
- net/netfilter/nf_conntrack_proto_tcp.c        |   16 +
- net/netfilter/nf_conntrack_seqadj.c           |   20 ++
- net/netfilter/nf_synproxy_core.c              |  432 ++++++++++++++++++++++
- 13 files changed, 1066 insertions(+), 1 deletion(-)
- create mode 100644 include/net/netfilter/nf_conntrack_synproxy.h
- create mode 100644 include/uapi/linux/netfilter/xt_SYNPROXY.h
- create mode 100644 net/ipv4/netfilter/ipt_SYNPROXY.c
- create mode 100644 net/netfilter/nf_synproxy_core.c
+ net/ipv6/netfilter/Kconfig         |   13 +
+ net/ipv6/netfilter/Makefile        |    1 +
+ net/ipv6/netfilter/ip6t_SYNPROXY.c |  495 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 509 insertions(+)
+ create mode 100644 net/ipv6/netfilter/ip6t_SYNPROXY.c
 
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 2a22bcb..ff95434 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -9,8 +9,8 @@ enum nf_ct_ext_id {
- 	NF_CT_EXT_HELPER,
- #if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
- 	NF_CT_EXT_NAT,
--	NF_CT_EXT_SEQADJ,
- #endif
-+	NF_CT_EXT_SEQADJ,
- 	NF_CT_EXT_ACCT,
- #ifdef CONFIG_NF_CONNTRACK_EVENTS
- 	NF_CT_EXT_ECACHE,
-@@ -27,6 +27,9 @@ enum nf_ct_ext_id {
- #ifdef CONFIG_NF_CONNTRACK_LABELS
- 	NF_CT_EXT_LABELS,
- #endif
-+#if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
-+	NF_CT_EXT_SYNPROXY,
-+#endif
- 	NF_CT_EXT_NUM,
- };
- 
-@@ -39,6 +42,7 @@ enum nf_ct_ext_id {
- #define NF_CT_EXT_TSTAMP_TYPE struct nf_conn_tstamp
- #define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
- #define NF_CT_EXT_LABELS_TYPE struct nf_conn_labels
-+#define NF_CT_EXT_SYNPROXY_TYPE struct nf_conn_synproxy
- 
- /* Extensions: optional stuff which isn't permanently in struct. */
- struct nf_ct_ext {
-diff --git a/include/net/netfilter/nf_conntrack_seqadj.h b/include/net/netfilter/nf_conntrack_seqadj.h
-index 30bfbbe..f6177a5 100644
---- a/include/net/netfilter/nf_conntrack_seqadj.h
-+++ b/include/net/netfilter/nf_conntrack_seqadj.h
-@@ -30,6 +30,8 @@ static inline struct nf_conn_seqadj *nfct_seqadj_ext_add(struct nf_conn *ct)
- 	return nf_ct_ext_add(ct, NF_CT_EXT_SEQADJ, GFP_ATOMIC);
- }
- 
-+extern int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			     s32 off);
- extern int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
- 			    __be32 seq, s32 off);
- extern void nf_ct_tcp_seqadj_set(struct sk_buff *skb,
-diff --git a/include/net/netfilter/nf_conntrack_synproxy.h b/include/net/netfilter/nf_conntrack_synproxy.h
-new file mode 100644
-index 0000000..806f54a
---- /dev/null
-+++ b/include/net/netfilter/nf_conntrack_synproxy.h
-@@ -0,0 +1,77 @@
-+#ifndef _NF_CONNTRACK_SYNPROXY_H
-+#define _NF_CONNTRACK_SYNPROXY_H
-+
-+#include <net/netns/generic.h>
-+
-+struct nf_conn_synproxy {
-+	u32	isn;
-+	u32	its;
-+	u32	tsoff;
-+};
-+
-+static inline struct nf_conn_synproxy *nfct_synproxy(const struct nf_conn *ct)
-+{
-+#if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
-+	return nf_ct_ext_find(ct, NF_CT_EXT_SYNPROXY);
-+#else
-+	return NULL;
-+#endif
-+}
-+
-+static inline struct nf_conn_synproxy *nfct_synproxy_ext_add(struct nf_conn *ct)
-+{
-+#if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
-+	return nf_ct_ext_add(ct, NF_CT_EXT_SYNPROXY, GFP_ATOMIC);
-+#else
-+	return NULL;
-+#endif
-+}
-+
-+struct synproxy_stats {
-+	unsigned int			syn_received;
-+	unsigned int			cookie_invalid;
-+	unsigned int			cookie_valid;
-+	unsigned int			cookie_retrans;
-+	unsigned int			conn_reopened;
-+};
-+
-+struct synproxy_net {
-+	struct nf_conn			*tmpl;
-+	struct synproxy_stats __percpu	*stats;
-+};
-+
-+extern int synproxy_net_id;
-+static inline struct synproxy_net *synproxy_pernet(struct net *net)
-+{
-+	return net_generic(net, synproxy_net_id);
-+}
-+
-+struct synproxy_options {
-+	u8				options;
-+	u8				wscale;
-+	u16				mss;
-+	u32				tsval;
-+	u32				tsecr;
-+};
-+
-+struct tcphdr;
-+struct xt_synproxy_info;
-+extern void synproxy_parse_options(const struct sk_buff *skb, unsigned int doff,
-+				   const struct tcphdr *th,
-+				   struct synproxy_options *opts);
-+extern unsigned int synproxy_options_size(const struct synproxy_options *opts);
-+extern void synproxy_build_options(struct tcphdr *th,
-+				   const struct synproxy_options *opts);
-+
-+extern void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
-+					   struct synproxy_options *opts);
-+extern void synproxy_check_timestamp_cookie(struct synproxy_options *opts);
-+
-+extern unsigned int synproxy_tstamp_adjust(struct sk_buff *skb,
-+					   unsigned int protoff,
-+					   struct tcphdr *th,
-+					   struct nf_conn *ct,
-+					   enum ip_conntrack_info ctinfo,
-+					   const struct nf_conn_synproxy *synproxy);
-+
-+#endif /* _NF_CONNTRACK_SYNPROXY_H */
-diff --git a/include/uapi/linux/netfilter/xt_SYNPROXY.h b/include/uapi/linux/netfilter/xt_SYNPROXY.h
-new file mode 100644
-index 0000000..2d59fba
---- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_SYNPROXY.h
-@@ -0,0 +1,16 @@
-+#ifndef _XT_SYNPROXY_H
-+#define _XT_SYNPROXY_H
-+
-+#define XT_SYNPROXY_OPT_MSS		0x01
-+#define XT_SYNPROXY_OPT_WSCALE		0x02
-+#define XT_SYNPROXY_OPT_SACK_PERM	0x04
-+#define XT_SYNPROXY_OPT_TIMESTAMP	0x08
-+#define XT_SYNPROXY_OPT_ECN		0x10
-+
-+struct xt_synproxy_info {
-+	__u8	options;
-+	__u8	wscale;
-+	__u16	mss;
-+};
-+
-+#endif /* _XT_SYNPROXY_H */
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 4e90280..1657e39 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -110,6 +110,19 @@ config IP_NF_TARGET_REJECT
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 4433ab40..a7f842b 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -153,6 +153,19 @@ config IP6_NF_TARGET_REJECT
  
  	  To compile it as a module, choose M here.  If unsure, say N.
  
-+config IP_NF_TARGET_SYNPROXY
++config IP6_NF_TARGET_SYNPROXY
 +	tristate "SYNPROXY target support"
 +	depends on NF_CONNTRACK && NETFILTER_ADVANCED
 +	select NETFILTER_SYNPROXY
@@ -225,27 +51,24 @@ index 4e90280..1657e39 100644
 +
 +	  To compile it as a module, choose M here. If unsure, say N.
 +
- config IP_NF_TARGET_ULOG
- 	tristate "ULOG target support (obsolete)"
+ config IP6_NF_MANGLE
+ 	tristate "Packet mangling"
  	default m if NETFILTER_ADVANCED=n
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 007b128..3622b24 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -46,6 +46,7 @@ obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
- obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
- obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
- obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
-+obj-$(CONFIG_IP_NF_TARGET_SYNPROXY) += ipt_SYNPROXY.o
- obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
- 
- # generic ARP tables
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index ad13bf0..2b53738 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -37,3 +37,4 @@ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
+ obj-$(CONFIG_IP6_NF_TARGET_MASQUERADE) += ip6t_MASQUERADE.o
+ obj-$(CONFIG_IP6_NF_TARGET_NPT) += ip6t_NPT.o
+ obj-$(CONFIG_IP6_NF_TARGET_REJECT) += ip6t_REJECT.o
++obj-$(CONFIG_IP6_NF_TARGET_SYNPROXY) += ip6t_SYNPROXY.o
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
 new file mode 100644
-index 0000000..94371db
+index 0000000..4270a9b
 --- /dev/null
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -0,0 +1,472 @@
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -0,0 +1,495 @@
 +/*
 + * Copyright (c) 2013 Patrick McHardy <kaber@trash.net>
 + *
@@ -256,32 +79,30 @@ index 0000000..94371db
 +
 +#include <linux/module.h>
 +#include <linux/skbuff.h>
++#include <net/ip6_checksum.h>
++#include <net/ip6_route.h>
 +#include <net/tcp.h>
 +
-+#include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/netfilter_ipv6/ip6_tables.h>
 +#include <linux/netfilter/x_tables.h>
 +#include <linux/netfilter/xt_SYNPROXY.h>
 +#include <net/netfilter/nf_conntrack.h>
 +#include <net/netfilter/nf_conntrack_seqadj.h>
 +#include <net/netfilter/nf_conntrack_synproxy.h>
 +
-+static struct iphdr *
-+synproxy_build_ip(struct sk_buff *skb, u32 saddr, u32 daddr)
++static struct ipv6hdr *
++synproxy_build_ip(struct sk_buff *skb, const struct in6_addr *saddr,
++				       const struct in6_addr *daddr)
 +{
-+	struct iphdr *iph;
++	struct ipv6hdr *iph;
 +
 +	skb_reset_network_header(skb);
-+	iph = (struct iphdr *)skb_put(skb, sizeof(*iph));
-+	iph->version	= 4;
-+	iph->ihl	= sizeof(*iph) / 4;
-+	iph->tos	= 0;
-+	iph->id		= 0;
-+	iph->frag_off	= htons(IP_DF);
-+	iph->ttl	= sysctl_ip_default_ttl;
-+	iph->protocol	= IPPROTO_TCP;
-+	iph->check	= 0;
-+	iph->saddr	= saddr;
-+	iph->daddr	= daddr;
++	iph = (struct ipv6hdr *)skb_put(skb, sizeof(*iph));
++	ip6_flow_hdr(iph, 0, 0);
++	iph->hop_limit	= 64;	//XXX
++	iph->nexthdr	= IPPROTO_TCP;
++	iph->saddr	= *saddr;
++	iph->daddr	= *daddr;
 +
 +	return iph;
 +}
@@ -289,18 +110,35 @@ index 0000000..94371db
 +static void
 +synproxy_send_tcp(const struct sk_buff *skb, struct sk_buff *nskb,
 +		  struct nf_conntrack *nfct, enum ip_conntrack_info ctinfo,
-+		  struct iphdr *niph, struct tcphdr *nth,
++		  struct ipv6hdr *niph, struct tcphdr *nth,
 +		  unsigned int tcp_hdr_size)
 +{
-+	nth->check = ~tcp_v4_check(tcp_hdr_size, niph->saddr, niph->daddr, 0);
++	struct net *net = nf_ct_net((struct nf_conn *)nfct);
++	struct dst_entry *dst;
++	struct flowi6 fl6;
++
++	nth->check = ~tcp_v6_check(tcp_hdr_size, &niph->saddr, &niph->daddr, 0);
 +	nskb->ip_summed   = CHECKSUM_PARTIAL;
 +	nskb->csum_start  = (unsigned char *)nth - nskb->head;
 +	nskb->csum_offset = offsetof(struct tcphdr, check);
 +
-+	skb_dst_set_noref(nskb, skb_dst(skb));
-+	nskb->protocol = htons(ETH_P_IP);
-+	if (ip_route_me_harder(nskb, RTN_UNSPEC))
++	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_proto = IPPROTO_TCP;
++	fl6.saddr = niph->saddr;
++	fl6.daddr = niph->daddr;
++	fl6.fl6_sport = nth->source;
++	fl6.fl6_dport = nth->dest;
++	security_skb_classify_flow((struct sk_buff *)skb, flowi6_to_flowi(&fl6));
++	dst = ip6_route_output(net, NULL, &fl6);
++	if (dst == NULL || dst->error) {
++		dst_release(dst);
 +		goto free_nskb;
++	}
++	dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), NULL, 0);
++	if (IS_ERR(dst))
++		goto free_nskb;
++
++	skb_dst_set(nskb, dst);
 +
 +	if (nfct) {
 +		nskb->nfct = nfct;
@@ -308,7 +146,7 @@ index 0000000..94371db
 +		nf_conntrack_get(nfct);
 +	}
 +
-+	ip_local_out(nskb);
++	ip6_local_out(nskb);
 +	return;
 +
 +free_nskb:
@@ -320,12 +158,12 @@ index 0000000..94371db
 +			    const struct synproxy_options *opts)
 +{
 +	struct sk_buff *nskb;
-+	struct iphdr *iph, *niph;
++	struct ipv6hdr *iph, *niph;
 +	struct tcphdr *nth;
 +	unsigned int tcp_hdr_size;
 +	u16 mss = opts->mss;
 +
-+	iph = ip_hdr(skb);
++	iph = ipv6_hdr(skb);
 +
 +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
 +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + MAX_TCP_HEADER,
@@ -334,13 +172,13 @@ index 0000000..94371db
 +		return;
 +	skb_reserve(nskb, MAX_TCP_HEADER);
 +
-+	niph = synproxy_build_ip(nskb, iph->daddr, iph->saddr);
++	niph = synproxy_build_ip(nskb, &iph->daddr, &iph->saddr);
 +
 +	skb_reset_transport_header(nskb);
 +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
 +	nth->source	= th->dest;
 +	nth->dest	= th->source;
-+	nth->seq	= htonl(__cookie_v4_init_sequence(iph, th, &mss));
++	nth->seq	= htonl(__cookie_v6_init_sequence(iph, th, &mss));
 +	nth->ack_seq	= htonl(ntohl(th->seq) + 1);
 +	tcp_flag_word(nth) = TCP_FLAG_SYN | TCP_FLAG_ACK;
 +	if (opts->options & XT_SYNPROXY_OPT_ECN)
@@ -362,11 +200,11 @@ index 0000000..94371db
 +			 const struct synproxy_options *opts, u32 recv_seq)
 +{
 +	struct sk_buff *nskb;
-+	struct iphdr *iph, *niph;
++	struct ipv6hdr *iph, *niph;
 +	struct tcphdr *nth;
 +	unsigned int tcp_hdr_size;
 +
-+	iph = ip_hdr(skb);
++	iph = ipv6_hdr(skb);
 +
 +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
 +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + MAX_TCP_HEADER,
@@ -375,7 +213,7 @@ index 0000000..94371db
 +		return;
 +	skb_reserve(nskb, MAX_TCP_HEADER);
 +
-+	niph = synproxy_build_ip(nskb, iph->saddr, iph->daddr);
++	niph = synproxy_build_ip(nskb, &iph->saddr, &iph->daddr);
 +
 +	skb_reset_transport_header(nskb);
 +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
@@ -407,11 +245,11 @@ index 0000000..94371db
 +			 const struct synproxy_options *opts)
 +{
 +	struct sk_buff *nskb;
-+	struct iphdr *iph, *niph;
++	struct ipv6hdr *iph, *niph;
 +	struct tcphdr *nth;
 +	unsigned int tcp_hdr_size;
 +
-+	iph = ip_hdr(skb);
++	iph = ipv6_hdr(skb);
 +
 +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
 +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + MAX_TCP_HEADER,
@@ -420,7 +258,7 @@ index 0000000..94371db
 +		return;
 +	skb_reserve(nskb, MAX_TCP_HEADER);
 +
-+	niph = synproxy_build_ip(nskb, iph->daddr, iph->saddr);
++	niph = synproxy_build_ip(nskb, &iph->daddr, &iph->saddr);
 +
 +	skb_reset_transport_header(nskb);
 +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
@@ -445,11 +283,11 @@ index 0000000..94371db
 +			 const struct synproxy_options *opts)
 +{
 +	struct sk_buff *nskb;
-+	struct iphdr *iph, *niph;
++	struct ipv6hdr *iph, *niph;
 +	struct tcphdr *nth;
 +	unsigned int tcp_hdr_size;
 +
-+	iph = ip_hdr(skb);
++	iph = ipv6_hdr(skb);
 +
 +	tcp_hdr_size = sizeof(*nth) + synproxy_options_size(opts);
 +	nskb = alloc_skb(sizeof(*niph) + tcp_hdr_size + MAX_TCP_HEADER,
@@ -458,7 +296,7 @@ index 0000000..94371db
 +		return;
 +	skb_reserve(nskb, MAX_TCP_HEADER);
 +
-+	niph = synproxy_build_ip(nskb, iph->saddr, iph->daddr);
++	niph = synproxy_build_ip(nskb, &iph->saddr, &iph->daddr);
 +
 +	skb_reset_transport_header(nskb);
 +	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
@@ -484,7 +322,7 @@ index 0000000..94371db
 +{
 +	int mss;
 +
-+	mss = __cookie_v4_check(ip_hdr(skb), th, ntohl(th->ack_seq) - 1);
++	mss = __cookie_v6_check(ipv6_hdr(skb), th, ntohl(th->ack_seq) - 1);
 +	if (mss == 0) {
 +		this_cpu_inc(snet->stats->cookie_invalid);
 +		return false;
@@ -501,14 +339,14 @@ index 0000000..94371db
 +}
 +
 +static unsigned int
-+synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
++synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 +{
 +	const struct xt_synproxy_info *info = par->targinfo;
 +	struct synproxy_net *snet = synproxy_pernet(dev_net(par->in));
 +	struct synproxy_options opts = {};
 +	struct tcphdr *th, _th;
 +
-+	if (nf_ip_checksum(skb, par->hooknum, par->thoff, IPPROTO_TCP))
++	if (nf_ip6_checksum(skb, par->hooknum, par->thoff, IPPROTO_TCP))
 +		return NF_DROP;
 +
 +	th = skb_header_pointer(skb, par->thoff, sizeof(_th), &_th);
@@ -517,7 +355,7 @@ index 0000000..94371db
 +
 +	synproxy_parse_options(skb, par->thoff, th, &opts);
 +
-+	if (th->syn && !th->ack) {
++	if (th->syn) {
 +		/* Initial SYN from client */
 +		this_cpu_inc(snet->stats->syn_received);
 +
@@ -540,7 +378,7 @@ index 0000000..94371db
 +	return NF_DROP;
 +}
 +
-+static unsigned int ipv4_synproxy_hook(unsigned int hooknum,
++static unsigned int ipv6_synproxy_hook(unsigned int hooknum,
 +				       struct sk_buff *skb,
 +				       const struct net_device *in,
 +				       const struct net_device *out,
@@ -553,7 +391,9 @@ index 0000000..94371db
 +	struct synproxy_options opts = {};
 +	const struct ip_ct_tcp *state;
 +	struct tcphdr *th, _th;
-+	unsigned int thoff;
++	__be16 frag_off;
++	u8 nexthdr;
++	int thoff;
 +
 +	ct = nf_ct_get(skb, &ctinfo);
 +	if (ct == NULL)
@@ -566,7 +406,12 @@ index 0000000..94371db
 +	if (nf_is_loopback_packet(skb))
 +		return NF_ACCEPT;
 +
-+	thoff = ip_hdrlen(skb);
++	nexthdr = ipv6_hdr(skb)->nexthdr;
++	thoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
++				 &frag_off);
++	if (thoff < 0)
++		return NF_ACCEPT;
++
 +	th = skb_header_pointer(skb, thoff, sizeof(_th), &_th);
 +	if (th == NULL)
 +		return NF_DROP;
@@ -643,636 +488,81 @@ index 0000000..94371db
 +	return NF_ACCEPT;
 +}
 +
-+static int synproxy_tg4_check(const struct xt_tgchk_param *par)
++static int synproxy_tg6_check(const struct xt_tgchk_param *par)
 +{
-+	const struct ipt_entry *e = par->entryinfo;
++	const struct ip6t_entry *e = par->entryinfo;
 +
-+	if (e->ip.proto != IPPROTO_TCP ||
-+	    e->ip.invflags & XT_INV_PROTO)
++	if (!(e->ipv6.flags & IP6T_F_PROTO) ||
++	    e->ipv6.proto != IPPROTO_TCP ||
++	    e->ipv6.invflags & XT_INV_PROTO)
 +		return -EINVAL;
 +
 +	return nf_ct_l3proto_try_module_get(par->family);
 +}
 +
-+static void synproxy_tg4_destroy(const struct xt_tgdtor_param *par)
++static void synproxy_tg6_destroy(const struct xt_tgdtor_param *par)
 +{
 +	nf_ct_l3proto_module_put(par->family);
 +}
 +
-+static struct xt_target synproxy_tg4_reg __read_mostly = {
++static struct xt_target synproxy_tg6_reg __read_mostly = {
 +	.name		= "SYNPROXY",
-+	.family		= NFPROTO_IPV4,
-+	.target		= synproxy_tg4,
++	.family		= NFPROTO_IPV6,
++	.target		= synproxy_tg6,
 +	.targetsize	= sizeof(struct xt_synproxy_info),
-+	.checkentry	= synproxy_tg4_check,
-+	.destroy	= synproxy_tg4_destroy,
++	.checkentry	= synproxy_tg6_check,
++	.destroy	= synproxy_tg6_destroy,
 +	.me		= THIS_MODULE,
 +};
 +
-+static struct nf_hook_ops ipv4_synproxy_ops[] __read_mostly = {
++static struct nf_hook_ops ipv6_synproxy_ops[] __read_mostly = {
 +	{
-+		.hook		= ipv4_synproxy_hook,
++		.hook		= ipv6_synproxy_hook,
 +		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV4,
++		.pf		= NFPROTO_IPV6,
 +		.hooknum	= NF_INET_LOCAL_IN,
 +		.priority	= NF_IP_PRI_CONNTRACK_CONFIRM - 1,
 +	},
 +	{
-+		.hook		= ipv4_synproxy_hook,
++		.hook		= ipv6_synproxy_hook,
 +		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV4,
++		.pf		= NFPROTO_IPV6,
 +		.hooknum	= NF_INET_POST_ROUTING,
 +		.priority	= NF_IP_PRI_CONNTRACK_CONFIRM - 1,
 +	},
 +};
 +
-+static int __init synproxy_tg4_init(void)
++static int __init synproxy_tg6_init(void)
 +{
 +	int err;
 +
-+	err = nf_register_hooks(ipv4_synproxy_ops,
-+				ARRAY_SIZE(ipv4_synproxy_ops));
++	err = nf_register_hooks(ipv6_synproxy_ops,
++				ARRAY_SIZE(ipv6_synproxy_ops));
 +	if (err < 0)
 +		goto err1;
 +
-+	err = xt_register_target(&synproxy_tg4_reg);
++	err = xt_register_target(&synproxy_tg6_reg);
 +	if (err < 0)
 +		goto err2;
 +
 +	return 0;
 +
 +err2:
-+	nf_unregister_hooks(ipv4_synproxy_ops, ARRAY_SIZE(ipv4_synproxy_ops));
++	nf_unregister_hooks(ipv6_synproxy_ops, ARRAY_SIZE(ipv6_synproxy_ops));
 +err1:
 +	return err;
 +}
 +
-+static void __exit synproxy_tg4_exit(void)
++static void __exit synproxy_tg6_exit(void)
 +{
-+	xt_unregister_target(&synproxy_tg4_reg);
-+	nf_unregister_hooks(ipv4_synproxy_ops, ARRAY_SIZE(ipv4_synproxy_ops));
++	xt_unregister_target(&synproxy_tg6_reg);
++	nf_unregister_hooks(ipv6_synproxy_ops, ARRAY_SIZE(ipv6_synproxy_ops));
 +}
 +
-+module_init(synproxy_tg4_init);
-+module_exit(synproxy_tg4_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index c45fc1a..62a171a 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -408,6 +408,9 @@ config NF_NAT_TFTP
- 	depends on NF_CONNTRACK && NF_NAT
- 	default NF_NAT && NF_CONNTRACK_TFTP
- 
-+config NETFILTER_SYNPROXY
-+	tristate
-+
- endif # NF_CONNTRACK
- 
- config NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 89a9c16..c3a0a12 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -61,6 +61,9 @@ obj-$(CONFIG_NF_NAT_IRC) += nf_nat_irc.o
- obj-$(CONFIG_NF_NAT_SIP) += nf_nat_sip.o
- obj-$(CONFIG_NF_NAT_TFTP) += nf_nat_tftp.o
- 
-+# SYNPROXY
-+obj-$(CONFIG_NETFILTER_SYNPROXY) += nf_synproxy_core.o
-+
- # generic X tables 
- obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
- 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 00a7a94..5d892fe 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -48,6 +48,7 @@
- #include <net/netfilter/nf_conntrack_timestamp.h>
- #include <net/netfilter/nf_conntrack_timeout.h>
- #include <net/netfilter/nf_conntrack_labels.h>
-+#include <net/netfilter/nf_conntrack_synproxy.h>
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_helper.h>
-@@ -799,6 +800,11 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	if (IS_ERR(ct))
- 		return (struct nf_conntrack_tuple_hash *)ct;
- 
-+	if (tmpl && nfct_synproxy(tmpl)) {
-+		nfct_seqadj_ext_add(ct);
-+		nfct_synproxy_ext_add(ct);
-+	}
-+
- 	timeout_ext = tmpl ? nf_ct_timeout_find(tmpl) : NULL;
- 	if (timeout_ext)
- 		timeouts = NF_CT_TIMEOUT_EXT_DATA(timeout_ext);
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 984a8d1..44d1ea3 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -28,6 +28,7 @@
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
- #include <net/netfilter/nf_conntrack_seqadj.h>
-+#include <net/netfilter/nf_conntrack_synproxy.h>
- #include <net/netfilter/nf_log.h>
- #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
-@@ -946,6 +947,21 @@ static int tcp_packet(struct nf_conn *ct,
- 				  "state %s ", tcp_conntrack_names[old_state]);
- 		return NF_ACCEPT;
- 	case TCP_CONNTRACK_MAX:
-+		/* Special case for SYN proxy: when the SYN to the server or
-+		 * the SYN/ACK from the server is lost, the client may transmit
-+		 * a keep-alive packet while in SYN_SENT state. This needs to
-+		 * be associated with the original conntrack entry in order to
-+		 * generate a new SYN with the correct sequence number.
-+		 */
-+		if (nfct_synproxy(ct) && old_state == TCP_CONNTRACK_SYN_SENT &&
-+		    index == TCP_ACK_SET && dir == IP_CT_DIR_ORIGINAL &&
-+		    ct->proto.tcp.last_dir == IP_CT_DIR_ORIGINAL &&
-+		    ct->proto.tcp.seen[dir].td_end - 1 == ntohl(th->seq)) {
-+			pr_debug("nf_ct_tcp: SYN proxy client keep alive\n");
-+			spin_unlock_bh(&ct->lock);
-+			return NF_ACCEPT;
-+		}
-+
- 		/* Invalid packet */
- 		pr_debug("nf_ct_tcp: Invalid dir=%i index=%u ostate=%u\n",
- 			 dir, get_conntrack_index(th), old_state);
-diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-index 483eb9c..5f9bfd0 100644
---- a/net/netfilter/nf_conntrack_seqadj.c
-+++ b/net/netfilter/nf_conntrack_seqadj.c
-@@ -6,6 +6,26 @@
- #include <net/netfilter/nf_conntrack_extend.h>
- #include <net/netfilter/nf_conntrack_seqadj.h>
- 
-+int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		      s32 off)
-+{
-+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct nf_conn_seqadj *seqadj;
-+	struct nf_ct_seqadj *this_way;
-+
-+	if (off == 0)
-+		return 0;
-+
-+	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
-+
-+	seqadj = nfct_seqadj(ct);
-+	this_way = &seqadj->seq[dir];
-+	this_way->offset_before	 = off;
-+	this_way->offset_after	 = off;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_seqadj_init);
-+
- int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
- 		     __be32 seq, s32 off)
- {
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-new file mode 100644
-index 0000000..d23dc79
---- /dev/null
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -0,0 +1,432 @@
-+/*
-+ * Copyright (c) 2013 Patrick McHardy <kaber@trash.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <asm/unaligned.h>
-+#include <net/tcp.h>
-+#include <net/netns/generic.h>
-+
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_tcpudp.h>
-+#include <linux/netfilter/xt_SYNPROXY.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
-+#include <net/netfilter/nf_conntrack_synproxy.h>
-+
-+int synproxy_net_id;
-+EXPORT_SYMBOL_GPL(synproxy_net_id);
-+
-+void
-+synproxy_parse_options(const struct sk_buff *skb, unsigned int doff,
-+		       const struct tcphdr *th, struct synproxy_options *opts)
-+{
-+	int length = (th->doff * 4) - sizeof(*th);
-+	u8 buf[40], *ptr;
-+
-+	ptr = skb_header_pointer(skb, doff + sizeof(*th), length, buf);
-+	BUG_ON(ptr == NULL);
-+
-+	opts->options = 0;
-+	while (length > 0) {
-+		int opcode = *ptr++;
-+		int opsize;
-+
-+		switch (opcode) {
-+		case TCPOPT_EOL:
-+			return;
-+		case TCPOPT_NOP:
-+			length--;
-+			continue;
-+		default:
-+			opsize = *ptr++;
-+			if (opsize < 2)
-+				return;
-+			if (opsize > length)
-+				return;
-+
-+			switch (opcode) {
-+			case TCPOPT_MSS:
-+				if (opsize == TCPOLEN_MSS) {
-+					opts->mss = get_unaligned_be16(ptr);
-+					opts->options |= XT_SYNPROXY_OPT_MSS;
-+				}
-+				break;
-+			case TCPOPT_WINDOW:
-+				if (opsize == TCPOLEN_WINDOW) {
-+					opts->wscale = *ptr;
-+					if (opts->wscale > 14)
-+						opts->wscale = 14;
-+					opts->options |= XT_SYNPROXY_OPT_WSCALE;
-+				}
-+				break;
-+			case TCPOPT_TIMESTAMP:
-+				if (opsize == TCPOLEN_TIMESTAMP) {
-+					opts->tsval = get_unaligned_be32(ptr);
-+					opts->tsecr = get_unaligned_be32(ptr + 4);
-+					opts->options |= XT_SYNPROXY_OPT_TIMESTAMP;
-+				}
-+				break;
-+			case TCPOPT_SACK_PERM:
-+				if (opsize == TCPOLEN_SACK_PERM)
-+					opts->options |= XT_SYNPROXY_OPT_SACK_PERM;
-+				break;
-+			}
-+
-+			ptr += opsize - 2;
-+			length -= opsize;
-+		}
-+	}
-+}
-+EXPORT_SYMBOL_GPL(synproxy_parse_options);
-+
-+unsigned int synproxy_options_size(const struct synproxy_options *opts)
-+{
-+	unsigned int size = 0;
-+
-+	if (opts->options & XT_SYNPROXY_OPT_MSS)
-+		size += TCPOLEN_MSS_ALIGNED;
-+	if (opts->options & XT_SYNPROXY_OPT_TIMESTAMP)
-+		size += TCPOLEN_TSTAMP_ALIGNED;
-+	else if (opts->options & XT_SYNPROXY_OPT_SACK_PERM)
-+		size += TCPOLEN_SACKPERM_ALIGNED;
-+	if (opts->options & XT_SYNPROXY_OPT_WSCALE)
-+		size += TCPOLEN_WSCALE_ALIGNED;
-+
-+	return size;
-+}
-+EXPORT_SYMBOL_GPL(synproxy_options_size);
-+
-+void
-+synproxy_build_options(struct tcphdr *th, const struct synproxy_options *opts)
-+{
-+	__be32 *ptr = (__be32 *)(th + 1);
-+	u8 options = opts->options;
-+
-+	if (options & XT_SYNPROXY_OPT_MSS)
-+		*ptr++ = htonl((TCPOPT_MSS << 24) |
-+			       (TCPOLEN_MSS << 16) |
-+			       opts->mss);
-+
-+	if (options & XT_SYNPROXY_OPT_TIMESTAMP) {
-+		if (options & XT_SYNPROXY_OPT_SACK_PERM)
-+			*ptr++ = htonl((TCPOPT_SACK_PERM << 24) |
-+				       (TCPOLEN_SACK_PERM << 16) |
-+				       (TCPOPT_TIMESTAMP << 8) |
-+				       TCPOLEN_TIMESTAMP);
-+		else
-+			*ptr++ = htonl((TCPOPT_NOP << 24) |
-+				       (TCPOPT_NOP << 16) |
-+				       (TCPOPT_TIMESTAMP << 8) |
-+				       TCPOLEN_TIMESTAMP);
-+
-+		*ptr++ = htonl(opts->tsval);
-+		*ptr++ = htonl(opts->tsecr);
-+	} else if (options & XT_SYNPROXY_OPT_SACK_PERM)
-+		*ptr++ = htonl((TCPOPT_NOP << 24) |
-+			       (TCPOPT_NOP << 16) |
-+			       (TCPOPT_SACK_PERM << 8) |
-+			       TCPOLEN_SACK_PERM);
-+
-+	if (options & XT_SYNPROXY_OPT_WSCALE)
-+		*ptr++ = htonl((TCPOPT_NOP << 24) |
-+			       (TCPOPT_WINDOW << 16) |
-+			       (TCPOLEN_WINDOW << 8) |
-+			       opts->wscale);
-+}
-+EXPORT_SYMBOL_GPL(synproxy_build_options);
-+
-+void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
-+				    struct synproxy_options *opts)
-+{
-+	opts->tsecr = opts->tsval;
-+	opts->tsval = tcp_time_stamp & ~0x3f;
-+
-+	if (opts->options & XT_SYNPROXY_OPT_WSCALE)
-+		opts->tsval |= info->wscale;
-+	else
-+		opts->tsval |= 0xf;
-+
-+	if (opts->options & XT_SYNPROXY_OPT_SACK_PERM)
-+		opts->tsval |= 1 << 4;
-+
-+	if (opts->options & XT_SYNPROXY_OPT_ECN)
-+		opts->tsval |= 1 << 5;
-+}
-+EXPORT_SYMBOL_GPL(synproxy_init_timestamp_cookie);
-+
-+void synproxy_check_timestamp_cookie(struct synproxy_options *opts)
-+{
-+	opts->wscale = opts->tsecr & 0xf;
-+	if (opts->wscale != 0xf)
-+		opts->options |= XT_SYNPROXY_OPT_WSCALE;
-+
-+	opts->options |= opts->tsecr & (1 << 4) ? XT_SYNPROXY_OPT_SACK_PERM : 0;
-+
-+	opts->options |= opts->tsecr & (1 << 5) ? XT_SYNPROXY_OPT_ECN : 0;
-+}
-+EXPORT_SYMBOL_GPL(synproxy_check_timestamp_cookie);
-+
-+unsigned int synproxy_tstamp_adjust(struct sk_buff *skb,
-+				    unsigned int protoff,
-+				    struct tcphdr *th,
-+				    struct nf_conn *ct,
-+				    enum ip_conntrack_info ctinfo,
-+				    const struct nf_conn_synproxy *synproxy)
-+{
-+	unsigned int optoff, optend;
-+	u32 *ptr, old;
-+
-+	if (synproxy->tsoff == 0)
-+		return 1;
-+
-+	optoff = protoff + sizeof(struct tcphdr);
-+	optend = protoff + th->doff * 4;
-+
-+	if (!skb_make_writable(skb, optend))
-+		return 0;
-+
-+	while (optoff < optend) {
-+		unsigned char *op = skb->data + optoff;
-+
-+		switch (op[0]) {
-+		case TCPOPT_EOL:
-+			return 1;
-+		case TCPOPT_NOP:
-+			optoff++;
-+			continue;
-+		default:
-+			if (optoff + 1 == optend ||
-+			    optoff + op[1] > optend ||
-+			    op[1] < 2)
-+				return 0;
-+			if (op[0] == TCPOPT_TIMESTAMP &&
-+			    op[1] == TCPOLEN_TIMESTAMP) {
-+				if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
-+					ptr = (u32 *)&op[2];
-+					old = *ptr;
-+					*ptr = htonl(ntohl(*ptr) -
-+						     synproxy->tsoff);
-+				} else {
-+					ptr = (u32 *)&op[6];
-+					old = *ptr;
-+					*ptr = htonl(ntohl(*ptr) +
-+						     synproxy->tsoff);
-+				}
-+				inet_proto_csum_replace4(&th->check, skb,
-+							 old, *ptr, 0);
-+				return 1;
-+			}
-+			optoff += op[1];
-+		}
-+	}
-+	return 1;
-+}
-+EXPORT_SYMBOL_GPL(synproxy_tstamp_adjust);
-+
-+static struct nf_ct_ext_type nf_ct_synproxy_extend __read_mostly = {
-+	.len		= sizeof(struct nf_conn_synproxy),
-+	.align		= __alignof__(struct nf_conn_synproxy),
-+	.id		= NF_CT_EXT_SYNPROXY,
-+};
-+
-+#ifdef CONFIG_PROC_FS
-+static void *synproxy_cpu_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	struct synproxy_net *snet = synproxy_pernet(seq_file_net(seq));
-+	int cpu;
-+
-+	if (*pos == 0)
-+		return SEQ_START_TOKEN;
-+
-+	for (cpu = *pos - 1; cpu < nr_cpu_ids; cpu++) {
-+		if (!cpu_possible(cpu))
-+			continue;
-+		*pos = cpu + 1;
-+		return per_cpu_ptr(snet->stats, cpu);
-+	}
-+
-+	return NULL;
-+}
-+
-+static void *synproxy_cpu_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct synproxy_net *snet = synproxy_pernet(seq_file_net(seq));
-+	int cpu;
-+
-+	for (cpu = *pos; cpu < nr_cpu_ids; cpu++) {
-+		if (!cpu_possible(cpu))
-+			continue;
-+		*pos = cpu + 1;
-+		return per_cpu_ptr(snet->stats, cpu);
-+	}
-+
-+	return NULL;
-+}
-+
-+static void synproxy_cpu_seq_stop(struct seq_file *seq, void *v)
-+{
-+	return;
-+}
-+
-+static int synproxy_cpu_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct synproxy_stats *stats = v;
-+
-+	if (v == SEQ_START_TOKEN) {
-+		seq_printf(seq, "entries\t\tsyn_received\t"
-+				"cookie_invalid\tcookie_valid\t"
-+				"cookie_retrans\tconn_reopened\n");
-+		return 0;
-+	}
-+
-+	seq_printf(seq, "%08x\t%08x\t%08x\t%08x\t%08x\t%08x\n", 0,
-+		   stats->syn_received,
-+		   stats->cookie_invalid,
-+		   stats->cookie_valid,
-+		   stats->cookie_retrans,
-+		   stats->conn_reopened);
-+
-+	return 0;
-+}
-+
-+static const struct seq_operations synproxy_cpu_seq_ops = {
-+	.start		= synproxy_cpu_seq_start,
-+	.next		= synproxy_cpu_seq_next,
-+	.stop		= synproxy_cpu_seq_stop,
-+	.show		= synproxy_cpu_seq_show,
-+};
-+
-+static int synproxy_cpu_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open_net(inode, file, &synproxy_cpu_seq_ops,
-+			    sizeof(struct seq_net_private));
-+}
-+
-+static const struct file_operations synproxy_cpu_seq_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= synproxy_cpu_seq_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release_net,
-+};
-+
-+static int __net_init synproxy_proc_init(struct net *net)
-+{
-+	if (!proc_create("synproxy", S_IRUGO, net->proc_net_stat,
-+			 &synproxy_cpu_seq_fops))
-+		return -ENOMEM;
-+	return 0;
-+}
-+
-+static void __net_exit synproxy_proc_exit(struct net *net)
-+{
-+	remove_proc_entry("synproxy", net->proc_net_stat);
-+}
-+#else
-+static int __net_init synproxy_proc_init(struct net *net)
-+{
-+	return 0;
-+}
-+
-+static void __net_exit synproxy_proc_exit(struct net *net)
-+{
-+	return;
-+}
-+#endif /* CONFIG_PROC_FS */
-+
-+static int __net_init synproxy_net_init(struct net *net)
-+{
-+	struct synproxy_net *snet = synproxy_pernet(net);
-+	struct nf_conntrack_tuple t;
-+	struct nf_conn *ct;
-+	int err = -ENOMEM;
-+
-+	memset(&t, 0, sizeof(t));
-+	ct = nf_conntrack_alloc(net, 0, &t, &t, GFP_KERNEL);
-+	if (IS_ERR(ct)) {
-+		err = PTR_ERR(ct);
-+		goto err1;
-+	}
-+
-+	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
-+	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
-+	if (!nfct_seqadj_ext_add(ct))
-+		goto err2;
-+	if (!nfct_synproxy_ext_add(ct))
-+		goto err2;
-+
-+	snet->tmpl = ct;
-+
-+	snet->stats = alloc_percpu(struct synproxy_stats);
-+	if (snet->stats == NULL)
-+		goto err2;
-+
-+	err = synproxy_proc_init(net);
-+	if (err < 0)
-+		goto err3;
-+
-+	return 0;
-+
-+err3:
-+	free_percpu(snet->stats);
-+err2:
-+	nf_conntrack_free(ct);
-+err1:
-+	return err;
-+}
-+
-+static void __net_exit synproxy_net_exit(struct net *net)
-+{
-+	struct synproxy_net *snet = synproxy_pernet(net);
-+
-+	nf_conntrack_free(snet->tmpl);
-+	synproxy_proc_exit(net);
-+	free_percpu(snet->stats);
-+}
-+
-+static struct pernet_operations synproxy_net_ops = {
-+	.init		= synproxy_net_init,
-+	.exit		= synproxy_net_exit,
-+	.id		= &synproxy_net_id,
-+	.size		= sizeof(struct synproxy_net),
-+};
-+
-+static int __init synproxy_core_init(void)
-+{
-+	int err;
-+
-+	err = nf_ct_extend_register(&nf_ct_synproxy_extend);
-+	if (err < 0)
-+		goto err1;
-+
-+	err = register_pernet_subsys(&synproxy_net_ops);
-+	if (err < 0)
-+		goto err2;
-+
-+	return 0;
-+
-+err2:
-+	nf_ct_extend_unregister(&nf_ct_synproxy_extend);
-+err1:
-+	return err;
-+}
-+
-+static void __exit synproxy_core_exit(void)
-+{
-+	unregister_pernet_subsys(&synproxy_net_ops);
-+	nf_ct_extend_unregister(&nf_ct_synproxy_extend);
-+}
-+
-+module_init(synproxy_core_init);
-+module_exit(synproxy_core_exit);
++module_init(synproxy_tg6_init);
++module_exit(synproxy_tg6_exit);
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
 -- 
 1.7.10.4
-
