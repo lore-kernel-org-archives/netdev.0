@@ -1,63 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [trivial PATCH] treewide: Fix printks with 0x%#
-Date: Mon, 26 Aug 2013 23:00:47 -0700
-Message-ID: <1377583247.2658.13.camel@joe-AO722>
-References: <1374778405.1957.21.camel@joe-AO722>
-	 <201308270139.29838.vapier@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <trivial@kernel.org>,
-	"James E.J. Bottomley" <jejb@parisc-linux.org>,
-	Helge Deller <deller@gmx.de>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Daniele Venzano <venza@brownhat.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
-	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	alsa-devel <alsa-devel@alsa-project.org>
-To: Mike Frysinger <vapier@gentoo.org>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <201308270139.29838.vapier@gentoo.org>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Doug Ledford <dledford@redhat.com>
+Subject: [PATCH] net/cxgb3: fix revert error
+Date: Tue, 27 Aug 2013 02:11:16 -0400
+Message-ID: <83d325136c59fa32b84c886d3e3f99cc58e431d2.1377583423.git.dledford@redhat.com>
+Cc: Doug Ledford <dledford@redhat.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50930 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752194Ab3H0GLX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 02:11:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-27 at 01:39 -0400, Mike Frysinger wrote:
-> On Thursday 25 July 2013 14:53:25 Joe Perches wrote:
-> > Using 0x%# emits 0x0x.  Only one is necessary.
+Resent due to corruption in previous send.  From davem on previous
+email send:
+
+> This patch seems to have been corrupted by your email client.
 > 
-> sounds like a job for checkpatch.pl :)
+> Also I really need the Chelsio folks to review this when you repost
+> it.
 
-Here.  Submit it yourself...
+Dave, hopefully this send is able to be parsed properly.  I will assume
+that since you couldn't see the patch, you assumed Chelsio needs to review
+the content.  In truth, the content of this path is hardware agnostic and
+right down your alley of expertise.  Your review should be sufficient for
+inclusion or rejection.
+
+728e2cc Revert "cxgb3: Check and handle the dma mapping errors"
+
+reverted f83331b cxgb3: Check and handle the dma mapping errors,
+however, in between those two there was also
+be8b678 cxgb3: Correct comparisons and calculations using skb->tail and
+skb-transport_header and
+15dd16c cxgb3: Correct comparisons and calculations using skb->tail and
+skb-transport_header
+
+The author of the revert did not fix up the conflicts in such as way as
+to preserve the other two commits, so they were reverted too.  As they
+correct math issues under certain conditions, they should be retained.
+This puts them back in place.
+
+Signed-off-by: Doug Ledford <dledford@redhat.com>
 ---
- scripts/checkpatch.pl | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb3/sge.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 9ba4fc4..520f8e7 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -3869,6 +3869,18 @@ sub process {
- 			}
- 		}
- 
-+# check for formats with "0x%#"
-+		if ($line =~ /"X*"/) {
-+			my $fmt = get_quoted_string($line, $rawline);
-+			if ($fmt =~ /0x%#/) {
-+				if (WARN("REDUNDANT_HEX",
-+					 "Redundant hex prefix 0x format\n" . $herecurr) &&
-+				    $fix) {
-+					$fixed[$linenr - 1] =~ s/0x%#/%#/g;
-+				}
-+			}
-+		}
-+
- # Check for misused memsets
- 		if ($^V && $^V ge 5.10.0 &&
- 		    defined $stat &&
-
-
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index 9c89dc8..632b318 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -1599,7 +1599,8 @@ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
+ 	flits = skb_transport_offset(skb) / 8;
+ 	sgp = ndesc == 1 ? (struct sg_ent *)&d->flit[flits] : sgl;
+ 	sgl_flits = make_sgl(skb, sgp, skb_transport_header(skb),
+-			     skb->tail - skb->transport_header,
++			     skb_tail_pointer(skb) -
++			     skb_transport_header(skb),
+ 			     adap->pdev);
+ 	if (need_skb_unmap()) {
+ 		setup_deferred_unmapping(skb, adap->pdev, sgp, sgl_flits);
+-- 
+1.8.1.4
