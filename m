@@ -1,7 +1,7 @@
 From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] tcp: initialize rcv_tstamp for restored sockets
-Date: Tue, 27 Aug 2013 12:20:40 +0400
-Message-ID: <1377591640-1660-1-git-send-email-avagin@openvz.org>
+Subject: [PATCH] tcp: don't apply tsoffset if rcv_tsecr is zero
+Date: Tue, 27 Aug 2013 12:21:55 +0400
+Message-ID: <1377591715-1742-1-git-send-email-avagin@openvz.org>
 Cc: Cyrill Gorcunov <gorcunov@openvz.org>,
 	linux-kernel@vger.kernel.org, Andrew Vagin <avagin@openvz.org>,
 	Pavel Emelyanov <xemul@parallels.com>,
@@ -18,16 +18,15 @@ List-Id: netdev.vger.kernel.org
 
 From: Andrew Vagin <avagin@openvz.org>
 
-u32 rcv_tstamp;     /* timestamp of last received ACK */
+The zero value means that tsecr is not valid, so it's a special case.
 
-Its value used in tcp_retransmit_timer, which closes socket
-if the last ack was received more then TCP_RTO_MAX ago.
+tsoffset is used to customize tcp_time_stamp for one socket.
+tsoffset is usually zero, it's used when a socket was moved from one
+host to another host.
 
-Currently rcv_tstamp is initialized to zero and if tcp_retransmit_timer
-is called before receiving a first ack, the connection is closed.
-
-This patch initializes rcv_tstamp to a timestamp, when a socket was
-restored.
+Currently this issue affects logic of tcp_rcv_rtt_measure_ts. Due to
+incorrect value of rcv_tsecr, tcp_rcv_rtt_measure_ts sets rto to
+TCP_RTO_MAX.
 
 Cc: Pavel Emelyanov <xemul@parallels.com>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
@@ -39,21 +38,42 @@ Cc: Patrick McHardy <kaber@trash.net>
 Reported-by: Cyrill Gorcunov <gorcunov@openvz.org>
 Signed-off-by: Andrey Vagin <avagin@openvz.org>
 ---
- net/ipv4/tcp_output.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv4/tcp_input.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 92fde8d..e297299 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2814,6 +2814,8 @@ void tcp_connect_init(struct sock *sk)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 28af45a..3ca2139 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3535,7 +3535,10 @@ static bool tcp_parse_aligned_timestamp(struct tcp_sock *tp, const struct tcphdr
+ 		++ptr;
+ 		tp->rx_opt.rcv_tsval = ntohl(*ptr);
+ 		++ptr;
+-		tp->rx_opt.rcv_tsecr = ntohl(*ptr) - tp->tsoffset;
++		if (*ptr)
++			tp->rx_opt.rcv_tsecr = ntohl(*ptr) - tp->tsoffset;
++		else
++			tp->rx_opt.rcv_tsecr = 0;
+ 		return true;
+ 	}
+ 	return false;
+@@ -3560,7 +3563,7 @@ static bool tcp_fast_parse_options(const struct sk_buff *skb,
+ 	}
  
- 	if (likely(!tp->repair))
- 		tp->rcv_nxt = 0;
-+	else
-+		tp->rcv_tstamp = tcp_time_stamp;
- 	tp->rcv_wup = tp->rcv_nxt;
- 	tp->copied_seq = tp->rcv_nxt;
+ 	tcp_parse_options(skb, &tp->rx_opt, 1, NULL);
+-	if (tp->rx_opt.saw_tstamp)
++	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
+ 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
  
+ 	return true;
+@@ -5316,7 +5319,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 	int saved_clamp = tp->rx_opt.mss_clamp;
+ 
+ 	tcp_parse_options(skb, &tp->rx_opt, 0, &foc);
+-	if (tp->rx_opt.saw_tstamp)
++	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
+ 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
+ 
+ 	if (th->ack) {
 -- 
 1.8.3.1
