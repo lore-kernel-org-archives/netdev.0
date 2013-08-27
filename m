@@ -1,82 +1,36 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
- use upper devices
-Date: Tue, 27 Aug 2013 13:16:48 +0200
-Message-ID: <20130827111648.GB24836@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
- <1377549162-7522-6-git-send-email-vfalico@redhat.com>
- <20130826205338.GA3723@minipsycho.orion>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH next 0/6] be2net patch set
+Date: Tue, 27 Aug 2013 16:57:29 +0530
+Message-ID: <1377602855-13920-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4921 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753031Ab3H0LSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 07:18:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20130826205338.GA3723@minipsycho.orion>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30128 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072Ab3H0LXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 07:23:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
->Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
-...snip...
->>+	rcu_read_lock();
->>+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
->>+		if (ip == bond_confirm_addr(upper, 0, ip)) {
->>+			ret = true;
->>+			break;
->>+		}
->
->You need the same recursion __vlan_find_dev_deep() is doing. If you do
->not do that, you will miss anything over the first upper level.
+This series includes code refactoring patches needed to cleanly implement
+ethtool set-channels features. Pls apply. Thanks.
 
-Good point, and it's true for other uses also - bond_arp_send_all(), for
-example, will also miss anything that's higher than the first upper level.
+Sathya Perla (5):
+  be2net: use EQ_CREATEv2 for SH-R
+  be2net: refactor be_get_resources() code
+  be2net: Fix be_cmd_if_create() to use MBOX if MCCQ is not created
+  be2net: refactor be_setup() to consolidate queue creation routines
+  be2net: implement ethtool set/get_channel hooks
 
-I can't think of a use case scenario when we would need only the first
-upper level - so maybe we should either make netdev_for_each_upper_dev()
-recursive by default (I don't know how it can be done easily, tbh, without
-modifying the existing code), or add something like:
+Vasundhara Volam (1):
+  be2net: Fixup profile management routines
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 566e99a..4a4468f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct list_head *search_list,
-  	}
-  }
-  
-+struct net_device *netdev_upper_recursive_do_rcu(struct net_device *dev,
-+						 struct net_device *orig_dev,
-+						 bool (*f)(struct net_device *,
-+							   struct net_device *))
-+{
-+	struct netdev_upper *upper;
-+	struct net_device *ret = NULL;
-+
-+	list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
-+		if (f(orig_dev, upper->dev)) {
-+			ret = upper->dev;
-+			break;
-+		}
-+
-+		if (!list_empty(&upper->dev->upper_dev_list)) {
-+			ret = netdev_upper_recursive_do_rcu(upper->dev,
-+							    orig_dev, f);
-+			if (ret)
-+				break;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-  static bool __netdev_search_upper_dev(struct net_device *dev,
-  				      struct net_device *upper_dev)
-  {
-
-How do you think?
+ drivers/net/ethernet/emulex/benet/be.h         |   74 +++-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |  320 +++++++++-------
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   62 ++--
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   25 ++
+ drivers/net/ethernet/emulex/benet/be_main.c    |  490 +++++++++++++-----------
+ drivers/net/ethernet/emulex/benet/be_roce.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.h    |    4 +-
+ 7 files changed, 575 insertions(+), 402 deletions(-)
