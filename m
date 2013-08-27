@@ -1,98 +1,87 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 01/11] openvswitch: Use RCU lock for flow
-	dump operation.
-Date: Tue, 27 Aug 2013 13:20:38 -0700
-Message-ID: <1377634848-34327-2-git-send-email-jesse@nicira.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net-next 02/11] openvswitch: Use RCU lock for dp dump operation.
+Date: Tue, 27 Aug 2013 13:20:39 -0700
+Message-ID: <1377634848-34327-3-git-send-email-jesse@nicira.com>
 References: <1377634848-34327-1-git-send-email-jesse@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1377634848-34327-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:41380 "HELO
+	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752591Ab3H0UVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:21:00 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so5336267pdj.32
+        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 13:20:59 -0700 (PDT)
+In-Reply-To: <1377634848-34327-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Pravin B Shelar <pshelar@nicira.com>
 
-Flow dump operation is read-only operation.  There is no need to
-take ovs-lock.  Following patch use rcu-lock for dumping flows.
+RCUfy dp-dump operation which is already read-only. This
+makes all ovs dump operations lockless.
 
-Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/datapath.c | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ net/openvswitch/datapath.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index f2ed760..e6fb866 100644
+index e6fb866..9d97ef3 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -1104,7 +1104,6 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 				  u32 seq, u32 flags, u8 cmd)
+@@ -951,9 +951,10 @@ static struct genl_ops dp_packet_genl_ops[] = {
+ 
+ static void get_dp_stats(struct datapath *dp, struct ovs_dp_stats *stats)
  {
- 	const int skb_orig_len = skb->len;
--	const struct sw_flow_actions *sf_acts;
- 	struct nlattr *start;
- 	struct ovs_flow_stats stats;
- 	struct ovs_header *ovs_header;
-@@ -1113,8 +1112,6 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	u8 tcp_flags;
- 	int err;
++	struct flow_table *table;
+ 	int i;
+-	struct flow_table *table = ovsl_dereference(dp->table);
  
--	sf_acts = ovsl_dereference(flow->sf_acts);
--
- 	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family, flags, cmd);
- 	if (!ovs_header)
- 		return -EMSGSIZE;
-@@ -1161,6 +1158,11 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	 */
- 	start = nla_nest_start(skb, OVS_FLOW_ATTR_ACTIONS);
- 	if (start) {
-+		const struct sw_flow_actions *sf_acts;
-+
-+		sf_acts = rcu_dereference_check(flow->sf_acts,
-+						lockdep_ovsl_is_held());
-+
- 		err = actions_to_attr(sf_acts->actions, sf_acts->actions_len, skb);
- 		if (!err)
- 			nla_nest_end(skb, start);
-@@ -1440,15 +1442,14 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct datapath *dp;
- 	struct flow_table *table;
++	table = rcu_dereference_check(dp->table, lockdep_ovsl_is_held());
+ 	stats->n_flows = ovs_flow_tbl_count(table);
  
--	ovs_lock();
-+	rcu_read_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
- 	if (!dp) {
--		ovs_unlock();
-+		rcu_read_unlock();
- 		return -ENODEV;
+ 	stats->n_hit = stats->n_missed = stats->n_lost = 0;
+@@ -1665,7 +1666,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		goto err_destroy_local_port;
+ 
+ 	ovs_net = net_generic(ovs_dp_get_net(dp), ovs_net_id);
+-	list_add_tail(&dp->list_node, &ovs_net->dps);
++	list_add_tail_rcu(&dp->list_node, &ovs_net->dps);
+ 
+ 	ovs_unlock();
+ 
+@@ -1703,7 +1704,7 @@ static void __dp_destroy(struct datapath *dp)
+ 				ovs_dp_detach_port(vport);
  	}
  
--	table = ovsl_dereference(dp->table);
--
-+	table = rcu_dereference(dp->table);
- 	for (;;) {
- 		struct sw_flow *flow;
- 		u32 bucket, obj;
-@@ -1468,7 +1469,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		cb->args[0] = bucket;
- 		cb->args[1] = obj;
+-	list_del(&dp->list_node);
++	list_del_rcu(&dp->list_node);
+ 
+ 	/* OVSP_LOCAL is datapath internal port. We need to make sure that
+ 	 * all port in datapath are destroyed first before freeing datapath.
+@@ -1808,8 +1809,8 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int skip = cb->args[0];
+ 	int i = 0;
+ 
+-	ovs_lock();
+-	list_for_each_entry(dp, &ovs_net->dps, list_node) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(dp, &ovs_net->dps, list_node) {
+ 		if (i >= skip &&
+ 		    ovs_dp_cmd_fill_info(dp, skb, NETLINK_CB(cb->skb).portid,
+ 					 cb->nlh->nlmsg_seq, NLM_F_MULTI,
+@@ -1817,7 +1818,7 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			break;
+ 		i++;
  	}
 -	ovs_unlock();
 +	rcu_read_unlock();
- 	return skb->len;
- }
+ 
+ 	cb->args[0] = i;
  
 -- 
 1.8.1.2
