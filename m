@@ -1,46 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net-next] qdisc: allow setting default queuing discipline
-Date: Tue, 27 Aug 2013 16:22:52 -0700
-Message-ID: <521D34CC.205@candelatech.com>
-References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+From: Phil Oester <kernel@linuxace.com>
+Subject: [PATCH] tcp: tcp_make_synack() should use sock_wmalloc
+Date: Tue, 27 Aug 2013 16:41:40 -0700
+Message-ID: <20130827234140.GA3301@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:43316 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430Ab3H0XXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 19:23:00 -0400
-In-Reply-To: <20130827161908.26062336@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
+Cc: eric.dumazet@gmail.com, pablo@netfilter.org
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2013 04:19 PM, Stephen Hemminger wrote:
-> By default, the pfifo_fast queue discipline has been used by default
-> for all devices. But we have better choices now.
->
-> This patch allow setting the default queueing discipline with sysctl.
-> This allows easy use of better queueing disciplines on all devices
-> without having to use tc qdisc scripts. It is intended to allow
-> an easy path for distributions to make fq_codel or sfq the default
-> qdisc.
->
-> This patch also makes pfifo_fast more of a first class qdisc, since
-> it is now possible to manually override the default and explicitly
-> use pfifo_fast. The behavior for systems who do not use the sysctl
-> is unchanged, they still get pfifo_fast
->
-> Also removes leftover random # in sysctl net core.
 
-> +CoDel (codel) or fair queue CoDel (fq_codel). Dont' use queuing disciplines
+--liOOAslEiF7prFVr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-nit: Don't has typo above....
+In commit 90ba9b19 (tcp: tcp_make_synack() can use alloc_skb()), Eric changed
+the call to sock_wmalloc in tcp_make_synack to alloc_skb.  In doing so,
+the netfilter owner match lost its ability to block the SYNACK packet on
+outbound listening sockets.  Revert the change, restoring the owner match
+functionality.
 
-Thanks,
-Ben
+This closes netfilter bugzilla #847.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Signed-off-by: Phil Oester <kernel@linuxace.com>
+
+
+--liOOAslEiF7prFVr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=patch-tcp_make_synack
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 92fde8d..362c5f7 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2670,7 +2670,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	int tcp_header_size;
+ 	int mss;
+ 
+-	skb = alloc_skb(MAX_TCP_HEADER + 15, sk_gfp_atomic(sk, GFP_ATOMIC));
++	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
+ 	if (unlikely(!skb)) {
+ 		dst_release(dst);
+ 		return NULL;
+
+--liOOAslEiF7prFVr--
