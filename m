@@ -1,86 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 04/16] sfc: Remove unused filter_flags variables
- and efx_farch_filter_id_flags()
-Date: Tue, 27 Aug 2013 21:39:28 +0100
-Message-ID: <1377635968.13272.73.camel@bwh-desktop.uk.level5networks.com>
-References: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Netfilter owner match breakage
+Date: Tue, 27 Aug 2013 13:43:31 -0700
+Message-ID: <1377636211.8828.152.camel@edumazet-glaptop>
+References: <20130827202445.GA3114@linuxace.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	edumazet@google.com
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:62555 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445Ab3H0Ujb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:39:31 -0400
-In-Reply-To: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:53441 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753894Ab3H0Und (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:43:33 -0400
+In-Reply-To: <20130827202445.GA3114@linuxace.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/filter.c | 16 ----------------
- 1 file changed, 16 deletions(-)
+On Tue, 2013-08-27 at 13:24 -0700, Phil Oester wrote:
+> In commit 90ba9b19 (tcp: tcp_make_synack() can use alloc_skb()), Eric changed
+> the call to sock_wmalloc in tcp_make_synack to alloc_skb.  In doing so,
+> the netfilter owner match lost its ability to block the SYNACK packet on
+> outbound listening sockets.  For example:
+> 
+> [phil@f19_main ~]$ id
+> uid=1000(phil) gid=1000(phil) groups=1000(phil)
+> 
+> [phil@f19_main ~]$ sudo iptables -A OUTPUT -p tcp -m owner --uid-owner 1000 -j REJECT
+> 
 
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index fb01fdb..a588c95 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -609,16 +609,6 @@ static inline unsigned int efx_filter_id_index(u32 id)
- 	return id & EFX_FILTER_INDEX_MASK;
- }
- 
--static inline u8 efx_filter_id_flags(u32 id)
--{
--	unsigned int range = id >> EFX_FILTER_INDEX_WIDTH;
--
--	if (range < EFX_FILTER_MATCH_PRI_COUNT)
--		return EFX_FILTER_FLAG_RX;
--	else
--		return EFX_FILTER_FLAG_TX;
--}
--
- u32 efx_filter_get_rx_id_limit(struct efx_nic *efx)
- {
- 	struct efx_filter_state *state = efx->filter_state;
-@@ -829,7 +819,6 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
- 	struct efx_filter_table *table;
- 	unsigned int filter_idx;
- 	struct efx_filter_spec *spec;
--	u8 filter_flags;
- 	int rc;
- 
- 	table_id = efx_filter_id_table_id(filter_id);
-@@ -842,8 +831,6 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
- 		return -ENOENT;
- 	spec = &table->spec[filter_idx];
- 
--	filter_flags = efx_filter_id_flags(filter_id);
--
- 	spin_lock_bh(&state->lock);
- 
- 	if (test_bit(filter_idx, table->used_bitmap) &&
-@@ -880,7 +867,6 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
- 	struct efx_filter_table *table;
- 	struct efx_filter_spec *spec;
- 	unsigned int filter_idx;
--	u8 filter_flags;
- 	int rc;
- 
- 	table_id = efx_filter_id_table_id(filter_id);
-@@ -893,8 +879,6 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
- 		return -ENOENT;
- 	spec = &table->spec[filter_idx];
- 
--	filter_flags = efx_filter_id_flags(filter_id);
--
- 	spin_lock_bh(&state->lock);
- 
- 	if (test_bit(filter_idx, table->used_bitmap) &&
+Oh well.
 
+> [phil@f19_main ~]$ echo hi | nc -l -p 8888
+> 
+> Before this commit, attempting to connect to the port 8888 listener generated
+> this:
+> 
+> 10.10.10.1.47457 > 10.10.10.110.8888: Flags [S], seq 1855270582 [...]
+> 10.10.10.110 > 10.10.10.110: ICMP 10.10.10.1 tcp port 47457 unreachable, length 68
+> 
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Hmm... I think TCP stack should send more SYNACK, no ?
+
+It sounds more logical to block the incoming SYN, but whatever.
+
+> After this commit, the session is established but the first packet of the
+> session gets rejected:
+> 
+> 10.10.10.1.47453 > 10.10.10.110.8888: Flags [S], seq 2089355862 [...]
+> 10.10.10.110.8888 > 10.10.10.1.47453: Flags [S.], seq 2554257713, ack 2089355863 [...]
+> 10.10.10.1.47453 > 10.10.10.110.8888: Flags [.], ack 1, win 115 [...]
+> 10.10.10.110 > 10.10.10.110: ICMP 10.10.10.1 tcp port 47453 unreachable, length 63
+> 
+> Reverting 90ba9b19 (and adjusting for the removal of s_data_desired) fixes the
+> problem.  Is there a better way to do this?
+
+Well, a revert seems OK to me, it was not a critical change.
