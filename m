@@ -1,79 +1,112 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] tcp: don't apply tsoffset if rcv_tsecr is zero
-Date: Tue, 27 Aug 2013 12:21:55 +0400
-Message-ID: <1377591715-1742-1-git-send-email-avagin@openvz.org>
-Cc: Cyrill Gorcunov <gorcunov@openvz.org>,
-	linux-kernel@vger.kernel.org, Andrew Vagin <avagin@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH 0/5] netfilter: SYNPROXY target v3
+Date: Tue, 27 Aug 2013 10:35:56 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1308270951520.25216@ask.diku.dk>
+References: <1377586216-7024-1-git-send-email-kaber@trash.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, mph@one.com, jesper.brouer@gmail.com,
+	as@one.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:54282 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752780Ab3H0IgH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 04:36:07 -0400
+In-Reply-To: <1377586216-7024-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Vagin <avagin@openvz.org>
+On Tue, 27 Aug 2013, Patrick McHardy wrote:
 
-The zero value means that tsecr is not valid, so it's a special case.
+> The following patches contain the latest version of the SYNPROXY target.
+>
+> The SYNPROXY operates by marking the initial SYN from the client as UNTRACKED
+> and directing it to the SYNPROXY target. The target responds with a SYN/ACK
+> containing a cookie and encodes options such as window scaling factor, SACK
+> perm etc. into the timestamp, if timestamps are used (similar to TCP). The
+> window size is set to zero. The response is also sent as untracked packet.
+>
+> When the final ACK is received the cookie is validated, the original options
+> extracted and a SYN to the original destination is generated. The SYN to the
+> original destination uses the avertised window from the final ACK and the
+> options from the initial SYN packet. The SYN is not sent as untracked, so
+> from a connection tracking POV it will look like the original packet from
+> the client and instantiate a new connection. When the server responds with
+> a SYN/ACK a final ACK for the server is generated and a window update with
+> the window size announced by the server is sent to the client. At this
+> point the connection is handed of to conntrack and the only thing the
+> target is still involved in is timestamp translation through the registerd
+> hooks.
+>
+> Since the SYN proxy can't know the options the server supports, they have
+> to be specified as parameters to the SYNPROXY target. The assumption is that
+> these options are constant as long as you don't change settings on the
+> server.
 
-tsoffset is used to customize tcp_time_stamp for one socket.
-tsoffset is usually zero, it's used when a socket was moved from one
-host to another host.
+Future extention idea: Perhaps we could auto detect the options the server 
+supports, after the first connection have been created?
+I know this is problematic/difficult for the iptables framework, because 
+it would require the module to keep an internal dynamic state, which 
+iptables module does not handle well (due to how the entires ruleset is 
+reloaded on rule changes).
+Guess, the easiest thing to implement, would be to give a warning,
+if the options (the server supports) does not match the modules config.
 
-Currently this issue affects logic of tcp_rcv_rtt_measure_ts. Due to
-incorrect value of rcv_tsecr, tcp_rcv_rtt_measure_ts sets rto to
-TCP_RTO_MAX.
 
-Cc: Pavel Emelyanov <xemul@parallels.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Reported-by: Cyrill Gorcunov <gorcunov@openvz.org>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- net/ipv4/tcp_input.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 28af45a..3ca2139 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3535,7 +3535,10 @@ static bool tcp_parse_aligned_timestamp(struct tcp_sock *tp, const struct tcphdr
- 		++ptr;
- 		tp->rx_opt.rcv_tsval = ntohl(*ptr);
- 		++ptr;
--		tp->rx_opt.rcv_tsecr = ntohl(*ptr) - tp->tsoffset;
-+		if (*ptr)
-+			tp->rx_opt.rcv_tsecr = ntohl(*ptr) - tp->tsoffset;
-+		else
-+			tp->rx_opt.rcv_tsecr = 0;
- 		return true;
- 	}
- 	return false;
-@@ -3560,7 +3563,7 @@ static bool tcp_fast_parse_options(const struct sk_buff *skb,
- 	}
- 
- 	tcp_parse_options(skb, &tp->rx_opt, 1, NULL);
--	if (tp->rx_opt.saw_tstamp)
-+	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
- 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
- 
- 	return true;
-@@ -5316,7 +5319,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	int saved_clamp = tp->rx_opt.mss_clamp;
- 
- 	tcp_parse_options(skb, &tp->rx_opt, 0, &foc);
--	if (tp->rx_opt.saw_tstamp)
-+	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
- 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
- 
- 	if (th->ack) {
--- 
-1.8.3.1
+> Since the SYN proxy can't know the initial sequence number and
+> timestamp values the server will use, both have to be translated in the
+> direction server->client. Sequence number translation is done using the
+> standard sequence number translation mechanisms originally only used for
+> NAT, timestamps are translated in a hook registered by the SYNPROXY target.
+>
+> Usage is as follows:
+>
+> iptables -t raw -A PREROUTING -i eth0 -p tcp --dport 80 --syn -j NOTRACK
+> iptables -A INPUT -i eth0 -p tcp --dport 80 -m state UNTRACKED,INVALID \
+>        -j SYNPROXY --sack-perm --timestamp --mss 1480 --wscale 7 --ecn
+>
+> echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
+>
+> The second rule catches untracked packets and directs them to the target.
+> The purpose of disabling loose tracking is to have the final ACK from the
+> client not be picked up by conntrack, so it won't create a new conntrack
+> entry and will be marked INVALID and also get directed to the target.
+>
+> We did some extensive testing on Monday and it verified all retransmit
+> bugs have been fixed. With 1.4Mpps SYNs the load on a 16 way Xeon L6530
+> 2.13 Ghz machine was between 3% and 6%.
+
+It was a Xeon L5630 ;-)
+
+We tested both SYN and ACK flood-attacks, while running ab (Apache 
+Benchmark). The 1.4Mpps comes from limitations on the generator host 
+(which used trafgen).  We also did some short tests with a modified 
+pktgen.  And Martin wrote a test tool, that would delay conn 
+establishment, to test retransmits.  And Patritck tested in (simulated) 
+drop situations.
+
+
+> There's one single change since v2:
+>
+> Reopened TCP connections while the conntrack is in CLOSE state weren't
+> handled properly. The sequence number and timestamp adjustments need
+> to be reset in this case. Another counter has been introduced for this.
+>
+> From my POV, these patches are ready for merging now.
+
+Yes, Martin and Patrick (and I) have done some good testing of the module. 
+And we have flushed out and solved several bugs in this process.
+
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
