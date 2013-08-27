@@ -1,80 +1,69 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: RE: [patch -next] qlcnic: underflow in
- qlcnic_validate_max_tx_rings()
-Date: Tue, 27 Aug 2013 04:40:49 +0000
-Message-ID: <ADFE82A996F10145934E45547759F763311CC0C5@avmb3.qlogic.org>
-References: <20130827011622.GB17061@elgon.mountain>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Is fallback vhost_net to =?utf-8?Q?qem?=
+ =?utf-8?Q?u_for_live_migrate_available=EF=BC=9F?=
+Date: Tue, 27 Aug 2013 07:19:35 +0300
+Message-ID: <20130827041935.GA7263@redhat.com>
+References: <521C1DCF.5090202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130827011622.GB17061@elgon.mountain>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jasowang@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	qianhuibin@huawei.com
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <521C1DCF.5090202@huawei.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 27, 2013 at 11:32:31AM +0800, Qin Chuanyu wrote:
+> Hi all
+>=20
+> I am participating in a project which try to port vhost_net on Xen=E3=
+=80=82
+>=20
+> By change the memory copy and notify mechanism =EF=BC=8Ccurrently
+> virtio-net with vhost_net could run on Xen with good
+> performance=E3=80=82TCP receive throughput of single vnic from 2.77Gb=
+ps up
+> to 6Gps=E3=80=82In VM receive side=EF=BC=8CI instead grant_copy with =
+grant_map +
+> memcopy=EF=BC=8Cit efficiently reduce the cost of grant_table spin_lo=
+ck of
+> dom0=EF=BC=8CSo the hole server TCP performance from 5.33Gps up to 9.=
+5Gps=E3=80=82
+>=20
+> Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost_=
+net
+> use vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't =
+manage
+> the hole memory of VM=EF=BC=8CSo I am trying to fallback datapath fro=
+m
+> vhost_net to qemu when doing live migrate =EF=BC=8Cand fallback datap=
+ath
+> from qemu to
+> vhost_net again after vm migrate to new server=E3=80=82
+>=20
+> My question is=EF=BC=9A
+> 	why didn't vhost_net do the same fallback operation for live
+> migrate on KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=
+=9F
+> 	Is there any mechanism fault for the idea of fallback datapath from
+> vhost_net to qemu for live migrate=EF=BC=9F
+>=20
+> any question about the detail of vhost_net on Xen is welcome=E3=80=82
+>=20
+> Thanks
+>=20
 
-> -----Original Message-----
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Monday, August 26, 2013 6:16 PM
-> To: Himanshu Madhani
-> Cc: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko; Sucheta
-> Chakraborty; Dept-Eng Linux Driver; netdev; kernel-janitors@vger.kernel.org
-> Subject: [patch -next] qlcnic: underflow in qlcnic_validate_max_tx_rings()
-> 
-> This function checks the upper bound but it doesn't check for negative
-> numbers:
-> 
-> 	if (txq > QLCNIC_MAX_TX_RINGS) {
-> 
-> I've solved this by making "txq" a u32 type.  I chose that because
-> ->tx_count in the ethtool_channels struct is a __u32.
-> 
-> This bug was added in aa4a1f7df7 ('qlcnic: Enable Tx queue changes using
-> ethtool for 82xx Series adapter.').
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> index 3f03856..ae9b444 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> @@ -1537,7 +1537,7 @@ int qlcnic_diag_alloc_res(struct net_device
-> *netdev, int test);  netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb,
-> struct net_device *netdev);  int qlcnic_set_max_rss(struct qlcnic_adapter *,
-> u8, int);  int qlcnic_validate_max_rss(struct qlcnic_adapter *, __u32); -int
-> qlcnic_validate_max_tx_rings(struct qlcnic_adapter *, int);
-> +int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *, u32 txq);
->  void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter);  void
-> qlcnic_82xx_set_mac_filter_count(struct qlcnic_adapter *);  int
-> qlcnic_enable_msix(struct qlcnic_adapter *, u32); diff --git
-> a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> index 8321d1a..88e3c97 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> @@ -3524,7 +3524,7 @@ qlcnicvf_start_firmware(struct qlcnic_adapter
-> *adapter)
->  	return err;
->  }
-> 
-> -int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, int txq)
-> +int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, u32
-> +txq)
->  {
->  	struct net_device *netdev = adapter->netdev;
->  	u8 max_hw = QLCNIC_MAX_TX_RINGS;
+It should work, in practice.
 
-Thanks
+However, one issue with this approach that I see is that you
+are running two instances of virtio-net on the host:
+qemu and vhost-net, doubling your security surface
+for guest to host attack.
 
-Acked-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+I don't exactly see why does it matter that qemu doesn't manage
+the whole memory of a VM - vhost only needs to log
+memory writes that it performs.
+
