@@ -1,36 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: TSO packets automatic sizing
-Date: Mon, 26 Aug 2013 17:47:08 -0700
-Message-ID: <1377564428.8828.139.camel@edumazet-glaptop>
-References: <1377304192.8828.43.camel@edumazet-glaptop>
-	 <1377491162.8828.116.camel@edumazet-glaptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] net: Check the correct namespace when spoofing pid over SCM_RIGHTS
+Date: Mon, 26 Aug 2013 18:02:09 -0700
+Message-ID: <8738pwndym.fsf@xmission.com>
+References: <cover.1377196394.git.luto@amacapital.net>
+	<cover.1377196394.git.luto@amacapital.net>
+	<ff9dd301d8c91ec02362d52494b4a640f370bc68.1377196394.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Van Jacobson <vanj@google.com>,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:59472 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752340Ab3H0ArK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Aug 2013 20:47:10 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so4094137pdj.8
-        for <netdev@vger.kernel.org>; Mon, 26 Aug 2013 17:47:10 -0700 (PDT)
-In-Reply-To: <1377491162.8828.116.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: security@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, stable@vger.kernel.org
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ff9dd301d8c91ec02362d52494b4a640f370bc68.1377196394.git.luto@amacapital.net>
+	(Andy Lutomirski's message of "Thu, 22 Aug 2013 11:39:15 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-08-25 at 21:26 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+Andy Lutomirski <luto@amacapital.net> writes:
 
+> This is a security bug.
+>
+> The follow-up will fix nsproxy to discourage this type of issue from
+> happening again.
+
+Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+> ---
+>  net/core/scm.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/core/scm.c b/net/core/scm.c
+> index 03795d0..b4da80b 100644
+> --- a/net/core/scm.c
+> +++ b/net/core/scm.c
+> @@ -54,7 +54,7 @@ static __inline__ int scm_check_creds(struct ucred *creds)
+>  		return -EINVAL;
 >  
-> v2: Neal Cardwell reported a suspect deferring of last two segments on
-> initial write of 10 MSS, I had to change tcp_tso_should_defer() to take
-> into account tp->xmit_size_goal_segs 
-
-Please do not apply, will send a v3, because srtt can be zero in some
-occasions (divide by 0)
+>  	if ((creds->pid == task_tgid_vnr(current) ||
+> -	     ns_capable(current->nsproxy->pid_ns->user_ns, CAP_SYS_ADMIN)) &&
+> +	     ns_capable(task_active_pid_ns(current)->user_ns, CAP_SYS_ADMIN)) &&
+>  	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
+>  	      uid_eq(uid, cred->suid)) || nsown_capable(CAP_SETUID)) &&
+>  	    ((gid_eq(gid, cred->gid)   || gid_eq(gid, cred->egid) ||
