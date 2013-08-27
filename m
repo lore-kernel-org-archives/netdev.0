@@ -1,37 +1,82 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 2/2] ipv6: Add support for IPsec virtual tunnel
- interfaces
-Date: Tue, 27 Aug 2013 13:08:36 +0200
-Message-ID: <20130827110836.GE7660@secunet.com>
-References: <20130819062623.GN26773@secunet.com>
- <20130819062730.GP26773@secunet.com>
- <1377535058.11709.21.camel@dcbw.foobar.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
+ use upper devices
+Date: Tue, 27 Aug 2013 13:16:48 +0200
+Message-ID: <20130827111648.GB24836@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+ <1377549162-7522-6-git-send-email-vfalico@redhat.com>
+ <20130826205338.GA3723@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54942 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4921 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752321Ab3H0LIi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 07:08:38 -0400
+	id S1753031Ab3H0LSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 07:18:20 -0400
 Content-Disposition: inline
-In-Reply-To: <1377535058.11709.21.camel@dcbw.foobar.com>
+In-Reply-To: <20130826205338.GA3723@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 26, 2013 at 11:37:38AM -0500, Dan Williams wrote:
-> On Mon, 2013-08-19 at 08:27 +0200, Steffen Klassert wrote:
-> > This patch adds IPv6  support for IPsec virtual tunnel interfaces
-> > (vti). IPsec virtual tunnel interfaces provide a routable interface
-> > for IPsec tunnel endpoints.
-> 
-> Are new ioctls for this kind of thing kosher?  Or should it be using
-> netlink instead?
-> 
+On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
+>Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
+...snip...
+>>+	rcu_read_lock();
+>>+	netdev_for_each_upper_dev(bond->dev, upper, iter) {
+>>+		if (ip == bond_confirm_addr(upper, 0, ip)) {
+>>+			ret = true;
+>>+			break;
+>>+		}
+>
+>You need the same recursion __vlan_find_dev_deep() is doing. If you do
+>not do that, you will miss anything over the first upper level.
 
-Well, I used the existing interface that all tunnels use. In particular
-the vti tunnel for ipv4 uses it and the ipv6 side should be similar.
+Good point, and it's true for other uses also - bond_arp_send_all(), for
+example, will also miss anything that's higher than the first upper level.
 
-We could extend the netlink interface for tunnels of course, but that's
-another issue.
+I can't think of a use case scenario when we would need only the first
+upper level - so maybe we should either make netdev_for_each_upper_dev()
+recursive by default (I don't know how it can be done easily, tbh, without
+modifying the existing code), or add something like:
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 566e99a..4a4468f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct list_head *search_list,
+  	}
+  }
+  
++struct net_device *netdev_upper_recursive_do_rcu(struct net_device *dev,
++						 struct net_device *orig_dev,
++						 bool (*f)(struct net_device *,
++							   struct net_device *))
++{
++	struct netdev_upper *upper;
++	struct net_device *ret = NULL;
++
++	list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
++		if (f(orig_dev, upper->dev)) {
++			ret = upper->dev;
++			break;
++		}
++
++		if (!list_empty(&upper->dev->upper_dev_list)) {
++			ret = netdev_upper_recursive_do_rcu(upper->dev,
++							    orig_dev, f);
++			if (ret)
++				break;
++		}
++	}
++
++	return ret;
++}
++
+  static bool __netdev_search_upper_dev(struct net_device *dev,
+  				      struct net_device *upper_dev)
+  {
+
+How do you think?
