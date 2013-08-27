@@ -1,97 +1,127 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 3/5] bnx2x: Fix functionality of configuring vlan
- list
-Date: Wed, 28 Aug 2013 01:13:02 +0300
-Message-ID: <1377641584-2939-4-git-send-email-yuvalmin@broadcom.com>
-References: <1377641584-2939-1-git-send-email-yuvalmin@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 4/8] net: syncookies: export cookie_v4_init_sequence/cookie_v4_check
+Date: Wed, 28 Aug 2013 00:53:34 +0200
+Message-ID: <1377644018-15685-5-git-send-email-pablo@netfilter.org>
+References: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2543 "EHLO mms3.broadcom.com"
+Received: from mail.us.es ([193.147.175.20]:44052 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753893Ab3H0WNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 18:13:20 -0400
-In-Reply-To: <1377641584-2939-1-git-send-email-yuvalmin@broadcom.com>
+	id S1753501Ab3H0WyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Aug 2013 18:54:00 -0400
+In-Reply-To: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
 
-The check on return code of bnx2x_vfop_config_vlan0() would lead to error
-handling flow as the return value indicating an existing pending ramrod would
-be erroneously considered as an error.
+Extract the local TCP stack independant parts of tcp_v4_init_sequence()
+and cookie_v4_check() and export them for use by the upcoming SYNPROXY
+target.
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Acked-by: David S. Miller <davem@davemloft.net>
+Tested-by: Martin Topholm <mph@one.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 37 ++---------------------
- 1 file changed, 2 insertions(+), 35 deletions(-)
+ include/net/tcp.h     |    4 ++++
+ net/ipv4/syncookies.c |   29 ++++++++++++++++++-----------
+ 2 files changed, 22 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index ad83f4b..b7efe27 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -522,23 +522,6 @@ static int bnx2x_vfop_set_user_req(struct bnx2x *bp,
- 	return 0;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 09cb5c1..8e2b636 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -476,9 +476,13 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+ 
+ /* From syncookies.c */
+ extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
++extern int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
++			     u32 cookie);
+ extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb, 
+ 				    struct ip_options *opt);
+ #ifdef CONFIG_SYN_COOKIES
++extern u32 __cookie_v4_init_sequence(const struct iphdr *iph,
++				     const struct tcphdr *th, u16 *mssp);
+ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, 
+ 				     __u16 *mss);
+ #else
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index b05c96e..14a15c4 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -160,26 +160,33 @@ static __u16 const msstab[] = {
+  * Generate a syncookie.  mssp points to the mss, which is returned
+  * rounded down to the value encoded in the cookie.
+  */
+-__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
++u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
++			      u16 *mssp)
+ {
+-	const struct iphdr *iph = ip_hdr(skb);
+-	const struct tcphdr *th = tcp_hdr(skb);
+ 	int mssind;
+ 	const __u16 mss = *mssp;
+ 
+-	tcp_synq_overflow(sk);
+-
+ 	for (mssind = ARRAY_SIZE(msstab) - 1; mssind ; mssind--)
+ 		if (mss >= msstab[mssind])
+ 			break;
+ 	*mssp = msstab[mssind];
+ 
+-	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
+-
+ 	return secure_tcp_syn_cookie(iph->saddr, iph->daddr,
+ 				     th->source, th->dest, ntohl(th->seq),
+ 				     jiffies / (HZ * 60), mssind);
  }
++EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
++
++__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
++{
++	const struct iphdr *iph = ip_hdr(skb);
++	const struct tcphdr *th = tcp_hdr(skb);
++
++	tcp_synq_overflow(sk);
++	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
++
++	return __cookie_v4_init_sequence(iph, th, mssp);
++}
  
--static int
--bnx2x_vfop_config_vlan0(struct bnx2x *bp,
--			struct bnx2x_vlan_mac_ramrod_params *vlan_mac,
--			bool add)
--{
--	int rc;
--
--	vlan_mac->user_req.cmd = add ? BNX2X_VLAN_MAC_ADD :
--		BNX2X_VLAN_MAC_DEL;
--	vlan_mac->user_req.u.vlan.vlan = 0;
--
--	rc = bnx2x_config_vlan_mac(bp, vlan_mac);
--	if (rc == -EEXIST)
--		rc = 0;
--	return rc;
--}
--
- static int bnx2x_vfop_config_list(struct bnx2x *bp,
- 				  struct bnx2x_vfop_filters *filters,
- 				  struct bnx2x_vlan_mac_ramrod_params *vlan_mac)
-@@ -643,30 +626,14 @@ static void bnx2x_vfop_vlan_mac(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ /*
+  * This (misnamed) value is the age of syncookie which is permitted.
+@@ -192,10 +199,9 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
+  * Check if a ack sequence number is a valid syncookie.
+  * Return the decoded mss if it is, or 0 if not.
+  */
+-static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
++int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
++		      u32 cookie)
+ {
+-	const struct iphdr *iph = ip_hdr(skb);
+-	const struct tcphdr *th = tcp_hdr(skb);
+ 	__u32 seq = ntohl(th->seq) - 1;
+ 	__u32 mssind = check_tcp_syn_cookie(cookie, iph->saddr, iph->daddr,
+ 					    th->source, th->dest, seq,
+@@ -204,6 +210,7 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
  
- 	case BNX2X_VFOP_VLAN_CONFIG_LIST:
- 		/* next state */
--		vfop->state = BNX2X_VFOP_VLAN_CONFIG_LIST_0;
--
--		/* remove vlan0 - could be no-op */
--		vfop->rc = bnx2x_vfop_config_vlan0(bp, vlan_mac, false);
--		if (vfop->rc)
--			goto op_err;
-+		vfop->state = BNX2X_VFOP_VLAN_MAC_CHK_DONE;
+ 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
+ }
++EXPORT_SYMBOL_GPL(__cookie_v4_check);
  
--		/* Do vlan list config. if this operation fails we try to
--		 * restore vlan0 to keep the queue is working order
--		 */
-+		/* do list config */
- 		vfop->rc = bnx2x_vfop_config_list(bp, filters, vlan_mac);
- 		if (!vfop->rc) {
- 			set_bit(RAMROD_CONT, &vlan_mac->ramrod_flags);
- 			vfop->rc = bnx2x_config_vlan_mac(bp, vlan_mac);
- 		}
--		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT); /* fall-through */
--
--	case BNX2X_VFOP_VLAN_CONFIG_LIST_0:
--		/* next state */
--		vfop->state = BNX2X_VFOP_VLAN_MAC_CHK_DONE;
--
--		if (list_empty(&obj->head))
--			/* add vlan0 */
--			vfop->rc = bnx2x_vfop_config_vlan0(bp, vlan_mac, true);
- 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
+ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 					   struct request_sock *req,
+@@ -284,7 +291,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 		goto out;
  
- 	default:
+ 	if (tcp_synq_no_recent_overflow(sk) ||
+-	    (mss = cookie_check(skb, cookie)) == 0) {
++	    (mss = __cookie_v4_check(ip_hdr(skb), th, cookie)) == 0) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
+ 		goto out;
+ 	}
 -- 
-1.8.1.227.g44fe835
+1.7.10.4
