@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 12/16] sfc: Add flag for stack-owned RX MAC filters
-Date: Tue, 27 Aug 2013 21:49:41 +0100
-Message-ID: <1377636581.13272.86.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 13/16] sfc: Define and use
+ MCDI_POPULATE_DWORD_{1,2,3,4,5,6,7}
+Date: Tue, 27 Aug 2013 21:49:58 +0100
+Message-ID: <1377636598.13272.87.camel@bwh-desktop.uk.level5networks.com>
 References: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,170 +10,121 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6159 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6173 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535Ab3H0Uto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:49:44 -0400
+	with ESMTP id S1752103Ab3H0UuB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:50:01 -0400
 In-Reply-To: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MAC filters inserted on request from the stack (ndo_set_rx_mode)
-should allow manual steering but not removal.  Currently we have a
-special case for Siena's all-multicast and all-unicast MAC filters,
-but on EF10 we need to allow for steering of precise MAC filters as
-well.
-
-The EFX_FILTER_FLAG_RX_STACK flag changes the behaviour of replacement
-and removal requests:
-
-- Replacement *of* a filter with this flag never clears the flag but
-  does change steering and saved priority
-- Replacement *by* a filter with this flag only sets the flag but does
-  not change steering
-- Removal with priority < EFX_FILTER_PRI_REQUIRED really resets RX
-  steering and saved priority
-
-This could support precise MAC filtering on Siena in future.
-
-As a side-benefit, the default MAC filters are hidden from ethtool
-until they are steered.
+There is only one user now, but we're about to add many more.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/farch.c  | 47 +++++++++++++++++++++++++--------------
- drivers/net/ethernet/sfc/filter.h |  7 ++++++
- 2 files changed, 37 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.h      | 54 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/mcdi_port.c | 18 ++++++------
+ 2 files changed, 62 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index d91bced..1e21e51 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -2186,23 +2186,17 @@ efx_farch_filter_to_gen_spec(struct efx_filter_spec *gen_spec,
- }
- 
- static void
--efx_farch_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
-+efx_farch_filter_init_rx_for_stack(struct efx_nic *efx,
-+				   struct efx_farch_filter_spec *spec)
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 69586e0..a465cc1 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -128,6 +128,60 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0, _value)
+ #define MCDI_DWORD(_buf, _field)					\
+ 	EFX_DWORD_FIELD(*_MCDI_DWORD(_buf, _field), EFX_DWORD_0)
++#define MCDI_POPULATE_DWORD_1(_buf, _field, _name1, _value1)		\
++	EFX_POPULATE_DWORD_1(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1)
++#define MCDI_POPULATE_DWORD_2(_buf, _field, _name1, _value1,		\
++			      _name2, _value2)				\
++	EFX_POPULATE_DWORD_2(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2)
++#define MCDI_POPULATE_DWORD_3(_buf, _field, _name1, _value1,		\
++			      _name2, _value2, _name3, _value3)		\
++	EFX_POPULATE_DWORD_3(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2,		\
++			     MC_CMD_ ## _name3, _value3)
++#define MCDI_POPULATE_DWORD_4(_buf, _field, _name1, _value1,		\
++			      _name2, _value2, _name3, _value3,		\
++			      _name4, _value4)				\
++	EFX_POPULATE_DWORD_4(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2,		\
++			     MC_CMD_ ## _name3, _value3,		\
++			     MC_CMD_ ## _name4, _value4)
++#define MCDI_POPULATE_DWORD_5(_buf, _field, _name1, _value1,		\
++			      _name2, _value2, _name3, _value3,		\
++			      _name4, _value4, _name5, _value5)		\
++	EFX_POPULATE_DWORD_5(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2,		\
++			     MC_CMD_ ## _name3, _value3,		\
++			     MC_CMD_ ## _name4, _value4,		\
++			     MC_CMD_ ## _name5, _value5)
++#define MCDI_POPULATE_DWORD_6(_buf, _field, _name1, _value1,		\
++			      _name2, _value2, _name3, _value3,		\
++			      _name4, _value4, _name5, _value5,		\
++			      _name6, _value6)				\
++	EFX_POPULATE_DWORD_6(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2,		\
++			     MC_CMD_ ## _name3, _value3,		\
++			     MC_CMD_ ## _name4, _value4,		\
++			     MC_CMD_ ## _name5, _value5,		\
++			     MC_CMD_ ## _name6, _value6)
++#define MCDI_POPULATE_DWORD_7(_buf, _field, _name1, _value1,		\
++			      _name2, _value2, _name3, _value3,		\
++			      _name4, _value4, _name5, _value5,		\
++			      _name6, _value6, _name7, _value7)		\
++	EFX_POPULATE_DWORD_7(*_MCDI_DWORD(_buf, _field),		\
++			     MC_CMD_ ## _name1, _value1,		\
++			     MC_CMD_ ## _name2, _value2,		\
++			     MC_CMD_ ## _name3, _value3,		\
++			     MC_CMD_ ## _name4, _value4,		\
++			     MC_CMD_ ## _name5, _value5,		\
++			     MC_CMD_ ## _name6, _value6,		\
++			     MC_CMD_ ## _name7, _value7)
+ #define MCDI_SET_QWORD(_buf, _field, _value)				\
+ 	do {								\
+ 		EFX_POPULATE_DWORD_1(_MCDI_DWORD(_buf, _field)[0],	\
+diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
+index e359227..30e8a19 100644
+--- a/drivers/net/ethernet/sfc/mcdi_port.c
++++ b/drivers/net/ethernet/sfc/mcdi_port.c
+@@ -926,21 +926,19 @@ static int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
  {
--	struct efx_farch_filter_state *state = efx->filter_state;
--	struct efx_farch_filter_table *table =
--		&state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
--	struct efx_farch_filter_spec *spec = &table->spec[filter_idx];
--
- 	/* If there's only one channel then disable RSS for non VF
- 	 * traffic, thereby allowing VFs to use RSS when the PF can't.
- 	 */
--	spec->type = EFX_FARCH_FILTER_UC_DEF + filter_idx;
--	spec->priority = EFX_FILTER_PRI_MANUAL;
--	spec->flags = (EFX_FILTER_FLAG_RX |
-+	spec->priority = EFX_FILTER_PRI_REQUIRED;
-+	spec->flags = (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_STACK |
- 		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
- 		       (efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0));
- 	spec->dmaq_id = 0;
--	table->used_bitmap[0] |= 1 << filter_idx;
- }
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_MAC_STATS_IN_LEN);
+ 	int rc;
+-	efx_dword_t *cmd_ptr;
+ 	int period = enable ? 1000 : 0;
  
- /* Build a filter entry and return its n-tuple key. */
-@@ -2464,10 +2458,20 @@ s32 efx_farch_filter_insert(struct efx_nic *efx,
- 			rc = -EEXIST;
- 			goto out;
- 		}
--		if (spec.priority < saved_spec->priority) {
-+		if (spec.priority < saved_spec->priority &&
-+		    !(saved_spec->priority == EFX_FILTER_PRI_REQUIRED &&
-+		      saved_spec->flags & EFX_FILTER_FLAG_RX_STACK)) {
- 			rc = -EPERM;
- 			goto out;
- 		}
-+		if (spec.flags & EFX_FILTER_FLAG_RX_STACK) {
-+			/* Just make sure it won't be removed */
-+			saved_spec->flags |= EFX_FILTER_FLAG_RX_STACK;
-+			rc = 0;
-+			goto out;
-+		}
-+		/* Retain the RX_STACK flag */
-+		spec.flags |= saved_spec->flags & EFX_FILTER_FLAG_RX_STACK;
- 	}
+ 	BUILD_BUG_ON(MC_CMD_MAC_STATS_OUT_DMA_LEN != 0);
  
- 	/* Insert the filter */
-@@ -2517,6 +2521,7 @@ efx_farch_filter_table_clear_entry(struct efx_nic *efx,
- 	static efx_oword_t filter;
+ 	MCDI_SET_QWORD(inbuf, MAC_STATS_IN_DMA_ADDR, dma_addr);
+-	cmd_ptr = (efx_dword_t *)MCDI_PTR(inbuf, MAC_STATS_IN_CMD);
+-	EFX_POPULATE_DWORD_7(*cmd_ptr,
+-			     MC_CMD_MAC_STATS_IN_DMA, !!enable,
+-			     MC_CMD_MAC_STATS_IN_CLEAR, clear,
+-			     MC_CMD_MAC_STATS_IN_PERIODIC_CHANGE, 1,
+-			     MC_CMD_MAC_STATS_IN_PERIODIC_ENABLE, !!enable,
+-			     MC_CMD_MAC_STATS_IN_PERIODIC_CLEAR, 0,
+-			     MC_CMD_MAC_STATS_IN_PERIODIC_NOEVENT, 1,
+-			     MC_CMD_MAC_STATS_IN_PERIOD_MS, period);
++	MCDI_POPULATE_DWORD_7(inbuf, MAC_STATS_IN_CMD,
++			      MAC_STATS_IN_DMA, !!enable,
++			      MAC_STATS_IN_CLEAR, clear,
++			      MAC_STATS_IN_PERIODIC_CHANGE, 1,
++			      MAC_STATS_IN_PERIODIC_ENABLE, !!enable,
++			      MAC_STATS_IN_PERIODIC_CLEAR, 0,
++			      MAC_STATS_IN_PERIODIC_NOEVENT, 1,
++			      MAC_STATS_IN_PERIOD_MS, period);
+ 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
  
- 	EFX_WARN_ON_PARANOID(!test_bit(filter_idx, table->used_bitmap));
-+	BUG_ON(table->offset == 0); /* can't clear MAC default filters */
- 
- 	__clear_bit(filter_idx, table->used_bitmap);
- 	--table->used;
-@@ -2550,9 +2555,8 @@ static int efx_farch_filter_remove(struct efx_nic *efx,
- 	    spec->priority > priority)
- 		return -ENOENT;
- 
--	if (table->id == EFX_FARCH_FILTER_TABLE_RX_DEF) {
--		/* RX default filters must always exist */
--		efx_farch_filter_reset_rx_def(efx, filter_idx);
-+	if (spec->flags & EFX_FILTER_FLAG_RX_STACK) {
-+		efx_farch_filter_init_rx_for_stack(efx, spec);
- 		efx_farch_filter_push_rx_config(efx);
- 	} else {
- 		efx_farch_filter_table_clear_entry(efx, table, filter_idx);
-@@ -2647,6 +2651,8 @@ void efx_farch_filter_clear_rx(struct efx_nic *efx,
- 				     priority);
- 	efx_farch_filter_table_clear(efx, EFX_FARCH_FILTER_TABLE_RX_MAC,
- 				     priority);
-+	efx_farch_filter_table_clear(efx, EFX_FARCH_FILTER_TABLE_RX_DEF,
-+				     priority);
- }
- 
- u32 efx_farch_filter_count_rx_used(struct efx_nic *efx,
-@@ -2806,11 +2812,18 @@ int efx_farch_filter_table_probe(struct efx_nic *efx)
- 			goto fail;
- 	}
- 
--	if (state->table[EFX_FARCH_FILTER_TABLE_RX_DEF].size) {
-+	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
-+	if (table->size) {
- 		/* RX default filters must always exist */
-+		struct efx_farch_filter_spec *spec;
- 		unsigned i;
--		for (i = 0; i < EFX_FARCH_FILTER_SIZE_RX_DEF; i++)
--			efx_farch_filter_reset_rx_def(efx, i);
-+
-+		for (i = 0; i < EFX_FARCH_FILTER_SIZE_RX_DEF; i++) {
-+			spec = &table->spec[i];
-+			spec->type = EFX_FARCH_FILTER_UC_DEF + i;
-+			efx_farch_filter_init_rx_for_stack(efx, spec);
-+			__set_bit(i, table->used_bitmap);
-+		}
- 	}
- 
- 	efx_farch_filter_push_rx_config(efx);
-diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
-index 1b410de..e459e43 100644
---- a/drivers/net/ethernet/sfc/filter.h
-+++ b/drivers/net/ethernet/sfc/filter.h
-@@ -78,12 +78,19 @@ enum efx_filter_priority {
-  *	according to the indirection table.
-  * @EFX_FILTER_FLAG_RX_SCATTER: Enable DMA scatter on the receiving
-  *	queue.
-+ * @EFX_FILTER_FLAG_RX_STACK: Indicates a filter inserted for the
-+ *	network stack.  The filter must have a priority of
-+ *	%EFX_FILTER_PRI_REQUIRED.  It can be steered by a replacement
-+ *	request with priority %EFX_FILTER_PRI_MANUAL, and a removal
-+ *	request with priority %EFX_FILTER_PRI_MANUAL will reset the
-+ *	steering (but not remove the filter).
-  * @EFX_FILTER_FLAG_RX: Filter is for RX
-  * @EFX_FILTER_FLAG_TX: Filter is for TX
-  */
- enum efx_filter_flags {
- 	EFX_FILTER_FLAG_RX_RSS = 0x01,
- 	EFX_FILTER_FLAG_RX_SCATTER = 0x02,
-+	EFX_FILTER_FLAG_RX_STACK = 0x04,
- 	EFX_FILTER_FLAG_RX = 0x08,
- 	EFX_FILTER_FLAG_TX = 0x10,
- };
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
 
 
 -- 
