@@ -1,119 +1,106 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/8] net: syncookies: export cookie_v6_init_sequence/cookie_v6_check
-Date: Wed, 28 Aug 2013 00:53:36 +0200
-Message-ID: <1377644018-15685-7-git-send-email-pablo@netfilter.org>
-References: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/8] netfilter updates for net-next
+Date: Wed, 28 Aug 2013 00:53:30 +0200
+Message-ID: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44073 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753855Ab3H0WyN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Aug 2013 18:54:13 -0400
-In-Reply-To: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+Hi David,
 
-Extract the local TCP stack independant parts of tcp_v6_init_sequence()
-and cookie_v6_check() and export them for use by the upcoming IPv6 SYNPROXY
-target.
+The following patchset contains Netfilter updates for your net-next tree,
+they are:
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Acked-by: David S. Miller <davem@davemloft.net>
-Tested-by: Martin Topholm <mph@one.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/tcp.h     |    4 ++++
- net/ipv6/syncookies.c |   25 ++++++++++++++++---------
- 2 files changed, 20 insertions(+), 9 deletions(-)
+* The new SYNPROXY target for iptables, including IPv4 and IPv6 support,
+  from Patrick McHardy.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8e2b636..dd5e16f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -499,8 +499,12 @@ extern bool cookie_check_timestamp(struct tcp_options_received *opt,
- 				struct net *net, bool *ecn_ok);
- 
- /* From net/ipv6/syncookies.c */
-+extern int __cookie_v6_check(const struct ipv6hdr *iph, const struct tcphdr *th,
-+			     u32 cookie);
- extern struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
- #ifdef CONFIG_SYN_COOKIES
-+extern u32 __cookie_v6_init_sequence(const struct ipv6hdr *iph,
-+				     const struct tcphdr *th, u16 *mssp);
- extern __u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb,
- 				     __u16 *mss);
- #else
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index d5dda20..bf63ac8 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -112,32 +112,38 @@ static __u32 check_tcp_syn_cookie(__u32 cookie, const struct in6_addr *saddr,
- 		& COOKIEMASK;
- }
- 
--__u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb, __u16 *mssp)
-+u32 __cookie_v6_init_sequence(const struct ipv6hdr *iph,
-+			      const struct tcphdr *th, __u16 *mssp)
- {
--	const struct ipv6hdr *iph = ipv6_hdr(skb);
--	const struct tcphdr *th = tcp_hdr(skb);
- 	int mssind;
- 	const __u16 mss = *mssp;
- 
--	tcp_synq_overflow(sk);
--
- 	for (mssind = ARRAY_SIZE(msstab) - 1; mssind ; mssind--)
- 		if (mss >= msstab[mssind])
- 			break;
- 
- 	*mssp = msstab[mssind];
- 
--	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
--
- 	return secure_tcp_syn_cookie(&iph->saddr, &iph->daddr, th->source,
- 				     th->dest, ntohl(th->seq),
- 				     jiffies / (HZ * 60), mssind);
- }
-+EXPORT_SYMBOL_GPL(__cookie_v6_init_sequence);
- 
--static inline int cookie_check(const struct sk_buff *skb, __u32 cookie)
-+__u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb, __u16 *mssp)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
- 	const struct tcphdr *th = tcp_hdr(skb);
-+
-+	tcp_synq_overflow(sk);
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
-+
-+	return __cookie_v6_init_sequence(iph, th, mssp);
-+}
-+
-+int __cookie_v6_check(const struct ipv6hdr *iph, const struct tcphdr *th,
-+		      __u32 cookie)
-+{
- 	__u32 seq = ntohl(th->seq) - 1;
- 	__u32 mssind = check_tcp_syn_cookie(cookie, &iph->saddr, &iph->daddr,
- 					    th->source, th->dest, seq,
-@@ -145,6 +151,7 @@ static inline int cookie_check(const struct sk_buff *skb, __u32 cookie)
- 
- 	return mssind < ARRAY_SIZE(msstab) ? msstab[mssind] : 0;
- }
-+EXPORT_SYMBOL_GPL(__cookie_v6_check);
- 
- struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- {
-@@ -167,7 +174,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		goto out;
- 
- 	if (tcp_synq_no_recent_overflow(sk) ||
--		(mss = cookie_check(skb, cookie)) == 0) {
-+		(mss = __cookie_v6_check(ipv6_hdr(skb), th, cookie)) == 0) {
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
- 		goto out;
- 	}
--- 
-1.7.10.4
+* nf_defrag_ipv6.o should be only linked to nf_defrag_ipv6.ko, from
+  Nathan Hintz.
+
+* Fix an old bug in REJECT, which replies with wrong MAC source address
+  from the bridge, by Phil Oester.
+
+* Fix uninitialized helper variable in the expectation support over
+  nfnetlink_queue, from Florian Westphal.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 35fdb94b453bc69b7bc74b717f1e03d41d4bcdba:
+
+  e1000e: balance semaphore put/get for 82573 (2013-08-27 16:05:26 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to b7e092c05b308674c642ed7fb754d555f0ebba81:
+
+  netfilter: ctnetlink: fix uninitialized variable (2013-08-28 00:28:19 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (1):
+      netfilter: ctnetlink: fix uninitialized variable
+
+Nathan Hintz (1):
+      netfilter: nf_defrag_ipv6.o included twice
+
+Patrick McHardy (5):
+      netfilter: nf_conntrack: make sequence number adjustments usuable without NAT
+      net: syncookies: export cookie_v4_init_sequence/cookie_v4_check
+      netfilter: add SYNPROXY core/target
+      net: syncookies: export cookie_v6_init_sequence/cookie_v6_check
+      netfilter: add IPv6 SYNPROXY target
+
+Phil Oester (1):
+      netfilter: ip[6]t_REJECT: tcp-reset using wrong MAC source if bridged
+
+ include/linux/netfilter.h                          |    9 +-
+ include/net/netfilter/nf_conntrack_extend.h        |    6 +
+ include/net/netfilter/nf_conntrack_seqadj.h        |   51 ++
+ include/net/netfilter/nf_conntrack_synproxy.h      |   77 +++
+ include/net/netfilter/nf_nat.h                     |   10 -
+ include/net/netfilter/nf_nat_helper.h              |   19 -
+ include/net/tcp.h                                  |    8 +
+ include/uapi/linux/netfilter/nf_conntrack_common.h |    3 +-
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |   15 +-
+ include/uapi/linux/netfilter/xt_SYNPROXY.h         |   16 +
+ net/ipv4/netfilter/Kconfig                         |   13 +
+ net/ipv4/netfilter/Makefile                        |    1 +
+ net/ipv4/netfilter/ipt_REJECT.c                    |   21 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c                  |  472 +++++++++++++++++++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |    7 +-
+ net/ipv4/syncookies.c                              |   29 +-
+ net/ipv6/netfilter/Kconfig                         |   13 +
+ net/ipv6/netfilter/Makefile                        |    3 +-
+ net/ipv6/netfilter/ip6t_REJECT.c                   |   20 +-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c                 |  495 ++++++++++++++++++++
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |    7 +-
+ net/ipv6/syncookies.c                              |   25 +-
+ net/netfilter/Kconfig                              |    3 +
+ net/netfilter/Makefile                             |    5 +-
+ net/netfilter/nf_conntrack_core.c                  |   22 +-
+ net/netfilter/nf_conntrack_netlink.c               |  117 +++--
+ net/netfilter/nf_conntrack_proto_tcp.c             |   34 +-
+ net/netfilter/nf_conntrack_seqadj.c                |  238 ++++++++++
+ net/netfilter/nf_nat_core.c                        |   16 +-
+ net/netfilter/nf_nat_helper.c                      |  228 +--------
+ net/netfilter/nf_nat_sip.c                         |    3 +-
+ net/netfilter/nf_synproxy_core.c                   |  432 +++++++++++++++++
+ net/netfilter/nfnetlink_queue_ct.c                 |    8 +-
+ 33 files changed, 2026 insertions(+), 400 deletions(-)
+ create mode 100644 include/net/netfilter/nf_conntrack_seqadj.h
+ create mode 100644 include/net/netfilter/nf_conntrack_synproxy.h
+ create mode 100644 include/uapi/linux/netfilter/xt_SYNPROXY.h
+ create mode 100644 net/ipv4/netfilter/ipt_SYNPROXY.c
+ create mode 100644 net/ipv6/netfilter/ip6t_SYNPROXY.c
+ create mode 100644 net/netfilter/nf_conntrack_seqadj.c
+ create mode 100644 net/netfilter/nf_synproxy_core.c
+
