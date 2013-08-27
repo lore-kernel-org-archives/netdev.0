@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 11/16] sfc: Refactor Falcon-arch filter removal
-Date: Tue, 27 Aug 2013 21:48:54 +0100
-Message-ID: <1377636534.13272.85.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 12/16] sfc: Add flag for stack-owned RX MAC filters
+Date: Tue, 27 Aug 2013 21:49:41 +0100
+Message-ID: <1377636581.13272.86.camel@bwh-desktop.uk.level5networks.com>
 References: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,128 +9,170 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6136 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6159 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753815Ab3H0Us5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:48:57 -0400
+	with ESMTP id S1753535Ab3H0Uto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:49:44 -0400
 In-Reply-To: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the special case for removal of default filters from
-efx_farch_filter_table_clear_entry() into a wrapper function,
-efx_farch_filter_table_remove().  Move the existence and priority
-checks into the latter and use it where appropriate.
+MAC filters inserted on request from the stack (ndo_set_rx_mode)
+should allow manual steering but not removal.  Currently we have a
+special case for Siena's all-multicast and all-unicast MAC filters,
+but on EF10 we need to allow for steering of precise MAC filters as
+well.
+
+The EFX_FILTER_FLAG_RX_STACK flag changes the behaviour of replacement
+and removal requests:
+
+- Replacement *of* a filter with this flag never clears the flag but
+  does change steering and saved priority
+- Replacement *by* a filter with this flag only sets the flag but does
+  not change steering
+- Removal with priority < EFX_FILTER_PRI_REQUIRED really resets RX
+  steering and saved priority
+
+This could support precise MAC filtering on Siena in future.
+
+As a side-benefit, the default MAC filters are hidden from ethtool
+until they are steered.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/farch.c | 74 ++++++++++++++++++++++------------------
- 1 file changed, 40 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/sfc/farch.c  | 47 +++++++++++++++++++++++++--------------
+ drivers/net/ethernet/sfc/filter.h |  7 ++++++
+ 2 files changed, 37 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 1941804..d91bced 100644
+index d91bced..1e21e51 100644
 --- a/drivers/net/ethernet/sfc/farch.c
 +++ b/drivers/net/ethernet/sfc/farch.c
-@@ -2516,33 +2516,49 @@ efx_farch_filter_table_clear_entry(struct efx_nic *efx,
+@@ -2186,23 +2186,17 @@ efx_farch_filter_to_gen_spec(struct efx_filter_spec *gen_spec,
+ }
+ 
+ static void
+-efx_farch_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
++efx_farch_filter_init_rx_for_stack(struct efx_nic *efx,
++				   struct efx_farch_filter_spec *spec)
  {
+-	struct efx_farch_filter_state *state = efx->filter_state;
+-	struct efx_farch_filter_table *table =
+-		&state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
+-	struct efx_farch_filter_spec *spec = &table->spec[filter_idx];
+-
+ 	/* If there's only one channel then disable RSS for non VF
+ 	 * traffic, thereby allowing VFs to use RSS when the PF can't.
+ 	 */
+-	spec->type = EFX_FARCH_FILTER_UC_DEF + filter_idx;
+-	spec->priority = EFX_FILTER_PRI_MANUAL;
+-	spec->flags = (EFX_FILTER_FLAG_RX |
++	spec->priority = EFX_FILTER_PRI_REQUIRED;
++	spec->flags = (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_STACK |
+ 		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
+ 		       (efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0));
+ 	spec->dmaq_id = 0;
+-	table->used_bitmap[0] |= 1 << filter_idx;
+ }
+ 
+ /* Build a filter entry and return its n-tuple key. */
+@@ -2464,10 +2458,20 @@ s32 efx_farch_filter_insert(struct efx_nic *efx,
+ 			rc = -EEXIST;
+ 			goto out;
+ 		}
+-		if (spec.priority < saved_spec->priority) {
++		if (spec.priority < saved_spec->priority &&
++		    !(saved_spec->priority == EFX_FILTER_PRI_REQUIRED &&
++		      saved_spec->flags & EFX_FILTER_FLAG_RX_STACK)) {
+ 			rc = -EPERM;
+ 			goto out;
+ 		}
++		if (spec.flags & EFX_FILTER_FLAG_RX_STACK) {
++			/* Just make sure it won't be removed */
++			saved_spec->flags |= EFX_FILTER_FLAG_RX_STACK;
++			rc = 0;
++			goto out;
++		}
++		/* Retain the RX_STACK flag */
++		spec.flags |= saved_spec->flags & EFX_FILTER_FLAG_RX_STACK;
+ 	}
+ 
+ 	/* Insert the filter */
+@@ -2517,6 +2521,7 @@ efx_farch_filter_table_clear_entry(struct efx_nic *efx,
  	static efx_oword_t filter;
  
-+	EFX_WARN_ON_PARANOID(!test_bit(filter_idx, table->used_bitmap));
-+
-+	__clear_bit(filter_idx, table->used_bitmap);
-+	--table->used;
-+	memset(&table->spec[filter_idx], 0, sizeof(table->spec[0]));
-+
-+	efx_writeo(efx, &filter, table->offset + table->step * filter_idx);
-+
-+	/* If this filter required a greater search depth than
-+	 * any other, the search limit for its type can now be
-+	 * decreased.  However, it is hard to determine that
-+	 * unless the table has become completely empty - in
-+	 * which case, all its search limits can be set to 0.
-+	 */
-+	if (unlikely(table->used == 0)) {
-+		memset(table->search_limit, 0, sizeof(table->search_limit));
-+		if (table->id == EFX_FARCH_FILTER_TABLE_TX_MAC)
-+			efx_farch_filter_push_tx_limits(efx);
-+		else
-+			efx_farch_filter_push_rx_config(efx);
-+	}
-+}
-+
-+static int efx_farch_filter_remove(struct efx_nic *efx,
-+				   struct efx_farch_filter_table *table,
-+				   unsigned int filter_idx,
-+				   enum efx_filter_priority priority)
-+{
-+	struct efx_farch_filter_spec *spec = &table->spec[filter_idx];
-+
-+	if (!test_bit(filter_idx, table->used_bitmap) ||
-+	    spec->priority > priority)
-+		return -ENOENT;
-+
- 	if (table->id == EFX_FARCH_FILTER_TABLE_RX_DEF) {
- 		/* RX default filters must always exist */
- 		efx_farch_filter_reset_rx_def(efx, filter_idx);
+ 	EFX_WARN_ON_PARANOID(!test_bit(filter_idx, table->used_bitmap));
++	BUG_ON(table->offset == 0); /* can't clear MAC default filters */
+ 
+ 	__clear_bit(filter_idx, table->used_bitmap);
+ 	--table->used;
+@@ -2550,9 +2555,8 @@ static int efx_farch_filter_remove(struct efx_nic *efx,
+ 	    spec->priority > priority)
+ 		return -ENOENT;
+ 
+-	if (table->id == EFX_FARCH_FILTER_TABLE_RX_DEF) {
+-		/* RX default filters must always exist */
+-		efx_farch_filter_reset_rx_def(efx, filter_idx);
++	if (spec->flags & EFX_FILTER_FLAG_RX_STACK) {
++		efx_farch_filter_init_rx_for_stack(efx, spec);
  		efx_farch_filter_push_rx_config(efx);
--	} else if (test_bit(filter_idx, table->used_bitmap)) {
--		__clear_bit(filter_idx, table->used_bitmap);
--		--table->used;
--		memset(&table->spec[filter_idx], 0, sizeof(table->spec[0]));
--
--		efx_writeo(efx, &filter,
--			   table->offset + table->step * filter_idx);
--
--		/* If this filter required a greater search depth than
--		 * any other, the search limit for its type can now be
--		 * decreased.  However, it is hard to determine that
--		 * unless the table has become completely empty - in
--		 * which case, all its search limits can be set to 0.
--		 */
--		if (unlikely(table->used == 0)) {
--			memset(table->search_limit, 0,
--			       sizeof(table->search_limit));
--			if (table->id == EFX_FARCH_FILTER_TABLE_TX_MAC)
--				efx_farch_filter_push_tx_limits(efx);
--			else
--				efx_farch_filter_push_rx_config(efx);
--		}
-+	} else {
-+		efx_farch_filter_table_clear_entry(efx, table, filter_idx);
+ 	} else {
+ 		efx_farch_filter_table_clear_entry(efx, table, filter_idx);
+@@ -2647,6 +2651,8 @@ void efx_farch_filter_clear_rx(struct efx_nic *efx,
+ 				     priority);
+ 	efx_farch_filter_table_clear(efx, EFX_FARCH_FILTER_TABLE_RX_MAC,
+ 				     priority);
++	efx_farch_filter_table_clear(efx, EFX_FARCH_FILTER_TABLE_RX_DEF,
++				     priority);
+ }
+ 
+ u32 efx_farch_filter_count_rx_used(struct efx_nic *efx,
+@@ -2806,11 +2812,18 @@ int efx_farch_filter_table_probe(struct efx_nic *efx)
+ 			goto fail;
  	}
+ 
+-	if (state->table[EFX_FARCH_FILTER_TABLE_RX_DEF].size) {
++	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
++	if (table->size) {
+ 		/* RX default filters must always exist */
++		struct efx_farch_filter_spec *spec;
+ 		unsigned i;
+-		for (i = 0; i < EFX_FARCH_FILTER_SIZE_RX_DEF; i++)
+-			efx_farch_filter_reset_rx_def(efx, i);
 +
-+	return 0;
- }
++		for (i = 0; i < EFX_FARCH_FILTER_SIZE_RX_DEF; i++) {
++			spec = &table->spec[i];
++			spec->type = EFX_FARCH_FILTER_UC_DEF + i;
++			efx_farch_filter_init_rx_for_stack(efx, spec);
++			__set_bit(i, table->used_bitmap);
++		}
+ 	}
  
- int efx_farch_filter_remove_safe(struct efx_nic *efx,
-@@ -2567,15 +2583,7 @@ int efx_farch_filter_remove_safe(struct efx_nic *efx,
- 	spec = &table->spec[filter_idx];
- 
- 	spin_lock_bh(&efx->filter_lock);
--
--	if (test_bit(filter_idx, table->used_bitmap) &&
--	    spec->priority == priority) {
--		efx_farch_filter_table_clear_entry(efx, table, filter_idx);
--		rc = 0;
--	} else {
--		rc = -ENOENT;
--	}
--
-+	rc = efx_farch_filter_remove(efx, table, filter_idx, priority);
- 	spin_unlock_bh(&efx->filter_lock);
- 
- 	return rc;
-@@ -2628,9 +2636,7 @@ efx_farch_filter_table_clear(struct efx_nic *efx,
- 
- 	spin_lock_bh(&efx->filter_lock);
- 	for (filter_idx = 0; filter_idx < table->size; ++filter_idx)
--		if (table->spec[filter_idx].priority <= priority)
--			efx_farch_filter_table_clear_entry(efx, table,
--							   filter_idx);
-+		efx_farch_filter_remove(efx, table, filter_idx, priority);
- 	spin_unlock_bh(&efx->filter_lock);
- }
- 
+ 	efx_farch_filter_push_rx_config(efx);
+diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
+index 1b410de..e459e43 100644
+--- a/drivers/net/ethernet/sfc/filter.h
++++ b/drivers/net/ethernet/sfc/filter.h
+@@ -78,12 +78,19 @@ enum efx_filter_priority {
+  *	according to the indirection table.
+  * @EFX_FILTER_FLAG_RX_SCATTER: Enable DMA scatter on the receiving
+  *	queue.
++ * @EFX_FILTER_FLAG_RX_STACK: Indicates a filter inserted for the
++ *	network stack.  The filter must have a priority of
++ *	%EFX_FILTER_PRI_REQUIRED.  It can be steered by a replacement
++ *	request with priority %EFX_FILTER_PRI_MANUAL, and a removal
++ *	request with priority %EFX_FILTER_PRI_MANUAL will reset the
++ *	steering (but not remove the filter).
+  * @EFX_FILTER_FLAG_RX: Filter is for RX
+  * @EFX_FILTER_FLAG_TX: Filter is for TX
+  */
+ enum efx_filter_flags {
+ 	EFX_FILTER_FLAG_RX_RSS = 0x01,
+ 	EFX_FILTER_FLAG_RX_SCATTER = 0x02,
++	EFX_FILTER_FLAG_RX_STACK = 0x04,
+ 	EFX_FILTER_FLAG_RX = 0x08,
+ 	EFX_FILTER_FLAG_TX = 0x10,
+ };
 
 
 -- 
