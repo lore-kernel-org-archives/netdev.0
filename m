@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 14/16] sfc: Cleanup Falcon-arch simple MAC filter
- state
-Date: Tue, 27 Aug 2013 21:50:15 +0100
-Message-ID: <1377636615.13272.88.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 15/16] sfc: Rename SPI stuff to show that it is
+ Falcon-specific
+Date: Tue, 27 Aug 2013 21:50:36 +0100
+Message-ID: <1377636636.13272.89.camel@bwh-desktop.uk.level5networks.com>
 References: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,271 +10,375 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6188 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6211 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754064Ab3H0UuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:50:18 -0400
+	with ESMTP id S1754064Ab3H0Uuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 16:50:40 -0400
 In-Reply-To: <1377635844.13272.69.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Falcon we implement MAC filtering requested by the stack using the
-MAC wrapper's single unicast filter and multicast hash filter.  Siena
-is very similar, though MAC configuration is mediated by the MC.
-
-Since MCDI operations may sleep, reconfiguration is deferred from
-ndo_set_rx_mode to a work item.  However, it still updates the private
-variables describing the filter state synchronously.  Contrary to
-comments, the later use of these variables is not protected using the
-address lock, resulting in race conditions.
-
-Move the state update to a new function
-efx_farch_filter_sync_rx_mode() and make the Falcon-arch MAC
-configuration functions call that, so that its use is consistently
-serialised by the mac_lock.
-
-Invert and rename the promiscuous flag to the more accurate
-unicast_filter, and comment that both this and multicast_hash are
-not used on EF10.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        | 34 ++--------------------------------
- drivers/net/ethernet/sfc/falcon.c     |  6 ++++--
- drivers/net/ethernet/sfc/farch.c      | 34 ++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/mcdi_port.c  | 11 ++++-------
- drivers/net/ethernet/sfc/net_driver.h |  8 +++++---
- drivers/net/ethernet/sfc/nic.h        |  1 +
- drivers/net/ethernet/sfc/siena.c      |  2 ++
- 7 files changed, 52 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/sfc/falcon.c | 30 ++++++++++++++--------------
+ drivers/net/ethernet/sfc/mtd.c    | 42 +++++++++++++++++++--------------------
+ drivers/net/ethernet/sfc/nic.h    |  4 ++--
+ drivers/net/ethernet/sfc/spi.h    | 18 ++++++++---------
+ 4 files changed, 47 insertions(+), 47 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index a2daaae..1d4f388 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -17,7 +17,6 @@
- #include <linux/ip.h>
- #include <linux/tcp.h>
- #include <linux/in.h>
--#include <linux/crc32.h>
- #include <linux/ethtool.h>
- #include <linux/topology.h>
- #include <linux/gfp.h>
-@@ -876,10 +875,9 @@ void efx_link_status_changed(struct efx_nic *efx)
- 	/* Status message for kernel log */
- 	if (link_state->up)
- 		netif_info(efx, link, efx->net_dev,
--			   "link up at %uMbps %s-duplex (MTU %d)%s\n",
-+			   "link up at %uMbps %s-duplex (MTU %d)\n",
- 			   link_state->speed, link_state->fd ? "full" : "half",
--			   efx->net_dev->mtu,
--			   (efx->promiscuous ? " [PROMISC]" : ""));
-+			   efx->net_dev->mtu);
- 	else
- 		netif_info(efx, link, efx->net_dev, "link down\n");
- }
-@@ -928,10 +926,6 @@ int __efx_reconfigure_port(struct efx_nic *efx)
- 
- 	WARN_ON(!mutex_is_locked(&efx->mac_lock));
- 
--	/* Serialise the promiscuous flag with efx_set_rx_mode. */
--	netif_addr_lock_bh(efx->net_dev);
--	netif_addr_unlock_bh(efx->net_dev);
--
- 	/* Disable PHY transmit in mac level loopbacks */
- 	phy_mode = efx->phy_mode;
- 	if (LOOPBACK_INTERNAL(efx))
-@@ -2027,30 +2021,6 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
- static void efx_set_rx_mode(struct net_device *net_dev)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
--	struct netdev_hw_addr *ha;
--	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
--	u32 crc;
--	int bit;
--
--	efx->promiscuous = !!(net_dev->flags & IFF_PROMISC);
--
--	/* Build multicast hash table */
--	if (efx->promiscuous || (net_dev->flags & IFF_ALLMULTI)) {
--		memset(mc_hash, 0xff, sizeof(*mc_hash));
--	} else {
--		memset(mc_hash, 0x00, sizeof(*mc_hash));
--		netdev_for_each_mc_addr(ha, net_dev) {
--			crc = ether_crc_le(ETH_ALEN, ha->addr);
--			bit = crc & (EFX_MCAST_HASH_ENTRIES - 1);
--			__set_bit_le(bit, mc_hash);
--		}
--
--		/* Broadcast packets go through the multicast hash filter.
--		 * ether_crc_le() of the broadcast address is 0xbe2612ff
--		 * so we always add bit 0xff to the mask.
--		 */
--		__set_bit_le(0xff, mc_hash);
--	}
- 
- 	if (efx->port_enabled)
- 		queue_work(efx->workqueue, &efx->mac_work);
 diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 6ea28f8..983e7f5 100644
+index 983e7f5..304131b 100644
 --- a/drivers/net/ethernet/sfc/falcon.c
 +++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -764,7 +764,7 @@ static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
- 			     FRF_AB_XM_RXEN, 1,
- 			     FRF_AB_XM_AUTO_DEPAD, 0,
- 			     FRF_AB_XM_ACPT_ALL_MCAST, 1,
--			     FRF_AB_XM_ACPT_ALL_UCAST, efx->promiscuous,
-+			     FRF_AB_XM_ACPT_ALL_UCAST, !efx->unicast_filter,
- 			     FRF_AB_XM_PASS_CRC_ERR, 1);
- 	efx_writeo(efx, &reg, FR_AB_XM_RX_CFG);
- 
-@@ -864,6 +864,8 @@ static int falcon_reconfigure_xmac(struct efx_nic *efx)
- {
- 	struct falcon_nic_data *nic_data = efx->nic_data;
- 
-+	efx_farch_filter_sync_rx_mode(efx);
-+
- 	falcon_reconfigure_xgxs_core(efx);
- 	falcon_reconfigure_xmac_core(efx);
- 
-@@ -1081,7 +1083,7 @@ static void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
- 	EFX_POPULATE_OWORD_5(reg,
- 			     FRF_AB_MAC_XOFF_VAL, 0xffff /* max pause time */,
- 			     FRF_AB_MAC_BCAD_ACPT, 1,
--			     FRF_AB_MAC_UC_PROM, efx->promiscuous,
-+			     FRF_AB_MAC_UC_PROM, !efx->unicast_filter,
- 			     FRF_AB_MAC_LINK_STATUS, 1, /* always set */
- 			     FRF_AB_MAC_SPEED, link_speed);
- 	/* On B0, MAC backpressure can be disabled and packets get
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 1e21e51..b6af8f4 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -14,6 +14,7 @@
- #include <linux/pci.h>
- #include <linux/module.h>
- #include <linux/seq_file.h>
-+#include <linux/crc32.h>
- #include "net_driver.h"
- #include "bitfield.h"
- #include "efx.h"
-@@ -2906,3 +2907,36 @@ bool efx_farch_filter_rfs_expire_one(struct efx_nic *efx, u32 flow_id,
+@@ -434,7 +434,7 @@ static int falcon_spi_wait(struct efx_nic *efx)
+ 	}
  }
  
- #endif /* CONFIG_RFS_ACCEL */
-+
-+void efx_farch_filter_sync_rx_mode(struct efx_nic *efx)
-+{
-+	struct net_device *net_dev = efx->net_dev;
-+	struct netdev_hw_addr *ha;
-+	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
-+	u32 crc;
-+	int bit;
-+
-+	netif_addr_lock_bh(net_dev);
-+
-+	efx->unicast_filter = !(net_dev->flags & IFF_PROMISC);
-+
-+	/* Build multicast hash table */
-+	if (net_dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
-+		memset(mc_hash, 0xff, sizeof(*mc_hash));
-+	} else {
-+		memset(mc_hash, 0x00, sizeof(*mc_hash));
-+		netdev_for_each_mc_addr(ha, net_dev) {
-+			crc = ether_crc_le(ETH_ALEN, ha->addr);
-+			bit = crc & (EFX_MCAST_HASH_ENTRIES - 1);
-+			__set_bit_le(bit, mc_hash);
-+		}
-+
-+		/* Broadcast packets go through the multicast hash filter.
-+		 * ether_crc_le() of the broadcast address is 0xbe2612ff
-+		 * so we always add bit 0xff to the mask.
-+		 */
-+		__set_bit_le(0xff, mc_hash);
-+	}
-+
-+	netif_addr_unlock_bh(net_dev);
-+}
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index 30e8a19..42d52f3 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -861,7 +861,7 @@ void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev)
- 
- int efx_mcdi_set_mac(struct efx_nic *efx)
+-int falcon_spi_cmd(struct efx_nic *efx, const struct efx_spi_device *spi,
++int falcon_spi_cmd(struct efx_nic *efx, const struct falcon_spi_device *spi,
+ 		   unsigned int command, int address,
+ 		   const void *in, void *out, size_t len)
  {
--	u32 reject, fcntl;
-+	u32 fcntl;
- 	MCDI_DECLARE_BUF(cmdbytes, MC_CMD_SET_MAC_IN_LEN);
+@@ -491,22 +491,22 @@ int falcon_spi_cmd(struct efx_nic *efx, const struct efx_spi_device *spi,
+ }
  
- 	BUILD_BUG_ON(MC_CMD_SET_MAC_OUT_LEN != 0);
-@@ -873,12 +873,9 @@ int efx_mcdi_set_mac(struct efx_nic *efx)
- 			EFX_MAX_FRAME_LEN(efx->net_dev->mtu));
- 	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_DRAIN, 0);
+ static size_t
+-falcon_spi_write_limit(const struct efx_spi_device *spi, size_t start)
++falcon_spi_write_limit(const struct falcon_spi_device *spi, size_t start)
+ {
+ 	return min(FALCON_SPI_MAX_LEN,
+ 		   (spi->block_size - (start & (spi->block_size - 1))));
+ }
  
--	/* The MCDI command provides for controlling accept/reject
--	 * of broadcast packets too, but the driver doesn't currently
--	 * expose this. */
--	reject = (efx->promiscuous) ? 0 :
--		(1 << MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN);
--	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_REJECT, reject);
-+	/* Set simple MAC filter for Siena */
-+	MCDI_POPULATE_DWORD_1(cmdbytes, SET_MAC_IN_REJECT,
-+			      SET_MAC_IN_REJECT_UNCST, efx->unicast_filter);
+ static inline u8
+-efx_spi_munge_command(const struct efx_spi_device *spi,
+-		      const u8 command, const unsigned int address)
++falcon_spi_munge_command(const struct falcon_spi_device *spi,
++			 const u8 command, const unsigned int address)
+ {
+ 	return command | (((address >> 8) & spi->munge_address) << 3);
+ }
  
- 	switch (efx->wanted_fc) {
- 	case EFX_FC_RX | EFX_FC_TX:
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index d35ce14..555dd01 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -753,8 +753,10 @@ struct vfdi_status;
-  * @link_advertising: Autonegotiation advertising flags
-  * @link_state: Current state of the link
-  * @n_link_state_changes: Number of times the link has changed state
-- * @promiscuous: Promiscuous flag. Protected by netif_tx_lock.
-- * @multicast_hash: Multicast hash table
-+ * @unicast_filter: Flag for Falcon-arch simple unicast filter.
-+ *	Protected by @mac_lock.
-+ * @multicast_hash: Multicast hash table for Falcon-arch.
-+ *	Protected by @mac_lock.
-  * @wanted_fc: Wanted flow control flags
-  * @fc_disable: When non-zero flow control is disabled. Typically used to
-  *	ensure that network back pressure doesn't delay dma queue flushes.
-@@ -892,7 +894,7 @@ struct efx_nic {
- 	struct efx_link_state link_state;
- 	unsigned int n_link_state_changes;
+ /* Wait up to 10 ms for buffered write completion */
+ int
+-falcon_spi_wait_write(struct efx_nic *efx, const struct efx_spi_device *spi)
++falcon_spi_wait_write(struct efx_nic *efx, const struct falcon_spi_device *spi)
+ {
+ 	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 100);
+ 	u8 status;
+@@ -530,7 +530,7 @@ falcon_spi_wait_write(struct efx_nic *efx, const struct efx_spi_device *spi)
+ 	}
+ }
  
--	bool promiscuous;
-+	bool unicast_filter;
- 	union efx_multicast_hash multicast_hash;
- 	u8 wanted_fc;
- 	unsigned fc_disable;
+-int falcon_spi_read(struct efx_nic *efx, const struct efx_spi_device *spi,
++int falcon_spi_read(struct efx_nic *efx, const struct falcon_spi_device *spi,
+ 		    loff_t start, size_t len, size_t *retlen, u8 *buffer)
+ {
+ 	size_t block_len, pos = 0;
+@@ -540,7 +540,7 @@ int falcon_spi_read(struct efx_nic *efx, const struct efx_spi_device *spi,
+ 	while (pos < len) {
+ 		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
+ 
+-		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
++		command = falcon_spi_munge_command(spi, SPI_READ, start + pos);
+ 		rc = falcon_spi_cmd(efx, spi, command, start + pos, NULL,
+ 				    buffer + pos, block_len);
+ 		if (rc)
+@@ -561,7 +561,7 @@ int falcon_spi_read(struct efx_nic *efx, const struct efx_spi_device *spi,
+ }
+ 
+ int
+-falcon_spi_write(struct efx_nic *efx, const struct efx_spi_device *spi,
++falcon_spi_write(struct efx_nic *efx, const struct falcon_spi_device *spi,
+ 		 loff_t start, size_t len, size_t *retlen, const u8 *buffer)
+ {
+ 	u8 verify_buffer[FALCON_SPI_MAX_LEN];
+@@ -576,7 +576,7 @@ falcon_spi_write(struct efx_nic *efx, const struct efx_spi_device *spi,
+ 
+ 		block_len = min(len - pos,
+ 				falcon_spi_write_limit(spi, start + pos));
+-		command = efx_spi_munge_command(spi, SPI_WRITE, start + pos);
++		command = falcon_spi_munge_command(spi, SPI_WRITE, start + pos);
+ 		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+ 				    buffer + pos, NULL, block_len);
+ 		if (rc)
+@@ -586,7 +586,7 @@ falcon_spi_write(struct efx_nic *efx, const struct efx_spi_device *spi,
+ 		if (rc)
+ 			break;
+ 
+-		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
++		command = falcon_spi_munge_command(spi, SPI_READ, start + pos);
+ 		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+ 				    NULL, verify_buffer, block_len);
+ 		if (memcmp(verify_buffer, buffer + pos, block_len)) {
+@@ -1481,15 +1481,15 @@ falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
+ {
+ 	struct falcon_nic_data *nic_data = efx->nic_data;
+ 	struct falcon_nvconfig *nvconfig;
+-	struct efx_spi_device *spi;
++	struct falcon_spi_device *spi;
+ 	void *region;
+ 	int rc, magic_num, struct_ver;
+ 	__le16 *word, *limit;
+ 	u32 csum;
+ 
+-	if (efx_spi_present(&nic_data->spi_flash))
++	if (falcon_spi_present(&nic_data->spi_flash))
+ 		spi = &nic_data->spi_flash;
+-	else if (efx_spi_present(&nic_data->spi_eeprom))
++	else if (falcon_spi_present(&nic_data->spi_eeprom))
+ 		spi = &nic_data->spi_eeprom;
+ 	else
+ 		return -EINVAL;
+@@ -1504,7 +1504,7 @@ falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
+ 	mutex_unlock(&nic_data->spi_lock);
+ 	if (rc) {
+ 		netif_err(efx, hw, efx->net_dev, "Failed to read %s\n",
+-			  efx_spi_present(&nic_data->spi_flash) ?
++			  falcon_spi_present(&nic_data->spi_flash) ?
+ 			  "flash" : "EEPROM");
+ 		rc = -EIO;
+ 		goto out;
+@@ -1849,7 +1849,7 @@ static int falcon_reset_sram(struct efx_nic *efx)
+ }
+ 
+ static void falcon_spi_device_init(struct efx_nic *efx,
+-				  struct efx_spi_device *spi_device,
++				  struct falcon_spi_device *spi_device,
+ 				  unsigned int device_id, u32 device_type)
+ {
+ 	if (device_type != 0) {
+diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+index 08f825b..e4b35c6 100644
+--- a/drivers/net/ethernet/sfc/mtd.c
++++ b/drivers/net/ethernet/sfc/mtd.c
+@@ -22,7 +22,7 @@
+ #include "mcdi.h"
+ #include "mcdi_pcol.h"
+ 
+-#define EFX_SPI_VERIFY_BUF_LEN 16
++#define FALCON_SPI_VERIFY_BUF_LEN 16
+ 
+ struct efx_mtd_partition {
+ 	struct mtd_info mtd;
+@@ -50,7 +50,7 @@ struct efx_mtd_ops {
+ struct efx_mtd {
+ 	struct list_head node;
+ 	struct efx_nic *efx;
+-	const struct efx_spi_device *spi;
++	const struct falcon_spi_device *spi;
+ 	const char *name;
+ 	const struct efx_mtd_ops *ops;
+ 	size_t n_parts;
+@@ -71,10 +71,10 @@ static int siena_mtd_probe(struct efx_nic *efx);
+ /* SPI utilities */
+ 
+ static int
+-efx_spi_slow_wait(struct efx_mtd_partition *part, bool uninterruptible)
++falcon_spi_slow_wait(struct efx_mtd_partition *part, bool uninterruptible)
+ {
+ 	struct efx_mtd *efx_mtd = part->mtd.priv;
+-	const struct efx_spi_device *spi = efx_mtd->spi;
++	const struct falcon_spi_device *spi = efx_mtd->spi;
+ 	struct efx_nic *efx = efx_mtd->efx;
+ 	u8 status;
+ 	int rc, i;
+@@ -98,7 +98,7 @@ efx_spi_slow_wait(struct efx_mtd_partition *part, bool uninterruptible)
+ }
+ 
+ static int
+-efx_spi_unlock(struct efx_nic *efx, const struct efx_spi_device *spi)
++falcon_spi_unlock(struct efx_nic *efx, const struct falcon_spi_device *spi)
+ {
+ 	const u8 unlock_mask = (SPI_STATUS_BP2 | SPI_STATUS_BP1 |
+ 				SPI_STATUS_BP0);
+@@ -133,14 +133,14 @@ efx_spi_unlock(struct efx_nic *efx, const struct efx_spi_device *spi)
+ }
+ 
+ static int
+-efx_spi_erase(struct efx_mtd_partition *part, loff_t start, size_t len)
++falcon_spi_erase(struct efx_mtd_partition *part, loff_t start, size_t len)
+ {
+ 	struct efx_mtd *efx_mtd = part->mtd.priv;
+-	const struct efx_spi_device *spi = efx_mtd->spi;
++	const struct falcon_spi_device *spi = efx_mtd->spi;
+ 	struct efx_nic *efx = efx_mtd->efx;
+ 	unsigned pos, block_len;
+-	u8 empty[EFX_SPI_VERIFY_BUF_LEN];
+-	u8 buffer[EFX_SPI_VERIFY_BUF_LEN];
++	u8 empty[FALCON_SPI_VERIFY_BUF_LEN];
++	u8 buffer[FALCON_SPI_VERIFY_BUF_LEN];
+ 	int rc;
+ 
+ 	if (len != spi->erase_size)
+@@ -149,7 +149,7 @@ efx_spi_erase(struct efx_mtd_partition *part, loff_t start, size_t len)
+ 	if (spi->erase_command == 0)
+ 		return -EOPNOTSUPP;
+ 
+-	rc = efx_spi_unlock(efx, spi);
++	rc = falcon_spi_unlock(efx, spi);
+ 	if (rc)
+ 		return rc;
+ 	rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+@@ -159,7 +159,7 @@ efx_spi_erase(struct efx_mtd_partition *part, loff_t start, size_t len)
+ 			    NULL, 0);
+ 	if (rc)
+ 		return rc;
+-	rc = efx_spi_slow_wait(part, false);
++	rc = falcon_spi_slow_wait(part, false);
+ 
+ 	/* Verify the entire region has been wiped */
+ 	memset(empty, 0xff, sizeof(empty));
+@@ -319,7 +319,7 @@ static int falcon_mtd_read(struct mtd_info *mtd, loff_t start,
+ {
+ 	struct efx_mtd_partition *part = to_efx_mtd_partition(mtd);
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+-	const struct efx_spi_device *spi = efx_mtd->spi;
++	const struct falcon_spi_device *spi = efx_mtd->spi;
+ 	struct efx_nic *efx = efx_mtd->efx;
+ 	struct falcon_nic_data *nic_data = efx->nic_data;
+ 	int rc;
+@@ -344,7 +344,7 @@ static int falcon_mtd_erase(struct mtd_info *mtd, loff_t start, size_t len)
+ 	rc = mutex_lock_interruptible(&nic_data->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = efx_spi_erase(part, part->offset + start, len);
++	rc = falcon_spi_erase(part, part->offset + start, len);
+ 	mutex_unlock(&nic_data->spi_lock);
+ 	return rc;
+ }
+@@ -354,7 +354,7 @@ static int falcon_mtd_write(struct mtd_info *mtd, loff_t start,
+ {
+ 	struct efx_mtd_partition *part = to_efx_mtd_partition(mtd);
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+-	const struct efx_spi_device *spi = efx_mtd->spi;
++	const struct falcon_spi_device *spi = efx_mtd->spi;
+ 	struct efx_nic *efx = efx_mtd->efx;
+ 	struct falcon_nic_data *nic_data = efx->nic_data;
+ 	int rc;
+@@ -377,7 +377,7 @@ static int falcon_mtd_sync(struct mtd_info *mtd)
+ 	int rc;
+ 
+ 	mutex_lock(&nic_data->spi_lock);
+-	rc = efx_spi_slow_wait(part, true);
++	rc = falcon_spi_slow_wait(part, true);
+ 	mutex_unlock(&nic_data->spi_lock);
+ 	return rc;
+ }
+@@ -392,14 +392,14 @@ static const struct efx_mtd_ops falcon_mtd_ops = {
+ static int falcon_mtd_probe(struct efx_nic *efx)
+ {
+ 	struct falcon_nic_data *nic_data = efx->nic_data;
+-	struct efx_spi_device *spi;
++	struct falcon_spi_device *spi;
+ 	struct efx_mtd *efx_mtd;
+ 	int rc = -ENODEV;
+ 
+ 	ASSERT_RTNL();
+ 
+ 	spi = &nic_data->spi_flash;
+-	if (efx_spi_present(spi) && spi->size > FALCON_FLASH_BOOTCODE_START) {
++	if (falcon_spi_present(spi) && spi->size > FALCON_FLASH_BOOTCODE_START) {
+ 		efx_mtd = kzalloc(sizeof(*efx_mtd) + sizeof(efx_mtd->part[0]),
+ 				  GFP_KERNEL);
+ 		if (!efx_mtd)
+@@ -425,7 +425,7 @@ static int falcon_mtd_probe(struct efx_nic *efx)
+ 	}
+ 
+ 	spi = &nic_data->spi_eeprom;
+-	if (efx_spi_present(spi) && spi->size > EFX_EEPROM_BOOTCONFIG_START) {
++	if (falcon_spi_present(spi) && spi->size > FALCON_EEPROM_BOOTCONFIG_START) {
+ 		efx_mtd = kzalloc(sizeof(*efx_mtd) + sizeof(efx_mtd->part[0]),
+ 				  GFP_KERNEL);
+ 		if (!efx_mtd)
+@@ -439,10 +439,10 @@ static int falcon_mtd_probe(struct efx_nic *efx)
+ 		efx_mtd->part[0].mtd.type = MTD_RAM;
+ 		efx_mtd->part[0].mtd.flags = MTD_CAP_RAM;
+ 		efx_mtd->part[0].mtd.size =
+-			min(spi->size, EFX_EEPROM_BOOTCONFIG_END) -
+-			EFX_EEPROM_BOOTCONFIG_START;
++			min(spi->size, FALCON_EEPROM_BOOTCONFIG_END) -
++			FALCON_EEPROM_BOOTCONFIG_START;
+ 		efx_mtd->part[0].mtd.erasesize = spi->erase_size;
+-		efx_mtd->part[0].offset = EFX_EEPROM_BOOTCONFIG_START;
++		efx_mtd->part[0].offset = FALCON_EEPROM_BOOTCONFIG_START;
+ 		efx_mtd->part[0].type_name = "sfc_bootconfig";
+ 
+ 		rc = efx_mtd_probe_device(efx, efx_mtd);
 diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 69298c9..8baf6a1 100644
+index 8baf6a1..b90dc8a 100644
 --- a/drivers/net/ethernet/sfc/nic.h
 +++ b/drivers/net/ethernet/sfc/nic.h
-@@ -431,6 +431,7 @@ extern s32 efx_farch_filter_rfs_insert(struct efx_nic *efx,
- extern bool efx_farch_filter_rfs_expire_one(struct efx_nic *efx, u32 flow_id,
- 					    unsigned int index);
- #endif
-+extern void efx_farch_filter_sync_rx_mode(struct efx_nic *efx);
+@@ -184,8 +184,8 @@ struct falcon_nic_data {
+ 	bool stats_pending;
+ 	struct timer_list stats_timer;
+ 	u32 *stats_dma_done;
+-	struct efx_spi_device spi_flash;
+-	struct efx_spi_device spi_eeprom;
++	struct falcon_spi_device spi_flash;
++	struct falcon_spi_device spi_eeprom;
+ 	struct mutex spi_lock;
+ 	struct mutex mdio_lock;
+ 	bool xmac_poll_required;
+diff --git a/drivers/net/ethernet/sfc/spi.h b/drivers/net/ethernet/sfc/spi.h
+index 5431a1b..ee951feb 100644
+--- a/drivers/net/ethernet/sfc/spi.h
++++ b/drivers/net/ethernet/sfc/spi.h
+@@ -35,7 +35,7 @@
+ #define SPI_STATUS_NRDY 0x01	/* Device busy flag */
  
- extern bool efx_nic_event_present(struct efx_channel *channel);
+ /**
+- * struct efx_spi_device - an Efx SPI (Serial Peripheral Interface) device
++ * struct falcon_spi_device - a Falcon SPI (Serial Peripheral Interface) device
+  * @device_id:		Controller's id for the device
+  * @size:		Size (in bytes)
+  * @addr_len:		Number of address bytes in read/write commands
+@@ -51,7 +51,7 @@
+  * @block_size:		Write block size (in bytes).
+  *	Write commands are limited to blocks with this size and alignment.
+  */
+-struct efx_spi_device {
++struct falcon_spi_device {
+ 	int device_id;
+ 	unsigned int size;
+ 	unsigned int addr_len;
+@@ -61,21 +61,21 @@ struct efx_spi_device {
+ 	unsigned int block_size;
+ };
  
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 5120cd8..1be81e4 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -503,6 +503,8 @@ static int siena_mac_reconfigure(struct efx_nic *efx)
- 		     MC_CMD_SET_MCAST_HASH_IN_HASH0_OFST +
- 		     sizeof(efx->multicast_hash));
+-static inline bool efx_spi_present(const struct efx_spi_device *spi)
++static inline bool falcon_spi_present(const struct falcon_spi_device *spi)
+ {
+ 	return spi->size != 0;
+ }
  
-+	efx_farch_filter_sync_rx_mode(efx);
-+
- 	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+ int falcon_spi_cmd(struct efx_nic *efx,
+-		   const struct efx_spi_device *spi, unsigned int command,
++		   const struct falcon_spi_device *spi, unsigned int command,
+ 		   int address, const void *in, void *out, size_t len);
+ int falcon_spi_wait_write(struct efx_nic *efx,
+-			  const struct efx_spi_device *spi);
++			  const struct falcon_spi_device *spi);
+ int falcon_spi_read(struct efx_nic *efx,
+-		    const struct efx_spi_device *spi, loff_t start,
++		    const struct falcon_spi_device *spi, loff_t start,
+ 		    size_t len, size_t *retlen, u8 *buffer);
+ int falcon_spi_write(struct efx_nic *efx,
+-		     const struct efx_spi_device *spi, loff_t start,
++		     const struct falcon_spi_device *spi, loff_t start,
+ 		     size_t len, size_t *retlen, const u8 *buffer);
  
- 	rc = efx_mcdi_set_mac(efx);
+ /*
+@@ -93,7 +93,7 @@ int falcon_spi_write(struct efx_nic *efx,
+  */
+ #define FALCON_NVCONFIG_END 0x400U
+ #define FALCON_FLASH_BOOTCODE_START 0x8000U
+-#define EFX_EEPROM_BOOTCONFIG_START 0x800U
+-#define EFX_EEPROM_BOOTCONFIG_END 0x1800U
++#define FALCON_EEPROM_BOOTCONFIG_START 0x800U
++#define FALCON_EEPROM_BOOTCONFIG_END 0x1800U
+ 
+ #endif /* EFX_SPI_H */
 
 
 -- 
