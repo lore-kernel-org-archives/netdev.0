@@ -1,44 +1,62 @@
 From: boris brezillon <b.brezillon@overkiz.com>
-Subject: Re: [PATCH 0/2] net/cadence/macb: add support for dt phy definition
-Date: Tue, 27 Aug 2013 09:42:34 +0200
-Message-ID: <521C586A.7080604@overkiz.com>
-References: <1377186980-21902-1-git-send-email-b.brezillon@overkiz.com> <20130826.160450.2176892065062148718.davem@davemloft.net>
+Subject: Re: [PATCH v3 0/2] net/cadence/macb: add support for dt phy definition
+Date: Tue, 27 Aug 2013 09:48:54 +0200
+Message-ID: <521C59E6.2050000@overkiz.com>
+References: <1377589007-3684-1-git-send-email-b.brezillon@overkiz.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, rob.herring@calxeda.com,
-	pawel.moll@arm.com, mark.rutland@arm.com, swarren@wwwdotorg.org,
-	ian.campbell@citrix.com, linux@arm.linux.org.uk,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	devicetree@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Boris BREZILLON <b.brezillon@overkiz.com>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130826.160450.2176892065062148718.davem@davemloft.net>
+In-Reply-To: <1377589007-3684-1-git-send-email-b.brezillon@overkiz.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Dave,
+Hello David,
 
-On 26/08/2013 22:04, David Miller wrote:
-> From: Boris BREZILLON <b.brezillon@overkiz.com>
-> Date: Thu, 22 Aug 2013 17:56:20 +0200
->
->> This patch series adds support for ethernet phy definition using device
->> tree.
->>
->> This may help in moving some at91 boards to dt (some of them define an
->> interrupt pin).
->>
->> Tested on samad31ek.
-> Series applied to net-next, thanks.
-Could you apply, the 3rd version of this series instead ?
+Sorry, I forgot to add your email in the cc list.
 
-It fixes one bug when no phy is discovered and use the appropriate address
-for the phy dt node.
-
-Sorry for the inconvenience.
+Do you want me to send you the whole series ?
 
 Best Regards,
 
 Boris
+
+On 27/08/2013 09:36, Boris BREZILLON wrote:
+> Hello,
+>
+> This patch series adds support for ethernet phy definition using device
+> tree.
+>
+> This may help in moving some at91 boards to dt (some of them define an
+> interrupt pin).
+>
+> Tested on samad31ek.
+>
+> Best Regards,
+> Boris
+>
+> Changes since v2:
+>   - fix wrong address of phy0 dt node
+>
+> Changes since v1:
+>   - fix wrong macb_mii_init return code when no PHY device is discovered
+>
+> Boris BREZILLON (2):
+>    net/cadence/macb: add support for dt phy definition
+>    ARM: at91/dt: define phy available on sama5d3 mother board
+>
+>   arch/arm/boot/dts/sama5d3xmb.dtsi   |    8 ++++++
+>   drivers/net/ethernet/cadence/macb.c |   48 +++++++++++++++++++++++++++--------
+>   2 files changed, 46 insertions(+), 10 deletions(-)
+>
