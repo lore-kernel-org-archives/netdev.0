@@ -1,41 +1,191 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [v3.11][Regression] skge: add dma_mapping check
-Date: Wed, 28 Aug 2013 11:20:50 -0400
-Message-ID: <521E1552.4010100@canonical.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 12/16] sfc: Generalise packet hash lookup to
+ support EF10 RX prefix
+Date: Wed, 28 Aug 2013 16:21:05 +0100
+Message-ID: <1377703265.2264.34.camel@bwh-desktop.uk.level5networks.com>
+References: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>, mlindner@marvell.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:17289 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754243Ab3H1PVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:21:08 -0400
+In-Reply-To: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+From: Jon Cooper <jcooper@solarflare.com>
 
-A bug was opened against the Ubuntu kernel[0].  A bug has also been
-opened in bugzilla[1].  After a kernel bisect, it was found that
-reverting the following commit resolved this bug:
+EF10 uses an entirely different RX prefix format from Falcon-arch.
+Extend struct efx_nic_type to describe this.
 
-commit 136d8f377e1575463b47840bc5f1b22d94bf8f63
-Author: stephen hemminger <stephen@networkplumber.org>
-Date:   Sun Aug 4 17:22:34 2013 -0700
+[bwh: Also replace the magic numbers used for the Falcon-arch RX prefix]
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c        |  5 ++++-
+ drivers/net/ethernet/sfc/falcon.c     |  3 ++-
+ drivers/net/ethernet/sfc/farch_regs.h |  4 ++++
+ drivers/net/ethernet/sfc/net_driver.h | 11 +++++++++--
+ drivers/net/ethernet/sfc/rx.c         | 15 +++++++--------
+ drivers/net/ethernet/sfc/siena.c      |  3 ++-
+ 6 files changed, 28 insertions(+), 13 deletions(-)
 
-    skge: add dma_mapping check
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3af28a8..db2f119 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -573,7 +573,7 @@ static void efx_start_datapath(struct efx_nic *efx)
+ 	 * support the current MTU, including padding for header
+ 	 * alignment and overruns.
+ 	 */
+-	efx->rx_dma_len = (efx->type->rx_buffer_hash_size +
++	efx->rx_dma_len = (efx->rx_prefix_size +
+ 			   EFX_MAX_FRAME_LEN(efx->net_dev->mtu) +
+ 			   efx->type->rx_buffer_padding);
+ 	rx_buf_len = (sizeof(struct efx_rx_page_state) +
+@@ -2456,6 +2456,9 @@ static int efx_init_struct(struct efx_nic *efx,
+ 	strlcpy(efx->name, pci_name(pci_dev), sizeof(efx->name));
+ 
+ 	efx->net_dev = net_dev;
++	efx->rx_prefix_size = efx->type->rx_prefix_size;
++	efx->rx_packet_hash_offset =
++		efx->type->rx_hash_offset - efx->type->rx_prefix_size;
+ 	spin_lock_init(&efx->stats_lock);
+ 	mutex_init(&efx->mac_lock);
+ 	efx->phy_op = &efx_dummy_phy_operations;
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 1140b83..ec77611 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -2827,7 +2827,8 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
+ 	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
+ 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+-	.rx_buffer_hash_size = 0x10,
++	.rx_prefix_size = FS_BZ_RX_PREFIX_SIZE,
++	.rx_hash_offset = FS_BZ_RX_PREFIX_HASH_OFST,
+ 	.rx_buffer_padding = 0,
+ 	.can_rx_scatter = true,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
+diff --git a/drivers/net/ethernet/sfc/farch_regs.h b/drivers/net/ethernet/sfc/farch_regs.h
+index 00ef17a..491b103 100644
+--- a/drivers/net/ethernet/sfc/farch_regs.h
++++ b/drivers/net/ethernet/sfc/farch_regs.h
+@@ -2925,4 +2925,8 @@
+ #define FSF_AZ_DRV_GEN_EV_MAGIC_LBN 0
+ #define FSF_AZ_DRV_GEN_EV_MAGIC_WIDTH 32
+ 
++/* RX packet prefix */
++#define FS_BZ_RX_PREFIX_HASH_OFST 12
++#define FS_BZ_RX_PREFIX_SIZE 16
++
+ #endif /* EFX_FARCH_REGS_H */
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 21b1c2a..481e412 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -663,6 +663,9 @@ struct vfdi_status;
+  * @rx_buffer_order: Order (log2) of number of pages for each RX buffer
+  * @rx_buffer_truesize: Amortised allocation size of an RX buffer,
+  *	for use in sk_buff::truesize
++ * @rx_prefix_size: Size of RX prefix before packet data
++ * @rx_packet_hash_offset: Offset of RX flow hash from start of packet data
++ *	(valid only if @rx_prefix_size != 0; always negative)
+  * @rx_hash_key: Toeplitz hash key for RSS
+  * @rx_indir_table: Indirection table for RSS
+  * @rx_scatter: Scatter mode enabled for receives
+@@ -793,6 +796,8 @@ struct efx_nic {
+ 	unsigned int rx_page_buf_step;
+ 	unsigned int rx_bufs_per_page;
+ 	unsigned int rx_pages_per_batch;
++	unsigned int rx_prefix_size;
++	int rx_packet_hash_offset;
+ 	u8 rx_hash_key[40];
+ 	u32 rx_indir_table[128];
+ 	bool rx_scatter;
+@@ -1009,7 +1014,8 @@ struct efx_mtd_partition {
+  * @evq_ptr_tbl_base: Event queue pointer table base address
+  * @evq_rptr_tbl_base: Event queue read-pointer table base address
+  * @max_dma_mask: Maximum possible DMA mask
+- * @rx_buffer_hash_size: Size of hash at start of RX packet
++ * @rx_prefix_size: Size of RX prefix before packet data
++ * @rx_hash_offset: Offset of RX flow hash within prefix
+  * @rx_buffer_padding: Size of padding at end of RX packet
+  * @can_rx_scatter: NIC is able to scatter packet to multiple buffers
+  * @max_interrupt_mode: Highest capability interrupt mode supported
+@@ -1126,7 +1132,8 @@ struct efx_nic_type {
+ 	unsigned int evq_ptr_tbl_base;
+ 	unsigned int evq_rptr_tbl_base;
+ 	u64 max_dma_mask;
+-	unsigned int rx_buffer_hash_size;
++	unsigned int rx_prefix_size;
++	unsigned int rx_hash_offset;
+ 	unsigned int rx_buffer_padding;
+ 	bool can_rx_scatter;
+ 	unsigned int max_interrupt_mode;
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 1299092..7646bb3 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -61,13 +61,12 @@ static inline u8 *efx_rx_buf_va(struct efx_rx_buffer *buf)
+ 	return page_address(buf->page) + buf->page_offset;
+ }
+ 
+-static inline u32 efx_rx_buf_hash(const u8 *eh)
++static inline u32 efx_rx_buf_hash(struct efx_nic *efx, const u8 *eh)
+ {
+-	/* The ethernet header is always directly after any hash. */
+-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) || NET_IP_ALIGN % 4 == 0
+-	return __le32_to_cpup((const __le32 *)(eh - 4));
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
++	return __le32_to_cpup((const __le32 *)(eh + efx->rx_packet_hash_offset));
+ #else
+-	const u8 *data = eh - 4;
++	const u8 *data = eh + efx->rx_packet_hash_offset;
+ 	return (u32)data[0]	  |
+ 	       (u32)data[1] << 8  |
+ 	       (u32)data[2] << 16 |
+@@ -439,7 +438,7 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+ 	}
+ 
+ 	if (efx->net_dev->features & NETIF_F_RXHASH)
+-		skb->rxhash = efx_rx_buf_hash(eh);
++		skb->rxhash = efx_rx_buf_hash(efx, eh);
+ 	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
+ 			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
+ 
+@@ -568,8 +567,8 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 	 */
+ 	prefetch(efx_rx_buf_va(rx_buf));
+ 
+-	rx_buf->page_offset += efx->type->rx_buffer_hash_size;
+-	rx_buf->len -= efx->type->rx_buffer_hash_size;
++	rx_buf->page_offset += efx->rx_prefix_size;
++	rx_buf->len -= efx->rx_prefix_size;
+ 
+ 	if (n_frags > 1) {
+ 		/* Release/sync DMA mapping for additional fragments.
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 3c0a544..89180d4 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -965,7 +965,8 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
+ 	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
+ 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+-	.rx_buffer_hash_size = 0x10,
++	.rx_prefix_size = FS_BZ_RX_PREFIX_SIZE,
++	.rx_hash_offset = FS_BZ_RX_PREFIX_HASH_OFST,
+ 	.rx_buffer_padding = 0,
+ 	.can_rx_scatter = true,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
 
 
-The regression was introduced as of v3.11-rc6.
-
-I see that you are the author of this patch, so I wanted to run this by
-you.  I was thinking of requesting a revert for v3.11, but I wanted to
-get your feedback first.
-
-
-Thanks,
-
-Joe
-
-[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1216745
-[1] https://bugzilla.kernel.org/show_bug.cgi?id=60784
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
