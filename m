@@ -1,275 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 16/16] sfc: Use extended MC_CMD_SENSOR_INFO and
- MC_CMD_READ_SENSORS
-Date: Wed, 28 Aug 2013 16:23:13 +0100
-Message-ID: <1377703393.2264.38.camel@bwh-desktop.uk.level5networks.com>
-References: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v10 05/11] ipv6: do not call ndisc_send_rs() with write lock
+Date: Wed, 28 Aug 2013 17:34:50 +0200
+Message-ID: <20130828153450.GC12353@order.stressinduktion.org>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com> <1377667379-2315-6-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17381 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753302Ab3H1PXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:23:16 -0400
-In-Reply-To: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:51853 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334Ab3H1Pew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:34:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1377667379-2315-6-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to use extended requests to read and get metadata for sensors
-numbered > 31.
+On Wed, Aug 28, 2013 at 01:22:53PM +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+> 
+> Because vxlan module will call ip6_dst_lookup() in TX path,
+> which will hold write lock. So we have to release this write lock
+> before calling ndisc_send_rs(), otherwise could deadlock.
+> 
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi_mon.c | 139 ++++++++++++++++++++++++------------
- 1 file changed, 95 insertions(+), 44 deletions(-)
+Change seems fine:
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
-index 544889b..d7d4566 100644
---- a/drivers/net/ethernet/sfc/mcdi_mon.c
-+++ b/drivers/net/ethernet/sfc/mcdi_mon.c
-@@ -28,7 +28,7 @@ static const struct {
- 	const char *label;
- 	enum efx_hwmon_type hwmon_type;
- 	int port;
--} efx_mcdi_sensor_type[MC_CMD_SENSOR_ENTRY_MAXNUM] = {
-+} efx_mcdi_sensor_type[] = {
- #define SENSOR(name, label, hwmon_type, port)			\
- 	[MC_CMD_SENSOR_##name] = { label, hwmon_type, port }
- 	SENSOR(CONTROLLER_TEMP,	   "Controller temp.",	   EFX_HWMON_TEMP, -1),
-@@ -86,6 +86,7 @@ struct efx_mcdi_mon_attribute {
- 	struct device_attribute dev_attr;
- 	unsigned int index;
- 	unsigned int type;
-+	enum efx_hwmon_type hwmon_type;
- 	unsigned int limit_value;
- 	char name[12];
- };
-@@ -93,11 +94,12 @@ struct efx_mcdi_mon_attribute {
- static int efx_mcdi_mon_update(struct efx_nic *efx)
- {
- 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
--	MCDI_DECLARE_BUF(inbuf, MC_CMD_READ_SENSORS_IN_LEN);
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_READ_SENSORS_EXT_IN_LEN);
- 	int rc;
- 
--	MCDI_SET_QWORD(inbuf, READ_SENSORS_IN_DMA_ADDR,
-+	MCDI_SET_QWORD(inbuf, READ_SENSORS_EXT_IN_DMA_ADDR,
- 		       hwmon->dma_buf.dma_addr);
-+	MCDI_SET_DWORD(inbuf, READ_SENSORS_EXT_IN_LENGTH, hwmon->dma_buf.len);
- 
- 	rc = efx_mcdi_rpc(efx, MC_CMD_READ_SENSORS,
- 			  inbuf, sizeof(inbuf), NULL, 0, NULL);
-@@ -159,7 +161,7 @@ static ssize_t efx_mcdi_mon_show_value(struct device *dev,
- 	value = EFX_DWORD_FIELD(entry, MC_CMD_SENSOR_VALUE_ENTRY_TYPEDEF_VALUE);
- 
- 	/* Convert temperature from degrees to milli-degrees Celsius */
--	if (efx_mcdi_sensor_type[mon_attr->type].hwmon_type == EFX_HWMON_TEMP)
-+	if (mon_attr->hwmon_type == EFX_HWMON_TEMP)
- 		value *= 1000;
- 
- 	return sprintf(buf, "%u\n", value);
-@@ -176,7 +178,7 @@ static ssize_t efx_mcdi_mon_show_limit(struct device *dev,
- 	value = mon_attr->limit_value;
- 
- 	/* Convert temperature from degrees to milli-degrees Celsius */
--	if (efx_mcdi_sensor_type[mon_attr->type].hwmon_type == EFX_HWMON_TEMP)
-+	if (mon_attr->hwmon_type == EFX_HWMON_TEMP)
- 		value *= 1000;
- 
- 	return sprintf(buf, "%u\n", value);
-@@ -224,6 +226,10 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
- 	strlcpy(attr->name, name, sizeof(attr->name));
- 	attr->index = index;
- 	attr->type = type;
-+	if (type < ARRAY_SIZE(efx_mcdi_sensor_type))
-+		attr->hwmon_type = efx_mcdi_sensor_type[type].hwmon_type;
-+	else
-+		attr->hwmon_type = EFX_HWMON_UNKNOWN;
- 	attr->limit_value = limit_value;
- 	sysfs_attr_init(&attr->dev_attr.attr);
- 	attr->dev_attr.attr.name = attr->name;
-@@ -238,35 +244,42 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
- int efx_mcdi_mon_probe(struct efx_nic *efx)
- {
- 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
--	unsigned int n_attrs, n_temp = 0, n_cool = 0, n_in = 0;
-+	unsigned int n_temp = 0, n_cool = 0, n_in = 0;
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_SENSOR_INFO_EXT_IN_LEN);
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_SENSOR_INFO_OUT_LENMAX);
-+	unsigned int n_pages, n_sensors, n_attrs, page;
- 	size_t outlen;
- 	char name[12];
- 	u32 mask;
--	int rc, i, type;
-+	int rc, i, j, type;
- 
--	BUILD_BUG_ON(MC_CMD_SENSOR_INFO_IN_LEN != 0);
-+	/* Find out how many sensors are present */
-+	n_sensors = 0;
-+	page = 0;
-+	do {
-+		MCDI_SET_DWORD(inbuf, SENSOR_INFO_EXT_IN_PAGE, page);
- 
--	rc = efx_mcdi_rpc(efx, MC_CMD_SENSOR_INFO, NULL, 0,
--			  outbuf, sizeof(outbuf), &outlen);
--	if (rc)
--		return rc;
--	if (outlen < MC_CMD_SENSOR_INFO_OUT_LENMIN)
--		return -EIO;
--
--	/* Find out which sensors are present.  Don't create a device
--	 * if there are none.
--	 */
--	mask = MCDI_DWORD(outbuf, SENSOR_INFO_OUT_MASK);
--	if (mask == 0)
-+		rc = efx_mcdi_rpc(efx, MC_CMD_SENSOR_INFO, inbuf, sizeof(inbuf),
-+				  outbuf, sizeof(outbuf), &outlen);
-+		if (rc)
-+			return rc;
-+		if (outlen < MC_CMD_SENSOR_INFO_OUT_LENMIN)
-+			return -EIO;
-+
-+		mask = MCDI_DWORD(outbuf, SENSOR_INFO_OUT_MASK);
-+		n_sensors += hweight32(mask & ~(1 << MC_CMD_SENSOR_PAGE0_NEXT));
-+		++page;
-+	} while (mask & (1 << MC_CMD_SENSOR_PAGE0_NEXT));
-+	n_pages = page;
-+
-+	/* Don't create a device if there are none */
-+	if (n_sensors == 0)
- 		return 0;
- 
--	/* Check again for short response */
--	if (outlen < MC_CMD_SENSOR_INFO_OUT_LEN(hweight32(mask)))
--		return -EIO;
--
--	rc = efx_nic_alloc_buffer(efx, &hwmon->dma_buf,
--				  4 * MC_CMD_SENSOR_ENTRY_MAXNUM, GFP_KERNEL);
-+	rc = efx_nic_alloc_buffer(
-+		efx, &hwmon->dma_buf,
-+		n_sensors * MC_CMD_SENSOR_VALUE_ENTRY_TYPEDEF_LEN,
-+		GFP_KERNEL);
- 	if (rc)
- 		return rc;
- 
-@@ -277,7 +290,7 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
- 	 * attributes for this set of sensors: name of the driver plus
- 	 * value, min, max, crit, alarm and label for each sensor.
- 	 */
--	n_attrs = 1 + 6 * hweight32(mask);
-+	n_attrs = 1 + 6 * n_sensors;
- 	hwmon->attrs = kcalloc(n_attrs, sizeof(*hwmon->attrs), GFP_KERNEL);
- 	if (!hwmon->attrs) {
- 		rc = -ENOMEM;
-@@ -294,26 +307,63 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
- 	if (rc)
- 		goto fail;
- 
--	for (i = 0, type = -1; ; i++) {
-+	for (i = 0, j = -1, type = -1; ; i++) {
-+		enum efx_hwmon_type hwmon_type;
- 		const char *hwmon_prefix;
- 		unsigned hwmon_index;
- 		u16 min1, max1, min2, max2;
- 
- 		/* Find next sensor type or exit if there is none */
--		type++;
--		while (!(mask & (1 << type))) {
-+		do {
- 			type++;
--			if (type == 32)
--				return 0;
--		}
- 
--		/* Skip sensors specific to a different port */
--		if (efx_mcdi_sensor_type[type].hwmon_type != EFX_HWMON_UNKNOWN &&
--		    efx_mcdi_sensor_type[type].port >= 0 &&
--		    efx_mcdi_sensor_type[type].port != efx_port_num(efx))
--			continue;
-+			if ((type % 32) == 0) {
-+				page = type / 32;
-+				j = -1;
-+				if (page == n_pages)
-+					return 0;
-+
-+				MCDI_SET_DWORD(inbuf, SENSOR_INFO_EXT_IN_PAGE,
-+					       page);
-+				rc = efx_mcdi_rpc(efx, MC_CMD_SENSOR_INFO,
-+						  inbuf, sizeof(inbuf),
-+						  outbuf, sizeof(outbuf),
-+						  &outlen);
-+				if (rc)
-+					goto fail;
-+				if (outlen < MC_CMD_SENSOR_INFO_OUT_LENMIN) {
-+					rc = -EIO;
-+					goto fail;
-+				}
-+
-+				mask = (MCDI_DWORD(outbuf,
-+						   SENSOR_INFO_OUT_MASK) &
-+					~(1 << MC_CMD_SENSOR_PAGE0_NEXT));
-+
-+				/* Check again for short response */
-+				if (outlen <
-+				    MC_CMD_SENSOR_INFO_OUT_LEN(hweight32(mask))) {
-+					rc = -EIO;
-+					goto fail;
-+				}
-+			}
-+		} while (!(mask & (1 << type % 32)));
-+		j++;
-+
-+		if (type < ARRAY_SIZE(efx_mcdi_sensor_type)) {
-+			hwmon_type = efx_mcdi_sensor_type[type].hwmon_type;
-+
-+			/* Skip sensors specific to a different port */
-+			if (hwmon_type != EFX_HWMON_UNKNOWN &&
-+			    efx_mcdi_sensor_type[type].port >= 0 &&
-+			    efx_mcdi_sensor_type[type].port !=
-+			    efx_port_num(efx))
-+				continue;
-+		} else {
-+			hwmon_type = EFX_HWMON_UNKNOWN;
-+		}
- 
--		switch (efx_mcdi_sensor_type[type].hwmon_type) {
-+		switch (hwmon_type) {
- 		case EFX_HWMON_TEMP:
- 			hwmon_prefix = "temp";
- 			hwmon_index = ++n_temp; /* 1-based */
-@@ -333,13 +383,13 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
- 		}
- 
- 		min1 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
--					SENSOR_INFO_ENTRY, i, MIN1);
-+					SENSOR_INFO_ENTRY, j, MIN1);
- 		max1 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
--					SENSOR_INFO_ENTRY, i, MAX1);
-+					SENSOR_INFO_ENTRY, j, MAX1);
- 		min2 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
--					SENSOR_INFO_ENTRY, i, MIN2);
-+					SENSOR_INFO_ENTRY, j, MIN2);
- 		max2 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
--					SENSOR_INFO_ENTRY, i, MAX2);
-+					SENSOR_INFO_ENTRY, j, MAX2);
- 
- 		if (min1 != max1) {
- 			snprintf(name, sizeof(name), "%s%u_input",
-@@ -386,7 +436,8 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
- 		if (rc)
- 			goto fail;
- 
--		if (efx_mcdi_sensor_type[type].label) {
-+		if (type < ARRAY_SIZE(efx_mcdi_sensor_type) &&
-+		    efx_mcdi_sensor_type[type].label) {
- 			snprintf(name, sizeof(name), "%s%u_label",
- 				 hwmon_prefix, hwmon_index);
- 			rc = efx_mcdi_mon_add_attr(
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>  net/ipv6/addrconf.c |   10 +++++++---
+>  1 files changed, 7 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 8e68466..1bb0861 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3088,6 +3088,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>  static void addrconf_rs_timer(unsigned long data)
+>  {
+>  	struct inet6_dev *idev = (struct inet6_dev *)data;
+> +	struct net_device *dev = idev->dev;
+>  	struct in6_addr lladdr;
+>  
+>  	write_lock(&idev->lock);
+> @@ -3102,12 +3103,14 @@ static void addrconf_rs_timer(unsigned long data)
+>  		goto out;
+>  
+>  	if (idev->rs_probes++ < idev->cnf.rtr_solicits) {
+> -		if (!__ipv6_get_lladdr(idev, &lladdr, IFA_F_TENTATIVE))
+> -			ndisc_send_rs(idev->dev, &lladdr,
+> +		write_unlock(&idev->lock);
+> +		if (!ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
+> +			ndisc_send_rs(dev, &lladdr,
+>  				      &in6addr_linklocal_allrouters);
+>  		else
+> -			goto out;
+> +			goto put;
+>  
+> +		write_lock(&idev->lock);
+>  		/* The wait after the last probe can be shorter */
+>  		addrconf_mod_rs_timer(idev, (idev->rs_probes ==
+>  					     idev->cnf.rtr_solicits) ?
+> @@ -3123,6 +3126,7 @@ static void addrconf_rs_timer(unsigned long data)
+>  
+>  out:
+>  	write_unlock(&idev->lock);
+> +put:
+>  	in6_dev_put(idev);
+>  }
+
+Maybe it would be cleaner to just update a boolean in the inner block
+and call ndisc_send_rs after the write_unlock.
+
+Greetings,
+
+  Hannes
