@@ -1,113 +1,115 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: [PATCH v4][for net-next] driver:net:stmmac: Disable DMA store and forward mode if platform data force_thresh_dma_mode is set.
-Date: Wed, 28 Aug 2013 18:40:58 +0800
-Message-ID: <1377686458-9943-1-git-send-email-sonic.adi@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adi-buildroot-devel@lists.sourceforge.net>,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	<netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  01/10] ixgbe: disable link when adapter goes down
+Date: Wed, 28 Aug 2013 03:33:39 -0700
+Message-ID: <1377686028-30747-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0248.outbound.messaging.microsoft.com ([213.199.154.248]:29470
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752374Ab3H1Ken (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 06:34:43 -0400
+Received: from mga09.intel.com ([134.134.136.24]:19818 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752374Ab3H1Kdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 06:33:53 -0400
+In-Reply-To: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Some synopsys ip implementation doesn't support DMA store and forward mode,
-such as BF60x. So, set force_thresh_dma_mode to use DMA thresholds only.
-Update document and devicetree as well.
+This patch fixes an issue with the 82599 adapter where it can potentially keep
+link lights up when the adapter has gone down. The patch adds a function which
+ensures link is disabled, and calls this function when the adapter transitions
+to a down state.
 
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      | 5 +++++
- Documentation/networking/stmmac.txt                   | 3 +++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 +++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 3 +++
- include/linux/stmmac.h                                | 1 +
- 5 files changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 20 ++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  3 +++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  2 ++
+ 3 files changed, 25 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 261c563..eba0e5e 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -22,6 +22,11 @@ Required properties:
- - snps,pbl		Programmable Burst Length
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-+- snps,force_thresh_dma_mode	Force DMA to use the threshold mode for
-+				both tx and rx
-+- snps,force_sf_dma_mode	Force DMA to use the Store and Forward
-+				mode for both tx and rx. This flag is
-+				ignored if force_thresh_dma_mode is set.
- 
- Optional properties:
- - mac-address: 6 bytes, mac address
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 654d2e5..457b8bb 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -123,6 +123,7 @@ struct plat_stmmacenet_data {
- 	int bugged_jumbo;
- 	int pmt;
- 	int force_sf_dma_mode;
-+	int force_thresh_dma_mode;
- 	int riwt_off;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
-@@ -159,6 +160,8 @@ Where:
-  o pmt: core has the embedded power module (optional).
-  o force_sf_dma_mode: force DMA to use the Store and Forward mode
- 		     instead of the Threshold.
-+ o force_thresh_dma_mode: force DMA to use the Shreshold mode other than
-+		     the Store and Forward mode.
-  o riwt_off: force to disable the RX watchdog feature and switch to NAPI mode.
-  o fix_mac_speed: this callback is used for modifying some syscfg registers
- 		 (on ST SoCs) according to the link speed negotiated by the
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index be40691..8d4ccd3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1224,7 +1224,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
-  */
- static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- {
--	if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
-+	if (priv->plat->force_thresh_dma_mode)
-+		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
-+	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
- 		/*
- 		 * In case of GMAC, SF mode can be enabled
- 		 * to perform the TX COE in HW. This depends on:
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index da8be6e..865c944 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -79,6 +79,9 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
- 	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
- 	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
-+	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
-+	if (plat->force_thresh_dma_mode)
-+		plat->force_sf_dma_mode = 0;
- 
- 	return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 207f68f..51ee8ad 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -49,6 +49,7 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
+                                            ixgbe_link_speed speed,
+                                            bool autoneg_wait_to_complete);
++static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw);
+ static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
+ 				      bool autoneg_wait_to_complete);
+ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+@@ -432,6 +433,24 @@ out:
  }
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 9e495d31..bb5deb0 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -108,6 +108,7 @@ struct plat_stmmacenet_data {
- 	int bugged_jumbo;
- 	int pmt;
- 	int force_sf_dma_mode;
-+	int force_thresh_dma_mode;
- 	int riwt_off;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
+ 
+ /**
++ * ixgbe_stop_mac_link_on_d3_82599 - Disables link on D3
++ * @hw: pointer to hardware structure
++ *
++ * Disables link, should be called during D3 power down sequence.
++ *
++ */
++static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw)
++{
++	u32 autoc2_reg;
++
++	if (!hw->mng_fw_enabled && !hw->wol_enabled) {
++		autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
++		autoc2_reg |= IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK;
++		IXGBE_WRITE_REG(hw, IXGBE_AUTOC2, autoc2_reg);
++	}
++}
++
++/**
+  *  ixgbe_start_mac_link_82599 - Setup MAC link settings
+  *  @hw: pointer to hardware structure
+  *  @autoneg_wait_to_complete: true when waiting for completion is needed
+@@ -2477,6 +2496,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.set_lan_id             = &ixgbe_set_lan_id_multi_port_pcie,
+ 	.read_analog_reg8       = &ixgbe_read_analog_reg8_82599,
+ 	.write_analog_reg8      = &ixgbe_write_analog_reg8_82599,
++	.stop_link_on_d3	= &ixgbe_stop_mac_link_on_d3_82599,
+ 	.setup_link             = &ixgbe_setup_mac_link_82599,
+ 	.set_rxpba		= &ixgbe_set_rxpba_generic,
+ 	.check_link             = &ixgbe_check_mac_link_generic,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 128d6b8..cf1b41e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5292,6 +5292,9 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 		return retval;
+ 
+ #endif
++	if (hw->mac.ops.stop_link_on_d3)
++		hw->mac.ops.stop_link_on_d3(hw);
++
+ 	if (wufc) {
+ 		ixgbe_set_rx_mode(netdev);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 161ff18..6442cf8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1596,6 +1596,7 @@ enum {
+ #define IXGBE_AUTOC2_10G_KR  (0x0 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
+ #define IXGBE_AUTOC2_10G_XFI (0x1 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
+ #define IXGBE_AUTOC2_10G_SFI (0x2 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
++#define IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK  0x50000000
+ #define IXGBE_AUTOC2_LINK_DISABLE_MASK        0x70000000
+ 
+ #define IXGBE_MACC_FLU       0x00000001
+@@ -2847,6 +2848,7 @@ struct ixgbe_mac_operations {
+ 	void (*disable_tx_laser)(struct ixgbe_hw *);
+ 	void (*enable_tx_laser)(struct ixgbe_hw *);
+ 	void (*flap_tx_laser)(struct ixgbe_hw *);
++	void (*stop_link_on_d3)(struct ixgbe_hw *);
+ 	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool);
+ 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *, bool);
+ 	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
 -- 
-1.8.2.3
+1.8.3.1
