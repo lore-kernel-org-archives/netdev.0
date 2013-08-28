@@ -1,69 +1,90 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next  04/10] ixgbe: fix link test when connected to 1Gbps
- link partner
-Date: Wed, 28 Aug 2013 22:28:24 +0400
-Message-ID: <521E4148.3030402@cogentembedded.com>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com> <1377686028-30747-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:62481 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752980Ab3H1S2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 14:28:34 -0400
-Received: by mail-la0-f54.google.com with SMTP id ea20so5160236lab.13
-        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 11:28:33 -0700 (PDT)
-In-Reply-To: <1377686028-30747-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH net-next 1/1] net: neighbour: Simplify ifdefs around neigh_app_ns()
+Date: Wed, 28 Aug 2013 12:24:46 -0600
+Message-ID: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Drop a couple of ifdef/endif pairs by moving the ifdef
+surrounding neigh_app_ns() to the interior of neigh_app_ns().
 
-On 08/28/2013 02:33 PM, Jeff Kirsher wrote:
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
 
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
+This is an admittedly trivial change. I stumbled on it while trying to figure
+out why Ubuntu doesn't have CONFIG_ARPD enabled.
 
-> This patch is a partial reverse of:
-> commit dfcc4615f09c33454bc553567f7c7506cae60cb9
+ net/core/neighbour.c |    4 ++--
+ net/ipv4/arp.c       |    2 --
+ net/ipv6/ndisc.c     |    2 --
+ 3 files changed, 2 insertions(+), 6 deletions(-)
 
-    Please also specify that commit's summary line in parens.
-
-> Specifically forcing the laser before the link check can lead to
-> inconsistent results because it does not guarantee that the link will be
-> negotiated correctly. Such is the case when dual speed SFP+ module is
-> connected to a gigabit link partner.
-
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 26 ++++++++----------------
->   1 file changed, 9 insertions(+), 17 deletions(-)
-
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> index db0dbf6..57465d8 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> @@ -1885,11 +1885,11 @@ static void ixgbe_diag_test(struct net_device *netdev,
->                               struct ethtool_test *eth_test, u64 *data)
->   {
->   	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-> -	struct ixgbe_hw *hw = &adapter->hw;
->   	bool if_running = netif_running(netdev);
->
->   	set_bit(__IXGBE_TESTING, &adapter->state);
->   	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
-> +		struct ixgbe_hw *hw = &adapter->hw;
-
-    Empty line wouldn't here, after declaration. At least in the code above 
-you have it.
-
->   		if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
->   			int i;
->   			for (i = 0; i < adapter->num_vfs; i++) {
-
-WBR, Sergei
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 60533db..049dd9e 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2759,13 +2759,13 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+ }
+ 
+-#ifdef CONFIG_ARPD
+ void neigh_app_ns(struct neighbour *n)
+ {
++#ifdef CONFIG_ARPD
+ 	__neigh_notify(n, RTM_GETNEIGH, NLM_F_REQUEST);
++#endif /* CONFIG_ARPD */
+ }
+ EXPORT_SYMBOL(neigh_app_ns);
+-#endif /* CONFIG_ARPD */
+ 
+ #ifdef CONFIG_SYSCTL
+ static int zero;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 4429b01..7808093 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -368,9 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	} else {
+ 		probes -= neigh->parms->app_probes;
+ 		if (probes < 0) {
+-#ifdef CONFIG_ARPD
+ 			neigh_app_ns(neigh);
+-#endif
+ 			return;
+ 		}
+ 	}
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 04d31c2..d5693ad 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -663,9 +663,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 		}
+ 		ndisc_send_ns(dev, neigh, target, target, saddr);
+ 	} else if ((probes -= neigh->parms->app_probes) < 0) {
+-#ifdef CONFIG_ARPD
+ 		neigh_app_ns(neigh);
+-#endif
+ 	} else {
+ 		addrconf_addr_solict_mult(target, &mcaddr);
+ 		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
+-- 
+1.7.9.5
