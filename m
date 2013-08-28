@@ -1,79 +1,64 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v2 08/13] bonding: convert bond_has_this_ip() to use upper devices
-Date: Wed, 28 Aug 2013 14:02:27 +0200
-Message-ID: <1377691352-4146-9-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v2 13/13] bonding: pr_debug instead of pr_warn in bond_arp_send_all
+Date: Wed, 28 Aug 2013 14:02:32 +0200
+Message-ID: <1377691352-4146-14-git-send-email-vfalico@redhat.com>
 References: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47661 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16356 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755155Ab3H1MCg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 08:02:36 -0400
+	id S1755155Ab3H1MCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 08:02:39 -0400
 In-Reply-To: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bond_has_this_ip() is aware only of vlan upper devices, and thus
-will return false if the address is associated with the upper bridge or any
-other device, and thus will break the arp logic.
+They're simply annoying and will spam dmesg constantly if we hit them, so
+convert to pr_debug so that we still can access them in case of debugging.
 
-Fix this by using the upper device list. For every upper device we verify
-if the address associated with it is our address, and if yes - return true.
-
-v1: use netdev_for_each_upper_dev()
-v2: use netdev_for_each_upper_dev_rcu()
+v2: new patch
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_main.c |   14 ++++++--------
+ 1 files changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5f38188..0fb3122 100644
+index a52cff1..47e1052 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2392,24 +2392,25 @@ re_arm:
- 	}
- }
+@@ -2336,10 +2336,8 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
+ 				     RTO_ONLINK, 0);
+ 		if (IS_ERR(rt)) {
+-			if (net_ratelimit()) {
+-				pr_warning("%s: no route to arp_ip_target %pI4\n",
+-					   bond->dev->name, &targets[i]);
+-			}
++			pr_debug("%s: no route to arp_ip_target %pI4\n",
++				 bond->dev->name, &targets[i]);
+ 			continue;
+ 		}
  
--static int bond_has_this_ip(struct bonding *bond, __be32 ip)
-+static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
- {
--	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
-+	struct net_device *upper;
-+	struct list_head *iter;
-+	bool ret = false;
+@@ -2364,10 +2362,10 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 		rcu_read_unlock();
  
- 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
--		return 1;
-+		return true;
+ 		/* Not our device - skip */
+-		if (net_ratelimit())
+-			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+-				   bond->dev->name, &targets[i],
+-				   rt->dst.dev ? rt->dst.dev->name : "NULL");
++		pr_debug("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
++			 bond->dev->name, &targets[i],
++			 rt->dst.dev ? rt->dst.dev->name : "NULL");
++
+ 		ip_rt_put(rt);
+ 		continue;
  
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		rcu_read_lock();
--		vlan_dev = __vlan_find_dev_deep(bond->dev, htons(ETH_P_8021Q),
--						vlan->vlan_id);
--		rcu_read_unlock();
--		if (vlan_dev && ip == bond_confirm_addr(vlan_dev, 0, ip))
--			return 1;
-+	rcu_read_lock();
-+	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
-+		if (ip == bond_confirm_addr(upper, 0, ip)) {
-+			ret = true;
-+			break;
-+		}
- 	}
-+	rcu_read_unlock();
- 
--	return 0;
-+	return ret;
- }
- 
- /*
 -- 
 1.7.1
