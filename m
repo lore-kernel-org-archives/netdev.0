@@ -1,27 +1,26 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v4 08/13] bonding: convert bond_has_this_ip() to use upper devices
-Date: Wed, 28 Aug 2013 23:25:11 +0200
-Message-ID: <1377725116-31126-9-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v4 10/13] bonding: split alb_send_learning_packets()
+Date: Wed, 28 Aug 2013 23:25:13 +0200
+Message-ID: <1377725116-31126-11-git-send-email-vfalico@redhat.com>
 References: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58250 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46910 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755713Ab3H1VZL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 17:25:11 -0400
+	id S1755740Ab3H1VZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 17:25:13 -0400
 In-Reply-To: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bond_has_this_ip() is aware only of vlan upper devices, and thus
-will return false if the address is associated with the upper bridge or any
-other device, and thus will break the arp logic.
+Create alb_send_lp_vid(), which will handle the skb/lp creation, vlan
+tagging and sending, and use it in alb_send_learning_packets().
 
-Fix this by using the upper device list. For every upper device we verify
-if the address associated with it is our address, and if yes - return true.
+This way all the logic remains in alb_send_learning_packets(), which
+becomes a lot more cleaner and easier to understand.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -29,55 +28,109 @@ Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
-    v1: use netdev_for_each_upper_dev()
-    v2: use netdev_for_each_upper_dev_rcu()
+    v1: no change
+    v2: no change
     v3: no change
     v4: no change
 
- drivers/net/bonding/bond_main.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_alb.c | 59 +++++++++++++++++++++++++-----------------
+ 1 file changed, 35 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 28f4ad0..f38d590 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2392,24 +2392,25 @@ re_arm:
- 	}
- }
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3a5db7b..3ca3c85 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -971,35 +971,53 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
  
--static int bond_has_this_ip(struct bonding *bond, __be32 ip)
-+static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+ /*********************** tlb/rlb shared functions *********************/
+ 
+-static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
++			    u16 vid)
  {
--	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
-+	struct net_device *upper;
-+	struct list_head *iter;
-+	bool ret = false;
+-	struct bonding *bond = bond_get_bond_by_slave(slave);
+ 	struct learning_pkt pkt;
++	struct sk_buff *skb;
+ 	int size = sizeof(struct learning_pkt);
+-	int i;
++	char *data;
  
- 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
--		return 1;
-+		return true;
+ 	memset(&pkt, 0, size);
+ 	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
+ 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
+ 	pkt.type = cpu_to_be16(ETH_P_LOOP);
  
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		rcu_read_lock();
--		vlan_dev = __vlan_find_dev_deep(bond->dev, htons(ETH_P_8021Q),
--						vlan->vlan_id);
--		rcu_read_unlock();
--		if (vlan_dev && ip == bond_confirm_addr(vlan_dev, 0, ip))
--			return 1;
-+	rcu_read_lock();
-+	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
-+		if (ip == bond_confirm_addr(upper, 0, ip)) {
-+			ret = true;
-+			break;
-+		}
+-	for (i = 0; i < MAX_LP_BURST; i++) {
+-		struct sk_buff *skb;
+-		char *data;
++	skb = dev_alloc_skb(size);
++	if (!skb)
++		return;
+ 
+-		skb = dev_alloc_skb(size);
++	data = skb_put(skb, size);
++	memcpy(data, &pkt, size);
++
++	skb_reset_mac_header(skb);
++	skb->network_header = skb->mac_header + ETH_HLEN;
++	skb->protocol = pkt.type;
++	skb->priority = TC_PRIO_CONTROL;
++	skb->dev = slave->dev;
++
++	if (vid) {
++		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
+ 		if (!skb) {
++			pr_err("%s: Error: failed to insert VLAN tag\n",
++			       slave->bond->dev->name);
+ 			return;
+ 		}
++	}
+ 
+-		data = skb_put(skb, size);
+-		memcpy(data, &pkt, size);
++	dev_queue_xmit(skb);
++}
+ 
+-		skb_reset_mac_header(skb);
+-		skb->network_header = skb->mac_header + ETH_HLEN;
+-		skb->protocol = pkt.type;
+-		skb->priority = TC_PRIO_CONTROL;
+-		skb->dev = slave->dev;
++
++static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++{
++	struct bonding *bond = bond_get_bond_by_slave(slave);
++	u16 vlan_id;
++	int i;
++
++	for (i = 0; i < MAX_LP_BURST; i++) {
++		vlan_id = 0;
+ 
+ 		if (bond_vlan_used(bond)) {
+ 			struct vlan_entry *vlan;
+@@ -1008,20 +1026,13 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+ 					      bond->alb_info.current_alb_vlan);
+ 
+ 			bond->alb_info.current_alb_vlan = vlan;
+-			if (!vlan) {
+-				kfree_skb(skb);
++			if (!vlan)
+ 				continue;
+-			}
+ 
+-			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan->vlan_id);
+-			if (!skb) {
+-				pr_err("%s: Error: failed to insert VLAN tag\n",
+-				       bond->dev->name);
+-				continue;
+-			}
++			vlan_id = vlan->vlan_id;
+ 		}
+ 
+-		dev_queue_xmit(skb);
++		alb_send_lp_vid(slave, mac_addr, vlan_id);
  	}
-+	rcu_read_unlock();
- 
--	return 0;
-+	return ret;
  }
  
- /*
 -- 
 1.8.4
