@@ -1,66 +1,90 @@
-From: Francesco Fusco <ffusco@redhat.com>
-Subject: Re: [PATCH net-next v2 1/2] ipv4: IP_TOS and IP_TTL can be specified
- as ancillary data
-Date: Wed, 28 Aug 2013 09:56:32 +0200
-Message-ID: <521DAD30.1010903@redhat.com>
-References: <cover.1377257704.git.ffusco@redhat.com> <cover.1377257704.git.ffusco@redhat.com> <aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com> <20130827.145649.1682045616049011855.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm-current tree with the net tree
+Date: Wed, 28 Aug 2013 18:09:40 +1000
+Message-ID: <20130828180940.b571fb3354d4d95a9ac0e04f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50108 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754685Ab3H1H4g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 03:56:36 -0400
-In-Reply-To: <20130827.145649.1682045616049011855.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__28_Aug_2013_18_09_40_+1000_X03=4LYTJEDF0C3X"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andy Lutomirski <luto@amacapital.net>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2013 08:56 PM, David Miller wrote:
-> From: Francesco Fusco <ffusco@redhat.com>
-> Date: Fri, 23 Aug 2013 14:19:32 +0200
->
->>    - changed the icmp_cookie ttl field from __s16 to __u8.
->>      A value of 0 means that the TTL has not been specified
->
-> Sorry, I have to ask you to change the ttl field type back to __s16
-> and use "-1" to mean not-specified.
->
-> Zero is a valid TTL setting and it means to not allow the
-> packet to leave this host.
+--Signature=_Wed__28_Aug_2013_18_09_40_+1000_X03=4LYTJEDF0C3X
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Actually setsockopt() does not allow a TTL value of zero:
+Hi Andrew,
 
- From net/ipv4/ip_sockglue.c::do_ip_setsockopt()
------
-case IP_TTL:
-                 if (optlen < 1)
-                         goto e_inval;
-                 if (val != -1 && (val < 1 || val > 255))
-                         goto e_inval;
-                 inet->uc_ttl = val;
-                 break;
----------
+Today's linux-next merge of the akpm-current tree got a conflict in
+kernel/fork.c between commit c2b1df2eb429 ("Rename nsproxy.pid_ns to
+nsproxy.pid_ns_for_children") from the net tree and commits 74a7cb7237ad
+("pidns: fix vfork() after unshare(CLONE_NEWPID)"), 98c53a09f937 ("pidns:
+kill the unnecessary CLONE_NEWPID in copy_process()") and ddb3b016a3f7
+("fork: unify and tighten up CLONE_NEWUSER/CLONE_NEWPID checks") from the
+akpm-current tree.
 
-To make my patch consistent with the behavior of setsockopt() I also
-do not accept a TTL of zero in the ancillary data:
-+	if (val < 1 || val > 255)
-+		return -EINVAL;
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-Therefore, if icmp_cookie->ttl has a value of 0, that could only mean
-that the user has not specified the TTL.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-I agree that could be somehow confusing to consider 0 as a non specified
-TTL, and that -1 would be more clear. However, it seems to me that we 
-end up using 1 more byte in a struct that is stored on the stack for
-readability reasons.
+diff --cc kernel/fork.c
+index df6e2a8,04a8c2a..0000000
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@@ -1173,13 -1171,15 +1171,16 @@@ static struct task_struct *copy_process
+  		return ERR_PTR(-EINVAL);
+ =20
+  	/*
+- 	 * If the new process will be in a different pid namespace
+- 	 * don't allow the creation of threads.
++ 	 * If the new process will be in a different pid or user namespace
++ 	 * do not allow it to share a thread group or signal handlers or
++ 	 * parent with the forking task.
+  	 */
+- 	if ((clone_flags & (CLONE_VM|CLONE_NEWPID)) &&
+- 	    (task_active_pid_ns(current) !=3D
+- 	     current->nsproxy->pid_ns_for_children))
+- 		return ERR_PTR(-EINVAL);
++ 	if (clone_flags & (CLONE_SIGHAND | CLONE_PARENT)) {
++ 		if ((clone_flags & (CLONE_NEWUSER | CLONE_NEWPID)) ||
+ -		    (task_active_pid_ns(current) !=3D current->nsproxy->pid_ns))
+++		    (task_active_pid_ns(current) !=3D
+++		     current->nsproxy->pid_ns_for_children))
++ 			return ERR_PTR(-EINVAL);
++ 	}
+ =20
+  	retval =3D security_task_create(clone_flags);
+  	if (retval)
 
-> Please make this change and resubmit, thanks.
+--Signature=_Wed__28_Aug_2013_18_09_40_+1000_X03=4LYTJEDF0C3X
+Content-Type: application/pgp-signature
 
-I can change the code as you requested despite what I wrote above,
-let me know.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
 
-Thanks,
-Francesco
+iQIcBAEBCAAGBQJSHbBIAAoJEECxmPOUX5FEWugP/0NGmWV04tV5DD/hX36DKAYs
+GocVd5SR5Ri+fm3aAiP0cuf2ec4Sm4bpI/oAYhsje62oJjysVCxKgs75ws2LWfpt
+DJN8t4RBGpl5PErqN4qn8PX4Z2WwwFlQ5WO3BuN7K+XWPgMIxzc/ua26ALAJXf3l
+uN9EDQ8xB2hJmWpkTm1AuJRI1K8RtUBe4ZNF5NfUaFqDpuU3G9C2ewnuXOqDfBpm
+c96Kk6tcXSDsAu3jnbUtdGJN5j7KxpqiP2+SWybrFOyCPfwNVxFwMRunPYZWF5y9
+jyxH43tHkJg5vyMCRDwOsNRe17rJjA9NdvYISJf6U70s8usZTdxpwLpXvsFWHImq
+9E1Dkd1Ctw02bVBL1XFIml7Wr+WHzHfsQomLGnpF7xEwB+/sM3uVhAJ/DsQzrn2s
+DjT0oThiFfFNmakc6hFOVrUcZH9T2RV+8yc7uwYNdWtI9NwWetIPQ/4tDo9d9BqE
+sbr2QBLEGjXAGNoZ+1nIQBR5zVJ2xyNdVpzf1WoWcwOHVjt4mBtJl8ak41Q3SxWs
+PCM6BYDJQnhcs2Qn6O3cgSJt/NlzCXBydOhxa3tFSsaWpySZLtqpRkRwd1SZDBjA
+2fISof93N3IAf3LVJws2buC4MWXw6CTGNStoZ7Ze33YU7JbsWtl9NdLPO505ySwK
+p5eqcsRBqWWZPb2WyTIB
+=NwuK
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__28_Aug_2013_18_09_40_+1000_X03=4LYTJEDF0C3X--
