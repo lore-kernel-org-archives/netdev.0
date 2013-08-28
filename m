@@ -1,84 +1,141 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net: fec: add the initial to set the physical mac
- address
-Date: Wed, 28 Aug 2013 02:11:21 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE01653FEA@039-SN2MPN1-021.039d.mgd.msft.net>
-References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
- <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [patch net-next v6 4/4] igb/igbvf: implement
+ ndo_get_phys_port_id
+Date: Wed, 28 Aug 2013 02:26:28 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73070A38@ORSMSX101.amr.corp.intel.com>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+ <1375114612-537-5-git-send-email-jiri@resnulli.us>
+ <1377167950.3939.57.camel@jtkirshe-mobl>
+ <20130822131019.GB1421@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Li Frank-B20596 <B20596@freescale.com>,
-	Zhou Luwei-B45643 <B45643@freescale.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Narendra_K@Dell.com" <Narendra_K@Dell.com>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Lucas Stach <l.stach@pengutronix.de>
+	"or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"amwang@redhat.com" <amwang@redhat.com>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>
+To: Jiri Pirko <jiri@resnulli.us>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.248] ([213.199.154.248]:4369 "EHLO
-	db9outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751791Ab3H1CN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 22:13:59 -0400
-In-Reply-To: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+Received: from mga09.intel.com ([134.134.136.24]:56419 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752113Ab3H1C0b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 22:26:31 -0400
+In-Reply-To: <20130822131019.GB1421@minipsycho.brq.redhat.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTHVjYXMgU3RhY2ggW21haWx0bzpsLnN0YWNoQHBlbmd1dHJvbml4LmRlXQ0KRGF0YTog
-VHVlc2RheSwgQXVndXN0IDI3LCAyMDEzIDEwOjE5IFBNDQoNCj4gVG86IER1YW4gRnVnYW5nLUIz
-ODYxMQ0KPiBDYzogTGkgRnJhbmstQjIwNTk2OyBaaG91IEx1d2VpLUI0NTY0MzsgZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hhd24uZ3VvQGxpbmFyby5v
-cmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207DQo+IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBz
-dGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGZl
-YzogYWRkIHRoZSBpbml0aWFsIHRvIHNldCB0aGUgcGh5c2ljYWwgbWFjDQo+IGFkZHJlc3MNCj4g
-DQo+IEFtIERvbm5lcnN0YWcsIGRlbiAyMi4wOC4yMDEzLCAxOToxNyArMDgwMCBzY2hyaWViIEZ1
-Z2FuZyBEdWFuOg0KPiA+IEZvciBpbXg2c2x4IGV2ayBwbGF0Zm9ybSwgdGhlIGZlYyBkcml2ZXIg
-Y2Fubm90IHdvcmsgc2luY2UgdGhlcmUgaGF2ZQ0KPiA+IG5vIHZhbGlkIG1hYyBhZGRyZXNzIHNl
-dCBpbiBwaHlzaWNhbCBtYWMgcmVnaXN0ZXJzLg0KPiA+DQo+ID4gRm9yIGlteCBzZXJpYWwgcGxh
-dGZvcm0sIGZlYy9lbmV0IElQcyBib3RoIG5lZWQgdGhlIHBoeXNpY2FsIE1BQw0KPiA+IGFkZHJl
-c3MgaW5pdGlhbCwgb3RoZXJ3aXNlIGl0IGNhbm5vdCB3b3JrLg0KPiA+DQo+ID4gQWZ0ZXIgYWNx
-dWlyaW5nIHRoZSB2YWxpZCBNQUMgYWRkcmVzcyBmcm9tIGRldmljZXMgdHJlZS9wZnVzZS8ga2Vy
-bmVsDQo+ID4gY29tbWFuZCBsaW5lL3JhbmRvbSBtYWMgYWRkcmVzcywgYW5kIHRoZW4gc2V0IGl0
-IHRvIHRoZSBwaHlzaWNhbCBNQUMNCj4gPiBhZGRyZXNzIHJlZ2lzdGVycy4NCj4gPg0KPiBZZWFo
-LCB3ZSBoYXZlIGFsc28gc2VlbiB0aGF0IHdlIG5lZWQgdG8gc2V0IHRoaXMgZXhwbGljaXRseS4g
-VGhlIHN0cmFuZ2UNCj4gdGhpbmcgaXMgdGhhdCBJIHJlY2FsbCB0aGlzIHVzZWQgdG8gd29yayB3
-aXRob3V0IGNhbGxpbmcNCj4gZmVjX3NldF9tYWNfYWRkcmVzcygpIGV4cGxpY2l0bHksIHNvIGVp
-dGhlciB0aGUgbmV0ZGV2IGNvcmUgd2FzIGNhbGxpbmcgaXQNCj4gYXQgc29tZSBwb2ludCwgb3Ig
-b3VyIHVzZXJzcGFjZSB3YXMuIEkgZGlkbid0IGdvdCBhcm91bmQgdG8gaW52ZXN0aWdhdGUNCj4g
-dGhpcyBmdXJ0aGVyLg0KTmV0ZGV2IGNvcmUgZG9uJ3QgY2FsbCB0aGUgZnVuY3Rpb24gd2lsbGlu
-Z2x5LCBpZiBvbmx5IHVzZXIgY29uZmlnIE1BQyBhZGRyZXNzIHN1Y2ggYXMgY2FsbCBpb2N0bChz
-b2NrZmQsIFNJT0NTSUZIV0FERFIsIGlmcmVxKS4NCg0KPiBTbyBhbnl3YXk6DQo+IFJldmlld2Vk
-LWJ5OiBMdWNhcyBTdGFjaCA8bC5zdGFjaEBwZW5ndXRyb25peC5kZT4NCj4gDQo+ID4gU2lnbmVk
-LW9mZi1ieTogRnVnYW5nIER1YW4gIDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4g
-PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAgICA5ICsrKysr
-Ky0tLQ0KPiA+ICAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMo
-LSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
-ZmVjX21haW4uYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWlu
-LmMNCj4gPiBpbmRleCA0MzQ5YTllLi45YjVlMDhjIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBAQCAtMTg2NywxMCArMTg2NywxMiBA
-QCBmZWNfc2V0X21hY19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LA0KPiB2b2lkICpw
-KQ0KPiA+ICAJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgKmZlcCA9IG5ldGRldl9wcml2KG5kZXYp
-Ow0KPiA+ICAJc3RydWN0IHNvY2thZGRyICphZGRyID0gcDsNCj4gPg0KPiA+IC0JaWYgKCFpc192
-YWxpZF9ldGhlcl9hZGRyKGFkZHItPnNhX2RhdGEpKQ0KPiA+IC0JCXJldHVybiAtRUFERFJOT1RB
-VkFJTDsNCj4gPiArCWlmIChwKSB7DQo+ID4gKwkJaWYgKCFpc192YWxpZF9ldGhlcl9hZGRyKGFk
-ZHItPnNhX2RhdGEpKQ0KPiA+ICsJCQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7DQo+ID4NCj4gPiAt
-CW1lbWNweShuZGV2LT5kZXZfYWRkciwgYWRkci0+c2FfZGF0YSwgbmRldi0+YWRkcl9sZW4pOw0K
-PiA+ICsJCW1lbWNweShuZGV2LT5kZXZfYWRkciwgYWRkci0+c2FfZGF0YSwgbmRldi0+YWRkcl9s
-ZW4pOw0KPiA+ICsJfQ0KPiA+DQo+ID4gIAl3cml0ZWwobmRldi0+ZGV2X2FkZHJbM10gfCAobmRl
-di0+ZGV2X2FkZHJbMl0gPDwgOCkgfA0KPiA+ICAJCShuZGV2LT5kZXZfYWRkclsxXSA8PCAxNikg
-fCAobmRldi0+ZGV2X2FkZHJbMF0gPDwgMjQpLCBAQCAtDQo+IDE5NjksNg0KPiA+ICsxOTcxLDcg
-QEAgc3RhdGljIGludCBmZWNfZW5ldF9pbml0KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0KPiA+
-DQo+ID4gIAkvKiBHZXQgdGhlIEV0aGVybmV0IGFkZHJlc3MgKi8NCj4gPiAgCWZlY19nZXRfbWFj
-KG5kZXYpOw0KPiA+ICsJZmVjX3NldF9tYWNfYWRkcmVzcyhuZGV2LCBOVUxMKTsNCj4gPg0KPiA+
-ICAJLyogU2V0IHJlY2VpdmUgYW5kIHRyYW5zbWl0IGRlc2NyaXB0b3IgYmFzZS4gKi8NCj4gPiAg
-CWZlcC0+cnhfYmRfYmFzZSA9IGNiZF9iYXNlOw0KPiANCj4gLS0NCj4gUGVuZ3V0cm9uaXggZS5L
-LiAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgTHVjYXMgU3RhY2ggICAgICAgICAgICAgICAg
-IHwNCj4gSW5kdXN0cmlhbCBMaW51eCBTb2x1dGlvbnMgICAgICAgICAgICAgICAgIHwgaHR0cDov
-L3d3dy5wZW5ndXRyb25peC5kZS8gIHwNCj4gUGVpbmVyIFN0ci4gNi04LCAzMTEzNyBIaWxkZXNo
-ZWltLCBHZXJtYW55IHwgUGhvbmU6ICs0OS01MTIxLTIwNjkxNy01MDc2IHwNCj4gQW10c2dlcmlj
-aHQgSGlsZGVzaGVpbSwgSFJBIDI2ODYgICAgICAgICAgIHwgRmF4OiAgICs0OS01MTIxLTIwNjkx
-Ny01NTU1IHwNCj4gDQoNCg==
+Sorry, I was out sick towards the end of last week and playing catch up for the last few days...  Info inline.
+
+> From: Jiri Pirko [mailto:jiri@resnulli.us]
+> Sent: Thursday, August 22, 2013 6:10 AM
+> To: Kirsher, Jeffrey T
+> Cc: Brown, Aaron F; netdev@vger.kernel.org; davem@davemloft.net;
+> stephen@networkplumber.org; Narendra_K@Dell.com;
+> bhutchings@solarflare.com; or.gerlitz@gmail.com; Wyborny, Carolyn; Rose,
+> Gregory V; vyasevic@redhat.com; amwang@redhat.com;
+> johannes@sipsolutions.net
+> Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement
+> ndo_get_phys_port_id
+> 
+> Thu, Aug 22, 2013 at 12:39:10PM CEST, jeffrey.t.kirsher@intel.com wrote:
+> >On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
+> >> igb driver generated random number which will identify physical port.
+> >> This id is available via ndo_get_phys_port_id directly on igb netdev.
+> >> Also, id is passed to igbvf using mailbox. After that, it is
+> >> available via ndo_get_phys_port_id on igbvf netdev as well.
+> >>
+> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >> ---
+> >>  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+> >>  drivers/net/ethernet/intel/igb/igb.h       |  3 +++
+> >>  drivers/net/ethernet/intel/igb/igb_main.c  | 37
+> >> ++++++++++++++++++++++++++++-
+> >>  drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
+> >>  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+> >>  drivers/net/ethernet/intel/igbvf/netdev.c  | 38
+> >> ++++++++++++++++++++++++++++++
+> >>  drivers/net/ethernet/intel/igbvf/vf.c      | 34
+> >> ++++++++++++++++++++++++++
+> >>  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+> >>  8 files changed, 118 insertions(+), 1 deletion(-)
+> >
+> >Jiri-
+> >
+> >Validation ran into a couple of issues with this patch.  Here is what
+> >Aaron found when testing this patch...
+> 
+> Interesting. So since igbvf_refresh_ppid() is called from igbvf_reset()
+> and igbvf_probe(), I believed that is enough. Looks like perm_addr getting
+> works in similar way. Can you please check if perm_addr is set correctly
+> in the same time reading phys_port_id gives -EOPNOTSUPP?
+
+By perm_addr do you mean the MAC Address of the vf?  Yes, it is set up (and I can view it vi ip link or sysconfig) when I see the op not supported message (after I fi vfs via sysfs, before bringing the vf interface up or reloading igbvf.)
+
+> 
+> 
+> >
+> >Aaron Brown wrote:
+> >I think I have to fail this, it seems to have an issue with
+> >initialization.  When I first create a vf via sysfs the pys_port_id
+> >file is created along with the other sysfs files for the vf, however an
+> >attempt to cat out the value returns " Operation not supported".  At
+> >this point the vf is still down, if I bring it up (or simply unload /
+> >reload the igbvf driver) I can then cat the file successfully and the
+> >vf interface phys_port_id matches the phys_port_id of the pf.  This is
+> >testing from bare metal, a console session showing this behavior
+> >follows:
+> >
+> >u1304:[0]/sys> find . -iname phys_port_id
+> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+> >./devices/virtual/net/sit0/phys_port_id
+> >./devices/virtual/net/lo/phys_port_id
+> >u1304:[0]/sys> cat
+> >devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+> >5ece9fbd9cd51546982e15c1f2c11e25
+> >u1304:[0]/sys>
+> >
+> >So far so good, now make a few vfs and check for new phys_port_id sysfs
+> files.
+> >
+> >u1304:[0]/sys> find . -iname sriov_numvfs
+> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/sriov_numvfs
+> >u1304:[0]/sys> echo 2 >
+> devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+> >u1304:[0]/sys> find . -iname phys_port_id
+> ./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+> >./devices/pci0000:00/0000:00:01.0/0000:07:10.2/net/eth3/phys_port_id
+> >./devices/virtual/net/sit0/phys_port_id
+> >./devices/virtual/net/lo/phys_port_id
+> >u1304:[0]/sys>
+> >
+> >The first vf is eth2, attempt to cat out it's phys_port_id
+> >
+> >u1304:[0]/sys> cat
+> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+> >cat:
+> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id:
+> >Operation not supported u1304:[0]/sys>
+> >
+> >But, if I bring the interface up (or unload / load the igbvf driver) I
+> then am able to cat the phys_port_id of the vf and it matches the
+> phys_port_id of the physical interface.
+> >
+> >u1304:[0]/sys> ifconfig eth2 u1304-2
+> >u1304:[0]/sys> cat
+> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+> >5ece9fbd9cd51546982e15c1f2c11e25
+> >u1304:[0]/sys>
+> 
