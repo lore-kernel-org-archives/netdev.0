@@ -1,42 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: syncookies: reduce mss table to four values
-Date: Wed, 28 Aug 2013 18:22:00 -0400 (EDT)
-Message-ID: <20130828.182200.304733834519582086.davem@davemloft.net>
-References: <1377453242-4773-1-git-send-email-fw@strlen.de>
-	<1377453242-4773-2-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP
+ exception table
+Date: Wed, 28 Aug 2013 18:23:32 -0400 (EDT)
+Message-ID: <20130828.182332.824853790331642993.davem@davemloft.net>
+References: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbohac@suse.cz
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, bjorn@mork.no,
+	oliver@neukum.org
+To: robmatic@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50608 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50635 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754636Ab3H1WWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 18:22:02 -0400
-In-Reply-To: <1377453242-4773-2-git-send-email-fw@strlen.de>
+	with ESMTP id S1753141Ab3H1WXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 18:23:33 -0400
+In-Reply-To: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Sun, 25 Aug 2013 19:54:02 +0200
+From: Rob Gardner <robmatic@gmail.com>
+Date: Sun, 25 Aug 2013 18:29:13 -0600
 
-> Halve mss table size to make blind cookie guessing more difficult.
-> This is sad since the tables were already small, but there
-> is little alternative except perhaps adding more precise mss information
-> in the tcp timestamp.  Timestamps are unfortunately not ubiquitous.
+> From 018343ce2e679d97283fb51da25c43aa876d087a Mon Sep 17 00:00:00 2001
+> From: Rob Gardner <robmatic@gmail.com>
+> Date: Sun, 25 Aug 2013 16:02:23 -0600
+> Subject: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP exception table
 > 
-> Guessing all possible cookie values still has 8-in 2**32 chance.
+> This patch adds another entry (HP hs2434 Mobile Broadband) to the list
+> of exceptional devices that require a zero length packet in order to
+> function properly. This list was added in commit 844e88f0. The hs2434
+> is manufactured by Sierra Wireless, who also produces the MC7710,
+> which the ZLP exception list was created for in the first place. So
+> hopefully it is just this one producer's devices that will need this
+> workaround.
 > 
-> Reported-by: Jakob Lell <jakob@jakoblell.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Tested on a DM1-4310NR HP notebook, which does not function without this
+> change.
+> 
+> Signed-off-by: Rob Gardner <robmatic@gmail.com>
 
-It seems you've decided to retain different sets of entries in these
-two tables.
+Applied and queued up for -tablt, thanks.
 
-It is not at all obvious to me if this was intentional, and if so
-then why such a choice was made.
-
-Please clarify this.
-
-Thank you.
+On the topic of dealing with detection of this issue, how harmful is the
+workaround on chips that don't need it?  Will the driver not work in that
+case?
