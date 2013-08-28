@@ -1,75 +1,66 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 01/10] net: etherdevice: add address inherit helper
-Date: Wed, 28 Aug 2013 09:17:00 +0200
-Message-ID: <874naa2sk3.fsf@nemi.mork.no>
-References: <1377250513-3662-2-git-send-email-bjorn@mork.no>
-	<20130823122404.7aebb2c8@nehalam.linuxnetplumber.net>
-	<87ppt4yrbs.fsf@nemi.mork.no>
-	<20130827.143501.1692335946060457637.davem@davemloft.net>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH v2] tipc: set sk_err correctly when connection fails
+Date: Wed, 28 Aug 2013 09:29:58 +0200
+Message-ID: <1377674998-18872-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	<nhan.tt.vo@dektech.com.au>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <paul.gortmaker@windriver.com>,
+	<ying.xue@windriver.com>, <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:59666 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753058Ab3H1HR0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 03:17:26 -0400
-In-Reply-To: <20130827.143501.1692335946060457637.davem@davemloft.net> (David
-	Miller's message of "Tue, 27 Aug 2013 14:35:01 -0400 (EDT)")
+Received: from mailgw2.ericsson.se ([193.180.251.37]:61059 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897Ab3H1Hai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 03:30:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-> From: Bj=C3=B8rn Mork <bjorn@mork.no>
-> Date: Sat, 24 Aug 2013 00:28:55 +0200
->
->> Stephen Hemminger <stephen@networkplumber.org> writes:
->>> On Fri, 23 Aug 2013 11:35:04 +0200
->>> Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
->>>
->>>>  /**
->>>> + * eth_hw_addr_inherit - Copy dev_addr from another net_device
->>>> + * @dst: pointer to net_device to copy dev_addr to
->>>> + * @src: pointer to net_device to copy dev_addr from
->>>> + *
->>>> + * Copy the Ethernet address from one net_device to another along=
- with
->>>> + * the addr_assign_type.
->>>> + */
->>>> +static inline int eth_hw_addr_inherit(struct net_device *dst,
->>>> +				      struct net_device *src)
->>>> +{
->>>> +	if (dst->addr_len !=3D src->addr_len)
->>>> +		return -EINVAL;
->>>> +
->>>> +	dst->addr_assign_type =3D src->addr_assign_type;
->>>> +	memcpy(dst->dev_addr, src->dev_addr, dst->addr_len);
->>>> +	return 0;
->>>> +}
->>>> +
->>>
->>> Since all the other code in this file assumes addr_len =3D=3D ETH_A=
-LEN
->>> why does this code need to handle variable addresses. Trivial but
->>> then the memcpy is fixed size and can be optimized.
->>=20
->> Didn't know that. I'll make that change in the next version.  Not th=
-at
->> optimization matters much here, but consistency is always good.
->
-> You can bug check that addr_len ETH_ALEN if you want.
+Should a connect fail, if the publication/server is unavailable or
+due to some other error, a positive value will be returned and errno
+is never set. If the application code checks for an explicit zero
+return from connect (success) or a negative return (failure), it
+will not catch the error and subsequent send() calls will fail as
+shown from the strace snippet below.
 
-I don't think that is necessary. =20
+socket(0x1e /* PF_??? */, SOCK_SEQPACKET, 0) = 3
+connect(3, {sa_family=0x1e /* AF_??? */, sa_data="\2\1\322\4\0\0\322\4\0\0\0\0\0\0"}, 16) = 111
+sendto(3, "test", 4, 0, NULL, 0)        = -1 EPIPE (Broken pipe)
 
-> I realize that some drivers don't initialize it by this call point bu=
-t
-> that is arguably a bug.
+The reason for this behaviour is that TIPC wrongly inverts error
+codes set in sk_err.
 
-Yes.  But I don't believe another test is going to make those drivers
-work, so it's better to just drop it.
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+---
 
+[v2: add more details to commit message]
 
-Bj=C3=B8rn
+ net/tipc/socket.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index ce8249c..6cc7ddd 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1257,7 +1257,7 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ 		/* Accept only ACK or NACK message */
+ 		if (unlikely(msg_errcode(msg))) {
+ 			sock->state = SS_DISCONNECTING;
+-			sk->sk_err = -ECONNREFUSED;
++			sk->sk_err = ECONNREFUSED;
+ 			retval = TIPC_OK;
+ 			break;
+ 		}
+@@ -1268,7 +1268,7 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ 		res = auto_connect(sock, msg);
+ 		if (res) {
+ 			sock->state = SS_DISCONNECTING;
+-			sk->sk_err = res;
++			sk->sk_err = -res;
+ 			retval = TIPC_OK;
+ 			break;
+ 		}
+-- 
+1.7.9.5
