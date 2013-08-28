@@ -1,118 +1,99 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v10 08/11] ipv6: move in6_dev_finish_destroy() into core kernel
-Date: Wed, 28 Aug 2013 13:22:56 +0800
-Message-ID: <1377667379-2315-9-git-send-email-amwang@redhat.com>
+Subject: [PATCH net-next v10 02/11] ipv6: move ip6_local_out into core kernel
+Date: Wed, 28 Aug 2013 13:22:50 +0800
+Message-ID: <1377667379-2315-3-git-send-email-amwang@redhat.com>
 References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26724 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59690 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669Ab3H1FZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 01:25:06 -0400
+	id S1753253Ab3H1FXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 01:23:32 -0400
 In-Reply-To: <1377667379-2315-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-in6_dev_put() will be needed by vxlan module, so is
-in6_dev_finish_destroy().
+It will be used the vxlan kernel module.
 
-Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/ipv6/addrconf.c      |   30 ------------------------------
- net/ipv6/addrconf_core.c |   31 +++++++++++++++++++++++++++++++
- 2 files changed, 31 insertions(+), 30 deletions(-)
+ net/ipv6/ip6_output.c  |   25 -------------------------
+ net/ipv6/output_core.c |   26 ++++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 25 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1bb0861..ff7967e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -302,36 +302,6 @@ err_ip:
- 	return -ENOMEM;
- }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6e3ddf8..dd08cfd 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -56,31 +56,6 @@
+ #include <net/checksum.h>
+ #include <linux/mroute6.h>
  
--static void snmp6_free_dev(struct inet6_dev *idev)
+-int __ip6_local_out(struct sk_buff *skb)
 -{
--	kfree(idev->stats.icmpv6msgdev);
--	kfree(idev->stats.icmpv6dev);
--	snmp_mib_free((void __percpu **)idev->stats.ipv6);
+-	int len;
+-
+-	len = skb->len - sizeof(struct ipv6hdr);
+-	if (len > IPV6_MAXPLEN)
+-		len = 0;
+-	ipv6_hdr(skb)->payload_len = htons(len);
+-
+-	return nf_hook(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL,
+-		       skb_dst(skb)->dev, dst_output);
 -}
 -
--/* Nobody refers to this device, we may destroy it. */
--
--void in6_dev_finish_destroy(struct inet6_dev *idev)
+-int ip6_local_out(struct sk_buff *skb)
 -{
--	struct net_device *dev = idev->dev;
+-	int err;
 -
--	WARN_ON(!list_empty(&idev->addr_list));
--	WARN_ON(idev->mc_list != NULL);
--	WARN_ON(timer_pending(&idev->rs_timer));
+-	err = __ip6_local_out(skb);
+-	if (likely(err == 1))
+-		err = dst_output(skb);
 -
--#ifdef NET_REFCNT_DEBUG
--	pr_debug("%s: %s\n", __func__, dev ? dev->name : "NIL");
--#endif
--	dev_put(dev);
--	if (!idev->dead) {
--		pr_warn("Freeing alive inet6 device %p\n", idev);
--		return;
--	}
--	snmp6_free_dev(idev);
--	kfree_rcu(idev, rcu);
+-	return err;
 -}
--EXPORT_SYMBOL(in6_dev_finish_destroy);
+-EXPORT_SYMBOL_GPL(ip6_local_out);
 -
- static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ static int ip6_finish_output2(struct sk_buff *skb)
  {
- 	struct inet6_dev *ndev;
-diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
-index a864033..4c11cbc 100644
---- a/net/ipv6/addrconf_core.c
-+++ b/net/ipv6/addrconf_core.c
-@@ -6,6 +6,7 @@
- #include <linux/export.h>
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-+#include <net/ip.h>
- 
- #define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
- 
-@@ -117,3 +118,33 @@ const struct in6_addr in6addr_interfacelocal_allrouters = IN6ADDR_INTERFACELOCAL
- EXPORT_SYMBOL(in6addr_interfacelocal_allrouters);
- const struct in6_addr in6addr_sitelocal_allrouters = IN6ADDR_SITELOCAL_ALLROUTERS_INIT;
- EXPORT_SYMBOL(in6addr_sitelocal_allrouters);
+ 	struct dst_entry *dst = skb_dst(skb);
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index ab92a36..c1c741e 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -75,3 +75,29 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+ 	return offset;
+ }
+ EXPORT_SYMBOL(ip6_find_1stfragopt);
 +
-+static void snmp6_free_dev(struct inet6_dev *idev)
++int __ip6_local_out(struct sk_buff *skb)
 +{
-+	kfree(idev->stats.icmpv6msgdev);
-+	kfree(idev->stats.icmpv6dev);
-+	snmp_mib_free((void __percpu **)idev->stats.ipv6);
++	int len;
++
++	len = skb->len - sizeof(struct ipv6hdr);
++	if (len > IPV6_MAXPLEN)
++		len = 0;
++	ipv6_hdr(skb)->payload_len = htons(len);
++
++	return nf_hook(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL,
++		       skb_dst(skb)->dev, dst_output);
 +}
++EXPORT_SYMBOL_GPL(__ip6_local_out);
 +
-+/* Nobody refers to this device, we may destroy it. */
-+
-+void in6_dev_finish_destroy(struct inet6_dev *idev)
++int ip6_local_out(struct sk_buff *skb)
 +{
-+	struct net_device *dev = idev->dev;
++	int err;
 +
-+	WARN_ON(!list_empty(&idev->addr_list));
-+	WARN_ON(idev->mc_list != NULL);
-+	WARN_ON(timer_pending(&idev->rs_timer));
++	err = __ip6_local_out(skb);
++	if (likely(err == 1))
++		err = dst_output(skb);
 +
-+#ifdef NET_REFCNT_DEBUG
-+	pr_debug("%s: %s\n", __func__, dev ? dev->name : "NIL");
-+#endif
-+	dev_put(dev);
-+	if (!idev->dead) {
-+		pr_warn("Freeing alive inet6 device %p\n", idev);
-+		return;
-+	}
-+	snmp6_free_dev(idev);
-+	kfree_rcu(idev, rcu);
++	return err;
 +}
-+EXPORT_SYMBOL(in6_dev_finish_destroy);
++EXPORT_SYMBOL_GPL(ip6_local_out);
 -- 
 1.7.7.6
