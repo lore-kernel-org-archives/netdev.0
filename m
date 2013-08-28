@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: fixed the pbl setting with DT
-Date: Wed, 28 Aug 2013 17:44:27 -0400 (EDT)
-Message-ID: <20130828.174427.535294508747975574.davem@davemloft.net>
-References: <004f01cea093$9980e100$cc82a300$%an@samsung.com>
+Subject: Re: [PATCH net] net: add cpu_relax to busy poll loop
+Date: Wed, 28 Aug 2013 17:46:22 -0400 (EDT)
+Message-ID: <20130828.174622.268609863849057534.davem@davemloft.net>
+References: <20130825072346.31655.84970.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	kgene.kim@samsung.com
-To: bh74.an@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50162 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755326Ab3H1Vo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 17:44:28 -0400
-In-Reply-To: <004f01cea093$9980e100$cc82a300$%an@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130825072346.31655.84970.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Byungho An <bh74.an@samsung.com>
-Date: Sat, 24 Aug 2013 15:31:43 +0900
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Sun, 25 Aug 2013 10:23:46 +0300
 
-> This patch fixed the pbl(programmable burst length) setting 
-> using DT. Even though the default pbl is 8, If there is no 
-> pbl property in device tree file, pbl is set 0 and it causes 
-> bandwidth degradation.
+> Add a cpu_relaxt to sk_busy_loop.
 > 
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
+> Julie Cummings reported performance issues when hyperthreading is on.
+> Arjan van de Ven observed that we should have a cpu_relax() in the
+> busy poll loop.
+> 
+> Reported-by: Julie Cummings <julie.a.cummings@intel.com>
+> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 
 Applied, thank you.
