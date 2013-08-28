@@ -1,132 +1,101 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v2 10/13] bonding: split alb_send_learning_packets()
-Date: Wed, 28 Aug 2013 14:02:29 +0200
-Message-ID: <1377691352-4146-11-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v2 11/13] bonding: make alb_send_learning_packets() use upper dev list
+Date: Wed, 28 Aug 2013 14:02:30 +0200
+Message-ID: <1377691352-4146-12-git-send-email-vfalico@redhat.com>
 References: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21470 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31800 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979Ab3H1MDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 08:03:32 -0400
+	id S1753633Ab3H1MDe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 08:03:34 -0400
 In-Reply-To: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create alb_send_lp_vid(), which will handle the skb/lp creation, vlan
-tagging and sending, and use it in alb_send_learning_packets().
+Currently, if there are vlans on top of bond, alb_send_learning_packets()
+will never send LPs from the bond itself (i.e. untagged), which might leave
+untagged clients unupdated.
 
-This way all the logic remains in alb_send_learning_packets(), which
-becomes a lot more cleaner and easier to understand.
+Also, the 'circular vlan' logic (i.e. update only MAX_LP_BURST vlans at a
+time, and save the last vlan for the next update) is really suboptimal - in
+case of lots of vlans it will take a lot of time to update every vlan. It
+is also never called in any hot path and sends only a few small packets -
+thus the optimization by itself is useless.
 
-v1: no change
-v2: no change
+So remove the whole current_alb_vlan/MAX_LP_BURST logic from
+alb_send_learning_packets(). Instead, we'll first send a packet untagged
+and then traverse the upper dev list, sending a tagged packet for each vlan
+found. Also, remove the MAX_LP_BURST define - we already don't need it.
+
+v1: use netdev_for_each_upper_dev()
+v2: use netdev_for_each_upper_dev_rcu()
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c |   59 +++++++++++++++++++++++----------------
- 1 files changed, 35 insertions(+), 24 deletions(-)
+ drivers/net/bonding/bond_alb.c |   33 +++++++++++++--------------------
+ drivers/net/bonding/bond_alb.h |    1 -
+ 2 files changed, 13 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3a5db7b..3ca3c85 100644
+index 3ca3c85..b6a68b4 100644
 --- a/drivers/net/bonding/bond_alb.c
 +++ b/drivers/net/bonding/bond_alb.c
-@@ -971,35 +971,53 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
- 
- /*********************** tlb/rlb shared functions *********************/
- 
--static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-+static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
-+			    u16 vid)
+@@ -1013,27 +1013,20 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
  {
--	struct bonding *bond = bond_get_bond_by_slave(slave);
- 	struct learning_pkt pkt;
-+	struct sk_buff *skb;
- 	int size = sizeof(struct learning_pkt);
+ 	struct bonding *bond = bond_get_bond_by_slave(slave);
+-	u16 vlan_id;
 -	int i;
-+	char *data;
- 
- 	memset(&pkt, 0, size);
- 	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
- 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
- 	pkt.type = cpu_to_be16(ETH_P_LOOP);
- 
+-
 -	for (i = 0; i < MAX_LP_BURST; i++) {
--		struct sk_buff *skb;
--		char *data;
-+	skb = dev_alloc_skb(size);
-+	if (!skb)
-+		return;
+-		vlan_id = 0;
+-
+-		if (bond_vlan_used(bond)) {
+-			struct vlan_entry *vlan;
++	struct net_device *upper;
++	struct list_head *iter;
  
--		skb = dev_alloc_skb(size);
-+	data = skb_put(skb, size);
-+	memcpy(data, &pkt, size);
-+
-+	skb_reset_mac_header(skb);
-+	skb->network_header = skb->mac_header + ETH_HLEN;
-+	skb->protocol = pkt.type;
-+	skb->priority = TC_PRIO_CONTROL;
-+	skb->dev = slave->dev;
-+
-+	if (vid) {
-+		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
- 		if (!skb) {
-+			pr_err("%s: Error: failed to insert VLAN tag\n",
-+			       slave->bond->dev->name);
- 			return;
- 		}
-+	}
- 
--		data = skb_put(skb, size);
--		memcpy(data, &pkt, size);
-+	dev_queue_xmit(skb);
-+}
- 
--		skb_reset_mac_header(skb);
--		skb->network_header = skb->mac_header + ETH_HLEN;
--		skb->protocol = pkt.type;
--		skb->priority = TC_PRIO_CONTROL;
--		skb->dev = slave->dev;
-+
-+static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-+{
-+	struct bonding *bond = bond_get_bond_by_slave(slave);
-+	u16 vlan_id;
-+	int i;
-+
-+	for (i = 0; i < MAX_LP_BURST; i++) {
-+		vlan_id = 0;
- 
- 		if (bond_vlan_used(bond)) {
- 			struct vlan_entry *vlan;
-@@ -1008,20 +1026,13 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- 					      bond->alb_info.current_alb_vlan);
- 
- 			bond->alb_info.current_alb_vlan = vlan;
--			if (!vlan) {
--				kfree_skb(skb);
-+			if (!vlan)
- 				continue;
--			}
- 
--			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan->vlan_id);
--			if (!skb) {
--				pr_err("%s: Error: failed to insert VLAN tag\n",
--				       bond->dev->name);
+-			vlan = bond_next_vlan(bond,
+-					      bond->alb_info.current_alb_vlan);
+-
+-			bond->alb_info.current_alb_vlan = vlan;
+-			if (!vlan)
 -				continue;
--			}
-+			vlan_id = vlan->vlan_id;
- 		}
+-
+-			vlan_id = vlan->vlan_id;
+-		}
++	/* send untagged */
++	alb_send_lp_vid(slave, mac_addr, 0);
  
--		dev_queue_xmit(skb);
-+		alb_send_lp_vid(slave, mac_addr, vlan_id);
+-		alb_send_lp_vid(slave, mac_addr, vlan_id);
++	/* loop through vlans and send one packet for each */
++	rcu_read_lock();
++	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
++		if (upper->priv_flags & IFF_802_1Q_VLAN)
++			alb_send_lp_vid(slave, mac_addr,
++					vlan_dev_vlan_id(upper));
  	}
++	rcu_read_unlock();
  }
  
+ static int alb_set_slave_mac_addr(struct slave *slave, u8 addr[])
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index e7a5b8b..e139172 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -53,7 +53,6 @@ struct slave;
+ 
+ 
+ #define TLB_NULL_INDEX		0xffffffff
+-#define MAX_LP_BURST		3
+ 
+ /* rlb defs */
+ #define RLB_HASH_TABLE_SIZE	256
 -- 
 1.7.1
