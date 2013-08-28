@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NET SR9700
- Device Driver Support
-Date: Wed, 28 Aug 2013 17:43:58 -0400 (EDT)
-Message-ID: <20130828.174358.2008772380026126644.davem@davemloft.net>
-References: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>
+Subject: Re: [PATCH] net: stmmac: fixed the pbl setting with DT
+Date: Wed, 28 Aug 2013 17:44:27 -0400 (EDT)
+Message-ID: <20130828.174427.535294508747975574.davem@davemloft.net>
+References: <004f01cea093$9980e100$cc82a300$%an@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, joe@perches.com, romieu@fr.zoreil.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	kgene.kim@samsung.com
+To: bh74.an@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50162 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755326Ab3H1Vo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 17:44:28 -0400
+In-Reply-To: <004f01cea093$9980e100$cc82a300$%an@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: liujunliang_ljl@163.com
-Date: Sat, 24 Aug 2013 19:26:00 +0800
+From: Byungho An <bh74.an@samsung.com>
+Date: Sat, 24 Aug 2013 15:31:43 +0900
 
-> From: liujl <liujunliang_ljl@163.com>
+> This patch fixed the pbl(programmable burst length) setting 
+> using DT. Even though the default pbl is 8, If there is no 
+> pbl property in device tree file, pbl is set 0 and it causes 
+> bandwidth degradation.
+> 
+> Signed-off-by: Byungho An <bh74.an@samsung.com>
 
-Your proper name is not "liujl", please put something more reasonable
-here and also in your Signoff.
-
-Also, integrate Joe Perches's white space fixes into this patch as part
-of your resubmission.
-
-Thank you.
+Applied, thank you.
