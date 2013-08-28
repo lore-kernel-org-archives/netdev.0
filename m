@@ -1,30 +1,133 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [nf-next PATCH] netfilter: Extend SYNPROXY with a --continue
- option
-Date: Wed, 28 Aug 2013 18:00:42 +0200
-Message-ID: <20130828160038.GA25799@macbook.localnet>
-References: <20130828152549.8250.97982.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, as@one.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130828152549.8250.97982.stgit@dragon>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v3 01/13] net: rename netdev_upper to netdev_adjacent
+Date: Wed, 28 Aug 2013 18:03:50 +0200
+Message-ID: <1377705842-8276-2-git-send-email-vfalico@redhat.com>
+References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52222 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752524Ab3H1QFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:05:32 -0400
+In-Reply-To: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 05:26:55PM +0200, Jesper Dangaard Brouer wrote:
-> Packets reaching SYNPROXY are default dropped, as they are most likely
-> invalid (given the state matching).  In other configurations it might
-> be beneficial to let packet not consumed by SYNPROXY (SYN and ACK) to
-> continue being processed by the stack.
-> 
-> Introducing a --continue option/flag for the SYNPROXY target to allow
-> these unmatched packets to continue being processed.  This would also
-> help in debugging the module via LOG.
+Rename the structure to reflect the upcoming addition of lower_dev_list.
 
-I don't think we should add an option for this. Just DROP packets consumed
-by the target and have the other ones continue.
+v2: new patch
+v3: actually rename everything
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Cong Wang <amwang@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ net/core/dev.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1ed2b66..5072e2c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4367,7 +4367,7 @@ softnet_break:
+ 	goto out;
+ }
+ 
+-struct netdev_upper {
++struct netdev_adjacent {
+ 	struct net_device *dev;
+ 	bool master;
+ 	struct list_head list;
+@@ -4378,7 +4378,7 @@ struct netdev_upper {
+ static void __append_search_uppers(struct list_head *search_list,
+ 				   struct net_device *dev)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
+ 		/* check if this upper is not already in search list */
+@@ -4391,8 +4391,8 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
+ 				      struct net_device *upper_dev)
+ {
+ 	LIST_HEAD(search_list);
+-	struct netdev_upper *upper;
+-	struct netdev_upper *tmp;
++	struct netdev_adjacent *upper;
++	struct netdev_adjacent *tmp;
+ 	bool ret = false;
+ 
+ 	__append_search_uppers(&search_list, dev);
+@@ -4408,10 +4408,10 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
+ 	return ret;
+ }
+ 
+-static struct netdev_upper *__netdev_find_upper(struct net_device *dev,
++static struct netdev_adjacent *__netdev_find_upper(struct net_device *dev,
+ 						struct net_device *upper_dev)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
+ 		if (upper->dev == upper_dev)
+@@ -4462,7 +4462,7 @@ EXPORT_SYMBOL(netdev_has_any_upper_dev);
+  */
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -4470,7 +4470,7 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ 		return NULL;
+ 
+ 	upper = list_first_entry(&dev->upper_dev_list,
+-				 struct netdev_upper, list);
++				 struct netdev_adjacent, list);
+ 	if (likely(upper->master))
+ 		return upper->dev;
+ 	return NULL;
+@@ -4486,10 +4486,10 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get);
+  */
+ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	upper = list_first_or_null_rcu(&dev->upper_dev_list,
+-				       struct netdev_upper, list);
++				       struct netdev_adjacent, list);
+ 	if (upper && likely(upper->master))
+ 		return upper->dev;
+ 	return NULL;
+@@ -4499,7 +4499,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
+ static int __netdev_upper_dev_link(struct net_device *dev,
+ 				   struct net_device *upper_dev, bool master)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -4580,7 +4580,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link);
+ void netdev_upper_dev_unlink(struct net_device *dev,
+ 			     struct net_device *upper_dev)
+ {
+-	struct netdev_upper *upper;
++	struct netdev_adjacent *upper;
+ 
+ 	ASSERT_RTNL();
+ 
+-- 
+1.7.1
