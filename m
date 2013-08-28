@@ -1,71 +1,132 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v2 0/13] bonding: remove vlan special handling
-Date: Wed, 28 Aug 2013 14:02:19 +0200
-Message-ID: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v2 10/13] bonding: split alb_send_learning_packets()
+Date: Wed, 28 Aug 2013 14:02:29 +0200
+Message-ID: <1377691352-4146-11-git-send-email-vfalico@redhat.com>
+References: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23376 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21470 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979Ab3H1MDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 08:03:20 -0400
+	id S1752979Ab3H1MDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 08:03:32 -0400
+In-Reply-To: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1: Per Jiri's advice, remove the exported netdev_upper struct to keep it
-    inside dev.c only, and instead implement a macro to iterate over the
-    list and return only net_device *.
-v2: Jiri noted that we need to see every upper device, but not only the
-    first level. Modify the netdev_upper logic to include a list of lower
-    devices and for both upper/lower lists every device would see both its
-    first-level devices and every other devices that is lower/upper of it.
-    Also, convert some annoying spamming warnings to pr_debug in
-    bond_arp_send_all.
+Create alb_send_lp_vid(), which will handle the skb/lp creation, vlan
+tagging and sending, and use it in alb_send_learning_packets().
 
-The aim of this patchset is to remove bondings' own vlan handling as much
-as possible and replace it with the netdev upper device functionality.
+This way all the logic remains in alb_send_learning_packets(), which
+becomes a lot more cleaner and easier to understand.
 
-The upper device functionality is extended to include also lower devices
-and to have, for each device, a full view of every lower and upper device,
-but not only the first-level ones. This might permit in the future to
-avoid, for any grouping/teaming/upper/lower devices, to maintain its own
-lists of slaves/vlans/etc.
-
-This is achieved by adding a helper function to upper dev list handling -
-netdev_upper_get_next_dev(dev, iter), which returns the next device after
-the list_head **iter, and sets *iter to the next list_head *. This patchset
-also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
-through the whole dev->upper_dev_list, setting upper to the net_device.
-The only special treatment of vlans remains in rlb code.
-
-This patchset solves several issues with bonding, simplifies it overall,
-RCUify further and exports upper list functions for any other users which
-might also want to get rid of its own vlan_lists or slaves.
-
-I'm testing it continuously currently, no issues found, will update on
-anything.
+v1: no change
+v2: no change
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_alb.c  |   75 +++++-----
- drivers/net/bonding/bond_alb.h  |    2 -
- drivers/net/bonding/bond_main.c |  254 ++++++-------------------------
- drivers/net/bonding/bonding.h   |   21 ++-
- include/linux/netdevice.h       |   11 ++
- net/core/dev.c                  |  320 +++++++++++++++++++++++++++++++--------
- 6 files changed, 367 insertions(+), 316 deletions(-)
+ drivers/net/bonding/bond_alb.c |   59 +++++++++++++++++++++++----------------
+ 1 files changed, 35 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3a5db7b..3ca3c85 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -971,35 +971,53 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 
+ /*********************** tlb/rlb shared functions *********************/
+ 
+-static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
++			    u16 vid)
+ {
+-	struct bonding *bond = bond_get_bond_by_slave(slave);
+ 	struct learning_pkt pkt;
++	struct sk_buff *skb;
+ 	int size = sizeof(struct learning_pkt);
+-	int i;
++	char *data;
+ 
+ 	memset(&pkt, 0, size);
+ 	memcpy(pkt.mac_dst, mac_addr, ETH_ALEN);
+ 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
+ 	pkt.type = cpu_to_be16(ETH_P_LOOP);
+ 
+-	for (i = 0; i < MAX_LP_BURST; i++) {
+-		struct sk_buff *skb;
+-		char *data;
++	skb = dev_alloc_skb(size);
++	if (!skb)
++		return;
+ 
+-		skb = dev_alloc_skb(size);
++	data = skb_put(skb, size);
++	memcpy(data, &pkt, size);
++
++	skb_reset_mac_header(skb);
++	skb->network_header = skb->mac_header + ETH_HLEN;
++	skb->protocol = pkt.type;
++	skb->priority = TC_PRIO_CONTROL;
++	skb->dev = slave->dev;
++
++	if (vid) {
++		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
+ 		if (!skb) {
++			pr_err("%s: Error: failed to insert VLAN tag\n",
++			       slave->bond->dev->name);
+ 			return;
+ 		}
++	}
+ 
+-		data = skb_put(skb, size);
+-		memcpy(data, &pkt, size);
++	dev_queue_xmit(skb);
++}
+ 
+-		skb_reset_mac_header(skb);
+-		skb->network_header = skb->mac_header + ETH_HLEN;
+-		skb->protocol = pkt.type;
+-		skb->priority = TC_PRIO_CONTROL;
+-		skb->dev = slave->dev;
++
++static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++{
++	struct bonding *bond = bond_get_bond_by_slave(slave);
++	u16 vlan_id;
++	int i;
++
++	for (i = 0; i < MAX_LP_BURST; i++) {
++		vlan_id = 0;
+ 
+ 		if (bond_vlan_used(bond)) {
+ 			struct vlan_entry *vlan;
+@@ -1008,20 +1026,13 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+ 					      bond->alb_info.current_alb_vlan);
+ 
+ 			bond->alb_info.current_alb_vlan = vlan;
+-			if (!vlan) {
+-				kfree_skb(skb);
++			if (!vlan)
+ 				continue;
+-			}
+ 
+-			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan->vlan_id);
+-			if (!skb) {
+-				pr_err("%s: Error: failed to insert VLAN tag\n",
+-				       bond->dev->name);
+-				continue;
+-			}
++			vlan_id = vlan->vlan_id;
+ 		}
+ 
+-		dev_queue_xmit(skb);
++		alb_send_lp_vid(slave, mac_addr, vlan_id);
+ 	}
+ }
+ 
+-- 
+1.7.1
