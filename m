@@ -1,44 +1,52 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next 0/3] xen-netback: switch to NAPI + kthread 1:1
- model
-Date: Wed, 28 Aug 2013 15:41:49 +0100
-Message-ID: <20130828144149.GJ15729@zion.uk.xensource.com>
-References: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
- <20130828090135.GC15729@zion.uk.xensource.com>
- <20130828.102821.1417197411994987475.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next  06/10] ixgbe: cleanup some log messages
+Date: Wed, 28 Aug 2013 07:49:28 -0700
+Message-ID: <1377701368.1928.10.camel@joe-AO722>
+References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, <ian.campbell@citrix.com>,
-	<msw@amazon.com>, <konrad.wilk@oracle.com>, <annie.li@oracle.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:56210 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752971Ab3H1Olv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 10:41:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20130828.102821.1417197411994987475.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:54116 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752956Ab3H1Otq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 10:49:46 -0400
+In-Reply-To: <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 10:28:21AM -0400, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Wed, 28 Aug 2013 10:01:35 +0100
-> 
-> > This series has been acked by maintainer. If there is no objection we
-> > would like to see it in.
-> 
-> It's in the patchwork queue and will be applied when I get to it.
-> 
-> Sending queriest like this to me makes no sense at all when you can
-> always look at the state of your patch at patchwork.
-> 
-> http://patchwork.ozlabs.org/project/netdev/list/
+On Wed, 2013-08-28 at 03:33 -0700, Jeff Kirsher wrote:
+> From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Yes, I checked their state before querying. Just that you applied some
-later posted patches and I thought that you didn't notice those acks.
+> Some minor log messages cleanup, changing the level one message is logged,
+> adding a bit of detail to another and put all the text on one line.
 
-Sorry for the noise.
+Not a comment about this patch but:
 
-Wei.
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+[]
+> @@ -1282,7 +1282,7 @@ s32 ixgbe_identify_qsfp_module_generic(struct ixgbe_hw *hw)
+>  				status = 0;
+>  			} else {
+>  				if (hw->allow_unsupported_sfp == true) {
+
+At some point it might be nice to remove the
+remaining bool direct comparisons to true/false
+
+$ git grep -E -n "(==|!=)\s*(true|false)" drivers/net/ethernet/intel
+drivers/net/ethernet/intel/e1000e/netdev.c:4871:			    (hw->mac.autoneg == true) &&
+drivers/net/ethernet/intel/e1000e/phy.c:2651: *  Assumes semaphore is already acquired.  When page_set==true, assumes
+drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:763:	if (hw->phy.reset_disable == false) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:819:	if (hw->mac.orig_link_settings_stored == false) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:954:			    (hw->phy.smart_speed_active == false))
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1099:	if (hw->phy.reset_disable == false && hw->phy.ops.reset != NULL)
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1167:	if (hw->mac.orig_link_settings_stored == false) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2371:	if (hw->phy.qsfp_shared_i2c_bus == true) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2397:	if (hw->phy.qsfp_shared_i2c_bus == true) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2424:	if (hw->phy.qsfp_shared_i2c_bus == true) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2450:	if (hw->phy.qsfp_shared_i2c_bus == true) {
+drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c:1273:				if (hw->allow_unsupported_sfp == true) {
