@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 08/16] sfc: Add EF10 support for TX/RX DMA error
- events handling.
-Date: Wed, 28 Aug 2013 16:19:25 +0100
-Message-ID: <1377703165.2264.30.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 09/16] sfc: use MCDI epoch flag to improve MC
+ reboot detection in the driver
+Date: Wed, 28 Aug 2013 16:19:54 +0100
+Message-ID: <1377703194.2264.31.camel@bwh-desktop.uk.level5networks.com>
 References: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,130 +10,131 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17233 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17250 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753754Ab3H1PT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:19:29 -0400
+	with ESMTP id S1753134Ab3H1PT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:19:57 -0400
 In-Reply-To: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandre Rames <arames@solarflare.com>
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-Also, since we handle all DMA errors in the same way, merge
-RESET_TYPE_(RX|TX)_DESC_FETCH into RESET_TYPE_DMA_ERROR.
+The Huntington MC will reject all MCDI requests after an MC reboot until it sees
+one with the NOT_EPOCH flag clear.  This flag is set by default for all requests,
+and then cleared on the first request after we detect that an MC reboot has
+occurred.
+
+The old MCDI_STATUS_DELAY_COUNT gave a timeout of 10ms, which was not long enough
+for the driver to detect that a reboot had occurred based on the warm boot count
+while calling efx_mcdi_poll_reboot() from the loop in efx_mcdi_ev_death().
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c    | 3 +--
- drivers/net/ethernet/sfc/enum.h   | 6 ++----
- drivers/net/ethernet/sfc/falcon.c | 3 +--
- drivers/net/ethernet/sfc/farch.c  | 6 +++---
- drivers/net/ethernet/sfc/mcdi.c   | 8 ++++++++
- 5 files changed, 15 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c | 19 +++++++++++++------
+ drivers/net/ethernet/sfc/mcdi.h |  2 ++
+ 2 files changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 9fe375f..efad5f7 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -80,8 +80,7 @@ const char *const efx_reset_type_names[] = {
- 	[RESET_TYPE_TX_WATCHDOG]        = "TX_WATCHDOG",
- 	[RESET_TYPE_INT_ERROR]          = "INT_ERROR",
- 	[RESET_TYPE_RX_RECOVERY]        = "RX_RECOVERY",
--	[RESET_TYPE_RX_DESC_FETCH]      = "RX_DESC_FETCH",
--	[RESET_TYPE_TX_DESC_FETCH]      = "TX_DESC_FETCH",
-+	[RESET_TYPE_DMA_ERROR]          = "DMA_ERROR",
- 	[RESET_TYPE_TX_SKIP]            = "TX_SKIP",
- 	[RESET_TYPE_MC_FAILURE]         = "MC_FAILURE",
- };
-diff --git a/drivers/net/ethernet/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
-index ab8fb58..8665921 100644
---- a/drivers/net/ethernet/sfc/enum.h
-+++ b/drivers/net/ethernet/sfc/enum.h
-@@ -147,8 +147,7 @@ enum efx_loopback_mode {
-  * @RESET_TYPE_TX_WATCHDOG: reset due to TX watchdog
-  * @RESET_TYPE_INT_ERROR: reset due to internal error
-  * @RESET_TYPE_RX_RECOVERY: reset to recover from RX datapath errors
-- * @RESET_TYPE_RX_DESC_FETCH: pcie error during rx descriptor fetch
-- * @RESET_TYPE_TX_DESC_FETCH: pcie error during tx descriptor fetch
-+ * @RESET_TYPE_DMA_ERROR: DMA error
-  * @RESET_TYPE_TX_SKIP: hardware completed empty tx descriptors
-  * @RESET_TYPE_MC_FAILURE: MC reboot/assertion
-  */
-@@ -163,8 +162,7 @@ enum reset_type {
- 	RESET_TYPE_TX_WATCHDOG,
- 	RESET_TYPE_INT_ERROR,
- 	RESET_TYPE_RX_RECOVERY,
--	RESET_TYPE_RX_DESC_FETCH,
--	RESET_TYPE_TX_DESC_FETCH,
-+	RESET_TYPE_DMA_ERROR,
- 	RESET_TYPE_TX_SKIP,
- 	RESET_TYPE_MC_FAILURE,
- 	RESET_TYPE_MAX,
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 0be1f37..1140b83 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -1893,8 +1893,7 @@ static enum reset_type falcon_map_reset_reason(enum reset_type reason)
- {
- 	switch (reason) {
- 	case RESET_TYPE_RX_RECOVERY:
--	case RESET_TYPE_RX_DESC_FETCH:
--	case RESET_TYPE_TX_DESC_FETCH:
-+	case RESET_TYPE_DMA_ERROR:
- 	case RESET_TYPE_TX_SKIP:
- 		/* These can occasionally occur due to hardware bugs.
- 		 * We try to reset without disrupting the link.
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index b6af8f4..d21483d 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -832,7 +832,7 @@ efx_farch_handle_tx_event(struct efx_channel *channel, efx_qword_t *event)
- 		efx_farch_notify_tx_desc(tx_queue);
- 		netif_tx_unlock(efx->net_dev);
- 	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_PKT_ERR)) {
--		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
-+		efx_schedule_reset(efx, RESET_TYPE_DMA_ERROR);
- 	} else {
- 		netif_err(efx, tx_err, efx->net_dev,
- 			  "channel %d unexpected TX event "
-@@ -1217,7 +1217,7 @@ efx_farch_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
- 				  "RX DMA Q %d reports descriptor fetch error."
- 				  " RX Q %d is disabled.\n", ev_sub_data,
- 				  ev_sub_data);
--			efx_schedule_reset(efx, RESET_TYPE_RX_DESC_FETCH);
-+			efx_schedule_reset(efx, RESET_TYPE_DMA_ERROR);
- 		} else
- 			efx_sriov_desc_fetch_err(efx, ev_sub_data);
- 		break;
-@@ -1227,7 +1227,7 @@ efx_farch_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
- 				  "TX DMA Q %d reports descriptor fetch error."
- 				  " TX Q %d is disabled.\n", ev_sub_data,
- 				  ev_sub_data);
--			efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
-+			efx_schedule_reset(efx, RESET_TYPE_DMA_ERROR);
- 		} else
- 			efx_sriov_desc_fetch_err(efx, ev_sub_data);
- 		break;
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index ff90ebf..3810634 100644
+index 3810634..63121ad 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -587,6 +587,14 @@ void efx_mcdi_process_event(struct efx_channel *channel,
- 		efx_ptp_event(efx, event);
- 		break;
+@@ -26,9 +26,10 @@
  
-+	case MCDI_EVENT_CODE_TX_ERR:
-+	case MCDI_EVENT_CODE_RX_ERR:
-+		netif_err(efx, hw, efx->net_dev,
-+			  "%s DMA error (event: "EFX_QWORD_FMT")\n",
-+			  code == MCDI_EVENT_CODE_TX_ERR ? "TX" : "RX",
-+			  EFX_QWORD_VAL(*event));
-+		efx_schedule_reset(efx, RESET_TYPE_DMA_ERROR);
-+		break;
- 	default:
- 		netif_err(efx, hw, efx->net_dev, "Unknown MCDI event 0x%x\n",
- 			  code);
+ /* A reboot/assertion causes the MCDI status word to be set after the
+  * command word is set or a REBOOT event is sent. If we notice a reboot
+- * via these mechanisms then wait 10ms for the status word to be set. */
++ * via these mechanisms then wait 20ms for the status word to be set.
++ */
+ #define MCDI_STATUS_DELAY_US		100
+-#define MCDI_STATUS_DELAY_COUNT		100
++#define MCDI_STATUS_DELAY_COUNT		200
+ #define MCDI_STATUS_SLEEP_MS						\
+ 	(MCDI_STATUS_DELAY_US * MCDI_STATUS_DELAY_COUNT / 1000)
+ 
+@@ -56,6 +57,7 @@ int efx_mcdi_init(struct efx_nic *efx)
+ 	mcdi->mode = MCDI_MODE_POLL;
+ 
+ 	(void) efx_mcdi_poll_reboot(efx);
++	mcdi->new_epoch = true;
+ 
+ 	/* Recover from a failed assertion before probing */
+ 	return efx_mcdi_handle_assertion(efx);
+@@ -85,24 +87,26 @@ static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
+ 
+ 	if (efx->type->mcdi_max_ver == 1) {
+ 		/* MCDI v1 */
+-		EFX_POPULATE_DWORD_6(hdr[0],
++		EFX_POPULATE_DWORD_7(hdr[0],
+ 				     MCDI_HEADER_RESPONSE, 0,
+ 				     MCDI_HEADER_RESYNC, 1,
+ 				     MCDI_HEADER_CODE, cmd,
+ 				     MCDI_HEADER_DATALEN, inlen,
+ 				     MCDI_HEADER_SEQ, seqno,
+-				     MCDI_HEADER_XFLAGS, xflags);
++				     MCDI_HEADER_XFLAGS, xflags,
++				     MCDI_HEADER_NOT_EPOCH, !mcdi->new_epoch);
+ 		hdr_len = 4;
+ 	} else {
+ 		/* MCDI v2 */
+ 		BUG_ON(inlen > MCDI_CTL_SDU_LEN_MAX_V2);
+-		EFX_POPULATE_DWORD_6(hdr[0],
++		EFX_POPULATE_DWORD_7(hdr[0],
+ 				     MCDI_HEADER_RESPONSE, 0,
+ 				     MCDI_HEADER_RESYNC, 1,
+ 				     MCDI_HEADER_CODE, MC_CMD_V2_EXTN,
+ 				     MCDI_HEADER_DATALEN, 0,
+ 				     MCDI_HEADER_SEQ, seqno,
+-				     MCDI_HEADER_XFLAGS, xflags);
++				     MCDI_HEADER_XFLAGS, xflags,
++				     MCDI_HEADER_NOT_EPOCH, !mcdi->new_epoch);
+ 		EFX_POPULATE_DWORD_2(hdr[1],
+ 				     MC_CMD_V2_EXTN_IN_EXTENDED_CMD, cmd,
+ 				     MC_CMD_V2_EXTN_IN_ACTUAL_LEN, inlen);
+@@ -373,6 +377,7 @@ int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+ 	spin_unlock_bh(&mcdi->iface_lock);
+ 
+ 	efx_mcdi_copyin(efx, cmd, inbuf, inlen);
++	mcdi->new_epoch = false;
+ 	return 0;
+ }
+ 
+@@ -435,6 +440,7 @@ int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 		if (rc == -EIO || rc == -EINTR) {
+ 			msleep(MCDI_STATUS_SLEEP_MS);
+ 			efx_mcdi_poll_reboot(efx);
++			mcdi->new_epoch = true;
+ 		}
+ 	}
+ 
+@@ -530,6 +536,7 @@ static void efx_mcdi_ev_death(struct efx_nic *efx, int rc)
+ 				break;
+ 			udelay(MCDI_STATUS_DELAY_US);
+ 		}
++		mcdi->new_epoch = true;
+ 	}
+ 
+ 	spin_unlock(&mcdi->iface_lock);
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 5f67ac3..303d9e8 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -36,6 +36,7 @@ enum efx_mcdi_mode {
+  * @state: Request handling state. Waited for by @wq.
+  * @mode: Poll for mcdi completion, or wait for an mcdi_event.
+  * @wq: Wait queue for threads waiting for @state != %MCDI_STATE_RUNNING
++ * @new_epoch: Indicates start of day or start of MC reboot recovery
+  * @iface_lock: Serialises access to all the following fields
+  * @seqno: The next sequence number to use for mcdi requests.
+  * @credits: Number of spurious MCDI completion events allowed before we
+@@ -49,6 +50,7 @@ struct efx_mcdi_iface {
+ 	enum efx_mcdi_mode mode;
+ 	wait_queue_head_t wq;
+ 	spinlock_t iface_lock;
++	bool new_epoch;
+ 	unsigned int credits;
+ 	unsigned int seqno;
+ 	int resprc;
 
 
 -- 
