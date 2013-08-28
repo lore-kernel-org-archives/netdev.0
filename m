@@ -1,133 +1,50 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
- use upper devices
-Date: Wed, 28 Aug 2013 10:56:32 -0400
-Message-ID: <521E0FA0.5070506@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com> <1377549162-7522-6-git-send-email-vfalico@redhat.com> <20130826205338.GA3723@minipsycho.orion> <20130827111648.GB24836@redhat.com> <20130827112529.GA4732@minipsycho.brq.redhat.com> <20130827181001.GD24836@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] sh_eth: Enable Rx descriptor word 0 shift
+ for r8a7790
+Date: Wed, 28 Aug 2013 19:05:46 +0400
+Message-ID: <521E11CA.1020503@cogentembedded.com>
+References: <1377650589-20960-1-git-send-email-horms+renesas@verge.net.au> <1377650589-20960-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46745 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752735Ab3H1O4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 10:56:39 -0400
-In-Reply-To: <20130827181001.GD24836@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
+	Kouei Abe <kouei.abe.cp@renesas.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1377650589-20960-3-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2013 02:10 PM, Veaceslav Falico wrote:
-> On Tue, Aug 27, 2013 at 01:25:29PM +0200, Jiri Pirko wrote:
->> Tue, Aug 27, 2013 at 01:16:48PM CEST, vfalico@redhat.com wrote:
->>> On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
->>>> Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
->>> ...snip...
->>>>> +    rcu_read_lock();
->>>>> +    netdev_for_each_upper_dev(bond->dev, upper, iter) {
->>>>> +        if (ip == bond_confirm_addr(upper, 0, ip)) {
->>>>> +            ret = true;
->>>>> +            break;
->>>>> +        }
->>>>
->>>> You need the same recursion __vlan_find_dev_deep() is doing. If you do
->>>> not do that, you will miss anything over the first upper level.
->>>
->>> Good point, and it's true for other uses also - bond_arp_send_all(), for
->>> example, will also miss anything that's higher than the first upper
->>> level.
->>>
->>> I can't think of a use case scenario when we would need only the first
->>> upper level - so maybe we should either make netdev_for_each_upper_dev()
->>> recursive by default (I don't know how it can be done easily, tbh,
->>> without
->>> modifying the existing code), or add something like:
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 566e99a..4a4468f 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct
->>> list_head *search_list,
->>>     }
->>> }
->>> +struct net_device *netdev_upper_recursive_do_rcu(struct net_device
->>> *dev,
->>> +                         struct net_device *orig_dev,
->>> +                         bool (*f)(struct net_device *,
->>> +                               struct net_device *))
->>> +{
->>> +    struct netdev_upper *upper;
->>> +    struct net_device *ret = NULL;
->>> +
->>> +    list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
->>> +        if (f(orig_dev, upper->dev)) {
->>> +            ret = upper->dev;
->>> +            break;
->>> +        }
->>> +
->>> +        if (!list_empty(&upper->dev->upper_dev_list)) {
->>> +            ret = netdev_upper_recursive_do_rcu(upper->dev,
->>> +                                orig_dev, f);
->>> +            if (ret)
->>> +                break;
->>> +        }
->>> +    }
->>> +
->>> +    return ret;
->>> +}
->>> +
->>> static bool __netdev_search_upper_dev(struct net_device *dev,
->>>                       struct net_device *upper_dev)
->>> {
->>>
->>> How do you think?
->>
->> I do not like this. How about to put all levels to upper_dev list and
->> mark those who are not direct (not level1) ? Then we can use single list
->> for all purposes.
->
-> I've looked at the code a bit more and I really don't see a way to do
-> non-recursive, RCUed way to traverse the whole list of upper devices.
->
-> I see three ways to handle this situation:
->
-> 1) The one that I've posted, recursive search and calling a provided
-> function (the function should also get as a parameter a user-provided void
-> *pointer). It's, indeed, a bit hacky, however will work perfectly.
->
-> 2) Implementing the search (recursive) in bonding (or any further device)
-> itself. Less intrusive, however it'll be code duplication actually for
-> point 1).
->
-> 3) Adding lower_dev_list, populating it accordingly, and also adding an int
-> distance to the netdev_upper (or, with this approach, rather
-> netdev_adjacent
-> or something like that), which will help to implement your idea - a device
-> will have lower/upper_dev_list populated with all lower/upper devices and
-> their distance (i.e. distance == 1 means that it's first level of
-> lower/upper device). With this approach, we might also afterwards get rid
-> of slave lists from 'grouping' devices like bonding/team/bridge/etc. and,
-> thus, the locking.
->
-> Now I'd rather go with 1), but if you don't like it - I can go with 2).
-> And, if 3) sounds ok, I can implement it also and try to get rid of bonding
-> slave list (hopefully).
->
-> Do you have any other ideas/thoughts?
+Hello.
 
-I've been playing with approach 2 for some work I am doing for
-macvtap-over-bond, but I like you idea for 3 better.
+On 08/28/2013 04:43 AM, Simon Horman wrote:
 
-It would make things simpler in the long run.
+> From: Kouei Abe <kouei.abe.cp@renesas.com>
 
--vlad
+> This corrects an oversight when r8a7790 support was added to sh_eth.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    No wonder it was overseen -- it's undocumented as of version 0.60 of the 
+manual.
+
+> Signed-off-by: Kouei Abe <kouei.abe.cp@renesas.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 1 +
+>   1 file changed, 1 insertion(+)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index f386a8f..095ca8e 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -416,6 +416,7 @@ static struct sh_eth_cpu_data r8a7790_data = {
+>   	.tpauser	= 1,
+>   	.hw_swap	= 1,
+>   	.rmiimode	= 1,
+> +	.shift_rd0	= 1,
+
+    I've seen the corresponding code in a Renesas BSP but wanted to double 
+check before sending...
+
+WBR, Sergei
+
