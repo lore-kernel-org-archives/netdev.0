@@ -1,45 +1,93 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: question about drivers/net/ethernet/mellanox/mlx4/en_tx.c
-Date: Wed, 28 Aug 2013 14:48:12 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1308281447500.2279@hadrien>
-References: <alpine.DEB.2.02.1308271904520.2282@hadrien> <521DF064.7090100@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [nf-next PATCH] netfilter: more strict TCP flag matching in SYNPROXY
+Date: Wed, 28 Aug 2013 15:14:38 +0200
+Message-ID: <20130828131438.24364.25004.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:1199 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753741Ab3H1Msh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 08:48:37 -0400
-In-Reply-To: <521DF064.7090100@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	mph@one.com, as@one.com, Jesper Dangaard Brouer <brouer@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Patrick McHardy" <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Aug 2013, Amir Vadai wrote:
+Its seems Patrick missed to incoorporate some of my requested changes
+during review v2 of SYNPROXY netfilter module.
 
-> On 27/08/2013 20:07, Julia Lawall wrote:
-> > Hello,
-> >
-> > I was wondering why in drivers/net/ethernet/mellanox/mlx4/en_tx.c there
-> > are a number of uses of dma_sync_single_for_cpu without corresponding uses
-> > of dma_sync_single_for_device (for example in mlx4_en_rx_skb)?  In most
-> > drivers they come together.
-> >
-> > thanks,
-> > julia
-> >
->
-> Hi Julia,
->
-> I guess you meant to en_rx.c and not en_tx.c
+Which were, to avoid SYN+ACK packets to enter the path, meant for the
+ACK packet from the client (from the 3WHS).
 
-Oops, yes.
+Further there were a bug in ip6t_SYNPROXY.c, for matching SYN packets
+that didn't exclude the ACK flag.
 
-> It looks like a bug.
-> The whole skb buffers allocation and mapping is expected to be
-> overhauled soon - and this will be fixed as part of it.
+Go a step further with SYN packet/flag matching by excluding flags
+ACK+FIN+RST, in both IPv4 and IPv6 modules.
 
-OK, thanks for the explanation.
 
-julia
+The intented usage of SYNPROXY is as follows:
+(gracefully describing usage in commit)
+
+ iptables -t raw -A PREROUTING -i eth0 -p tcp --dport 80 --syn -j NOTRACK
+ iptables -A INPUT -i eth0 -p tcp --dport 80 -m state UNTRACKED,INVALID \
+         -j SYNPROXY --sack-perm --timestamp --mss 1480 --wscale 7 --ecn
+
+ echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
+
+This does filter SYN flags early, for packets in the UNTRACKED state,
+but packets in the INVALID state with other TCP flags could still
+reach the module, thus this stricter flag matching is still needed.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+
+ net/ipv4/netfilter/ipt_SYNPROXY.c  |    4 ++--
+ net/ipv6/netfilter/ip6t_SYNPROXY.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index 94371db..90e489e 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -269,7 +269,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ 
+ 	synproxy_parse_options(skb, par->thoff, th, &opts);
+ 
+-	if (th->syn && !th->ack) {
++	if (th->syn && !(th->ack || th->fin || th->rst)) {
+ 		/* Initial SYN from client */
+ 		this_cpu_inc(snet->stats->syn_received);
+ 
+@@ -285,7 +285,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ 					  XT_SYNPROXY_OPT_ECN);
+ 
+ 		synproxy_send_client_synack(skb, th, &opts);
+-	} else if (th->ack && !(th->fin || th->rst))
++	} else if (th->ack && !(th->fin || th->rst || th->syn))
+ 		/* ACK from client */
+ 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
+ 
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index 4270a9b..a5af0bf 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -284,7 +284,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 
+ 	synproxy_parse_options(skb, par->thoff, th, &opts);
+ 
+-	if (th->syn) {
++	if (th->syn && !(th->ack || th->fin || th->rst)) {
+ 		/* Initial SYN from client */
+ 		this_cpu_inc(snet->stats->syn_received);
+ 
+@@ -300,7 +300,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 					  XT_SYNPROXY_OPT_ECN);
+ 
+ 		synproxy_send_client_synack(skb, th, &opts);
+-	} else if (th->ack && !(th->fin || th->rst))
++	} else if (th->ack && !(th->fin || th->rst || th->syn))
+ 		/* ACK from client */
+ 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
+ 
+
