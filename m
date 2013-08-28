@@ -1,63 +1,71 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
- use upper devices
-Date: Wed, 28 Aug 2013 18:32:46 +0200
-Message-ID: <20130828163246.GL1992@redhat.com>
-References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
- <1377549162-7522-6-git-send-email-vfalico@redhat.com>
- <20130826205338.GA3723@minipsycho.orion>
- <20130827111648.GB24836@redhat.com>
- <20130827112529.GA4732@minipsycho.brq.redhat.com>
- <20130827181001.GD24836@redhat.com>
- <521E0FA0.5070506@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next  06/10] ixgbe: cleanup some log messages
+Date: Wed, 28 Aug 2013 09:36:53 -0700
+Message-ID: <1377707813.1928.30.camel@joe-AO722>
+References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1377701368.1928.10.camel@joe-AO722>
+	 <F6FB0E698C9B3143BDF729DF222866466FD4530B@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22538 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752524Ab3H1Qew (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:34:52 -0400
-Content-Disposition: inline
-In-Reply-To: <521E0FA0.5070506@redhat.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:48509 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752111Ab3H1Qgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:36:54 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866466FD4530B@ORSMSX110.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 10:56:32AM -0400, Vlad Yasevich wrote:
-...snip...
->I've been playing with approach 2 for some work I am doing for
->macvtap-over-bond, but I like you idea for 3 better.
->
->It would make things simpler in the long run.
+On Wed, 2013-08-28 at 16:19 +0000, Skidmore, Donald C wrote:
+> > -----Original Message-----
+> > From: Joe Perches [mailto:joe@perches.com]
+[]
+> > At some point it might be nice to remove the remaining bool direct
+> > comparisons to true/false
+> > 
+> > $ git grep -E -n "(==|!=)\s*(true|false)" drivers/net/ethernet/intel
+> > drivers/net/ethernet/intel/e1000e/netdev.c:4871:
+> > (hw->mac.autoneg == true) &&
+> > drivers/net/ethernet/intel/e1000e/phy.c:2651: *  Assumes semaphore is
+> > already acquired.  When page_set==true, assumes
+> > drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:763:	if (hw-
+> > >phy.reset_disable == false) {
+[etc...]
+> Thanks for pointing this out Joe. 
 
-I've just sent the third version of the 3rd approach, which implements
-lower/upper device lists for every device that are guaranteed, under RCU,
-tu have all the upper/lower devices linked to the device. It also permits
-to distinguish the 'neighbour' devices (i.e. linked on the first level,
-i.e. direct-linked) from the 'distant' ones, which are not directly linked
-but rather inherited.
+Just a bit of code style ocd... ;)
 
-It also implements the first function (and the only one that I've needed
-to get rid of vlan lists in bonding) - netdev_for_each_upper_dev_rcu(),
-which can be used as a loop:
+>  I'll [] talk with the e1000e owner about doing it with their driver.
 
-struct net_device *upper;
-struct list_head *iter;
+I believe the e1000e driver isn't using a bool
+comparison as autoneg is a u8, but it could still use
+	hw->mac.autoneg
+for consistency with the other tests in the same driver.
 
-rcu_read_lock();
-netdev_for_each_upper_dev_rcu(dev, upper, iter) {
-	... do whatever you want with the upper dev ...
-}
-rcu_read_unlock();
+Maybe:
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-In case you'll need, you can easily implement the same way
-netdev_for_each_lower_dev_rcu().
-
-Hope that helps.
-
->
->-vlad
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 2fead50..be9c033 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4869,7 +4869,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			 */
+ 			if ((hw->phy.type == e1000_phy_igp_3 ||
+ 			     hw->phy.type == e1000_phy_bm) &&
+-			    (hw->mac.autoneg == true) &&
++			    hw->mac.autoneg &&
+ 			    (adapter->link_speed == SPEED_10 ||
+ 			     adapter->link_speed == SPEED_100) &&
+ 			    (adapter->link_duplex == HALF_DUPLEX)) {
