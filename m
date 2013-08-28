@@ -1,84 +1,42 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next  06/10] ixgbe: cleanup some log messages
-Date: Wed, 28 Aug 2013 16:19:55 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866466FD4530B@ORSMSX110.amr.corp.intel.com>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
- <1377701368.1928.10.camel@joe-AO722>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v3 13/13] bonding: pr_debug instead of pr_warn
+ in bond_arp_send_all
+Date: Wed, 28 Aug 2013 18:22:34 +0200
+Message-ID: <20130828162234.GK1992@redhat.com>
+References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
+ <1377705842-8276-14-git-send-email-vfalico@redhat.com>
+ <1377706548.1928.16.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Joe Perches <joe@perches.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10295 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39071 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752111Ab3H1QT4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 12:19:56 -0400
-In-Reply-To: <1377701368.1928.10.camel@joe-AO722>
-Content-Language: en-US
+	id S1753913Ab3H1QXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:23:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1377706548.1928.16.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> Sent: Wednesday, August 28, 2013 7:49 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; Skidmore, Donald C; netdev@vger.kernel.org;
-> gospo@redhat.com; sassmann@redhat.com
-> Subject: Re: [net-next 06/10] ixgbe: cleanup some log messages
-> 
-> On Wed, 2013-08-28 at 03:33 -0700, Jeff Kirsher wrote:
-> > From: Don Skidmore <donald.c.skidmore@intel.com>
-> 
-> > Some minor log messages cleanup, changing the level one message is
-> > logged, adding a bit of detail to another and put all the text on one line.
-> 
-> Not a comment about this patch but:
-> 
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-> []
-> > @@ -1282,7 +1282,7 @@ s32 ixgbe_identify_qsfp_module_generic(struct
-> ixgbe_hw *hw)
-> >  				status = 0;
-> >  			} else {
-> >  				if (hw->allow_unsupported_sfp == true) {
-> 
-> At some point it might be nice to remove the remaining bool direct
-> comparisons to true/false
-> 
-> $ git grep -E -n "(==|!=)\s*(true|false)" drivers/net/ethernet/intel
-> drivers/net/ethernet/intel/e1000e/netdev.c:4871:
-> (hw->mac.autoneg == true) &&
-> drivers/net/ethernet/intel/e1000e/phy.c:2651: *  Assumes semaphore is
-> already acquired.  When page_set==true, assumes
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:763:	if (hw-
-> >phy.reset_disable == false) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:819:	if (hw-
-> >mac.orig_link_settings_stored == false) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:954:
-> (hw->phy.smart_speed_active == false))
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1099:	if (hw-
-> >phy.reset_disable == false && hw->phy.ops.reset != NULL)
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1167:	if (hw-
-> >mac.orig_link_settings_stored == false) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2371:	if (hw-
-> >phy.qsfp_shared_i2c_bus == true) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2397:	if (hw-
-> >phy.qsfp_shared_i2c_bus == true) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2424:	if (hw-
-> >phy.qsfp_shared_i2c_bus == true) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2450:	if (hw-
-> >phy.qsfp_shared_i2c_bus == true) {
-> drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c:1273:
-> 	if (hw->allow_unsupported_sfp == true) {
-> 
+On Wed, Aug 28, 2013 at 09:15:48AM -0700, Joe Perches wrote:
+...snip...
+>On Wed, 2013-08-28 at 18:04 +0200, Veaceslav Falico wrote:
+...snip...
+>> v2: new patch
+>> v3: no change
+>
+>Hi Veaceslav:
 
-Thanks for pointing this out Joe. 
+Hi Joe,
 
- I'll work on a patch to do that for ixgbe and talk with the e1000e owner about doing it with their driver.
+>This changelog bit maybe is better placed below the ---
+
+Yep, got it, will modify the next version (in case there will be one -
+hopefully it's not a reason to resend the whole patchset - though if anyone
+insists I can easily do it).
+
+Thanks for the input!
