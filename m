@@ -1,215 +1,174 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier for xfrm tunnel mode callback
-Date: Wed, 28 Aug 2013 15:09:40 +0800
-Message-ID: <1377673780-9778-1-git-send-email-fan.du@windriver.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH v2.38 0/6] MPLS actions and matches
+Date: Wed, 28 Aug 2013 16:14:32 +0900
+Message-ID: <20130828071432.GA15577@verge.net.au>
+References: <1377227816-15303-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <saurabh.mohan@vyatta.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Ravi K <rkerur@gmail.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48109 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752299Ab3H1HJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 03:09:57 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:38656 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753058Ab3H1HOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 03:14:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1377227816-15303-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some thoughts on IPv4 VTI implementation:
+On Fri, Aug 23, 2013 at 01:16:50PM +1000, Simon Horman wrote:
+> Hi,
+> 
+> This series implements MPLS actions and matches based on work by
+> Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
+> 
+> This series provides two changes
+> 
+> * Provide user-space support for the VLAN/MPLS tag insertion order
+>   up to and including OpenFlow 1.2, and the different ordering
+>   specified from OpenFlow 1.3. In a nutshell the datapath always
+>   uses the OpenFlow 1.3 ordering, which is to always insert tags
+>   immediately after the L2 header, regardless of the presence of other
+>   tags. And ovs-vswtichd provides compatibility for the behaviour up
+>   to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
+>   if present.
+> 
+> * Adding basic MPLS action and match support to the kernel datapath
 
-The connection between VTI receiving part and xfrm tunnel mode input process
-is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g ipip/sit
-and xfrm4_tunnel, acts like a true "tunnel" device.
+Hi Jesse,
 
-In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as all
-VTI needs is just a notifier to be called whenever xfrm_input ingress a packet
-to update statistics.
+I'm wondering if you could find some time to look over this series.
+I believe it addresses all the issues you raised with regards to v2.35.
 
-A IPsec protected packet is first handled by protocol handlers, e.g AH/ESP,
-to check packet authentication or encryption rightness. PMTU update is taken
-care of in this stage by protocol error handler.
-
-Then the packet is rearranged properly depending on whether it's transport
-mode or tunnel mode packed by mode "input" handler. The VTI handler code
-takes effects in this stage in tunnel mode only. So it neither need propagate
-PMTU, as it has already been done if necessary, nor the VTI handler is
-qualified as a xfrm_tunnel. 
-
-So this patch introduces xfrm_tunnel_notifier and meanwhile wipe out vti_err
-code.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: David S. Miller <davem@davemloft.net>
-Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
----
-v2: 
-  Add details statement to justify this patch as per David request.
-
----
- include/net/xfrm.h           |   10 +++++--
- net/ipv4/ip_vti.c            |   67 +-----------------------------------------
- net/ipv4/xfrm4_mode_tunnel.c |   16 +++++-----
- 3 files changed, 17 insertions(+), 76 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 94ce082..5451c68 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1352,6 +1352,12 @@ struct xfrm_tunnel {
- 	int priority;
- };
- 
-+struct xfrm_tunnel_notifier {
-+	int (*handler)(struct sk_buff *skb);
-+	struct xfrm_tunnel_notifier __rcu *next;
-+	int priority;
-+};
-+
- struct xfrm6_tunnel {
- 	int (*handler)(struct sk_buff *skb);
- 	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
-@@ -1495,8 +1501,8 @@ extern int xfrm4_output(struct sk_buff *skb);
- extern int xfrm4_output_finish(struct sk_buff *skb);
- extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
--extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
--extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
-+extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
-+extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
- extern int xfrm6_extract_header(struct sk_buff *skb);
- extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index e805e7b..91f69bc 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -49,70 +49,6 @@ static struct rtnl_link_ops vti_link_ops __read_mostly;
- static int vti_net_id __read_mostly;
- static int vti_tunnel_init(struct net_device *dev);
- 
--static int vti_err(struct sk_buff *skb, u32 info)
--{
--
--	/* All the routers (except for Linux) return only
--	 * 8 bytes of packet payload. It means, that precise relaying of
--	 * ICMP in the real Internet is absolutely infeasible.
--	 */
--	struct net *net = dev_net(skb->dev);
--	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
--	struct iphdr *iph = (struct iphdr *)skb->data;
--	const int type = icmp_hdr(skb)->type;
--	const int code = icmp_hdr(skb)->code;
--	struct ip_tunnel *t;
--	int err;
--
--	switch (type) {
--	default:
--	case ICMP_PARAMETERPROB:
--		return 0;
--
--	case ICMP_DEST_UNREACH:
--		switch (code) {
--		case ICMP_SR_FAILED:
--		case ICMP_PORT_UNREACH:
--			/* Impossible event. */
--			return 0;
--		default:
--			/* All others are translated to HOST_UNREACH. */
--			break;
--		}
--		break;
--	case ICMP_TIME_EXCEEDED:
--		if (code != ICMP_EXC_TTL)
--			return 0;
--		break;
--	}
--
--	err = -ENOENT;
--
--	t = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
--			     iph->daddr, iph->saddr, 0);
--	if (t == NULL)
--		goto out;
--
--	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
--		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
--				 t->parms.link, 0, IPPROTO_IPIP, 0);
--		err = 0;
--		goto out;
--	}
--
--	err = 0;
--	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
--		goto out;
--
--	if (time_before(jiffies, t->err_time + IPTUNNEL_ERR_TIMEO))
--		t->err_count++;
--	else
--		t->err_count = 1;
--	t->err_time = jiffies;
--out:
--	return err;
--}
--
- /* We dont digest the packet therefore let the packet pass */
- static int vti_rcv(struct sk_buff *skb)
- {
-@@ -296,9 +232,8 @@ static void __net_init vti_fb_tunnel_init(struct net_device *dev)
- 	iph->ihl		= 5;
- }
- 
--static struct xfrm_tunnel vti_handler __read_mostly = {
-+static struct xfrm_tunnel_notifier vti_handler __read_mostly = {
- 	.handler	=	vti_rcv,
--	.err_handler	=	vti_err,
- 	.priority	=	1,
- };
- 
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index eb1dd4d..b82cde1 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -16,13 +16,13 @@
- #include <net/xfrm.h>
- 
- /* Informational hook. The decap is still done here. */
--static struct xfrm_tunnel __rcu *rcv_notify_handlers __read_mostly;
-+static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
- static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
- 
--int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
-+int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
- {
--	struct xfrm_tunnel __rcu **pprev;
--	struct xfrm_tunnel *t;
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
- 	int ret = -EEXIST;
- 	int priority = handler->priority;
- 
-@@ -50,10 +50,10 @@ err:
- }
- EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
- 
--int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler)
-+int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
- {
--	struct xfrm_tunnel __rcu **pprev;
--	struct xfrm_tunnel *t;
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
- 	int ret = -ENOENT;
- 
- 	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
-@@ -134,7 +134,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- {
--	struct xfrm_tunnel *handler;
-+	struct xfrm_tunnel_notifier *handler;
- 	int err = -EINVAL;
- 
- 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
--- 
-1.7.9.5
+> Differences between v2.38 and v2.37:
+> 
+> * Rebase for SCTP support
+> * Refactor validate_tp_port() to iterate over eth_types rather
+>   than open-coding the loop. With the addition of SCTP this logic
+>   is now used three times.
+> 
+> 
+> Differences between v2.37 and v2.36:
+> 
+> * Rebase
+> 
+> 
+> Differences between v2.36 and v2.35:
+> 
+> * Rebase
+> 
+> * Do not add set_ethertype() to datapath/actions.c.
+>   As this patch has evolved this function had devolved into
+>   to sets of functionality wrapped into a single function with
+>   only one line of common code. Refactor things to simply
+>   open-code setting the ether type in the two locations where
+>   set_ethertype() was previously used. The aim here is to improve
+>   readability.
+> 
+> * Update setting skb->ethertype after mpls push and pop.
+>   - In the case of push_mpls it should be set unconditionally
+>     as in v2.35 the behaviour of this function to always push
+>     an MPLS LSE before any VLAN tags.
+>   - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
+>     test than skb->protocol != htons(ETH_P_8021Q) as it will give the
+>     correct behaviour in the presence of other VLAN ethernet types,
+>     for example 0x88a8 which is used by 802.1ad. Moreover, it seems
+>     correct to update the ethernet type if it was previously set
+>     according to the top-most MPLS LSE.
+> 
+> * Deaccelerate VLANs when pushing MPLS tags the
+>   - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN tags.
+>     This means that if an accelerated tag is present it should be
+>     deaccelerated to ensure it ends up in the correct position.
+> 
+> * Update skb->mac_len in push_mpls() so that it will be correct
+>   when used by a subsequent call to pop_mpls().
+> 
+>   As things stand I do not believe this is strictly necessary as
+>   ovs-vswitchd will not send a pop MPLS action after a push MPLS action.
+>   However, I have added this in order to code more defensively as I believe
+>   that if such a sequence did occur it would be rather unobvious why
+>   it didn't work.
+> 
+> * Do not add skb_cow_head() call in push_mpls().
+>   It is unnecessary as there is a make_writable() call.
+>   This change was also made in v2.30 but some how the
+>   code regressed between then and v2.35.
+> 
+> 
+> Differences between v2.35 and v2.34:
+> 
+> * Add support for the tag ordering specified up until OpenFlow 1.2 and
+>   the ordering specified from OpenFlow 1.3.
+> 
+> * Correct error in datapath patch's handling of GSO in the presence
+>   of MPLS and absence of VLANs.
+> 
+> 
+> Patch overview:
+> 
+> * The first 5 patches of this series are new,
+>   adding support for different tag ordering.
+> * The last patch is a revised version of the patch to add MPLS support
+>   to the datapath. It has been updated to use OpenFlow 1.3 tag ordering
+>   and resolve a GSO handling bug: both mentioned above. Its change log
+>   includes a history of changes.
+> 
+> 
+> To aid review this series is available in git at:
+> 
+> git://github.com/horms/openvswitch.git devel/mpls-v2.38
+> 
+> 
+> Patch list and overall diffstat:
+> 
+> Joe Stringer (5):
+>   odp: Only pass vlan_tci to commit_vlan_action()
+>   odp: Allow VLAN actions after MPLS actions
+>   ofp-actions: Add OFPUTIL_OFPAT13_PUSH_MPLS
+>   ofp-actions: Add separate OpenFlow 1.3 action parser
+>   lib: Push MPLS tags in the OpenFlow 1.3 ordering
+> 
+> Simon Horman (1):
+>   datapath: Add basic MPLS support to kernel
+> 
+>  datapath/Modules.mk                             |    1 +
+>  datapath/actions.c                              |  121 +++++-
+>  datapath/datapath.c                             |  259 +++++++++++--
+>  datapath/datapath.h                             |    9 +
+>  datapath/flow.c                                 |   58 ++-
+>  datapath/flow.h                                 |   17 +-
+>  datapath/linux/compat/gso.c                     |   50 ++-
+>  datapath/linux/compat/gso.h                     |   39 ++
+>  datapath/linux/compat/include/linux/netdevice.h |   12 -
+>  datapath/linux/compat/netdevice.c               |   28 --
+>  datapath/mpls.h                                 |   15 +
+>  datapath/vport-lisp.c                           |    1 +
+>  datapath/vport-netdev.c                         |   44 ++-
+>  include/linux/openvswitch.h                     |    7 +-
+>  lib/flow.c                                      |    2 +-
+>  lib/odp-util.c                                  |   22 +-
+>  lib/odp-util.h                                  |    4 +-
+>  lib/ofp-actions.c                               |   68 +++-
+>  lib/ofp-parse.c                                 |    1 +
+>  lib/ofp-util.c                                  |    3 +
+>  lib/ofp-util.h                                  |    1 +
+>  lib/packets.c                                   |   10 +-
+>  lib/packets.h                                   |    2 +-
+>  ofproto/ofproto-dpif-xlate.c                    |  103 ++++--
+>  ofproto/ofproto-dpif-xlate.h                    |    5 +
+>  tests/ofproto-dpif.at                           |  446 +++++++++++++++++++++++
+>  26 files changed, 1198 insertions(+), 130 deletions(-)
+>  create mode 100644 datapath/mpls.h
+> 
+> -- 
+> 1.7.10.4
+> 
+> _______________________________________________
+> dev mailing list
+> dev@openvswitch.org
+> http://openvswitch.org/mailman/listinfo/dev
+> 
