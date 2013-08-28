@@ -1,47 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  03/10] ixgbe: fix incorrect limit value in ring transverse
-Date: Wed, 28 Aug 2013 03:33:41 -0700
-Message-ID: <1377686028-30747-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
+Date: Wed, 28 Aug 2013 03:34:44 -0700
+Message-ID: <1377686084.8828.175.camel@edumazet-glaptop>
+References: <1377304192.8828.43.camel@edumazet-glaptop>
+	  <1377491162.8828.116.camel@edumazet-glaptop>
+	 <1377607592.8828.149.camel@edumazet-glaptop> <521DA8BE.3060709@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Van Jacobson <vanj@google.com>,
+	Tom Herbert <therbert@google.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19818 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752184Ab3H1Kdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 06:33:54 -0400
-In-Reply-To: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:39410 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752523Ab3H1Keq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 06:34:46 -0400
+Received: by mail-pd0-f180.google.com with SMTP id y10so6067439pdj.39
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 03:34:46 -0700 (PDT)
+In-Reply-To: <521DA8BE.3060709@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On Wed, 2013-08-28 at 15:37 +0800, Jason Wang wrote:
 
-We were transversing the tx_ring with IXGBE_NUM_RX_QUEUES.  Now this define
-happens to have the correct value but this is misleading and a change later
-could easily make this no longer true.  I updated it to netdev->num_tx_queues
-like we use in ixgbe_get_strings().
+> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > index 884efff..e63ae4c 100644
+> > --- a/net/ipv4/tcp_output.c
+> > +++ b/net/ipv4/tcp_output.c
+> > @@ -1631,7 +1631,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
+> >  
+> >  	/* If a full-sized TSO skb can be sent, do it. */
+> >  	if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
+> > -			   sk->sk_gso_max_segs * tp->mss_cache))
+> > +			   tp->xmit_size_goal_segs * tp->mss_cache))
+> >  		goto send_now;
+> A question is: Does this really guarantee the minimal TSO segments
+> excluding the case of small available window? The skb->len may be much
+> smaller and can still be sent here. Maybe we should check skb->len also?
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+tcp_tso_should_defer() is all about hoping the application will
+'complete' the last skb in write queue with more payload in the near
+future.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 50c1e9b..db0dbf6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1049,7 +1049,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 		data[i] = (ixgbe_gstrings_stats[i].sizeof_stat ==
- 		           sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
--	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
-+	for (j = 0; j < netdev->num_tx_queues; j++) {
- 		ring = adapter->tx_ring[j];
- 		if (!ring) {
- 			data[i] = 0;
--- 
-1.8.3.1
+skb->len might therefore change because sendmsg()/sendpage() will add
+new stuff in the skb.
+
+We try hard to not remove tcp_tso_should_defer() and take the best of
+it. We have not yet decided to add a real timer instead of relying on
+upcoming ACKS.
+
+Neal has an idea/patch to avoid a defer depending on
+the expected time of following ACKS.
+
+By making the TSO sizes smaller for low rates, we avoid these stalls
+from tcp_tso_should_defer(), because an incoming ACK has normally freed
+enough window to send the next packet in write queue without the need to
+split it into two parts.
+
+These changes are fundamental to use delay based congestion modules like
+Vegas/Westwood and experimental new ones, without having to disable TSO.
