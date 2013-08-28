@@ -1,52 +1,133 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next  06/10] ixgbe: cleanup some log messages
-Date: Wed, 28 Aug 2013 07:49:28 -0700
-Message-ID: <1377701368.1928.10.camel@joe-AO722>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
+ use upper devices
+Date: Wed, 28 Aug 2013 10:56:32 -0400
+Message-ID: <521E0FA0.5070506@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com> <1377549162-7522-6-git-send-email-vfalico@redhat.com> <20130826205338.GA3723@minipsycho.orion> <20130827111648.GB24836@redhat.com> <20130827112529.GA4732@minipsycho.brq.redhat.com> <20130827181001.GD24836@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:54116 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752956Ab3H1Otq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 10:49:46 -0400
-In-Reply-To: <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46745 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752735Ab3H1O4j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 10:56:39 -0400
+In-Reply-To: <20130827181001.GD24836@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-28 at 03:33 -0700, Jeff Kirsher wrote:
-> From: Don Skidmore <donald.c.skidmore@intel.com>
+On 08/27/2013 02:10 PM, Veaceslav Falico wrote:
+> On Tue, Aug 27, 2013 at 01:25:29PM +0200, Jiri Pirko wrote:
+>> Tue, Aug 27, 2013 at 01:16:48PM CEST, vfalico@redhat.com wrote:
+>>> On Mon, Aug 26, 2013 at 10:53:38PM +0200, Jiri Pirko wrote:
+>>>> Mon, Aug 26, 2013 at 10:32:38PM CEST, vfalico@redhat.com wrote:
+>>> ...snip...
+>>>>> +    rcu_read_lock();
+>>>>> +    netdev_for_each_upper_dev(bond->dev, upper, iter) {
+>>>>> +        if (ip == bond_confirm_addr(upper, 0, ip)) {
+>>>>> +            ret = true;
+>>>>> +            break;
+>>>>> +        }
+>>>>
+>>>> You need the same recursion __vlan_find_dev_deep() is doing. If you do
+>>>> not do that, you will miss anything over the first upper level.
+>>>
+>>> Good point, and it's true for other uses also - bond_arp_send_all(), for
+>>> example, will also miss anything that's higher than the first upper
+>>> level.
+>>>
+>>> I can't think of a use case scenario when we would need only the first
+>>> upper level - so maybe we should either make netdev_for_each_upper_dev()
+>>> recursive by default (I don't know how it can be done easily, tbh,
+>>> without
+>>> modifying the existing code), or add something like:
+>>>
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 566e99a..4a4468f 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -4387,6 +4387,31 @@ static void __append_search_uppers(struct
+>>> list_head *search_list,
+>>>     }
+>>> }
+>>> +struct net_device *netdev_upper_recursive_do_rcu(struct net_device
+>>> *dev,
+>>> +                         struct net_device *orig_dev,
+>>> +                         bool (*f)(struct net_device *,
+>>> +                               struct net_device *))
+>>> +{
+>>> +    struct netdev_upper *upper;
+>>> +    struct net_device *ret = NULL;
+>>> +
+>>> +    list_for_each_entry_rcu(upper, &dev->upper_dev_list, list) {
+>>> +        if (f(orig_dev, upper->dev)) {
+>>> +            ret = upper->dev;
+>>> +            break;
+>>> +        }
+>>> +
+>>> +        if (!list_empty(&upper->dev->upper_dev_list)) {
+>>> +            ret = netdev_upper_recursive_do_rcu(upper->dev,
+>>> +                                orig_dev, f);
+>>> +            if (ret)
+>>> +                break;
+>>> +        }
+>>> +    }
+>>> +
+>>> +    return ret;
+>>> +}
+>>> +
+>>> static bool __netdev_search_upper_dev(struct net_device *dev,
+>>>                       struct net_device *upper_dev)
+>>> {
+>>>
+>>> How do you think?
+>>
+>> I do not like this. How about to put all levels to upper_dev list and
+>> mark those who are not direct (not level1) ? Then we can use single list
+>> for all purposes.
+>
+> I've looked at the code a bit more and I really don't see a way to do
+> non-recursive, RCUed way to traverse the whole list of upper devices.
+>
+> I see three ways to handle this situation:
+>
+> 1) The one that I've posted, recursive search and calling a provided
+> function (the function should also get as a parameter a user-provided void
+> *pointer). It's, indeed, a bit hacky, however will work perfectly.
+>
+> 2) Implementing the search (recursive) in bonding (or any further device)
+> itself. Less intrusive, however it'll be code duplication actually for
+> point 1).
+>
+> 3) Adding lower_dev_list, populating it accordingly, and also adding an int
+> distance to the netdev_upper (or, with this approach, rather
+> netdev_adjacent
+> or something like that), which will help to implement your idea - a device
+> will have lower/upper_dev_list populated with all lower/upper devices and
+> their distance (i.e. distance == 1 means that it's first level of
+> lower/upper device). With this approach, we might also afterwards get rid
+> of slave lists from 'grouping' devices like bonding/team/bridge/etc. and,
+> thus, the locking.
+>
+> Now I'd rather go with 1), but if you don't like it - I can go with 2).
+> And, if 3) sounds ok, I can implement it also and try to get rid of bonding
+> slave list (hopefully).
+>
+> Do you have any other ideas/thoughts?
 
-> Some minor log messages cleanup, changing the level one message is logged,
-> adding a bit of detail to another and put all the text on one line.
+I've been playing with approach 2 for some work I am doing for
+macvtap-over-bond, but I like you idea for 3 better.
 
-Not a comment about this patch but:
+It would make things simpler in the long run.
 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-[]
-> @@ -1282,7 +1282,7 @@ s32 ixgbe_identify_qsfp_module_generic(struct ixgbe_hw *hw)
->  				status = 0;
->  			} else {
->  				if (hw->allow_unsupported_sfp == true) {
+-vlad
 
-At some point it might be nice to remove the
-remaining bool direct comparisons to true/false
-
-$ git grep -E -n "(==|!=)\s*(true|false)" drivers/net/ethernet/intel
-drivers/net/ethernet/intel/e1000e/netdev.c:4871:			    (hw->mac.autoneg == true) &&
-drivers/net/ethernet/intel/e1000e/phy.c:2651: *  Assumes semaphore is already acquired.  When page_set==true, assumes
-drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:763:	if (hw->phy.reset_disable == false) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:819:	if (hw->mac.orig_link_settings_stored == false) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:954:			    (hw->phy.smart_speed_active == false))
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1099:	if (hw->phy.reset_disable == false && hw->phy.ops.reset != NULL)
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:1167:	if (hw->mac.orig_link_settings_stored == false) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2371:	if (hw->phy.qsfp_shared_i2c_bus == true) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2397:	if (hw->phy.qsfp_shared_i2c_bus == true) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2424:	if (hw->phy.qsfp_shared_i2c_bus == true) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c:2450:	if (hw->phy.qsfp_shared_i2c_bus == true) {
-drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c:1273:				if (hw->allow_unsupported_sfp == true) {
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
