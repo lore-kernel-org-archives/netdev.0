@@ -1,167 +1,38 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v3 07/13] bonding: make bond_arp_send_all use
- upper device list
-Date: Wed, 28 Aug 2013 12:45:38 -0400
-Message-ID: <521E2932.6060307@redhat.com>
-References: <1377705842-8276-1-git-send-email-vfalico@redhat.com> <1377705842-8276-8-git-send-email-vfalico@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] qdisc: allow setting default queuing discipline
+Date: Wed, 28 Aug 2013 10:20:53 -0700
+Message-ID: <1377710453.8277.11.camel@edumazet-glaptop>
+References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+	 <1377662448.8828.155.camel@edumazet-glaptop>
+	 <1377665870.8828.163.camel@edumazet-glaptop>
+	 <20130828091836.5c8285f4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59413 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752524Ab3H1Qpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:45:43 -0400
-In-Reply-To: <1377705842-8276-8-git-send-email-vfalico@redhat.com>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:57117 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752817Ab3H1RUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 13:20:55 -0400
+Received: by mail-pb0-f50.google.com with SMTP id uo5so6537937pbc.37
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 10:20:55 -0700 (PDT)
+In-Reply-To: <20130828091836.5c8285f4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/28/2013 12:03 PM, Veaceslav Falico wrote:
-> Currently, bond_arp_send_all() is aware only of vlans, which breaks
-> configurations like bond <- bridge (or any other 'upper' device) with IP
-> (which is quite a common scenario for virt setups).
->
-> To fix this we convert the bond_arp_send_all() to first verify if the rt
-> device is the bond itself, and if not - to go through its list of upper
-> devices to see if any of them match the route device for the target. If the
-> match is a vlan device - we also save its vlan_id and tag it in
-> bond_arp_send().
->
-> Also, clean the function a bit to be more readable.
->
-> v1: use netdev_for_each_upper_dev()
-> v2: use netdev_for_each_upper_dev_rcu()
-> v3: no change
->
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
->   drivers/net/bonding/bond_main.c |   84 ++++++++++++++------------------------
->   1 files changed, 31 insertions(+), 53 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 7407e65..5f38188 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2444,30 +2444,16 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
->
->   static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->   {
-> -	int i, vlan_id;
-> -	__be32 *targets = bond->params.arp_targets;
-> -	struct vlan_entry *vlan;
-> -	struct net_device *vlan_dev = NULL;
-> +	struct net_device *upper;
-> +	struct list_head *iter;
->   	struct rtable *rt;
-> +	__be32 *targets = bond->params.arp_targets, addr;
-> +	int i, vlan_id;
->
-> -	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-> -		__be32 addr;
-> -		if (!targets[i])
-> -			break;
-> +	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
->   		pr_debug("basa: target %pI4\n", &targets[i]);
-> -		if (!bond_vlan_used(bond)) {
-> -			pr_debug("basa: empty vlan: arp_send\n");
-> -			addr = bond_confirm_addr(bond->dev, targets[i], 0);
-> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-> -				      addr, 0);
-> -			continue;
-> -		}
->
-> -		/*
-> -		 * If VLANs are configured, we do a route lookup to
-> -		 * determine which VLAN interface would be used, so we
-> -		 * can tag the ARP with the proper VLAN tag.
-> -		 */
-> +		/* Find out through which dev should the packet go */
->   		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
->   				     RTO_ONLINK, 0);
->   		if (IS_ERR(rt)) {
-> @@ -2478,47 +2464,39 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->   			continue;
->   		}
->
-> -		/*
-> -		 * This target is not on a VLAN
-> -		 */
-> -		if (rt->dst.dev == bond->dev) {
-> -			ip_rt_put(rt);
-> -			pr_debug("basa: rtdev == bond->dev: arp_send\n");
-> -			addr = bond_confirm_addr(bond->dev, targets[i], 0);
-> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-> -				      addr, 0);
-> -			continue;
-> -		}
-> -
->   		vlan_id = 0;
-> -		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
-> -			rcu_read_lock();
-> -			vlan_dev = __vlan_find_dev_deep(bond->dev,
-> -							htons(ETH_P_8021Q),
-> -							vlan->vlan_id);
-> -			rcu_read_unlock();
-> -			if (vlan_dev == rt->dst.dev) {
-> -				vlan_id = vlan->vlan_id;
-> -				pr_debug("basa: vlan match on %s %d\n",
-> -				       vlan_dev->name, vlan_id);
-> -				break;
-> -			}
-> -		}
->
-> -		if (vlan_id && vlan_dev) {
-> -			ip_rt_put(rt);
-> -			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
-> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-> -				      addr, vlan_id);
-> -			continue;
-> +		/* bond device itself */
-> +		if (rt->dst.dev == bond->dev)
-> +			goto found;
-> +
-> +		/* search for upper device, like vlan/bridge/team/etc */
-> +		rcu_read_lock();
-> +		netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
-> +			if (upper == rt->dst.dev) {
-> +				/* if it's a vlan - get its VID */
-> +				if (is_vlan_dev(rt->dst.dev))
-> +					vlan_id = vlan_dev_vlan_id(rt->dst.dev);
-> +
-> +				rcu_read_unlock();
-> +				goto found;
-> +			}
+On Wed, 2013-08-28 at 09:18 -0700, Stephen Hemminger wrote:
 
-How does this work in the following config:
-	eth0,eth1 <--- bond <--- vlans 1,2,3 <---- bridge (ip address)
+> Although your idea adds completeness, not sure if it is worth it.
+> The thing is if user is using HTB, they already are using tc
+> commands to set it up, therefore the additional script steps to choose some
+> other qdisc for the leaf nodes doesn't seem like a burden.
+> Therefore the sysctl doesn't help much and might even create more
+> confusion because there is now two places to update.
 
--vlad
+Well, I need such a facility because I cannot change HTB setup.
 
->   		}
-> +		rcu_read_unlock();
->
-> -		if (net_ratelimit()) {
-> +		/* Not our device - skip */
-> +		if (net_ratelimit())
->   			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
->   				   bond->dev->name, &targets[i],
->   				   rt->dst.dev ? rt->dst.dev->name : "NULL");
-> -		}
->   		ip_rt_put(rt);
-> +		continue;
-> +
-> +found:
-> +		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
-> +		ip_rt_put(rt);
-> +		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-> +			      addr, vlan_id);
->   	}
->   }
->
->
+I can boot a new kernel, yet not really change user scripts, especially
+when tc setup is actually not a script, but a complex binary doing
+constant changes in a complex and dynamic HTB hierarchy.
