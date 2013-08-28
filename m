@@ -1,106 +1,66 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v4 03/13] net: remove search_list from netdev_adjacent
-Date: Wed, 28 Aug 2013 23:25:06 +0200
-Message-ID: <1377725116-31126-4-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v4 06/13] bonding: use netdev_upper list in bond_vlan_used
+Date: Wed, 28 Aug 2013 23:25:09 +0200
+Message-ID: <1377725116-31126-7-git-send-email-vfalico@redhat.com>
 References: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59821 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34475 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754253Ab3H1VZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 17:25:04 -0400
+	id S1755963Ab3H1V0H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 17:26:07 -0400
 In-Reply-To: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We already don't need it cause we see every upper/lower device in the list
-already.
+Convert bond_vlan_used() to traverse the upper device list to see if we
+have any vlans above us. It's protected by rcu, and in case we are holding
+rtnl_lock we should call vlan_uses_dev() instead - it's faster.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
-    v2: new patch
+    v1: use netdev_for_each_upper_dev()
+    v2: use netdev_for_each_upper_dev_rcu()
     v3: no change
     v4: no change
 
- net/core/dev.c | 37 +------------------------------------
- 1 file changed, 1 insertion(+), 36 deletions(-)
+ drivers/net/bonding/bonding.h | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2aa914e..749925a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4381,42 +4381,8 @@ struct netdev_adjacent {
- 
- 	struct list_head list;
- 	struct rcu_head rcu;
--	struct list_head search_list;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 4bf52d5..230197d 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -267,9 +267,22 @@ struct bonding {
+ #endif /* CONFIG_DEBUG_FS */
  };
  
--static void __append_search_uppers(struct list_head *search_list,
--				   struct net_device *dev)
--{
--	struct netdev_adjacent *upper;
--
--	list_for_each_entry(upper, &dev->upper_dev_list, list) {
--		/* check if this upper is not already in search list */
--		if (list_empty(&upper->search_list))
--			list_add_tail(&upper->search_list, search_list);
--	}
--}
--
--static bool __netdev_search_upper_dev(struct net_device *dev,
--				      struct net_device *upper_dev)
--{
--	LIST_HEAD(search_list);
--	struct netdev_adjacent *upper;
--	struct netdev_adjacent *tmp;
--	bool ret = false;
--
--	__append_search_uppers(&search_list, dev);
--	list_for_each_entry(upper, &search_list, search_list) {
--		if (upper->dev == upper_dev) {
--			ret = true;
--			break;
--		}
--		__append_search_uppers(&search_list, upper->dev);
--	}
--	list_for_each_entry_safe(upper, tmp, &search_list, search_list)
--		INIT_LIST_HEAD(&upper->search_list);
--	return ret;
--}
--
- static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
- 						 struct net_device *adj_dev,
- 						 bool upper)
-@@ -4544,7 +4510,6 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj->master = master;
- 	adj->neighbour = neighbour;
- 	adj->ref_nr = 1;
--	INIT_LIST_HEAD(&adj->search_list);
++/* if we hold rtnl_lock() - call vlan_uses_dev() */
+ static inline bool bond_vlan_used(struct bonding *bond)
+ {
+-	return !list_empty(&bond->vlan_list);
++	struct net_device *upper;
++	struct list_head *iter;
++
++	rcu_read_lock();
++	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
++		if (upper->priv_flags & IFF_802_1Q_VLAN) {
++			rcu_read_unlock();
++			return true;
++		}
++	}
++	rcu_read_unlock();
++
++	return false;
+ }
  
- 	dev_hold(adj_dev);
- 	pr_debug("dev_hold for %s, because of %s link added from %s to %s\n",
-@@ -4671,7 +4636,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		return -EBUSY;
- 
- 	/* To prevent loops, check if dev is not upper device to upper_dev. */
--	if (__netdev_search_upper_dev(upper_dev, dev))
-+	if (__netdev_find_upper(upper_dev, dev))
- 		return -EBUSY;
- 
- 	if (__netdev_find_upper(dev, upper_dev))
+ #define bond_slave_get_rcu(dev) \
 -- 
 1.8.4
