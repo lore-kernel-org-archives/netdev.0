@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] xen-netback: switch to NAPI + kthread 1:1
- model
-Date: Wed, 28 Aug 2013 12:08:54 -0400 (EDT)
-Message-ID: <20130828.120854.1156091703614439968.davem@davemloft.net>
-References: <20130828090135.GC15729@zion.uk.xensource.com>
-	<20130828.102821.1417197411994987475.davem@davemloft.net>
-	<20130828144149.GJ15729@zion.uk.xensource.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v10 03/11] ipv6: export a stub for IPv6 symbols
+ used by vxlan
+Date: Wed, 28 Aug 2013 09:12:08 -0700
+Message-ID: <20130828091208.4bcaedcf@nehalam.linuxnetplumber.net>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+	<1377667379-2315-4-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	ian.campbell@citrix.com, msw@amazon.com, konrad.wilk@oracle.com,
-	annie.li@oracle.com
-To: wei.liu2@citrix.com
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46102 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754067Ab3H1QI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 12:08:58 -0400
-In-Reply-To: <20130828144149.GJ15729@zion.uk.xensource.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:42634 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752524Ab3H1QMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 12:12:12 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so6490017pdj.32
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 09:12:11 -0700 (PDT)
+In-Reply-To: <1377667379-2315-4-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 28 Aug 2013 15:41:49 +0100
+On Wed, 28 Aug 2013 13:22:51 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-> Just that you applied some later posted patches and I thought that
-> you didn't notice those acks.
+> +struct ipv6_stub {
+> +	int (*ipv6_sock_mc_join)(struct sock *sk, int ifindex,
+> +				 const struct in6_addr *addr);
+> +	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
+> +				 const struct in6_addr *addr);
+> +	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
+> +				struct flowi6 *fl6);
+> +	void (*udpv6_encap_enable)(void);
+> +};
+> +extern const struct ipv6_stub *ipv6_stub __read_mostly;
+> +
 
-I apply patches in the order that are convenient for me and match my
-cognitive quota at the given point in time.
+Since IPv6 really can't ever be safely unloaded. why not:
+ * admit that, and get rid of ipv6_module exit.
+ * then this stub can be a static const table.
 
-This means I'll review a lot of easy to review patches before those
-that require more thought and consideration.
-
-Therefore never read anything into the order in which I apply patches.
+You see virtual function tables that are writeable are potential malware
+targets, although eliminating all of them is impossible, I hate to
+see adding new ones.
