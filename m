@@ -1,64 +1,62 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v2 05/13] net: add netdev_for_each_upper_dev_rcu()
-Date: Wed, 28 Aug 2013 14:02:24 +0200
-Message-ID: <1377691352-4146-6-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v2 06/13] bonding: use netdev_upper list in bond_vlan_used
+Date: Wed, 28 Aug 2013 14:02:25 +0200
+Message-ID: <1377691352-4146-7-git-send-email-vfalico@redhat.com>
 References: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20394 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61295 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754397Ab3H1MC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 08:02:26 -0400
+	id S1755264Ab3H1MCh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 08:02:37 -0400
 In-Reply-To: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new macro netdev_for_each_upper_dev_rcu(dev, upper, iter) iterates
-through the dev->upper_dev_list starting from the first element, using
-the netdev_upper_get_next_dev_rcu(dev, &iter).
+Convert bond_vlan_used() to traverse the upper device list to see if we
+have any vlans above us. It's protected by rcu, and in case we are holding
+rtnl_lock we should call vlan_uses_dev() instead - it's faster.
 
-Must be called under RCU read lock.
+v1: use netdev_for_each_upper_dev()
+v2: use netdev_for_each_upper_dev_rcu()
 
-v1: new patch
-v2: rename netdev_for_each_upper_dev{,_rcu} and use/export the renamed
-    netdev_upper_get_next_dev_rcu().
-
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/linux/netdevice.h |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bonding.h |   15 ++++++++++++++-
+ 1 files changed, 14 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5ccf5b7..3ad49b8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2768,6 +2768,16 @@ extern int		bpf_jit_enable;
- extern bool netdev_has_upper_dev(struct net_device *dev,
- 				 struct net_device *upper_dev);
- extern bool netdev_has_any_upper_dev(struct net_device *dev);
-+extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
-+							struct list_head **iter);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 4bf52d5..230197d 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -267,9 +267,22 @@ struct bonding {
+ #endif /* CONFIG_DEBUG_FS */
+ };
+ 
++/* if we hold rtnl_lock() - call vlan_uses_dev() */
+ static inline bool bond_vlan_used(struct bonding *bond)
+ {
+-	return !list_empty(&bond->vlan_list);
++	struct net_device *upper;
++	struct list_head *iter;
 +
-+/* iterate through upper list, must be called under RCU read lock */
-+#define netdev_for_each_upper_dev_rcu(dev, upper, iter) \
-+	for (iter = &(dev)->upper_dev_list, \
-+	     upper = netdev_upper_get_next_dev_rcu(dev, &(iter)); \
-+	     upper; \
-+	     upper = netdev_upper_get_next_dev_rcu(dev, &(iter)))
++	rcu_read_lock();
++	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
++		if (upper->priv_flags & IFF_802_1Q_VLAN) {
++			rcu_read_unlock();
++			return true;
++		}
++	}
++	rcu_read_unlock();
 +
- extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- extern int netdev_upper_dev_link(struct net_device *dev,
++	return false;
+ }
+ 
+ #define bond_slave_get_rcu(dev) \
 -- 
 1.7.1
