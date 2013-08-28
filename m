@@ -1,76 +1,182 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  00/10][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 28 Aug 2013 03:33:38 -0700
-Message-ID: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH v3] driver:net:stmmac: Disable DMA store and forward mode
+ if platform data force_thresh_dma_mode is set.
+Date: Wed, 28 Aug 2013 18:25:27 +0800
+Message-ID: <CAJxxZ0Mmei9sOX0op3uU1WXqYL84_-tgbJf4TYSg7Tas6kCNdg@mail.gmail.com>
+References: <1377668458-21932-1-git-send-email-sonic.adi@gmail.com>
+	<521DC044.9090207@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19818 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752184Ab3H1Kdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 06:33:53 -0400
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:48266 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752666Ab3H1KZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 06:25:28 -0400
+Received: by mail-oa0-f43.google.com with SMTP id i10so7478719oag.30
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 03:25:28 -0700 (PDT)
+In-Reply-To: <521DC044.9090207@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe.
+Hi Peppe,
 
-Jacob provides a fix for 82599 devices where it can potentially keep link
-lights up when the adapter has gone down.
+On Wed, Aug 28, 2013 at 5:17 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> hello some comments below
+>
+> On 8/28/2013 7:40 AM, Sonic Zhang wrote:
+>>
+>> From: Sonic Zhang <sonic.zhang@analog.com>
+>>
+>> Some synopsys ip implementation doesn't support DMA store and forward
+>> mode,
+>> such as BF60x. So, set force_thresh_dma_mode to use DMA thresholds only.
+>> Update document and devicetree as well.
+>>
+>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+>> ---
+>>   Documentation/devicetree/bindings/net/stmmac.txt      | 2 ++
+>>   Documentation/networking/stmmac.txt                   | 3 +++
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 +++-
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 3 +++
+>>   include/linux/stmmac.h                                | 1 +
+>>   5 files changed, 12 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
+>> b/Documentation/devicetree/bindings/net/stmmac.txt
+>> index 261c563..56fbcb5 100644
+>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+>> @@ -22,6 +22,8 @@ Required properties:
+>>   - snps,pbl            Programmable Burst Length
+>>   - snps,fixed-burst    Program the DMA to use the fixed burst mode
+>>   - snps,mixed-burst    Program the DMA to use the mixed burst mode
+>> +- snps,force_thresh_dma_mode   Force DMA to use the Shreshold mode other
+>> than
+>
+>
+>                                                      ^^^^^^^^^ typo
+>
+>
+>
+>> +                               the Store and Forward mode.
+>
+>
+> if we use this approach you should document that the force_thresh_dma_mode
+> and force_sf_dma_mode will force the mode for both tx and rx.
 
-Mark provides a fix to resolve the possible use of uninitialized memory
-by checking the return value on EEPROM reads.
+OK
 
-Don provides 2 patches, one to fix a issue where we were traversing the
-Tx ring with the value of IXGBE_NUM_RX_QUEUES which currently happens
-to have the correct value but this is misleading.  A change later, could
-easily make this no longer correct so when traversing the Tx ring, use
-netdev->num_tx_queues.  His second patch does some minor clean ups of log
-messages.
+>
+> I am wondering now what happens if these are passed together from the
+> platform? is your code covering this scenario?
 
-Emil provides the remaining ixgbe patches.  First he fixes the link test
-where forcing the laser before the link check can lead to inconsistent
-results because it does not guarantee that the link will be negotiated
-correctly.  Then he initializes the message buffer array to 0 in order
-to avoid using random numbers from the memory as a MAC address for the
-VF.  Emil also fixes the read loop for the I2C data to account for the
-offset for SFP+ modules.  Lastly, Emil provides several patches to add
-support for QSFP modules where 1Gbps support is added as well as support
-for older QSFP active direct attach cables which pre-date SFF-8436 v3.6.
+Yes, in case both are set, I unset flag force_sf_dma_mode. So, only
+force_thresh_dma_mode takes effect.
 
-The following are changes since commit 5b2941b18dc5f60a5c14a5c15693f9c58b0dd922:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>
+> we could have a unique force_dma_mode that can be:
+>
+>    rx_force_threshold
+>    tx_force_threshold
+>    rx_force_sf
+>    tx_force_sf
+>               ( these can be defined in the stmmac.h platform header )
+>
+> but this an impact on all the platforms that already use the
+> force_sf_dma_mode as we said
 
-Don Skidmore (2):
-  ixgbe: fix incorrect limit value in ring transverse
-  ixgbe: cleanup some log messages
+So, I prefer current 2-flag solution.
 
-Emil Tantilov (6):
-  ixgbe: fix link test when connected to 1Gbps link partner
-  ixgbe: zero out mailbox buffer on init
-  ixgbe: fix SFF data dumps of SFP+ modules from an offset
-  ixgbe: add 1Gbps support for QSFP+
-  ixgbe: include QSFP PHY types in ixgbe_is_sfp()
-  ixgbe: add support for older QSFP active DA cables
+>
+> In this case you should fix this and maybe the patch should be for net-next
+> (add it in the subject next time).
 
-Jacob Keller (1):
-  ixgbe: disable link when adapter goes down
+I will add "for net-next" to the subject.
 
-Mark Rustad (1):
-  ixgbe: Check return value on eeprom reads
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 93 ++++++++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 67 ++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 40 ++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 13 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 98 +++++++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |  5 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +
- 9 files changed, 238 insertions(+), 90 deletions(-)
-
--- 
-1.8.3.1
+>
+> peppe
+>
+>
+>>
+>>   Optional properties:
+>>   - mac-address: 6 bytes, mac address
+>> diff --git a/Documentation/networking/stmmac.txt
+>> b/Documentation/networking/stmmac.txt
+>> index 654d2e5..457b8bb 100644
+>> --- a/Documentation/networking/stmmac.txt
+>> +++ b/Documentation/networking/stmmac.txt
+>> @@ -123,6 +123,7 @@ struct plat_stmmacenet_data {
+>>         int bugged_jumbo;
+>>         int pmt;
+>>         int force_sf_dma_mode;
+>> +       int force_thresh_dma_mode;
+>>         int riwt_off;
+>>         void (*fix_mac_speed)(void *priv, unsigned int speed);
+>>         void (*bus_setup)(void __iomem *ioaddr);
+>> @@ -159,6 +160,8 @@ Where:
+>>    o pmt: core has the embedded power module (optional).
+>>    o force_sf_dma_mode: force DMA to use the Store and Forward mode
+>>                      instead of the Threshold.
+>> + o force_thresh_dma_mode: force DMA to use the Shreshold mode other than
+>> +                    the Store and Forward mode.
+>>    o riwt_off: force to disable the RX watchdog feature and switch to NAPI
+>> mode.
+>>    o fix_mac_speed: this callback is used for modifying some syscfg
+>> registers
+>>                  (on ST SoCs) according to the link speed negotiated by
+>> the
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index be40691..8d4ccd3 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -1224,7 +1224,9 @@ static void free_dma_desc_resources(struct
+>> stmmac_priv *priv)
+>>    */
+>>   static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>>   {
+>> -       if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+>> +       if (priv->plat->force_thresh_dma_mode)
+>> +               priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+>> +       else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+>>                 /*
+>>                  * In case of GMAC, SF mode can be enabled
+>>                  * to perform the TX COE in HW. This depends on:
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> index da8be6e..865c944 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>> @@ -79,6 +79,9 @@ static int stmmac_probe_config_dt(struct platform_device
+>> *pdev,
+>>         of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
+>>         dma_cfg->fixed_burst = of_property_read_bool(np,
+>> "snps,fixed-burst");
+>>         dma_cfg->mixed_burst = of_property_read_bool(np,
+>> "snps,mixed-burst");
+>> +       plat->force_thresh_dma_mode = of_property_read_bool(np,
+>> "snps,force_thresh_dma_mode");
+>> +       if (plat->force_thresh_dma_mode)
+>> +               plat->force_sf_dma_mode = 0;
+>>
+>>         return 0;
+>>   }
+>> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+>> index 9e495d31..bb5deb0 100644
+>> --- a/include/linux/stmmac.h
+>> +++ b/include/linux/stmmac.h
+>> @@ -108,6 +108,7 @@ struct plat_stmmacenet_data {
+>>         int bugged_jumbo;
+>>         int pmt;
+>>         int force_sf_dma_mode;
+>> +       int force_thresh_dma_mode;
+>>         int riwt_off;
+>>         void (*fix_mac_speed)(void *priv, unsigned int speed);
+>>         void (*bus_setup)(void __iomem *ioaddr);
+>>
+>
