@@ -1,99 +1,41 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next  1/2] vxlan: Notify drivers for listening UDP port
- changes
-Date: Wed, 28 Aug 2013 12:34:09 -0700
-Message-ID: <521E50B1.4010102@intel.com>
-References: <1377665218-6760-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: Re: [PATCH net-next 1/1] net: neighbour: Simplify ifdefs around neigh_app_ns()
+Date: Wed, 28 Aug 2013 13:09:26 -0600
+Message-ID: <521E4AE6.7080703@canonical.com>
+References: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com> <1377715873.1928.47.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:53937 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754418Ab3H1Te2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 15:34:28 -0400
-In-Reply-To: <1377665218-6760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377715873.1928.47.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/27/2013 9:46 PM, Jeff Kirsher wrote:
-> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
->
-> This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
-> ndo_del_rx_vxlan_port().
->
-> Drivers can get notifications through the above functions about changes
-> of the UDP listening port of VXLAN. Also, when physical ports come up,
-> now they can call vxlan_get_rx_port() in order to obtain the port number(s)
-> of the existing VXLAN interface in case they already up before them.
->
-> This information about the listening UDP port would be used for VXLAN
-> related offloads.
+On 08/28/2013 12:51 PM, Joe Perches wrote:
+> On Wed, 2013-08-28 at 12:24 -0600, Tim Gardner wrote:
+>> Drop a couple of ifdef/endif pairs by moving the ifdef
+>> surrounding neigh_app_ns() to the interior of neigh_app_ns().
+> []
+>> This is an admittedly trivial change. I stumbled on it while trying to figure
+>> out why Ubuntu doesn't have CONFIG_ARPD enabled.
+> 
+> I'd be more inclined to make neigh_app_ns static inline
+> in the .h file and remove the EXPORT_SYMBOL
+> 
 
-[...]
+I thought about that as well, but then you'd have to extern
+__neigh_notify(), which is currently a static function and large enough
+to not really be suitable for inlining. Seems like unnecessary churn to me.
 
->   /* Add new entry to forwarding table -- assumes lock held */
->   static int vxlan_fdb_create(struct vxlan_dev *vxlan,
->   			    const u8 *mac, __be32 ip,
-> @@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
->
->   void vxlan_sock_release(struct vxlan_sock *vs)
->   {
-> -	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
-> +	struct net *net = sock_net(vs->sock->sk);
-> +	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->
->   	if (!atomic_dec_and_test(&vs->refcnt))
->   		return;
->
->   	spin_lock(&vn->sock_lock);
->   	hlist_del_rcu(&vs->hlist);
-> +	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
->   	spin_unlock(&vn->sock_lock);
-
-Both the del and add port are protected by sock_lock serializing the
-operations.
-
->
->   	queue_work(vxlan_wq, &vs->del_work);
-> @@ -1543,6 +1571,28 @@ static struct device_type vxlan_type = {
->   	.name = "vxlan",
->   };
->
-> +/* Calls the ndo_add_vxlan_port of the caller in order to
-> + * supply the listening VXLAN udp ports.
-> + */
-> +void vxlan_get_rx_port(struct net_device *dev)
-> +{
-> +	struct vxlan_sock *vs;
-> +	struct net *net = dev_net(dev);
-> +	u16 port;
-> +	int i;
-> +
-> +	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
-> +		return;
-> +
-> +	for (i = 0; i < PORT_HASH_SIZE; ++i) {
-> +		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
-> +			port = htons(inet_sk(vs->sock->sk)->inet_sport);
-> +			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
-
-However this list walk occurs without the sock_lock. Looks like you
-could delete a port and then subsequently add it here if you had really
-"good" timing.
-
-Then it would be deleted from the vxlan list but pushed into hardware.
-Probably not a terrible scenario but it would waste hardware resources.
-
-I suspect you want to lock this list traversal with the sock_lock as
-well.
-
-> +		}
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
+rtg
+-- 
+Tim Gardner tim.gardner@canonical.com
