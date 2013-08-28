@@ -1,71 +1,167 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next  06/10] ixgbe: cleanup some log messages
-Date: Wed, 28 Aug 2013 09:36:53 -0700
-Message-ID: <1377707813.1928.30.camel@joe-AO722>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377686028-30747-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377701368.1928.10.camel@joe-AO722>
-	 <F6FB0E698C9B3143BDF729DF222866466FD4530B@ORSMSX110.amr.corp.intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v3 07/13] bonding: make bond_arp_send_all use
+ upper device list
+Date: Wed, 28 Aug 2013 12:45:38 -0400
+Message-ID: <521E2932.6060307@redhat.com>
+References: <1377705842-8276-1-git-send-email-vfalico@redhat.com> <1377705842-8276-8-git-send-email-vfalico@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:48509 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752111Ab3H1Qgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:36:54 -0400
-In-Reply-To: <F6FB0E698C9B3143BDF729DF222866466FD4530B@ORSMSX110.amr.corp.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59413 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752524Ab3H1Qpn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:45:43 -0400
+In-Reply-To: <1377705842-8276-8-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-28 at 16:19 +0000, Skidmore, Donald C wrote:
-> > -----Original Message-----
-> > From: Joe Perches [mailto:joe@perches.com]
-[]
-> > At some point it might be nice to remove the remaining bool direct
-> > comparisons to true/false
-> > 
-> > $ git grep -E -n "(==|!=)\s*(true|false)" drivers/net/ethernet/intel
-> > drivers/net/ethernet/intel/e1000e/netdev.c:4871:
-> > (hw->mac.autoneg == true) &&
-> > drivers/net/ethernet/intel/e1000e/phy.c:2651: *  Assumes semaphore is
-> > already acquired.  When page_set==true, assumes
-> > drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c:763:	if (hw-
-> > >phy.reset_disable == false) {
-[etc...]
-> Thanks for pointing this out Joe. 
+On 08/28/2013 12:03 PM, Veaceslav Falico wrote:
+> Currently, bond_arp_send_all() is aware only of vlans, which breaks
+> configurations like bond <- bridge (or any other 'upper' device) with IP
+> (which is quite a common scenario for virt setups).
+>
+> To fix this we convert the bond_arp_send_all() to first verify if the rt
+> device is the bond itself, and if not - to go through its list of upper
+> devices to see if any of them match the route device for the target. If the
+> match is a vlan device - we also save its vlan_id and tag it in
+> bond_arp_send().
+>
+> Also, clean the function a bit to be more readable.
+>
+> v1: use netdev_for_each_upper_dev()
+> v2: use netdev_for_each_upper_dev_rcu()
+> v3: no change
+>
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>   drivers/net/bonding/bond_main.c |   84 ++++++++++++++------------------------
+>   1 files changed, 31 insertions(+), 53 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 7407e65..5f38188 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2444,30 +2444,16 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
+>
+>   static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>   {
+> -	int i, vlan_id;
+> -	__be32 *targets = bond->params.arp_targets;
+> -	struct vlan_entry *vlan;
+> -	struct net_device *vlan_dev = NULL;
+> +	struct net_device *upper;
+> +	struct list_head *iter;
+>   	struct rtable *rt;
+> +	__be32 *targets = bond->params.arp_targets, addr;
+> +	int i, vlan_id;
+>
+> -	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
+> -		__be32 addr;
+> -		if (!targets[i])
+> -			break;
+> +	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
+>   		pr_debug("basa: target %pI4\n", &targets[i]);
+> -		if (!bond_vlan_used(bond)) {
+> -			pr_debug("basa: empty vlan: arp_send\n");
+> -			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> -				      addr, 0);
+> -			continue;
+> -		}
+>
+> -		/*
+> -		 * If VLANs are configured, we do a route lookup to
+> -		 * determine which VLAN interface would be used, so we
+> -		 * can tag the ARP with the proper VLAN tag.
+> -		 */
+> +		/* Find out through which dev should the packet go */
+>   		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
+>   				     RTO_ONLINK, 0);
+>   		if (IS_ERR(rt)) {
+> @@ -2478,47 +2464,39 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>   			continue;
+>   		}
+>
+> -		/*
+> -		 * This target is not on a VLAN
+> -		 */
+> -		if (rt->dst.dev == bond->dev) {
+> -			ip_rt_put(rt);
+> -			pr_debug("basa: rtdev == bond->dev: arp_send\n");
+> -			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> -				      addr, 0);
+> -			continue;
+> -		}
+> -
+>   		vlan_id = 0;
+> -		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+> -			rcu_read_lock();
+> -			vlan_dev = __vlan_find_dev_deep(bond->dev,
+> -							htons(ETH_P_8021Q),
+> -							vlan->vlan_id);
+> -			rcu_read_unlock();
+> -			if (vlan_dev == rt->dst.dev) {
+> -				vlan_id = vlan->vlan_id;
+> -				pr_debug("basa: vlan match on %s %d\n",
+> -				       vlan_dev->name, vlan_id);
+> -				break;
+> -			}
+> -		}
+>
+> -		if (vlan_id && vlan_dev) {
+> -			ip_rt_put(rt);
+> -			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+> -			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> -				      addr, vlan_id);
+> -			continue;
+> +		/* bond device itself */
+> +		if (rt->dst.dev == bond->dev)
+> +			goto found;
+> +
+> +		/* search for upper device, like vlan/bridge/team/etc */
+> +		rcu_read_lock();
+> +		netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
+> +			if (upper == rt->dst.dev) {
+> +				/* if it's a vlan - get its VID */
+> +				if (is_vlan_dev(rt->dst.dev))
+> +					vlan_id = vlan_dev_vlan_id(rt->dst.dev);
+> +
+> +				rcu_read_unlock();
+> +				goto found;
+> +			}
 
-Just a bit of code style ocd... ;)
+How does this work in the following config:
+	eth0,eth1 <--- bond <--- vlans 1,2,3 <---- bridge (ip address)
 
->  I'll [] talk with the e1000e owner about doing it with their driver.
+-vlad
 
-I believe the e1000e driver isn't using a bool
-comparison as autoneg is a u8, but it could still use
-	hw->mac.autoneg
-for consistency with the other tests in the same driver.
-
-Maybe:
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 2fead50..be9c033 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4869,7 +4869,7 @@ static void e1000_watchdog_task(struct work_struct *work)
- 			 */
- 			if ((hw->phy.type == e1000_phy_igp_3 ||
- 			     hw->phy.type == e1000_phy_bm) &&
--			    (hw->mac.autoneg == true) &&
-+			    hw->mac.autoneg &&
- 			    (adapter->link_speed == SPEED_10 ||
- 			     adapter->link_speed == SPEED_100) &&
- 			    (adapter->link_duplex == HALF_DUPLEX)) {
+>   		}
+> +		rcu_read_unlock();
+>
+> -		if (net_ratelimit()) {
+> +		/* Not our device - skip */
+> +		if (net_ratelimit())
+>   			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+>   				   bond->dev->name, &targets[i],
+>   				   rt->dst.dev ? rt->dst.dev->name : "NULL");
+> -		}
+>   		ip_rt_put(rt);
+> +		continue;
+> +
+> +found:
+> +		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
+> +		ip_rt_put(rt);
+> +		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> +			      addr, vlan_id);
+>   	}
+>   }
+>
+>
