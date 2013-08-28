@@ -1,71 +1,99 @@
-From: Rob Gardner <robmatic@gmail.com>
-Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP
- exception table
-Date: Wed, 28 Aug 2013 17:18:12 -0600
-Message-ID: <20130828171812.7097dc8334046b464486d4a3@gmail.com>
-References: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
-	<20130828.182332.824853790331642993.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 1/1] net: neighbour: Simplify ifdefs around neigh_app_ns()
+Date: Wed, 28 Aug 2013 16:36:38 -0700
+Message-ID: <8761upbd6h.fsf@xmission.com>
+References: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, bjorn@mork.no,
-	oliver@neukum.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:44501 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752119Ab3H1XSP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 19:18:15 -0400
-In-Reply-To: <20130828.182332.824853790331642993.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Joe Perches <joe@perches.com>
+To: Tim Gardner <tim.gardner@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com>
+	(Tim Gardner's message of "Wed, 28 Aug 2013 12:24:46 -0600")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Aug 2013 18:23:32 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+Tim Gardner <tim.gardner@canonical.com> writes:
 
-> From: Rob Gardner <robmatic@gmail.com>
-> Date: Sun, 25 Aug 2013 18:29:13 -0600
->=20
-> > From 018343ce2e679d97283fb51da25c43aa876d087a Mon Sep 17 00:00:00 2=
-001
-> > From: Rob Gardner <robmatic@gmail.com>
-> > Date: Sun, 25 Aug 2013 16:02:23 -0600
-> > Subject: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP e=
-xception table
-> >=20
-> > This patch adds another entry (HP hs2434 Mobile Broadband) to the l=
-ist
-> > of exceptional devices that require a zero length packet in order t=
-o
-> > function properly. This list was added in commit 844e88f0. The hs24=
-34
-> > is manufactured by Sierra Wireless, who also produces the MC7710,
-> > which the ZLP exception list was created for in the first place. So
-> > hopefully it is just this one producer's devices that will need thi=
-s
-> > workaround.
-> >=20
-> > Tested on a DM1-4310NR HP notebook, which does not function without=
- this
-> > change.
-> >=20
-> > Signed-off-by: Rob Gardner <robmatic@gmail.com>
->=20
-> Applied and queued up for -tablt, thanks.
->=20
-> On the topic of dealing with detection of this issue, how harmful is =
-the
-> workaround on chips that don't need it?  Will the driver not work in =
-that
-> case?
+> Drop a couple of ifdef/endif pairs by moving the ifdef
+> surrounding neigh_app_ns() to the interior of neigh_app_ns().
 
+Can we please just remove the CONFIG_ARPD option entirely.
 
-Bj=F8rn says it could have a minor performance impact, but should not
-cause any loss of functionality. I don't think there's any hard data on
-what the performance cost might be but I know he would eventually like
-to get rid of the exception list and live with the possible performance
-impact if it means functionality for more devices.
+There really is no savings to keeping this option configurable and the
+option only removes a netlink notification.
 
-
---=20
-Rob Gardner <robmatic@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Joe Perches <joe@perches.com>
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
+>
+> This is an admittedly trivial change. I stumbled on it while trying to figure
+> out why Ubuntu doesn't have CONFIG_ARPD enabled.
+>
+>  net/core/neighbour.c |    4 ++--
+>  net/ipv4/arp.c       |    2 --
+>  net/ipv6/ndisc.c     |    2 --
+>  3 files changed, 2 insertions(+), 6 deletions(-)
+>
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 60533db..049dd9e 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -2759,13 +2759,13 @@ errout:
+>  		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+>  }
+>  
+> -#ifdef CONFIG_ARPD
+>  void neigh_app_ns(struct neighbour *n)
+>  {
+> +#ifdef CONFIG_ARPD
+>  	__neigh_notify(n, RTM_GETNEIGH, NLM_F_REQUEST);
+> +#endif /* CONFIG_ARPD */
+>  }
+>  EXPORT_SYMBOL(neigh_app_ns);
+> -#endif /* CONFIG_ARPD */
+>  
+>  #ifdef CONFIG_SYSCTL
+>  static int zero;
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 4429b01..7808093 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -368,9 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  	} else {
+>  		probes -= neigh->parms->app_probes;
+>  		if (probes < 0) {
+> -#ifdef CONFIG_ARPD
+>  			neigh_app_ns(neigh);
+> -#endif
+>  			return;
+>  		}
+>  	}
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 04d31c2..d5693ad 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -663,9 +663,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  		}
+>  		ndisc_send_ns(dev, neigh, target, target, saddr);
+>  	} else if ((probes -= neigh->parms->app_probes) < 0) {
+> -#ifdef CONFIG_ARPD
+>  		neigh_app_ns(neigh);
+> -#endif
+>  	} else {
+>  		addrconf_addr_solict_mult(target, &mcaddr);
+>  		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
