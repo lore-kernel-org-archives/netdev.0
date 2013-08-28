@@ -1,271 +1,71 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v2 12/13] bonding: remove vlan_list/current_alb_vlan
-Date: Wed, 28 Aug 2013 14:02:31 +0200
-Message-ID: <1377691352-4146-13-git-send-email-vfalico@redhat.com>
-References: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next v2 0/13] bonding: remove vlan special handling
+Date: Wed, 28 Aug 2013 14:02:19 +0200
+Message-ID: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25321 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23376 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979Ab3H1MCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 08:02:48 -0400
-In-Reply-To: <1377691352-4146-1-git-send-email-vfalico@redhat.com>
+	id S1752979Ab3H1MDU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 08:03:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently there are no real users of vlan_list/current_alb_vlan, only the
-helpers which maintain them, so remove them.
+v1: Per Jiri's advice, remove the exported netdev_upper struct to keep it
+    inside dev.c only, and instead implement a macro to iterate over the
+    list and return only net_device *.
+v2: Jiri noted that we need to see every upper device, but not only the
+    first level. Modify the netdev_upper logic to include a list of lower
+    devices and for both upper/lower lists every device would see both its
+    first-level devices and every other devices that is lower/upper of it.
+    Also, convert some annoying spamming warnings to pr_debug in
+    bond_arp_send_all.
 
-v1: no change
-v2: no change
+The aim of this patchset is to remove bondings' own vlan handling as much
+as possible and replace it with the netdev upper device functionality.
+
+The upper device functionality is extended to include also lower devices
+and to have, for each device, a full view of every lower and upper device,
+but not only the first-level ones. This might permit in the future to
+avoid, for any grouping/teaming/upper/lower devices, to maintain its own
+lists of slaves/vlans/etc.
+
+This is achieved by adding a helper function to upper dev list handling -
+netdev_upper_get_next_dev(dev, iter), which returns the next device after
+the list_head **iter, and sets *iter to the next list_head *. This patchset
+also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
+through the whole dev->upper_dev_list, setting upper to the net_device.
+The only special treatment of vlans remains in rlb code.
+
+This patchset solves several issues with bonding, simplifies it overall,
+RCUify further and exports upper list functions for any other users which
+might also want to get rid of its own vlan_lists or slaves.
+
+I'm testing it continuously currently, no issues found, will update on
+anything.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c  |    5 --
- drivers/net/bonding/bond_alb.h  |    1 -
- drivers/net/bonding/bond_main.c |  133 +--------------------------------------
- drivers/net/bonding/bonding.h   |    6 --
- 4 files changed, 2 insertions(+), 143 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index b6a68b4..0182352 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1763,11 +1763,6 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
- {
--	if (bond->alb_info.current_alb_vlan &&
--	    (bond->alb_info.current_alb_vlan->vlan_id == vlan_id)) {
--		bond->alb_info.current_alb_vlan = NULL;
--	}
--
- 	if (bond->alb_info.rlb_enabled) {
- 		rlb_clear_vlan(bond, vlan_id);
- 	}
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index e139172..e02c9c5 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -169,7 +169,6 @@ struct alb_bond_info {
- 						 * rx traffic should be
- 						 * rebalanced
- 						 */
--	struct vlan_entry	*current_alb_vlan;
- };
- 
- int bond_alb_initialize(struct bonding *bond, int rlb_enabled);
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d61f80a..a52cff1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -283,116 +283,6 @@ const char *bond_mode_name(int mode)
- /*---------------------------------- VLAN -----------------------------------*/
- 
- /**
-- * bond_add_vlan - add a new vlan id on bond
-- * @bond: bond that got the notification
-- * @vlan_id: the vlan id to add
-- *
-- * Returns -ENOMEM if allocation failed.
-- */
--static int bond_add_vlan(struct bonding *bond, unsigned short vlan_id)
--{
--	struct vlan_entry *vlan;
--
--	pr_debug("bond: %s, vlan id %d\n",
--		 (bond ? bond->dev->name : "None"), vlan_id);
--
--	vlan = kzalloc(sizeof(struct vlan_entry), GFP_KERNEL);
--	if (!vlan)
--		return -ENOMEM;
--
--	INIT_LIST_HEAD(&vlan->vlan_list);
--	vlan->vlan_id = vlan_id;
--
--	write_lock_bh(&bond->lock);
--
--	list_add_tail(&vlan->vlan_list, &bond->vlan_list);
--
--	write_unlock_bh(&bond->lock);
--
--	pr_debug("added VLAN ID %d on bond %s\n", vlan_id, bond->dev->name);
--
--	return 0;
--}
--
--/**
-- * bond_del_vlan - delete a vlan id from bond
-- * @bond: bond that got the notification
-- * @vlan_id: the vlan id to delete
-- *
-- * returns -ENODEV if @vlan_id was not found in @bond.
-- */
--static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
--{
--	struct vlan_entry *vlan;
--	int res = -ENODEV;
--
--	pr_debug("bond: %s, vlan id %d\n", bond->dev->name, vlan_id);
--
--	block_netpoll_tx();
--	write_lock_bh(&bond->lock);
--
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		if (vlan->vlan_id == vlan_id) {
--			list_del(&vlan->vlan_list);
--
--			if (bond_is_lb(bond))
--				bond_alb_clear_vlan(bond, vlan_id);
--
--			pr_debug("removed VLAN ID %d from bond %s\n",
--				 vlan_id, bond->dev->name);
--
--			kfree(vlan);
--
--			res = 0;
--			goto out;
--		}
--	}
--
--	pr_debug("couldn't find VLAN ID %d in bond %s\n",
--		 vlan_id, bond->dev->name);
--
--out:
--	write_unlock_bh(&bond->lock);
--	unblock_netpoll_tx();
--	return res;
--}
--
--/**
-- * bond_next_vlan - safely skip to the next item in the vlans list.
-- * @bond: the bond we're working on
-- * @curr: item we're advancing from
-- *
-- * Returns %NULL if list is empty, bond->next_vlan if @curr is %NULL,
-- * or @curr->next otherwise (even if it is @curr itself again).
-- *
-- * Caller must hold bond->lock
-- */
--struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
--{
--	struct vlan_entry *next, *last;
--
--	if (list_empty(&bond->vlan_list))
--		return NULL;
--
--	if (!curr) {
--		next = list_entry(bond->vlan_list.next,
--				  struct vlan_entry, vlan_list);
--	} else {
--		last = list_entry(bond->vlan_list.prev,
--				  struct vlan_entry, vlan_list);
--		if (last == curr) {
--			next = list_entry(bond->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		} else {
--			next = list_entry(curr->vlan_list.next,
--					  struct vlan_entry, vlan_list);
--		}
--	}
--
--	return next;
--}
--
--/**
-  * bond_dev_queue_xmit - Prepare skb for xmit.
-  *
-  * @bond: bond device that got this skb for tx.
-@@ -451,13 +341,6 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 			goto unwind;
- 	}
- 
--	res = bond_add_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to add vlan id %d\n",
--		       bond_dev->name, vid);
--		goto unwind;
--	}
--
- 	return 0;
- 
- unwind:
-@@ -478,17 +361,12 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
--	int res;
- 
- 	bond_for_each_slave(bond, slave)
- 		vlan_vid_del(slave->dev, proto, vid);
- 
--	res = bond_del_vlan(bond, vid);
--	if (res) {
--		pr_err("%s: Error: Failed to remove vlan id %d\n",
--		       bond_dev->name, vid);
--		return res;
--	}
-+	if (bond_is_lb(bond))
-+		bond_alb_clear_vlan(bond, vid);
- 
- 	return 0;
- }
-@@ -4121,7 +3999,6 @@ static void bond_setup(struct net_device *bond_dev)
- 
- 	/* Initialize pointers */
- 	bond->dev = bond_dev;
--	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
- 	ether_setup(bond_dev);
-@@ -4174,7 +4051,6 @@ static void bond_uninit(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *tmp_slave;
--	struct vlan_entry *vlan, *tmp;
- 
- 	bond_netpoll_cleanup(bond_dev);
- 
-@@ -4186,11 +4062,6 @@ static void bond_uninit(struct net_device *bond_dev)
- 	list_del(&bond->bond_list);
- 
- 	bond_debug_unregister(bond);
--
--	list_for_each_entry_safe(vlan, tmp, &bond->vlan_list, vlan_list) {
--		list_del(&vlan->vlan_list);
--		kfree(vlan);
--	}
- }
- 
- /*------------------------- Module initialization ---------------------------*/
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 230197d..4abc925 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -185,11 +185,6 @@ struct bond_parm_tbl {
- 
- #define BOND_MAX_MODENAME_LEN 20
- 
--struct vlan_entry {
--	struct list_head vlan_list;
--	unsigned short vlan_id;
--};
--
- struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
- 	struct list_head list;
-@@ -254,7 +249,6 @@ struct bonding {
- 	struct   ad_bond_info ad_info;
- 	struct   alb_bond_info alb_info;
- 	struct   bond_params params;
--	struct   list_head vlan_list;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
--- 
-1.7.1
+---
+ drivers/net/bonding/bond_alb.c  |   75 +++++-----
+ drivers/net/bonding/bond_alb.h  |    2 -
+ drivers/net/bonding/bond_main.c |  254 ++++++-------------------------
+ drivers/net/bonding/bonding.h   |   21 ++-
+ include/linux/netdevice.h       |   11 ++
+ net/core/dev.c                  |  320 +++++++++++++++++++++++++++++++--------
+ 6 files changed, 367 insertions(+), 316 deletions(-)
