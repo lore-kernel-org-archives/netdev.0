@@ -1,46 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: Don't depend on per socket memory for neighbour discovery messages
-Date: Wed, 28 Aug 2013 15:31:00 +0200
-Message-ID: <20130828133100.GA12353@order.stressinduktion.org>
-References: <361d4275efc79e3048191306df25ad003ed497d7.1377644830.git.tgraf@suug.ch>
+From: Sinan Akpolat <sinan@linkas.com.tr>
+Subject: A question about include/linux/socket.h
+Date: Wed, 28 Aug 2013 16:45:29 +0300
+Message-ID: <521DFEF9.5040701@linkas.com.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-9; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51535 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896Ab3H1NbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 09:31:03 -0400
-Content-Disposition: inline
-In-Reply-To: <361d4275efc79e3048191306df25ad003ed497d7.1377644830.git.tgraf@suug.ch>
+Received: from mail-bk0-f50.google.com ([209.85.214.50]:48396 "EHLO
+	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856Ab3H1Npj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 09:45:39 -0400
+Received: by mail-bk0-f50.google.com with SMTP id mz11so2155016bkb.23
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 06:45:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 01:07:25AM +0200, Thomas Graf wrote:
-> Allocating skbs when sending out neighbour discovery messages
-> currently uses sock_alloc_send_skb() based on a per net namespace
-> socket and thus share a socket wmem buffer space.
-> 
-> If a netdevice is temporarily unable to transmit due to carrier
-> loss or for other reasons, the queued up ndisc messages will cosnume
-> all of the wmem space and will thus prevent from any more skbs to
-> be allocated even for netdevices that are able to transmit packets.
-> 
-> The number of neighbour discovery messages sent is very limited,
-> simply use alloc_skb() and don't depend on any socket wmem space any
-> longer.
-> 
-> This patch has orginally been posted by Eric Dumazet in a modified
-> form.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Hi,
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+I am writing CAN bus userspace code and I get a compiler error stating 
+"sa_family_t is not defined" for "include/linux/can.h". sa_family_t is 
+defined in include/linux/socket.h but it is not carried to userspace 
+kernel headers.
 
-This fixes a real bug (I also had this issue) and thus would propose it
-for stable, too.
+  When I searched about it I saw that a similar problem in 
+include/linux/netlink.h and include/linux/socket.h is fixed by the patch:
 
-Thanks!
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/include?id=6602a4baf4d1a73cc4685a39ef859e1c5ddf654c. 
+
+
+I also read about UAPI but I can't use newer kernels.
+
+I searched the kernel git repo but couldn't find a similar patch for 
+can.h. When you search for "sa_family_t" in include/linux directory you 
+can see it is used in more than 10 files and I guess none of those files 
+will compile since they won't be able to find typedef sa_family_t (just 
+like can.h).
+
+So my question is:
+- Does anyone remember a patch fixing this issue?
+- Should the typedef sa_family_t moved to userspace kernel headers? Or 
+should structs containing sa_family_t type variables moved away from 
+user space?
+
+I have been using the file manually defining sa_family_t but I wanted to 
+ask. I am using kernel version 2.6.37 but I guess can.h file was 
+unchanged until 3.5.
+
+Thanks
