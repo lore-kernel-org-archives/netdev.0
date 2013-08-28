@@ -1,115 +1,106 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [net-next  1/2] vxlan: Notify drivers for listening UDP port
- changes
-Date: Wed, 28 Aug 2013 13:41:08 -0700 (PDT)
-Message-ID: <alpine.LFD.2.03.1308281338310.26333@intel.com>
-References: <1377665218-6760-1-git-send-email-jeffrey.t.kirsher@intel.com> <521E50B1.4010102@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next  04/10] ixgbe: fix link test when connected to 1Gbps
+ link partner
+Date: Thu, 29 Aug 2013 00:38:18 +0400
+Message-ID: <521E5FBA.9040400@cogentembedded.com>
+References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com> <1377686028-30747-5-git-send-email-jeffrey.t.kirsher@intel.com> <521E4148.3030402@cogentembedded.com> <87618083B2453E4A8714035B62D679924FDF9934@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: John Fastabend <john.r.fastabend@intel.com>
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:30256 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754362Ab3H1U0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 16:26:16 -0400
-In-Reply-To: <521E50B1.4010102@intel.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:38891 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913Ab3H1UiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 16:38:19 -0400
+Received: by mail-la0-f49.google.com with SMTP id ev20so5081125lab.8
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 13:38:18 -0700 (PDT)
+In-Reply-To: <87618083B2453E4A8714035B62D679924FDF9934@FMSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 08/29/2013 12:24 AM, Tantilov, Emil S wrote:
 
+>>> From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-On Wed, 28 Aug 2013, John Fastabend wrote:
+>>> This patch is a partial reverse of:
+>>> commit dfcc4615f09c33454bc553567f7c7506cae60cb9
 
-> On 8/27/2013 9:46 PM, Jeff Kirsher wrote:
-> > From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >
-> > This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
-> > ndo_del_rx_vxlan_port().
-> >
-> > Drivers can get notifications through the above functions about changes
-> > of the UDP listening port of VXLAN. Also, when physical ports come up,
-> > now they can call vxlan_get_rx_port() in order to obtain the port number(s)
-> > of the existing VXLAN interface in case they already up before them.
-> >
-> > This information about the listening UDP port would be used for VXLAN
-> > related offloads.
-> 
-> [...]
-> 
-> >   /* Add new entry to forwarding table -- assumes lock held */
-> >   static int vxlan_fdb_create(struct vxlan_dev *vxlan,
-> >   			    const u8 *mac, __be32 ip,
-> > @@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
-> >
-> >   void vxlan_sock_release(struct vxlan_sock *vs)
-> >   {
-> > -	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
-> > +	struct net *net = sock_net(vs->sock->sk);
-> > +	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-> >
-> >   	if (!atomic_dec_and_test(&vs->refcnt))
-> >   		return;
-> >
-> >   	spin_lock(&vn->sock_lock);
-> >   	hlist_del_rcu(&vs->hlist);
-> > +	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
-> >   	spin_unlock(&vn->sock_lock);
-> 
-> Both the del and add port are protected by sock_lock serializing the
-> operations.
-> 
-> >
-> >   	queue_work(vxlan_wq, &vs->del_work);
-> > @@ -1543,6 +1571,28 @@ static struct device_type vxlan_type = {
-> >   	.name = "vxlan",
-> >   };
-> >
-> > +/* Calls the ndo_add_vxlan_port of the caller in order to
-> > + * supply the listening VXLAN udp ports.
-> > + */
-> > +void vxlan_get_rx_port(struct net_device *dev)
-> > +{
-> > +	struct vxlan_sock *vs;
-> > +	struct net *net = dev_net(dev);
-> > +	u16 port;
-> > +	int i;
-> > +
-> > +	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
-> > +		return;
-> > +
-> > +	for (i = 0; i < PORT_HASH_SIZE; ++i) {
-> > +		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
-> > +			port = htons(inet_sk(vs->sock->sk)->inet_sport);
-> > +			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
-> 
-> However this list walk occurs without the sock_lock. Looks like you
-> could delete a port and then subsequently add it here if you had really
-> "good" timing.
-> 
-> Then it would be deleted from the vxlan list but pushed into hardware.
-> Probably not a terrible scenario but it would waste hardware resources.
-> 
-> I suspect you want to lock this list traversal with the sock_lock as
-> well.
-> 
+>>     Please also specify that commit's summary line in
+>> parens.
 
-Yes, you are right. I will wait a little bit more to gather more comments 
-and will push a v2 fixing this issue.
+> commit dfcc4615f09c33454bc553567f7c7506cae60cb9
+> Author: Jacob Keller <jacob.e.keller@intel.com>
+> Date:   Thu Nov 8 07:07:08 2012 +0000
 
-> > +		}
-> > +	}
-> > +}
-> > +EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>      ixgbe: ethtool ixgbe_diag_test cleanup
+
+>>> Specifically forcing the laser before the link check can
+>> lead to
+>>> inconsistent results because it does not guarantee that
+>> the link will be
+>>> negotiated correctly. Such is the case when dual speed
+>> SFP+ module is
+>>> connected to a gigabit link partner.
+
+>>> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+>>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>    drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 26
+>>> ++++++++----------------
+>>>    1 file changed, 9 insertions(+), 17 deletions(-)
+
+>>> diff --git
+>>> a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>>> b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>>> index db0dbf6..57465d8 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>>> @@ -1885,11 +1885,11 @@ static void ixgbe_diag_test(struct
+>> net_device *netdev,
+>>>                                struct ethtool_test
+>> *eth_test, u64 *data)
+>>>    {
+>>>    	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+>>> -	struct ixgbe_hw *hw = &adapter->hw;
+>>>    	bool if_running = netif_running(netdev);
+>>>
+>>>    	set_bit(__IXGBE_TESTING, &adapter->state);
+>>>    	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
+>>> +		struct ixgbe_hw *hw = &adapter->hw;
+>>
+>>     Empty line wouldn't here, after declaration. At least in
+
+    Missed the verb "hurt" before "here".
+
+>> the code above you have it.
+
+> It's probably a good idea to make it more readable. Assuming you meant adding an empty line after the declaration.
+
+    Yes.
+
+>>
+>>>    		if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
+>>>    			int i;
+>>>    			for (i = 0; i < adapter->num_vfs; i++) {
+>>
+>> WBR, Sergei
+
+> If the lack of commit description and the empty line after the *hw declaration is too big of a concern I can resubmit the patch.
+
+    The earlier is certainly a requirement (coming originally from Linus). 
+It's the only way to uniquely identify the commit and it's the only way to 
+easily know what the commit was about without a git tree or with 'cgit' 
+currently used by http://git.kernel.org (it doesn't follow the commit SHA1 as 
+the 'gitweb' used to do).
+
+> Thanks,
+> Emil
+
+WBR, Sergei
