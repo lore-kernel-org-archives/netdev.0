@@ -1,102 +1,42 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v3 11/13] bonding: make alb_send_learning_packets() use upper dev list
-Date: Wed, 28 Aug 2013 18:04:00 +0200
-Message-ID: <1377705842-8276-12-git-send-email-vfalico@redhat.com>
-References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v10 07/11] vxlan: add ipv6 route short circuit
+ support
+Date: Wed, 28 Aug 2013 09:08:01 -0700
+Message-ID: <20130828090801.64a89878@nehalam.linuxnetplumber.net>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+	<1377667379-2315-8-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7414 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753110Ab3H1QHv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:07:51 -0400
-In-Reply-To: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:61291 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754067Ab3H1QIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 12:08:05 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so6427980pdi.5
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 09:08:05 -0700 (PDT)
+In-Reply-To: <1377667379-2315-8-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, if there are vlans on top of bond, alb_send_learning_packets()
-will never send LPs from the bond itself (i.e. untagged), which might leave
-untagged clients unupdated.
+On Wed, 28 Aug 2013 13:22:55 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-Also, the 'circular vlan' logic (i.e. update only MAX_LP_BURST vlans at a
-time, and save the last vlan for the next update) is really suboptimal - in
-case of lots of vlans it will take a lot of time to update every vlan. It
-is also never called in any hot path and sends only a few small packets -
-thus the optimization by itself is useless.
+> +		n = neigh_lookup(ipv6_stub->nd_tbl, &pip6->daddr, dev);
+> +		if (!n && vxlan->flags & VXLAN_F_L3MISS) {
+> +			union vxlan_addr ipa;
+> +			ipa.sin6.sin6_addr = pip6->daddr;
+> +			ipa.sa.sa_family = AF_INET6;
 
-So remove the whole current_alb_vlan/MAX_LP_BURST logic from
-alb_send_learning_packets(). Instead, we'll first send a packet untagged
-and then traverse the upper dev list, sending a tagged packet for each vlan
-found. Also, remove the MAX_LP_BURST define - we already don't need it.
+Please always add paren's when doing bitwise mask in comparison, gcc will even warn
+about this.
 
-v1: use netdev_for_each_upper_dev()
-v2: use netdev_for_each_upper_dev_rcu()
-v3: no change
-
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c |   33 +++++++++++++--------------------
- drivers/net/bonding/bond_alb.h |    1 -
- 2 files changed, 13 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 3ca3c85..b6a68b4 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1013,27 +1013,20 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- {
- 	struct bonding *bond = bond_get_bond_by_slave(slave);
--	u16 vlan_id;
--	int i;
--
--	for (i = 0; i < MAX_LP_BURST; i++) {
--		vlan_id = 0;
--
--		if (bond_vlan_used(bond)) {
--			struct vlan_entry *vlan;
-+	struct net_device *upper;
-+	struct list_head *iter;
- 
--			vlan = bond_next_vlan(bond,
--					      bond->alb_info.current_alb_vlan);
--
--			bond->alb_info.current_alb_vlan = vlan;
--			if (!vlan)
--				continue;
--
--			vlan_id = vlan->vlan_id;
--		}
-+	/* send untagged */
-+	alb_send_lp_vid(slave, mac_addr, 0);
- 
--		alb_send_lp_vid(slave, mac_addr, vlan_id);
-+	/* loop through vlans and send one packet for each */
-+	rcu_read_lock();
-+	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
-+		if (upper->priv_flags & IFF_802_1Q_VLAN)
-+			alb_send_lp_vid(slave, mac_addr,
-+					vlan_dev_vlan_id(upper));
- 	}
-+	rcu_read_unlock();
- }
- 
- static int alb_set_slave_mac_addr(struct slave *slave, u8 addr[])
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index e7a5b8b..e139172 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -53,7 +53,6 @@ struct slave;
- 
- 
- #define TLB_NULL_INDEX		0xffffffff
--#define MAX_LP_BURST		3
- 
- /* rlb defs */
- #define RLB_HASH_TABLE_SIZE	256
--- 
-1.7.1
+You could use C99 initialization for this which has added benefit
+of zeroing unused fields.
+			union vxlan_addr ipa = {
+				.sa.sa_family = AF_INET6,
+				.sin6.sin6_sin6)addr = pip6->daddr,
+			};
