@@ -1,136 +1,85 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v4 01/13] net: rename netdev_upper to netdev_adjacent
-Date: Wed, 28 Aug 2013 23:25:04 +0200
-Message-ID: <1377725116-31126-2-git-send-email-vfalico@redhat.com>
-References: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
+Subject: [PATCH net-next v4 0/13] bonding: remove vlan special handling
+Date: Wed, 28 Aug 2013 23:25:03 +0200
+Message-ID: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
 	Jiri Pirko <jiri@resnulli.us>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
+	Cong Wang <amwang@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28381 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16966 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753024Ab3H1VZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 17:25:00 -0400
-In-Reply-To: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
+	id S1754122Ab3H1VZC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 17:25:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename the structure to reflect the upcoming addition of lower_dev_list.
+v1: Per Jiri's advice, remove the exported netdev_upper struct to keep it
+    inside dev.c only, and instead implement a macro to iterate over the
+    list and return only net_device *.
+v2: Jiri noted that we need to see every upper device, but not only the
+    first level. Modify the netdev_upper logic to include a list of lower
+    devices and for both upper/lower lists every device would see both its
+    first-level devices and every other devices that is lower/upper of it.
+    Also, convert some annoying spamming warnings to pr_debug in
+    bond_arp_send_all.
+v3: move renaming part completely to patch 1 (did I forget to git add
+    before commiting?) and address Jiri's input about comments/style of
+    patch 2.
+v4: as Vlad found spotted, bond_arp_send_all() won't work in a config where
+    we have a device with ip on top of our upper vlan. It fails to send
+    packets because we don't tag the packet, while the device on top of
+    vlan will emit tagged packets through this vlan. Fix this by first
+    searching for all upper vlans, and for each vlan - for the devs on top
+    of it. If we find the dev - then tag the packet with the underling's
+    vlan_id, otherwise just search the old way - for all devices on top of
+    bonding. Also, move the version changes under "---" so they won't get
+    into the commit message, if/when applied.
 
+The aim of this patchset is to remove bondings' own vlan handling as much
+as possible and replace it with the netdev upper device functionality.
+
+The upper device functionality is extended to include also lower devices
+and to have, for each device, a full view of every lower and upper device,
+but not only the first-level ones. This might permit in the future to
+avoid, for any grouping/teaming/upper/lower devices, to maintain its own
+lists of slaves/vlans/etc.
+
+This is achieved by adding a helper function to upper dev list handling -
+netdev_upper_get_next_dev(dev, iter), which returns the next device after
+the list_head **iter, and sets *iter to the next list_head *. This patchset
+also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
+through the whole dev->upper_dev_list, setting upper to the net_device.
+The only special treatment of vlans remains in rlb code.
+
+This patchset solves several issues with bonding, simplifies it overall,
+RCUify further and exports upper list functions for any other users which
+might also want to get rid of its own vlan_lists or slaves.
+
+I'm testing it continuously currently, no issues found, will update on
+anything.
+
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
 CC: Jiri Pirko <jiri@resnulli.us>
 CC: Alexander Duyck <alexander.h.duyck@intel.com>
 CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
 ---
-
-Notes:
-    v2: new patch
-    v3: actually rename everything
-    v4: no change
-
- net/core/dev.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ed2b66..5072e2c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4367,7 +4367,7 @@ softnet_break:
- 	goto out;
- }
- 
--struct netdev_upper {
-+struct netdev_adjacent {
- 	struct net_device *dev;
- 	bool master;
- 	struct list_head list;
-@@ -4378,7 +4378,7 @@ struct netdev_upper {
- static void __append_search_uppers(struct list_head *search_list,
- 				   struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
- 		/* check if this upper is not already in search list */
-@@ -4391,8 +4391,8 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
- 				      struct net_device *upper_dev)
- {
- 	LIST_HEAD(search_list);
--	struct netdev_upper *upper;
--	struct netdev_upper *tmp;
-+	struct netdev_adjacent *upper;
-+	struct netdev_adjacent *tmp;
- 	bool ret = false;
- 
- 	__append_search_uppers(&search_list, dev);
-@@ -4408,10 +4408,10 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
- 	return ret;
- }
- 
--static struct netdev_upper *__netdev_find_upper(struct net_device *dev,
-+static struct netdev_adjacent *__netdev_find_upper(struct net_device *dev,
- 						struct net_device *upper_dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
- 		if (upper->dev == upper_dev)
-@@ -4462,7 +4462,7 @@ EXPORT_SYMBOL(netdev_has_any_upper_dev);
-  */
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
-@@ -4470,7 +4470,7 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- 		return NULL;
- 
- 	upper = list_first_entry(&dev->upper_dev_list,
--				 struct netdev_upper, list);
-+				 struct netdev_adjacent, list);
- 	if (likely(upper->master))
- 		return upper->dev;
- 	return NULL;
-@@ -4486,10 +4486,10 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get);
-  */
- struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	upper = list_first_or_null_rcu(&dev->upper_dev_list,
--				       struct netdev_upper, list);
-+				       struct netdev_adjacent, list);
- 	if (upper && likely(upper->master))
- 		return upper->dev;
- 	return NULL;
-@@ -4499,7 +4499,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- static int __netdev_upper_dev_link(struct net_device *dev,
- 				   struct net_device *upper_dev, bool master)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
-@@ -4580,7 +4580,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
--- 
-1.8.4
+ drivers/net/bonding/bond_alb.c  |  75 +++++----
+ drivers/net/bonding/bond_alb.h  |   2 -
+ drivers/net/bonding/bond_main.c | 272 +++++++++----------------------
+ drivers/net/bonding/bonding.h   |  21 ++-
+ include/linux/netdevice.h       |  11 ++
+ net/core/dev.c                  | 345 ++++++++++++++++++++++++++++++++--------
+ 6 files changed, 416 insertions(+), 310 deletions(-)
