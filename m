@@ -1,152 +1,215 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement ndo_get_phys_port_id
-Date: Wed, 28 Aug 2013 08:05:58 +0200
-Message-ID: <20130828060558.GA1589@minipsycho.orion>
-References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
- <1375114612-537-5-git-send-email-jiri@resnulli.us>
- <1377167950.3939.57.camel@jtkirshe-mobl>
- <20130822131019.GB1421@minipsycho.brq.redhat.com>
- <309B89C4C689E141A5FF6A0C5FB2118B73070A38@ORSMSX101.amr.corp.intel.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv2 net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier for xfrm tunnel mode callback
+Date: Wed, 28 Aug 2013 15:09:40 +0800
+Message-ID: <1377673780-9778-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Narendra_K@Dell.com" <Narendra_K@Dell.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"amwang@redhat.com" <amwang@redhat.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Content-Type: text/plain
+Cc: <saurabh.mohan@vyatta.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:51513 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753914Ab3H1GGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 02:06:03 -0400
-Received: by mail-ea0-f176.google.com with SMTP id q16so2678747ead.21
-        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 23:06:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B73070A38@ORSMSX101.amr.corp.intel.com>
+Received: from mail.windriver.com ([147.11.1.11]:48109 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752299Ab3H1HJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 03:09:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 28, 2013 at 04:26:28AM CEST, aaron.f.brown@intel.com wrote:
->Sorry, I was out sick towards the end of last week and playing catch up for the last few days...  Info inline.
->
->> From: Jiri Pirko [mailto:jiri@resnulli.us]
->> Sent: Thursday, August 22, 2013 6:10 AM
->> To: Kirsher, Jeffrey T
->> Cc: Brown, Aaron F; netdev@vger.kernel.org; davem@davemloft.net;
->> stephen@networkplumber.org; Narendra_K@Dell.com;
->> bhutchings@solarflare.com; or.gerlitz@gmail.com; Wyborny, Carolyn; Rose,
->> Gregory V; vyasevic@redhat.com; amwang@redhat.com;
->> johannes@sipsolutions.net
->> Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement
->> ndo_get_phys_port_id
->> 
->> Thu, Aug 22, 2013 at 12:39:10PM CEST, jeffrey.t.kirsher@intel.com wrote:
->> >On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
->> >> igb driver generated random number which will identify physical port.
->> >> This id is available via ndo_get_phys_port_id directly on igb netdev.
->> >> Also, id is passed to igbvf using mailbox. After that, it is
->> >> available via ndo_get_phys_port_id on igbvf netdev as well.
->> >>
->> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> >> ---
->> >>  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
->> >>  drivers/net/ethernet/intel/igb/igb.h       |  3 +++
->> >>  drivers/net/ethernet/intel/igb/igb_main.c  | 37
->> >> ++++++++++++++++++++++++++++-
->> >>  drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
->> >>  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
->> >>  drivers/net/ethernet/intel/igbvf/netdev.c  | 38
->> >> ++++++++++++++++++++++++++++++
->> >>  drivers/net/ethernet/intel/igbvf/vf.c      | 34
->> >> ++++++++++++++++++++++++++
->> >>  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
->> >>  8 files changed, 118 insertions(+), 1 deletion(-)
->> >
->> >Jiri-
->> >
->> >Validation ran into a couple of issues with this patch.  Here is what
->> >Aaron found when testing this patch...
->> 
->> Interesting. So since igbvf_refresh_ppid() is called from igbvf_reset()
->> and igbvf_probe(), I believed that is enough. Looks like perm_addr getting
->> works in similar way. Can you please check if perm_addr is set correctly
->> in the same time reading phys_port_id gives -EOPNOTSUPP?
->
->By perm_addr do you mean the MAC Address of the vf?  Yes, it is set up (and I can view it vi ip link or sysconfig) when I see the op not supported message (after I fi vfs via sysfs, before bringing the vf interface up or reloading igbvf.)
+Some thoughts on IPv4 VTI implementation:
 
-Can you please send me dmesg log from the system you are testing this?
+The connection between VTI receiving part and xfrm tunnel mode input process
+is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g ipip/sit
+and xfrm4_tunnel, acts like a true "tunnel" device.
 
-Looking at the code, it looks like whenever mac.ops.reset_hw() (which
-sets up mac) is called, igbvf_refresh_ppid() is called as well.
+In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as all
+VTI needs is just a notifier to be called whenever xfrm_input ingress a packet
+to update statistics.
 
-Thanks
+A IPsec protected packet is first handled by protocol handlers, e.g AH/ESP,
+to check packet authentication or encryption rightness. PMTU update is taken
+care of in this stage by protocol error handler.
 
->
->> 
->> 
->> >
->> >Aaron Brown wrote:
->> >I think I have to fail this, it seems to have an issue with
->> >initialization.  When I first create a vf via sysfs the pys_port_id
->> >file is created along with the other sysfs files for the vf, however an
->> >attempt to cat out the value returns " Operation not supported".  At
->> >this point the vf is still down, if I bring it up (or simply unload /
->> >reload the igbvf driver) I can then cat the file successfully and the
->> >vf interface phys_port_id matches the phys_port_id of the pf.  This is
->> >testing from bare metal, a console session showing this behavior
->> >follows:
->> >
->> >u1304:[0]/sys> find . -iname phys_port_id
->> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
->> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
->> >./devices/virtual/net/sit0/phys_port_id
->> >./devices/virtual/net/lo/phys_port_id
->> >u1304:[0]/sys> cat
->> >devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
->> >5ece9fbd9cd51546982e15c1f2c11e25
->> >u1304:[0]/sys>
->> >
->> >So far so good, now make a few vfs and check for new phys_port_id sysfs
->> files.
->> >
->> >u1304:[0]/sys> find . -iname sriov_numvfs
->> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
->> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/sriov_numvfs
->> >u1304:[0]/sys> echo 2 >
->> devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
->> >u1304:[0]/sys> find . -iname phys_port_id
->> ./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
->> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
->> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
->> >./devices/pci0000:00/0000:00:01.0/0000:07:10.2/net/eth3/phys_port_id
->> >./devices/virtual/net/sit0/phys_port_id
->> >./devices/virtual/net/lo/phys_port_id
->> >u1304:[0]/sys>
->> >
->> >The first vf is eth2, attempt to cat out it's phys_port_id
->> >
->> >u1304:[0]/sys> cat
->> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
->> >cat:
->> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id:
->> >Operation not supported u1304:[0]/sys>
->> >
->> >But, if I bring the interface up (or unload / load the igbvf driver) I
->> then am able to cat the phys_port_id of the vf and it matches the
->> phys_port_id of the physical interface.
->> >
->> >u1304:[0]/sys> ifconfig eth2 u1304-2
->> >u1304:[0]/sys> cat
->> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
->> >5ece9fbd9cd51546982e15c1f2c11e25
->> >u1304:[0]/sys>
->> 
->
+Then the packet is rearranged properly depending on whether it's transport
+mode or tunnel mode packed by mode "input" handler. The VTI handler code
+takes effects in this stage in tunnel mode only. So it neither need propagate
+PMTU, as it has already been done if necessary, nor the VTI handler is
+qualified as a xfrm_tunnel. 
+
+So this patch introduces xfrm_tunnel_notifier and meanwhile wipe out vti_err
+code.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: David S. Miller <davem@davemloft.net>
+Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+---
+v2: 
+  Add details statement to justify this patch as per David request.
+
+---
+ include/net/xfrm.h           |   10 +++++--
+ net/ipv4/ip_vti.c            |   67 +-----------------------------------------
+ net/ipv4/xfrm4_mode_tunnel.c |   16 +++++-----
+ 3 files changed, 17 insertions(+), 76 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 94ce082..5451c68 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1352,6 +1352,12 @@ struct xfrm_tunnel {
+ 	int priority;
+ };
+ 
++struct xfrm_tunnel_notifier {
++	int (*handler)(struct sk_buff *skb);
++	struct xfrm_tunnel_notifier __rcu *next;
++	int priority;
++};
++
+ struct xfrm6_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+ 	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -1495,8 +1501,8 @@ extern int xfrm4_output(struct sk_buff *skb);
+ extern int xfrm4_output_finish(struct sk_buff *skb);
+ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+-extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
+-extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
++extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
++extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
+ extern int xfrm6_extract_header(struct sk_buff *skb);
+ extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index e805e7b..91f69bc 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -49,70 +49,6 @@ static struct rtnl_link_ops vti_link_ops __read_mostly;
+ static int vti_net_id __read_mostly;
+ static int vti_tunnel_init(struct net_device *dev);
+ 
+-static int vti_err(struct sk_buff *skb, u32 info)
+-{
+-
+-	/* All the routers (except for Linux) return only
+-	 * 8 bytes of packet payload. It means, that precise relaying of
+-	 * ICMP in the real Internet is absolutely infeasible.
+-	 */
+-	struct net *net = dev_net(skb->dev);
+-	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
+-	struct iphdr *iph = (struct iphdr *)skb->data;
+-	const int type = icmp_hdr(skb)->type;
+-	const int code = icmp_hdr(skb)->code;
+-	struct ip_tunnel *t;
+-	int err;
+-
+-	switch (type) {
+-	default:
+-	case ICMP_PARAMETERPROB:
+-		return 0;
+-
+-	case ICMP_DEST_UNREACH:
+-		switch (code) {
+-		case ICMP_SR_FAILED:
+-		case ICMP_PORT_UNREACH:
+-			/* Impossible event. */
+-			return 0;
+-		default:
+-			/* All others are translated to HOST_UNREACH. */
+-			break;
+-		}
+-		break;
+-	case ICMP_TIME_EXCEEDED:
+-		if (code != ICMP_EXC_TTL)
+-			return 0;
+-		break;
+-	}
+-
+-	err = -ENOENT;
+-
+-	t = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
+-			     iph->daddr, iph->saddr, 0);
+-	if (t == NULL)
+-		goto out;
+-
+-	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
+-		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
+-				 t->parms.link, 0, IPPROTO_IPIP, 0);
+-		err = 0;
+-		goto out;
+-	}
+-
+-	err = 0;
+-	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
+-		goto out;
+-
+-	if (time_before(jiffies, t->err_time + IPTUNNEL_ERR_TIMEO))
+-		t->err_count++;
+-	else
+-		t->err_count = 1;
+-	t->err_time = jiffies;
+-out:
+-	return err;
+-}
+-
+ /* We dont digest the packet therefore let the packet pass */
+ static int vti_rcv(struct sk_buff *skb)
+ {
+@@ -296,9 +232,8 @@ static void __net_init vti_fb_tunnel_init(struct net_device *dev)
+ 	iph->ihl		= 5;
+ }
+ 
+-static struct xfrm_tunnel vti_handler __read_mostly = {
++static struct xfrm_tunnel_notifier vti_handler __read_mostly = {
+ 	.handler	=	vti_rcv,
+-	.err_handler	=	vti_err,
+ 	.priority	=	1,
+ };
+ 
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index eb1dd4d..b82cde1 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -16,13 +16,13 @@
+ #include <net/xfrm.h>
+ 
+ /* Informational hook. The decap is still done here. */
+-static struct xfrm_tunnel __rcu *rcv_notify_handlers __read_mostly;
++static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
+ static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
+ 
+-int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
++int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
+ {
+-	struct xfrm_tunnel __rcu **pprev;
+-	struct xfrm_tunnel *t;
++	struct xfrm_tunnel_notifier __rcu **pprev;
++	struct xfrm_tunnel_notifier *t;
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
+ 
+@@ -50,10 +50,10 @@ err:
+ }
+ EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
+ 
+-int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler)
++int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
+ {
+-	struct xfrm_tunnel __rcu **pprev;
+-	struct xfrm_tunnel *t;
++	struct xfrm_tunnel_notifier __rcu **pprev;
++	struct xfrm_tunnel_notifier *t;
+ 	int ret = -ENOENT;
+ 
+ 	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+@@ -134,7 +134,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+-	struct xfrm_tunnel *handler;
++	struct xfrm_tunnel_notifier *handler;
+ 	int err = -EINVAL;
+ 
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
+-- 
+1.7.9.5
