@@ -1,48 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] qdisc: allow setting default queuing discipline
-Date: Tue, 27 Aug 2013 21:00:48 -0700
-Message-ID: <1377662448.8828.155.camel@edumazet-glaptop>
-References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH 0/5] bonding: Patchset for rcu use in bonding
+Date: Wed, 28 Aug 2013 12:20:51 +0800
+Message-ID: <521D7AA3.6030205@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:54249 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752784Ab3H1EAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 00:00:50 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bg4so5688266pad.4
-        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 21:00:49 -0700 (PDT)
-In-Reply-To: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:13771 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752633Ab3H1EVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 00:21:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-27 at 16:19 -0700, Stephen Hemminger wrote:
-> By default, the pfifo_fast queue discipline has been used by default
-> for all devices. But we have better choices now.
-> 
-> This patch allow setting the default queueing discipline with sysctl.
-> This allows easy use of better queueing disciplines on all devices
-> without having to use tc qdisc scripts. It is intended to allow
-> an easy path for distributions to make fq_codel or sfq the default
-> qdisc.
-> 
-> This patch also makes pfifo_fast more of a first class qdisc, since
-> it is now possible to manually override the default and explicitly
-> use pfifo_fast. The behavior for systems who do not use the sysctl
-> is unchanged, they still get pfifo_fast
-> 
-> Also removes leftover random # in sysctl net core.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> ---
+Hi:
 
-I find this quite incredible, because I was going to write such patch
-tonight ;)
+The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
+replace and add more rcu list function.
+fix a bug to protect bonding_store_xmit_hash().
 
-Now I can just relax, thanks so much Stephen !
+I test well and no problems found till now.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Ding Tianhong (3):
+Wang Yufen (1):
+Yang Yingliang (1):
+  bonding: simplify and use RCU protection for 3ad xmit path
+  bonding: replace read_lock to rcu_read_lock for
+  bond_3ad_get_active_agg_info()
+  bonding: add rtnl lock for bonding_store_xmit_hash
+  bonding: restructure and simplify bond_for_each_slave_next()
+  bonding: use RCU protection for alb xmit path
+
+ drivers/net/bonding/bond_3ad.c   | 35 +++++++++++++++-------------------
+ drivers/net/bonding/bond_alb.c   | 23 ++++++++++------------
+ drivers/net/bonding/bond_main.c  |  6 ++----
+ drivers/net/bonding/bond_sysfs.c |  4 ++++
+ drivers/net/bonding/bonding.h    | 41 ++++++++++++++++++++++++++++++++++++----
+ 5 files changed, 68 insertions(+), 41 deletions(-)
+
+-- 
+1.8.2.1
