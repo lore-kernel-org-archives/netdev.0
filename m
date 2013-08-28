@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] netfilter updates for net-next
-Date: Tue, 27 Aug 2013 22:07:44 -0400 (EDT)
-Message-ID: <20130827.220744.1821388377674741024.davem@davemloft.net>
-References: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Tue, 27 Aug 2013 22:11:58 -0400 (EDT)
+Message-ID: <20130827.221158.172647721431017580.davem@davemloft.net>
+References: <1377634848-34327-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1377644018-15685-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jesse@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35993 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884Ab3H1CL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 22:11:59 -0400
+In-Reply-To: <1377634848-34327-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 28 Aug 2013 00:53:30 +0200
+From: Jesse Gross <jesse@nicira.com>
+Date: Tue, 27 Aug 2013 13:20:37 -0700
 
-> The following patchset contains Netfilter updates for your net-next tree,
-> they are:
-> 
-> * The new SYNPROXY target for iptables, including IPv4 and IPv6 support,
->   from Patrick McHardy.
-> 
-> * nf_defrag_ipv6.o should be only linked to nf_defrag_ipv6.ko, from
->   Nathan Hintz.
-> 
-> * Fix an old bug in REJECT, which replies with wrong MAC source address
->   from the bridge, by Phil Oester.
-> 
-> * Fix uninitialized helper variable in the expectation support over
->   nfnetlink_queue, from Florian Westphal.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+> A number of significant new features and optimizations for net-next/3.12.
+> Highlights are:
+>  * "Megaflows", an optimization that allows userspace to specify which
+>    flow fields were used to compute the results of the flow lookup.
+>    This allows for a major reduction in flow setups (the major
+>    performance bottleneck in Open vSwitch) without reducing flexibility.
+>  * Converting netlink dump operations to use RCU, allowing for
+>    additional parallelism in userspace.
+>  * Matching and modifying SCTP protocol fields.
 
-Pulled, thanks Pablo.
+Pulled, thanks Jesse.
