@@ -1,105 +1,110 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v10 01/11] ipv6: make ip6_dst_hoplimit() static inline
-Date: Wed, 28 Aug 2013 13:22:49 +0800
-Message-ID: <1377667379-2315-2-git-send-email-amwang@redhat.com>
-References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH v3] driver:net:stmmac: Disable DMA store and forward mode if platform data force_thresh_dma_mode is set.
+Date: Wed, 28 Aug 2013 13:40:58 +0800
+Message-ID: <1377668458-21932-1-git-send-email-sonic.adi@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4680 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752942Ab3H1FXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 01:23:25 -0400
-In-Reply-To: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:54390 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753728Ab3H1FeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 01:34:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-It will be used by vxlan.
+Some synopsys ip implementation doesn't support DMA store and forward mode,
+such as BF60x. So, set force_thresh_dma_mode to use DMA thresholds only.
+Update document and devicetree as well.
 
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 ---
- include/net/ip6_route.h |   23 +++++++++++++++++++++--
- net/ipv6/route.c        |   19 -------------------
- 2 files changed, 21 insertions(+), 21 deletions(-)
+ Documentation/devicetree/bindings/net/stmmac.txt      | 2 ++
+ Documentation/networking/stmmac.txt                   | 3 +++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 +++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 3 +++
+ include/linux/stmmac.h                                | 1 +
+ 5 files changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index f667248..2afcd0d 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -21,6 +21,7 @@ struct route_info {
- #include <net/flow.h>
- #include <net/ip6_fib.h>
- #include <net/sock.h>
-+#include <net/addrconf.h>
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/route.h>
-@@ -112,8 +113,6 @@ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 					   const struct in6_addr *addr,
- 					   bool anycast);
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index 261c563..56fbcb5 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -22,6 +22,8 @@ Required properties:
+ - snps,pbl		Programmable Burst Length
+ - snps,fixed-burst	Program the DMA to use the fixed burst mode
+ - snps,mixed-burst	Program the DMA to use the mixed burst mode
++- snps,force_thresh_dma_mode	Force DMA to use the Shreshold mode other than
++				the Store and Forward mode.
  
--extern int			ip6_dst_hoplimit(struct dst_entry *dst);
--
- /*
-  *	support functions for ND
-  *
-@@ -203,4 +202,24 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr
- 	return dest;
- }
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+static inline int ip6_dst_hoplimit(struct dst_entry *dst)
-+{
-+	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
-+	if (hoplimit == 0) {
-+		struct net_device *dev = dst->dev;
-+		struct inet6_dev *idev;
-+
-+		rcu_read_lock();
-+		idev = __in6_dev_get(dev);
-+		if (idev)
-+			hoplimit = idev->cnf.hop_limit;
-+		else
-+			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
-+		rcu_read_unlock();
-+	}
-+	return hoplimit;
-+}
-+#endif
-+
- #endif
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 55236a8..b770085 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1354,25 +1354,6 @@ out:
- 	return entries > rt_max_size;
- }
- 
--int ip6_dst_hoplimit(struct dst_entry *dst)
--{
--	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
--	if (hoplimit == 0) {
--		struct net_device *dev = dst->dev;
--		struct inet6_dev *idev;
--
--		rcu_read_lock();
--		idev = __in6_dev_get(dev);
--		if (idev)
--			hoplimit = idev->cnf.hop_limit;
--		else
--			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
--		rcu_read_unlock();
--	}
--	return hoplimit;
--}
--EXPORT_SYMBOL(ip6_dst_hoplimit);
--
- /*
-  *
+ Optional properties:
+ - mac-address: 6 bytes, mac address
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 654d2e5..457b8bb 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -123,6 +123,7 @@ struct plat_stmmacenet_data {
+ 	int bugged_jumbo;
+ 	int pmt;
+ 	int force_sf_dma_mode;
++	int force_thresh_dma_mode;
+ 	int riwt_off;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	void (*bus_setup)(void __iomem *ioaddr);
+@@ -159,6 +160,8 @@ Where:
+  o pmt: core has the embedded power module (optional).
+  o force_sf_dma_mode: force DMA to use the Store and Forward mode
+ 		     instead of the Threshold.
++ o force_thresh_dma_mode: force DMA to use the Shreshold mode other than
++		     the Store and Forward mode.
+  o riwt_off: force to disable the RX watchdog feature and switch to NAPI mode.
+  o fix_mac_speed: this callback is used for modifying some syscfg registers
+ 		 (on ST SoCs) according to the link speed negotiated by the
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index be40691..8d4ccd3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1224,7 +1224,9 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
   */
+ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ {
+-	if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
++	if (priv->plat->force_thresh_dma_mode)
++		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
++	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+ 		/*
+ 		 * In case of GMAC, SF mode can be enabled
+ 		 * to perform the TX COE in HW. This depends on:
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index da8be6e..865c944 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -79,6 +79,9 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
+ 	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
+ 	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
++	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
++	if (plat->force_thresh_dma_mode)
++		plat->force_sf_dma_mode = 0;
+ 
+ 	return 0;
+ }
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 9e495d31..bb5deb0 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -108,6 +108,7 @@ struct plat_stmmacenet_data {
+ 	int bugged_jumbo;
+ 	int pmt;
+ 	int force_sf_dma_mode;
++	int force_thresh_dma_mode;
+ 	int riwt_off;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	void (*bus_setup)(void __iomem *ioaddr);
 -- 
-1.7.7.6
+1.8.2.3
