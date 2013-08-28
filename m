@@ -1,80 +1,71 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH] tipc: set sk_err correctly when connection fails
-Date: Wed, 28 Aug 2013 09:32:05 +0800
-Message-ID: <521D5315.9060608@windriver.com>
-References: <1377266200-26691-1-git-send-email-erik.hugne@ericsson.com> <521CA797.2010109@windriver.com> <20130827151841.GE1939@eerihug-hybrid.rnd.ki.sw.ericsson.se> <521CEBF7.4040103@windriver.com>
+From: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [E1000-devel] [PATCH net-next] drivers:net: Convert
+ dma_alloc_coherent(...__GFP_ZERO) to dma_zalloc_coherent
+Date: Tue, 27 Aug 2013 18:44:00 -0700
+Message-ID: <1377654240.2005.32.camel@jtkirshe-mobl>
+References: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
+	 <1377582323.2658.10.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jPSgA1IDszhL35Gx/tNY"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1377582323.2658.10.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-jPSgA1IDszhL35Gx/tNY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2013-08-26 at 22:45 -0700, Joe Perches wrote:
+> __GFP_ZERO is an uncommon flag and perhaps is better
+> not used.  static inline dma_zalloc_coherent exists
+> so convert the uses of dma_alloc_coherent with __GFP_ZERO
+> to the more common kernel style with zalloc.
+>=20
+> Remove memset from the static inline dma_zalloc_coherent
+> and add just one use of __GFP_ZERO instead.
+>=20
+> Trivially reduces the size of the existing uses of
+> dma_zalloc_coherent.
+>=20
+> Realign arguments as appropriate.
+>=20
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+
+--=-jPSgA1IDszhL35Gx/tNY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
-	<jon.maloy@ericsson.com>, <tipc-discussion@lists.sourceforge.net>,
-	<nhan.tt.vo@dektech.com.au>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:52356 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884Ab3H1Bc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 21:32:27 -0400
-In-Reply-To: <521CEBF7.4040103@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On 08/28/2013 02:12 AM, Paul Gortmaker wrote:
-> On 13-08-27 11:18 AM, Erik Hugne wrote:
->> On Tue, Aug 27, 2013 at 09:20:23AM -0400, Paul Gortmaker wrote:
->>> What was the high level user visible symptom in this case?
->>> Stalled connections or ... ?
->>
->> Should the connect fail, if the publication/server is unavailable or some other
->> error. The connect() call returns the error code directly (as a positive value).
-> 
-> Please send a v2 with the end-user visible symptom clearly described;
-> as this information is what people use in order to triage whether
-> commits belong in stable, or net vs. net-next etc.   For example:
-> 
->   Should the connect fail, say if the publication/server is unavailable or
->   some other error, then the code returns a positive return value.  Since
->   most code only checks for a negative return on connect(), it tries to
->   continue, but will ultimately fail on the 1st sendto() as the strace
->   snippet below shows.
-> 
-> I've said "most code" since I simply don't know what it was that you were
-> tracing below.  It would help if we knew if this part of a common application
-> or similar.
-> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
 
-Firstly it's absolutely wrong that connect() returns a positive error
-code - 111(i.e, ECONNREFUSED) if connect() is failed, that is, it
-violates POSIX standard.
+iQIcBAABCgAGBQJSHVXgAAoJEOVv75VaS+3OJX0P/2XAG1De7Ww5ZdnAr8htbWL3
+hPZVRHb0WU2/dIVZsKkm7Hv60WekXyn4J6RKRCIC5bV4fGKGVKgmDLZdfZd6vdO5
+s25OKARj1PSyrAJafCAIs6o5h1wUgNcKokA4RVmyrRzNXE2ZoHB7mqSm7JTpGxoa
+EDB62VdrxjynOuGqX/HvgU9+t2g/vwwIUuKEB0UxN2aC/IgqE7dHmlffCCNChkI4
+i/Njhvk/VzBA0qFuzmTEey3o/q0SZ6akiotZpnPJ2IN2UA1r2o5AATOZ7cJ9sVfZ
+VJvPAUKN3tBu0xvA+YxeTtW7W8ujtKM2wCW5a8Bf9vB1sRBIOe7db8LL2EO7AJoY
+4EMpxMJVlPoBkKdpzRIkiQlMWn6Anf2eyzfFOajSxozZgNLs6aqXCjEeHWouhFMP
+oczQT/lUhqmgN+U5T+8QutXRkATThJ8UzlInG6zoafU04+oLmAVoXXVmE54XFjtl
+K0vrzn0xGONYUZdjhpUsEGjrwMAiNf9VMd3pQjy6hyQsXnKrRedLLFKPbeQJSc3G
+fYK53VkFrPKvf4k0UYzQdxq4/EHEkeQWDCqYBNYQXylWhH589bGBvPTnmsCEC4Yo
+gIeeSQBfC6E7J/XY0YPCU+81wJCeaUPU9ziukUhyUrk081ycaZNbnJI6mztLi2L6
+ZXKsBvT1fq6r+TOlV+LK
+=UcmZ
+-----END PGP SIGNATURE-----
 
-As the patch's changelog describes, sk_err is incorrectly set to a
-negative value instead of positive value in filter_connect(). In
-connect(), it will set its return value with sock_error(sk) if it fails.
-As the return value of sock_error(sk) almost can be deemed as -sk_err,
-this is why we see a positive error code of connect() in below strace log.
+--=-jPSgA1IDszhL35Gx/tNY--
 
-But, the patch is absolutely able to fix the issue.
-
-Regards,
-Ying
-
-> Thanks,
-> Paul.
-> --
-> 
->>
->> [...]
->> socket(0x1e /* PF_??? */, SOCK_SEQPACKET, 0) = 3
->> setsockopt(3, 0x10f /* SOL_?? */, 129, [0], 4) = 0
->> setsockopt(3, 0x10f /* SOL_?? */, 127, [0], 4) = 0
->> connect(3, {sa_family=0x1e /* AF_??? */, sa_data="\2\1\322\4\0\0\322\4\0\0\0\0\0\0"}, 16) = 111
->> sendto(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 66000, 0, NULL, 0) = -1 EPIPE (Broken pipe)
->>
->> In the strace above, error checking was done as:
->> if (connect(fd,.....) < 0)
->>     perror("connect");
->>
->> //E
->>
-> 
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
