@@ -1,73 +1,82 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  07/10] ixgbe: fix SFF data dumps of SFP+ modules from an offset
-Date: Wed, 28 Aug 2013 03:33:45 -0700
-Message-ID: <1377686028-30747-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v10 01/11] ipv6: make ip6_dst_hoplimit() static
+ inline
+Date: Wed, 28 Aug 2013 03:39:44 -0700
+Message-ID: <1377686384.8828.177.camel@edumazet-glaptop>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+	 <1377667379-2315-2-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33434 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753557Ab3H1Kd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 06:33:57 -0400
-In-Reply-To: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:62870 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677Ab3H1Kjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 06:39:46 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so6102842pbb.14
+        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 03:39:46 -0700 (PDT)
+In-Reply-To: <1377667379-2315-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Wed, 2013-08-28 at 13:22 +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+> 
+> It will be used by vxlan.
+> 
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  include/net/ip6_route.h |   23 +++++++++++++++++++++--
+>  net/ipv6/route.c        |   19 -------------------
+>  2 files changed, 21 insertions(+), 21 deletions(-)
+> 
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index f667248..2afcd0d 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+> @@ -21,6 +21,7 @@ struct route_info {
+>  #include <net/flow.h>
+>  #include <net/ip6_fib.h>
+>  #include <net/sock.h>
+> +#include <net/addrconf.h>
+>  #include <linux/ip.h>
+>  #include <linux/ipv6.h>
+>  #include <linux/route.h>
+> @@ -112,8 +113,6 @@ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>  					   const struct in6_addr *addr,
+>  					   bool anycast);
+>  
+> -extern int			ip6_dst_hoplimit(struct dst_entry *dst);
+> -
+>  /*
+>   *	support functions for ND
+>   *
+> @@ -203,4 +202,24 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr
+>  	return dest;
+>  }
+>  
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +static inline int ip6_dst_hoplimit(struct dst_entry *dst)
+> +{
+> +	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
+> +	if (hoplimit == 0) {
+> +		struct net_device *dev = dst->dev;
+> +		struct inet6_dev *idev;
+> +
+> +		rcu_read_lock();
+> +		idev = __in6_dev_get(dev);
+> +		if (idev)
+> +			hoplimit = idev->cnf.hop_limit;
+> +		else
+> +			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
+> +		rcu_read_unlock();
+> +	}
+> +	return hoplimit;
+> +}
+> +#endif
+> +
 
-This patch fixes the read loop for the I2C data to account for the offset.
-
-Also includes a whitespace cleanup and removes ret_val as it is not needed.
-
-CC: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Reported-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 57465d8..c80b827 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2945,28 +2945,27 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
- 	u32 status = IXGBE_ERR_PHY_ADDR_INVALID;
- 	u8 databyte = 0xFF;
- 	int i = 0;
--	int ret_val = 0;
- 
- 	if (ee->len == 0)
- 		return -EINVAL;
- 
--	for (i = ee->offset; i < ee->len; i++) {
-+	for (i = ee->offset; i < ee->offset + ee->len; i++) {
- 		/* I2C reads can take long time */
- 		if (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
- 			return -EBUSY;
- 
- 		if (i < ETH_MODULE_SFF_8079_LEN)
--			status  = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
-+			status = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
- 		else
- 			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
- 
- 		if (status != 0)
--			ret_val = -EIO;
-+			return -EIO;
- 
- 		data[i - ee->offset] = databyte;
- 	}
- 
--	return ret_val;
-+	return 0;
- }
- 
- static const struct ethtool_ops ixgbe_ethtool_ops = {
--- 
-1.8.3.1
+It probably be not inlined (10 call sites), but moved into
+net/ipv6/output_core.c
