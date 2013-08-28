@@ -1,73 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next  2/2] ixgbe: Get and display the notifications from
- changes of the Rx vxlan UDP port
-Date: Tue, 27 Aug 2013 21:53:08 -0700
-Message-ID: <1377665588.2005.39.camel@jtkirshe-mobl>
-References: <1377665218-6760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377665218-6760-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] qdisc: allow setting default queuing discipline
+Date: Tue, 27 Aug 2013 21:57:50 -0700
+Message-ID: <1377665870.8828.163.camel@edumazet-glaptop>
+References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+	 <1377662448.8828.155.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1Bu5vT7Gu0BVNYdIBTam"
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:28550 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752597Ab3H1ExK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 00:53:10 -0400
-In-Reply-To: <1377665218-6760-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:40676 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597Ab3H1E5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 00:57:52 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so5826886pdi.33
+        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 21:57:51 -0700 (PDT)
+In-Reply-To: <1377662448.8828.155.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-08-27 at 21:00 -0700, Eric Dumazet wrote:
+> On Tue, 2013-08-27 at 16:19 -0700, Stephen Hemminger wrote:
+> > By default, the pfifo_fast queue discipline has been used by default
+> > for all devices. But we have better choices now.
+> > 
+> > This patch allow setting the default queueing discipline with sysctl.
+> > This allows easy use of better queueing disciplines on all devices
+> > without having to use tc qdisc scripts. It is intended to allow
+> > an easy path for distributions to make fq_codel or sfq the default
+> > qdisc.
+> > 
+> > This patch also makes pfifo_fast more of a first class qdisc, since
+> > it is now possible to manually override the default and explicitly
+> > use pfifo_fast. The behavior for systems who do not use the sysctl
+> > is unchanged, they still get pfifo_fast
+> > 
+> > Also removes leftover random # in sysctl net core.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> > 
+> > ---
+> 
+> I find this quite incredible, because I was going to write such patch
+> tonight ;)
+> 
+> Now I can just relax, thanks so much Stephen !
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
 
---=-1Bu5vT7Gu0BVNYdIBTam
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I was wondering if we also could redefine the pfifo default, used for
+example in HTB classes.
 
-On Tue, 2013-08-27 at 21:46 -0700, Jeff Kirsher wrote:
-> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
->=20
-> This RFC patch showcases how drivers can use the changes in
-> "vxlan: Notify drivers for listening UDP port changes", and its
-> sole purpose is to help people test the changes introduced there.
-> This is not meant to be submitted for inclusion in the kernel.
->=20
-> CC: Don Skidmore <donald.c.skidmore@intel.com>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 25
-> +++++++++++++++++++++++++
->  1 file changed, 25 insertions(+)
+ie calls to qdisc_create_dflt( ... &pfifo_qdisc_ops )
 
-Just to be clear, this patch is an RFC.  I missed putting it in the
-patch title.
+/proc/sys/net/core/default_qdisc would 'define' the default pfifo_fast,
 
---=-1Bu5vT7Gu0BVNYdIBTam
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+/proc/sys/net/core/default_pfifo_qdisc would 'define' the default pfifo,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAABCgAGBQJSHYI0AAoJEOVv75VaS+3O4/gQAKXEDxT2QLEOraEF6KYYwaTe
-n56BpV64aGBHOZwYZo135nmZfIrBUVH7MTfM8OwakMKc/IqQhmnpXUiDRyqVmSsL
-LsP2CZFs1SLYF4FjK2w9uuJjdRu/UQOkyTAUoUyyDJhD8aSoKLZHe2qYg84Z1wsL
-5cuOIxHA+0PYwiTxUssYsAfHxZbiGFpkW2+EqKadJy1sGMi2Wj2ZWa6meA479K4w
-CkDpYvRoCKNwaHL9rcgiM+rXpZd1Dch3qUSy8QUrXiYtWy8Slt8FlayLdPFfg21h
-3FcJx7cmGrQM6sVxTSdO4oi09+nyRLK4z/FXslKjb6BdZPATtk8BB84Vcz3evt1a
-e2Hqj3vQRRzk1NIer+ezW8efIoEE69mAUEa9Q7evu1u7CWH5MinBCF6koN2msebn
-hCmfeBHn3DhKRH/PkvHIeTLgotrRuxK9A9ipjLtlcmS+VPtZ/s5imm/t4LunFPRU
-r7WJ5S6MPf7e8w5uauhyRXN5p/KhYxb2TnDwia4nvv+W0IQoxYlhN17RWbqyJmXl
-LAUwcuqVzU4omH8cBhK61+T9O0C0rM4QDccS8vR1ExGzVi8Gf18i0ff40BaN9+lr
-sXxDirgtbeZaqH1r8d2nRXrZZxtMsq/bBZmdEGbCpvLGvOOa0mplmLJT/z7AABLk
-1mO0pvMFzekaWQy83H9H
-=Z06A
------END PGP SIGNATURE-----
-
---=-1Bu5vT7Gu0BVNYdIBTam--
+Or something like that...
