@@ -1,8 +1,8 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Subject: Re: [PATCH v3] driver:net:stmmac: Disable DMA store and forward mode
  if platform data force_thresh_dma_mode is set.
-Date: Wed, 28 Aug 2013 11:17:26 +0200
-Message-ID: <521DC026.5030101@st.com>
+Date: Wed, 28 Aug 2013 11:17:56 +0200
+Message-ID: <521DC044.9090207@st.com>
 References: <1377668458-21932-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net,
 	Sonic Zhang <sonic.zhang@analog.com>
 To: Sonic Zhang <sonic.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:32864 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754511Ab3H1JRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 05:17:43 -0400
+Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:50931 "EHLO
+	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752309Ab3H1JSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 05:18:08 -0400
 In-Reply-To: <1377668458-21932-1-git-send-email-sonic.adi@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -72,6 +72,8 @@ force_sf_dma_mode as we said
 
 In this case you should fix this and maybe the patch should be for 
 net-next (add it in the subject next time).
+
+peppe
 
 >
 >   Optional properties:
