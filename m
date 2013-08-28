@@ -1,74 +1,157 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v3 0/13] bonding: remove vlan special handling
-Date: Wed, 28 Aug 2013 18:03:49 +0200
-Message-ID: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next v3 07/13] bonding: make bond_arp_send_all use upper device list
+Date: Wed, 28 Aug 2013 18:03:56 +0200
+Message-ID: <1377705842-8276-8-git-send-email-vfalico@redhat.com>
+References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61733 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40783 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752956Ab3H1QGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:06:33 -0400
+	id S1752956Ab3H1QGq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:06:46 -0400
+In-Reply-To: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1: Per Jiri's advice, remove the exported netdev_upper struct to keep it
-    inside dev.c only, and instead implement a macro to iterate over the
-    list and return only net_device *.
-v2: Jiri noted that we need to see every upper device, but not only the
-    first level. Modify the netdev_upper logic to include a list of lower
-    devices and for both upper/lower lists every device would see both its
-    first-level devices and every other devices that is lower/upper of it.
-    Also, convert some annoying spamming warnings to pr_debug in
-    bond_arp_send_all.
-v3: move renaming part completely to patch 1 (did I forget to git add
-    before commiting?) and address Jiri's input about comments/style of
-    patch 2.
+Currently, bond_arp_send_all() is aware only of vlans, which breaks
+configurations like bond <- bridge (or any other 'upper' device) with IP
+(which is quite a common scenario for virt setups).
 
-The aim of this patchset is to remove bondings' own vlan handling as much
-as possible and replace it with the netdev upper device functionality.
+To fix this we convert the bond_arp_send_all() to first verify if the rt
+device is the bond itself, and if not - to go through its list of upper
+devices to see if any of them match the route device for the target. If the
+match is a vlan device - we also save its vlan_id and tag it in
+bond_arp_send().
 
-The upper device functionality is extended to include also lower devices
-and to have, for each device, a full view of every lower and upper device,
-but not only the first-level ones. This might permit in the future to
-avoid, for any grouping/teaming/upper/lower devices, to maintain its own
-lists of slaves/vlans/etc.
+Also, clean the function a bit to be more readable.
 
-This is achieved by adding a helper function to upper dev list handling -
-netdev_upper_get_next_dev(dev, iter), which returns the next device after
-the list_head **iter, and sets *iter to the next list_head *. This patchset
-also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
-through the whole dev->upper_dev_list, setting upper to the net_device.
-The only special treatment of vlans remains in rlb code.
-
-This patchset solves several issues with bonding, simplifies it overall,
-RCUify further and exports upper list functions for any other users which
-might also want to get rid of its own vlan_lists or slaves.
-
-I'm testing it continuously currently, no issues found, will update on
-anything.
+v1: use netdev_for_each_upper_dev()
+v2: use netdev_for_each_upper_dev_rcu()
+v3: no change
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_alb.c  |   75 ++++-----
- drivers/net/bonding/bond_alb.h  |    2 -
- drivers/net/bonding/bond_main.c |  254 ++++++-----------------------
- drivers/net/bonding/bonding.h   |   21 ++-
- include/linux/netdevice.h       |   11 ++
- net/core/dev.c                  |  345 ++++++++++++++++++++++++++++++++-------
- 6 files changed, 396 insertions(+), 312 deletions(-)
+ drivers/net/bonding/bond_main.c |   84 ++++++++++++++------------------------
+ 1 files changed, 31 insertions(+), 53 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7407e65..5f38188 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2444,30 +2444,16 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
+ 
+ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ {
+-	int i, vlan_id;
+-	__be32 *targets = bond->params.arp_targets;
+-	struct vlan_entry *vlan;
+-	struct net_device *vlan_dev = NULL;
++	struct net_device *upper;
++	struct list_head *iter;
+ 	struct rtable *rt;
++	__be32 *targets = bond->params.arp_targets, addr;
++	int i, vlan_id;
+ 
+-	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
+-		__be32 addr;
+-		if (!targets[i])
+-			break;
++	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
+ 		pr_debug("basa: target %pI4\n", &targets[i]);
+-		if (!bond_vlan_used(bond)) {
+-			pr_debug("basa: empty vlan: arp_send\n");
+-			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, 0);
+-			continue;
+-		}
+ 
+-		/*
+-		 * If VLANs are configured, we do a route lookup to
+-		 * determine which VLAN interface would be used, so we
+-		 * can tag the ARP with the proper VLAN tag.
+-		 */
++		/* Find out through which dev should the packet go */
+ 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
+ 				     RTO_ONLINK, 0);
+ 		if (IS_ERR(rt)) {
+@@ -2478,47 +2464,39 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 			continue;
+ 		}
+ 
+-		/*
+-		 * This target is not on a VLAN
+-		 */
+-		if (rt->dst.dev == bond->dev) {
+-			ip_rt_put(rt);
+-			pr_debug("basa: rtdev == bond->dev: arp_send\n");
+-			addr = bond_confirm_addr(bond->dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, 0);
+-			continue;
+-		}
+-
+ 		vlan_id = 0;
+-		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+-			rcu_read_lock();
+-			vlan_dev = __vlan_find_dev_deep(bond->dev,
+-							htons(ETH_P_8021Q),
+-							vlan->vlan_id);
+-			rcu_read_unlock();
+-			if (vlan_dev == rt->dst.dev) {
+-				vlan_id = vlan->vlan_id;
+-				pr_debug("basa: vlan match on %s %d\n",
+-				       vlan_dev->name, vlan_id);
+-				break;
+-			}
+-		}
+ 
+-		if (vlan_id && vlan_dev) {
+-			ip_rt_put(rt);
+-			addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+-			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+-				      addr, vlan_id);
+-			continue;
++		/* bond device itself */
++		if (rt->dst.dev == bond->dev)
++			goto found;
++
++		/* search for upper device, like vlan/bridge/team/etc */
++		rcu_read_lock();
++		netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
++			if (upper == rt->dst.dev) {
++				/* if it's a vlan - get its VID */
++				if (is_vlan_dev(rt->dst.dev))
++					vlan_id = vlan_dev_vlan_id(rt->dst.dev);
++
++				rcu_read_unlock();
++				goto found;
++			}
+ 		}
++		rcu_read_unlock();
+ 
+-		if (net_ratelimit()) {
++		/* Not our device - skip */
++		if (net_ratelimit())
+ 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+ 				   bond->dev->name, &targets[i],
+ 				   rt->dst.dev ? rt->dst.dev->name : "NULL");
+-		}
+ 		ip_rt_put(rt);
++		continue;
++
++found:
++		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
++		ip_rt_put(rt);
++		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
++			      addr, vlan_id);
+ 	}
+ }
+ 
+-- 
+1.7.1
