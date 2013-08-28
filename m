@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v3 01/13] net: rename netdev_upper to netdev_adjacent
-Date: Wed, 28 Aug 2013 18:03:50 +0200
-Message-ID: <1377705842-8276-2-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v3 03/13] net: remove search_list from netdev_adjacent
+Date: Wed, 28 Aug 2013 18:03:52 +0200
+Message-ID: <1377705842-8276-4-git-send-email-vfalico@redhat.com>
 References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -11,18 +11,19 @@ Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52222 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10477 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752524Ab3H1QFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:05:32 -0400
+	id S1753937Ab3H1QFh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:05:37 -0400
 In-Reply-To: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename the structure to reflect the upcoming addition of lower_dev_list.
+We already don't need it cause we see every upper/lower device in the list
+already.
 
 v2: new patch
-v3: actually rename everything
+v3: no change
 
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
@@ -31,103 +32,72 @@ CC: Alexander Duyck <alexander.h.duyck@intel.com>
 CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- net/core/dev.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+ net/core/dev.c |   37 +------------------------------------
+ 1 files changed, 1 insertions(+), 36 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ed2b66..5072e2c 100644
+index 2aa914e..749925a 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4367,7 +4367,7 @@ softnet_break:
- 	goto out;
- }
+@@ -4381,42 +4381,8 @@ struct netdev_adjacent {
  
--struct netdev_upper {
-+struct netdev_adjacent {
- 	struct net_device *dev;
- 	bool master;
  	struct list_head list;
-@@ -4378,7 +4378,7 @@ struct netdev_upper {
- static void __append_search_uppers(struct list_head *search_list,
- 				   struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
+ 	struct rcu_head rcu;
+-	struct list_head search_list;
+ };
  
- 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
- 		/* check if this upper is not already in search list */
-@@ -4391,8 +4391,8 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
- 				      struct net_device *upper_dev)
- {
- 	LIST_HEAD(search_list);
--	struct netdev_upper *upper;
--	struct netdev_upper *tmp;
-+	struct netdev_adjacent *upper;
-+	struct netdev_adjacent *tmp;
- 	bool ret = false;
+-static void __append_search_uppers(struct list_head *search_list,
+-				   struct net_device *dev)
+-{
+-	struct netdev_adjacent *upper;
+-
+-	list_for_each_entry(upper, &dev->upper_dev_list, list) {
+-		/* check if this upper is not already in search list */
+-		if (list_empty(&upper->search_list))
+-			list_add_tail(&upper->search_list, search_list);
+-	}
+-}
+-
+-static bool __netdev_search_upper_dev(struct net_device *dev,
+-				      struct net_device *upper_dev)
+-{
+-	LIST_HEAD(search_list);
+-	struct netdev_adjacent *upper;
+-	struct netdev_adjacent *tmp;
+-	bool ret = false;
+-
+-	__append_search_uppers(&search_list, dev);
+-	list_for_each_entry(upper, &search_list, search_list) {
+-		if (upper->dev == upper_dev) {
+-			ret = true;
+-			break;
+-		}
+-		__append_search_uppers(&search_list, upper->dev);
+-	}
+-	list_for_each_entry_safe(upper, tmp, &search_list, search_list)
+-		INIT_LIST_HEAD(&upper->search_list);
+-	return ret;
+-}
+-
+ static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
+ 						 struct net_device *adj_dev,
+ 						 bool upper)
+@@ -4544,7 +4510,6 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj->master = master;
+ 	adj->neighbour = neighbour;
+ 	adj->ref_nr = 1;
+-	INIT_LIST_HEAD(&adj->search_list);
  
- 	__append_search_uppers(&search_list, dev);
-@@ -4408,10 +4408,10 @@ static bool __netdev_search_upper_dev(struct net_device *dev,
- 	return ret;
- }
+ 	dev_hold(adj_dev);
+ 	pr_debug("dev_hold for %s, because of %s link added from %s to %s\n",
+@@ -4671,7 +4636,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 		return -EBUSY;
  
--static struct netdev_upper *__netdev_find_upper(struct net_device *dev,
-+static struct netdev_adjacent *__netdev_find_upper(struct net_device *dev,
- 						struct net_device *upper_dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
+ 	/* To prevent loops, check if dev is not upper device to upper_dev. */
+-	if (__netdev_search_upper_dev(upper_dev, dev))
++	if (__netdev_find_upper(upper_dev, dev))
+ 		return -EBUSY;
  
- 	list_for_each_entry(upper, &dev->upper_dev_list, list) {
- 		if (upper->dev == upper_dev)
-@@ -4462,7 +4462,7 @@ EXPORT_SYMBOL(netdev_has_any_upper_dev);
-  */
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
-@@ -4470,7 +4470,7 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- 		return NULL;
- 
- 	upper = list_first_entry(&dev->upper_dev_list,
--				 struct netdev_upper, list);
-+				 struct netdev_adjacent, list);
- 	if (likely(upper->master))
- 		return upper->dev;
- 	return NULL;
-@@ -4486,10 +4486,10 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get);
-  */
- struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	upper = list_first_or_null_rcu(&dev->upper_dev_list,
--				       struct netdev_upper, list);
-+				       struct netdev_adjacent, list);
- 	if (upper && likely(upper->master))
- 		return upper->dev;
- 	return NULL;
-@@ -4499,7 +4499,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- static int __netdev_upper_dev_link(struct net_device *dev,
- 				   struct net_device *upper_dev, bool master)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
-@@ -4580,7 +4580,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev)
- {
--	struct netdev_upper *upper;
-+	struct netdev_adjacent *upper;
- 
- 	ASSERT_RTNL();
- 
+ 	if (__netdev_find_upper(dev, upper_dev))
 -- 
 1.7.1
