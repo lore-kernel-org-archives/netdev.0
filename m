@@ -1,47 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  05/10] ixgbe: zero out mailbox buffer on init
-Date: Wed, 28 Aug 2013 03:33:43 -0700
-Message-ID: <1377686028-30747-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  03/10] ixgbe: fix incorrect limit value in ring transverse
+Date: Wed, 28 Aug 2013 03:33:41 -0700
+Message-ID: <1377686028-30747-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34607 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19818 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752184Ab3H1Kd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 06:33:56 -0400
+	id S1752184Ab3H1Kdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 06:33:54 -0400
 In-Reply-To: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch initializes the msgbuf array to 0 in order to avoid using random
-numbers from the memory as MAC address for the VF.
+We were transversing the tx_ring with IXGBE_NUM_RX_QUEUES.  Now this define
+happens to have the correct value but this is misleading and a change later
+could easily make this no longer true.  I updated it to netdev->num_tx_queues
+like we use in ixgbe_get_strings().
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 73c8e73..276d7b1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -639,8 +639,8 @@ static int ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	unsigned char *vf_mac = adapter->vfinfo[vf].vf_mac_addresses;
--	u32 reg, msgbuf[4];
--	u32 reg_offset, vf_shift;
-+	u32 reg, reg_offset, vf_shift;
-+	u32 msgbuf[4] = {0, 0, 0, 0};
- 	u8 *addr = (u8 *)(&msgbuf[1]);
- 
- 	e_info(probe, "VF Reset msg received from vf %d\n", vf);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 50c1e9b..db0dbf6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1049,7 +1049,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 		data[i] = (ixgbe_gstrings_stats[i].sizeof_stat ==
+ 		           sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
+-	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
++	for (j = 0; j < netdev->num_tx_queues; j++) {
+ 		ring = adapter->tx_ring[j];
+ 		if (!ring) {
+ 			data[i] = 0;
 -- 
 1.8.3.1
