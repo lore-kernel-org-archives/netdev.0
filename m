@@ -1,42 +1,63 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v3 13/13] bonding: pr_debug instead of pr_warn
- in bond_arp_send_all
-Date: Wed, 28 Aug 2013 18:22:34 +0200
-Message-ID: <20130828162234.GK1992@redhat.com>
-References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
- <1377705842-8276-14-git-send-email-vfalico@redhat.com>
- <1377706548.1928.16.camel@joe-AO722>
+Subject: Re: [PATCH net-next v1 5/9] bonding: convert bond_has_this_ip() to
+ use upper devices
+Date: Wed, 28 Aug 2013 18:32:46 +0200
+Message-ID: <20130828163246.GL1992@redhat.com>
+References: <1377549162-7522-1-git-send-email-vfalico@redhat.com>
+ <1377549162-7522-6-git-send-email-vfalico@redhat.com>
+ <20130826205338.GA3723@minipsycho.orion>
+ <20130827111648.GB24836@redhat.com>
+ <20130827112529.GA4732@minipsycho.brq.redhat.com>
+ <20130827181001.GD24836@redhat.com>
+ <521E0FA0.5070506@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org,
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
-To: Joe Perches <joe@perches.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39071 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22538 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753913Ab3H1QXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:23:51 -0400
+	id S1752524Ab3H1Qew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:34:52 -0400
 Content-Disposition: inline
-In-Reply-To: <1377706548.1928.16.camel@joe-AO722>
+In-Reply-To: <521E0FA0.5070506@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 09:15:48AM -0700, Joe Perches wrote:
+On Wed, Aug 28, 2013 at 10:56:32AM -0400, Vlad Yasevich wrote:
 ...snip...
->On Wed, 2013-08-28 at 18:04 +0200, Veaceslav Falico wrote:
-...snip...
->> v2: new patch
->> v3: no change
+>I've been playing with approach 2 for some work I am doing for
+>macvtap-over-bond, but I like you idea for 3 better.
 >
->Hi Veaceslav:
+>It would make things simpler in the long run.
 
-Hi Joe,
+I've just sent the third version of the 3rd approach, which implements
+lower/upper device lists for every device that are guaranteed, under RCU,
+tu have all the upper/lower devices linked to the device. It also permits
+to distinguish the 'neighbour' devices (i.e. linked on the first level,
+i.e. direct-linked) from the 'distant' ones, which are not directly linked
+but rather inherited.
 
->This changelog bit maybe is better placed below the ---
+It also implements the first function (and the only one that I've needed
+to get rid of vlan lists in bonding) - netdev_for_each_upper_dev_rcu(),
+which can be used as a loop:
 
-Yep, got it, will modify the next version (in case there will be one -
-hopefully it's not a reason to resend the whole patchset - though if anyone
-insists I can easily do it).
+struct net_device *upper;
+struct list_head *iter;
 
-Thanks for the input!
+rcu_read_lock();
+netdev_for_each_upper_dev_rcu(dev, upper, iter) {
+	... do whatever you want with the upper dev ...
+}
+rcu_read_unlock();
+
+
+In case you'll need, you can easily implement the same way
+netdev_for_each_lower_dev_rcu().
+
+Hope that helps.
+
+>
+>-vlad
