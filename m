@@ -1,182 +1,376 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v3] driver:net:stmmac: Disable DMA store and forward mode
- if platform data force_thresh_dma_mode is set.
-Date: Wed, 28 Aug 2013 18:25:27 +0800
-Message-ID: <CAJxxZ0Mmei9sOX0op3uU1WXqYL84_-tgbJf4TYSg7Tas6kCNdg@mail.gmail.com>
-References: <1377668458-21932-1-git-send-email-sonic.adi@gmail.com>
-	<521DC044.9090207@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  02/10] ixgbe: Check return value on eeprom reads
+Date: Wed, 28 Aug 2013 03:33:40 -0700
+Message-ID: <1377686028-30747-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:48266 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666Ab3H1KZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 06:25:28 -0400
-Received: by mail-oa0-f43.google.com with SMTP id i10so7478719oag.30
-        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 03:25:28 -0700 (PDT)
-In-Reply-To: <521DC044.9090207@st.com>
+Received: from mga09.intel.com ([134.134.136.24]:39337 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752752Ab3H1Kdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 06:33:54 -0400
+In-Reply-To: <1377686028-30747-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peppe,
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-On Wed, Aug 28, 2013 at 5:17 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> hello some comments below
->
-> On 8/28/2013 7:40 AM, Sonic Zhang wrote:
->>
->> From: Sonic Zhang <sonic.zhang@analog.com>
->>
->> Some synopsys ip implementation doesn't support DMA store and forward
->> mode,
->> such as BF60x. So, set force_thresh_dma_mode to use DMA thresholds only.
->> Update document and devicetree as well.
->>
->> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
->> ---
->>   Documentation/devicetree/bindings/net/stmmac.txt      | 2 ++
->>   Documentation/networking/stmmac.txt                   | 3 +++
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 +++-
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 3 +++
->>   include/linux/stmmac.h                                | 1 +
->>   5 files changed, 12 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
->> b/Documentation/devicetree/bindings/net/stmmac.txt
->> index 261c563..56fbcb5 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -22,6 +22,8 @@ Required properties:
->>   - snps,pbl            Programmable Burst Length
->>   - snps,fixed-burst    Program the DMA to use the fixed burst mode
->>   - snps,mixed-burst    Program the DMA to use the mixed burst mode
->> +- snps,force_thresh_dma_mode   Force DMA to use the Shreshold mode other
->> than
->
->
->                                                      ^^^^^^^^^ typo
->
->
->
->> +                               the Store and Forward mode.
->
->
-> if we use this approach you should document that the force_thresh_dma_mode
-> and force_sf_dma_mode will force the mode for both tx and rx.
+This patch fixes the possible use of uninitialized memory by checking the
+return value on eeprom reads. These issues were identified by static
+analysis. In many cases error messages will be produced so that corrupted
+eeprom issues will be more visible.
 
-OK
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 38 ++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 67 +++++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  6 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    | 35 ++++++++++---
+ 4 files changed, 107 insertions(+), 39 deletions(-)
 
->
-> I am wondering now what happens if these are passed together from the
-> platform? is your code covering this scenario?
-
-Yes, in case both are set, I unset flag force_sf_dma_mode. So, only
-force_thresh_dma_mode takes effect.
-
->
-> we could have a unique force_dma_mode that can be:
->
->    rx_force_threshold
->    tx_force_threshold
->    rx_force_sf
->    tx_force_sf
->               ( these can be defined in the stmmac.h platform header )
->
-> but this an impact on all the platforms that already use the
-> force_sf_dma_mode as we said
-
-So, I prefer current 2-flag solution.
-
->
-> In this case you should fix this and maybe the patch should be for net-next
-> (add it in the subject next time).
-
-I will add "for net-next" to the subject.
-
->
-> peppe
->
->
->>
->>   Optional properties:
->>   - mac-address: 6 bytes, mac address
->> diff --git a/Documentation/networking/stmmac.txt
->> b/Documentation/networking/stmmac.txt
->> index 654d2e5..457b8bb 100644
->> --- a/Documentation/networking/stmmac.txt
->> +++ b/Documentation/networking/stmmac.txt
->> @@ -123,6 +123,7 @@ struct plat_stmmacenet_data {
->>         int bugged_jumbo;
->>         int pmt;
->>         int force_sf_dma_mode;
->> +       int force_thresh_dma_mode;
->>         int riwt_off;
->>         void (*fix_mac_speed)(void *priv, unsigned int speed);
->>         void (*bus_setup)(void __iomem *ioaddr);
->> @@ -159,6 +160,8 @@ Where:
->>    o pmt: core has the embedded power module (optional).
->>    o force_sf_dma_mode: force DMA to use the Store and Forward mode
->>                      instead of the Threshold.
->> + o force_thresh_dma_mode: force DMA to use the Shreshold mode other than
->> +                    the Store and Forward mode.
->>    o riwt_off: force to disable the RX watchdog feature and switch to NAPI
->> mode.
->>    o fix_mac_speed: this callback is used for modifying some syscfg
->> registers
->>                  (on ST SoCs) according to the link speed negotiated by
->> the
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index be40691..8d4ccd3 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1224,7 +1224,9 @@ static void free_dma_desc_resources(struct
->> stmmac_priv *priv)
->>    */
->>   static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
->>   {
->> -       if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
->> +       if (priv->plat->force_thresh_dma_mode)
->> +               priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
->> +       else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
->>                 /*
->>                  * In case of GMAC, SF mode can be enabled
->>                  * to perform the TX COE in HW. This depends on:
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> index da8be6e..865c944 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> @@ -79,6 +79,9 @@ static int stmmac_probe_config_dt(struct platform_device
->> *pdev,
->>         of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
->>         dma_cfg->fixed_burst = of_property_read_bool(np,
->> "snps,fixed-burst");
->>         dma_cfg->mixed_burst = of_property_read_bool(np,
->> "snps,mixed-burst");
->> +       plat->force_thresh_dma_mode = of_property_read_bool(np,
->> "snps,force_thresh_dma_mode");
->> +       if (plat->force_thresh_dma_mode)
->> +               plat->force_sf_dma_mode = 0;
->>
->>         return 0;
->>   }
->> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
->> index 9e495d31..bb5deb0 100644
->> --- a/include/linux/stmmac.h
->> +++ b/include/linux/stmmac.h
->> @@ -108,6 +108,7 @@ struct plat_stmmacenet_data {
->>         int bugged_jumbo;
->>         int pmt;
->>         int force_sf_dma_mode;
->> +       int force_thresh_dma_mode;
->>         int riwt_off;
->>         void (*fix_mac_speed)(void *priv, unsigned int speed);
->>         void (*bus_setup)(void __iomem *ioaddr);
->>
->
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 51ee8ad..e4f4f4b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -142,11 +142,13 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
+ 			goto setup_sfp_out;
+ 		}
+ 
+-		hw->eeprom.ops.read(hw, ++data_offset, &data_value);
++		if (hw->eeprom.ops.read(hw, ++data_offset, &data_value))
++			goto setup_sfp_err;
+ 		while (data_value != 0xffff) {
+ 			IXGBE_WRITE_REG(hw, IXGBE_CORECTL, data_value);
+ 			IXGBE_WRITE_FLUSH(hw);
+-			hw->eeprom.ops.read(hw, ++data_offset, &data_value);
++			if (hw->eeprom.ops.read(hw, ++data_offset, &data_value))
++				goto setup_sfp_err;
+ 		}
+ 
+ 		/* Release the semaphore */
+@@ -192,6 +194,17 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
+ 
+ setup_sfp_out:
+ 	return ret_val;
++
++setup_sfp_err:
++	/* Release the semaphore */
++	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
++	/* Delay obtaining semaphore again to allow FW access,
++	 * semaphore_delay is in ms usleep_range needs us.
++	 */
++	usleep_range(hw->eeprom.semaphore_delay * 1000,
++		     hw->eeprom.semaphore_delay * 2000);
++	hw_err(hw, "eeprom read at offset %d failed\n", data_offset);
++	return IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
+ }
+ 
+ static s32 ixgbe_get_invariants_82599(struct ixgbe_hw *hw)
+@@ -2180,6 +2193,7 @@ static s32 ixgbe_verify_fw_version_82599(struct ixgbe_hw *hw)
+ {
+ 	s32 status = IXGBE_ERR_EEPROM_VERSION;
+ 	u16 fw_offset, fw_ptp_cfg_offset;
++	u16 offset;
+ 	u16 fw_version = 0;
+ 
+ 	/* firmware check is only necessary for SFI devices */
+@@ -2189,29 +2203,35 @@ static s32 ixgbe_verify_fw_version_82599(struct ixgbe_hw *hw)
+ 	}
+ 
+ 	/* get the offset to the Firmware Module block */
+-	hw->eeprom.ops.read(hw, IXGBE_FW_PTR, &fw_offset);
++	offset = IXGBE_FW_PTR;
++	if (hw->eeprom.ops.read(hw, offset, &fw_offset))
++		goto fw_version_err;
+ 
+ 	if ((fw_offset == 0) || (fw_offset == 0xFFFF))
+ 		goto fw_version_out;
+ 
+ 	/* get the offset to the Pass Through Patch Configuration block */
+-	hw->eeprom.ops.read(hw, (fw_offset +
+-	                         IXGBE_FW_PASSTHROUGH_PATCH_CONFIG_PTR),
+-	                         &fw_ptp_cfg_offset);
++	offset = fw_offset + IXGBE_FW_PASSTHROUGH_PATCH_CONFIG_PTR;
++	if (hw->eeprom.ops.read(hw, offset, &fw_ptp_cfg_offset))
++		goto fw_version_err;
+ 
+ 	if ((fw_ptp_cfg_offset == 0) || (fw_ptp_cfg_offset == 0xFFFF))
+ 		goto fw_version_out;
+ 
+ 	/* get the firmware version */
+-	hw->eeprom.ops.read(hw, (fw_ptp_cfg_offset +
+-	                         IXGBE_FW_PATCH_VERSION_4),
+-	                         &fw_version);
++	offset = fw_ptp_cfg_offset + IXGBE_FW_PATCH_VERSION_4;
++	if (hw->eeprom.ops.read(hw, offset, &fw_version))
++		goto fw_version_err;
+ 
+ 	if (fw_version > 0x5)
+ 		status = 0;
+ 
+ fw_version_out:
+ 	return status;
++
++fw_version_err:
++	hw_err(hw, "eeprom read at offset %d failed\n", offset);
++	return IXGBE_ERR_EEPROM_VERSION;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 50e62a2..b5c434b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2740,13 +2740,19 @@ out:
+ static s32 ixgbe_get_san_mac_addr_offset(struct ixgbe_hw *hw,
+                                         u16 *san_mac_offset)
+ {
++	s32 ret_val;
++
+ 	/*
+ 	 * First read the EEPROM pointer to see if the MAC addresses are
+ 	 * available.
+ 	 */
+-	hw->eeprom.ops.read(hw, IXGBE_SAN_MAC_ADDR_PTR, san_mac_offset);
++	ret_val = hw->eeprom.ops.read(hw, IXGBE_SAN_MAC_ADDR_PTR,
++				      san_mac_offset);
++	if (ret_val)
++		hw_err(hw, "eeprom read at offset %d failed\n",
++		       IXGBE_SAN_MAC_ADDR_PTR);
+ 
+-	return 0;
++	return ret_val;
+ }
+ 
+ /**
+@@ -2763,23 +2769,16 @@ s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr)
+ {
+ 	u16 san_mac_data, san_mac_offset;
+ 	u8 i;
++	s32 ret_val;
+ 
+ 	/*
+ 	 * First read the EEPROM pointer to see if the MAC addresses are
+ 	 * available.  If they're not, no point in calling set_lan_id() here.
+ 	 */
+-	ixgbe_get_san_mac_addr_offset(hw, &san_mac_offset);
++	ret_val = ixgbe_get_san_mac_addr_offset(hw, &san_mac_offset);
++	if (ret_val || san_mac_offset == 0 || san_mac_offset == 0xFFFF)
+ 
+-	if ((san_mac_offset == 0) || (san_mac_offset == 0xFFFF)) {
+-		/*
+-		 * No addresses available in this EEPROM.  It's not an
+-		 * error though, so just wipe the local address and return.
+-		 */
+-		for (i = 0; i < 6; i++)
+-			san_mac_addr[i] = 0xFF;
+-
+-		goto san_mac_addr_out;
+-	}
++		goto san_mac_addr_clr;
+ 
+ 	/* make sure we know which port we need to program */
+ 	hw->mac.ops.set_lan_id(hw);
+@@ -2787,14 +2786,26 @@ s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr)
+ 	(hw->bus.func) ? (san_mac_offset += IXGBE_SAN_MAC_ADDR_PORT1_OFFSET) :
+ 	                 (san_mac_offset += IXGBE_SAN_MAC_ADDR_PORT0_OFFSET);
+ 	for (i = 0; i < 3; i++) {
+-		hw->eeprom.ops.read(hw, san_mac_offset, &san_mac_data);
++		ret_val = hw->eeprom.ops.read(hw, san_mac_offset,
++					      &san_mac_data);
++		if (ret_val) {
++			hw_err(hw, "eeprom read at offset %d failed\n",
++			       san_mac_offset);
++			goto san_mac_addr_clr;
++		}
+ 		san_mac_addr[i * 2] = (u8)(san_mac_data);
+ 		san_mac_addr[i * 2 + 1] = (u8)(san_mac_data >> 8);
+ 		san_mac_offset++;
+ 	}
+-
+-san_mac_addr_out:
+ 	return 0;
++
++san_mac_addr_clr:
++	/* No addresses available in this EEPROM.  It's not necessarily an
++	 * error though, so just wipe the local address and return.
++	 */
++	for (i = 0; i < 6; i++)
++		san_mac_addr[i] = 0xFF;
++	return ret_val;
+ }
+ 
+ /**
+@@ -3243,8 +3254,9 @@ s32 ixgbe_get_wwn_prefix_generic(struct ixgbe_hw *hw, u16 *wwnn_prefix,
+ 	*wwpn_prefix = 0xFFFF;
+ 
+ 	/* check if alternative SAN MAC is supported */
+-	hw->eeprom.ops.read(hw, IXGBE_ALT_SAN_MAC_ADDR_BLK_PTR,
+-	                    &alt_san_mac_blk_offset);
++	offset = IXGBE_ALT_SAN_MAC_ADDR_BLK_PTR;
++	if (hw->eeprom.ops.read(hw, offset, &alt_san_mac_blk_offset))
++		goto wwn_prefix_err;
+ 
+ 	if ((alt_san_mac_blk_offset == 0) ||
+ 	    (alt_san_mac_blk_offset == 0xFFFF))
+@@ -3252,19 +3264,26 @@ s32 ixgbe_get_wwn_prefix_generic(struct ixgbe_hw *hw, u16 *wwnn_prefix,
+ 
+ 	/* check capability in alternative san mac address block */
+ 	offset = alt_san_mac_blk_offset + IXGBE_ALT_SAN_MAC_ADDR_CAPS_OFFSET;
+-	hw->eeprom.ops.read(hw, offset, &caps);
++	if (hw->eeprom.ops.read(hw, offset, &caps))
++		goto wwn_prefix_err;
+ 	if (!(caps & IXGBE_ALT_SAN_MAC_ADDR_CAPS_ALTWWN))
+ 		goto wwn_prefix_out;
+ 
+ 	/* get the corresponding prefix for WWNN/WWPN */
+ 	offset = alt_san_mac_blk_offset + IXGBE_ALT_SAN_MAC_ADDR_WWNN_OFFSET;
+-	hw->eeprom.ops.read(hw, offset, wwnn_prefix);
++	if (hw->eeprom.ops.read(hw, offset, wwnn_prefix))
++		hw_err(hw, "eeprom read at offset %d failed\n", offset);
+ 
+ 	offset = alt_san_mac_blk_offset + IXGBE_ALT_SAN_MAC_ADDR_WWPN_OFFSET;
+-	hw->eeprom.ops.read(hw, offset, wwpn_prefix);
++	if (hw->eeprom.ops.read(hw, offset, wwpn_prefix))
++		goto wwn_prefix_err;
+ 
+ wwn_prefix_out:
+ 	return 0;
++
++wwn_prefix_err:
++	hw_err(hw, "eeprom read at offset %d failed\n", offset);
++	return 0;
+ }
+ 
+ /**
+@@ -3778,7 +3797,11 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw)
+ 		u8  sensor_index;
+ 		u8  sensor_location;
+ 
+-		hw->eeprom.ops.read(hw, (ets_offset + 1 + i), &ets_sensor);
++		if (hw->eeprom.ops.read(hw, ets_offset + 1 + i, &ets_sensor)) {
++			hw_err(hw, "eeprom read at offset %d failed\n",
++			       ets_offset + 1 + i);
++			continue;
++		}
+ 		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
+ 				IXGBE_ETS_DATA_INDEX_SHIFT);
+ 		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 1315b8a..d259dc7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -143,8 +143,12 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
+ 
+ #define IXGBE_WRITE_FLUSH(a) IXGBE_READ_REG(a, IXGBE_STATUS)
+ 
++#define ixgbe_hw_to_netdev(hw) (((struct ixgbe_adapter *)(hw)->back)->netdev)
++
+ #define hw_dbg(hw, format, arg...) \
+-	netdev_dbg(((struct ixgbe_adapter *)(hw->back))->netdev, format, ##arg)
++	netdev_dbg(ixgbe_hw_to_netdev(hw), format, ## arg)
++#define hw_err(hw, format, arg...) \
++	netdev_err(ixgbe_hw_to_netdev(hw), format, ## arg)
+ #define e_dev_info(format, arg...) \
+ 	dev_info(&adapter->pdev->dev, format, ## arg)
+ #define e_dev_warn(format, arg...) \
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 369eef5..6a4a799 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -791,6 +791,8 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
+ 		 * Read control word from PHY init contents offset
+ 		 */
+ 		ret_val = hw->eeprom.ops.read(hw, data_offset, &eword);
++		if (ret_val)
++			goto err_eeprom;
+ 		control = (eword & IXGBE_CONTROL_MASK_NL) >>
+ 		           IXGBE_CONTROL_SHIFT_NL;
+ 		edata = eword & IXGBE_DATA_MASK_NL;
+@@ -803,10 +805,15 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
+ 		case IXGBE_DATA_NL:
+ 			hw_dbg(hw, "DATA:\n");
+ 			data_offset++;
+-			hw->eeprom.ops.read(hw, data_offset++,
+-			                    &phy_offset);
++			ret_val = hw->eeprom.ops.read(hw, data_offset++,
++						      &phy_offset);
++			if (ret_val)
++				goto err_eeprom;
+ 			for (i = 0; i < edata; i++) {
+-				hw->eeprom.ops.read(hw, data_offset, &eword);
++				ret_val = hw->eeprom.ops.read(hw, data_offset,
++							      &eword);
++				if (ret_val)
++					goto err_eeprom;
+ 				hw->phy.ops.write_reg(hw, phy_offset,
+ 				                      MDIO_MMD_PMAPMD, eword);
+ 				hw_dbg(hw, "Wrote %4.4x to %4.4x\n", eword,
+@@ -838,6 +845,10 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
+ 
+ out:
+ 	return ret_val;
++
++err_eeprom:
++	hw_err(hw, "eeprom read at offset %d failed\n", data_offset);
++	return IXGBE_ERR_PHY;
+ }
+ 
+ /**
+@@ -1339,7 +1350,11 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 		sfp_type = ixgbe_sfp_type_srlr_core1;
+ 
+ 	/* Read offset to PHY init contents */
+-	hw->eeprom.ops.read(hw, IXGBE_PHY_INIT_OFFSET_NL, list_offset);
++	if (hw->eeprom.ops.read(hw, IXGBE_PHY_INIT_OFFSET_NL, list_offset)) {
++		hw_err(hw, "eeprom read at %d failed\n",
++		       IXGBE_PHY_INIT_OFFSET_NL);
++		return IXGBE_ERR_SFP_NO_INIT_SEQ_PRESENT;
++	}
+ 
+ 	if ((!*list_offset) || (*list_offset == 0xFFFF))
+ 		return IXGBE_ERR_SFP_NO_INIT_SEQ_PRESENT;
+@@ -1351,12 +1366,14 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 	 * Find the matching SFP ID in the EEPROM
+ 	 * and program the init sequence
+ 	 */
+-	hw->eeprom.ops.read(hw, *list_offset, &sfp_id);
++	if (hw->eeprom.ops.read(hw, *list_offset, &sfp_id))
++		goto err_phy;
+ 
+ 	while (sfp_id != IXGBE_PHY_INIT_END_NL) {
+ 		if (sfp_id == sfp_type) {
+ 			(*list_offset)++;
+-			hw->eeprom.ops.read(hw, *list_offset, data_offset);
++			if (hw->eeprom.ops.read(hw, *list_offset, data_offset))
++				goto err_phy;
+ 			if ((!*data_offset) || (*data_offset == 0xFFFF)) {
+ 				hw_dbg(hw, "SFP+ module not supported\n");
+ 				return IXGBE_ERR_SFP_NOT_SUPPORTED;
+@@ -1366,7 +1383,7 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 		} else {
+ 			(*list_offset) += 2;
+ 			if (hw->eeprom.ops.read(hw, *list_offset, &sfp_id))
+-				return IXGBE_ERR_PHY;
++				goto err_phy;
+ 		}
+ 	}
+ 
+@@ -1376,6 +1393,10 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 	}
+ 
+ 	return 0;
++
++err_phy:
++	hw_err(hw, "eeprom read at offset %d failed\n", *list_offset);
++	return IXGBE_ERR_PHY;
+ }
+ 
+ /**
+-- 
+1.8.3.1
