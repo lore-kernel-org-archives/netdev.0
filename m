@@ -1,27 +1,24 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next v3 08/13] bonding: convert bond_has_this_ip() to use upper devices
-Date: Wed, 28 Aug 2013 18:03:57 +0200
-Message-ID: <1377705842-8276-9-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next v3 06/13] bonding: use netdev_upper list in bond_vlan_used
+Date: Wed, 28 Aug 2013 18:03:55 +0200
+Message-ID: <1377705842-8276-7-git-send-email-vfalico@redhat.com>
 References: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33495 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61895 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754318Ab3H1QFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 12:05:45 -0400
+	id S1754249Ab3H1QFm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Aug 2013 12:05:42 -0400
 In-Reply-To: <1377705842-8276-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bond_has_this_ip() is aware only of vlan upper devices, and thus
-will return false if the address is associated with the upper bridge or any
-other device, and thus will break the arp logic.
-
-Fix this by using the upper device list. For every upper device we verify
-if the address associated with it is our address, and if yes - return true.
+Convert bond_vlan_used() to traverse the upper device list to see if we
+have any vlans above us. It's protected by rcu, and in case we are holding
+rtnl_lock we should call vlan_uses_dev() instead - it's faster.
 
 v1: use netdev_for_each_upper_dev()
 v2: use netdev_for_each_upper_dev_rcu()
@@ -31,50 +28,36 @@ CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bonding.h |   15 ++++++++++++++-
+ 1 files changed, 14 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5f38188..0fb3122 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2392,24 +2392,25 @@ re_arm:
- 	}
- }
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 4bf52d5..230197d 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -267,9 +267,22 @@ struct bonding {
+ #endif /* CONFIG_DEBUG_FS */
+ };
  
--static int bond_has_this_ip(struct bonding *bond, __be32 ip)
-+static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
++/* if we hold rtnl_lock() - call vlan_uses_dev() */
+ static inline bool bond_vlan_used(struct bonding *bond)
  {
--	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
+-	return !list_empty(&bond->vlan_list);
 +	struct net_device *upper;
 +	struct list_head *iter;
-+	bool ret = false;
- 
- 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
--		return 1;
-+		return true;
- 
--	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		rcu_read_lock();
--		vlan_dev = __vlan_find_dev_deep(bond->dev, htons(ETH_P_8021Q),
--						vlan->vlan_id);
--		rcu_read_unlock();
--		if (vlan_dev && ip == bond_confirm_addr(vlan_dev, 0, ip))
--			return 1;
++
 +	rcu_read_lock();
 +	netdev_for_each_upper_dev_rcu(bond->dev, upper, iter) {
-+		if (ip == bond_confirm_addr(upper, 0, ip)) {
-+			ret = true;
-+			break;
++		if (upper->priv_flags & IFF_802_1Q_VLAN) {
++			rcu_read_unlock();
++			return true;
 +		}
- 	}
++	}
 +	rcu_read_unlock();
- 
--	return 0;
-+	return ret;
++
++	return false;
  }
  
- /*
+ #define bond_slave_get_rcu(dev) \
 -- 
 1.7.1
