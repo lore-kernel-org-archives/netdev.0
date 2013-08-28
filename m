@@ -1,93 +1,46 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [nf-next PATCH] netfilter: more strict TCP flag matching in SYNPROXY
-Date: Wed, 28 Aug 2013 15:14:38 +0200
-Message-ID: <20130828131438.24364.25004.stgit@dragon>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: Don't depend on per socket memory for neighbour discovery messages
+Date: Wed, 28 Aug 2013 15:31:00 +0200
+Message-ID: <20130828133100.GA12353@order.stressinduktion.org>
+References: <361d4275efc79e3048191306df25ad003ed497d7.1377644830.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, as@one.com, Jesper Dangaard Brouer <brouer@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Patrick McHardy" <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:51535 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab3H1NbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 09:31:03 -0400
+Content-Disposition: inline
+In-Reply-To: <361d4275efc79e3048191306df25ad003ed497d7.1377644830.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Its seems Patrick missed to incoorporate some of my requested changes
-during review v2 of SYNPROXY netfilter module.
+On Wed, Aug 28, 2013 at 01:07:25AM +0200, Thomas Graf wrote:
+> Allocating skbs when sending out neighbour discovery messages
+> currently uses sock_alloc_send_skb() based on a per net namespace
+> socket and thus share a socket wmem buffer space.
+> 
+> If a netdevice is temporarily unable to transmit due to carrier
+> loss or for other reasons, the queued up ndisc messages will cosnume
+> all of the wmem space and will thus prevent from any more skbs to
+> be allocated even for netdevices that are able to transmit packets.
+> 
+> The number of neighbour discovery messages sent is very limited,
+> simply use alloc_skb() and don't depend on any socket wmem space any
+> longer.
+> 
+> This patch has orginally been posted by Eric Dumazet in a modified
+> form.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
 
-Which were, to avoid SYN+ACK packets to enter the path, meant for the
-ACK packet from the client (from the 3WHS).
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Further there were a bug in ip6t_SYNPROXY.c, for matching SYN packets
-that didn't exclude the ACK flag.
+This fixes a real bug (I also had this issue) and thus would propose it
+for stable, too.
 
-Go a step further with SYN packet/flag matching by excluding flags
-ACK+FIN+RST, in both IPv4 and IPv6 modules.
-
-
-The intented usage of SYNPROXY is as follows:
-(gracefully describing usage in commit)
-
- iptables -t raw -A PREROUTING -i eth0 -p tcp --dport 80 --syn -j NOTRACK
- iptables -A INPUT -i eth0 -p tcp --dport 80 -m state UNTRACKED,INVALID \
-         -j SYNPROXY --sack-perm --timestamp --mss 1480 --wscale 7 --ecn
-
- echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
-
-This does filter SYN flags early, for packets in the UNTRACKED state,
-but packets in the INVALID state with other TCP flags could still
-reach the module, thus this stricter flag matching is still needed.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
-
- net/ipv4/netfilter/ipt_SYNPROXY.c  |    4 ++--
- net/ipv6/netfilter/ip6t_SYNPROXY.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index 94371db..90e489e 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -269,7 +269,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 
- 	synproxy_parse_options(skb, par->thoff, th, &opts);
- 
--	if (th->syn && !th->ack) {
-+	if (th->syn && !(th->ack || th->fin || th->rst)) {
- 		/* Initial SYN from client */
- 		this_cpu_inc(snet->stats->syn_received);
- 
-@@ -285,7 +285,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_ECN);
- 
- 		synproxy_send_client_synack(skb, th, &opts);
--	} else if (th->ack && !(th->fin || th->rst))
-+	} else if (th->ack && !(th->fin || th->rst || th->syn))
- 		/* ACK from client */
- 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
- 
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index 4270a9b..a5af0bf 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -284,7 +284,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 
- 	synproxy_parse_options(skb, par->thoff, th, &opts);
- 
--	if (th->syn) {
-+	if (th->syn && !(th->ack || th->fin || th->rst)) {
- 		/* Initial SYN from client */
- 		this_cpu_inc(snet->stats->syn_received);
- 
-@@ -300,7 +300,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_ECN);
- 
- 		synproxy_send_client_synack(skb, th, &opts);
--	} else if (th->ack && !(th->fin || th->rst))
-+	} else if (th->ack && !(th->fin || th->rst || th->syn))
- 		/* ACK from client */
- 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
- 
-
+Thanks!
