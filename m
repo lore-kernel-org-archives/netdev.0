@@ -1,55 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 8/8] xfrm: Fix potential null pointer dereference in
- xdst_queue_output
-Date: Wed, 28 Aug 2013 04:36:27 -0700
-Message-ID: <1377689787.8828.179.camel@edumazet-glaptop>
-References: <1377687895-5780-1-git-send-email-steffen.klassert@secunet.com>
-	 <1377687895-5780-9-git-send-email-steffen.klassert@secunet.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next  1/2] vxlan: Notify drivers for listening UDP port
+ changes
+Date: Wed, 28 Aug 2013 12:43:32 +0100
+Message-ID: <1377690212.2552.12.camel@deadeye.wl.decadent.org.uk>
+References: <1377665218-6760-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <kvk9um$j48$1@ger.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:46859 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753664Ab3H1Lga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 07:36:30 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kl13so6129865pab.34
-        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 04:36:29 -0700 (PDT)
-In-Reply-To: <1377687895-5780-9-git-send-email-steffen.klassert@secunet.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:11804 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753904Ab3H1Lni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 07:43:38 -0400
+In-Reply-To: <kvk9um$j48$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-28 at 13:04 +0200, Steffen Klassert wrote:
-> The net_device might be not set on the skb when we try refcounting.
-> This leads to a null pointer dereference in xdst_queue_output().
-> It turned out that the refcount to the net_device is not needed
-> after all. The dst_entry has a refcount to the net_device before
-> we queue the skb, so it can't go away. Therefore we can remove the
-> refcount on queueing to fix the null pointer dereference.
+On Wed, 2013-08-28 at 07:47 +0000, Cong Wang wrote:
+> On Wed, 28 Aug 2013 at 04:46 GMT, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >
+> > This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
+> > ndo_del_rx_vxlan_port().
+> >
+> > Drivers can get notifications through the above functions about changes
+> > of the UDP listening port of VXLAN. Also, when physical ports come up,
+> > now they can call vxlan_get_rx_port() in order to obtain the port number(s)
+> > of the existing VXLAN interface in case they already up before them.
+> >
+> > This information about the listening UDP port would be used for VXLAN
+> > related offloads.
+> >
 > 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/xfrm/xfrm_policy.c |    9 +--------
->  1 file changed, 1 insertion(+), 8 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index e52cab3..f77c371 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -320,10 +320,8 @@ static void xfrm_queue_purge(struct sk_buff_head *list)
->  {
->  	struct sk_buff *skb;
->  
-> -	while ((skb = skb_dequeue(list)) != NULL) {
-> -		dev_put(skb->dev);
-> +	while ((skb = skb_dequeue(list)) != NULL)
->  		kfree_skb(skb);
-> -	}
->  }
->  
+> Since this is a notification, how about adding a new NETDEV_* event
+> rather than adding two new ndo_* ops?
 
-xfrm_queue_purge() now looks a lot like skb_queue_purge() ;)
+Since this is a change at the netns (rather than net device) level, it
+makes more logical sense to send a single notification for each change.
+But any driver that needs to know about this would then need to iterate
+over its own devices (limited to the given netns) - which means writing
+the same iteration in each driver that supports this (with added
+filtering by driver), or adding a list of devices to each driver.  So
+practically it seems better to do this iteration in the core as
+proposed.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
