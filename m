@@ -1,33 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Tue, 27 Aug 2013 22:11:58 -0400 (EDT)
-Message-ID: <20130827.221158.172647721431017580.davem@davemloft.net>
-References: <1377634848-34327-1-git-send-email-jesse@nicira.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net: fec: add the initial to set the physical mac
+ address
+Date: Wed, 28 Aug 2013 02:11:21 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE01653FEA@039-SN2MPN1-021.039d.mgd.msft.net>
+References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+ <1377613134.4246.12.camel@weser.hi.pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Li Frank-B20596 <B20596@freescale.com>,
+	Zhou Luwei-B45643 <B45643@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35993 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884Ab3H1CL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 22:11:59 -0400
-In-Reply-To: <1377634848-34327-1-git-send-email-jesse@nicira.com>
+Received: from [213.199.154.248] ([213.199.154.248]:4369 "EHLO
+	db9outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751791Ab3H1CN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Aug 2013 22:13:59 -0400
+In-Reply-To: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Tue, 27 Aug 2013 13:20:37 -0700
-
-> A number of significant new features and optimizations for net-next/3.12.
-> Highlights are:
->  * "Megaflows", an optimization that allows userspace to specify which
->    flow fields were used to compute the results of the flow lookup.
->    This allows for a major reduction in flow setups (the major
->    performance bottleneck in Open vSwitch) without reducing flexibility.
->  * Converting netlink dump operations to use RCU, allowing for
->    additional parallelism in userspace.
->  * Matching and modifying SCTP protocol fields.
-
-Pulled, thanks Jesse.
+RnJvbTogTHVjYXMgU3RhY2ggW21haWx0bzpsLnN0YWNoQHBlbmd1dHJvbml4LmRlXQ0KRGF0YTog
+VHVlc2RheSwgQXVndXN0IDI3LCAyMDEzIDEwOjE5IFBNDQoNCj4gVG86IER1YW4gRnVnYW5nLUIz
+ODYxMQ0KPiBDYzogTGkgRnJhbmstQjIwNTk2OyBaaG91IEx1d2VpLUI0NTY0MzsgZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hhd24uZ3VvQGxpbmFyby5v
+cmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207DQo+IEVzdGV2YW0gRmFiaW8tUjQ5NDk2OyBz
+dGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGZl
+YzogYWRkIHRoZSBpbml0aWFsIHRvIHNldCB0aGUgcGh5c2ljYWwgbWFjDQo+IGFkZHJlc3MNCj4g
+DQo+IEFtIERvbm5lcnN0YWcsIGRlbiAyMi4wOC4yMDEzLCAxOToxNyArMDgwMCBzY2hyaWViIEZ1
+Z2FuZyBEdWFuOg0KPiA+IEZvciBpbXg2c2x4IGV2ayBwbGF0Zm9ybSwgdGhlIGZlYyBkcml2ZXIg
+Y2Fubm90IHdvcmsgc2luY2UgdGhlcmUgaGF2ZQ0KPiA+IG5vIHZhbGlkIG1hYyBhZGRyZXNzIHNl
+dCBpbiBwaHlzaWNhbCBtYWMgcmVnaXN0ZXJzLg0KPiA+DQo+ID4gRm9yIGlteCBzZXJpYWwgcGxh
+dGZvcm0sIGZlYy9lbmV0IElQcyBib3RoIG5lZWQgdGhlIHBoeXNpY2FsIE1BQw0KPiA+IGFkZHJl
+c3MgaW5pdGlhbCwgb3RoZXJ3aXNlIGl0IGNhbm5vdCB3b3JrLg0KPiA+DQo+ID4gQWZ0ZXIgYWNx
+dWlyaW5nIHRoZSB2YWxpZCBNQUMgYWRkcmVzcyBmcm9tIGRldmljZXMgdHJlZS9wZnVzZS8ga2Vy
+bmVsDQo+ID4gY29tbWFuZCBsaW5lL3JhbmRvbSBtYWMgYWRkcmVzcywgYW5kIHRoZW4gc2V0IGl0
+IHRvIHRoZSBwaHlzaWNhbCBNQUMNCj4gPiBhZGRyZXNzIHJlZ2lzdGVycy4NCj4gPg0KPiBZZWFo
+LCB3ZSBoYXZlIGFsc28gc2VlbiB0aGF0IHdlIG5lZWQgdG8gc2V0IHRoaXMgZXhwbGljaXRseS4g
+VGhlIHN0cmFuZ2UNCj4gdGhpbmcgaXMgdGhhdCBJIHJlY2FsbCB0aGlzIHVzZWQgdG8gd29yayB3
+aXRob3V0IGNhbGxpbmcNCj4gZmVjX3NldF9tYWNfYWRkcmVzcygpIGV4cGxpY2l0bHksIHNvIGVp
+dGhlciB0aGUgbmV0ZGV2IGNvcmUgd2FzIGNhbGxpbmcgaXQNCj4gYXQgc29tZSBwb2ludCwgb3Ig
+b3VyIHVzZXJzcGFjZSB3YXMuIEkgZGlkbid0IGdvdCBhcm91bmQgdG8gaW52ZXN0aWdhdGUNCj4g
+dGhpcyBmdXJ0aGVyLg0KTmV0ZGV2IGNvcmUgZG9uJ3QgY2FsbCB0aGUgZnVuY3Rpb24gd2lsbGlu
+Z2x5LCBpZiBvbmx5IHVzZXIgY29uZmlnIE1BQyBhZGRyZXNzIHN1Y2ggYXMgY2FsbCBpb2N0bChz
+b2NrZmQsIFNJT0NTSUZIV0FERFIsIGlmcmVxKS4NCg0KPiBTbyBhbnl3YXk6DQo+IFJldmlld2Vk
+LWJ5OiBMdWNhcyBTdGFjaCA8bC5zdGFjaEBwZW5ndXRyb25peC5kZT4NCj4gDQo+ID4gU2lnbmVk
+LW9mZi1ieTogRnVnYW5nIER1YW4gIDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4g
+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAgICA5ICsrKysr
+Ky0tLQ0KPiA+ICAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMo
+LSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+ZmVjX21haW4uYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWlu
+LmMNCj4gPiBpbmRleCA0MzQ5YTllLi45YjVlMDhjIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBAQCAtMTg2NywxMCArMTg2NywxMiBA
+QCBmZWNfc2V0X21hY19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LA0KPiB2b2lkICpw
+KQ0KPiA+ICAJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgKmZlcCA9IG5ldGRldl9wcml2KG5kZXYp
+Ow0KPiA+ICAJc3RydWN0IHNvY2thZGRyICphZGRyID0gcDsNCj4gPg0KPiA+IC0JaWYgKCFpc192
+YWxpZF9ldGhlcl9hZGRyKGFkZHItPnNhX2RhdGEpKQ0KPiA+IC0JCXJldHVybiAtRUFERFJOT1RB
+VkFJTDsNCj4gPiArCWlmIChwKSB7DQo+ID4gKwkJaWYgKCFpc192YWxpZF9ldGhlcl9hZGRyKGFk
+ZHItPnNhX2RhdGEpKQ0KPiA+ICsJCQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7DQo+ID4NCj4gPiAt
+CW1lbWNweShuZGV2LT5kZXZfYWRkciwgYWRkci0+c2FfZGF0YSwgbmRldi0+YWRkcl9sZW4pOw0K
+PiA+ICsJCW1lbWNweShuZGV2LT5kZXZfYWRkciwgYWRkci0+c2FfZGF0YSwgbmRldi0+YWRkcl9s
+ZW4pOw0KPiA+ICsJfQ0KPiA+DQo+ID4gIAl3cml0ZWwobmRldi0+ZGV2X2FkZHJbM10gfCAobmRl
+di0+ZGV2X2FkZHJbMl0gPDwgOCkgfA0KPiA+ICAJCShuZGV2LT5kZXZfYWRkclsxXSA8PCAxNikg
+fCAobmRldi0+ZGV2X2FkZHJbMF0gPDwgMjQpLCBAQCAtDQo+IDE5NjksNg0KPiA+ICsxOTcxLDcg
+QEAgc3RhdGljIGludCBmZWNfZW5ldF9pbml0KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0KPiA+
+DQo+ID4gIAkvKiBHZXQgdGhlIEV0aGVybmV0IGFkZHJlc3MgKi8NCj4gPiAgCWZlY19nZXRfbWFj
+KG5kZXYpOw0KPiA+ICsJZmVjX3NldF9tYWNfYWRkcmVzcyhuZGV2LCBOVUxMKTsNCj4gPg0KPiA+
+ICAJLyogU2V0IHJlY2VpdmUgYW5kIHRyYW5zbWl0IGRlc2NyaXB0b3IgYmFzZS4gKi8NCj4gPiAg
+CWZlcC0+cnhfYmRfYmFzZSA9IGNiZF9iYXNlOw0KPiANCj4gLS0NCj4gUGVuZ3V0cm9uaXggZS5L
+LiAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgTHVjYXMgU3RhY2ggICAgICAgICAgICAgICAg
+IHwNCj4gSW5kdXN0cmlhbCBMaW51eCBTb2x1dGlvbnMgICAgICAgICAgICAgICAgIHwgaHR0cDov
+L3d3dy5wZW5ndXRyb25peC5kZS8gIHwNCj4gUGVpbmVyIFN0ci4gNi04LCAzMTEzNyBIaWxkZXNo
+ZWltLCBHZXJtYW55IHwgUGhvbmU6ICs0OS01MTIxLTIwNjkxNy01MDc2IHwNCj4gQW10c2dlcmlj
+aHQgSGlsZGVzaGVpbSwgSFJBIDI2ODYgICAgICAgICAgIHwgRmF4OiAgICs0OS01MTIxLTIwNjkx
+Ny01NTU1IHwNCj4gDQoNCg==
