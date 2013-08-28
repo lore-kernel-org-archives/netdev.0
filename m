@@ -1,29 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: add cpu_relax to busy poll loop
-Date: Wed, 28 Aug 2013 17:46:22 -0400 (EDT)
-Message-ID: <20130828.174622.268609863849057534.davem@davemloft.net>
-References: <20130825072346.31655.84970.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH 1/2] tcp: syncookies: reduce cookie lifetime to 128
+ seconds
+Date: Wed, 28 Aug 2013 18:20:48 -0400 (EDT)
+Message-ID: <20130828.182048.371311612380335945.davem@davemloft.net>
+References: <1377453242-4773-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130825072346.31655.84970.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jbohac@suse.cz
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50586 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069Ab3H1WUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 18:20:52 -0400
+In-Reply-To: <1377453242-4773-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Sun, 25 Aug 2013 10:23:46 +0300
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 25 Aug 2013 19:54:01 +0200
 
-> Add a cpu_relaxt to sk_busy_loop.
+> We currently accept cookies that were created less than 4 minutes ago
+> (ie, cookies with counter delta 0-3).  Combined with the 8 mss table
+> values, this yields 32 possible values (out of 2**32) that will be valid.
 > 
-> Julie Cummings reported performance issues when hyperthreading is on.
-> Arjan van de Ven observed that we should have a cpu_relax() in the
-> busy poll loop.
+> Reducing the lifetime to < 2 minutes halves the guessing chance while
+> still providing a large enough period (possible cookies are
+> only validated if last synqueue overflow was less than 3 seconds ago).
 > 
-> Reported-by: Julie Cummings <julie.a.cummings@intel.com>
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> While at it, get rid of jiffies value -- they overflow too quickly on
+> 32 bit platforms.
+> 
+> getnstimeofday is used to create a counter that increments every 64s.
+> 
+> Reported-by: Jakob Lell <jakob@jakoblell.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied, thank you.
+Moving from jiffies as a time seed to getnstimeofday() obviously will
+have some performance impact, can you talk a little bit about that?
+
+
+> +#define MAX_SYNCOOKIE_AGE 2 /* 128 seconds */
+
+I'm sure you understand how 2 translates into 128 seconds in this syncookie
+code, but I sure don't and the next person who reads this patch or this
+code after I apply it may not either.
+
+Could you in some way expose the calculation?  Thanks.
