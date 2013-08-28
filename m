@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 12/16] sfc: Generalise packet hash lookup to
- support EF10 RX prefix
-Date: Wed, 28 Aug 2013 16:21:05 +0100
-Message-ID: <1377703265.2264.34.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 13/16] sfc: Add TX merged completion counter
+Date: Wed, 28 Aug 2013 16:21:27 +0100
+Message-ID: <1377703287.2264.35.camel@bwh-desktop.uk.level5networks.com>
 References: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,179 +9,73 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17289 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17303 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243Ab3H1PVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:21:08 -0400
+	with ESMTP id S1753852Ab3H1PVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 11:21:31 -0400
 In-Reply-To: <1377702837.2264.21.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Cooper <jcooper@solarflare.com>
+Add a counter for TX merged completion events.
 
-EF10 uses an entirely different RX prefix format from Falcon-arch.
-Extend struct efx_nic_type to describe this.
+This is implemented in the common TX path, because the NIC event
+handlers only know how many descriptors were completed, not how many
+packets.
 
-[bwh: Also replace the magic numbers used for the Falcon-arch RX prefix]
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |  5 ++++-
- drivers/net/ethernet/sfc/falcon.c     |  3 ++-
- drivers/net/ethernet/sfc/farch_regs.h |  4 ++++
- drivers/net/ethernet/sfc/net_driver.h | 11 +++++++++--
- drivers/net/ethernet/sfc/rx.c         | 15 +++++++--------
- drivers/net/ethernet/sfc/siena.c      |  3 ++-
- 6 files changed, 28 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/sfc/ethtool.c    | 1 +
+ drivers/net/ethernet/sfc/net_driver.h | 2 ++
+ drivers/net/ethernet/sfc/tx.c         | 3 +++
+ 3 files changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 3af28a8..db2f119 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -573,7 +573,7 @@ static void efx_start_datapath(struct efx_nic *efx)
- 	 * support the current MTU, including padding for header
- 	 * alignment and overruns.
- 	 */
--	efx->rx_dma_len = (efx->type->rx_buffer_hash_size +
-+	efx->rx_dma_len = (efx->rx_prefix_size +
- 			   EFX_MAX_FRAME_LEN(efx->net_dev->mtu) +
- 			   efx->type->rx_buffer_padding);
- 	rx_buf_len = (sizeof(struct efx_rx_page_state) +
-@@ -2456,6 +2456,9 @@ static int efx_init_struct(struct efx_nic *efx,
- 	strlcpy(efx->name, pci_name(pci_dev), sizeof(efx->name));
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 0b8ffdf..6354693 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -65,6 +65,7 @@ static u64 efx_get_atomic_stat(void *field)
+ 			 unsigned int, efx_get_uint_stat)
  
- 	efx->net_dev = net_dev;
-+	efx->rx_prefix_size = efx->type->rx_prefix_size;
-+	efx->rx_packet_hash_offset =
-+		efx->type->rx_hash_offset - efx->type->rx_prefix_size;
- 	spin_lock_init(&efx->stats_lock);
- 	mutex_init(&efx->mac_lock);
- 	efx->phy_op = &efx_dummy_phy_operations;
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 1140b83..ec77611 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -2827,7 +2827,8 @@ const struct efx_nic_type falcon_b0_nic_type = {
- 	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
- 	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
- 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
--	.rx_buffer_hash_size = 0x10,
-+	.rx_prefix_size = FS_BZ_RX_PREFIX_SIZE,
-+	.rx_hash_offset = FS_BZ_RX_PREFIX_HASH_OFST,
- 	.rx_buffer_padding = 0,
- 	.can_rx_scatter = true,
- 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
-diff --git a/drivers/net/ethernet/sfc/farch_regs.h b/drivers/net/ethernet/sfc/farch_regs.h
-index 00ef17a..491b103 100644
---- a/drivers/net/ethernet/sfc/farch_regs.h
-+++ b/drivers/net/ethernet/sfc/farch_regs.h
-@@ -2925,4 +2925,8 @@
- #define FSF_AZ_DRV_GEN_EV_MAGIC_LBN 0
- #define FSF_AZ_DRV_GEN_EV_MAGIC_WIDTH 32
- 
-+/* RX packet prefix */
-+#define FS_BZ_RX_PREFIX_HASH_OFST 12
-+#define FS_BZ_RX_PREFIX_SIZE 16
-+
- #endif /* EFX_FARCH_REGS_H */
+ static const struct efx_sw_stat_desc efx_sw_stat_desc[] = {
++	EFX_ETHTOOL_UINT_TXQ_STAT(merge_events),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_bursts),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_long_headers),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_packets),
 diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 21b1c2a..481e412 100644
+index 481e412..f52b38c 100644
 --- a/drivers/net/ethernet/sfc/net_driver.h
 +++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -663,6 +663,9 @@ struct vfdi_status;
-  * @rx_buffer_order: Order (log2) of number of pages for each RX buffer
-  * @rx_buffer_truesize: Amortised allocation size of an RX buffer,
-  *	for use in sk_buff::truesize
-+ * @rx_prefix_size: Size of RX prefix before packet data
-+ * @rx_packet_hash_offset: Offset of RX flow hash from start of packet data
-+ *	(valid only if @rx_prefix_size != 0; always negative)
-  * @rx_hash_key: Toeplitz hash key for RSS
-  * @rx_indir_table: Indirection table for RSS
-  * @rx_scatter: Scatter mode enabled for receives
-@@ -793,6 +796,8 @@ struct efx_nic {
- 	unsigned int rx_page_buf_step;
- 	unsigned int rx_bufs_per_page;
- 	unsigned int rx_pages_per_batch;
-+	unsigned int rx_prefix_size;
-+	int rx_packet_hash_offset;
- 	u8 rx_hash_key[40];
- 	u32 rx_indir_table[128];
- 	bool rx_scatter;
-@@ -1009,7 +1014,8 @@ struct efx_mtd_partition {
-  * @evq_ptr_tbl_base: Event queue pointer table base address
-  * @evq_rptr_tbl_base: Event queue read-pointer table base address
-  * @max_dma_mask: Maximum possible DMA mask
-- * @rx_buffer_hash_size: Size of hash at start of RX packet
-+ * @rx_prefix_size: Size of RX prefix before packet data
-+ * @rx_hash_offset: Offset of RX flow hash within prefix
-  * @rx_buffer_padding: Size of padding at end of RX packet
-  * @can_rx_scatter: NIC is able to scatter packet to multiple buffers
-  * @max_interrupt_mode: Highest capability interrupt mode supported
-@@ -1126,7 +1132,8 @@ struct efx_nic_type {
- 	unsigned int evq_ptr_tbl_base;
- 	unsigned int evq_rptr_tbl_base;
- 	u64 max_dma_mask;
--	unsigned int rx_buffer_hash_size;
-+	unsigned int rx_prefix_size;
-+	unsigned int rx_hash_offset;
- 	unsigned int rx_buffer_padding;
- 	bool can_rx_scatter;
- 	unsigned int max_interrupt_mode;
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 1299092..7646bb3 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -61,13 +61,12 @@ static inline u8 *efx_rx_buf_va(struct efx_rx_buffer *buf)
- 	return page_address(buf->page) + buf->page_offset;
- }
+@@ -186,6 +186,7 @@ struct efx_tx_buffer {
+  *	variable indicates that the queue is empty.  This is to
+  *	avoid cache-line ping-pong between the xmit path and the
+  *	completion path.
++ * @merge_events: Number of TX merged completion events
+  * @insert_count: Current insert pointer
+  *	This is the number of buffers that have been added to the
+  *	software ring.
+@@ -222,6 +223,7 @@ struct efx_tx_queue {
+ 	/* Members used mainly on the completion path */
+ 	unsigned int read_count ____cacheline_aligned_in_smp;
+ 	unsigned int old_write_count;
++	unsigned int merge_events;
  
--static inline u32 efx_rx_buf_hash(const u8 *eh)
-+static inline u32 efx_rx_buf_hash(struct efx_nic *efx, const u8 *eh)
- {
--	/* The ethernet header is always directly after any hash. */
--#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) || NET_IP_ALIGN % 4 == 0
--	return __le32_to_cpup((const __le32 *)(eh - 4));
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	return __le32_to_cpup((const __le32 *)(eh + efx->rx_packet_hash_offset));
- #else
--	const u8 *data = eh - 4;
-+	const u8 *data = eh + efx->rx_packet_hash_offset;
- 	return (u32)data[0]	  |
- 	       (u32)data[1] << 8  |
- 	       (u32)data[2] << 16 |
-@@ -439,7 +438,7 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
- 	}
+ 	/* Members used only on the xmit path */
+ 	unsigned int insert_count ____cacheline_aligned_in_smp;
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 4903c4f..85ee647 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -437,6 +437,9 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
+ 	efx_dequeue_buffers(tx_queue, index, &pkts_compl, &bytes_compl);
+ 	netdev_tx_completed_queue(tx_queue->core_txq, pkts_compl, bytes_compl);
  
- 	if (efx->net_dev->features & NETIF_F_RXHASH)
--		skb->rxhash = efx_rx_buf_hash(eh);
-+		skb->rxhash = efx_rx_buf_hash(efx, eh);
- 	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
- 			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
- 
-@@ -568,8 +567,8 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 	 */
- 	prefetch(efx_rx_buf_va(rx_buf));
- 
--	rx_buf->page_offset += efx->type->rx_buffer_hash_size;
--	rx_buf->len -= efx->type->rx_buffer_hash_size;
-+	rx_buf->page_offset += efx->rx_prefix_size;
-+	rx_buf->len -= efx->rx_prefix_size;
- 
- 	if (n_frags > 1) {
- 		/* Release/sync DMA mapping for additional fragments.
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 3c0a544..89180d4 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -965,7 +965,8 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
- 	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
- 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
--	.rx_buffer_hash_size = 0x10,
-+	.rx_prefix_size = FS_BZ_RX_PREFIX_SIZE,
-+	.rx_hash_offset = FS_BZ_RX_PREFIX_HASH_OFST,
- 	.rx_buffer_padding = 0,
- 	.can_rx_scatter = true,
- 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
++	if (pkts_compl > 1)
++		++tx_queue->merge_events;
++
+ 	/* See if we need to restart the netif queue.  This memory
+ 	 * barrier ensures that we write read_count (inside
+ 	 * efx_dequeue_buffers()) before reading the queue status.
 
 
 -- 
