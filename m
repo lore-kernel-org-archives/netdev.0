@@ -1,99 +1,152 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v10 02/11] ipv6: move ip6_local_out into core kernel
-Date: Wed, 28 Aug 2013 13:22:50 +0800
-Message-ID: <1377667379-2315-3-git-send-email-amwang@redhat.com>
-References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement ndo_get_phys_port_id
+Date: Wed, 28 Aug 2013 08:05:58 +0200
+Message-ID: <20130828060558.GA1589@minipsycho.orion>
+References: <1375114612-537-1-git-send-email-jiri@resnulli.us>
+ <1375114612-537-5-git-send-email-jiri@resnulli.us>
+ <1377167950.3939.57.camel@jtkirshe-mobl>
+ <20130822131019.GB1421@minipsycho.brq.redhat.com>
+ <309B89C4C689E141A5FF6A0C5FB2118B73070A38@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Narendra_K@Dell.com" <Narendra_K@Dell.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"amwang@redhat.com" <amwang@redhat.com>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59690 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753253Ab3H1FXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Aug 2013 01:23:32 -0400
-In-Reply-To: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:51513 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753914Ab3H1GGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 02:06:03 -0400
+Received: by mail-ea0-f176.google.com with SMTP id q16so2678747ead.21
+        for <netdev@vger.kernel.org>; Tue, 27 Aug 2013 23:06:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B73070A38@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Wed, Aug 28, 2013 at 04:26:28AM CEST, aaron.f.brown@intel.com wrote:
+>Sorry, I was out sick towards the end of last week and playing catch up for the last few days...  Info inline.
+>
+>> From: Jiri Pirko [mailto:jiri@resnulli.us]
+>> Sent: Thursday, August 22, 2013 6:10 AM
+>> To: Kirsher, Jeffrey T
+>> Cc: Brown, Aaron F; netdev@vger.kernel.org; davem@davemloft.net;
+>> stephen@networkplumber.org; Narendra_K@Dell.com;
+>> bhutchings@solarflare.com; or.gerlitz@gmail.com; Wyborny, Carolyn; Rose,
+>> Gregory V; vyasevic@redhat.com; amwang@redhat.com;
+>> johannes@sipsolutions.net
+>> Subject: Re: [patch net-next v6 4/4] igb/igbvf: implement
+>> ndo_get_phys_port_id
+>> 
+>> Thu, Aug 22, 2013 at 12:39:10PM CEST, jeffrey.t.kirsher@intel.com wrote:
+>> >On Mon, 2013-07-29 at 18:16 +0200, Jiri Pirko wrote:
+>> >> igb driver generated random number which will identify physical port.
+>> >> This id is available via ndo_get_phys_port_id directly on igb netdev.
+>> >> Also, id is passed to igbvf using mailbox. After that, it is
+>> >> available via ndo_get_phys_port_id on igbvf netdev as well.
+>> >>
+>> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> >> ---
+>> >>  drivers/net/ethernet/intel/igb/e1000_mbx.h |  1 +
+>> >>  drivers/net/ethernet/intel/igb/igb.h       |  3 +++
+>> >>  drivers/net/ethernet/intel/igb/igb_main.c  | 37
+>> >> ++++++++++++++++++++++++++++-
+>> >>  drivers/net/ethernet/intel/igbvf/igbvf.h   |  4 ++++
+>> >>  drivers/net/ethernet/intel/igbvf/mbx.h     |  1 +
+>> >>  drivers/net/ethernet/intel/igbvf/netdev.c  | 38
+>> >> ++++++++++++++++++++++++++++++
+>> >>  drivers/net/ethernet/intel/igbvf/vf.c      | 34
+>> >> ++++++++++++++++++++++++++
+>> >>  drivers/net/ethernet/intel/igbvf/vf.h      |  1 +
+>> >>  8 files changed, 118 insertions(+), 1 deletion(-)
+>> >
+>> >Jiri-
+>> >
+>> >Validation ran into a couple of issues with this patch.  Here is what
+>> >Aaron found when testing this patch...
+>> 
+>> Interesting. So since igbvf_refresh_ppid() is called from igbvf_reset()
+>> and igbvf_probe(), I believed that is enough. Looks like perm_addr getting
+>> works in similar way. Can you please check if perm_addr is set correctly
+>> in the same time reading phys_port_id gives -EOPNOTSUPP?
+>
+>By perm_addr do you mean the MAC Address of the vf?  Yes, it is set up (and I can view it vi ip link or sysconfig) when I see the op not supported message (after I fi vfs via sysfs, before bringing the vf interface up or reloading igbvf.)
 
-It will be used the vxlan kernel module.
+Can you please send me dmesg log from the system you are testing this?
 
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/ipv6/ip6_output.c  |   25 -------------------------
- net/ipv6/output_core.c |   26 ++++++++++++++++++++++++++
- 2 files changed, 26 insertions(+), 25 deletions(-)
+Looking at the code, it looks like whenever mac.ops.reset_hw() (which
+sets up mac) is called, igbvf_refresh_ppid() is called as well.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6e3ddf8..dd08cfd 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -56,31 +56,6 @@
- #include <net/checksum.h>
- #include <linux/mroute6.h>
- 
--int __ip6_local_out(struct sk_buff *skb)
--{
--	int len;
--
--	len = skb->len - sizeof(struct ipv6hdr);
--	if (len > IPV6_MAXPLEN)
--		len = 0;
--	ipv6_hdr(skb)->payload_len = htons(len);
--
--	return nf_hook(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL,
--		       skb_dst(skb)->dev, dst_output);
--}
--
--int ip6_local_out(struct sk_buff *skb)
--{
--	int err;
--
--	err = __ip6_local_out(skb);
--	if (likely(err == 1))
--		err = dst_output(skb);
--
--	return err;
--}
--EXPORT_SYMBOL_GPL(ip6_local_out);
--
- static int ip6_finish_output2(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index ab92a36..c1c741e 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -75,3 +75,29 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- 	return offset;
- }
- EXPORT_SYMBOL(ip6_find_1stfragopt);
-+
-+int __ip6_local_out(struct sk_buff *skb)
-+{
-+	int len;
-+
-+	len = skb->len - sizeof(struct ipv6hdr);
-+	if (len > IPV6_MAXPLEN)
-+		len = 0;
-+	ipv6_hdr(skb)->payload_len = htons(len);
-+
-+	return nf_hook(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL,
-+		       skb_dst(skb)->dev, dst_output);
-+}
-+EXPORT_SYMBOL_GPL(__ip6_local_out);
-+
-+int ip6_local_out(struct sk_buff *skb)
-+{
-+	int err;
-+
-+	err = __ip6_local_out(skb);
-+	if (likely(err == 1))
-+		err = dst_output(skb);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(ip6_local_out);
--- 
-1.7.7.6
+Thanks
+
+>
+>> 
+>> 
+>> >
+>> >Aaron Brown wrote:
+>> >I think I have to fail this, it seems to have an issue with
+>> >initialization.  When I first create a vf via sysfs the pys_port_id
+>> >file is created along with the other sysfs files for the vf, however an
+>> >attempt to cat out the value returns " Operation not supported".  At
+>> >this point the vf is still down, if I bring it up (or simply unload /
+>> >reload the igbvf driver) I can then cat the file successfully and the
+>> >vf interface phys_port_id matches the phys_port_id of the pf.  This is
+>> >testing from bare metal, a console session showing this behavior
+>> >follows:
+>> >
+>> >u1304:[0]/sys> find . -iname phys_port_id
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+>> >./devices/virtual/net/sit0/phys_port_id
+>> >./devices/virtual/net/lo/phys_port_id
+>> >u1304:[0]/sys> cat
+>> >devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>> >5ece9fbd9cd51546982e15c1f2c11e25
+>> >u1304:[0]/sys>
+>> >
+>> >So far so good, now make a few vfs and check for new phys_port_id sysfs
+>> files.
+>> >
+>> >u1304:[0]/sys> find . -iname sriov_numvfs
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/sriov_numvfs
+>> >u1304:[0]/sys> echo 2 >
+>> devices/pci0000:00/0000:00:01.0/0000:07:00.0/sriov_numvfs
+>> >u1304:[0]/sys> find . -iname phys_port_id
+>> ./devices/pci0000:00/0000:00:01.0/0000:07:00.0/net/eth0/phys_port_id
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:00.1/net/eth1/phys_port_id
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:10.2/net/eth3/phys_port_id
+>> >./devices/virtual/net/sit0/phys_port_id
+>> >./devices/virtual/net/lo/phys_port_id
+>> >u1304:[0]/sys>
+>> >
+>> >The first vf is eth2, attempt to cat out it's phys_port_id
+>> >
+>> >u1304:[0]/sys> cat
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>> >cat:
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id:
+>> >Operation not supported u1304:[0]/sys>
+>> >
+>> >But, if I bring the interface up (or unload / load the igbvf driver) I
+>> then am able to cat the phys_port_id of the vf and it matches the
+>> phys_port_id of the physical interface.
+>> >
+>> >u1304:[0]/sys> ifconfig eth2 u1304-2
+>> >u1304:[0]/sys> cat
+>> >./devices/pci0000:00/0000:00:01.0/0000:07:10.0/net/eth2/phys_port_id
+>> >5ece9fbd9cd51546982e15c1f2c11e25
+>> >u1304:[0]/sys>
+>> 
+>
