@@ -1,49 +1,42 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool 1/3] ethtool: fix ixgbe 82598EB only registers
-Date: Thu, 29 Aug 2013 21:51:10 +0100
-Message-ID: <1377809470.5372.16.camel@bwh-desktop.uk.level5networks.com>
-References: <1377648529-8297-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] realtek: convert to per-chip mask
+Date: Thu, 29 Aug 2013 21:51:41 +0100
+Message-ID: <1377809501.5372.17.camel@bwh-desktop.uk.level5networks.com>
+References: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
+	 <1376429119-31380-2-git-send-email-lekensteyn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jacob Keller <jacob.e.keller@intel.com>, <netdev@vger.kernel.org>,
-	<gospo@redhat.com>, <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: <netdev@vger.kernel.org>, Francois Romieu <romieu@fr.zoreil.com>
+To: Peter Wu <lekensteyn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30930 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:30944 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754354Ab3H2UvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:51:15 -0400
-In-Reply-To: <1377648529-8297-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1755430Ab3H2Uvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:51:44 -0400
+In-Reply-To: <1376429119-31380-2-git-send-email-lekensteyn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-27 at 17:08 -0700, Jeff Kirsher wrote:
-> From: Jacob Keller <jacob.e.keller@intel.com>
+On Tue, 2013-08-13 at 23:25 +0200, Peter Wu wrote:
+> The previous HW_REVID macro did not make identifiers more readable
+> (compared to hex values like 0x12345678) and only allowed for one static
+> mask. To make it easier to update the chips list, let's use similar
+> structures as r8169 and remove HW_REVID.
 > 
-> This patch fixes ixgbe_reg_dump to only display registers specific to the
-> 82598EB part, as these registers display 0xDEADBEEF otherwise, and clutter up
-> the register dump.
+> Names are removed and separated from the table and separated because the
+> mac_version does not have to be unique.
 > 
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  ixgbe.c | 144 +++++++++++++++++++++++++++++++++-------------------------------
->  1 file changed, 75 insertions(+), 69 deletions(-)
+> While at it, change "RTL-xxxx" to "RTLxxxx" to match the names of
+> Realtek and r8169 driver. Besides that, the only output change is when
+> a chip is not recognized in which case "TxConfig" is now mentioned
+> instead of "mask". Since the mask can be anything, the displayed word is
+> not masked either.
 > 
-> diff --git a/ixgbe.c b/ixgbe.c
-> index 9b005f2..89cb6be 100644
-> --- a/ixgbe.c
-> +++ b/ixgbe.c
-[...]
-> -	fprintf(stdout,
-> -		"0x02F20: RDPROBE     (Rx Probe Mode Status)           0x%08X\n",
-> -		regs_buff[1085]);
+> Signed-off-by: Peter Wu <lekensteyn@gmail.com>
 [...]
 
-It looks like this removal really belongs to the next patch, which adds
-it back with the mac_type < ixgbe_mac_X540 condition.
+Applied, thanks.
 
 Ben.
 
