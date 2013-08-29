@@ -1,126 +1,188 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: [PATCH net-next v2] net: neighbour: Remove CONFIG_ARPD
-Date: Thu, 29 Aug 2013 06:38:47 -0600
-Message-ID: <1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
-References: <8761upbd6h.fsf@xmission.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Joe Perches <joe@perches.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8761upbd6h.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port changes
+Date: Thu, 29 Aug 2013 05:54:37 -0700
+Message-ID: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:40792 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752384Ab3H2Myt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 08:54:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This config option is superfluous in that it only guards a call
-to neigh_app_ns(). Enabling CONFIG_ARPD by default has no
-change in behavior. There will now be call to __neigh_notify()
-for each ARP resolution, which has no impact unless there is a
-user space daemon waiting to receive the notification, i.e.,
-the case for which CONFIG_ARPD was designed anyways.
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 
-Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Joe Perches <joe@perches.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
+ndo_del_rx_vxlan_port().
+
+Drivers can get notifications through the above functions about changes
+of the UDP listening port of VXLAN. Also, when physical ports come up,
+now they can call vxlan_get_rx_port() in order to obtain the port number(s)
+of the existing VXLAN interface in case they already up before them.
+
+This information about the listening UDP port would be used for VXLAN
+related offloads.
+
+A big thank you to John Fastabend (john.r.fastabend@intel.com) for his input
+and his suggestions on this patch set.
+
+CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
+v2: Now locking on sock_lock around vxlan_get_rx_port() in order to avoid
+    races with vxlan removing ports and drivers still keeping resources for
+    them.
+---
+ drivers/net/vxlan.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/netdevice.h | 16 ++++++++++++++
+ include/net/vxlan.h       |  1 +
+ 3 files changed, 72 insertions(+), 1 deletion(-)
 
-Eric's suggestion to simply remove the config option makes sense
-to me. If acceptable then I'll submit a patch series that also removes
-CONFIG_ARPD from the various arch defconfigs.
-
- net/core/neighbour.c |    2 --
- net/ipv4/Kconfig     |   16 ----------------
- net/ipv4/arp.c       |    2 --
- net/ipv6/ndisc.c     |    2 --
- 4 files changed, 22 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 60533db..6072610 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2759,13 +2759,11 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 3b21aca..65d1df5 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -456,6 +456,32 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 	return 1;
  }
  
--#ifdef CONFIG_ARPD
- void neigh_app_ns(struct neighbour *n)
++/* Notify netdevs that UDP port started listening */
++static void vxlan_notify_add_rx_port(struct net *net, __be16 port)
++{
++	struct net_device *dev;
++
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
++		if (dev->netdev_ops->ndo_add_vxlan_port)
++			dev->netdev_ops->ndo_add_vxlan_port(dev, htons(port));
++	}
++	rcu_read_unlock();
++}
++
++/* Notify netdevs that UDP port is no more listening */
++static void vxlan_notify_del_rx_port(struct net *net, __be16 port)
++{
++	struct net_device *dev;
++
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
++		if (dev->netdev_ops->ndo_del_vxlan_port)
++			dev->netdev_ops->ndo_del_vxlan_port(dev, htons(port));
++	}
++	rcu_read_unlock();
++}
++
+ /* Add new entry to forwarding table -- assumes lock held */
+ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 			    const u8 *mac, __be32 ip,
+@@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
+ 
+ void vxlan_sock_release(struct vxlan_sock *vs)
  {
- 	__neigh_notify(n, RTM_GETNEIGH, NLM_F_REQUEST);
- }
- EXPORT_SYMBOL(neigh_app_ns);
--#endif /* CONFIG_ARPD */
+-	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
++	struct net *net = sock_net(vs->sock->sk);
++	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
  
- #ifdef CONFIG_SYSCTL
- static int zero;
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 37cf1a6..05c57f0 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -259,22 +259,6 @@ config IP_PIMSM_V2
- 	  gated-5). This routing protocol is not used widely, so say N unless
- 	  you want to play with it.
+ 	if (!atomic_dec_and_test(&vs->refcnt))
+ 		return;
  
--config ARPD
--	bool "IP: ARP daemon support"
--	---help---
--	  The kernel maintains an internal cache which maps IP addresses to
--	  hardware addresses on the local network, so that Ethernet
--	  frames are sent to the proper address on the physical networking
--	  layer. Normally, kernel uses the ARP protocol to resolve these
--	  mappings.
--
--	  Saying Y here adds support to have an user space daemon to do this
--	  resolution instead. This is useful for implementing an alternate
--	  address resolution protocol (e.g. NHRP on mGRE tunnels) and also for
--	  testing purposes.
--
--	  If unsure, say N.
--
- config SYN_COOKIES
- 	bool "IP: TCP syncookie support"
- 	---help---
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 4429b01..7808093 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -368,9 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	} else {
- 		probes -= neigh->parms->app_probes;
- 		if (probes < 0) {
--#ifdef CONFIG_ARPD
- 			neigh_app_ns(neigh);
--#endif
- 			return;
- 		}
- 	}
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 04d31c2..d5693ad 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -663,9 +663,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		}
- 		ndisc_send_ns(dev, neigh, target, target, saddr);
- 	} else if ((probes -= neigh->parms->app_probes) < 0) {
--#ifdef CONFIG_ARPD
- 		neigh_app_ns(neigh);
--#endif
- 	} else {
- 		addrconf_addr_solict_mult(target, &mcaddr);
- 		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
++	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	queue_work(vxlan_wq, &vs->del_work);
+@@ -1543,6 +1571,31 @@ static struct device_type vxlan_type = {
+ 	.name = "vxlan",
+ };
+ 
++/* Calls the ndo_add_vxlan_port of the caller in order to
++ * supply the listening VXLAN udp ports.
++ */
++void vxlan_get_rx_port(struct net_device *dev)
++{
++	struct vxlan_sock *vs;
++	struct net *net = dev_net(dev);
++	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
++	u16 port;
++	int i;
++
++	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
++		return;
++
++	spin_lock(&vn->sock_lock);
++	for (i = 0; i < PORT_HASH_SIZE; ++i) {
++		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
++			port = htons(inet_sk(vs->sock->sk)->inet_sport);
++			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
++		}
++	}
++	spin_unlock(&vn->sock_lock);
++}
++EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
++
+ /* Initialize the device structure. */
+ static void vxlan_setup(struct net_device *dev)
+ {
+@@ -1723,6 +1776,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	inet_sk(sk)->mc_loop = 0;
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
++	vxlan_notify_add_rx_port(net, port);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	/* Mark socket as an encapsulation socket. */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 077363d..f56b141 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -948,6 +948,18 @@ struct netdev_phys_port_id {
+  *	Called to get ID of physical port of this device. If driver does
+  *	not implement this, it is assumed that the hw is not able to have
+  *	multiple net devices on single physical port.
++ *
++ * int (*ndo_add_vxlan_port)(struct  net_device *dev,
++ *			      __u16 port);
++ *	Called by vxlan to notiy a driver about the UDP port that vxlan
++ *	is listnening to. It is called only when a new port starts listening.
++ *	The operation is protected by the vxlan_net->sock_lock.
++ *
++ * int (*ndo_del_vxlan_port)(struct  net_device *dev,
++ *			    __u16 port);
++ *	Called by vxlan to notify the driver about a UDP port of vxlan
++ *	that is not listening anymore. The operation is protected by
++ *	the vxlan_net->sock_lock.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1078,6 +1090,10 @@ struct net_device_ops {
+ 						      bool new_carrier);
+ 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+ 							struct netdev_phys_port_id *ppid);
++	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
++						      __u16 port);
++	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
++						      __u16 port);
+ };
+ 
+ /*
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index ad342e3..a0dc497 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -36,4 +36,5 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
+ 
+ __be16 vxlan_src_port(__u16 port_min, __u16 port_max, struct sk_buff *skb);
+ 
++void vxlan_get_rx_port(struct net_device *netdev);
+ #endif
 -- 
-1.7.9.5
+1.8.3.1
