@@ -1,63 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/10] ixgbe: cleanup some log messages
-Date: Thu, 29 Aug 2013 03:50:02 -0700
-Message-ID: <1377773406-24851-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/10] ixgbe: fix SFF data dumps of SFP+ modules from an offset
+Date: Thu, 29 Aug 2013 03:50:03 -0700
+Message-ID: <1377773406-24851-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:56411 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756226Ab3H2Ku3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 06:50:29 -0400
+	id S1756023Ab3H2Kub (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 06:50:31 -0400
 In-Reply-To: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Some minor log messages cleanup, changing the level one message is logged,
-adding a bit of detail to another and put all the text on one line.
+This patch fixes the read loop for the I2C data to account for the offset.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Also includes a whitespace cleanup and removes ret_val as it is not needed.
+
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 6 ++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  | 2 +-
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index cf1b41e..4688057 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7605,10 +7605,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	    hw->mac.type == ixgbe_mac_82598EB) {
- 		err = 0;
- 	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
--		e_dev_err("failed to load because an unsupported SFP+ "
--			  "module type was detected.\n");
--		e_dev_err("Reload the driver after installing a supported "
--			  "module.\n");
-+		e_dev_err("failed to load because an unsupported SFP+ or QSFP module type was detected.\n");
-+		e_dev_err("Reload the driver after installing a supported module.\n");
- 		goto err_sw_init;
- 	} else if (err) {
- 		e_dev_err("HW Init failed: %d\n", err);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 6a4a799..033997b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1282,7 +1282,7 @@ s32 ixgbe_identify_qsfp_module_generic(struct ixgbe_hw *hw)
- 				status = 0;
- 			} else {
- 				if (hw->allow_unsupported_sfp == true) {
--					e_warn(hw, "WARNING: Intel (R) Network Connections are quality tested using Intel (R) Ethernet Optics. Using untested modules is not supported and may cause unstable operation or damage to the module or the adapter. Intel Corporation is not responsible for any harm caused by using untested modules.\n");
-+					e_warn(drv, "WARNING: Intel (R) Network Connections are quality tested using Intel (R) Ethernet Optics. Using untested modules is not supported and may cause unstable operation or damage to the module or the adapter. Intel Corporation is not responsible for any harm caused by using untested modules.\n");
- 					status = 0;
- 				} else {
- 					hw_dbg(hw,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index b6f1592..2d0308e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2946,28 +2946,27 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ 	u32 status = IXGBE_ERR_PHY_ADDR_INVALID;
+ 	u8 databyte = 0xFF;
+ 	int i = 0;
+-	int ret_val = 0;
+ 
+ 	if (ee->len == 0)
+ 		return -EINVAL;
+ 
+-	for (i = ee->offset; i < ee->len; i++) {
++	for (i = ee->offset; i < ee->offset + ee->len; i++) {
+ 		/* I2C reads can take long time */
+ 		if (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
+ 			return -EBUSY;
+ 
+ 		if (i < ETH_MODULE_SFF_8079_LEN)
+-			status  = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
++			status = hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
+ 		else
+ 			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
+ 
+ 		if (status != 0)
+-			ret_val = -EIO;
++			return -EIO;
+ 
+ 		data[i - ee->offset] = databyte;
+ 	}
+ 
+-	return ret_val;
++	return 0;
+ }
+ 
+ static const struct ethtool_ops ixgbe_ethtool_ops = {
 -- 
 1.8.3.1
