@@ -1,76 +1,70 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port
- changes
-Date: Thu, 29 Aug 2013 12:55:59 -0700 (PDT)
-Message-ID: <alpine.LFD.2.03.1308291254290.25550@intel.com>
-References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com> <1377801778.5372.8.camel@bwh-desktop.uk.level5networks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
+Date: Thu, 29 Aug 2013 15:51:31 -0400 (EDT)
+Message-ID: <20130829.155131.1753610025310087003.davem@davemloft.net>
+References: <1377304192.8828.43.camel@edumazet-glaptop>
+	<1377491162.8828.116.camel@edumazet-glaptop>
+	<1377607592.8828.149.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	vanj@google.com, therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:30030 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755556Ab3H2TlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 15:41:06 -0400
-In-Reply-To: <1377801778.5372.8.camel@bwh-desktop.uk.level5networks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37521 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754973Ab3H2Tvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 15:51:36 -0400
+In-Reply-To: <1377607592.8828.149.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 27 Aug 2013 05:46:32 -0700
 
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> After hearing many people over past years complaining against TSO being
+> bursty or even buggy, we are proud to present automatic sizing of TSO
+> packets.
+> 
+> One part of the problem is that tcp_tso_should_defer() uses an heuristic
+> relying on upcoming ACKS instead of a timer, but more generally, having
+> big TSO packets makes little sense for low rates, as it tends to create
+> micro bursts on the network, and general consensus is to reduce the
+> buffering amount.
+> 
+> This patch introduces a per socket sk_pacing_rate, that approximates
+> the current sending rate, and allows us to size the TSO packets so
+> that we try to send one packet every ms.
+> 
+> This field could be set by other transports.
+> 
+> Patch has no impact for high speed flows, where having large TSO packets
+> makes sense to reach line rate.
+> 
+> For other flows, this helps better packet scheduling and ACK clocking.
+> 
+> This patch increases performance of TCP flows in lossy environments.
+> 
+> A new sysctl (tcp_min_tso_segs) is added, to specify the
+> minimal size of a TSO packet (default being 2).
+> 
+> A follow-up patch will provide a new packet scheduler (FQ), using
+> sk_pacing_rate as an input to perform optional per flow pacing.
+> 
+> This explains why we chose to set sk_pacing_rate to twice the current
+> rate, allowing 'slow start' ramp up.
+> 
+> sk_pacing_rate = 2 * cwnd * mss / srtt
+>  
+> v2: Neal Cardwell reported a suspect deferring of last two segments on
+> initial write of 10 MSS, I had to change tcp_tso_should_defer() to take
+> into account tp->xmit_size_goal_segs 
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-On Thu, 29 Aug 2013, Ben Hutchings wrote:
+Applied, please post a new copy of your accompanying packet scheduler.
 
-> On Thu, 2013-08-29 at 05:54 -0700, Jeff Kirsher wrote:
-> > From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> > 
-> > This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
-> > ndo_del_rx_vxlan_port().
-> [...]
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -948,6 +948,18 @@ struct netdev_phys_port_id {
-> >   *	Called to get ID of physical port of this device. If driver does
-> >   *	not implement this, it is assumed that the hw is not able to have
-> >   *	multiple net devices on single physical port.
-> > + *
-> > + * int (*ndo_add_vxlan_port)(struct  net_device *dev,
-> > + *			      __u16 port);
-> > + *	Called by vxlan to notiy a driver about the UDP port that vxlan
-> > + *	is listnening to. It is called only when a new port starts listening.
-> > + *	The operation is protected by the vxlan_net->sock_lock.
-> > + *
-> > + * int (*ndo_del_vxlan_port)(struct  net_device *dev,
-> > + *			    __u16 port);
-> > + *	Called by vxlan to notify the driver about a UDP port of vxlan
-> > + *	that is not listening anymore. The operation is protected by
-> > + *	the vxlan_net->sock_lock.
-> >   */
-> >  struct net_device_ops {
-> >  	int			(*ndo_init)(struct net_device *dev);
-> > @@ -1078,6 +1090,10 @@ struct net_device_ops {
-> >  						      bool new_carrier);
-> >  	int			(*ndo_get_phys_port_id)(struct net_device *dev,
-> >  							struct netdev_phys_port_id *ppid);
-> > +	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
-> > +						      __u16 port);
-> > +	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
-> > +						      __u16 port);
-> >  };
-> [...]
-> 
-> I notice these are defined to return int, but the callers don't check
-> the return value.  Should they return void or do the callers need some
-> error handling?
-> 
-> Ben.
-> 
-> 
-You are right Ben, these should be defined to return void. Will fix that 
-asap.
-
-Joseph
+Thanks.
