@@ -1,104 +1,149 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: =?UTF-8?Q?Re=3A_Is_fallback_vhost=5Fnet_to_qemu_for_live_migrate_a?=
-	=?UTF-8?Q?vailable=EF=BC=9F?=
-Date: Thu, 29 Aug 2013 11:08:24 -0500
-Message-ID: <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com>
-References: <521C1DCF.5090202@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, jasowang@redhat.com,
-	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org,
-	qianhuibin@huawei.com,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Qin Chuanyu <qinchuanyu@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: ipv6: mldv1/v2: fix switchback timeout to rfc3810, 9.12.
+Date: Thu, 29 Aug 2013 18:09:38 +0200
+Message-ID: <1377792578-32642-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:43221 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753938Ab3H2QIZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 12:08:25 -0400
-Received: by mail-ob0-f172.google.com with SMTP id er7so691746obc.17
-        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 09:08:24 -0700 (PDT)
-In-Reply-To: <521C1DCF.5090202@huawei.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42605 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753874Ab3H2QOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 12:14:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Qin,
+i) RFC3810, 9.2. Query Interval [QI] says:
 
-On Mon, Aug 26, 2013 at 10:32 PM, Qin Chuanyu <qinchuanyu@huawei.com> w=
-rote:
-> Hi all
->
-> I am participating in a project which try to port vhost_net on Xen=E3=
-=80=82
+   The Query Interval variable denotes the interval between General
+   Queries sent by the Querier. Default value: 125 seconds. [...]
 
-Neat!
+ii) RFC3810, 9.3. Query Response Interval [QRI] says:
 
-> By change the memory copy and notify mechanism =EF=BC=8Ccurrently vir=
-tio-net with
-> vhost_net could run on Xen with good performance=E3=80=82
+  The Maximum Response Delay used to calculate the Maximum Response
+  Code inserted into the periodic General Queries. Default value:
+  10000 (10 seconds) [...] The number of seconds represented by the
+  [Query Response Interval] must be less than the [Query Interval].
 
-I think the key in doing this would be to implement a property
-ioeventfd and irqfd interface in the driver domain kernel.  Just
-hacking vhost_net with Xen specific knowledge would be pretty nasty
-IMHO.
+iii) RFC3810, 9.12. Older Version Querier Present Timeout [OVQPT] says:
 
-Did you modify the front end driver to do grant table mapping or is
-this all being done by mapping the domain's memory?
+  The Older Version Querier Present Timeout is the time-out for
+  transitioning a host back to MLDv2 Host Compatibility Mode. When an
+  MLDv1 query is received, MLDv2 hosts set their Older Version Querier
+  Present Timer to [Older Version Querier Present Timeout].
 
-> TCP receive throughput of
-> single vnic from 2.77Gbps up to 6Gps=E3=80=82In VM receive side=EF=BC=
-=8CI instead grant_copy
-> with grant_map + memcopy=EF=BC=8Cit efficiently reduce the cost of gr=
-ant_table
-> spin_lock of dom0=EF=BC=8CSo the hole server TCP performance from 5.3=
-3Gps up to
-> 9.5Gps=E3=80=82
->
-> Now I am consider the live migrate of vhost_net on Xen=EF=BC=8Cvhost_=
-net use
-> vhost_log for live migrate on Kvm=EF=BC=8Cbut qemu on Xen havn't mana=
-ge the hole
-> memory of VM=EF=BC=8CSo I am trying to fallback datapath from vhost_n=
-et to qemu when
-> doing live migrate =EF=BC=8Cand fallback datapath from qemu to
-> vhost_net again after vm migrate to new server=E3=80=82
+  This value MUST be ([Robustness Variable] times (the [Query Interval]
+  in the last Query received)) plus ([Query Response Interval]).
 
-KVM and Xen represent memory in a very different way.  KVM can only
-track when guest mode code dirties memory.  It relies on QEMU to track
-when guest memory is dirtied by QEMU.  Since vhost is running outside
-of QEMU, vhost also needs to tell QEMU when it has dirtied memory.
+Hence, on default the timeout results in:
 
-I don't think this is a problem with Xen though.  I believe (although
-could be wrong) that Xen is able to track when either the domain or
-dom0 dirties memory.
+  [RV] = 2, [QI] = 125sec, [QRI] = 10sec
+  [OVQPT] = [RV] * [QI] + [QRI] = 260sec
 
-So I think you can simply ignore the dirty logging with vhost and it
-should Just Work.
+Having that said, we currently calculate [OVQPT] (here given as 'switchback'
+variable) as ...
 
->
-> My question is=EF=BC=9A
->         why didn't vhost_net do the same fallback operation for live =
-migrate
-> on KVM=EF=BC=8Cbut use vhost_log to mark the dirty page=EF=BC=9F
->         Is there any mechanism fault for the idea of fallback datapat=
-h from
-> vhost_net to qemu for live migrate=EF=BC=9F
+  switchback = (idev->mc_qrv + 1) * max_delay
 
-No, we don't have a mechanism to fallback  to QEMU for the datapath.
-It would be possible but I think it's a bad idea to mix and match the
-two.
+Looking at bridging multicast code for MLDv1, we can see that [QRI] resp.
+Maximum Response Delay is encoded into mld->mld_maxdelay, so getting [QRI]
+in MLDv1 the way we do is correct, but [QI] does not appear in our current
+switch back variant. Side note: briding code will set its timers as follows:
 
-Regards,
+  ...
+  br->multicast_query_response_interval = 10 * HZ;
+  br->multicast_startup_query_interval = 125 * HZ / 4;
+  br->multicast_query_interval = 125 * HZ;
+  ...
 
-Anthony Liguori
+Concluding, the current behaviour in IPv6's multicast code is not conform
+to the RFC as switch back is calculated wrongly. That is, it has a too small
+value, so MLDv2 hosts switch back again to MLDv2 way too early.
 
-> any question about the detail of vhost_net on Xen is welcome=E3=80=82
->
-> Thanks
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On the other hand, RFC3810, 9.12. says "the [Query Interval] in the last Query
+received". In section "9.14. Configuring timers", it is said:
+
+  This section is meant to provide advice to network administrators on
+  how to tune these settings to their network. Ambitious router
+  implementations might tune these settings dynamically based upon
+  changing characteristics of the network. [...]
+
+iv) RFC38010, 9.14.2. Query Interval:
+
+  The overall level of periodic MLD traffic is inversely proportional
+  to the Query Interval. A longer Query Interval results in a lower
+  overall level of MLD traffic. The value of the Query Interval MUST
+  be equal to or greater than the Maximum Response Delay used to
+  calculate the Maximum Response Code inserted in General Query
+  messages.
+
+I assume that is why switchback is calculated as is (3 * max_delay), although
+this setting seems to be meant for routers only to configure their [QI]
+interval for non-default intervals.
+
+Also again, looking at the 'opposite site' in bridging code, the following
+is happening: If a bridge sends out a query itself via br_multicast_send_query(),
+multicast_query_timer is reset with br->multicast_query_interval (if we're not
+in startup), that is on default 125 * HZ.
+
+Therefore, when an MLDv1 query is received fix it up to use the default
+timeout of 125 * HZ (as we also have in bridging code for intervals
+queries are sent).
+
+Next to that, a follow-up patch after the fix could make MLD_QI_DEFAULT tunable
+per idev.
+
+Introduced in 06da92283 ("[IPV6]: Add MLDv2 support.").
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: David Stevens <dlstevens@us.ibm.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ - I chose net-next as this is not something critical such as fixing a panic.
+ - Note, commit 06da92283 is in linux-history tree.
+ - David Stevens, it would be great if you could comment on this. :)
+
+ net/ipv6/mcast.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 98ead2b..4b0aa5a 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -108,6 +108,8 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ 			    struct inet6_dev *idev);
+ 
+ #define MLD_QRV_DEFAULT		2
++/* RFC3810, 9.2. Query Interval */
++#define MLD_QI_DEFAULT		(125 * HZ)
+ 
+ /* RFC3810, 8.1 Query Version Distinctions */
+ #define MLD_V1_QUERY_LEN	24
+@@ -1150,11 +1152,24 @@ int igmp6_event_query(struct sk_buff *skb)
+ 		return -EINVAL;
+ 
+ 	if (len == MLD_V1_QUERY_LEN) {
++		int mc_qi = MLD_QI_DEFAULT;
+ 		int switchback;
+ 		/* MLDv1 router present */
+ 
++		/* RFC3810, 9.12. Older Version Querier Present Timeout:
++		 *
++		 * The Older Version Querier Present Timeout is the time-out
++		 * for transitioning a host back to MLDv2 Host Compatibility
++		 * Mode. When an MLDv1 query is received, MLDv2 hosts set
++		 * their Older Version Querier Present Timer to [Older Version
++		 * Querier Present Timeout].
++		 *
++		 * This value MUST be ([Robustness Variable] times (the
++		 * [Query Interval] in the last Query received)) plus
++		 * ([Query Response Interval]).
++		 */
+ 		max_delay = msecs_to_jiffies(ntohs(mld->mld_maxdelay));
+-		switchback = (idev->mc_qrv + 1) * max_delay;
++		switchback = idev->mc_qrv * mc_qi + max_delay;
+ 		idev->mc_v1_seen = jiffies + switchback;
+ 
+ 		/* cancel the interface change timer */
+-- 
+1.7.11.7
