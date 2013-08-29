@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] net: sctp: sctp_verify_init: clean up
- mandatory checks and add comment
-Date: Thu, 29 Aug 2013 15:55:27 -0400 (EDT)
-Message-ID: <20130829.155527.1331594681514143386.davem@davemloft.net>
-References: <1377615232-11412-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] virtio-net: Set RXCSUM feature if GUEST_CSUM is available
+Date: Thu, 29 Aug 2013 15:57:04 -0400 (EDT)
+Message-ID: <20130829.155704.248095796202059854.davem@davemloft.net>
+References: <1377616142-29590-1-git-send-email-thuth@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37574 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755383Ab3H2Tza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 15:55:30 -0400
-In-Reply-To: <1377615232-11412-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: thuth@linux.vnet.ibm.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1377616142-29590-1-git-send-email-thuth@linux.vnet.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 27 Aug 2013 16:53:52 +0200
+From: Thomas Huth <thuth@linux.vnet.ibm.com>
+Date: Tue, 27 Aug 2013 17:09:02 +0200
 
-> Add a comment related to RFC4960 explaning why we do not check for initial
-> TSN, and while at it, remove yoda notation checks and clean up code from
-> checks of mandatory conditions. That's probably just really minor, but makes
-> reviewing easier.
+> If the VIRTIO_NET_F_GUEST_CSUM virtio feature is available, the guest
+> does not have to calculate the checksums on all received packets. This
+> is pretty much the same feature as RX checksum offloading on real
+> network cards, so the virtio-net driver should report this by setting
+> the NETIF_F_RXCSUM flag. When the user now runs "ethtool -k", he or she
+> can see whether the virtio-net interface has to calculate RX checksums
+> or not.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Thomas Huth <thuth@linux.vnet.ibm.com>
 
-Applied, thanks.
+Can one of the virtio_net folks please review this?
+
+Thanks.
