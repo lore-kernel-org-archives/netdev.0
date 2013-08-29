@@ -1,40 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2013-08-28
-Date: Thu, 29 Aug 2013 01:45:34 -0400 (EDT)
-Message-ID: <20130829.014534.666385498886400918.davem@davemloft.net>
-References: <1377689291-2412-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP
+ exception table
+Date: Wed, 28 Aug 2013 23:51:49 -0600
+Message-ID: <20130828235149.47bc9db9ac701167d0d03998@gmail.com>
+References: <20130828171812.7097dc8334046b464486d4a3@gmail.com>
+	<20130828.200111.1548126886406334118.davem@davemloft.net>
+	<20130828184022.9a5b54e8df63aaf8c82bf9b5@gmail.com>
+	<20130829.003352.1187611479213752660.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1377689291-2412-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130829.003352.1187611479213752660.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Wed, 28 Aug 2013 13:28:07 +0200
+On Thu, 29 Aug 2013 00:33:52 -0400 (EDT)
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-> here is a small pull request intended for net-next/linux-3.12.
+> From: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Wed, 28 Aug 2013 18:40:22 -0600
 > 
-> In this batch you have two really minor things (code rearranging and version
-> increment) and two behavioural changes:
-> 1) the 'protocol' field of outgoing SKBs is now set according to the type of
->    the payload that batman-adv is going to encapsulate;
-> 2) a uevent is now sent when a node exits the "GW client" mode. This is done in
->    order to tell userspace that a remote "GW server" is not available anymore.
+> > The exception list means "usb_device_id entries for specific devices
+> > that are known to need the workaround." There are just two such entries.
+> > There isn't even a separate list. So maybe we just have a nomenclature
+> > problem, and we could simply be calling this a "white list" instead of
+> > "exception list". The other possible meaning of whitelist (all devices
+> > that *don't* need the workaround) is unthinkable, as that would be a huge
+> > list and much more prone to be unmanageable than what we've got now.
 > 
-> Please pull or let me know of any problem!
+> Ok I misunderstood.  I thought we were discoving that all chips which
+> have been thoroughly investigated end up needing the workaround.
+> 
+> I guess it's only a specific family of these chips which seem to all
+> have the problem?
 
-Pulled, thanks Antonio.
+Yes. The first one was the Sierra MC7710, and the second is the one
+that I discovered, the HP hs2434, which is actually manufactured by
+Sierra. So it may be an issue specific to Sierra, but unfortunately the
+hs2434 uses HP's manufacturer id (0x3f0) and not Sierra's manufacturer
+id (0x1199) so we can't just discriminate based on that.
+
+-- 
+Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
