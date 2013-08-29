@@ -1,35 +1,55 @@
-From: "liujunliang_ljl" <liujunliang_ljl@163.com>
-Subject: Re: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NET SR9700Device Driver Support
-Date: Thu, 29 Aug 2013 11:29:11 +0800
-Message-ID: <201308291129106719661@163.com>
-References: <1377343560-10524-1-git-send-email-liujunliang_ljl@163.com>,
- <20130828.174358.2008772380026126644.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 8/8] xfrm: Fix potential null pointer dereference in
+ xdst_queue_output
+Date: Thu, 29 Aug 2013 06:27:57 +0200
+Message-ID: <20130829042757.GF7660@secunet.com>
+References: <1377687895-5780-1-git-send-email-steffen.klassert@secunet.com>
+ <1377687895-5780-9-git-send-email-steffen.klassert@secunet.com>
+ <1377689787.8828.179.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "horms" <horms@verge.net.au>, "joe" <joe@perches.com>,
-	"romieu" <romieu@fr.zoreil.com>,
-	"gregkh" <gregkh@linuxfoundation.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-usb" <linux-usb@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"sunhecheng" <sunhecheng@vip.126.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:45513 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752132Ab3H2E17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 00:27:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1377689787.8828.179.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RGVhciBEYXZpZCA6IA0KDQoJCVRoYW5rcyBhIGxvdC4gcGxlYXNlIGNoZWNrIHRoZSBwYXRjaC4g
-dGhhbmtzIGFnYWluLg0KDQoNCjIwMTMtMDgtMjkgDQoNCg0KDQpsaXVqdW5saWFuZ19samwgDQoN
-Cg0KDQq3orz+yMujuiBEYXZpZCBNaWxsZXIgDQq3osvNyrG85KO6IDIwMTMtMDgtMjkgIDA1OjQ0
-OjA2IA0KytW8/sjLo7ogbGl1anVubGlhbmdfbGpsIA0Ks63LzaO6IGhvcm1zOyBqb2U7IHJvbWll
-dTsgZ3JlZ2toOyBuZXRkZXY7IGxpbnV4LXVzYjsgbGludXgta2VybmVsOyBzdW5oZWNoZW5nIA0K
-1vfM4qO6IFJlOiBbUEFUQ0hdIFVTQjJORVQgOiBTUjk3MDAgOiBPbmUgY2hpcCBVU0IgMS4xIFVT
-QjJORVQgU1I5NzAwRGV2aWNlIERyaXZlciBTdXBwb3J0IA0KIA0KRnJvbTogbGl1anVubGlhbmdf
-bGpsQDE2My5jb20NCkRhdGU6IFNhdCwgMjQgQXVnIDIwMTMgMTk6MjY6MDAgKzA4MDANCj4gRnJv
-bTogbGl1amwgPGxpdWp1bmxpYW5nX2xqbEAxNjMuY29tPg0KWW91ciBwcm9wZXIgbmFtZSBpcyBu
-b3QgImxpdWpsIiwgcGxlYXNlIHB1dCBzb21ldGhpbmcgbW9yZSByZWFzb25hYmxlDQpoZXJlIGFu
-ZCBhbHNvIGluIHlvdXIgU2lnbm9mZi4NCkFsc28sIGludGVncmF0ZSBKb2UgUGVyY2hlcydzIHdo
-aXRlIHNwYWNlIGZpeGVzIGludG8gdGhpcyBwYXRjaCBhcyBwYXJ0DQpvZiB5b3VyIHJlc3VibWlz
-c2lvbi4NClRoYW5rIHlvdS4NCg==
+On Wed, Aug 28, 2013 at 04:36:27AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-08-28 at 13:04 +0200, Steffen Klassert wrote:
+> > ---
+> >  net/xfrm/xfrm_policy.c |    9 +--------
+> >  1 file changed, 1 insertion(+), 8 deletions(-)
+> > 
+> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> > index e52cab3..f77c371 100644
+> > --- a/net/xfrm/xfrm_policy.c
+> > +++ b/net/xfrm/xfrm_policy.c
+> > @@ -320,10 +320,8 @@ static void xfrm_queue_purge(struct sk_buff_head *list)
+> >  {
+> >  	struct sk_buff *skb;
+> >  
+> > -	while ((skb = skb_dequeue(list)) != NULL) {
+> > -		dev_put(skb->dev);
+> > +	while ((skb = skb_dequeue(list)) != NULL)
+> >  		kfree_skb(skb);
+> > -	}
+> >  }
+> >  
+> 
+> xfrm_queue_purge() now looks a lot like skb_queue_purge() ;)
+> 
+
+Oh, indeed. Looks like I was too much focused on fixing this bug
+to notice that this function looks familiar now ;)
+
+I'll do a followup patch to remove xfrm_queue_purge() in favor of
+skb_queue_purge() or I generate an updated pull request, depending
+what David prefers.
