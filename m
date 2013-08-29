@@ -1,30 +1,48 @@
-From: Michael Rossberg <michael.rossberg@tu-ilmenau.de>
-Subject: Question about NBMA tunnels for IPv6
-Date: Thu, 29 Aug 2013 11:03:56 +0200
-Message-ID: <016C7C5A-5FCD-44C6-99CF-B730A0291B61@tu-ilmenau.de>
-Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH stable] ipv6: restrict neighbor entry creation to output
+ flow
+Date: Thu, 29 Aug 2013 11:21:38 +0200
+Message-ID: <20130829092138.GA1450@minipsycho.brq.redhat.com>
+References: <abab9dc5af4b61da70672b99ad80175b94b4ec68.1376488215.git.mleitner@redhat.com>
+ <20130814150054.GB2723@order.stressinduktion.org>
+ <20130815.155454.417440388188230172.davem@davemloft.net>
+ <20130828140958.GA10015@minipsycho.brq.redhat.com>
+ <20130828141231.GB12353@order.stressinduktion.org>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org, dbanerje@akamai.com,
+	yoshfuji@linux-ipv6.org, hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wega.rz.tu-ilmenau.de ([141.24.4.159]:39206 "EHLO
-	wega.rz.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755578Ab3H2JLA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 05:11:00 -0400
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:39278 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751650Ab3H2JVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 05:21:42 -0400
+Received: by mail-ee0-f47.google.com with SMTP id d49so98619eek.34
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 02:21:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130828141231.GB12353@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi everybody,
+Wed, Aug 28, 2013 at 04:12:31PM CEST, hannes@stressinduktion.org wrote:
+>On Wed, Aug 28, 2013 at 04:09:58PM +0200, Jiri Pirko wrote:
+>> Dave, is it possible to see the queue somewhere?
+>
+>Here: <http://patchwork.ozlabs.org/bundle/davem/stable/?state=*>
+>
+>Greetings,
+>
+>  Hannes
+>
 
-Linux offers a so-called NBMA mode for IPv4 tunnels, i.e., one can set the destination 
-address of a tunnel to 0.0.0.0 and specify the destination on a per packet basis using 
-the gateway field in routes. For IPv6 tunnels this option seems to be non existing. 
-Thus, a distinguished tunnel device has to be added for each possible endpoint. 
-In scenarios with many endpoints this does not scale too well.
+Great. Thanks.
 
-Is there any reason for NBMA mode to be not present for v6 (except nobody having
-the time to implement it)? If no - is there anything special to look at in order to get 
-such a feature upstream?
-Thanks,
+ccing Ben.
 
-Mick
+Dave, Ben told me he did not receive this patch from you yet and
+told me to bug you. So I'm doing that :)
+
+Thanks
+
+Jiri
