@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] pf_packet updates
-Date: Thu, 29 Aug 2013 01:39:38 -0400 (EDT)
-Message-ID: <20130829.013938.2144325735677512661.davem@davemloft.net>
-References: <1377720791-15844-1-git-send-email-dborkman@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2013-08-28
+Date: Thu, 29 Aug 2013 01:45:34 -0400 (EDT)
+Message-ID: <20130829.014534.666385498886400918.davem@davemloft.net>
+References: <1377689291-2412-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55005 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753246Ab3H2Fjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 01:39:40 -0400
-In-Reply-To: <1377720791-15844-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1377689291-2412-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 28 Aug 2013 22:13:08 +0200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Wed, 28 Aug 2013 13:28:07 +0200
 
-> Daniel Borkmann (3):
->   net: packet: add random fanout scheduler
->   net: packet: use reciprocal_divide in fanout_demux_hash
->   net: packet: document available fanout policies
+> here is a small pull request intended for net-next/linux-3.12.
+> 
+> In this batch you have two really minor things (code rearranging and version
+> increment) and two behavioural changes:
+> 1) the 'protocol' field of outgoing SKBs is now set according to the type of
+>    the payload that batman-adv is going to encapsulate;
+> 2) a uevent is now sent when a node exits the "GW client" mode. This is done in
+>    order to tell userspace that a remote "GW server" is not available anymore.
+> 
+> Please pull or let me know of any problem!
 
-Please add the missing reciprocal_divide.h include to the second
-patch, as per Eric Dumazet's feedback, and resubmit this series.
-
-Thanks.
+Pulled, thanks Antonio.
