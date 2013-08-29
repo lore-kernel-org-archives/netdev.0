@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] xen-netback: switch to NAPI + kthread 1:1
- model
-Date: Thu, 29 Aug 2013 01:23:23 -0400 (EDT)
-Message-ID: <20130829.012323.1851891213109836987.davem@davemloft.net>
-References: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [patch -next] qlcnic: underflow in
+ qlcnic_validate_max_tx_rings()
+Date: Thu, 29 Aug 2013 01:24:46 -0400 (EDT)
+Message-ID: <20130829.012446.182167937298557296.davem@davemloft.net>
+References: <20130827011622.GB17061@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	ian.campbell@citrix.com, msw@amazon.com, konrad.wilk@oracle.com,
-	annie.li@oracle.com
-To: wei.liu2@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54865 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282Ab3H2FX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 01:23:27 -0400
-In-Reply-To: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: himanshu.madhani@qlogic.com, rajesh.borundia@qlogic.com,
+	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
+	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130827011622.GB17061@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Mon, 26 Aug 2013 12:59:36 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 27 Aug 2013 04:16:22 +0300
 
-> This series implements NAPI + kthread 1:1 model for Xen netback.
+> This function checks the upper bound but it doesn't check for negative
+> numbers:
+> 
+> 	if (txq > QLCNIC_MAX_TX_RINGS) {
+> 
+> I've solved this by making "txq" a u32 type.  I chose that because
+> ->tx_count in the ethtool_channels struct is a __u32.
+> 
+> This bug was added in aa4a1f7df7 ('qlcnic: Enable Tx queue changes using
+> ethtool for 82xx Series adapter.').
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Series applied to net-next, thanks.
+Applied, thanks.
