@@ -1,56 +1,75 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 2/2] sh_eth: Enable Rx descriptor word 0 shift
- for r8a7790
-Date: Thu, 29 Aug 2013 09:06:42 +0900
-Message-ID: <20130829000642.GB10207@verge.net.au>
-References: <1377650589-20960-1-git-send-email-horms+renesas@verge.net.au>
- <1377650589-20960-3-git-send-email-horms+renesas@verge.net.au>
- <521E11CA.1020503@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: separate querier and query timer into
+ IGMP/IPv4 and MLD/IPv6 ones
+Date: Wed, 28 Aug 2013 20:08:31 -0400 (EDT)
+Message-ID: <20130828.200831.289304393401193657.davem@davemloft.net>
+References: <1377511266-14530-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
-	Kouei Abe <kouei.abe.cp@renesas.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <521E11CA.1020503@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux@baker-net.org.uk, stephen@networkplumber.org,
+	herbert@gondor.apana.org.au
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1377511266-14530-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 28, 2013 at 07:05:46PM +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 08/28/2013 04:43 AM, Simon Horman wrote:
-> 
-> >From: Kouei Abe <kouei.abe.cp@renesas.com>
-> 
-> >This corrects an oversight when r8a7790 support was added to sh_eth.
-> 
->    No wonder it was overseen -- it's undocumented as of version 0.60
-> of the manual.
-> 
-> >Signed-off-by: Kouei Abe <kouei.abe.cp@renesas.com>
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >---
-> >  drivers/net/ethernet/renesas/sh_eth.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> 
-> >diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> >index f386a8f..095ca8e 100644
-> >--- a/drivers/net/ethernet/renesas/sh_eth.c
-> >+++ b/drivers/net/ethernet/renesas/sh_eth.c
-> >@@ -416,6 +416,7 @@ static struct sh_eth_cpu_data r8a7790_data = {
-> >  	.tpauser	= 1,
-> >  	.hw_swap	= 1,
-> >  	.rmiimode	= 1,
-> >+	.shift_rd0	= 1,
-> 
->    I've seen the corresponding code in a Renesas BSP but wanted to
-> double check before sending...
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Mon, 26 Aug 2013 12:01:06 +0200
 
-That is entirely reasonable.
+> Currently we would still potentially suffer multicast packet loss if =
+there
+> is just either an IGMP or an MLD querier: For the former case, we wou=
+ld
+> possibly drop IPv6 multicast packets, for the latter IPv4 ones. This =
+is
+> because we are currently assuming that if either an IGMP or MLD queri=
+er
+> is present that the other one is present, too.
+> =
 
-I think that this email from Abe-san can count as a double-check.
+> This patch makes the behaviour and fix added in
+> "bridge: disable snooping if there is no querier" (b00589af3b04)
+> to also work if there is either just an IGMP or an MLD querier on the=
 
+> link: It refines the deactivation of the snooping to be protocol
+> specific by using separate timers for the snooped IGMP and MLD querie=
+s
+> as well as separate timers for our internal IGMP and MLD queriers.
+> =
 
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+
+I think the logic of the fix is fine, but theres a lot of duplication
+here.
+
+Why not make a:
+
+struct bridge_mcast_timer {
+	struct	timer_list	timer;
+	u32			queries_sent;
+	u32			startup_queries_sent;
+
+};
+
+Then in the port structure you have:
+
+	struct bridge_mcast_timer	ip4;
+	struct bridge_mcast_timer	ip6;
+
+And pass a reference to the right one into generic helper functions.
+
+That sounds a lot better right?
+
+Please make this improvement and resubmit, thanks.
