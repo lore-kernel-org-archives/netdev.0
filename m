@@ -1,38 +1,61 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2] ipnetns: fix ip batch mode when using 'netns
- exec'
-Date: Thu, 29 Aug 2013 14:26:09 +0200
-Message-ID: <521F3DE1.5050600@6wind.com>
-References: <1377588334-13538-1-git-send-email-nicolas.dichtel@6wind.com> <kvkbf9$j48$2@ger.gmane.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Thomas Egerer <thomas.egerer@secunet.com>
+Subject: [PATCH] ip/xfrm: Fix potential SIGSEGV when printing extra flags
+Date: Thu, 29 Aug 2013 14:00:36 +0200
+Message-ID: <521F37E4.9030501@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------010205020908000603010104"
+Cc: shemminger@osdl.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35652 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715Ab3H2M0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 08:26:12 -0400
-Received: by mail-wi0-f173.google.com with SMTP id ey11so4782717wid.12
-        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 05:26:11 -0700 (PDT)
-In-Reply-To: <kvkbf9$j48$2@ger.gmane.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:60553 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752276Ab3H2M1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 08:27:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 28/08/2013 10:13, Cong Wang a =E9crit :
-> On Tue, 27 Aug 2013 at 07:25 GMT, Nicolas Dichtel <nicolas.dichtel@6w=
-ind.com> wrote:
->>
->> -			/* If child failed, propagate status */
->> -			if (WIFEXITED(status))
->> -				exit(WEXITSTATUS(status));
->> +			if (WIFEXITED(status)) {
->> +				/* ip must returns the status of the child,
->
-> s/returns/return/
+This is a multi-part message in MIME format.
+--------------010205020908000603010104
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-Thank you, but please keep all email addresses in cc next time, at leas=
-t the author!
+
+The git-commit dc8867d0, that added support for displaying the
+extra-flags of a state, introduced a potential segfault.
+Trying to show a state without the extra-flag attribute and show_stats
+enabled, would cause the NULL pointer in tb[XFRMA_SA_EXTRA_FLAGS] to be
+dereferenced.
+
+Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
+---
+ ip/ipxfrm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+
+
+--------------010205020908000603010104
+Content-Type: text/x-patch;
+ name="0001-ip-xfrm-Fix-potential-SIGSEGV-when-printing-extra-fl.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-ip-xfrm-Fix-potential-SIGSEGV-when-printing-extra-fl.pa";
+ filename*1="tch"
+
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index 0a3a9fb..411d9d5 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -856,7 +856,7 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
+ 		if (flags)
+ 			fprintf(fp, "%x", flags);
+ 	}
+-	if (show_stats > 0 || tb[XFRMA_SA_EXTRA_FLAGS]) {
++	if (show_stats > 0 && tb[XFRMA_SA_EXTRA_FLAGS]) {
+ 		__u32 extra_flags = *(__u32 *)RTA_DATA(tb[XFRMA_SA_EXTRA_FLAGS]);
+ 
+ 		fprintf(fp, "extra_flag ");
+
+
+--------------010205020908000603010104--
