@@ -1,38 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: no need to call ether_setup()
-Date: Fri, 30 Aug 2013 00:24:47 +0400
-Message-ID: <201308300024.48415.sergei.shtylyov@cogentembedded.com>
+From: Kyle McMartin <kmcmarti@redhat.com>
+Subject: Re: [PATCH] xgmac: use bufsz not dma_buf_sz in rx_refill
+Date: Thu, 29 Aug 2013 16:26:02 -0400
+Message-ID: <20130829202602.GK8764@redacted.bos.redhat.com>
+References: <20130829201151.GJ8764@redacted.bos.redhat.com>
+ <521FADFE.7040908@calxeda.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rob Herring <rob.herring@calxeda.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30488 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752585Ab3H2U0G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 16:26:06 -0400
+Content-Disposition: inline
+In-Reply-To: <521FADFE.7040908@calxeda.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's no need to call ether_setup() in the driver since prior alloc_etherdev()
-call already arranges for it.
+On Thu, Aug 29, 2013 at 03:24:30PM -0500, Rob Herring wrote:
+> On 08/29/2013 03:11 PM, Kyle McMartin wrote:
+> > Noticed while debugging another issue that DMA debug turned up, looks
+> > like commit ef468d23 missed a case when switching to bufsz instead of
+> > priv->dma_buf_sz? (tbf, the whole handling of DMA buffers seems slightly
+> > suspect since we're not tracking the size, but trusting the hardware
+> > between map and unmap...)
+> 
+> Please see my patch series of fixes:
+> 
+> http://www.spinics.net/lists/netdev/msg248076.html
+> 
 
-Suggested-by: Denis Kirjanov <kda@linux-powerpc.org>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Hah, thanks. Yeah, I wondered wtf was up with get_buf_len, but figured
+the hardware must have been doing something subtle. ;-)
 
----
- drivers/net/ethernet/renesas/sh_eth.c |    3 ---
- 1 file changed, 3 deletions(-)
+I'll apply these to our Fedora tree and pass them along for testing.
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2639,9 +2639,6 @@ static int sh_eth_drv_probe(struct platf
- 
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 
--	/* Fill in the fields of the device structure with ethernet values. */
--	ether_setup(ndev);
--
- 	mdp = netdev_priv(ndev);
- 	mdp->num_tx_ring = TX_RING_SIZE;
- 	mdp->num_rx_ring = RX_RING_SIZE;
+Thanks Rob.
+
+--Kyle
