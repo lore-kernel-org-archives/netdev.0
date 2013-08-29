@@ -1,35 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] qdisc: allow setting default queuing discipline
-Date: Thu, 29 Aug 2013 05:02:01 -0700
-Message-ID: <1377777721.8277.27.camel@edumazet-glaptop>
-References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
-	 <1377662448.8828.155.camel@edumazet-glaptop>
-	 <1377665870.8828.163.camel@edumazet-glaptop>
-	 <20130828091836.5c8285f4@nehalam.linuxnetplumber.net>
-	 <1377710453.8277.11.camel@edumazet-glaptop>
-	 <20130828102835.2cfa5d41@nehalam.linuxnetplumber.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2] ipnetns: fix ip batch mode when using 'netns
+ exec'
+Date: Thu, 29 Aug 2013 14:26:09 +0200
+Message-ID: <521F3DE1.5050600@6wind.com>
+References: <1377588334-13538-1-git-send-email-nicolas.dichtel@6wind.com> <kvkbf9$j48$2@ger.gmane.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:36569 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963Ab3H2MCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 08:02:04 -0400
-Received: by mail-pd0-f180.google.com with SMTP id y10so364646pdj.11
-        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 05:02:03 -0700 (PDT)
-In-Reply-To: <20130828102835.2cfa5d41@nehalam.linuxnetplumber.net>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35652 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751715Ab3H2M0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 08:26:12 -0400
+Received: by mail-wi0-f173.google.com with SMTP id ey11so4782717wid.12
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 05:26:11 -0700 (PDT)
+In-Reply-To: <kvkbf9$j48$2@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-28 at 10:28 -0700, Stephen Hemminger wrote:
+Le 28/08/2013 10:13, Cong Wang a =E9crit :
+> On Tue, 27 Aug 2013 at 07:25 GMT, Nicolas Dichtel <nicolas.dichtel@6w=
+ind.com> wrote:
+>>
+>> -			/* If child failed, propagate status */
+>> -			if (WIFEXITED(status))
+>> -				exit(WEXITSTATUS(status));
+>> +			if (WIFEXITED(status)) {
+>> +				/* ip must returns the status of the child,
+>
+> s/returns/return/
 
-> 
-> Hate to say it but maybe module parameter to htb would be an alternative
-> if you have to deal with that.
-
-Fair enough ;)
-
-Anyway, it turned out all I needed was the MQ change ;)
+Thank you, but please keep all email addresses in cc next time, at leas=
+t the author!
