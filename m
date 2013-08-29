@@ -1,53 +1,136 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] USB2NET : SR9700 : One Chip USB 1.1 USB2NET SR9700
- Device Driver Support
-Date: Fri, 30 Aug 2013 01:06:59 +0200
-Message-ID: <20130829230659.GC12124@electric-eye.fr.zoreil.com>
-References: <1377746832-6201-1-git-send-email-liujunliang_ljl@163.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2] net: neighbour: Remove CONFIG_ARPD
+Date: Thu, 29 Aug 2013 16:39:04 -0700
+Message-ID: <87wqn4ysmf.fsf@xmission.com>
+References: <8761upbd6h.fsf@xmission.com>
+	<1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, horms@verge.net.au, joe@perches.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Joe Perches <joe@perches.com>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1377746832-6201-1-git-send-email-liujunliang_ljl@163.com>
+In-Reply-To: <1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
+	(Tim Gardner's message of "Thu, 29 Aug 2013 06:38:47 -0600")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Liu, please check those.
+Tim Gardner <tim.gardner@canonical.com> writes:
 
----
- drivers/net/usb/sr9700.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+> This config option is superfluous in that it only guards a call
+> to neigh_app_ns(). Enabling CONFIG_ARPD by default has no
+> change in behavior. There will now be call to __neigh_notify()
+> for each ARP resolution, which has no impact unless there is a
+> user space daemon waiting to receive the notification, i.e.,
+> the case for which CONFIG_ARPD was designed anyways.
 
-diff --git a/drivers/net/usb/sr9700.c b/drivers/net/usb/sr9700.c
-index 3f05b35..3ae3caf 100644
---- a/drivers/net/usb/sr9700.c
-+++ b/drivers/net/usb/sr9700.c
-@@ -99,8 +99,9 @@ static int sr_share_read_word(struct usbnet *dev, int phy, u8 reg,
- 
- 	mutex_lock(&dev->phy_mutex);
- 
-+	// FIXME: the mistery 0x40 appears in sr_share_write_word as well.
- 	sr_write_reg(dev, EPAR, phy ? (reg | 0x40) : reg);
--	sr_write_reg(dev, EPCR, phy ? 0xc : 0x4);
-+	sr_write_reg(dev, EPCR, phy ? (EPCR_EPOS | EPCR_ERPRR) : EPCR_ERPRR);
- 
- 	ret = wait_phy_eeprom_ready(dev, phy);
- 	if (ret < 0)
-@@ -128,7 +129,10 @@ static int sr_share_write_word(struct usbnet *dev, int phy, u8 reg,
- 	if (ret < 0)
- 		goto out_unlock;
- 
-+	// FIXME: see sr_share_read_word above.
- 	sr_write_reg(dev, EPAR, phy ? (reg | 0x40) : reg);
-+	// 0x1a -> EPCR_WEP | EPCR_EPOS | EPCR_ERPRW ?
-+	// 0x12 -> EPCR_WEP | EPCR_ERPRW ?
- 	sr_write_reg(dev, EPCR, phy ? 0x1a : 0x12);
- 
- 	ret = wait_phy_eeprom_ready(dev, phy);
--- 
-1.8.3.1
+This looks good to me, and much less magic to maintain.
+
+Eric
+
+
+> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
+Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Joe Perches <joe@perches.com>
+> Cc: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
+>
+> Eric's suggestion to simply remove the config option makes sense
+> to me. If acceptable then I'll submit a patch series that also removes
+> CONFIG_ARPD from the various arch defconfigs.
+>
+>  net/core/neighbour.c |    2 --
+>  net/ipv4/Kconfig     |   16 ----------------
+>  net/ipv4/arp.c       |    2 --
+>  net/ipv6/ndisc.c     |    2 --
+>  4 files changed, 22 deletions(-)
+>
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 60533db..6072610 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -2759,13 +2759,11 @@ errout:
+>  		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+>  }
+>  
+> -#ifdef CONFIG_ARPD
+>  void neigh_app_ns(struct neighbour *n)
+>  {
+>  	__neigh_notify(n, RTM_GETNEIGH, NLM_F_REQUEST);
+>  }
+>  EXPORT_SYMBOL(neigh_app_ns);
+> -#endif /* CONFIG_ARPD */
+>  
+>  #ifdef CONFIG_SYSCTL
+>  static int zero;
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index 37cf1a6..05c57f0 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -259,22 +259,6 @@ config IP_PIMSM_V2
+>  	  gated-5). This routing protocol is not used widely, so say N unless
+>  	  you want to play with it.
+>  
+> -config ARPD
+> -	bool "IP: ARP daemon support"
+> -	---help---
+> -	  The kernel maintains an internal cache which maps IP addresses to
+> -	  hardware addresses on the local network, so that Ethernet
+> -	  frames are sent to the proper address on the physical networking
+> -	  layer. Normally, kernel uses the ARP protocol to resolve these
+> -	  mappings.
+> -
+> -	  Saying Y here adds support to have an user space daemon to do this
+> -	  resolution instead. This is useful for implementing an alternate
+> -	  address resolution protocol (e.g. NHRP on mGRE tunnels) and also for
+> -	  testing purposes.
+> -
+> -	  If unsure, say N.
+> -
+>  config SYN_COOKIES
+>  	bool "IP: TCP syncookie support"
+>  	---help---
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 4429b01..7808093 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -368,9 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  	} else {
+>  		probes -= neigh->parms->app_probes;
+>  		if (probes < 0) {
+> -#ifdef CONFIG_ARPD
+>  			neigh_app_ns(neigh);
+> -#endif
+>  			return;
+>  		}
+>  	}
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 04d31c2..d5693ad 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -663,9 +663,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+>  		}
+>  		ndisc_send_ns(dev, neigh, target, target, saddr);
+>  	} else if ((probes -= neigh->parms->app_probes) < 0) {
+> -#ifdef CONFIG_ARPD
+>  		neigh_app_ns(neigh);
+> -#endif
+>  	} else {
+>  		addrconf_addr_solict_mult(target, &mcaddr);
+>  		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
