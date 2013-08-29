@@ -1,45 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] pf_packet updates
-Date: Thu, 29 Aug 2013 12:53:15 -0400 (EDT)
-Message-ID: <20130829.125315.1922344251280499471.davem@davemloft.net>
-References: <1377720791-15844-1-git-send-email-dborkman@redhat.com>
-	<20130829.013938.2144325735677512661.davem@davemloft.net>
-	<1377771945.8277.26.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sctp: probe: allow more advanced ingress filtering by mark
+Date: Thu, 29 Aug 2013 18:54:49 +0200
+Message-ID: <1377795289-1914-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35157 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754119Ab3H2QxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 12:53:19 -0400
-In-Reply-To: <1377771945.8277.26.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:16097 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755077Ab3H2Qyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 12:54:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 29 Aug 2013 03:25:45 -0700
+This is a follow-up commit for commit b1dcdc68b1f4 ("net: tcp_probe:
+allow more advanced ingress filtering by mark") that allows for
+advanced SCTP probe module filtering based on skb mark (for a more
+detailed description and advantages using mark, refer to b1dcdc68b1f4).
+The current option to filter by a given port is still being preserved.
 
-> On Thu, 2013-08-29 at 01:39 -0400, David Miller wrote:
->> From: Daniel Borkmann <dborkman@redhat.com>
->> Date: Wed, 28 Aug 2013 22:13:08 +0200
->> 
->> > Daniel Borkmann (3):
->> >   net: packet: add random fanout scheduler
->> >   net: packet: use reciprocal_divide in fanout_demux_hash
->> >   net: packet: document available fanout policies
->> 
->> Please add the missing reciprocal_divide.h include to the second
->> patch, as per Eric Dumazet's feedback, and resubmit this series.
-> 
-> (It was Cong Wang feedback ;) )
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ Tested with various marked flows.
 
-Sorry Eric, I am just too anxious to give you credit everywhere that I
-can. :-)
+ net/sctp/probe.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-Anyways, thanks for explaining Daniel, I've put these patches back into
-the to-apply queue.
-
-Thanks!
+diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+index cd72ae5..0118178 100644
+--- a/net/sctp/probe.c
++++ b/net/sctp/probe.c
+@@ -46,6 +46,10 @@ static int port __read_mostly = 0;
+ MODULE_PARM_DESC(port, "Port to match (0=all)");
+ module_param(port, int, 0);
+ 
++static unsigned int fwmark __read_mostly = 0;
++MODULE_PARM_DESC(fwmark, "skb mark to match (0=no mark)");
++module_param(fwmark, uint, 0);
++
+ static int bufsize __read_mostly = 64 * 1024;
+ MODULE_PARM_DESC(bufsize, "Log buffer size (default 64k)");
+ module_param(bufsize, int, 0);
+@@ -129,15 +133,19 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
+ 					    void *arg,
+ 					    sctp_cmd_seq_t *commands)
+ {
++	struct sctp_chunk *chunk = arg;
++	struct sk_buff *skb = chunk->skb;
+ 	struct sctp_transport *sp;
+ 	static __u32 lcwnd = 0;
+ 	struct timespec now;
+ 
+ 	sp = asoc->peer.primary_path;
+ 
+-	if ((full || sp->cwnd != lcwnd) &&
+-	    (!port || asoc->peer.port == port ||
+-	     ep->base.bind_addr.port == port)) {
++	if (((port == 0 && fwmark == 0) ||
++	     asoc->peer.port == port ||
++	     ep->base.bind_addr.port == port ||
++	     (fwmark > 0 && skb->mark == fwmark)) &&
++	    (full || sp->cwnd != lcwnd)) {
+ 		lcwnd = sp->cwnd;
+ 
+ 		getnstimeofday(&now);
+@@ -198,8 +206,8 @@ static __init int sctpprobe_init(void)
+ 	if (ret)
+ 		goto remove_proc;
+ 
+-	pr_info("probe registered (port=%d)\n", port);
+-
++	pr_info("probe registered (port=%d/fwmark=%u) bufsize=%u\n",
++		port, fwmark, bufsize);
+ 	return 0;
+ 
+ remove_proc:
+-- 
+1.7.11.7
