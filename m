@@ -1,42 +1,28 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH v2 net-next 2/2] qlge: Update version to 1.0.0.33
-Date: Thu, 29 Aug 2013 00:51:08 -0400
-Message-ID: <1377751868-1367-3-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1377751868-1367-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] xen-netback: switch to NAPI + kthread 1:1
+ model
+Date: Thu, 29 Aug 2013 01:23:23 -0400 (EDT)
+Message-ID: <20130829.012323.1851891213109836987.davem@davemloft.net>
+References: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	ian.campbell@citrix.com, msw@amazon.com, konrad.wilk@oracle.com,
+	annie.li@oracle.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49084 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753354Ab3H2FUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 01:20:02 -0400
-In-Reply-To: <1377751868-1367-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54865 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753282Ab3H2FX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 01:23:27 -0400
+In-Reply-To: <1377518379-26503-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Mon, 26 Aug 2013 12:59:36 +0100
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> This series implements NAPI + kthread 1:1 model for Xen netback.
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-index 8994337..1a36b9c 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-@@ -18,7 +18,7 @@
-  */
- #define DRV_NAME  	"qlge"
- #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
--#define DRV_VERSION	"v1.00.00.32"
-+#define DRV_VERSION	"1.0.0.33"
- 
- #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
- 
--- 
-1.7.1
+Series applied to net-next, thanks.
