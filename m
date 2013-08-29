@@ -1,92 +1,119 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next RFC v2 2/2] ixgbe: Get and display the notifications from changes of the Rx vxlan UDP port
-Date: Thu, 29 Aug 2013 05:54:38 -0700
-Message-ID: <1377780878-32384-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: VLAN filtering/VLAN aware bridge problems
+Date: Thu, 29 Aug 2013 14:50:27 +0200
+Message-ID: <521F4393.1020907@profihost.ag>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40792 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753047Ab3H2Myw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 08:54:52 -0400
-In-Reply-To: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:46616 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752844Ab3H2M5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 08:57:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Hello,
 
-This RFC patch showcases how drivers can use the changes in
-"vxlan: Notify drivers for listening UDP port changes", and its
-sole purpose is to help people test the changes introduced there.
-This is not meant to be submitted for inclusion in the kernel.
+currently i'm running vanilla 3.8.8 kernel with some tap devices using
+VLANs on top of a bridge on top of a bond.
 
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-v2: No changes in the code, just tracking version of main patch
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+This works fine and everything is great.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7aba452..9428323 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -47,6 +47,9 @@
- #include <linux/if_bridge.h>
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
-+#ifdef CONFIG_VXLAN_MODULE
-+#include <net/vxlan.h>
-+#endif
- 
- #include "ixgbe.h"
- #include "ixgbe_common.h"
-@@ -5178,6 +5181,9 @@ static int ixgbe_open(struct net_device *netdev)
- 
- 	ixgbe_up_complete(adapter);
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+	vxlan_get_rx_port(netdev);
-+#endif
- 	return 0;
- 
- err_set_queues:
-@@ -7290,6 +7296,21 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
- }
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+static int ixgbe_add_vxlan_port(struct net_device *netdev,
-+				__u16 port)
-+{
-+	netdev_info(netdev, ">>>>> Adding VXLAN port %d\n", port);
-+	return 0;
-+}
-+
-+static int ixgbe_del_vxlan_port(struct net_device *netdev,
-+				__u16 port)
-+{
-+	netdev_info(netdev, "<<<<< Removing VXLAN port %d\n", port);
-+	return 0;
-+}
-+#endif
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7334,6 +7355,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
- 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
-+#ifdef CONFIG_VXLAN_MODULE
-+	.ndo_add_vxlan_port	= ixgbe_add_vxlan_port,
-+	.ndo_del_vxlan_port	= ixgbe_del_vxlan_port,
-+#endif
- };
- 
- /**
--- 
-1.8.3.1
+Now i started to test 3.10.9 and all my VLANs stopped working no matter
+i disable or enable CONFIG_BRIDGE_VLAN_FILTERING.
+
+The packets never reach the TAP device.
+
+Here is an output of ip a l (vlan 3021):
+
+ip a l
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+mq master bond0 state UP qlen 1000
+    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
+3: eth4: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 9000 qdisc mq
+master bond5 state UP qlen 10000
+    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
+4: eth1: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+mq master bond0 state UP qlen 1000
+    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
+5: eth2: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+mq master bond1 state UP qlen 1000
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+6: eth5: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 9000 qdisc mq
+master bond5 state UP qlen 10000
+    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
+7: eth3: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
+mq master bond1 state UP qlen 1000
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc
+noqueue master vmbr0 state UP
+    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::225:90ff:fe84:dea8/64 scope link
+       valid_lft forever preferred_lft forever
+9: bond1: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc
+noqueue master vmbr1 state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::225:90ff:fe84:deaa/64 scope link
+       valid_lft forever preferred_lft forever
+10: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+state UP
+    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
+    inet 178.250.9.30/25 brd 178.250.9.127 scope global vmbr0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::225:90ff:fe84:dea8/64 scope link
+       valid_lft forever preferred_lft forever
+11: vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::225:90ff:fe84:deaa/64 scope link
+       valid_lft forever preferred_lft forever
+12: bond5: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 9000 qdisc
+noqueue state UP
+    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
+    inet 10.255.0.30/24 brd 10.255.0.255 scope global bond5
+       valid_lft forever preferred_lft forever
+    inet6 fe80::92e2:baff:fe33:450c/64 scope link
+       valid_lft forever preferred_lft forever
+15: vmbr1.3020@vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+noqueue master vmbr1v3020 state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::225:90ff:fe84:deaa/64 scope link
+       valid_lft forever preferred_lft forever
+16: vmbr1v3020: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::f036:92ff:fe40:7224/64 scope link
+       valid_lft forever preferred_lft forever
+19: tap320i0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
+htb master vmbr0 state UNKNOWN qlen 500
+    link/ether fe:fa:14:cc:75:b2 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::fcfa:14ff:fecc:75b2/64 scope link
+       valid_lft forever preferred_lft forever
+20: tap320i1: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
+htb master vmbr1v3021 state UNKNOWN qlen 500
+    link/ether 8a:f3:9b:47:c7:88 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::88f3:9bff:fe47:c788/64 scope link
+       valid_lft forever preferred_lft forever
+21: vmbr1.3021@vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+noqueue master vmbr1v3021 state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::225:90ff:fe84:deaa/64 scope link
+       valid_lft forever preferred_lft forever
+22: vmbr1v3021: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+state UP
+    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::9868:5eff:fe9d:bf56/64 scope link
+       valid_lft forever preferred_lft forever
+
+Greets,
+Stefan
