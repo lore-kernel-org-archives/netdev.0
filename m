@@ -1,85 +1,90 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-08-29
-Date: Thu, 29 Aug 2013 23:13:54 +0200
-Message-ID: <521FB992.5080002@pengutronix.de>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [-next] openvswitch BUILD_BUG_ON failed
+Date: Thu, 29 Aug 2013 23:21:09 +0200
+Message-ID: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="fH37pgSEblgWr5gnkXM5NQFTU32Ce32eo"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux-Next <linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---fH37pgSEblgWr5gnkXM5NQFTU32Ce32eo
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On m68k, where the alignment of 32-bit words is 2 bytes:
 
-Hello David,
+net/openvswitch/flow.c:1984:2: error: call to
+'__compiletime_assert_1984' declared with attribute error:
+BUILD_BUG_ON failed: sizeof(struct sw_flow_key) % sizeof(long)
 
-this is a pull request for net-next. There are two patches from Gerhard
-Sittig, which improves the clock handling on mpc5121. Oliver Hartkopp
-provides a patch that adds a per rule limitation of frame hops.
+(http://kisskb.ellerman.id.au/kisskb/buildresult/9422860/)
 
-regards,
-Marc
+This was introduced by commit 5828cd9a68873df1340b420371c02c47647878fb
+Author: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date:   Tue Aug 27 13:02:21 2013 -0700
 
----
+    openvswitch: optimize flow compare and mask functions
 
-The following changes since commit 7ec06da81d2b98859b558d8d551a0c4e3d9516=
-a3:
+    Make sure the sw_flow_key structure and valid mask boundaries are always
+    machine word aligned. Optimize the flow compare and mask operations
+    using machine word size operations. This patch improves throughput on
+    average by 15% when CPU is the bottleneck of forwarding packets.
 
-  net: packet: document available fanout policies (2013-08-29 16:43:29 -0=
-400)
+    This patch is inspired by ideas and code from a patch submitted by Peter
+    Klausler titled "replace memcmp() with specialized comparator".
+    However, The original patch only optimizes for architectures
+    support unaligned machine word access. This patch optimizes for all
+    architectures.
 
-are available in the git repository at:
+A quick fix to satisfy the build check is to make the padding explicit
+(gmail-whitespace-damaged diff):
 
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index b65f885..15f08d9 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -78,6 +78,7 @@ struct sw_flow_key {
+                u32     priority;       /* Packet QoS priority. */
+                u32     skb_mark;       /* SKB mark. */
+                u16     in_port;        /* Input switch port (or DP_MAX_PORTS).
++               u16     pad;
+        } phy;
+        struct {
+                u8     src[ETH_ALEN];   /* Ethernet source address. */
 
-for you to fetch changes up to 391ac1282dd7ff1cb8245cccc5262e8e4173edc4:
+However, I have some doubts about other alignment "enforcements":
 
-  can: gw: add a per rule limitation of frame hops (2013-08-29 22:58:24 +=
-0200)
+"__aligned(__alignof__(long))" makes the whole struct aligned to the
+alignment rule for "long":
+   1. This is only 2 bytes on m68k, i.e. != sizeof(long).
+   2. This is 4 bytes on many 32-bit platforms, which may be less than the
+      default alignment for "__be64" (cfr. some members of struct
+      ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
+I guess you want (at least) 4 byte alignment on 32-bit, and prefer 8 byte
+alignment on 64-bit?
+Not specifying any alignment constraint will give you most of that (except
+on 64-bit platforms where 64-bit words must be only 4-byte aligned).
 
-----------------------------------------------------------------
-Gerhard Sittig (2):
-      can: mscan: add a comment on reg to idx mapping
-      can: mscan: improve clock API use
+There's another build check "BUILD_BUG_ON(sizeof(long) % sizeof(u32))".
+Isn't this always true on Linux, as "long" is never smaller than 4 bytes?
 
-Oliver Hartkopp (1):
-      can: gw: add a per rule limitation of frame hops
+Gr{oetje,eeting}s,
 
- drivers/net/can/mscan/mpc5xxx_can.c | 23 ++++++++++++++++-------
- drivers/net/can/mscan/mscan.c       | 25 ++++++++++++++++++++++++-
- drivers/net/can/mscan/mscan.h       |  3 +++
- include/uapi/linux/can/gw.h         |  9 ++++++++-
- net/can/gw.c                        | 35 +++++++++++++++++++++++++++++++=
-----
- 5 files changed, 82 insertions(+), 13 deletions(-)
+                        Geert
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
 
-
---fH37pgSEblgWr5gnkXM5NQFTU32Ce32eo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlIfuZkACgkQjTAFq1RaXHO7HACgiWVcSOg8sKjdocp+59o5Qjcv
-CMcAnj/Iu/CrdewuDQXzyFllAAiZu7C7
-=2SML
------END PGP SIGNATURE-----
-
---fH37pgSEblgWr5gnkXM5NQFTU32Ce32eo--
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
