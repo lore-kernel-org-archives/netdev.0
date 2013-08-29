@@ -1,37 +1,31 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] realtek: convert to per-chip mask
-Date: Thu, 29 Aug 2013 21:51:41 +0100
-Message-ID: <1377809501.5372.17.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH 2/2] realtek: update devices to 3.11
+Date: Thu, 29 Aug 2013 21:52:06 +0100
+Message-ID: <1377809526.5372.18.camel@bwh-desktop.uk.level5networks.com>
 References: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
-	 <1376429119-31380-2-git-send-email-lekensteyn@gmail.com>
+	 <1376429119-31380-3-git-send-email-lekensteyn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, Francois Romieu <romieu@fr.zoreil.com>
 To: Peter Wu <lekensteyn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30944 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:30955 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755430Ab3H2Uvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:51:44 -0400
-In-Reply-To: <1376429119-31380-2-git-send-email-lekensteyn@gmail.com>
+	with ESMTP id S1756534Ab3H2UwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:52:09 -0400
+In-Reply-To: <1376429119-31380-3-git-send-email-lekensteyn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, 2013-08-13 at 23:25 +0200, Peter Wu wrote:
-> The previous HW_REVID macro did not make identifiers more readable
-> (compared to hex values like 0x12345678) and only allowed for one static
-> mask. To make it easier to update the chips list, let's use similar
-> structures as r8169 and remove HW_REVID.
+> RTL8168_8111Bb/RTL8168_8111Bef is like RTL8111B/RTL8168B, RTL8100E and RTL8101E
+> (datasheet revision 1.0 from 26 January 2006). Assume that RTL8101e is also
+> similar (I may be very wrong at that though...).
 > 
-> Names are removed and separated from the table and separated because the
-> mac_version does not have to be unique.
-> 
-> While at it, change "RTL-xxxx" to "RTLxxxx" to match the names of
-> Realtek and r8169 driver. Besides that, the only output change is when
-> a chip is not recognized in which case "TxConfig" is now mentioned
-> instead of "mask". Since the mask can be anything, the displayed word is
-> not masked either.
+> Note that the scanning heuristics is the same as the r8169 module: newer devices
+> with stronger masks come before the others. Perhaps the older 8139 cards should
+> be appended to the list, after all r8169 chips.
 > 
 > Signed-off-by: Peter Wu <lekensteyn@gmail.com>
 [...]
