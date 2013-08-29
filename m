@@ -1,45 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [nf-next PATCH] netfilter: Extend SYNPROXY with a --continue
- option
-Date: Thu, 29 Aug 2013 10:23:58 +0200
-Message-ID: <20130829102358.4f93ee24@redhat.com>
-References: <20130828152549.8250.97982.stgit@dragon>
-	<20130828160038.GA25799@macbook.localnet>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] net/fec: cleanup types in fec_get_mac()
+Date: Thu, 29 Aug 2013 11:25:14 +0300
+Message-ID: <20130829082514.GB14334@elgon.mountain>
+References: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, as@one.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130828160038.GA25799@macbook.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Grant Likely <grant.likely@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20221 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752887Ab3H2IZd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 04:25:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Aug 2013 18:00:42 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+My static checker complains that on some arches unsigned longs can be 8
+characters which is larger than the buffer is only 6 chars.
+Additionally, Ben Hutchings points out that the buffer actually holds
+big endian data and the buffer we are reading from is CPU endian.
 
-> On Wed, Aug 28, 2013 at 05:26:55PM +0200, Jesper Dangaard Brouer wrote:
-> > Packets reaching SYNPROXY are default dropped, as they are most likely
-> > invalid (given the state matching).  In other configurations it might
-> > be beneficial to let packet not consumed by SYNPROXY (SYN and ACK) to
-> > continue being processed by the stack.
-> > 
-> > Introducing a --continue option/flag for the SYNPROXY target to allow
-> > these unmatched packets to continue being processed.  This would also
-> > help in debugging the module via LOG.
-> 
-> I don't think we should add an option for this. Just DROP packets consumed
-> by the target and have the other ones continue.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: fix endian annotations and reverse the beXX_to_cpu() calls so that
+    they say cpu_to_beXX().
 
-I agree.  I'll send a new patch, defaulting to XT_CONTINUE.
-
-Self:
-Nacked-by: Jesper Dangaard Brouer <brouer@redhat.com>
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index fdf9307..0b12866 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1100,10 +1100,10 @@ static void fec_get_mac(struct net_device *ndev)
+ 	 * 4) FEC mac registers set by bootloader
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+-		*((unsigned long *) &tmpaddr[0]) =
+-			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
+-		*((unsigned short *) &tmpaddr[4]) =
+-			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
++		*((__be32 *) &tmpaddr[0]) =
++			cpu_to_be32(readl(fep->hwp + FEC_ADDR_LOW));
++		*((__be16 *) &tmpaddr[4]) =
++			cpu_to_be16(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+ 		iap = &tmpaddr[0];
+ 	}
+ 
