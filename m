@@ -1,205 +1,221 @@
-From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 3/3] Send cgroup_path in SCM_CGROUP
-Date: Thu, 29 Aug 2013 16:13:22 +0200
-Message-ID: <1377785602-10766-4-git-send-email-jkaluza@redhat.com>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
-	<1377785602-10766-1-git-send-email-jkaluza@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port
+ changes
+Date: Thu, 29 Aug 2013 16:19:04 +0200
+Message-ID: <20130829141904.GB1450@minipsycho.brq.redhat.com>
+References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1377785602-10766-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:51069 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754284Ab3H2OTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 10:19:08 -0400
+Received: by mail-ee0-f47.google.com with SMTP id d49so275548eek.6
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 07:19:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add new SCM type called SCM_CGROUP to send "cgroup_path" in SCM.
-This is useful for journald (systemd logging daemon) to get additional context
-with each log line received using UNIX socket.
+Thu, Aug 29, 2013 at 02:54:37PM CEST, jeffrey.t.kirsher@intel.com wrote:
+>From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+>
+>This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
+>ndo_del_rx_vxlan_port().
+>
+>Drivers can get notifications through the above functions about changes
+>of the UDP listening port of VXLAN. Also, when physical ports come up,
+>now they can call vxlan_get_rx_port() in order to obtain the port number(s)
+>of the existing VXLAN interface in case they already up before them.
+>
+>This information about the listening UDP port would be used for VXLAN
+>related offloads.
+>
+>A big thank you to John Fastabend (john.r.fastabend@intel.com) for his input
+>and his suggestions on this patch set.
+>
+>CC: John Fastabend <john.r.fastabend@intel.com>
+>CC: Stephen Hemminger <stephen@networkplumber.org>
+>Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>---
+>v2: Now locking on sock_lock around vxlan_get_rx_port() in order to avoid
+>    races with vxlan removing ports and drivers still keeping resources for
+>    them.
+>---
+> drivers/net/vxlan.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++++-
+> include/linux/netdevice.h | 16 ++++++++++++++
+> include/net/vxlan.h       |  1 +
+> 3 files changed, 72 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>index 3b21aca..65d1df5 100644
+>--- a/drivers/net/vxlan.c
+>+++ b/drivers/net/vxlan.c
+>@@ -456,6 +456,32 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+> 	return 1;
+> }
+> 
+>+/* Notify netdevs that UDP port started listening */
+>+static void vxlan_notify_add_rx_port(struct net *net, __be16 port)
+>+{
+>+	struct net_device *dev;
+>+
+>+	rcu_read_lock();
+>+	for_each_netdev_rcu(net, dev) {
+>+		if (dev->netdev_ops->ndo_add_vxlan_port)
+>+			dev->netdev_ops->ndo_add_vxlan_port(dev, htons(port));
+>+	}
 
-Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- include/linux/socket.h |  1 +
- include/net/af_unix.h  |  1 +
- include/net/scm.h      | 15 +++++++++++++++
- net/core/scm.c         | 18 ++++++++++++++++++
- net/unix/af_unix.c     | 20 ++++++++++++++++++++
- 5 files changed, 55 insertions(+)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 6c7ace0..621fff1 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -133,6 +133,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
- #define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
- #define SCM_PROCINFO	0x05	/* rw: comm + cmdline (NULL terminated
- 					   array of char *) */
-+#define SCM_CGROUP	0x06		/* rw: cgroup path */
- 
- struct ucred {
- 	__u32	pid;
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 05c7678..c49bf35 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -32,6 +32,7 @@ struct unix_skb_parms_scm {
- 	unsigned int sessionid;
- 	char *procinfo;
- 	int procinfo_len;
-+	char *cgroup_path;
- };
- 
- struct unix_skb_parms {
-diff --git a/include/net/scm.h b/include/net/scm.h
-index 3346030..5398826 100644
---- a/include/net/scm.h
-+++ b/include/net/scm.h
-@@ -41,6 +41,7 @@ struct scm_cookie {
- 	struct scm_creds	creds;		/* Skb credentials	*/
- 	struct scm_audit	audit;		/* Skb audit	*/
- 	struct scm_procinfo	procinfo;	/* Skb procinfo */
-+	char *cgroup_path;
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Passed security ID 	*/
- #endif
-@@ -52,6 +53,7 @@ extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie
- extern void __scm_destroy(struct scm_cookie *scm);
- extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
- extern int scm_get_current_procinfo(char **procinfo);
-+extern int scm_get_current_cgroup_path(char **cgroup_path);
- 
- #ifdef CONFIG_SECURITY_NETWORK
- static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
-@@ -86,6 +88,12 @@ static inline void scm_set_procinfo(struct scm_cookie *scm,
- 	scm->procinfo.len = len;
- }
- 
-+static inline void scm_set_cgroup_path(struct scm_cookie *scm,
-+				    char *cgroup_path)
-+{
-+	scm->cgroup_path = cgroup_path;
-+}
-+
- static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
- {
- 	put_pid(scm->pid);
-@@ -140,6 +148,9 @@ static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct sc
- 			security_release_secctx(secdata, seclen);
- 		}
- 	}
-+
-+	kfree(scm->cgroup_path);
-+	scm->cgroup_path = NULL;
- }
- #else
- static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
-@@ -172,6 +183,10 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
- 		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
- 		put_cmsg(msg, SOL_SOCKET, SCM_PROCINFO, scm->procinfo.len,
- 				 scm->procinfo.procinfo);
-+		if (scm->cgroup_path) {
-+			put_cmsg(msg, SOL_SOCKET, SCM_CGROUP,
-+				 strlen(scm->cgroup_path), scm->cgroup_path);
-+		}
- 	}
- 
- 	scm_destroy_cred(scm);
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 09ec044..2d408b9 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -404,3 +404,21 @@ out:
- 	return res;
- }
- EXPORT_SYMBOL(scm_get_current_procinfo);
-+
-+int scm_get_current_cgroup_path(char **cgroup_path)
-+{
-+	int ret = 0;
-+
-+	*cgroup_path = kmalloc(PATH_MAX, GFP_KERNEL);
-+	if (!(*cgroup_path))
-+		return -ENOMEM;
-+
-+	ret = task_cgroup_path(current, *cgroup_path, PATH_MAX);
-+	if (ret < 0) {
-+		kfree(*cgroup_path);
-+		*cgroup_path = NULL;
-+	}
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(scm_get_current_cgroup_path);
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ab0be13..b638083 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1344,6 +1344,7 @@ static void unix_destruct_scm(struct sk_buff *skb)
- 	if (UNIXCB(skb).scm) {
- 		scm.procinfo.procinfo = UNIXSCM(skb).procinfo;
- 		scm.procinfo.len = UNIXSCM(skb).procinfo_len;
-+		scm.cgroup_path = UNIXSCM(skb).cgroup_path;
- 	}
- 	if (UNIXCB(skb).fp)
- 		unix_detach_fds(&scm, skb);
-@@ -1420,6 +1421,14 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 			return -ENOMEM;
- 	}
- 
-+	UNIXSCM(skb).cgroup_path = NULL;
-+	if (scm->cgroup_path) {
-+		UNIXSCM(skb).cgroup_path = kstrdup(scm->cgroup_path,
-+						   GFP_KERNEL);
-+		if (!UNIXSCM(skb).cgroup_path)
-+			return -ENOMEM;
-+	}
-+
- 	skb->destructor = unix_destruct_scm;
- 	return err;
- }
-@@ -1443,6 +1452,7 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- 		UNIXSCM(skb).sessionid = audit_get_sessionid(current);
- 		UNIXSCM(skb).procinfo_len = scm_get_current_procinfo(
- 			&UNIXSCM(skb).procinfo);
-+		scm_get_current_cgroup_path(&UNIXSCM(skb).cgroup_path);
- 	}
- }
- 
-@@ -1849,6 +1859,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 						 GFP_KERNEL),
- 					 UNIXSCM(skb).procinfo_len);
- 		}
-+		if (UNIXSCM(skb).cgroup_path) {
-+			scm_set_cgroup_path(siocb->scm,
-+					    kstrdup(UNIXSCM(skb).cgroup_path,
-+						    GFP_KERNEL));
-+		}
- 	}
- 	unix_set_secdata(siocb->scm, skb);
- 
-@@ -2042,6 +2057,11 @@ again:
- 						GFP_KERNEL),
- 						UNIXSCM(skb).procinfo_len);
- 				}
-+				if (UNIXSCM(skb).cgroup_path) {
-+					scm_set_cgroup_path(siocb->scm,
-+							    kstrdup(UNIXSCM(skb).cgroup_path,
-+							    GFP_KERNEL));
-+				}
- 			}
- 			check_creds = 1;
- 		}
--- 
-1.8.3.1
+Is it really desirable to notify *all* devices? Even those who are not
+involved in vxlan traffic? I think that only affected devices should be
+notified. Lower device list being currently introduced by:
+"[PATCH net-next v3 02/13] net: add lower_dev_list to net_device and make a full mesh"
+Could be used for this.
+
+
+>+	rcu_read_unlock();
+>+}
+>+
+>+/* Notify netdevs that UDP port is no more listening */
+>+static void vxlan_notify_del_rx_port(struct net *net, __be16 port)
+>+{
+>+	struct net_device *dev;
+>+
+>+	rcu_read_lock();
+>+	for_each_netdev_rcu(net, dev) {
+>+		if (dev->netdev_ops->ndo_del_vxlan_port)
+>+			dev->netdev_ops->ndo_del_vxlan_port(dev, htons(port));
+>+	}
+>+	rcu_read_unlock();
+>+}
+>+
+> /* Add new entry to forwarding table -- assumes lock held */
+> static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+> 			    const u8 *mac, __be32 ip,
+>@@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
+> 
+> void vxlan_sock_release(struct vxlan_sock *vs)
+> {
+>-	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
+>+	struct net *net = sock_net(vs->sock->sk);
+>+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+> 
+> 	if (!atomic_dec_and_test(&vs->refcnt))
+> 		return;
+> 
+> 	spin_lock(&vn->sock_lock);
+> 	hlist_del_rcu(&vs->hlist);
+>+	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
+> 	spin_unlock(&vn->sock_lock);
+> 
+> 	queue_work(vxlan_wq, &vs->del_work);
+>@@ -1543,6 +1571,31 @@ static struct device_type vxlan_type = {
+> 	.name = "vxlan",
+> };
+> 
+>+/* Calls the ndo_add_vxlan_port of the caller in order to
+>+ * supply the listening VXLAN udp ports.
+>+ */
+>+void vxlan_get_rx_port(struct net_device *dev)
+>+{
+>+	struct vxlan_sock *vs;
+>+	struct net *net = dev_net(dev);
+>+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>+	u16 port;
+>+	int i;
+>+
+>+	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
+>+		return;
+>+
+>+	spin_lock(&vn->sock_lock);
+>+	for (i = 0; i < PORT_HASH_SIZE; ++i) {
+>+		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
+>+			port = htons(inet_sk(vs->sock->sk)->inet_sport);
+>+			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
+>+		}
+>+	}
+>+	spin_unlock(&vn->sock_lock);
+>+}
+>+EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
+>+
+> /* Initialize the device structure. */
+> static void vxlan_setup(struct net_device *dev)
+> {
+>@@ -1723,6 +1776,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+> 	inet_sk(sk)->mc_loop = 0;
+> 	spin_lock(&vn->sock_lock);
+> 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+>+	vxlan_notify_add_rx_port(net, port);
+> 	spin_unlock(&vn->sock_lock);
+> 
+> 	/* Mark socket as an encapsulation socket. */
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 077363d..f56b141 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -948,6 +948,18 @@ struct netdev_phys_port_id {
+>  *	Called to get ID of physical port of this device. If driver does
+>  *	not implement this, it is assumed that the hw is not able to have
+>  *	multiple net devices on single physical port.
+>+ *
+>+ * int (*ndo_add_vxlan_port)(struct  net_device *dev,
+>+ *			      __u16 port);
+>+ *	Called by vxlan to notiy a driver about the UDP port that vxlan
+>+ *	is listnening to. It is called only when a new port starts listening.
+>+ *	The operation is protected by the vxlan_net->sock_lock.
+>+ *
+>+ * int (*ndo_del_vxlan_port)(struct  net_device *dev,
+>+ *			    __u16 port);
+>+ *	Called by vxlan to notify the driver about a UDP port of vxlan
+>+ *	that is not listening anymore. The operation is protected by
+>+ *	the vxlan_net->sock_lock.
+>  */
+> struct net_device_ops {
+> 	int			(*ndo_init)(struct net_device *dev);
+>@@ -1078,6 +1090,10 @@ struct net_device_ops {
+> 						      bool new_carrier);
+> 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+> 							struct netdev_phys_port_id *ppid);
+>+	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
+>+						      __u16 port);
+>+	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
+>+						      __u16 port);
+
+
+It doesn't look correct to add more specific device ndos like this. I
+think they should be more general. How about to rather use netdev notifier
+to propagate the change and then driver can use come vxlan exported
+function to get ports in use.
+
+
+
+
+> };
+> 
+> /*
+>diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+>index ad342e3..a0dc497 100644
+>--- a/include/net/vxlan.h
+>+++ b/include/net/vxlan.h
+>@@ -36,4 +36,5 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
+> 
+> __be16 vxlan_src_port(__u16 port_min, __u16 port_max, struct sk_buff *skb);
+> 
+>+void vxlan_get_rx_port(struct net_device *netdev);
+> #endif
+>-- 
+>1.8.3.1
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
