@@ -1,233 +1,45 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port
- changes
-Date: Thu, 29 Aug 2013 09:49:39 -0700 (PDT)
-Message-ID: <alpine.LFD.2.03.1308290935310.11735@intel.com>
-References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com> <20130829141904.GB1450@minipsycho.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] pf_packet updates
+Date: Thu, 29 Aug 2013 12:53:15 -0400 (EDT)
+Message-ID: <20130829.125315.1922344251280499471.davem@davemloft.net>
+References: <1377720791-15844-1-git-send-email-dborkman@redhat.com>
+	<20130829.013938.2144325735677512661.davem@davemloft.net>
+	<1377771945.8277.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:1331 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755511Ab3H2Qer (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 12:34:47 -0400
-In-Reply-To: <20130829141904.GB1450@minipsycho.brq.redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35157 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754119Ab3H2QxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 12:53:19 -0400
+In-Reply-To: <1377771945.8277.26.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Aug 2013 03:25:45 -0700
 
+> On Thu, 2013-08-29 at 01:39 -0400, David Miller wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>> Date: Wed, 28 Aug 2013 22:13:08 +0200
+>> 
+>> > Daniel Borkmann (3):
+>> >   net: packet: add random fanout scheduler
+>> >   net: packet: use reciprocal_divide in fanout_demux_hash
+>> >   net: packet: document available fanout policies
+>> 
+>> Please add the missing reciprocal_divide.h include to the second
+>> patch, as per Eric Dumazet's feedback, and resubmit this series.
+> 
+> (It was Cong Wang feedback ;) )
 
-On Thu, 29 Aug 2013, Jiri Pirko wrote:
+Sorry Eric, I am just too anxious to give you credit everywhere that I
+can. :-)
 
-> Thu, Aug 29, 2013 at 02:54:37PM CEST, jeffrey.t.kirsher@intel.com wrote:
-> >From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >
-> >This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
-> >ndo_del_rx_vxlan_port().
-> >
-> >Drivers can get notifications through the above functions about changes
-> >of the UDP listening port of VXLAN. Also, when physical ports come up,
-> >now they can call vxlan_get_rx_port() in order to obtain the port number(s)
-> >of the existing VXLAN interface in case they already up before them.
-> >
-> >This information about the listening UDP port would be used for VXLAN
-> >related offloads.
-> >
-> >A big thank you to John Fastabend (john.r.fastabend@intel.com) for his input
-> >and his suggestions on this patch set.
-> >
-> >CC: John Fastabend <john.r.fastabend@intel.com>
-> >CC: Stephen Hemminger <stephen@networkplumber.org>
-> >Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >---
-> >v2: Now locking on sock_lock around vxlan_get_rx_port() in order to avoid
-> >    races with vxlan removing ports and drivers still keeping resources for
-> >    them.
-> >---
-> > drivers/net/vxlan.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++++-
-> > include/linux/netdevice.h | 16 ++++++++++++++
-> > include/net/vxlan.h       |  1 +
-> > 3 files changed, 72 insertions(+), 1 deletion(-)
-> >
-> >diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> >index 3b21aca..65d1df5 100644
-> >--- a/drivers/net/vxlan.c
-> >+++ b/drivers/net/vxlan.c
-> >@@ -456,6 +456,32 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
-> > 	return 1;
-> > }
-> > 
-> >+/* Notify netdevs that UDP port started listening */
-> >+static void vxlan_notify_add_rx_port(struct net *net, __be16 port)
-> >+{
-> >+	struct net_device *dev;
-> >+
-> >+	rcu_read_lock();
-> >+	for_each_netdev_rcu(net, dev) {
-> >+		if (dev->netdev_ops->ndo_add_vxlan_port)
-> >+			dev->netdev_ops->ndo_add_vxlan_port(dev, htons(port));
-> >+	}
-> 
-> 
-> Is it really desirable to notify *all* devices? Even those who are not
-> involved in vxlan traffic? I think that only affected devices should be
-> notified. Lower device list being currently introduced by:
-> "[PATCH net-next v3 02/13] net: add lower_dev_list to net_device and make a full mesh"
-> Could be used for this.
->
+Anyways, thanks for explaining Daniel, I've put these patches back into
+the to-apply queue.
 
-Just to be clear this notifies the devices that implement 
-ndo_add_vxlan_port, not all (which I think is what you meant anyway). 
-About lower_dev_list, VXLAN implementation is not like VLAN where you know 
-which dev you will be transmitting on in advance, hence we need to notify 
-all the devices that implement the ndo's.
- 
-> 
-> >+	rcu_read_unlock();
-> >+}
-> >+
-> >+/* Notify netdevs that UDP port is no more listening */
-> >+static void vxlan_notify_del_rx_port(struct net *net, __be16 port)
-> >+{
-> >+	struct net_device *dev;
-> >+
-> >+	rcu_read_lock();
-> >+	for_each_netdev_rcu(net, dev) {
-> >+		if (dev->netdev_ops->ndo_del_vxlan_port)
-> >+			dev->netdev_ops->ndo_del_vxlan_port(dev, htons(port));
-> >+	}
-> >+	rcu_read_unlock();
-> >+}
-> >+
-> > /* Add new entry to forwarding table -- assumes lock held */
-> > static int vxlan_fdb_create(struct vxlan_dev *vxlan,
-> > 			    const u8 *mac, __be32 ip,
-> >@@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
-> > 
-> > void vxlan_sock_release(struct vxlan_sock *vs)
-> > {
-> >-	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
-> >+	struct net *net = sock_net(vs->sock->sk);
-> >+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-> > 
-> > 	if (!atomic_dec_and_test(&vs->refcnt))
-> > 		return;
-> > 
-> > 	spin_lock(&vn->sock_lock);
-> > 	hlist_del_rcu(&vs->hlist);
-> >+	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
-> > 	spin_unlock(&vn->sock_lock);
-> > 
-> > 	queue_work(vxlan_wq, &vs->del_work);
-> >@@ -1543,6 +1571,31 @@ static struct device_type vxlan_type = {
-> > 	.name = "vxlan",
-> > };
-> > 
-> >+/* Calls the ndo_add_vxlan_port of the caller in order to
-> >+ * supply the listening VXLAN udp ports.
-> >+ */
-> >+void vxlan_get_rx_port(struct net_device *dev)
-> >+{
-> >+	struct vxlan_sock *vs;
-> >+	struct net *net = dev_net(dev);
-> >+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-> >+	u16 port;
-> >+	int i;
-> >+
-> >+	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
-> >+		return;
-> >+
-> >+	spin_lock(&vn->sock_lock);
-> >+	for (i = 0; i < PORT_HASH_SIZE; ++i) {
-> >+		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
-> >+			port = htons(inet_sk(vs->sock->sk)->inet_sport);
-> >+			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
-> >+		}
-> >+	}
-> >+	spin_unlock(&vn->sock_lock);
-> >+}
-> >+EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
-> >+
-> > /* Initialize the device structure. */
-> > static void vxlan_setup(struct net_device *dev)
-> > {
-> >@@ -1723,6 +1776,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
-> > 	inet_sk(sk)->mc_loop = 0;
-> > 	spin_lock(&vn->sock_lock);
-> > 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
-> >+	vxlan_notify_add_rx_port(net, port);
-> > 	spin_unlock(&vn->sock_lock);
-> > 
-> > 	/* Mark socket as an encapsulation socket. */
-> >diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> >index 077363d..f56b141 100644
-> >--- a/include/linux/netdevice.h
-> >+++ b/include/linux/netdevice.h
-> >@@ -948,6 +948,18 @@ struct netdev_phys_port_id {
-> >  *	Called to get ID of physical port of this device. If driver does
-> >  *	not implement this, it is assumed that the hw is not able to have
-> >  *	multiple net devices on single physical port.
-> >+ *
-> >+ * int (*ndo_add_vxlan_port)(struct  net_device *dev,
-> >+ *			      __u16 port);
-> >+ *	Called by vxlan to notiy a driver about the UDP port that vxlan
-> >+ *	is listnening to. It is called only when a new port starts listening.
-> >+ *	The operation is protected by the vxlan_net->sock_lock.
-> >+ *
-> >+ * int (*ndo_del_vxlan_port)(struct  net_device *dev,
-> >+ *			    __u16 port);
-> >+ *	Called by vxlan to notify the driver about a UDP port of vxlan
-> >+ *	that is not listening anymore. The operation is protected by
-> >+ *	the vxlan_net->sock_lock.
-> >  */
-> > struct net_device_ops {
-> > 	int			(*ndo_init)(struct net_device *dev);
-> >@@ -1078,6 +1090,10 @@ struct net_device_ops {
-> > 						      bool new_carrier);
-> > 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
-> > 							struct netdev_phys_port_id *ppid);
-> >+	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
-> >+						      __u16 port);
-> >+	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
-> >+						      __u16 port);
-> 
-> 
-> It doesn't look correct to add more specific device ndos like this. I
-> think they should be more general. How about to rather use netdev notifier
-> to propagate the change and then driver can use come vxlan exported
-> function to get ports in use.
-> 
-
-Please see comment from Ben Hutchings on previously similar question.
-
-> 
-> 
-> 
-> > };
-> > 
-> > /*
-> >diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> >index ad342e3..a0dc497 100644
-> >--- a/include/net/vxlan.h
-> >+++ b/include/net/vxlan.h
-> >@@ -36,4 +36,5 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
-> > 
-> > __be16 vxlan_src_port(__u16 port_min, __u16 port_max, struct sk_buff *skb);
-> > 
-> >+void vxlan_get_rx_port(struct net_device *netdev);
-> > #endif
-> >-- 
-> >1.8.3.1
-> >
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thanks!
