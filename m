@@ -1,135 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/10] ixgbe: add 1Gbps support for QSFP+
-Date: Thu, 29 Aug 2013 03:50:04 -0700
-Message-ID: <1377773406-24851-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/10] ixgbe: zero out mailbox buffer on init
+Date: Thu, 29 Aug 2013 03:50:01 -0700
+Message-ID: <1377773406-24851-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:43084 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:56411 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756296Ab3H2Kub (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 06:50:31 -0400
+	id S1756225Ab3H2Ku2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 06:50:28 -0400
 In-Reply-To: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch adds GB speed support for QSFP+ modules.
-Autonegotiation is not supported with QSFP+. The user will have to set
-the desired speed on both link partners using ethtool advertise setting.
+This patch initializes the msgbuf array to 0 in order to avoid using random
+numbers from the memory as MAC address for the VF.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 35 ++++++++++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  3 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  6 ++++
- 3 files changed, 33 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e4f4f4b..007a008 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -379,8 +379,13 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 73c8e73..276d7b1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -639,8 +639,8 @@ static int ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	unsigned char *vf_mac = adapter->vfinfo[vf].vf_mac_addresses;
+-	u32 reg, msgbuf[4];
+-	u32 reg_offset, vf_shift;
++	u32 reg, reg_offset, vf_shift;
++	u32 msgbuf[4] = {0, 0, 0, 0};
+ 	u8 *addr = (u8 *)(&msgbuf[1]);
  
- 	if (hw->phy.multispeed_fiber) {
- 		*speed |= IXGBE_LINK_SPEED_10GB_FULL |
--		          IXGBE_LINK_SPEED_1GB_FULL;
--		*autoneg = true;
-+			  IXGBE_LINK_SPEED_1GB_FULL;
-+
-+		/* QSFP must not enable auto-negotiation */
-+		if (hw->phy.media_type == ixgbe_media_type_fiber_qsfp)
-+			*autoneg = false;
-+		else
-+			*autoneg = true;
- 	}
- 
- out:
-@@ -700,13 +705,18 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 			goto out;
- 
- 		/* Set the module link speed */
--		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
--			ixgbe_set_fiber_fixed_speed(hw,
--					IXGBE_LINK_SPEED_10GB_FULL);
--		} else {
-+		switch (hw->phy.media_type) {
-+		case ixgbe_media_type_fiber:
- 			esdp_reg |= (IXGBE_ESDP_SDP5_DIR | IXGBE_ESDP_SDP5);
- 			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
- 			IXGBE_WRITE_FLUSH(hw);
-+			break;
-+		case ixgbe_media_type_fiber_qsfp:
-+			/* QSFP module automatically detects MAC link speed */
-+			break;
-+		default:
-+			hw_dbg(hw, "Unexpected media type.\n");
-+			break;
- 		}
- 
- 		/* Allow module to change analog characteristics (1G->10G) */
-@@ -757,14 +767,23 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 			goto out;
- 
- 		/* Set the module link speed */
--		if (hw->phy.media_type == ixgbe_media_type_fiber_fixed) {
-+		switch (hw->phy.media_type) {
-+		case ixgbe_media_type_fiber_fixed:
- 			ixgbe_set_fiber_fixed_speed(hw,
- 						IXGBE_LINK_SPEED_1GB_FULL);
--		} else {
-+			break;
-+		case ixgbe_media_type_fiber:
- 			esdp_reg &= ~IXGBE_ESDP_SDP5;
- 			esdp_reg |= IXGBE_ESDP_SDP5_DIR;
- 			IXGBE_WRITE_REG(hw, IXGBE_ESDP, esdp_reg);
- 			IXGBE_WRITE_FLUSH(hw);
-+			break;
-+		case ixgbe_media_type_fiber_qsfp:
-+			/* QSFP module automatically detects MAC link speed */
-+			break;
-+		default:
-+			hw_dbg(hw, "Unexpected media type.\n");
-+			break;
- 		}
- 
- 		/* Allow module to change analog characteristics (10G->1G) */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 2d0308e..0e1b973 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -311,9 +311,6 @@ static int ixgbe_set_settings(struct net_device *netdev,
- 		 * this function does not support duplex forcing, but can
- 		 * limit the advertising of the adapter to the specified speed
- 		 */
--		if (ecmd->autoneg == AUTONEG_DISABLE)
--			return -EINVAL;
--
- 		if (ecmd->advertising & ~ecmd->supported)
- 			return -EINVAL;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 033997b..e89b34e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1205,6 +1205,12 @@ s32 ixgbe_identify_qsfp_module_generic(struct ixgbe_hw *hw)
- 	if (status != 0)
- 		goto err_read_i2c_eeprom;
- 
-+	status = hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_QSFP_1GBE_COMP,
-+					     &comp_codes_1g);
-+
-+	if (status != 0)
-+		goto err_read_i2c_eeprom;
-+
- 	if (comp_codes_10g & IXGBE_SFF_QSFP_DA_PASSIVE_CABLE) {
- 		hw->phy.type = ixgbe_phy_qsfp_passive_unknown;
- 		if (hw->bus.lan_id == 0)
+ 	e_info(probe, "VF Reset msg received from vf %d\n", vf);
 -- 
 1.8.3.1
