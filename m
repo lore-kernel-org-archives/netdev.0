@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mdio-sun4i: Convert to devm_* api
-Date: Thu, 29 Aug 2013 14:55:13 -0400 (EDT)
-Message-ID: <20130829.145513.179529840926907721.davem@davemloft.net>
-References: <1377522717-5784-1-git-send-email-jszhang@marvell.com>
-	<20130828093508.GQ2695@lukather>
+Subject: Re: [PATCH net-next] net: sctp: reorder sctp_globals to reduce
+ cacheline usage
+Date: Thu, 29 Aug 2013 14:56:06 -0400 (EDT)
+Message-ID: <20130829.145606.1418884404797972654.davem@davemloft.net>
+References: <1377527640-22447-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jszhang@marvell.com, emilio@elopez.com.ar, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: maxime.ripard@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130828093508.GQ2695@lukather>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36890 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754315Ab3H2S4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 14:56:08 -0400
+In-Reply-To: <1377527640-22447-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Date: Wed, 28 Aug 2013 11:35:08 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 26 Aug 2013 16:34:00 +0200
 
-> Hi Jisheng,
+> Reduce cacheline usage from 2 to 1 cacheline for sctp_globals structure. By
+> reordering elements, we can close gaps and simply achieve the following:
 > 
-> On Mon, Aug 26, 2013 at 09:11:57PM +0800, Jisheng Zhang wrote:
->> Use devm_ioremap_resource instead of of_iomap() and devm_kzalloc()
->> instead of kmalloc() to make cleanup paths simpler. This patch also
->> fixes the resource leak caused by missing corresponding iounamp()
->> of the of_iomap().
->> 
->> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> Current situation:
+>   /* size: 80, cachelines: 2, members: 10 */
+>   /* sum members: 57, holes: 4, sum holes: 16 */
+>   /* padding: 7 */
+>   /* last cacheline: 16 bytes */
 > 
-> It looks fine for me.
-> Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+> Afterwards:
+>   /* size: 64, cachelines: 1, members: 10 */
+>   /* padding: 7 */
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied to net-next, thanks.
+Applied.
