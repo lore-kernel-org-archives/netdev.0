@@ -1,24 +1,39 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: ipv6: mldv1/v2: fix switchback timeout
- to rfc3810, 9.12.
-Date: Thu, 29 Aug 2013 23:24:57 +0200
-Message-ID: <521FBC29.2090700@redhat.com>
-References: <1377792578-32642-1-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
+Date: Thu, 29 Aug 2013 14:26:39 -0700
+Message-ID: <1377811599.8277.43.camel@edumazet-glaptop>
+References: <1377607592.8828.149.camel@edumazet-glaptop>
+	 <20130829.155131.1753610025310087003.davem@davemloft.net>
+	 <1377807977.8277.40.camel@edumazet-glaptop>
+	 <20130829.163528.638691969523130618.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	vanj@google.com, therbert@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53842 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755643Ab3H2VZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 17:25:07 -0400
-In-Reply-To: <1377792578-32642-1-git-send-email-dborkman@redhat.com>
+Received: from mail-ye0-f179.google.com ([209.85.213.179]:39960 "EHLO
+	mail-ye0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756688Ab3H2V0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 17:26:43 -0400
+Received: by mail-ye0-f179.google.com with SMTP id l10so244316yen.38
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 14:26:42 -0700 (PDT)
+In-Reply-To: <20130829.163528.638691969523130618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave, please hold on with this one. This is already better, but
-it still needs to be improved slightly. Will send an update tomorrow
-or at latest at the beginning of next week.
+On Thu, 2013-08-29 at 16:35 -0400, David Miller wrote:
+
+> 
+> No objections from me.
+
+We'll cook a different patch.
+
+Idea is to feed tcp_set_rto() with the srtt found in the tcp metric
+cache, and let tp->srtt value found in SYN/SYNACK (if available) as is.
+
+(Be conservative for initial rto value, yet allow tp->srtt be the
+current rtt on the network)
+
+Thanks
