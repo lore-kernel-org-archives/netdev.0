@@ -1,50 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/13] bonding: remove vlan special handling
-Date: Thu, 29 Aug 2013 16:20:58 -0400 (EDT)
-Message-ID: <20130829.162058.321510029835854765.davem@davemloft.net>
-References: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: no need to call ether_setup()
+Date: Fri, 30 Aug 2013 00:24:47 +0400
+Message-ID: <201308300024.48415.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com, fubar@us.ibm.com,
-	andy@greyhouse.net, edumazet@google.com, jiri@resnulli.us,
-	alexander.h.duyck@intel.com, amwang@redhat.com
-To: vfalico@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37881 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752585Ab3H2UVC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:21:02 -0400
-In-Reply-To: <1377725116-31126-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Wed, 28 Aug 2013 23:25:03 +0200
+There's no need to call ether_setup() in the driver since prior alloc_etherdev()
+call already arranges for it.
 
-> The aim of this patchset is to remove bondings' own vlan handling as much
-> as possible and replace it with the netdev upper device functionality.
-> 
-> The upper device functionality is extended to include also lower devices
-> and to have, for each device, a full view of every lower and upper device,
-> but not only the first-level ones. This might permit in the future to
-> avoid, for any grouping/teaming/upper/lower devices, to maintain its own
-> lists of slaves/vlans/etc.
-> 
-> This is achieved by adding a helper function to upper dev list handling -
-> netdev_upper_get_next_dev(dev, iter), which returns the next device after
-> the list_head **iter, and sets *iter to the next list_head *. This patchset
-> also adds netdev_for_each_upper_dev(dev, upper, iter), which iterates
-> through the whole dev->upper_dev_list, setting upper to the net_device.
-> The only special treatment of vlans remains in rlb code.
-> 
-> This patchset solves several issues with bonding, simplifies it overall,
-> RCUify further and exports upper list functions for any other users which
-> might also want to get rid of its own vlan_lists or slaves.
-> 
-> I'm testing it continuously currently, no issues found, will update on
-> anything.
+Suggested-by: Denis Kirjanov <kda@linux-powerpc.org>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-I like these changes a lot, nice work.
+---
+ drivers/net/ethernet/renesas/sh_eth.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-Series applied, thanks.
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2639,9 +2639,6 @@ static int sh_eth_drv_probe(struct platf
+ 
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+-	/* Fill in the fields of the device structure with ethernet values. */
+-	ether_setup(ndev);
+-
+ 	mdp = netdev_priv(ndev);
+ 	mdp->num_tx_ring = TX_RING_SIZE;
+ 	mdp->num_rx_ring = RX_RING_SIZE;
