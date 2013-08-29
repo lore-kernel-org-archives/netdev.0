@@ -1,73 +1,64 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port
- changes
-Date: Thu, 29 Aug 2013 19:42:58 +0100
-Message-ID: <1377801778.5372.8.camel@bwh-desktop.uk.level5networks.com>
-References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
+Date: Thu, 29 Aug 2013 19:48:58 +0100
+Message-ID: <1377802138.5372.12.camel@bwh-desktop.uk.level5networks.com>
+References: <20130829082514.GB14334@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>,
-	"John Fastabend" <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36732 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286Ab3H2SnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 14:43:07 -0400
-In-Reply-To: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Fabio Estevam" <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130829082514.GB14334@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-08-29 at 05:54 -0700, Jeff Kirsher wrote:
-> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+On Thu, 2013-08-29 at 11:25 +0300, Dan Carpenter wrote:
+> My static checker complains that on some arches unsigned longs can be 8
+> characters which is larger than the buffer is only 6 chars.
+> Additionally, Ben Hutchings points out that the buffer actually holds
+> big endian data and the buffer we are reading from is CPU endian.
+
+It's not really as clear-cut as that. :-)  But I think it's slightly
+more logical this way.
+
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+
+> ---
+> v2: fix endian annotations and reverse the beXX_to_cpu() calls so that
+>     they say cpu_to_beXX().
 > 
-> This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
-> ndo_del_rx_vxlan_port().
-[...]
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -948,6 +948,18 @@ struct netdev_phys_port_id {
->   *	Called to get ID of physical port of this device. If driver does
->   *	not implement this, it is assumed that the hw is not able to have
->   *	multiple net devices on single physical port.
-> + *
-> + * int (*ndo_add_vxlan_port)(struct  net_device *dev,
-> + *			      __u16 port);
-> + *	Called by vxlan to notiy a driver about the UDP port that vxlan
-> + *	is listnening to. It is called only when a new port starts listening.
-> + *	The operation is protected by the vxlan_net->sock_lock.
-> + *
-> + * int (*ndo_del_vxlan_port)(struct  net_device *dev,
-> + *			    __u16 port);
-> + *	Called by vxlan to notify the driver about a UDP port of vxlan
-> + *	that is not listening anymore. The operation is protected by
-> + *	the vxlan_net->sock_lock.
->   */
->  struct net_device_ops {
->  	int			(*ndo_init)(struct net_device *dev);
-> @@ -1078,6 +1090,10 @@ struct net_device_ops {
->  						      bool new_carrier);
->  	int			(*ndo_get_phys_port_id)(struct net_device *dev,
->  							struct netdev_phys_port_id *ppid);
-> +	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
-> +						      __u16 port);
-> +	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
-> +						      __u16 port);
->  };
-[...]
-
-I notice these are defined to return int, but the callers don't check
-the return value.  Should they return void or do the callers need some
-error handling?
-
-Ben.
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index fdf9307..0b12866 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1100,10 +1100,10 @@ static void fec_get_mac(struct net_device *ndev)
+>  	 * 4) FEC mac registers set by bootloader
+>  	 */
+>  	if (!is_valid_ether_addr(iap)) {
+> -		*((unsigned long *) &tmpaddr[0]) =
+> -			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
+> -		*((unsigned short *) &tmpaddr[4]) =
+> -			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+> +		*((__be32 *) &tmpaddr[0]) =
+> +			cpu_to_be32(readl(fep->hwp + FEC_ADDR_LOW));
+> +		*((__be16 *) &tmpaddr[4]) =
+> +			cpu_to_be16(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+>  		iap = &tmpaddr[0];
+>  	}
+>  
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
