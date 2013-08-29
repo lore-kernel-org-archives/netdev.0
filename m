@@ -1,119 +1,192 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: VLAN filtering/VLAN aware bridge problems
-Date: Thu, 29 Aug 2013 14:50:27 +0200
-Message-ID: <521F4393.1020907@profihost.ag>
+From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v2 1/3] Send loginuid and sessionid in SCM_AUDIT
+Date: Thu, 29 Aug 2013 16:13:20 +0200
+Message-ID: <1377785602-10766-2-git-send-email-jkaluza@redhat.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1377785602-10766-1-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:46616 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752844Ab3H2M5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 08:57:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1377785602-10766-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Add new SCM type called SCM_AUDIT to send loginuid and sessionuid in SCM.
+This is useful for journald (systemd logging daemon) to get additional context
+with each log line received using UNIX socket.
 
-currently i'm running vanilla 3.8.8 kernel with some tap devices using
-VLANs on top of a bridge on top of a bond.
+Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ include/linux/socket.h |  6 ++++++
+ include/net/af_unix.h  |  2 ++
+ include/net/scm.h      | 28 ++++++++++++++++++++++++++--
+ net/unix/af_unix.c     |  7 +++++++
+ 4 files changed, 41 insertions(+), 2 deletions(-)
 
-This works fine and everything is great.
-
-Now i started to test 3.10.9 and all my VLANs stopped working no matter
-i disable or enable CONFIG_BRIDGE_VLAN_FILTERING.
-
-The packets never reach the TAP device.
-
-Here is an output of ip a l (vlan 3021):
-
-ip a l
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-mq master bond0 state UP qlen 1000
-    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
-3: eth4: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 9000 qdisc mq
-master bond5 state UP qlen 10000
-    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
-4: eth1: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-mq master bond0 state UP qlen 1000
-    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
-5: eth2: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-mq master bond1 state UP qlen 1000
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-6: eth5: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 9000 qdisc mq
-master bond5 state UP qlen 10000
-    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
-7: eth3: <BROADCAST,MULTICAST,PROMISC,SLAVE,UP,LOWER_UP> mtu 1500 qdisc
-mq master bond1 state UP qlen 1000
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc
-noqueue master vmbr0 state UP
-    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::225:90ff:fe84:dea8/64 scope link
-       valid_lft forever preferred_lft forever
-9: bond1: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc
-noqueue master vmbr1 state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::225:90ff:fe84:deaa/64 scope link
-       valid_lft forever preferred_lft forever
-10: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP
-    link/ether 00:25:90:84:de:a8 brd ff:ff:ff:ff:ff:ff
-    inet 178.250.9.30/25 brd 178.250.9.127 scope global vmbr0
-       valid_lft forever preferred_lft forever
-    inet6 fe80::225:90ff:fe84:dea8/64 scope link
-       valid_lft forever preferred_lft forever
-11: vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::225:90ff:fe84:deaa/64 scope link
-       valid_lft forever preferred_lft forever
-12: bond5: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 9000 qdisc
-noqueue state UP
-    link/ether 90:e2:ba:33:45:0c brd ff:ff:ff:ff:ff:ff
-    inet 10.255.0.30/24 brd 10.255.0.255 scope global bond5
-       valid_lft forever preferred_lft forever
-    inet6 fe80::92e2:baff:fe33:450c/64 scope link
-       valid_lft forever preferred_lft forever
-15: vmbr1.3020@vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
-noqueue master vmbr1v3020 state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::225:90ff:fe84:deaa/64 scope link
-       valid_lft forever preferred_lft forever
-16: vmbr1v3020: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::f036:92ff:fe40:7224/64 scope link
-       valid_lft forever preferred_lft forever
-19: tap320i0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
-htb master vmbr0 state UNKNOWN qlen 500
-    link/ether fe:fa:14:cc:75:b2 brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::fcfa:14ff:fecc:75b2/64 scope link
-       valid_lft forever preferred_lft forever
-20: tap320i1: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
-htb master vmbr1v3021 state UNKNOWN qlen 500
-    link/ether 8a:f3:9b:47:c7:88 brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::88f3:9bff:fe47:c788/64 scope link
-       valid_lft forever preferred_lft forever
-21: vmbr1.3021@vmbr1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
-noqueue master vmbr1v3021 state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::225:90ff:fe84:deaa/64 scope link
-       valid_lft forever preferred_lft forever
-22: vmbr1v3021: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-state UP
-    link/ether 00:25:90:84:de:aa brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::9868:5eff:fe9d:bf56/64 scope link
-       valid_lft forever preferred_lft forever
-
-Greets,
-Stefan
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 445ef75..505047a 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -130,6 +130,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
+ #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
+ #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
+ #define SCM_SECURITY	0x03		/* rw: security label		*/
++#define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
+ 
+ struct ucred {
+ 	__u32	pid;
+@@ -137,6 +138,11 @@ struct ucred {
+ 	__u32	gid;
+ };
+ 
++struct uaudit {
++	__u32	loginuid;
++	__u32	sessionid;
++};
++
+ /* Supported address families. */
+ #define AF_UNSPEC	0
+ #define AF_UNIX		1	/* Unix domain sockets 		*/
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index a175ba4..3b9d22a 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -36,6 +36,8 @@ struct unix_skb_parms {
+ 	u32			secid;		/* Security ID		*/
+ #endif
+ 	u32			consumed;
++	kuid_t			loginuid;
++	unsigned int		sessionid;
+ };
+ 
+ #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 8de2d37..e349a25 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -6,6 +6,7 @@
+ #include <linux/security.h>
+ #include <linux/pid.h>
+ #include <linux/nsproxy.h>
++#include <linux/audit.h>
+ 
+ /* Well, we should have at least one descriptor open
+  * to accept passed FDs 8)
+@@ -18,6 +19,11 @@ struct scm_creds {
+ 	kgid_t	gid;
+ };
+ 
++struct scm_audit {
++	kuid_t loginuid;
++	unsigned int sessionid;
++};
++
+ struct scm_fp_list {
+ 	short			count;
+ 	short			max;
+@@ -28,6 +34,7 @@ struct scm_cookie {
+ 	struct pid		*pid;		/* Skb credentials */
+ 	struct scm_fp_list	*fp;		/* Passed files		*/
+ 	struct scm_creds	creds;		/* Skb credentials	*/
++	struct scm_audit	audit;		/* Skb audit	*/
+ #ifdef CONFIG_SECURITY_NETWORK
+ 	u32			secid;		/* Passed security ID 	*/
+ #endif
+@@ -58,6 +65,13 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+ 	scm->creds.gid = gid;
+ }
+ 
++static inline void scm_set_audit(struct scm_cookie *scm,
++				    kuid_t loginuid, unsigned int sessionid)
++{
++	scm->audit.loginuid = loginuid;
++	scm->audit.sessionid = sessionid;
++}
++
+ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+ {
+ 	put_pid(scm->pid);
+@@ -77,8 +91,12 @@ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
+ 	memset(scm, 0, sizeof(*scm));
+ 	scm->creds.uid = INVALID_UID;
+ 	scm->creds.gid = INVALID_GID;
+-	if (forcecreds)
+-		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
++	if (forcecreds) {
++		scm_set_cred(scm, task_tgid(current), current_uid(),
++			     current_gid());
++		scm_set_audit(scm, audit_get_loginuid(current),
++			      audit_get_sessionid(current));
++	}
+ 	unix_get_peersec_dgram(sock, scm);
+ 	if (msg->msg_controllen <= 0)
+ 		return 0;
+@@ -123,7 +141,13 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 			.uid = from_kuid_munged(current_ns, scm->creds.uid),
+ 			.gid = from_kgid_munged(current_ns, scm->creds.gid),
+ 		};
++		struct uaudit uaudits = {
++			.loginuid = from_kuid_munged(current_ns,
++						     scm->audit.loginuid),
++			.sessionid = scm->audit.sessionid,
++		};
+ 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
++		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
+ 	}
+ 
+ 	scm_destroy_cred(scm);
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 86de99a..c410f76 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1393,6 +1393,8 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
+ 	UNIXCB(skb).pid  = get_pid(scm->pid);
+ 	UNIXCB(skb).uid = scm->creds.uid;
+ 	UNIXCB(skb).gid = scm->creds.gid;
++	UNIXCB(skb).loginuid = scm->audit.loginuid;
++	UNIXCB(skb).sessionid = scm->audit.sessionid;
+ 	UNIXCB(skb).fp = NULL;
+ 	if (scm->fp && send_fds)
+ 		err = unix_attach_fds(scm, skb);
+@@ -1416,6 +1418,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+ 	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
+ 		UNIXCB(skb).pid  = get_pid(task_tgid(current));
+ 		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
++		UNIXCB(skb).loginuid = audit_get_loginuid(current);
++		UNIXCB(skb).sessionid = audit_get_sessionid(current);
+ 	}
+ }
+ 
+@@ -1812,6 +1816,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+ 	}
+ 	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
++	scm_set_audit(siocb->scm, UNIXCB(skb).loginuid, UNIXCB(skb).sessionid);
+ 	unix_set_secdata(siocb->scm, skb);
+ 
+ 	if (!(flags & MSG_PEEK)) {
+@@ -1993,6 +1998,8 @@ again:
+ 		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
+ 			/* Copy credentials */
+ 			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
++			scm_set_audit(siocb->scm, UNIXCB(skb).loginuid,
++				      UNIXCB(skb).sessionid);
+ 			check_creds = 1;
+ 		}
+ 
+-- 
+1.8.3.1
