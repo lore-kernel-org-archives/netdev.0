@@ -1,75 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: separate querier and query timer into
- IGMP/IPv4 and MLD/IPv6 ones
-Date: Wed, 28 Aug 2013 20:08:31 -0400 (EDT)
-Message-ID: <20130828.200831.289304393401193657.davem@davemloft.net>
-References: <1377511266-14530-1-git-send-email-linus.luessing@web.de>
+From: Rob Gardner <robmatic@gmail.com>
+Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP
+ exception table
+Date: Wed, 28 Aug 2013 18:40:22 -0600
+Message-ID: <20130828184022.9a5b54e8df63aaf8c82bf9b5@gmail.com>
+References: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
+	<20130828.182332.824853790331642993.davem@davemloft.net>
+	<20130828171812.7097dc8334046b464486d4a3@gmail.com>
+	<20130828.200111.1548126886406334118.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux@baker-net.org.uk, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1377511266-14530-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, bjorn@mork.no,
+	oliver@neukum.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:44284 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755213Ab3H2AkZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Aug 2013 20:40:25 -0400
+In-Reply-To: <20130828.200111.1548126886406334118.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Mon, 26 Aug 2013 12:01:06 +0200
+On Wed, 28 Aug 2013 20:01:11 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Currently we would still potentially suffer multicast packet loss if =
-there
-> is just either an IGMP or an MLD querier: For the former case, we wou=
-ld
-> possibly drop IPv6 multicast packets, for the latter IPv4 ones. This =
-is
-> because we are currently assuming that if either an IGMP or MLD queri=
-er
-> is present that the other one is present, too.
-> =
+> From: Rob Gardner <robmatic@gmail.com>
+> Date: Wed, 28 Aug 2013 17:18:12 -0600
+>=20
+> > Bj=F8rn says it could have a minor performance impact, but should n=
+ot
+> > cause any loss of functionality. I don't think there's any hard dat=
+a on
+> > what the performance cost might be but I know he would eventually l=
+ike
+> > to get rid of the exception list and live with the possible perform=
+ance
+> > impact if it means functionality for more devices.
+>=20
+> Therefore I would recommend turning the workaround on by default and
+> have a white list.
 
-> This patch makes the behaviour and fix added in
-> "bridge: disable snooping if there is no querier" (b00589af3b04)
-> to also work if there is either just an IGMP or an MLD querier on the=
+The exception list means "usb_device_id entries for specific devices
+that are known to need the workaround." There are just two such entries=
+=2E
+There isn't even a separate list. So maybe we just have a nomenclature
+problem, and we could simply be calling this a "white list" instead of
+"exception list". The other possible meaning of whitelist (all devices
+that *don't* need the workaround) is unthinkable, as that would be a hu=
+ge
+list and much more prone to be unmanageable than what we've got now.
 
-> link: It refines the deactivation of the snooping to be protocol
-> specific by using separate timers for the snooped IGMP and MLD querie=
-s
-> as well as separate timers for our internal IGMP and MLD queriers.
-> =
-
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-I think the logic of the fix is fine, but theres a lot of duplication
-here.
-
-Why not make a:
-
-struct bridge_mcast_timer {
-	struct	timer_list	timer;
-	u32			queries_sent;
-	u32			startup_queries_sent;
-
-};
-
-Then in the port structure you have:
-
-	struct bridge_mcast_timer	ip4;
-	struct bridge_mcast_timer	ip6;
-
-And pass a reference to the right one into generic helper functions.
-
-That sounds a lot better right?
-
-Please make this improvement and resubmit, thanks.
+--=20
+Rob Gardner <robmatic@gmail.com>
