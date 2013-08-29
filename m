@@ -1,36 +1,46 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] realtek: update devices to 3.11
-Date: Thu, 29 Aug 2013 21:52:06 +0100
-Message-ID: <1377809526.5372.18.camel@bwh-desktop.uk.level5networks.com>
-References: <1376429119-31380-1-git-send-email-lekensteyn@gmail.com>
-	 <1376429119-31380-3-git-send-email-lekensteyn@gmail.com>
+Subject: Re: [ethtool  3/3] ethtool: add ixgbevf support for register dump
+Date: Thu, 29 Aug 2013 21:57:45 +0100
+Message-ID: <1377809865.5372.23.camel@bwh-desktop.uk.level5networks.com>
+References: <1377648529-8297-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1377648529-8297-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Francois Romieu <romieu@fr.zoreil.com>
-To: Peter Wu <lekensteyn@gmail.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30955 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:31073 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756534Ab3H2UwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:52:09 -0400
-In-Reply-To: <1376429119-31380-3-git-send-email-lekensteyn@gmail.com>
+	with ESMTP id S1756152Ab3H2U5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:57:49 -0400
+In-Reply-To: <1377648529-8297-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-08-13 at 23:25 +0200, Peter Wu wrote:
-> RTL8168_8111Bb/RTL8168_8111Bef is like RTL8111B/RTL8168B, RTL8100E and RTL8101E
-> (datasheet revision 1.0 from 26 January 2006). Assume that RTL8101e is also
-> similar (I may be very wrong at that though...).
+On Tue, 2013-08-27 at 17:08 -0700, Jeff Kirsher wrote:
+> From: Jacob Keller <jacob.e.keller@intel.com>
 > 
-> Note that the scanning heuristics is the same as the r8169 module: newer devices
-> with stronger masks come before the others. Perhaps the older 8139 cards should
-> be appended to the list, after all r8169 chips.
+> This patch adds support for the ixgbevf driver, which previously was printing
+> out as hex dump, and in the driver via printk. This patch corrects the
+> implementation to have a new ixgbevf_reg_dump function that will format the
+> register output in a more human readable format.
 > 
-> Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+Applied, but:
+
+[...]
+> --- /dev/null
+> +++ b/ixgbevf.c
+> @@ -0,0 +1,180 @@
+> +/* Copyright (c) 2007 Intel Corporation */
 [...]
 
-Applied, thanks.
+I'm not sure whether to believe this date...
 
 Ben.
 
