@@ -1,149 +1,233 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: ipv6: mldv1/v2: fix switchback timeout to rfc3810, 9.12.
-Date: Thu, 29 Aug 2013 18:09:38 +0200
-Message-ID: <1377792578-32642-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [net-next v2 1/2] vxlan: Notify drivers for listening UDP port
+ changes
+Date: Thu, 29 Aug 2013 09:49:39 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1308290935310.11735@intel.com>
+References: <1377780878-32384-1-git-send-email-jeffrey.t.kirsher@intel.com> <20130829141904.GB1450@minipsycho.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42605 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([143.182.124.21]:1331 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753874Ab3H2QOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 12:14:45 -0400
+	id S1755511Ab3H2Qer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 12:34:47 -0400
+In-Reply-To: <20130829141904.GB1450@minipsycho.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i) RFC3810, 9.2. Query Interval [QI] says:
 
-   The Query Interval variable denotes the interval between General
-   Queries sent by the Querier. Default value: 125 seconds. [...]
 
-ii) RFC3810, 9.3. Query Response Interval [QRI] says:
+On Thu, 29 Aug 2013, Jiri Pirko wrote:
 
-  The Maximum Response Delay used to calculate the Maximum Response
-  Code inserted into the periodic General Queries. Default value:
-  10000 (10 seconds) [...] The number of seconds represented by the
-  [Query Response Interval] must be less than the [Query Interval].
+> Thu, Aug 29, 2013 at 02:54:37PM CEST, jeffrey.t.kirsher@intel.com wrote:
+> >From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >
+> >This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
+> >ndo_del_rx_vxlan_port().
+> >
+> >Drivers can get notifications through the above functions about changes
+> >of the UDP listening port of VXLAN. Also, when physical ports come up,
+> >now they can call vxlan_get_rx_port() in order to obtain the port number(s)
+> >of the existing VXLAN interface in case they already up before them.
+> >
+> >This information about the listening UDP port would be used for VXLAN
+> >related offloads.
+> >
+> >A big thank you to John Fastabend (john.r.fastabend@intel.com) for his input
+> >and his suggestions on this patch set.
+> >
+> >CC: John Fastabend <john.r.fastabend@intel.com>
+> >CC: Stephen Hemminger <stephen@networkplumber.org>
+> >Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >---
+> >v2: Now locking on sock_lock around vxlan_get_rx_port() in order to avoid
+> >    races with vxlan removing ports and drivers still keeping resources for
+> >    them.
+> >---
+> > drivers/net/vxlan.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++++-
+> > include/linux/netdevice.h | 16 ++++++++++++++
+> > include/net/vxlan.h       |  1 +
+> > 3 files changed, 72 insertions(+), 1 deletion(-)
+> >
+> >diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> >index 3b21aca..65d1df5 100644
+> >--- a/drivers/net/vxlan.c
+> >+++ b/drivers/net/vxlan.c
+> >@@ -456,6 +456,32 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+> > 	return 1;
+> > }
+> > 
+> >+/* Notify netdevs that UDP port started listening */
+> >+static void vxlan_notify_add_rx_port(struct net *net, __be16 port)
+> >+{
+> >+	struct net_device *dev;
+> >+
+> >+	rcu_read_lock();
+> >+	for_each_netdev_rcu(net, dev) {
+> >+		if (dev->netdev_ops->ndo_add_vxlan_port)
+> >+			dev->netdev_ops->ndo_add_vxlan_port(dev, htons(port));
+> >+	}
+> 
+> 
+> Is it really desirable to notify *all* devices? Even those who are not
+> involved in vxlan traffic? I think that only affected devices should be
+> notified. Lower device list being currently introduced by:
+> "[PATCH net-next v3 02/13] net: add lower_dev_list to net_device and make a full mesh"
+> Could be used for this.
+>
 
-iii) RFC3810, 9.12. Older Version Querier Present Timeout [OVQPT] says:
-
-  The Older Version Querier Present Timeout is the time-out for
-  transitioning a host back to MLDv2 Host Compatibility Mode. When an
-  MLDv1 query is received, MLDv2 hosts set their Older Version Querier
-  Present Timer to [Older Version Querier Present Timeout].
-
-  This value MUST be ([Robustness Variable] times (the [Query Interval]
-  in the last Query received)) plus ([Query Response Interval]).
-
-Hence, on default the timeout results in:
-
-  [RV] = 2, [QI] = 125sec, [QRI] = 10sec
-  [OVQPT] = [RV] * [QI] + [QRI] = 260sec
-
-Having that said, we currently calculate [OVQPT] (here given as 'switchback'
-variable) as ...
-
-  switchback = (idev->mc_qrv + 1) * max_delay
-
-Looking at bridging multicast code for MLDv1, we can see that [QRI] resp.
-Maximum Response Delay is encoded into mld->mld_maxdelay, so getting [QRI]
-in MLDv1 the way we do is correct, but [QI] does not appear in our current
-switch back variant. Side note: briding code will set its timers as follows:
-
-  ...
-  br->multicast_query_response_interval = 10 * HZ;
-  br->multicast_startup_query_interval = 125 * HZ / 4;
-  br->multicast_query_interval = 125 * HZ;
-  ...
-
-Concluding, the current behaviour in IPv6's multicast code is not conform
-to the RFC as switch back is calculated wrongly. That is, it has a too small
-value, so MLDv2 hosts switch back again to MLDv2 way too early.
-
-On the other hand, RFC3810, 9.12. says "the [Query Interval] in the last Query
-received". In section "9.14. Configuring timers", it is said:
-
-  This section is meant to provide advice to network administrators on
-  how to tune these settings to their network. Ambitious router
-  implementations might tune these settings dynamically based upon
-  changing characteristics of the network. [...]
-
-iv) RFC38010, 9.14.2. Query Interval:
-
-  The overall level of periodic MLD traffic is inversely proportional
-  to the Query Interval. A longer Query Interval results in a lower
-  overall level of MLD traffic. The value of the Query Interval MUST
-  be equal to or greater than the Maximum Response Delay used to
-  calculate the Maximum Response Code inserted in General Query
-  messages.
-
-I assume that is why switchback is calculated as is (3 * max_delay), although
-this setting seems to be meant for routers only to configure their [QI]
-interval for non-default intervals.
-
-Also again, looking at the 'opposite site' in bridging code, the following
-is happening: If a bridge sends out a query itself via br_multicast_send_query(),
-multicast_query_timer is reset with br->multicast_query_interval (if we're not
-in startup), that is on default 125 * HZ.
-
-Therefore, when an MLDv1 query is received fix it up to use the default
-timeout of 125 * HZ (as we also have in bridging code for intervals
-queries are sent).
-
-Next to that, a follow-up patch after the fix could make MLD_QI_DEFAULT tunable
-per idev.
-
-Introduced in 06da92283 ("[IPV6]: Add MLDv2 support.").
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: David Stevens <dlstevens@us.ibm.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- - I chose net-next as this is not something critical such as fixing a panic.
- - Note, commit 06da92283 is in linux-history tree.
- - David Stevens, it would be great if you could comment on this. :)
-
- net/ipv6/mcast.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 98ead2b..4b0aa5a 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -108,6 +108,8 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
- 			    struct inet6_dev *idev);
+Just to be clear this notifies the devices that implement 
+ndo_add_vxlan_port, not all (which I think is what you meant anyway). 
+About lower_dev_list, VXLAN implementation is not like VLAN where you know 
+which dev you will be transmitting on in advance, hence we need to notify 
+all the devices that implement the ndo's.
  
- #define MLD_QRV_DEFAULT		2
-+/* RFC3810, 9.2. Query Interval */
-+#define MLD_QI_DEFAULT		(125 * HZ)
- 
- /* RFC3810, 8.1 Query Version Distinctions */
- #define MLD_V1_QUERY_LEN	24
-@@ -1150,11 +1152,24 @@ int igmp6_event_query(struct sk_buff *skb)
- 		return -EINVAL;
- 
- 	if (len == MLD_V1_QUERY_LEN) {
-+		int mc_qi = MLD_QI_DEFAULT;
- 		int switchback;
- 		/* MLDv1 router present */
- 
-+		/* RFC3810, 9.12. Older Version Querier Present Timeout:
-+		 *
-+		 * The Older Version Querier Present Timeout is the time-out
-+		 * for transitioning a host back to MLDv2 Host Compatibility
-+		 * Mode. When an MLDv1 query is received, MLDv2 hosts set
-+		 * their Older Version Querier Present Timer to [Older Version
-+		 * Querier Present Timeout].
-+		 *
-+		 * This value MUST be ([Robustness Variable] times (the
-+		 * [Query Interval] in the last Query received)) plus
-+		 * ([Query Response Interval]).
-+		 */
- 		max_delay = msecs_to_jiffies(ntohs(mld->mld_maxdelay));
--		switchback = (idev->mc_qrv + 1) * max_delay;
-+		switchback = idev->mc_qrv * mc_qi + max_delay;
- 		idev->mc_v1_seen = jiffies + switchback;
- 
- 		/* cancel the interface change timer */
--- 
-1.7.11.7
+> 
+> >+	rcu_read_unlock();
+> >+}
+> >+
+> >+/* Notify netdevs that UDP port is no more listening */
+> >+static void vxlan_notify_del_rx_port(struct net *net, __be16 port)
+> >+{
+> >+	struct net_device *dev;
+> >+
+> >+	rcu_read_lock();
+> >+	for_each_netdev_rcu(net, dev) {
+> >+		if (dev->netdev_ops->ndo_del_vxlan_port)
+> >+			dev->netdev_ops->ndo_del_vxlan_port(dev, htons(port));
+> >+	}
+> >+	rcu_read_unlock();
+> >+}
+> >+
+> > /* Add new entry to forwarding table -- assumes lock held */
+> > static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+> > 			    const u8 *mac, __be32 ip,
+> >@@ -797,13 +823,15 @@ static void vxlan_sock_hold(struct vxlan_sock *vs)
+> > 
+> > void vxlan_sock_release(struct vxlan_sock *vs)
+> > {
+> >-	struct vxlan_net *vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
+> >+	struct net *net = sock_net(vs->sock->sk);
+> >+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+> > 
+> > 	if (!atomic_dec_and_test(&vs->refcnt))
+> > 		return;
+> > 
+> > 	spin_lock(&vn->sock_lock);
+> > 	hlist_del_rcu(&vs->hlist);
+> >+	vxlan_notify_del_rx_port(net, inet_sk(vs->sock->sk)->inet_sport);
+> > 	spin_unlock(&vn->sock_lock);
+> > 
+> > 	queue_work(vxlan_wq, &vs->del_work);
+> >@@ -1543,6 +1571,31 @@ static struct device_type vxlan_type = {
+> > 	.name = "vxlan",
+> > };
+> > 
+> >+/* Calls the ndo_add_vxlan_port of the caller in order to
+> >+ * supply the listening VXLAN udp ports.
+> >+ */
+> >+void vxlan_get_rx_port(struct net_device *dev)
+> >+{
+> >+	struct vxlan_sock *vs;
+> >+	struct net *net = dev_net(dev);
+> >+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+> >+	u16 port;
+> >+	int i;
+> >+
+> >+	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
+> >+		return;
+> >+
+> >+	spin_lock(&vn->sock_lock);
+> >+	for (i = 0; i < PORT_HASH_SIZE; ++i) {
+> >+		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
+> >+			port = htons(inet_sk(vs->sock->sk)->inet_sport);
+> >+			dev->netdev_ops->ndo_add_vxlan_port(dev, port);
+> >+		}
+> >+	}
+> >+	spin_unlock(&vn->sock_lock);
+> >+}
+> >+EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
+> >+
+> > /* Initialize the device structure. */
+> > static void vxlan_setup(struct net_device *dev)
+> > {
+> >@@ -1723,6 +1776,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+> > 	inet_sk(sk)->mc_loop = 0;
+> > 	spin_lock(&vn->sock_lock);
+> > 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+> >+	vxlan_notify_add_rx_port(net, port);
+> > 	spin_unlock(&vn->sock_lock);
+> > 
+> > 	/* Mark socket as an encapsulation socket. */
+> >diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >index 077363d..f56b141 100644
+> >--- a/include/linux/netdevice.h
+> >+++ b/include/linux/netdevice.h
+> >@@ -948,6 +948,18 @@ struct netdev_phys_port_id {
+> >  *	Called to get ID of physical port of this device. If driver does
+> >  *	not implement this, it is assumed that the hw is not able to have
+> >  *	multiple net devices on single physical port.
+> >+ *
+> >+ * int (*ndo_add_vxlan_port)(struct  net_device *dev,
+> >+ *			      __u16 port);
+> >+ *	Called by vxlan to notiy a driver about the UDP port that vxlan
+> >+ *	is listnening to. It is called only when a new port starts listening.
+> >+ *	The operation is protected by the vxlan_net->sock_lock.
+> >+ *
+> >+ * int (*ndo_del_vxlan_port)(struct  net_device *dev,
+> >+ *			    __u16 port);
+> >+ *	Called by vxlan to notify the driver about a UDP port of vxlan
+> >+ *	that is not listening anymore. The operation is protected by
+> >+ *	the vxlan_net->sock_lock.
+> >  */
+> > struct net_device_ops {
+> > 	int			(*ndo_init)(struct net_device *dev);
+> >@@ -1078,6 +1090,10 @@ struct net_device_ops {
+> > 						      bool new_carrier);
+> > 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+> > 							struct netdev_phys_port_id *ppid);
+> >+	int			(*ndo_add_vxlan_port)(struct  net_device *dev,
+> >+						      __u16 port);
+> >+	int			(*ndo_del_vxlan_port)(struct  net_device *dev,
+> >+						      __u16 port);
+> 
+> 
+> It doesn't look correct to add more specific device ndos like this. I
+> think they should be more general. How about to rather use netdev notifier
+> to propagate the change and then driver can use come vxlan exported
+> function to get ports in use.
+> 
+
+Please see comment from Ben Hutchings on previously similar question.
+
+> 
+> 
+> 
+> > };
+> > 
+> > /*
+> >diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+> >index ad342e3..a0dc497 100644
+> >--- a/include/net/vxlan.h
+> >+++ b/include/net/vxlan.h
+> >@@ -36,4 +36,5 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
+> > 
+> > __be16 vxlan_src_port(__u16 port_min, __u16 port_max, struct sk_buff *skb);
+> > 
+> >+void vxlan_get_rx_port(struct net_device *netdev);
+> > #endif
+> >-- 
+> >1.8.3.1
+> >
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
