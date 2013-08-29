@@ -1,90 +1,43 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: [-next] openvswitch BUILD_BUG_ON failed
-Date: Thu, 29 Aug 2013 23:21:09 +0200
-Message-ID: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net-next v10 10/11] vxlan: respect scope_id for ll addr
+Date: Thu, 29 Aug 2013 17:20:54 -0400
+Message-ID: <OF231098A1.4B9DE99C-ON85257BD6.0074456A-85257BD6.00754552@us.ibm.com>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com> <1377667379-2315-11-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux-Next <linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:60233 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab3H2VVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 17:21:04 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Thu, 29 Aug 2013 15:21:04 -0600
+In-Reply-To: <1377667379-2315-11-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On m68k, where the alignment of 32-bit words is 2 bytes:
+netdev-owner@vger.kernel.org wrote on 08/28/2013 01:22:58 AM:
 
-net/openvswitch/flow.c:1984:2: error: call to
-'__compiletime_assert_1984' declared with attribute error:
-BUILD_BUG_ON failed: sizeof(struct sw_flow_key) % sizeof(long)
+> From: Cong Wang <amwang@redhat.com>
+ 
+> As pointed out by David, we should take care of scope id for ll
+> addr, and use it for route lookup.
 
-(http://kisskb.ellerman.id.au/kisskb/buildresult/9422860/)
+        It is an error to have a zero scope_id for an LL addr, but
+this code is not correct, because it only honors scope_id for
+LL addrs. Multicast addresses also require scope_id be set.
+        This shouldn't be in the transmit path. The netlink code
+that sets it should require it be nonzero for LL addrs and multicast
+addrs when it is set, and the transmit path should *always* use scope_id,
+whether for an lladdr or not, whether scope_id is zero or not.
 
-This was introduced by commit 5828cd9a68873df1340b420371c02c47647878fb
-Author: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Date:   Tue Aug 27 13:02:21 2013 -0700
+        I'm away this week and won't be able to review these in
+detail until next week, but wanted to get that comment in.
 
-    openvswitch: optimize flow compare and mask functions
-
-    Make sure the sw_flow_key structure and valid mask boundaries are always
-    machine word aligned. Optimize the flow compare and mask operations
-    using machine word size operations. This patch improves throughput on
-    average by 15% when CPU is the bottleneck of forwarding packets.
-
-    This patch is inspired by ideas and code from a patch submitted by Peter
-    Klausler titled "replace memcmp() with specialized comparator".
-    However, The original patch only optimizes for architectures
-    support unaligned machine word access. This patch optimizes for all
-    architectures.
-
-A quick fix to satisfy the build check is to make the padding explicit
-(gmail-whitespace-damaged diff):
-
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index b65f885..15f08d9 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -78,6 +78,7 @@ struct sw_flow_key {
-                u32     priority;       /* Packet QoS priority. */
-                u32     skb_mark;       /* SKB mark. */
-                u16     in_port;        /* Input switch port (or DP_MAX_PORTS).
-+               u16     pad;
-        } phy;
-        struct {
-                u8     src[ETH_ALEN];   /* Ethernet source address. */
-
-However, I have some doubts about other alignment "enforcements":
-
-"__aligned(__alignof__(long))" makes the whole struct aligned to the
-alignment rule for "long":
-   1. This is only 2 bytes on m68k, i.e. != sizeof(long).
-   2. This is 4 bytes on many 32-bit platforms, which may be less than the
-      default alignment for "__be64" (cfr. some members of struct
-      ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
-I guess you want (at least) 4 byte alignment on 32-bit, and prefer 8 byte
-alignment on 64-bit?
-Not specifying any alignment constraint will give you most of that (except
-on 64-bit platforms where 64-bit words must be only 4-byte aligned).
-
-There's another build check "BUILD_BUG_ON(sizeof(long) % sizeof(u32))".
-Isn't this always true on Linux, as "long" is never smaller than 4 bytes?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+                                                +-DLS
