@@ -1,52 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/10][pull request] Intel Wired LAN Driver
- Updates
-Date: Thu, 29 Aug 2013 16:14:15 -0400 (EDT)
-Message-ID: <20130829.161415.1218612845288168089.davem@davemloft.net>
-References: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 1/2] sh_eth: Fix cache invalidation omission
+ of receive buffer
+Date: Thu, 29 Aug 2013 16:15:53 -0400 (EDT)
+Message-ID: <20130829.161553.755954777649764863.davem@davemloft.net>
+References: <1377650589-20960-1-git-send-email-horms+renesas@verge.net.au>
+	<1377650589-20960-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37810 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191Ab3H2UOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:14:18 -0400
-In-Reply-To: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	magnus.damm@gmail.com, sergei.shtylyov@cogentembedded.com,
+	kouei.abe.cp@renesas.com
+To: horms+renesas@verge.net.au
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1377650589-20960-2-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 29 Aug 2013 03:49:56 -0700
+From: Simon Horman <horms+renesas@verge.net.au>
+Date: Wed, 28 Aug 2013 09:43:08 +0900
 
-> This series contains updates to ixgbe.
+> From: Kouei Abe <kouei.abe.cp@renesas.com>
 > 
-> Jacob provides a fix for 82599 devices where it can potentially keep link
-> lights up when the adapter has gone down.
+> Signed-off-by: Kouei Abe <kouei.abe.cp@renesas.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> Mark provides a fix to resolve the possible use of uninitialized memory
-> by checking the return value on EEPROM reads.
-> 
-> Don provides 2 patches, one to fix a issue where we were traversing the
-> Tx ring with the value of IXGBE_NUM_RX_QUEUES which currently happens
-> to have the correct value but this is misleading.  A change later, could
-> easily make this no longer correct so when traversing the Tx ring, use
-> netdev->num_tx_queues.  His second patch does some minor clean ups of log
-> messages.
-> 
-> Emil provides the remaining ixgbe patches.  First he fixes the link test
-> where forcing the laser before the link check can lead to inconsistent
-> results because it does not guarantee that the link will be negotiated
-> correctly.  Then he initializes the message buffer array to 0 in order
-> to avoid using random numbers from the memory as a MAC address for the
-> VF.  Emil also fixes the read loop for the I2C data to account for the
-> offset for SFP+ modules.  Lastly, Emil provides several patches to add
-> support for QSFP modules where 1Gbps support is added as well as support
-> for older QSFP active direct attach cables which pre-date SFF-8436 v3.6.
-> 
-> v2: Fixed patch 4 description and added blank line based on feedback from
->     Sergei Shtylyov
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index c357076..f386a8f 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1342,6 +1342,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+>  			mdp->rx_skbuff[entry] = NULL;
+>  			if (mdp->cd->rpadir)
+>  				skb_reserve(skb, NET_IP_ALIGN);
+> +			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
+> +				mdp->rx_buf_sz,	DMA_FROM_DEVICE);
 
-Pulled, thanks Jeff.
+Please indent the second line of the dma sync call properly.
+
+The arguments should start at the first column after the openning
+parenthesis of the function call on the first line, using the
+appropriate number of TAB then space characters (as needed).
+
+Thanks.
