@@ -1,37 +1,45 @@
-From: Lutz Jaenicke <ljaenicke@innominate.com>
-Subject: [iproute2] macvlan: fix typo in macvlan_print_opt()
-Date: Thu, 29 Aug 2013 09:50:28 +0200
-Message-ID: <1377762628-28843-1-git-send-email-ljaenicke@innominate.com>
-Cc: Lutz Jaenicke <ljaenicke@innominate.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.innominate.com ([77.245.32.75]:57808 "EHLO
-	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755966Ab3H2Huo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 03:50:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [nf-next PATCH] netfilter: Extend SYNPROXY with a --continue
+ option
+Date: Thu, 29 Aug 2013 10:23:58 +0200
+Message-ID: <20130829102358.4f93ee24@redhat.com>
+References: <20130828152549.8250.97982.stgit@dragon>
+	<20130828160038.GA25799@macbook.localnet>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	mph@one.com, as@one.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130828160038.GA25799@macbook.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The mode information is contained in IFLA_MACVLAN_MODE instead
-of IFLA_VLAN_ID (both evaluating to "1" in their enums).
+On Wed, 28 Aug 2013 18:00:42 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
----
- ip/iplink_macvlan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On Wed, Aug 28, 2013 at 05:26:55PM +0200, Jesper Dangaard Brouer wrote:
+> > Packets reaching SYNPROXY are default dropped, as they are most likely
+> > invalid (given the state matching).  In other configurations it might
+> > be beneficial to let packet not consumed by SYNPROXY (SYN and ACK) to
+> > continue being processed by the stack.
+> > 
+> > Introducing a --continue option/flag for the SYNPROXY target to allow
+> > these unmatched packets to continue being processed.  This would also
+> > help in debugging the module via LOG.
+> 
+> I don't think we should add an option for this. Just DROP packets consumed
+> by the target and have the other ones continue.
 
-diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
-index 5b4b868..ec51106 100644
---- a/ip/iplink_macvlan.c
-+++ b/ip/iplink_macvlan.c
-@@ -79,7 +79,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
- 	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MODE]) < sizeof(__u32))
- 		return;
- 
--	mode = rta_getattr_u32(tb[IFLA_VLAN_ID]);
-+	mode = rta_getattr_u32(tb[IFLA_MACVLAN_MODE]);
- 	fprintf(f, " mode %s ",
- 		  mode == MACVLAN_MODE_PRIVATE ? "private"
- 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
+I agree.  I'll send a new patch, defaulting to XT_CONTINUE.
+
+Self:
+Nacked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 -- 
-1.7.10.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
