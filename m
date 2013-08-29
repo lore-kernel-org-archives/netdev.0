@@ -1,55 +1,125 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] net/fec: cleanup types in fec_get_mac()
-Date: Thu, 29 Aug 2013 11:25:14 +0300
-Message-ID: <20130829082514.GB14334@elgon.mountain>
-References: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP exception table
+Date: Thu, 29 Aug 2013 10:32:55 +0200
+Message-ID: <87fvts28y0.fsf@nemi.mork.no>
+References: <20130828171812.7097dc8334046b464486d4a3@gmail.com>
+	<20130828.200111.1548126886406334118.davem@davemloft.net>
+	<20130828184022.9a5b54e8df63aaf8c82bf9b5@gmail.com>
+	<20130829.003352.1187611479213752660.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Grant Likely <grant.likely@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:20221 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752887Ab3H2IZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 04:25:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130829.003352.1187611479213752660.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Thu, 29 Aug 2013 00:33:52 -0400 (EDT)")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-My static checker complains that on some arches unsigned longs can be 8
-characters which is larger than the buffer is only 6 chars.
-Additionally, Ben Hutchings points out that the buffer actually holds
-big endian data and the buffer we are reading from is CPU endian.
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: fix endian annotations and reverse the beXX_to_cpu() calls so that
-    they say cpu_to_beXX().
+> From: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Wed, 28 Aug 2013 18:40:22 -0600
+>
+>> The exception list means "usb_device_id entries for specific devices
+>> that are known to need the workaround." There are just two such entr=
+ies.
+>> There isn't even a separate list. So maybe we just have a nomenclatu=
+re
+>> problem, and we could simply be calling this a "white list" instead =
+of
+>> "exception list". The other possible meaning of whitelist (all devic=
+es
+>> that *don't* need the workaround) is unthinkable, as that would be a=
+ huge
+>> list and much more prone to be unmanageable than what we've got now.
+>
+> Ok I misunderstood.  I thought we were discoving that all chips which
+> have been thoroughly investigated end up needing the workaround.
+>
+> I guess it's only a specific family of these chips which seem to all
+> have the problem?
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index fdf9307..0b12866 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1100,10 +1100,10 @@ static void fec_get_mac(struct net_device *ndev)
- 	 * 4) FEC mac registers set by bootloader
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
--		*((unsigned long *) &tmpaddr[0]) =
--			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
--		*((unsigned short *) &tmpaddr[4]) =
--			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
-+		*((__be32 *) &tmpaddr[0]) =
-+			cpu_to_be32(readl(fep->hwp + FEC_ADDR_LOW));
-+		*((__be16 *) &tmpaddr[4]) =
-+			cpu_to_be16(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
- 		iap = &tmpaddr[0];
- 	}
- 
+This driver is a class driver, which means that it deals with a number
+of completely independent chip designs from different vendors.  We have
+so far seen and tested chips from ST-Ericsson, Qualcomm and Mediatek
+with this driver.  Given that Microsoft requires MBIM, we are likely to
+see implementations on all available 3G/LTE chips (if there are any
+others?)
+
+Only devices with Qualcomm chips have the bug in question, and so far w=
+e
+have only observed it in modules made by Sierra Wireless. The firmware
+in these modules has a base part made by Qualcomm and an application
+part made by Sierra Wireless.  We do not know which part of the firmwar=
+e
+is responsible for the bug, but we do know that the Qualcomm base
+firmware used by these modules support MBIM framing.  Based on this, I
+am guessing that the chip vendor Qualcomm is responsible for the bug. I=
+f
+correct, then the bug is likely to appear in products from many
+different module vendors.  It would not be the first time we saw that..=
+=2E
+
+I do have a Huawei MBIM device with a Qualcomm chip, but this module
+does not have the Qualcomm firmware with MBIM support. The MBIM
+implementation is therefore assumed to be made by Huawei and running as
+a firmware application on the device.  This device does not have the bu=
+g.
+
+Now, if we could just identify devices running a Qualcomm base firmware
+with MBIM support then we could enable the workaround for all those. Bu=
+t
+the driver does not have any way to identify them.  It must base its
+decision on the USB descriptors, in practice only device ID and product
+ID. A module vendor can use chips from different sources (Huawei does
+this), and as Rob says: Laptop vendors will often have modules made wit=
+h
+their own vendor ID. Most laptop vendors will also use modules from
+different vendors.  HP, as a current example, is known to use modules
+both from Sierra Wireless (need the workaround) and Ericsson (does not
+want the workaround).
+
+This makes any sort of vendor matching difficult, and we end up with
+device specific blacklisting or whitelisting as the only option.  If it
+had been only the two devices we have now, or even only a few tens of
+devices, this would not have been a big deal.  But I do expect that the
+length of this exception list will be comparable to the list of devices
+supported by the qmi_wwan driver, i.e. hundreds.  And, like that driver=
+,
+the list will probably never be complete. Given the difficulties
+detecting the need for the workaround, the list is probably going to be
+extremely incomplete. Only a small percentage of end users with affecte=
+d
+devices will be able to provide the necessary information.
+
+=46or the question of the workaround impact on devices without bug: The=
+y
+will work fine, and the effect will not be user noticable AFAICS.  But
+it will have a negative impact on the device, most likely causing highe=
+r
+power consumption. Alexey has explained this much better than I can, as
+I do not fully understand the device firmware design and requirements:
+http://www.spinics.net/lists/linux-usb/msg78078.html
+
+Quoting part of his explanation (talking about the *device* CPU and
+INT - we do not care about the host):
+
+  If host decides to send ZLP after full NTB, CPU must handle
+  additional INT per every full NTB instead of doing useful work.
+  For FTP transfer with constantly full NTBs you get twice amount of
+  Interrupts.
+
+I do agree that this is unfortunate. And hurting standard compliant
+devices to work around a standard violating bug in other devices does
+not feel right.  But I do not see any other option.
+
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
