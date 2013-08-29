@@ -1,153 +1,37 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v5][net-next.git] driver:net:stmmac: Disable DMA store and
- forward mode if platform data force_thresh_dma_mode is set.
-Date: Thu, 29 Aug 2013 14:56:51 +0800
-Message-ID: <CAJxxZ0PbRif2C8PNUae_TqEkO6qSVOiY5FRD=kE5ZSsnXEKH_Q@mail.gmail.com>
-References: <1377687339-18019-1-git-send-email-sonic.adi@gmail.com>
-	<521DE637.6030801@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Lutz Jaenicke <ljaenicke@innominate.com>
+Subject: [iproute2] macvlan: fix typo in macvlan_print_opt()
+Date: Thu, 29 Aug 2013 09:50:28 +0200
+Message-ID: <1377762628-28843-1-git-send-email-ljaenicke@innominate.com>
+Cc: Lutz Jaenicke <ljaenicke@innominate.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:53517 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753583Ab3H2G4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 02:56:52 -0400
-Received: by mail-ob0-f176.google.com with SMTP id uz19so38610obc.7
-        for <netdev@vger.kernel.org>; Wed, 28 Aug 2013 23:56:51 -0700 (PDT)
-In-Reply-To: <521DE637.6030801@st.com>
+Received: from home.innominate.com ([77.245.32.75]:57808 "EHLO
+	home.innominate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755966Ab3H2Huo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 03:50:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peppe,
+The mode information is contained in IFLA_MACVLAN_MODE instead
+of IFLA_VLAN_ID (both evaluating to "1" in their enums).
 
-When can you send me your fragmented frame patch to solve the tx_coe
-problem on Blackfin?
+Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
+---
+ ip/iplink_macvlan.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks
-
-Sonic
-
-On Wed, Aug 28, 2013 at 7:59 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 8/28/2013 12:55 PM, Sonic Zhang wrote:
->>
->> From: Sonic Zhang <sonic.zhang@analog.com>
->>
->> Some synopsys ip implementation doesn't support DMA store and forward
->> mode,
->> such as BF60x. So, set force_thresh_dma_mode to use DMA thresholds only.
->> Update document and devicetree as well.
->>
->> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
->
->
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->
->
->> ---
->>   Documentation/devicetree/bindings/net/stmmac.txt      | 5 +++++
->>   Documentation/networking/stmmac.txt                   | 3 +++
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 4 +++-
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 5 +++++
->>   include/linux/stmmac.h                                | 1 +
->>   5 files changed, 17 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
->> b/Documentation/devicetree/bindings/net/stmmac.txt
->> index 261c563..eba0e5e 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -22,6 +22,11 @@ Required properties:
->>   - snps,pbl            Programmable Burst Length
->>   - snps,fixed-burst    Program the DMA to use the fixed burst mode
->>   - snps,mixed-burst    Program the DMA to use the mixed burst mode
->> +- snps,force_thresh_dma_mode   Force DMA to use the threshold mode for
->> +                               both tx and rx
->> +- snps,force_sf_dma_mode       Force DMA to use the Store and Forward
->> +                               mode for both tx and rx. This flag is
->> +                               ignored if force_thresh_dma_mode is set.
->>
->>   Optional properties:
->>   - mac-address: 6 bytes, mac address
->> diff --git a/Documentation/networking/stmmac.txt
->> b/Documentation/networking/stmmac.txt
->> index 654d2e5..457b8bb 100644
->> --- a/Documentation/networking/stmmac.txt
->> +++ b/Documentation/networking/stmmac.txt
->> @@ -123,6 +123,7 @@ struct plat_stmmacenet_data {
->>         int bugged_jumbo;
->>         int pmt;
->>         int force_sf_dma_mode;
->> +       int force_thresh_dma_mode;
->>         int riwt_off;
->>         void (*fix_mac_speed)(void *priv, unsigned int speed);
->>         void (*bus_setup)(void __iomem *ioaddr);
->> @@ -159,6 +160,8 @@ Where:
->>    o pmt: core has the embedded power module (optional).
->>    o force_sf_dma_mode: force DMA to use the Store and Forward mode
->>                      instead of the Threshold.
->> + o force_thresh_dma_mode: force DMA to use the Shreshold mode other than
->> +                    the Store and Forward mode.
->>    o riwt_off: force to disable the RX watchdog feature and switch to NAPI
->> mode.
->>    o fix_mac_speed: this callback is used for modifying some syscfg
->> registers
->>                  (on ST SoCs) according to the link speed negotiated by
->> the
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index be40691..8d4ccd3 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1224,7 +1224,9 @@ static void free_dma_desc_resources(struct
->> stmmac_priv *priv)
->>    */
->>   static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
->>   {
->> -       if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
->> +       if (priv->plat->force_thresh_dma_mode)
->> +               priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
->> +       else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
->>                 /*
->>                  * In case of GMAC, SF mode can be enabled
->>                  * to perform the TX COE in HW. This depends on:
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> index da8be6e..74a89a4 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> @@ -79,6 +79,11 @@ static int stmmac_probe_config_dt(struct
->> platform_device *pdev,
->>         of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
->>         dma_cfg->fixed_burst = of_property_read_bool(np,
->> "snps,fixed-burst");
->>         dma_cfg->mixed_burst = of_property_read_bool(np,
->> "snps,mixed-burst");
->> +       plat->force_thresh_dma_mode = of_property_read_bool(np,
->> "snps,force_thresh_dma_mode");
->> +       if (plat->force_thresh_dma_mode) {
->> +               plat->force_sf_dma_mode = 0;
->> +               pr_warn("force_sf_dma_mode is ignored if
->> force_thresh_dma_mode is set.");
->> +       }
->>
->>         return 0;
->>   }
->> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
->> index 9e495d31..bb5deb0 100644
->> --- a/include/linux/stmmac.h
->> +++ b/include/linux/stmmac.h
->> @@ -108,6 +108,7 @@ struct plat_stmmacenet_data {
->>         int bugged_jumbo;
->>         int pmt;
->>         int force_sf_dma_mode;
->> +       int force_thresh_dma_mode;
->>         int riwt_off;
->>         void (*fix_mac_speed)(void *priv, unsigned int speed);
->>         void (*bus_setup)(void __iomem *ioaddr);
->>
->
+diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
+index 5b4b868..ec51106 100644
+--- a/ip/iplink_macvlan.c
++++ b/ip/iplink_macvlan.c
+@@ -79,7 +79,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MODE]) < sizeof(__u32))
+ 		return;
+ 
+-	mode = rta_getattr_u32(tb[IFLA_VLAN_ID]);
++	mode = rta_getattr_u32(tb[IFLA_MACVLAN_MODE]);
+ 	fprintf(f, " mode %s ",
+ 		  mode == MACVLAN_MODE_PRIVATE ? "private"
+ 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
+-- 
+1.7.10.4
