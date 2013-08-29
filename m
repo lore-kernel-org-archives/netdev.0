@@ -1,52 +1,79 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [nf-next PATCH] netfilter: more strict TCP flag matching in
- SYNPROXY
-Date: Thu, 29 Aug 2013 12:33:34 +0200
-Message-ID: <20130829103334.GC14229@macbook.localnet>
-References: <20130828131438.24364.25004.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, as@one.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 29 Aug 2013 03:49:56 -0700
+Message-ID: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52462 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755895Ab3H2Kdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 06:33:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20130828131438.24364.25004.stgit@dragon>
+Received: from mga03.intel.com ([143.182.124.21]:42737 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756023Ab3H2KuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 06:50:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 28, 2013 at 03:14:38PM +0200, Jesper Dangaard Brouer wrote:
-> Its seems Patrick missed to incoorporate some of my requested changes
-> during review v2 of SYNPROXY netfilter module.
-> 
-> Which were, to avoid SYN+ACK packets to enter the path, meant for the
-> ACK packet from the client (from the 3WHS).
-> 
-> Further there were a bug in ip6t_SYNPROXY.c, for matching SYN packets
-> that didn't exclude the ACK flag.
-> 
-> Go a step further with SYN packet/flag matching by excluding flags
-> ACK+FIN+RST, in both IPv4 and IPv6 modules.
-> 
-> 
-> The intented usage of SYNPROXY is as follows:
-> (gracefully describing usage in commit)
-> 
->  iptables -t raw -A PREROUTING -i eth0 -p tcp --dport 80 --syn -j NOTRACK
->  iptables -A INPUT -i eth0 -p tcp --dport 80 -m state UNTRACKED,INVALID \
->          -j SYNPROXY --sack-perm --timestamp --mss 1480 --wscale 7 --ecn
-> 
->  echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
-> 
-> This does filter SYN flags early, for packets in the UNTRACKED state,
-> but packets in the INVALID state with other TCP flags could still
-> reach the module, thus this stricter flag matching is still needed.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+This series contains updates to ixgbe.
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+Jacob provides a fix for 82599 devices where it can potentially keep link
+lights up when the adapter has gone down.
+
+Mark provides a fix to resolve the possible use of uninitialized memory
+by checking the return value on EEPROM reads.
+
+Don provides 2 patches, one to fix a issue where we were traversing the
+Tx ring with the value of IXGBE_NUM_RX_QUEUES which currently happens
+to have the correct value but this is misleading.  A change later, could
+easily make this no longer correct so when traversing the Tx ring, use
+netdev->num_tx_queues.  His second patch does some minor clean ups of log
+messages.
+
+Emil provides the remaining ixgbe patches.  First he fixes the link test
+where forcing the laser before the link check can lead to inconsistent
+results because it does not guarantee that the link will be negotiated
+correctly.  Then he initializes the message buffer array to 0 in order
+to avoid using random numbers from the memory as a MAC address for the
+VF.  Emil also fixes the read loop for the I2C data to account for the
+offset for SFP+ modules.  Lastly, Emil provides several patches to add
+support for QSFP modules where 1Gbps support is added as well as support
+for older QSFP active direct attach cables which pre-date SFF-8436 v3.6.
+
+v2: Fixed patch 4 description and added blank line based on feedback from
+    Sergei Shtylyov
+
+The following are changes since commit cc328deac5a5f576aa79d87cfacf01e370e5e03e:
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Don Skidmore (2):
+  ixgbe: fix incorrect limit value in ring transverse
+  ixgbe: cleanup some log messages
+
+Emil Tantilov (6):
+  ixgbe: fix link test when connected to 1Gbps link partner
+  ixgbe: zero out mailbox buffer on init
+  ixgbe: fix SFF data dumps of SFP+ modules from an offset
+  ixgbe: add 1Gbps support for QSFP+
+  ixgbe: include QSFP PHY types in ixgbe_is_sfp()
+  ixgbe: add support for older QSFP active DA cables
+
+Jacob Keller (1):
+  ixgbe: disable link when adapter goes down
+
+Mark Rustad (1):
+  ixgbe: Check return value on eeprom reads
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 93 ++++++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 67 ++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 41 ++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 13 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 98 +++++++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |  5 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +
+ 9 files changed, 239 insertions(+), 90 deletions(-)
+
+-- 
+1.8.3.1
