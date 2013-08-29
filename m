@@ -1,36 +1,52 @@
-From: Kyle McMartin <kyle@redhat.com>
-Subject: [PATCH] xgmac: use bufsz not dma_buf_sz in rx_refill
-Date: Thu, 29 Aug 2013 16:11:51 -0400
-Message-ID: <20130829201151.GJ8764@redacted.bos.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/10][pull request] Intel Wired LAN Driver
+ Updates
+Date: Thu, 29 Aug 2013 16:14:15 -0400 (EDT)
+Message-ID: <20130829.161415.1218612845288168089.davem@davemloft.net>
+References: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: rob.herring@calxeda.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14294 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757112Ab3H2ULy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 16:11:54 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:37810 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191Ab3H2UOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:14:18 -0400
+In-Reply-To: <1377773406-24851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed while debugging another issue that DMA debug turned up, looks
-like commit ef468d23 missed a case when switching to bufsz instead of
-priv->dma_buf_sz? (tbf, the whole handling of DMA buffers seems slightly
-suspect since we're not tracking the size, but trusting the hardware
-between map and unmap...)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 29 Aug 2013 03:49:56 -0700
 
-Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> This series contains updates to ixgbe.
+> 
+> Jacob provides a fix for 82599 devices where it can potentially keep link
+> lights up when the adapter has gone down.
+> 
+> Mark provides a fix to resolve the possible use of uninitialized memory
+> by checking the return value on EEPROM reads.
+> 
+> Don provides 2 patches, one to fix a issue where we were traversing the
+> Tx ring with the value of IXGBE_NUM_RX_QUEUES which currently happens
+> to have the correct value but this is misleading.  A change later, could
+> easily make this no longer correct so when traversing the Tx ring, use
+> netdev->num_tx_queues.  His second patch does some minor clean ups of log
+> messages.
+> 
+> Emil provides the remaining ixgbe patches.  First he fixes the link test
+> where forcing the laser before the link check can lead to inconsistent
+> results because it does not guarantee that the link will be negotiated
+> correctly.  Then he initializes the message buffer array to 0 in order
+> to avoid using random numbers from the memory as a MAC address for the
+> VF.  Emil also fixes the read loop for the I2C data to account for the
+> offset for SFP+ modules.  Lastly, Emil provides several patches to add
+> support for QSFP modules where 1Gbps support is added as well as support
+> for older QSFP active direct attach cables which pre-date SFF-8436 v3.6.
+> 
+> v2: Fixed patch 4 description and added blank line based on feedback from
+>     Sergei Shtylyov
 
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -686,7 +686,7 @@ static void xgmac_rx_refill(struct xgmac_priv *priv)
- 			priv->rx_skbuff[entry] = skb;
- 			paddr = dma_map_single(priv->device, skb->data,
- 					       bufsz, DMA_FROM_DEVICE);
--			desc_set_buf_addr(p, paddr, priv->dma_buf_sz);
-+			desc_set_buf_addr(p, paddr, bufsz);
- 		}
- 
- 		netdev_dbg(priv->dev, "rx ring: head %d, tail %d\n",
+Pulled, thanks Jeff.
