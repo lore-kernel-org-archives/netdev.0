@@ -1,39 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
-Date: Thu, 29 Aug 2013 14:26:39 -0700
-Message-ID: <1377811599.8277.43.camel@edumazet-glaptop>
-References: <1377607592.8828.149.camel@edumazet-glaptop>
-	 <20130829.155131.1753610025310087003.davem@davemloft.net>
-	 <1377807977.8277.40.camel@edumazet-glaptop>
-	 <20130829.163528.638691969523130618.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
-	vanj@google.com, therbert@google.com
-To: David Miller <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next 0/2] bonding: clean rlb vlan use
+Date: Thu, 29 Aug 2013 23:38:55 +0200
+Message-ID: <1377812337-19551-1-git-send-email-vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f179.google.com ([209.85.213.179]:39960 "EHLO
-	mail-ye0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756688Ab3H2V0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 17:26:43 -0400
-Received: by mail-ye0-f179.google.com with SMTP id l10so244316yen.38
-        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 14:26:42 -0700 (PDT)
-In-Reply-To: <20130829.163528.638691969523130618.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:44372 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751625Ab3H2Vin (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 17:38:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-08-29 at 16:35 -0400, David Miller wrote:
+Finish the vlan cleanup, only rlb left.
 
-> 
-> No objections from me.
+Remove the bond_vlan_used() function, it's useless anyway, and
+rlb_client_info->tag, cause we can use only ->vlan_id.
 
-We'll cook a different patch.
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Idea is to feed tcp_set_rto() with the srtt found in the tcp metric
-cache, and let tp->srtt value found in SYN/SYNACK (if available) as is.
-
-(Be conservative for initial rto value, yet allow tp->srtt be the
-current rtt on the network)
-
-Thanks
+---
+ drivers/net/bonding/bond_alb.c | 12 +++++-------
+ drivers/net/bonding/bond_alb.h |  1 -
+ drivers/net/bonding/bonding.h  | 18 ------------------
+ 3 files changed, 5 insertions(+), 26 deletions(-)
