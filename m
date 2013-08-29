@@ -1,39 +1,42 @@
-From: Kyle McMartin <kmcmarti@redhat.com>
-Subject: Re: [PATCH] xgmac: use bufsz not dma_buf_sz in rx_refill
-Date: Thu, 29 Aug 2013 16:35:23 -0400
-Message-ID: <20130829203523.GL8764@redacted.bos.redhat.com>
-References: <20130829201151.GJ8764@redacted.bos.redhat.com>
- <20130829.163437.1817937756134021051.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
+Date: Thu, 29 Aug 2013 16:35:28 -0400 (EDT)
+Message-ID: <20130829.163528.638691969523130618.davem@davemloft.net>
+References: <1377607592.8828.149.camel@edumazet-glaptop>
+	<20130829.155131.1753610025310087003.davem@davemloft.net>
+	<1377807977.8277.40.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rob.herring@calxeda.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	vanj@google.com, therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4846 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756080Ab3H2Uf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 16:35:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20130829.163437.1817937756134021051.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38085 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756080Ab3H2Ufa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 16:35:30 -0400
+In-Reply-To: <1377807977.8277.40.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 29, 2013 at 04:34:37PM -0400, David Miller wrote:
-> From: Kyle McMartin <kyle@redhat.com>
-> Date: Thu, 29 Aug 2013 16:11:51 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Aug 2013 13:26:17 -0700
+
+> Typical bufferbloat at the end of transfert :
 > 
-> > Noticed while debugging another issue that DMA debug turned up, looks
-> > like commit ef468d23 missed a case when switching to bufsz instead of
-> > priv->dma_buf_sz? (tbf, the whole handling of DMA buffers seems slightly
-> > suspect since we're not tracking the size, but trusting the hardware
-> > between map and unmap...)
-> > 
-> > Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> [ 4547.051521] TCP: sk ffff88085825d180 cwnd 327 packets 3 rate 7575936000/srtt 1581
+> [ 4547.052722] TCP: tcp_ack_update_rtt sk ffff88085825d180 seq_rtt 198 sack_rtt 4294967295
+> [ 4547.052726] TCP: tcp_rtt_estimator sk ffff88085825d180 mrtt 198 srtt 1581
+> [ 4547.052729] TCP: sk ffff88085825d180 cwnd 327 packets 1 rate 7575936000/srtt 1582
+> [ 4547.053315] TCP: tcp_ack_update_rtt sk ffff88085825d180 seq_rtt 198 sack_rtt 4294967295
+> [ 4547.053318] TCP: tcp_rtt_estimator sk ffff88085825d180 mrtt 198 srtt 1582
+> [ 4547.053321] TCP: sk ffff88085825d180 cwnd 327 packets 0 rate 7575936000/srtt 1583
 > 
-> Applied and queued up for -stable, thanks.
+> Maybe we could instead store a value corrected by the sk_pacing_rate
+> 
+> rate = (big_cwin * mss) / big_srtt
+> 
+> stored_rtt = rate / (big_cwin * mss)
 
-Heh, too fast David, Rob nak'd it. :)
-
-Sorry about that.
-
---Kyle
+No objections from me.
