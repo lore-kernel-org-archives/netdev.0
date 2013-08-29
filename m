@@ -1,99 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 1/1] net: neighbour: Simplify ifdefs around neigh_app_ns()
-Date: Wed, 28 Aug 2013 16:36:38 -0700
-Message-ID: <8761upbd6h.fsf@xmission.com>
-References: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: usb: Add HP hs2434 device to ZLP
+ exception table
+Date: Wed, 28 Aug 2013 20:01:11 -0400 (EDT)
+Message-ID: <20130828.200111.1548126886406334118.davem@davemloft.net>
+References: <20130825182913.2865aa1a8cefe329ab9c7a85@gmail.com>
+	<20130828.182332.824853790331642993.davem@davemloft.net>
+	<20130828171812.7097dc8334046b464486d4a3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Joe Perches <joe@perches.com>
-To: Tim Gardner <tim.gardner@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377714286-51816-1-git-send-email-tim.gardner@canonical.com>
-	(Tim Gardner's message of "Wed, 28 Aug 2013 12:24:46 -0600")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+To: robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130828171812.7097dc8334046b464486d4a3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Tim Gardner <tim.gardner@canonical.com> writes:
+=46rom: Rob Gardner <robmatic-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 28 Aug 2013 17:18:12 -0600
 
-> Drop a couple of ifdef/endif pairs by moving the ifdef
-> surrounding neigh_app_ns() to the interior of neigh_app_ns().
+> Bj=F8rn says it could have a minor performance impact, but should not
+> cause any loss of functionality. I don't think there's any hard data =
+on
+> what the performance cost might be but I know he would eventually lik=
+e
+> to get rid of the exception list and live with the possible performan=
+ce
+> impact if it means functionality for more devices.
 
-Can we please just remove the CONFIG_ARPD option entirely.
-
-There really is no savings to keeping this option configurable and the
-option only removes a netlink notification.
-
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Cc: Gao feng <gaofeng@cn.fujitsu.com>
-> Cc: Joe Perches <joe@perches.com>
-> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
-> ---
->
-> This is an admittedly trivial change. I stumbled on it while trying to figure
-> out why Ubuntu doesn't have CONFIG_ARPD enabled.
->
->  net/core/neighbour.c |    4 ++--
->  net/ipv4/arp.c       |    2 --
->  net/ipv6/ndisc.c     |    2 --
->  3 files changed, 2 insertions(+), 6 deletions(-)
->
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 60533db..049dd9e 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -2759,13 +2759,13 @@ errout:
->  		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
->  }
->  
-> -#ifdef CONFIG_ARPD
->  void neigh_app_ns(struct neighbour *n)
->  {
-> +#ifdef CONFIG_ARPD
->  	__neigh_notify(n, RTM_GETNEIGH, NLM_F_REQUEST);
-> +#endif /* CONFIG_ARPD */
->  }
->  EXPORT_SYMBOL(neigh_app_ns);
-> -#endif /* CONFIG_ARPD */
->  
->  #ifdef CONFIG_SYSCTL
->  static int zero;
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index 4429b01..7808093 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -368,9 +368,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
->  	} else {
->  		probes -= neigh->parms->app_probes;
->  		if (probes < 0) {
-> -#ifdef CONFIG_ARPD
->  			neigh_app_ns(neigh);
-> -#endif
->  			return;
->  		}
->  	}
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 04d31c2..d5693ad 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -663,9 +663,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
->  		}
->  		ndisc_send_ns(dev, neigh, target, target, saddr);
->  	} else if ((probes -= neigh->parms->app_probes) < 0) {
-> -#ifdef CONFIG_ARPD
->  		neigh_app_ns(neigh);
-> -#endif
->  	} else {
->  		addrconf_addr_solict_mult(target, &mcaddr);
->  		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
+Therefore I would recommend turning the workaround on by default and
+have a white list.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
