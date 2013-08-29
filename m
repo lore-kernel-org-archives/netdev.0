@@ -1,40 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [nf-next PATCH] netfilter: SYNPROXY let unrelated packets
- continue
-Date: Thu, 29 Aug 2013 12:11:17 +0200
-Message-ID: <20130829101117.GA14229@macbook.localnet>
-References: <20130829101625.14346.41071.stgit@dragon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/3] pf_packet updates
+Date: Thu, 29 Aug 2013 03:25:45 -0700
+Message-ID: <1377771945.8277.26.camel@edumazet-glaptop>
+References: <1377720791-15844-1-git-send-email-dborkman@redhat.com>
+	 <20130829.013938.2144325735677512661.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	mph@one.com, as@one.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52268 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756069Ab3H2KLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 06:11:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20130829101625.14346.41071.stgit@dragon>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:56672 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753467Ab3H2KZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 06:25:47 -0400
+Received: by mail-pd0-f170.google.com with SMTP id x10so267067pdj.29
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 03:25:47 -0700 (PDT)
+In-Reply-To: <20130829.013938.2144325735677512661.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 29, 2013 at 12:18:46PM +0200, Jesper Dangaard Brouer wrote:
-> Packets reaching SYNPROXY were default dropped, as they were most
-> likely invalid (given the recommended state matching).  This
-> patch, changes SYNPROXY target to let packets, not consumed,
-> continue being processed by the stack.
+On Thu, 2013-08-29 at 01:39 -0400, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Wed, 28 Aug 2013 22:13:08 +0200
 > 
-> This will be more in line other target modules. As it will allow
-> more flexible configurations of handling, logging or matching on
-> packets in INVALID states.
+> > Daniel Borkmann (3):
+> >   net: packet: add random fanout scheduler
+> >   net: packet: use reciprocal_divide in fanout_demux_hash
+> >   net: packet: document available fanout policies
 > 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Please add the missing reciprocal_divide.h include to the second
+> patch, as per Eric Dumazet's feedback, and resubmit this series.
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+(It was Cong Wang feedback ;) )
 
-> ---
-> comments:
->  - This patch depend applying the TCP flags fix patch send earlier
->  - This replaces my patch: "netfilter: Extend SYNPROXY with a --continue option"
+Thanks
