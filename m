@@ -1,41 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v3 1/8] i40e: main driver core
-Date: Fri, 30 Aug 2013 14:40:00 -0400 (EDT)
-Message-ID: <20130830.144000.1005297116915822361.davem@davemloft.net>
-References: <1377866347-23846-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1377880368.2070.26.camel@joe-AO722>
-	<20130830111029.25d6d753@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] net: usbnet: update addr_assign_type if appropriate
+Date: Fri, 30 Aug 2013 14:41:18 -0400 (EDT)
+Message-ID: <20130830.144118.1671225313340653567.davem@davemloft.net>
+References: <1377171946-19133-1-git-send-email-bjorn@mork.no>
+	<87d2ovxcrx.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, shannon.nelson@intel.com,
-	peter.p.waskiewicz.jr@intel.com, e1000-devel@lists.sourceforge.net
-To: stephen@networkplumber.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, oneukum@suse.de
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55705 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55720 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756725Ab3H3SkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:40:03 -0400
-In-Reply-To: <20130830111029.25d6d753@nehalam.linuxnetplumber.net>
+	with ESMTP id S1756702Ab3H3SlU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:41:20 -0400
+In-Reply-To: <87d2ovxcrx.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 30 Aug 2013 11:10:29 -0700
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri, 30 Aug 2013 20:18:58 +0200
 
-> On Fri, 30 Aug 2013 09:32:48 -0700
-> Joe Perches <joe@perches.com> wrote:
-> 
->> > +static int debug = -1;
->> > +module_param(debug, int, 0);
->> > +MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");  
->> 
->> Maybe make debug a bitfield instead?
-> 
-> No Joe, this is the standard mapping of debug to msglevel used
-> by most network devices. The debug parameter is converted
-> to mask by netif_msg_init.
+> Bj=F8rn Mork <bjorn@mork.no> writes:
+>=20
+>> This module generates a common default address on init,
+>> using eth_random_addr. Set addr_assign_type to let
+>> userspace know the address is random unless it was
+>> overridden by the minidriver.
+>>
+>> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+>=20
+> David,
+>=20
+> I see that this patch is marked "Changes Requested" in patchworks:
+> http://patchwork.ozlabs.org/patch/269030/
+>=20
+> But I haven't seen any request for changes, only Olivers ack. And tha=
+t's
+> all patchworks has recorded as well. Did I miss something?
 
-Correct.
+Your v2 of this series is all marked as Under Review.
+
+You have to understand, wrt. your initial submission, when someone
+asks for changes in one of the patches in a series I mark the whole
+series as changes requested.
+
+This gives a second level of reminder that when one patch needs changes
+I expect the entire series to be resubmitted.
