@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 11/16] sfc: Extend struct efx_tx_buffer to allow
- pushing option descriptors
-Date: Fri, 30 Aug 2013 04:42:11 +0100
-Message-ID: <1377834131.2552.37.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 12/16] sfc: Add EF10 register and structure
+ definitions
+Date: Fri, 30 Aug 2013 04:42:37 +0100
+Message-ID: <1377834157.2552.38.camel@deadeye.wl.decadent.org.uk>
 References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,86 +10,500 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35042 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:35055 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529Ab3H3DmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:42:15 -0400
+	with ESMTP id S1752103Ab3H3Dmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:42:43 -0400
 In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TX path firmware for EF10 supports 'option descriptors' to control
-offloads and various other features.  Add a flag and field for these
-in struct efx_tx_buffer, and don't treat them as DMA descriptors on
-completion.
+Also update comments and assertions in io.h:
+- EF10 does not have a general BIU collector and does not have the
+  bug affecting TIMER_COMMAND_REG[0] on Falcon/Siena
+- The WPTR field moved within RX_DESC_UPD_REG and TX_DESC_UPD_REG.
+  Adjust efx_writed_page() accordingly
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/farch.c      |    2 ++
- drivers/net/ethernet/sfc/net_driver.h |    7 ++++++-
- drivers/net/ethernet/sfc/tx.c         |    4 +++-
- 3 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/ef10_regs.h |  415 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/io.h        |   20 +-
+ 2 files changed, 430 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/net/ethernet/sfc/ef10_regs.h
 
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 842f92e..65073aa 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -325,6 +325,8 @@ void efx_farch_tx_write(struct efx_tx_queue *tx_queue)
- 		txd = efx_tx_desc(tx_queue, write_ptr);
- 		++tx_queue->write_count;
- 
-+		EFX_BUG_ON_PARANOID(buffer->flags & EFX_TX_BUF_OPTION);
+diff --git a/drivers/net/ethernet/sfc/ef10_regs.h b/drivers/net/ethernet/sfc/ef10_regs.h
+new file mode 100644
+index 0000000..b3f4e37
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/ef10_regs.h
+@@ -0,0 +1,415 @@
++/****************************************************************************
++ * Driver for Solarflare network controllers and boards
++ * Copyright 2012-2013 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
 +
- 		/* Create TX descriptor ring entry */
- 		BUILD_BUG_ON(EFX_TX_BUF_CONT != 1);
- 		EFX_POPULATE_QWORD_4(*txd,
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index c9b6f2d..d1aa5dc 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -135,6 +135,7 @@ struct efx_special_buffer {
-  *	freed when descriptor completes
-  * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
-  *	freed when descriptor completes.
-+ * @option: When @flags & %EFX_TX_BUF_OPTION, a NIC-specific option descriptor.
-  * @dma_addr: DMA address of the fragment.
-  * @flags: Flags for allocation and DMA mapping type
-  * @len: Length of this fragment.
-@@ -146,7 +147,10 @@ struct efx_tx_buffer {
- 		const struct sk_buff *skb;
- 		void *heap_buf;
- 	};
--	dma_addr_t dma_addr;
-+	union {
-+		efx_qword_t option;
-+		dma_addr_t dma_addr;
-+	};
- 	unsigned short flags;
- 	unsigned short len;
- 	unsigned short unmap_len;
-@@ -155,6 +159,7 @@ struct efx_tx_buffer {
- #define EFX_TX_BUF_SKB		2	/* buffer is last part of skb */
- #define EFX_TX_BUF_HEAP		4	/* buffer was allocated with kmalloc() */
- #define EFX_TX_BUF_MAP_SINGLE	8	/* buffer was mapped with dma_map_single() */
-+#define EFX_TX_BUF_OPTION	0x10	/* empty buffer for option descriptor */
- 
- /**
-  * struct efx_tx_queue - An Efx TX queue
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 85ee647..82075f9 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -306,7 +306,9 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
- 
- 	while (read_ptr != stop_index) {
- 		struct efx_tx_buffer *buffer = &tx_queue->buffer[read_ptr];
--		if (unlikely(buffer->len == 0)) {
++#ifndef EFX_EF10_REGS_H
++#define EFX_EF10_REGS_H
 +
-+		if (!(buffer->flags & EFX_TX_BUF_OPTION) &&
-+		    unlikely(buffer->len == 0)) {
- 			netif_err(efx, tx_err, efx->net_dev,
- 				  "TX queue %d spurious TX completion id %x\n",
- 				  tx_queue->queue, read_ptr);
++/* EF10 hardware architecture definitions have a name prefix following
++ * the format:
++ *
++ *     E<type>_<min-rev><max-rev>_
++ *
++ * The following <type> strings are used:
++ *
++ *             MMIO register  Host memory structure
++ * -------------------------------------------------------------
++ * Address     R
++ * Bitfield    RF             SF
++ * Enumerator  FE             SE
++ *
++ * <min-rev> is the first revision to which the definition applies:
++ *
++ *     D: Huntington A0
++ *
++ * If the definition has been changed or removed in later revisions
++ * then <max-rev> is the last revision to which the definition applies;
++ * otherwise it is "Z".
++ */
++
++/**************************************************************************
++ *
++ * EF10 registers and descriptors
++ *
++ **************************************************************************
++ */
++
++/* BIU_HW_REV_ID_REG:  */
++#define	ER_DZ_BIU_HW_REV_ID 0x00000000
++#define	ERF_DZ_HW_REV_ID_LBN 0
++#define	ERF_DZ_HW_REV_ID_WIDTH 32
++
++/* BIU_MC_SFT_STATUS_REG:  */
++#define	ER_DZ_BIU_MC_SFT_STATUS 0x00000010
++#define	ER_DZ_BIU_MC_SFT_STATUS_STEP 4
++#define	ER_DZ_BIU_MC_SFT_STATUS_ROWS 8
++#define	ERF_DZ_MC_SFT_STATUS_LBN 0
++#define	ERF_DZ_MC_SFT_STATUS_WIDTH 32
++
++/* BIU_INT_ISR_REG:  */
++#define	ER_DZ_BIU_INT_ISR 0x00000090
++#define	ERF_DZ_ISR_REG_LBN 0
++#define	ERF_DZ_ISR_REG_WIDTH 32
++
++/* MC_DB_LWRD_REG:  */
++#define	ER_DZ_MC_DB_LWRD 0x00000200
++#define	ERF_DZ_MC_DOORBELL_L_LBN 0
++#define	ERF_DZ_MC_DOORBELL_L_WIDTH 32
++
++/* MC_DB_HWRD_REG:  */
++#define	ER_DZ_MC_DB_HWRD 0x00000204
++#define	ERF_DZ_MC_DOORBELL_H_LBN 0
++#define	ERF_DZ_MC_DOORBELL_H_WIDTH 32
++
++/* EVQ_RPTR_REG:  */
++#define	ER_DZ_EVQ_RPTR 0x00000400
++#define	ER_DZ_EVQ_RPTR_STEP 8192
++#define	ER_DZ_EVQ_RPTR_ROWS 2048
++#define	ERF_DZ_EVQ_RPTR_VLD_LBN 15
++#define	ERF_DZ_EVQ_RPTR_VLD_WIDTH 1
++#define	ERF_DZ_EVQ_RPTR_LBN 0
++#define	ERF_DZ_EVQ_RPTR_WIDTH 15
++
++/* EVQ_TMR_REG:  */
++#define	ER_DZ_EVQ_TMR 0x00000420
++#define	ER_DZ_EVQ_TMR_STEP 8192
++#define	ER_DZ_EVQ_TMR_ROWS 2048
++#define	ERF_DZ_TC_TIMER_MODE_LBN 14
++#define	ERF_DZ_TC_TIMER_MODE_WIDTH 2
++#define	ERF_DZ_TC_TIMER_VAL_LBN 0
++#define	ERF_DZ_TC_TIMER_VAL_WIDTH 14
++
++/* RX_DESC_UPD_REG:  */
++#define	ER_DZ_RX_DESC_UPD 0x00000830
++#define	ER_DZ_RX_DESC_UPD_STEP 8192
++#define	ER_DZ_RX_DESC_UPD_ROWS 2048
++#define	ERF_DZ_RX_DESC_WPTR_LBN 0
++#define	ERF_DZ_RX_DESC_WPTR_WIDTH 12
++
++/* TX_DESC_UPD_REG:  */
++#define	ER_DZ_TX_DESC_UPD 0x00000a10
++#define	ER_DZ_TX_DESC_UPD_STEP 8192
++#define	ER_DZ_TX_DESC_UPD_ROWS 2048
++#define	ERF_DZ_RSVD_LBN 76
++#define	ERF_DZ_RSVD_WIDTH 20
++#define	ERF_DZ_TX_DESC_WPTR_LBN 64
++#define	ERF_DZ_TX_DESC_WPTR_WIDTH 12
++#define	ERF_DZ_TX_DESC_HWORD_LBN 32
++#define	ERF_DZ_TX_DESC_HWORD_WIDTH 32
++#define	ERF_DZ_TX_DESC_LWORD_LBN 0
++#define	ERF_DZ_TX_DESC_LWORD_WIDTH 32
++
++/* DRIVER_EV */
++#define	ESF_DZ_DRV_CODE_LBN 60
++#define	ESF_DZ_DRV_CODE_WIDTH 4
++#define	ESF_DZ_DRV_SUB_CODE_LBN 56
++#define	ESF_DZ_DRV_SUB_CODE_WIDTH 4
++#define	ESE_DZ_DRV_TIMER_EV 3
++#define	ESE_DZ_DRV_START_UP_EV 2
++#define	ESE_DZ_DRV_WAKE_UP_EV 1
++#define	ESF_DZ_DRV_SUB_DATA_LBN 0
++#define	ESF_DZ_DRV_SUB_DATA_WIDTH 56
++#define	ESF_DZ_DRV_EVQ_ID_LBN 0
++#define	ESF_DZ_DRV_EVQ_ID_WIDTH 14
++#define	ESF_DZ_DRV_TMR_ID_LBN 0
++#define	ESF_DZ_DRV_TMR_ID_WIDTH 14
++
++/* EVENT_ENTRY */
++#define	ESF_DZ_EV_CODE_LBN 60
++#define	ESF_DZ_EV_CODE_WIDTH 4
++#define	ESE_DZ_EV_CODE_MCDI_EV 12
++#define	ESE_DZ_EV_CODE_DRIVER_EV 5
++#define	ESE_DZ_EV_CODE_TX_EV 2
++#define	ESE_DZ_EV_CODE_RX_EV 0
++#define	ESE_DZ_OTHER other
++#define	ESF_DZ_EV_DATA_LBN 0
++#define	ESF_DZ_EV_DATA_WIDTH 60
++
++/* MC_EVENT */
++#define	ESF_DZ_MC_CODE_LBN 60
++#define	ESF_DZ_MC_CODE_WIDTH 4
++#define	ESF_DZ_MC_OVERRIDE_HOLDOFF_LBN 59
++#define	ESF_DZ_MC_OVERRIDE_HOLDOFF_WIDTH 1
++#define	ESF_DZ_MC_DROP_EVENT_LBN 58
++#define	ESF_DZ_MC_DROP_EVENT_WIDTH 1
++#define	ESF_DZ_MC_SOFT_LBN 0
++#define	ESF_DZ_MC_SOFT_WIDTH 58
++
++/* RX_EVENT */
++#define	ESF_DZ_RX_CODE_LBN 60
++#define	ESF_DZ_RX_CODE_WIDTH 4
++#define	ESF_DZ_RX_OVERRIDE_HOLDOFF_LBN 59
++#define	ESF_DZ_RX_OVERRIDE_HOLDOFF_WIDTH 1
++#define	ESF_DZ_RX_DROP_EVENT_LBN 58
++#define	ESF_DZ_RX_DROP_EVENT_WIDTH 1
++#define	ESF_DZ_RX_EV_RSVD2_LBN 54
++#define	ESF_DZ_RX_EV_RSVD2_WIDTH 4
++#define	ESF_DZ_RX_EV_SOFT2_LBN 52
++#define	ESF_DZ_RX_EV_SOFT2_WIDTH 2
++#define	ESF_DZ_RX_DSC_PTR_LBITS_LBN 48
++#define	ESF_DZ_RX_DSC_PTR_LBITS_WIDTH 4
++#define	ESF_DZ_RX_L4_CLASS_LBN 45
++#define	ESF_DZ_RX_L4_CLASS_WIDTH 3
++#define	ESE_DZ_L4_CLASS_RSVD7 7
++#define	ESE_DZ_L4_CLASS_RSVD6 6
++#define	ESE_DZ_L4_CLASS_RSVD5 5
++#define	ESE_DZ_L4_CLASS_RSVD4 4
++#define	ESE_DZ_L4_CLASS_RSVD3 3
++#define	ESE_DZ_L4_CLASS_UDP 2
++#define	ESE_DZ_L4_CLASS_TCP 1
++#define	ESE_DZ_L4_CLASS_UNKNOWN 0
++#define	ESF_DZ_RX_L3_CLASS_LBN 42
++#define	ESF_DZ_RX_L3_CLASS_WIDTH 3
++#define	ESE_DZ_L3_CLASS_RSVD7 7
++#define	ESE_DZ_L3_CLASS_IP6_FRAG 6
++#define	ESE_DZ_L3_CLASS_ARP 5
++#define	ESE_DZ_L3_CLASS_IP4_FRAG 4
++#define	ESE_DZ_L3_CLASS_FCOE 3
++#define	ESE_DZ_L3_CLASS_IP6 2
++#define	ESE_DZ_L3_CLASS_IP4 1
++#define	ESE_DZ_L3_CLASS_UNKNOWN 0
++#define	ESF_DZ_RX_ETH_TAG_CLASS_LBN 39
++#define	ESF_DZ_RX_ETH_TAG_CLASS_WIDTH 3
++#define	ESE_DZ_ETH_TAG_CLASS_RSVD7 7
++#define	ESE_DZ_ETH_TAG_CLASS_RSVD6 6
++#define	ESE_DZ_ETH_TAG_CLASS_RSVD5 5
++#define	ESE_DZ_ETH_TAG_CLASS_RSVD4 4
++#define	ESE_DZ_ETH_TAG_CLASS_RSVD3 3
++#define	ESE_DZ_ETH_TAG_CLASS_VLAN2 2
++#define	ESE_DZ_ETH_TAG_CLASS_VLAN1 1
++#define	ESE_DZ_ETH_TAG_CLASS_NONE 0
++#define	ESF_DZ_RX_ETH_BASE_CLASS_LBN 36
++#define	ESF_DZ_RX_ETH_BASE_CLASS_WIDTH 3
++#define	ESE_DZ_ETH_BASE_CLASS_LLC_SNAP 2
++#define	ESE_DZ_ETH_BASE_CLASS_LLC 1
++#define	ESE_DZ_ETH_BASE_CLASS_ETH2 0
++#define	ESF_DZ_RX_MAC_CLASS_LBN 35
++#define	ESF_DZ_RX_MAC_CLASS_WIDTH 1
++#define	ESE_DZ_MAC_CLASS_MCAST 1
++#define	ESE_DZ_MAC_CLASS_UCAST 0
++#define	ESF_DZ_RX_EV_SOFT1_LBN 32
++#define	ESF_DZ_RX_EV_SOFT1_WIDTH 3
++#define	ESF_DZ_RX_EV_RSVD1_LBN 31
++#define	ESF_DZ_RX_EV_RSVD1_WIDTH 1
++#define	ESF_DZ_RX_ABORT_LBN 30
++#define	ESF_DZ_RX_ABORT_WIDTH 1
++#define	ESF_DZ_RX_ECC_ERR_LBN 29
++#define	ESF_DZ_RX_ECC_ERR_WIDTH 1
++#define	ESF_DZ_RX_CRC1_ERR_LBN 28
++#define	ESF_DZ_RX_CRC1_ERR_WIDTH 1
++#define	ESF_DZ_RX_CRC0_ERR_LBN 27
++#define	ESF_DZ_RX_CRC0_ERR_WIDTH 1
++#define	ESF_DZ_RX_TCPUDP_CKSUM_ERR_LBN 26
++#define	ESF_DZ_RX_TCPUDP_CKSUM_ERR_WIDTH 1
++#define	ESF_DZ_RX_IPCKSUM_ERR_LBN 25
++#define	ESF_DZ_RX_IPCKSUM_ERR_WIDTH 1
++#define	ESF_DZ_RX_ECRC_ERR_LBN 24
++#define	ESF_DZ_RX_ECRC_ERR_WIDTH 1
++#define	ESF_DZ_RX_QLABEL_LBN 16
++#define	ESF_DZ_RX_QLABEL_WIDTH 5
++#define	ESF_DZ_RX_PARSE_INCOMPLETE_LBN 15
++#define	ESF_DZ_RX_PARSE_INCOMPLETE_WIDTH 1
++#define	ESF_DZ_RX_CONT_LBN 14
++#define	ESF_DZ_RX_CONT_WIDTH 1
++#define	ESF_DZ_RX_BYTES_LBN 0
++#define	ESF_DZ_RX_BYTES_WIDTH 14
++
++/* RX_KER_DESC */
++#define	ESF_DZ_RX_KER_RESERVED_LBN 62
++#define	ESF_DZ_RX_KER_RESERVED_WIDTH 2
++#define	ESF_DZ_RX_KER_BYTE_CNT_LBN 48
++#define	ESF_DZ_RX_KER_BYTE_CNT_WIDTH 14
++#define	ESF_DZ_RX_KER_BUF_ADDR_LBN 0
++#define	ESF_DZ_RX_KER_BUF_ADDR_WIDTH 48
++
++/* RX_USER_DESC */
++#define	ESF_DZ_RX_USR_RESERVED_LBN 62
++#define	ESF_DZ_RX_USR_RESERVED_WIDTH 2
++#define	ESF_DZ_RX_USR_BYTE_CNT_LBN 48
++#define	ESF_DZ_RX_USR_BYTE_CNT_WIDTH 14
++#define	ESF_DZ_RX_USR_BUF_PAGE_SIZE_LBN 44
++#define	ESF_DZ_RX_USR_BUF_PAGE_SIZE_WIDTH 4
++#define	ESE_DZ_USR_BUF_PAGE_SZ_4MB 10
++#define	ESE_DZ_USR_BUF_PAGE_SZ_1MB 8
++#define	ESE_DZ_USR_BUF_PAGE_SZ_64KB 4
++#define	ESE_DZ_USR_BUF_PAGE_SZ_4KB 0
++#define	ESF_DZ_RX_USR_BUF_ID_OFFSET_LBN 0
++#define	ESF_DZ_RX_USR_BUF_ID_OFFSET_WIDTH 44
++#define	ESF_DZ_RX_USR_4KBPS_BUF_ID_LBN 12
++#define	ESF_DZ_RX_USR_4KBPS_BUF_ID_WIDTH 32
++#define	ESF_DZ_RX_USR_64KBPS_BUF_ID_LBN 16
++#define	ESF_DZ_RX_USR_64KBPS_BUF_ID_WIDTH 28
++#define	ESF_DZ_RX_USR_1MBPS_BUF_ID_LBN 20
++#define	ESF_DZ_RX_USR_1MBPS_BUF_ID_WIDTH 24
++#define	ESF_DZ_RX_USR_4MBPS_BUF_ID_LBN 22
++#define	ESF_DZ_RX_USR_4MBPS_BUF_ID_WIDTH 22
++#define	ESF_DZ_RX_USR_4MBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_RX_USR_4MBPS_BYTE_OFFSET_WIDTH 22
++#define	ESF_DZ_RX_USR_1MBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_RX_USR_1MBPS_BYTE_OFFSET_WIDTH 20
++#define	ESF_DZ_RX_USR_64KBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_RX_USR_64KBPS_BYTE_OFFSET_WIDTH 16
++#define	ESF_DZ_RX_USR_4KBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_RX_USR_4KBPS_BYTE_OFFSET_WIDTH 12
++
++/* TX_CSUM_TSTAMP_DESC */
++#define	ESF_DZ_TX_DESC_IS_OPT_LBN 63
++#define	ESF_DZ_TX_DESC_IS_OPT_WIDTH 1
++#define	ESF_DZ_TX_OPTION_TYPE_LBN 60
++#define	ESF_DZ_TX_OPTION_TYPE_WIDTH 3
++#define	ESE_DZ_TX_OPTION_DESC_TSO 7
++#define	ESE_DZ_TX_OPTION_DESC_VLAN 6
++#define	ESE_DZ_TX_OPTION_DESC_CRC_CSUM 0
++#define	ESF_DZ_TX_TIMESTAMP_LBN 5
++#define	ESF_DZ_TX_TIMESTAMP_WIDTH 1
++#define	ESF_DZ_TX_OPTION_CRC_MODE_LBN 2
++#define	ESF_DZ_TX_OPTION_CRC_MODE_WIDTH 3
++#define	ESE_DZ_TX_OPTION_CRC_FCOIP_MPA 5
++#define	ESE_DZ_TX_OPTION_CRC_FCOIP_FCOE 4
++#define	ESE_DZ_TX_OPTION_CRC_ISCSI_HDR_AND_PYLD 3
++#define	ESE_DZ_TX_OPTION_CRC_ISCSI_HDR 2
++#define	ESE_DZ_TX_OPTION_CRC_FCOE 1
++#define	ESE_DZ_TX_OPTION_CRC_OFF 0
++#define	ESF_DZ_TX_OPTION_UDP_TCP_CSUM_LBN 1
++#define	ESF_DZ_TX_OPTION_UDP_TCP_CSUM_WIDTH 1
++#define	ESF_DZ_TX_OPTION_IP_CSUM_LBN 0
++#define	ESF_DZ_TX_OPTION_IP_CSUM_WIDTH 1
++
++/* TX_EVENT */
++#define	ESF_DZ_TX_CODE_LBN 60
++#define	ESF_DZ_TX_CODE_WIDTH 4
++#define	ESF_DZ_TX_OVERRIDE_HOLDOFF_LBN 59
++#define	ESF_DZ_TX_OVERRIDE_HOLDOFF_WIDTH 1
++#define	ESF_DZ_TX_DROP_EVENT_LBN 58
++#define	ESF_DZ_TX_DROP_EVENT_WIDTH 1
++#define	ESF_DZ_TX_EV_RSVD_LBN 48
++#define	ESF_DZ_TX_EV_RSVD_WIDTH 10
++#define	ESF_DZ_TX_SOFT2_LBN 32
++#define	ESF_DZ_TX_SOFT2_WIDTH 16
++#define	ESF_DZ_TX_CAN_MERGE_LBN 31
++#define	ESF_DZ_TX_CAN_MERGE_WIDTH 1
++#define	ESF_DZ_TX_SOFT1_LBN 24
++#define	ESF_DZ_TX_SOFT1_WIDTH 7
++#define	ESF_DZ_TX_QLABEL_LBN 16
++#define	ESF_DZ_TX_QLABEL_WIDTH 5
++#define	ESF_DZ_TX_DESCR_INDX_LBN 0
++#define	ESF_DZ_TX_DESCR_INDX_WIDTH 16
++
++/* TX_KER_DESC */
++#define	ESF_DZ_TX_KER_TYPE_LBN 63
++#define	ESF_DZ_TX_KER_TYPE_WIDTH 1
++#define	ESF_DZ_TX_KER_CONT_LBN 62
++#define	ESF_DZ_TX_KER_CONT_WIDTH 1
++#define	ESF_DZ_TX_KER_BYTE_CNT_LBN 48
++#define	ESF_DZ_TX_KER_BYTE_CNT_WIDTH 14
++#define	ESF_DZ_TX_KER_BUF_ADDR_LBN 0
++#define	ESF_DZ_TX_KER_BUF_ADDR_WIDTH 48
++
++/* TX_PIO_DESC */
++#define	ESF_DZ_TX_PIO_TYPE_LBN 63
++#define	ESF_DZ_TX_PIO_TYPE_WIDTH 1
++#define	ESF_DZ_TX_PIO_OPT_LBN 60
++#define	ESF_DZ_TX_PIO_OPT_WIDTH 3
++#define	ESF_DZ_TX_PIO_CONT_LBN 59
++#define	ESF_DZ_TX_PIO_CONT_WIDTH 1
++#define	ESF_DZ_TX_PIO_BYTE_CNT_LBN 32
++#define	ESF_DZ_TX_PIO_BYTE_CNT_WIDTH 12
++#define	ESF_DZ_TX_PIO_BUF_ADDR_LBN 0
++#define	ESF_DZ_TX_PIO_BUF_ADDR_WIDTH 12
++
++/* TX_TSO_DESC */
++#define	ESF_DZ_TX_DESC_IS_OPT_LBN 63
++#define	ESF_DZ_TX_DESC_IS_OPT_WIDTH 1
++#define	ESF_DZ_TX_OPTION_TYPE_LBN 60
++#define	ESF_DZ_TX_OPTION_TYPE_WIDTH 3
++#define	ESE_DZ_TX_OPTION_DESC_TSO 7
++#define	ESE_DZ_TX_OPTION_DESC_VLAN 6
++#define	ESE_DZ_TX_OPTION_DESC_CRC_CSUM 0
++#define	ESF_DZ_TX_TSO_TCP_FLAGS_LBN 48
++#define	ESF_DZ_TX_TSO_TCP_FLAGS_WIDTH 8
++#define	ESF_DZ_TX_TSO_IP_ID_LBN 32
++#define	ESF_DZ_TX_TSO_IP_ID_WIDTH 16
++#define	ESF_DZ_TX_TSO_TCP_SEQNO_LBN 0
++#define	ESF_DZ_TX_TSO_TCP_SEQNO_WIDTH 32
++
++/* TX_USER_DESC */
++#define	ESF_DZ_TX_USR_TYPE_LBN 63
++#define	ESF_DZ_TX_USR_TYPE_WIDTH 1
++#define	ESF_DZ_TX_USR_CONT_LBN 62
++#define	ESF_DZ_TX_USR_CONT_WIDTH 1
++#define	ESF_DZ_TX_USR_BYTE_CNT_LBN 48
++#define	ESF_DZ_TX_USR_BYTE_CNT_WIDTH 14
++#define	ESF_DZ_TX_USR_BUF_PAGE_SIZE_LBN 44
++#define	ESF_DZ_TX_USR_BUF_PAGE_SIZE_WIDTH 4
++#define	ESE_DZ_USR_BUF_PAGE_SZ_4MB 10
++#define	ESE_DZ_USR_BUF_PAGE_SZ_1MB 8
++#define	ESE_DZ_USR_BUF_PAGE_SZ_64KB 4
++#define	ESE_DZ_USR_BUF_PAGE_SZ_4KB 0
++#define	ESF_DZ_TX_USR_BUF_ID_OFFSET_LBN 0
++#define	ESF_DZ_TX_USR_BUF_ID_OFFSET_WIDTH 44
++#define	ESF_DZ_TX_USR_4KBPS_BUF_ID_LBN 12
++#define	ESF_DZ_TX_USR_4KBPS_BUF_ID_WIDTH 32
++#define	ESF_DZ_TX_USR_64KBPS_BUF_ID_LBN 16
++#define	ESF_DZ_TX_USR_64KBPS_BUF_ID_WIDTH 28
++#define	ESF_DZ_TX_USR_1MBPS_BUF_ID_LBN 20
++#define	ESF_DZ_TX_USR_1MBPS_BUF_ID_WIDTH 24
++#define	ESF_DZ_TX_USR_4MBPS_BUF_ID_LBN 22
++#define	ESF_DZ_TX_USR_4MBPS_BUF_ID_WIDTH 22
++#define	ESF_DZ_TX_USR_4MBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_TX_USR_4MBPS_BYTE_OFFSET_WIDTH 22
++#define	ESF_DZ_TX_USR_1MBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_TX_USR_1MBPS_BYTE_OFFSET_WIDTH 20
++#define	ESF_DZ_TX_USR_64KBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_TX_USR_64KBPS_BYTE_OFFSET_WIDTH 16
++#define	ESF_DZ_TX_USR_4KBPS_BYTE_OFFSET_LBN 0
++#define	ESF_DZ_TX_USR_4KBPS_BYTE_OFFSET_WIDTH 12
++/*************************************************************************/
++
++/* TX_DESC_UPD_REG: Transmit descriptor update register.
++ * We may write just one dword of these registers.
++ */
++#define ER_DZ_TX_DESC_UPD_DWORD		(ER_DZ_TX_DESC_UPD + 2 * 4)
++#define ERF_DZ_TX_DESC_WPTR_DWORD_LBN	(ERF_DZ_TX_DESC_WPTR_LBN - 2 * 32)
++#define ERF_DZ_TX_DESC_WPTR_DWORD_WIDTH	ERF_DZ_TX_DESC_WPTR_WIDTH
++
++/* The workaround for bug 35388 requires multiplexing writes through
++ * the TX_DESC_UPD_DWORD address.
++ * TX_DESC_UPD: 0ppppppppppp               (bit 11 lost)
++ * EVQ_RPTR:    1000hhhhhhhh, 1001llllllll (split into high and low bits)
++ * EVQ_TMR:     11mmvvvvvvvv               (bits 8:13 of value lost)
++ */
++#define ER_DD_EVQ_INDIRECT		ER_DZ_TX_DESC_UPD_DWORD
++#define ERF_DD_EVQ_IND_RPTR_FLAGS_LBN	8
++#define ERF_DD_EVQ_IND_RPTR_FLAGS_WIDTH	4
++#define EFE_DD_EVQ_IND_RPTR_FLAGS_HIGH	8
++#define EFE_DD_EVQ_IND_RPTR_FLAGS_LOW	9
++#define ERF_DD_EVQ_IND_RPTR_LBN		0
++#define ERF_DD_EVQ_IND_RPTR_WIDTH	8
++#define ERF_DD_EVQ_IND_TIMER_FLAGS_LBN	10
++#define ERF_DD_EVQ_IND_TIMER_FLAGS_WIDTH 2
++#define EFE_DD_EVQ_IND_TIMER_FLAGS	3
++#define ERF_DD_EVQ_IND_TIMER_MODE_LBN	8
++#define ERF_DD_EVQ_IND_TIMER_MODE_WIDTH	2
++#define ERF_DD_EVQ_IND_TIMER_VAL_LBN	0
++#define ERF_DD_EVQ_IND_TIMER_VAL_WIDTH	8
++
++/* TX_PIOBUF
++ * PIO buffer aperture (paged)
++ */
++#define ER_DZ_TX_PIOBUF 4096
++#define ER_DZ_TX_PIOBUF_SIZE 2048
++
++/* RX packet prefix */
++#define ES_DZ_RX_PREFIX_HASH_OFST 0
++#define ES_DZ_RX_PREFIX_VLAN1_OFST 4
++#define ES_DZ_RX_PREFIX_VLAN2_OFST 6
++#define ES_DZ_RX_PREFIX_PKTLEN_OFST 8
++#define ES_DZ_RX_PREFIX_TSTAMP_OFST 10
++#define ES_DZ_RX_PREFIX_SIZE 14
++
++#endif /* EFX_EF10_REGS_H */
+diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
+index 19e8b95..416ee4a 100644
+--- a/drivers/net/ethernet/sfc/io.h
++++ b/drivers/net/ethernet/sfc/io.h
+@@ -20,7 +20,7 @@
+  *
+  **************************************************************************
+  *
+- * Notes on locking strategy:
++ * Notes on locking strategy for the Falcon architecture:
+  *
+  * Many CSRs are very wide and cannot be read or written atomically.
+  * Writes from the host are buffered by the Bus Interface Unit (BIU)
+@@ -54,6 +54,12 @@
+  *   register while the collector already holds values for some other
+  *   register, the write is discarded and the collector maintains its
+  *   current state.
++ *
++ * The EF10 architecture exposes very few registers to the host and
++ * most of them are only 32 bits wide.  The only exceptions are the MC
++ * doorbell register pair, which has its own latching, and
++ * TX_DESC_UPD, which works in a similar way to the Falcon
++ * architecture.
+  */
+ 
+ #if BITS_PER_LONG == 64
+@@ -237,8 +243,8 @@ static inline void _efx_writeo_page(struct efx_nic *efx, efx_oword_t *value,
+ 			 BUILD_BUG_ON_ZERO((reg) != 0x830 && (reg) != 0xa10), \
+ 			 page)
+ 
+-/* Write a page-mapped 32-bit CSR (EVQ_RPTR or the high bits of
+- * RX_DESC_UPD or TX_DESC_UPD)
++/* Write a page-mapped 32-bit CSR (EVQ_RPTR, EVQ_TMR (EF10), or the
++ * high bits of RX_DESC_UPD or TX_DESC_UPD)
+  */
+ static inline void
+ _efx_writed_page(struct efx_nic *efx, const efx_dword_t *value,
+@@ -249,8 +255,12 @@ _efx_writed_page(struct efx_nic *efx, const efx_dword_t *value,
+ #define efx_writed_page(efx, value, reg, page)				\
+ 	_efx_writed_page(efx, value,					\
+ 			 reg +						\
+-			 BUILD_BUG_ON_ZERO((reg) != 0x400 && (reg) != 0x83c \
+-					   && (reg) != 0xa1c),		\
++			 BUILD_BUG_ON_ZERO((reg) != 0x400 &&		\
++					   (reg) != 0x420 &&		\
++					   (reg) != 0x830 &&		\
++					   (reg) != 0x83c &&		\
++					   (reg) != 0xa18 &&		\
++					   (reg) != 0xa1c),		\
+ 			 page)
+ 
+ /* Write TIMER_COMMAND.  This is a page-mapped 32-bit CSR, but a bug
 
 
 -- 
