@@ -1,45 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: revert 8728c544a9c ("net: dev_pick_tx() fix")
-Date: Fri, 30 Aug 2013 17:48:37 -0400 (EDT)
-Message-ID: <20130830.174837.1340852981940136289.davem@davemloft.net>
-References: <1377738643.8277.25.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
-	xii@google.com, therbert@google.com, nuclearcat@nuclearcat.com
-To: eric.dumazet@gmail.com
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH v3 01/11] net: calxedaxgmac: remove NETIF_F_FRAGLIST setting
+Date: Fri, 30 Aug 2013 16:49:19 -0500
+Message-ID: <1377899369-23252-1-git-send-email-robherring2@gmail.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Rob Herring <rob.herring@calxeda.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58006 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754615Ab3H3Vsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:48:46 -0400
-In-Reply-To: <1377738643.8277.25.camel@edumazet-glaptop>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:34502 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754699Ab3H3Vt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:49:57 -0400
+Received: by mail-ob0-f181.google.com with SMTP id dn14so2396966obc.26
+        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 14:49:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 28 Aug 2013 18:10:43 -0700
+From: Rob Herring <rob.herring@calxeda.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 8728c544a9cbdc ("net: dev_pick_tx() fix") and commit
-> b6fe83e9525a ("bonding: refine IFF_XMIT_DST_RELEASE capability")
-> are quite incompatible : Queue selection is disabled because skb
-> dst was dropped before entering bonding device.
-> 
-> This causes major performance regression, mainly because TCP packets
-> for a given flow can be sent to multiple queues.
-> 
-> This is particularly visible when using the new FQ packet scheduler
-> with MQ + FQ setup on the slaves.
-> 
-> We can safely revert the first commit now that 416186fbf8c5b
-> ("net: Split core bits of netdev_pick_tx into __netdev_pick_tx")
-> properly caps the queue_index.
-> 
-> Reported-by: Xi Wang <xii@google.com>
-> Diagnosed-by: Xi Wang <xii@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+The xgmac does not actually handle frag lists, so this option should not
+be set. It does not appear to have had any impact though.
 
-Applied, thanks Eric.
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+---
+ drivers/net/ethernet/calxeda/xgmac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 7cb148c..71f6720 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1759,7 +1759,7 @@ static int xgmac_probe(struct platform_device *pdev)
+ 	if (device_can_wakeup(priv->device))
+ 		priv->wolopts = WAKE_MAGIC;	/* Magic Frame as default */
+ 
+-	ndev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++	ndev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
+ 	if (readl(priv->base + XGMAC_DMA_HW_FEATURE) & DMA_HW_FEAT_TXCOESEL)
+ 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				     NETIF_F_RXCSUM;
+-- 
+1.8.1.2
