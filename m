@@ -1,95 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next RFC v3 2/2] ixgbe: Get and display the notifications from changes of the Rx vxlan UDP port
-Date: Fri, 30 Aug 2013 00:43:39 -0700
-Message-ID: <1377848619-25662-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1377848619-25662-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v10 03/11] ipv6: export a stub for IPv6 symbols
+ used by vxlan
+Date: Fri, 30 Aug 2013 15:47:47 +0800
+Message-ID: <1377848867.2591.5.camel@cr0>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+	 <1377667379-2315-4-git-send-email-amwang@redhat.com>
+	 <20130828091208.4bcaedcf@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:37395 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11083 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752453Ab3H3HoY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 03:44:24 -0400
-In-Reply-To: <1377848619-25662-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751995Ab3H3Hr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 03:47:56 -0400
+In-Reply-To: <20130828091208.4bcaedcf@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+On Wed, 2013-08-28 at 09:12 -0700, Stephen Hemminger wrote:
+> On Wed, 28 Aug 2013 13:22:51 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> 
+> > +struct ipv6_stub {
+> > +	int (*ipv6_sock_mc_join)(struct sock *sk, int ifindex,
+> > +				 const struct in6_addr *addr);
+> > +	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
+> > +				 const struct in6_addr *addr);
+> > +	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
+> > +				struct flowi6 *fl6);
+> > +	void (*udpv6_encap_enable)(void);
+> > +};
+> > +extern const struct ipv6_stub *ipv6_stub __read_mostly;
+> > +
+> 
+> Since IPv6 really can't ever be safely unloaded. why not:
+>  * admit that, and get rid of ipv6_module exit.
+>  * then this stub can be a static const table.
+> 
+> You see virtual function tables that are writeable are potential malware
+> targets, although eliminating all of them is impossible, I hate to
+> see adding new ones.
 
-This RFC patch showcases how drivers can use the changes in
-"vxlan: Notify drivers for listening UDP port changes", and its
-sole purpose is to help people test the changes introduced there.
-This is not meant to be submitted for inclusion in the kernel.
+I think getting rid of ipv6 exit deserves another thread for discussion,
+not in this thread. Actually I raised same question before, but no one
+replied me. If you want, I can send another patch for it after this
+patchset gets merged.
 
-CC: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-v2: No changes in the code, just tracking version of main patch
-v3: Changed the implementations of the ndo ops to return void as per
-    the main patch.
-
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7aba452..9620cf2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -47,6 +47,9 @@
- #include <linux/if_bridge.h>
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
-+#ifdef CONFIG_VXLAN_MODULE
-+#include <net/vxlan.h>
-+#endif
- 
- #include "ixgbe.h"
- #include "ixgbe_common.h"
-@@ -5178,6 +5181,9 @@ static int ixgbe_open(struct net_device *netdev)
- 
- 	ixgbe_up_complete(adapter);
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+	vxlan_get_rx_port(netdev);
-+#endif
- 	return 0;
- 
- err_set_queues:
-@@ -7290,6 +7296,19 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
- }
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+static void ixgbe_add_vxlan_port(struct net_device *netdev,
-+				__u16 port)
-+{
-+	netdev_info(netdev, ">>>>> Adding VXLAN port %d\n", port);
-+}
-+
-+static void ixgbe_del_vxlan_port(struct net_device *netdev,
-+				__u16 port)
-+{
-+	netdev_info(netdev, "<<<<< Removing VXLAN port %d\n", port);
-+}
-+#endif
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7334,6 +7353,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
- 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
-+#ifdef CONFIG_VXLAN_MODULE
-+	.ndo_add_vxlan_port	= ixgbe_add_vxlan_port,
-+	.ndo_del_vxlan_port	= ixgbe_del_vxlan_port,
-+#endif
- };
- 
- /**
--- 
-1.8.3.1
+Thanks!
