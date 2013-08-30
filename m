@@ -1,23 +1,26 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 01/31] net: ax88796: use dev_get_platdata()
-Date: Fri, 30 Aug 2013 13:44:34 +0900
-Message-ID: <003101cea53b$9fc95b30$df5c1190$%han@samsung.com>
+Subject: [PATCH 02/31] net: bfin_mac: use dev_get_platdata()
+Date: Fri, 30 Aug 2013 13:50:48 +0900
+Message-ID: <003201cea53c$7f2b0670$7d811350$%han@samsung.com>
+References: <003101cea53b$9fc95b30$df5c1190$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	'Jingoo Han' <jg1.han@samsung.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:63524 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752621Ab3H3Eoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 00:44:34 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout1.samsung.com ([203.254.224.24]:12296 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752498Ab3H3Eut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 00:50:49 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSB0000UUI9RDP0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Fri, 30 Aug 2013 13:44:33 +0900 (KST)
+ with ESMTP id <0MSB00LYUUSJ86K0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Fri, 30 Aug 2013 13:50:48 +0900 (KST)
+In-reply-to: <003101cea53b$9fc95b30$df5c1190$%han@samsung.com>
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,21 +31,36 @@ to make the code simpler and enhance the readability.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/8390/ax88796.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/adi/bfin_mac.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
-index b7232a9..f92f001 100644
---- a/drivers/net/ethernet/8390/ax88796.c
-+++ b/drivers/net/ethernet/8390/ax88796.c
-@@ -840,7 +840,7 @@ static int ax_probe(struct platform_device *pdev)
- 	ei_local = netdev_priv(dev);
- 	ax = to_ax_dev(dev);
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index e904b38..e66684a 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -1647,12 +1647,12 @@ static int bfin_mac_probe(struct platform_device *pdev)
  
--	ax->plat = pdev->dev.platform_data;
-+	ax->plat = dev_get_platdata(&pdev->dev);
- 	platform_set_drvdata(pdev, dev);
+ 	setup_mac_addr(ndev->dev_addr);
  
- 	ei_local->rxcr_base = ax->plat->rcr_val;
+-	if (!pdev->dev.platform_data) {
++	if (!dev_get_platdata(&pdev->dev)) {
+ 		dev_err(&pdev->dev, "Cannot get platform device bfin_mii_bus!\n");
+ 		rc = -ENODEV;
+ 		goto out_err_probe_mac;
+ 	}
+-	pd = pdev->dev.platform_data;
++	pd = dev_get_platdata(&pdev->dev);
+ 	lp->mii_bus = platform_get_drvdata(pd);
+ 	if (!lp->mii_bus) {
+ 		dev_err(&pdev->dev, "Cannot get mii_bus!\n");
+@@ -1660,7 +1660,7 @@ static int bfin_mac_probe(struct platform_device *pdev)
+ 		goto out_err_probe_mac;
+ 	}
+ 	lp->mii_bus->priv = ndev;
+-	mii_bus_data = pd->dev.platform_data;
++	mii_bus_data = dev_get_platdata(&pd->dev);
+ 
+ 	rc = mii_probe(ndev, mii_bus_data->phy_mode);
+ 	if (rc) {
 -- 
 1.7.10.4
