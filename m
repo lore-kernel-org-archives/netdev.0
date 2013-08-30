@@ -1,84 +1,41 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: ICMPv6: treat dest unreachable codes 5 and 6 as EACCES, not EPROTO
-Date: Fri, 30 Aug 2013 11:18:45 +0200
-Message-ID: <20130830091844.GA2706@midget.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:60657 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754147Ab3H3JSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 05:18:50 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf-next] Second round of IPVS updates for v3.12
+Date: Fri, 30 Aug 2013 18:21:55 +0900
+Message-ID: <1377854516-24383-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4443 has defined two additional codes for ICMPv6 type 1 (destination
-unreachable) messages:
-        5 - Source address failed ingress/egress policy
-	6 - Reject route to destination
+Hi Pablo,
 
-Now they are treated as protocol error and icmpv6_err_convert() converts them
-to EPROTO.
-
-RFC 4443 says:
-	"Codes 5 and 6 are more informative subsets of code 1."
-
-Treat codes 5 and 6 as code 1 (EACCES)
-
-Btw, connect() returning -EPROTO confuses firefox, so that fallback to
-other/IPv4 addresses does not work:
-https://bugzilla.mozilla.org/show_bug.cgi?id=910773
+please consider this small update to IPVS for v3.12.
 
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+The following changes since commit b7e092c05b308674c642ed7fb754d555f0ebba81:
 
-diff --git a/include/uapi/linux/icmpv6.h b/include/uapi/linux/icmpv6.h
-index e0133c7..590beda 100644
---- a/include/uapi/linux/icmpv6.h
-+++ b/include/uapi/linux/icmpv6.h
-@@ -115,6 +115,8 @@ struct icmp6hdr {
- #define ICMPV6_NOT_NEIGHBOUR		2
- #define ICMPV6_ADDR_UNREACH		3
- #define ICMPV6_PORT_UNREACH		4
-+#define ICMPV6_POLICY_FAIL		5
-+#define ICMPV6_REJECT_ROUTE		6
- 
- /*
-  *	Codes for Time Exceeded
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 7cfc8d2..5b341bf 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -940,6 +940,14 @@ static const struct icmp6_err {
- 		.err	= ECONNREFUSED,
- 		.fatal	= 1,
- 	},
-+	{	/* POLICY_FAIL */
-+		.err	= EACCES,
-+		.fatal	= 1,
-+	},
-+	{	/* REJECT_ROUTE	*/
-+		.err	= EACCES,
-+		.fatal	= 1,
-+	},
- };
- 
- int icmpv6_err_convert(u8 type, u8 code, int *err)
-@@ -951,7 +959,7 @@ int icmpv6_err_convert(u8 type, u8 code, int *err)
- 	switch (type) {
- 	case ICMPV6_DEST_UNREACH:
- 		fatal = 1;
--		if (code <= ICMPV6_PORT_UNREACH) {
-+		if (code < ARRAY_SIZE(tab_unreach)) {
- 			*err  = tab_unreach[code].err;
- 			fatal = tab_unreach[code].fatal;
- 		}
+  netfilter: ctnetlink: fix uninitialized variable (2013-08-28 00:28:19 +0200)
 
+are available in the git repository at:
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.12
+
+for you to fetch changes up to 25a9707d3f4c1f6b7a6de8f6468d40356d6eb92c:
+
+  ipvs: fix the IPVS_CMD_ATTR_MAX definition (2013-08-30 18:17:47 +0900)
+
+----------------------------------------------------------------
+Second round of IPVS updates for v3.12
+
+* Correct value of IPVS_CMD_ATTR_MAX
+
+----------------------------------------------------------------
+Julian Anastasov (1):
+      ipvs: fix the IPVS_CMD_ATTR_MAX definition
+
+ include/uapi/linux/ip_vs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
