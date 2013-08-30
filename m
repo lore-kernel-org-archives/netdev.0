@@ -1,119 +1,123 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/16] sfc: Document conditions for multicast
- replication vs filter replacement
-Date: Fri, 30 Aug 2013 04:39:35 +0100
-Message-ID: <1377833975.2552.31.camel@deadeye.wl.decadent.org.uk>
-References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 5/5] bonding: use RCU protection for alb xmit path
+Date: Fri, 30 Aug 2013 11:39:28 +0800
+Message-ID: <522013F0.8070001@huawei.com>
+References: <521D7ACC.5010000@huawei.com> <521F5C19.2050506@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:34970 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752099Ab3H3Dji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:39:38 -0400
-In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:48575 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752099Ab3H3Dj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:39:57 -0400
+In-Reply-To: <521F5C19.2050506@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the efx_filter_is_mc_recip() function to decide whether a filter
-is for a multicast recipient and can coexist with other filters with
-the same match values.  Update efx_filter_insert_filter() kernel-doc
-to explain the conditions for this.
+On 2013/8/29 22:35, Nikolay Aleksandrov wrote:
+> On 08/28/2013 06:21 AM, Ding Tianhong wrote:
+>> The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+>> (bonding: initial RCU conversion) has convert the roundrobin, active-backup,
+>> broadcast and xor xmit path to rcu protection, the performance will be better
+>> for these mode, so this time, convert xmit path for alb mode.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+>> Cc: Veaceslav Falico <vfalico@redhat.com>
+>> ---
+>>  drivers/net/bonding/bond_alb.c | 20 +++++++++-----------
+>>  1 file changed, 9 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>> index d266c56..e94a5d0 100644
+>> --- a/drivers/net/bonding/bond_alb.c
+>> +++ b/drivers/net/bonding/bond_alb.c
+>> @@ -229,7 +229,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+>>  	max_gap = LLONG_MIN;
+>>  
+>>  	/* Find the slave with the largest gap */
+>> -	bond_for_each_slave(bond, slave) {
+>> +	bond_for_each_slave_rcu(bond, slave) {
+>>  		if (SLAVE_IS_OK(slave)) {
+>>  			long long gap = compute_gap(slave);
+>>  
+>> @@ -625,10 +625,12 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+>>  {
+>>  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>>  	struct arp_pkt *arp = arp_pkt(skb);
+>> -	struct slave *assigned_slave;
+>> +	struct slave *assigned_slave, *curr_active_slave;
+>>  	struct rlb_client_info *client_info;
+>>  	u32 hash_index = 0;
+>>  
+>> +	curr_active_slave = rcu_dereference(bond->curr_active_slave);
+>> +
+>>  	_lock_rx_hashtbl(bond);
+>>  
+>>  	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+>> @@ -654,9 +656,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+>>  			 * move the old client to primary (curr_active_slave) so
+>>  			 * that the new client can be assigned to this entry.
+>>  			 */
+>> -			if (bond->curr_active_slave &&
+>> -			    client_info->slave != bond->curr_active_slave) {
+>> -				client_info->slave = bond->curr_active_slave;
+>> +			if (curr_active_slave &&
+>> +			    client_info->slave != curr_active_slave) {
+>> +				client_info->slave = curr_active_slave;
+>>  				rlb_update_client(client_info);
+>>  			}
+>>  		}
+>> @@ -1336,8 +1338,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>>  
+> In bond_alb_xmit we may call rlb_arp_xmit which calls bond_slave_has_mac() which
+> is not using RCU primitives to traverse the list.
+> 
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.h |   22 +++++++++++++++-------
- drivers/net/ethernet/sfc/rx.c  |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 49 insertions(+), 7 deletions(-)
+yes, I miss the func bond_slave_has_mac(), I will add it in next version, thanks for review the code.
 
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 3bbc047..9de28f6 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -79,13 +79,20 @@ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
-  * On success, return the filter ID.
-  * On failure, return a negative error code.
-  *
-- * If an existing filter has equal match values to the new filter
-- * spec, then the new filter might replace it, depending on the
-- * relative priorities.  If the existing filter has lower priority, or
-- * if @replace_equal is set and it has equal priority, then it is
-- * replaced.  Otherwise the function fails, returning -%EPERM if
-- * the existing filter has higher priority or -%EEXIST if it has
-- * equal priority.
-+ * If existing filters have equal match values to the new filter spec,
-+ * then the new filter might replace them or the function might fail,
-+ * as follows.
-+ *
-+ * 1. If the existing filters have lower priority, or @replace_equal
-+ *    is set and they have equal priority, replace them.
-+ *
-+ * 2. If the existing filters have higher priority, return -%EPERM.
-+ *
-+ * 3. If !efx_filter_is_mc_recipient(@spec), or the NIC does not
-+ *    support delivery to multiple recipients, return -%EEXIST.
-+ *
-+ * This implies that filters for multiple multicast recipients must
-+ * all be inserted with the same priority and @replace_equal = %false.
-  */
- static inline s32 efx_filter_insert_filter(struct efx_nic *efx,
- 					   struct efx_filter_spec *spec,
-@@ -169,6 +176,7 @@ static inline void efx_filter_rfs_expire(struct efx_channel *channel)
- static inline void efx_filter_rfs_expire(struct efx_channel *channel) {}
- #define efx_filter_rfs_enabled() 0
- #endif
-+extern bool efx_filter_is_mc_recipient(const struct efx_filter_spec *spec);
- 
- /* Channels */
- extern int efx_channel_dummy_op_int(struct efx_channel *channel);
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 864b6ff..81eab21 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -903,3 +903,37 @@ bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned int quota)
- }
- 
- #endif /* CONFIG_RFS_ACCEL */
-+
-+/**
-+ * efx_filter_is_mc_recipient - test whether spec is a multicast recipient
-+ * @spec: Specification to test
-+ *
-+ * Return: %true if the specification is a non-drop RX filter that
-+ * matches a local MAC address I/G bit value of 1 or matches a local
-+ * IPv4 or IPv6 address value in the respective multicast address
-+ * range.  Otherwise %false.
-+ */
-+bool efx_filter_is_mc_recipient(const struct efx_filter_spec *spec)
-+{
-+	if (!(spec->flags & EFX_FILTER_FLAG_RX) ||
-+	    spec->dmaq_id == EFX_FILTER_RX_DMAQ_ID_DROP)
-+		return false;
-+
-+	if (spec->match_flags &
-+	    (EFX_FILTER_MATCH_LOC_MAC | EFX_FILTER_MATCH_LOC_MAC_IG) &&
-+	    is_multicast_ether_addr(spec->loc_mac))
-+		return true;
-+
-+	if ((spec->match_flags &
-+	     (EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_LOC_HOST)) ==
-+	    (EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_LOC_HOST)) {
-+		if (spec->ether_type == htons(ETH_P_IP) &&
-+		    ipv4_is_multicast(spec->loc_host[0]))
-+			return true;
-+		if (spec->ether_type == htons(ETH_P_IPV6) &&
-+		    ((const u8 *)spec->loc_host)[0] == 0xff)
-+			return true;
-+	}
-+
-+	return false;
-+}
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>>  	/* make sure that the curr_active_slave do not change during tx
+>>  	 */
+>> -	read_lock(&bond->lock);
+>> -	read_lock(&bond->curr_slave_lock);
+>>  
+>>  	switch (ntohs(skb->protocol)) {
+>>  	case ETH_P_IP: {
+>> @@ -1420,12 +1420,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>>  
+>>  	if (!tx_slave) {
+>>  		/* unbalanced or unassigned, send through primary */
+>> -		tx_slave = bond->curr_active_slave;
+>> +		tx_slave = rcu_dereference(bond->curr_active_slave);
+>>  		bond_info->unbalanced_load += skb->len;
+>>  	}
+>>  
+>>  	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+>> -		if (tx_slave != bond->curr_active_slave) {
+>> +		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+>>  			memcpy(eth_data->h_source,
+>>  			       tx_slave->dev->dev_addr,
+>>  			       ETH_ALEN);
+>> @@ -1440,8 +1440,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>>  		}
+>>  	}
+>>  
+>> -	read_unlock(&bond->curr_slave_lock);
+>> -	read_unlock(&bond->lock);
+>>  	if (res) {
+>>  		/* no suitable interface, frame not sent */
+>>  		kfree_skb(skb);
+>>
+> 
+> 
+> .
+> 
