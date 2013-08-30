@@ -1,48 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net] net: fec: fix time stamping logic after napi conversion
-Date: Fri, 30 Aug 2013 20:28:10 +0200
-Message-ID: <22741489040b99d0c1025dcbf993fd5cfd859123.1377887138.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:35753 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855Ab3H3S2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:28:34 -0400
-Received: by mail-ea0-f176.google.com with SMTP id q16so1083259ead.21
-        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 11:28:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
+Date: Fri, 30 Aug 2013 14:30:20 -0400 (EDT)
+Message-ID: <20130830.143020.1246803952303746167.davem@davemloft.net>
+References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
+	<20130830165550.GA8151@kroah.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@roeck-us.net, linux-kernel@vger.kernel.org,
+	linux-ide@vger.kernel.org, netdev@vger.kernel.org,
+	linux-watchdog@vger.kernel.org, wim@iguana.be,
+	viro@zeniv.linux.org.uk, eparis@redhat.com, jiang.liu@huawei.com,
+	dhowells@redhat.com, tglx@linutronix.de, sfr@canb.auug.org.au,
+	torvalds@linux-foundation.org
+To: gregkh@linuxfoundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130830165550.GA8151@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit dc975382 "net: fec: add napi support to improve proformance"
-converted the fec driver to the napi model. However, that commit
-forgot to remove the call to skb_defer_rx_timestamp which is only
-needed in non-napi drivers.
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Fri, 30 Aug 2013 09:55:50 -0700
 
-(The function napi_gro_receive eventually calls netif_receive_skb,
-which in turn calls skb_defer_rx_timestamp.)
+> On Fri, Aug 30, 2013 at 09:40:35AM -0700, Guenter Roeck wrote:
+>> H8/300 has been dead for several years, the kernel for it has
+>> not compiled for ages, and recent versions of gcc for it are broken.
+>> It is time to drop support for it.
+>> 
+>> Yes, I understand it is not that simple to drop an architecture,
+>> and it may need some discussion, but someone has to put a stake
+>> into the ground. Keeping a virtually dead architecture on life support
+>> takes resources which are better spent elsewhere.
+> 
+> If this doesn't build, and no one is using it anymore, I agree, it
+> should be removed.  If someone wants to revive it, 'git revert' works
+> just fine.
+> 
+> You can put my:
+> 
+> Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> 
+> on these patches, unless someone steps up to be the active maintainer of
+> the arch and gets it building/working again.
 
-This patch should also be applied to the 3.9 and 3.10 kernels.
+I completely agree with Greg, and for the IDE and networking bits:
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 77ea0db..c610a27 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -971,8 +971,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 						       htons(ETH_P_8021Q),
- 						       vlan_tag);
- 
--			if (!skb_defer_rx_timestamp(skb))
--				napi_gro_receive(&fep->napi, skb);
-+			napi_gro_receive(&fep->napi, skb);
- 		}
- 
- 		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
--- 
-1.7.10.4
+Acked-by: David S. Miller <davem@davemloft.net>
