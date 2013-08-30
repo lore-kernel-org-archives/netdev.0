@@ -1,49 +1,59 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [-next] openvswitch BUILD_BUG_ON failed
-Date: Thu, 29 Aug 2013 18:11:25 -0700
-Message-ID: <CAEP_g=-XxgK9HVxvcaW3RS2zfa+77pB4cqfLFC0rcV7QJc+2BQ@mail.gmail.com>
-References: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
- <CAEP_g=-XvRiHPzSAp2rgC9Hxdd+pGEHvSTEJ1A1SkWnk1-6xZA@mail.gmail.com> <20130829.181001.145658561677052552.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: geert@linux-m68k.org, Andy Zhou <azhou@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-next@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130829.181001.145658561677052552.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] tcp: Remove needless check of return value
+Date: Thu, 29 Aug 2013 18:19:18 -0700
+Message-ID: <1377825558-8800-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:52177 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751924Ab3H3BWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 21:22:19 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so1170732pdj.18
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 18:22:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 29, 2013 at 3:10 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jesse Gross <jesse@nicira.com>
-> Date: Thu, 29 Aug 2013 14:42:22 -0700
->
->> On Thu, Aug 29, 2013 at 2:21 PM, Geert Uytterhoeven
->> <geert@linux-m68k.org> wrote:
->>> However, I have some doubts about other alignment "enforcements":
->>>
->>> "__aligned(__alignof__(long))" makes the whole struct aligned to the
->>> alignment rule for "long":
->>>    1. This is only 2 bytes on m68k, i.e. != sizeof(long).
->>>    2. This is 4 bytes on many 32-bit platforms, which may be less than the
->>>       default alignment for "__be64" (cfr. some members of struct
->>>       ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
->>
->> Do any of those 32-bit architectures actually care about alignment of
->> 64 bit values? On 32-bit x86, a long is 32 bits but the alignment
->> requirement of __be64 is also 32 bit.
->
-> All except x86-32 do, it is in fact the odd man out with respect to this
-> issue.
+After commit 0c24604b (tcp: implement RFC 5961 4.2), tcp_rcv_established() only
+returns 0 since we no longer send RSTs in response to SYNs. We can remove the
+check on the return value.
 
-Thanks, good to know.
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ net/ipv4/tcp_ipv4.c |    5 +----
+ net/ipv6/tcp_ipv6.c |    3 +--
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
-Andy, do you want to modify your patch to just drop the alignment
-specification as Geert suggested (but definitely keep the new build
-assert that you added)? It's probably better to just send the patch to
-netdev (against net-next) as well since you'll likely get better
-comments there and we can fix this faster if you cut out the
-middleman.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 09d45d7..b14266b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1799,10 +1799,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 				sk->sk_rx_dst = NULL;
+ 			}
+ 		}
+-		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
+-			rsk = sk;
+-			goto reset;
+-		}
++		tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
+ 		return 0;
+ 	}
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5bcfadf..9acdced 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1360,8 +1360,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 			}
+ 		}
+ 
+-		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len))
+-			goto reset;
++		tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
+ 		if (opt_skb)
+ 			goto ipv6_pktoptions;
+ 		return 0;
+-- 
+1.7.9.5
