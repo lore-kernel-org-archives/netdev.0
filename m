@@ -1,42 +1,31 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] qdisc: allow setting default queuing
  discipline
-Date: Thu, 29 Aug 2013 22:23:48 -0400 (EDT)
-Message-ID: <20130829.222348.1264641492942426245.davem@davemloft.net>
+Date: Thu, 29 Aug 2013 22:25:19 -0400 (EDT)
+Message-ID: <20130829.222519.2239357362023600080.davem@davemloft.net>
 References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+	<521D34CC.205@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41486 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41495 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752113Ab3H3CXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 22:23:54 -0400
-In-Reply-To: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+	with ESMTP id S1752282Ab3H3CZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 22:25:21 -0400
+In-Reply-To: <521D34CC.205@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 27 Aug 2013 16:19:08 -0700
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 27 Aug 2013 16:22:52 -0700
 
-> By default, the pfifo_fast queue discipline has been used by default
-> for all devices. But we have better choices now.
+> On 08/27/2013 04:19 PM, Stephen Hemminger wrote:
+>> +CoDel (codel) or fair queue CoDel (fq_codel). Dont' use queuing
+>> disciplines
 > 
-> This patch allow setting the default queueing discipline with sysctl.
-> This allows easy use of better queueing disciplines on all devices
-> without having to use tc qdisc scripts. It is intended to allow
-> an easy path for distributions to make fq_codel or sfq the default
-> qdisc.
-> 
-> This patch also makes pfifo_fast more of a first class qdisc, since
-> it is now possible to manually override the default and explicitly
-> use pfifo_fast. The behavior for systems who do not use the sysctl
-> is unchanged, they still get pfifo_fast
-> 
-> Also removes leftover random # in sysctl net core.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> nit: Don't has typo above....
 
-Applied, thanks Stpehen.
+I fixed this when I commited Stephen's patch, thanks.
