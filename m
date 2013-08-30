@@ -1,86 +1,91 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v3 10/11] net: calxedaxgmac: fix rx DMA mapping API size mismatches
-Date: Fri, 30 Aug 2013 16:49:28 -0500
-Message-ID: <1377899369-23252-10-git-send-email-robherring2@gmail.com>
+Subject: [PATCH v3 08/11] net: calxedaxgmac: fix various errors in xgmac_set_rx_mode
+Date: Fri, 30 Aug 2013 16:49:26 -0500
+Message-ID: <1377899369-23252-8-git-send-email-robherring2@gmail.com>
 References: <1377899369-23252-1-git-send-email-robherring2@gmail.com>
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>,
 	Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:42881 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756830Ab3H3VuI (ORCPT
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:38155 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756802Ab3H3VuI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:50:08 -0400
-Received: by mail-oa0-f41.google.com with SMTP id j17so2339566oag.0
-        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 14:50:08 -0700 (PDT)
+Received: by mail-oa0-f44.google.com with SMTP id l17so2961351oag.31
+        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 14:50:06 -0700 (PDT)
 In-Reply-To: <1377899369-23252-1-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-Fix the mismatch in the DMA mapping and unmapping sizes for receive. The
-unmap size must be equal to the map size and should not be the actual
-received frame length. The map size should also be adjusted by the
-NET_IP_ALIGN size since the h/w buffer size (dma_buf_sz) includes this
-offset.
+Fix xgmac_set_rx_mode to handle several conditions that were not handled
+correctly as Lennert Buytenhek describes:
 
-Also, add a missing dma_mapping_error check in xgmac_rx_refill.
+If we have, say, 100 unicast addresses, and 5 multicast addresses, the
+unicast address count check will evaluate to true, and set use_hash to
+true.  The multicast address check will however evaluate to false, and
+use_hash won't be set to true again, and XGMAC_FRAME_FILTER_HMC won't
+be OR'd into XGMAC_FRAME_FILTER, but since use_hash was still true
+from the unicast check, netdev_for_each_mc_addr() will program the
+multicast addresses into the hash table instead of using the MAC
+address registers, but since the HMC bit wasn't set, the hash table
+won't be checked for multicast addresses on receive, and we'll stop
+receiving multicast packets entirely.
+
+Also, there is no code that zeroes out MAC address registers reg..31
+at the end of this function, meaning that under the right conditions,
+unicast/multicast addresses that were previously in the filter but
+were then deleted won't be cleared out.
 
 Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
 Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- drivers/net/ethernet/calxeda/xgmac.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/calxeda/xgmac.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 04c585c..cd5010b 100644
+index 73d3f83..0cff9e3 100644
 --- a/drivers/net/ethernet/calxeda/xgmac.c
 +++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -695,9 +695,14 @@ static void xgmac_rx_refill(struct xgmac_priv *priv)
- 			if (unlikely(skb == NULL))
- 				break;
+@@ -618,10 +618,15 @@ static void xgmac_set_mac_addr(void __iomem *ioaddr, unsigned char *addr,
+ {
+ 	u32 data;
  
--			priv->rx_skbuff[entry] = skb;
- 			paddr = dma_map_single(priv->device, skb->data,
--					       bufsz, DMA_FROM_DEVICE);
-+					       priv->dma_buf_sz - NET_IP_ALIGN,
-+					       DMA_FROM_DEVICE);
-+			if (dma_mapping_error(priv->device, paddr)) {
-+				dev_kfree_skb_any(skb);
-+				break;
-+			}
-+			priv->rx_skbuff[entry] = skb;
- 			desc_set_buf_addr(p, paddr, priv->dma_buf_sz);
- 		}
- 
-@@ -794,13 +799,14 @@ static void xgmac_free_rx_skbufs(struct xgmac_priv *priv)
- 		return;
- 
- 	for (i = 0; i < DMA_RX_RING_SZ; i++) {
--		if (priv->rx_skbuff[i] == NULL)
-+		struct sk_buff *skb = priv->rx_skbuff[i];
-+		if (skb == NULL)
- 			continue;
- 
- 		p = priv->dma_rx + i;
- 		dma_unmap_single(priv->device, desc_get_buf_addr(p),
--				 priv->dma_buf_sz, DMA_FROM_DEVICE);
--		dev_kfree_skb_any(priv->rx_skbuff[i]);
-+				 priv->dma_buf_sz - NET_IP_ALIGN, DMA_FROM_DEVICE);
-+		dev_kfree_skb_any(skb);
- 		priv->rx_skbuff[i] = NULL;
- 	}
+-	data = (addr[5] << 8) | addr[4] | (num ? XGMAC_ADDR_AE : 0);
+-	writel(data, ioaddr + XGMAC_ADDR_HIGH(num));
+-	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
+-	writel(data, ioaddr + XGMAC_ADDR_LOW(num));
++	if (addr) {
++		data = (addr[5] << 8) | addr[4] | (num ? XGMAC_ADDR_AE : 0);
++		writel(data, ioaddr + XGMAC_ADDR_HIGH(num));
++		data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
++		writel(data, ioaddr + XGMAC_ADDR_LOW(num));
++	} else {
++		writel(0, ioaddr + XGMAC_ADDR_HIGH(num));
++		writel(0, ioaddr + XGMAC_ADDR_LOW(num));
++	}
  }
-@@ -1187,7 +1193,7 @@ static int xgmac_rx(struct xgmac_priv *priv, int limit)
  
- 		skb_put(skb, frame_len);
- 		dma_unmap_single(priv->device, desc_get_buf_addr(p),
--				 frame_len, DMA_FROM_DEVICE);
-+				 priv->dma_buf_sz - NET_IP_ALIGN, DMA_FROM_DEVICE);
+ static void xgmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
+@@ -1294,6 +1299,8 @@ static void xgmac_set_rx_mode(struct net_device *dev)
+ 	if ((netdev_mc_count(dev) + reg - 1) > XGMAC_MAX_FILTER_ADDR) {
+ 		use_hash = true;
+ 		value |= XGMAC_FRAME_FILTER_HMC | XGMAC_FRAME_FILTER_HPF;
++	} else {
++		use_hash = false;
+ 	}
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		if (use_hash) {
+@@ -1310,6 +1317,8 @@ static void xgmac_set_rx_mode(struct net_device *dev)
+ 	}
  
- 		skb->protocol = eth_type_trans(skb, priv->dev);
- 		skb->ip_summed = ip_checksum;
+ out:
++	for (i = reg; i < XGMAC_MAX_FILTER_ADDR; i++)
++		xgmac_set_mac_addr(ioaddr, NULL, reg);
+ 	for (i = 0; i < XGMAC_NUM_HASH; i++)
+ 		writel(hash_filter[i], ioaddr + XGMAC_HASH(i));
+ 
 -- 
 1.8.1.2
