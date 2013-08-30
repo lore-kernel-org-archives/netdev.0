@@ -1,7 +1,7 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 1/9] qlcnic: Enhance PVID handling for 84xx adapters
-Date: Fri, 30 Aug 2013 13:51:16 -0400
-Message-ID: <1377885084-6441-2-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 2/9] qlcnic: Remove inline keyword
+Date: Fri, 30 Aug 2013 13:51:17 -0400
+Message-ID: <1377885084-6441-3-git-send-email-shahed.shaikh@qlogic.com>
 References: <1377885084-6441-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,114 +9,139 @@ Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
 	Manish Chopra <manish.chopra@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37796 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756725Ab3H3SUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:20:19 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:5299 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756827Ab3H3SUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:20:20 -0400
 In-Reply-To: <1377885084-6441-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Manish Chopra <manish.chopra@qlogic.com>
 
-o PF driver should not indicate PVID configuration to VF driver.
-  As adapter supports VLAN stripping, VF driver should stay agnostic
-  to any PVID configuration.
-
-o Return "QLC_NO_VLAN_MODE(= 0)" to VFD when PVID is configured.
-  VF driver should be in no VLAN configuration mode.
+o Remove inline keyword from function prototypes wherever it is not appropriate.
 
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    8 ++++++++
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   15 +++++----------
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    9 +++++++++
- 3 files changed, 22 insertions(+), 10 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   23 +++++++++----------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    4 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    4 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    4 +-
+ 4 files changed, 17 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 156a78e..f6aea7d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -2069,6 +2069,14 @@ static inline bool qlcnic_82xx_check(struct qlcnic_adapter *adapter)
- 	return (device == PCI_DEVICE_ID_QLOGIC_QLE824X) ? true : false;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 8fce1d3..36223a9 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -723,9 +723,8 @@ void qlcnic_dump_mbx(struct qlcnic_adapter *adapter,
+ 	pr_info("\n");
  }
  
-+static inline bool qlcnic_84xx_check(struct qlcnic_adapter *adapter)
-+{
-+	unsigned short device = adapter->pdev->device;
-+
-+	return ((device == PCI_DEVICE_ID_QLOGIC_QLE844X) ||
-+		(device == PCI_DEVICE_ID_QLOGIC_VF_QLE844X)) ? true : false;
-+}
-+
- static inline bool qlcnic_83xx_check(struct qlcnic_adapter *adapter)
+-static inline void
+-qlcnic_83xx_poll_for_mbx_completion(struct qlcnic_adapter *adapter,
+-				    struct qlcnic_cmd_args *cmd)
++static void qlcnic_83xx_poll_for_mbx_completion(struct qlcnic_adapter *adapter,
++						struct qlcnic_cmd_args *cmd)
  {
- 	unsigned short device = adapter->pdev->device;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 26f9aa6..652cc13 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -398,14 +398,10 @@ int qlcnic_sriov_get_vf_vport_info(struct qlcnic_adapter *adapter,
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	int opcode = LSW(cmd->req.arg[0]);
+@@ -3544,7 +3543,7 @@ qlcnic_83xx_notify_cmd_completion(struct qlcnic_adapter *adapter,
+ 	complete(&cmd->completion);
  }
  
- static int qlcnic_sriov_set_pvid_mode(struct qlcnic_adapter *adapter,
--				      struct qlcnic_cmd_args *cmd, u32 cap)
-+				      struct qlcnic_cmd_args *cmd)
+-static inline void qlcnic_83xx_flush_mbx_queue(struct qlcnic_adapter *adapter)
++static void qlcnic_83xx_flush_mbx_queue(struct qlcnic_adapter *adapter)
  {
--	if (cap & QLC_83XX_PVID_STRIP_CAPABILITY) {
--		adapter->rx_pvid = 0;
--	} else {
--		adapter->rx_pvid = (cmd->rsp.arg[1] >> 16) & 0xffff;
--		adapter->flags &= ~QLCNIC_TAGGING_ENABLED;
--	}
-+	adapter->rx_pvid = MSW(cmd->rsp.arg[1]) & 0xffff;
-+	adapter->flags &= ~QLCNIC_TAGGING_ENABLED;
+ 	struct qlcnic_mailbox *mbx = adapter->ahw->mailbox;
+ 	struct list_head *head = &mbx->cmd_q;
+@@ -3564,7 +3563,7 @@ static inline void qlcnic_83xx_flush_mbx_queue(struct qlcnic_adapter *adapter)
+ 	spin_unlock(&mbx->queue_lock);
+ }
+ 
+-static inline int qlcnic_83xx_check_mbx_status(struct qlcnic_adapter *adapter)
++static int qlcnic_83xx_check_mbx_status(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct qlcnic_mailbox *mbx = ahw->mailbox;
+@@ -3592,8 +3591,8 @@ static inline void qlcnic_83xx_signal_mbx_cmd(struct qlcnic_adapter *adapter,
+ 		QLCWRX(adapter->ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
+ }
+ 
+-static inline void qlcnic_83xx_dequeue_mbx_cmd(struct qlcnic_adapter *adapter,
+-					       struct qlcnic_cmd_args *cmd)
++static void qlcnic_83xx_dequeue_mbx_cmd(struct qlcnic_adapter *adapter,
++					struct qlcnic_cmd_args *cmd)
+ {
+ 	struct qlcnic_mailbox *mbx = adapter->ahw->mailbox;
+ 
+@@ -3653,9 +3652,9 @@ void qlcnic_83xx_detach_mailbox_work(struct qlcnic_adapter *adapter)
+ 	qlcnic_83xx_flush_mbx_queue(adapter);
+ }
+ 
+-static inline int qlcnic_83xx_enqueue_mbx_cmd(struct qlcnic_adapter *adapter,
+-					      struct qlcnic_cmd_args *cmd,
+-					      unsigned long *timeout)
++static int qlcnic_83xx_enqueue_mbx_cmd(struct qlcnic_adapter *adapter,
++				       struct qlcnic_cmd_args *cmd,
++				       unsigned long *timeout)
+ {
+ 	struct qlcnic_mailbox *mbx = adapter->ahw->mailbox;
+ 
+@@ -3680,8 +3679,8 @@ static inline int qlcnic_83xx_enqueue_mbx_cmd(struct qlcnic_adapter *adapter,
+ 	return -EBUSY;
+ }
+ 
+-static inline int qlcnic_83xx_check_mac_rcode(struct qlcnic_adapter *adapter,
+-					      struct qlcnic_cmd_args *cmd)
++static int qlcnic_83xx_check_mac_rcode(struct qlcnic_adapter *adapter,
++				       struct qlcnic_cmd_args *cmd)
+ {
+ 	u8 mac_cmd_rcode;
+ 	u32 fw_data;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index a969ac2..6fac393 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1950,8 +1950,8 @@ static void qlcnic_83xx_init_hw(struct qlcnic_adapter *p_dev)
+ 		dev_err(&p_dev->pdev->dev, "%s: failed\n", __func__);
+ }
+ 
+-static inline void qlcnic_83xx_get_fw_file_name(struct qlcnic_adapter *adapter,
+-						char *file_name)
++static void qlcnic_83xx_get_fw_file_name(struct qlcnic_adapter *adapter,
++					 char *file_name)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index df96f66..c99cee8 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -969,8 +969,8 @@ static int qlcnic_setup_pci_map(struct pci_dev *pdev,
  	return 0;
  }
  
-@@ -441,9 +437,8 @@ static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter,
+-static inline bool qlcnic_validate_subsystem_id(struct qlcnic_adapter *adapter,
+-						int index)
++static bool qlcnic_validate_subsystem_id(struct qlcnic_adapter *adapter,
++					 int index)
  {
- 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
- 	struct qlcnic_cmd_args cmd;
--	int ret, cap;
-+	int ret = 0;
- 
--	cap = info->capabilities;
- 	ret = qlcnic_sriov_alloc_bc_mbx_args(&cmd, QLCNIC_BC_CMD_GET_ACL);
- 	if (ret)
- 		return ret;
-@@ -459,7 +454,7 @@ static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter,
- 			ret = qlcnic_sriov_set_guest_vlan_mode(adapter, &cmd);
- 			break;
- 		case QLC_PVID_MODE:
--			ret = qlcnic_sriov_set_pvid_mode(adapter, &cmd, cap);
-+			ret = qlcnic_sriov_set_pvid_mode(adapter, &cmd);
- 			break;
- 		}
- 	}
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned short subsystem_vendor;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index 2d6faf0..95b7710 100644
+index 95b7710..a9bc651 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -1183,10 +1183,19 @@ static int qlcnic_sriov_pf_get_acl_cmd(struct qlcnic_bc_trans *trans,
- 	struct qlcnic_vf_info *vf = trans->vf;
- 	struct qlcnic_vport *vp = vf->vp;
- 	u8 cmd_op, mode = vp->vlan_mode;
-+	struct qlcnic_adapter *adapter;
-+
-+	adapter = vf->adapter;
+@@ -1781,8 +1781,8 @@ int qlcnic_sriov_set_vf_vlan(struct net_device *netdev, int vf,
+ 	return 0;
+ }
  
- 	cmd_op = trans->req_hdr->cmd_op;
- 	cmd->rsp.arg[0] |= 1 << 25;
+-static inline __u32 qlcnic_sriov_get_vf_vlan(struct qlcnic_adapter *adapter,
+-					     struct qlcnic_vport *vp, int vf)
++static __u32 qlcnic_sriov_get_vf_vlan(struct qlcnic_adapter *adapter,
++				      struct qlcnic_vport *vp, int vf)
+ {
+ 	__u32 vlan = 0;
  
-+	/* For 84xx adapter in case of PVID , PFD should send vlan mode as
-+	 * QLC_NO_VLAN_MODE to VFD which is zero in mailbox response
-+	 */
-+	if (qlcnic_84xx_check(adapter) && mode == QLC_PVID_MODE)
-+		return 0;
-+
- 	switch (mode) {
- 	case QLC_GUEST_VLAN_MODE:
- 		cmd->rsp.arg[1] = mode | 1 << 8;
 -- 
 1.5.6
