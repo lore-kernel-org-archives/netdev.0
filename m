@@ -1,43 +1,67 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2 net-next 3/9] net: dsa: inherit addr_assign_type along with dev_addr
-Date: Fri, 30 Aug 2013 18:08:46 +0200
-Message-ID: <1377878932-26881-4-git-send-email-bjorn@mork.no>
-References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
+Subject: [PATCH v2 net-next 0/9] set addr_assign_type when inheriting a
+ dev_addr
+Date: Fri, 30 Aug 2013 18:08:43 +0200
+Message-ID: <1377878932-26881-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devel@driverdev.osuosl.org, Jiri Pirko <jiri@resnulli.us>,
+ libertas-dev@lists.infradead.org, Jouni Malinen <j@w1.fi>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ linux-wireless@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>,
+ Stephen Hemminger <stephen@networkplumber.org>,
+ Forest Bond <forest@alittletooquiet.net>,
+ Dan Carpenter <dan.carpenter@oracle.com>, Patrick McHardy <kaber@trash.net>,
+ =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55482 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756873Ab3H3QKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 12:10:14 -0400
-In-Reply-To: <1377878932-26881-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-A device inheriting a random or set address should reflect this in
-its addr_assign_type.
-
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- net/dsa/slave.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6ebd8fb..29d684e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -347,7 +347,7 @@ dsa_slave_create(struct dsa_switch *ds, struct devi=
-ce *parent,
-=20
- 	slave_dev->features =3D master->vlan_features;
- 	SET_ETHTOOL_OPS(slave_dev, &dsa_slave_ethtool_ops);
--	memcpy(slave_dev->dev_addr, master->dev_addr, ETH_ALEN);
-+	eth_hw_addr_inherit(slave_dev, master);
- 	slave_dev->tx_queue_len =3D 0;
-=20
- 	switch (ds->dst->tag_protocol) {
---=20
-1.7.10.4
+Q29weWluZyB0aGUgZGV2X2FkZHIgZnJvbSBhIHBhcmVudCBkZXZpY2UgaXMgYW4gb3BlcmF0aW9u
+CmNvbW1vbiB0byBhIG51bWJlciBvZiBkcml2ZXJzLiBUaGUgYWRkcl9hc3NpZ25fdHlwZSBzaG91
+bGQKYmUgdXBkYXRlZCBhY2NvcmRpbmdseSwgZWl0aGVyIGJ5IHJldXNpbmcgdGhlIHZhbHVlIGZy
+b20KdGhlIHNvdXJjZSBkZXZpY2Ugb3IgZXhwbGljaXRseSBpbmRpY2F0aW5nIHRoYXQgdGhlIGFk
+ZHJlc3MKaXMgc3RvbGVuIGJ5IHNldHRpbmcgYWRkcl9hc3NpZ25fdHlwZSB0byBORVRfQUREUl9T
+VE9MRU4uCgpUaGlzIHBhdGNoIHNldCBhZGRzIGEgaGVscGVyIGNvcHlpbmcgYm90aCB0aGUgZGV2
+X2FkZHIgYW5kCnRoZSBhZGRyX2Fzc2lnbl90eXBlLCBhbmQgdXNlIHRoaXMgaGVscGVyIGluIGRy
+aXZlcnMgd2hpY2gKZG9uJ3QgY3VycmVudGx5IHNldCB0aGUgYWRkcl9hc3NpZ25fdHlwZS4gVXNp
+bmcgTkVUX0FERFJfU1RPTEVOCm1pZ2h0IGJlIG1vcmUgYXBwcm9wcmlhdGUgaW4gc29tZSBvZiB0
+aGVzZSBjYXNlcy4gIFBsZWFzZQpsZXQgbWUga25vdywgYW5kIEknbGwgdXBkYXRlIHRoZSBwYXRj
+aCBhY2NvcmRpbmdseS4KCkNoYW5nZXMgaW4gdjI6CiAtIGFzc3VtaW5nIGFkZHJfbGVuID09IEVU
+SF9BTEVOIHRvIGFsbG93IG9wdGltaXplZCBtZW1jcHkKIC0gZHJvcHBlZCB0aGUgdnQ2NjU2IHBh
+dGNoIGR1ZSB0byBhZGRyX2xlbiBiZWluZyB1bnNldCBpbiB0aGF0IGRyaXZlcgoKCkJqw7hybiBN
+b3JrICg5KToKICBuZXQ6IGV0aGVyZGV2aWNlOiBhZGQgYWRkcmVzcyBpbmhlcml0IGhlbHBlcgog
+IG5ldDogdmxhbjogaW5oZXJpdCBhZGRyX2Fzc2lnbl90eXBlIGFsb25nIHdpdGggZGV2X2FkZHIK
+ICBuZXQ6IGRzYTogaW5oZXJpdCBhZGRyX2Fzc2lnbl90eXBlIGFsb25nIHdpdGggZGV2X2FkZHIK
+ICBuZXQ6IG1hY3ZsYW46IGluaGVyaXQgYWRkcl9hc3NpZ25fdHlwZSBhbG9uZyB3aXRoIGRldl9h
+ZGRyCiAgbmV0OiB0ZWFtOiBpbmhlcml0IGFkZHJfYXNzaWduX3R5cGUgYWxvbmcgd2l0aCBkZXZf
+YWRkcgogIG5ldDogYWlybzogaW5oZXJpdCBhZGRyX2Fzc2lnbl90eXBlIGFsb25nIHdpdGggZGV2
+X2FkZHIKICBuZXQ6IGhvc3RhcDogaW5oZXJpdCBhZGRyX2Fzc2lnbl90eXBlIGFsb25nIHdpdGgg
+ZGV2X2FkZHIKICBuZXQ6IGxpYmVydGFzOiBpbmhlcml0IGFkZHJfYXNzaWduX3R5cGUgYWxvbmcg
+d2l0aCBkZXZfYWRkcgogIHN0YWdpbmc6IHZ0NjY1NTogaW5oZXJpdCBhZGRyX2Fzc2lnbl90eXBl
+IGFsb25nIHdpdGggZGV2X2FkZHIKCiBkcml2ZXJzL25ldC9tYWN2bGFuLmMgICAgICAgICAgICAg
+ICAgICAgICB8ICAgIDIgKy0KIGRyaXZlcnMvbmV0L3RlYW0vdGVhbS5jICAgICAgICAgICAgICAg
+ICAgIHwgICAgMiArLQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYWlyby5jICAgICAgICAgICAgICAg
+fCAgICAyICstCiBkcml2ZXJzL25ldC93aXJlbGVzcy9ob3N0YXAvaG9zdGFwX2h3LmMgICB8ICAg
+IDIgKy0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2hvc3RhcC9ob3N0YXBfbWFpbi5jIHwgICAgMiAr
+LQogZHJpdmVycy9uZXQvd2lyZWxlc3MvbGliZXJ0YXMvbWVzaC5jICAgICAgfCAgICAyICstCiBk
+cml2ZXJzL3N0YWdpbmcvdnQ2NjU1L2hvc3RhcC5jICAgICAgICAgICB8ICAgIDIgKy0KIGRyaXZl
+cnMvc3RhZ2luZy92dDY2NTUvaW9jdGwuYyAgICAgICAgICAgIHwgICAgMiArLQogZHJpdmVycy9z
+dGFnaW5nL3Z0NjY1NS93cGFjdGwuYyAgICAgICAgICAgfCAgICAyICstCiBpbmNsdWRlL2xpbnV4
+L2V0aGVyZGV2aWNlLmggICAgICAgICAgICAgICB8ICAgMTUgKysrKysrKysrKysrKysrCiBuZXQv
+ODAyMXEvdmxhbl9kZXYuYyAgICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKy0KIG5ldC9kc2Ev
+c2xhdmUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQogMTIgZmlsZXMgY2hh
+bmdlZCwgMjYgaW5zZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0pCgotLSAKMS43LjEwLjQKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxp
+bmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGlu
+dXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
