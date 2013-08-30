@@ -1,42 +1,36 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v10 11/11] ipv6: Add generic UDP Tunnel segmentation
-Date: Fri, 30 Aug 2013 14:14:10 -0700
-Message-ID: <CALnjE+rKhTKK6wptN=dwkaEEj9T0R-vu9Fr0q+xiGZQjLUfbFg@mail.gmail.com>
-References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
-	<1377667379-2315-12-git-send-email-amwang@redhat.com>
-	<CALnjE+p87D301m8oJ=rkJap44zcPkVp=YkThUT70fW1kkrQ9AQ@mail.gmail.com>
-	<1377850563.2591.11.camel@cr0>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4 tunnels: fix an oops when using ipip/sit with
+ IPsec
+Date: Fri, 30 Aug 2013 17:14:15 -0400 (EDT)
+Message-ID: <20130830.171415.1757619806522159250.davem@davemloft.net>
+References: <1377683690-4506-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, hongjun.li@6wind.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:46346 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752525Ab3H3VOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:14:12 -0400
-Received: by mail-qc0-f176.google.com with SMTP id u20so1110534qcx.21
-        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 14:14:10 -0700 (PDT)
-In-Reply-To: <1377850563.2591.11.camel@cr0>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57598 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752650Ab3H3VRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:17:39 -0400
+In-Reply-To: <1377683690-4506-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 30, 2013 at 1:16 AM, Cong Wang <amwang@redhat.com> wrote:
-> On Wed, 2013-08-28 at 10:55 -0700, Pravin Shelar wrote:
->> On Tue, Aug 27, 2013 at 10:22 PM, Cong Wang <amwang@redhat.com> wrote:
->> > From: Cong Wang <amwang@redhat.com>
->> >
->> > Similar to commit 731362674580cb0c696cd1b1a03d8461a10cf90a
->> > (tunneling: Add generic Tunnel segmentation)
->> >
->> Can we factor out ipv4-udp-tunnel code so that there is no duplicating code?
->
-> Probably we can, but it will make code review harder? Or you mean doing
-> it in a separated patch? If you insist, I can do it in a separated
-> patch.
->
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 28 Aug 2013 11:54:50 +0200
 
-I doubt it makes review any harder. But separate patch is also fine with me.
+> From: Li Hongjun <hongjun.li@6wind.com>
+> 
+> Since commit 3d7b46cd20e3 (ip_tunnel: push generic protocol handling to
+> ip_tunnel module.), an Oops is triggered when an xfrm policy is configured on
+> an IPv4 over IPv4 tunnel.
+> 
+> xfrm4_policy_check() calls __xfrm_policy_check2(), which uses skb_dst(skb). But
+> this field is NULL because iptunnel_pull_header() calls skb_dst_drop(skb).
+> 
+> Signed-off-by: Li Hongjun <hongjun.li@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Applied, thanks everyone.
