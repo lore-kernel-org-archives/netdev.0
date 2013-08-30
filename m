@@ -1,73 +1,45 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v3 net-next] tcp: TSO packets automatic sizing
-Date: Fri, 30 Aug 2013 11:02:08 +0800
-Message-ID: <52200B30.40305@redhat.com>
-References: <1377304192.8828.43.camel@edumazet-glaptop>   <1377491162.8828.116.camel@edumazet-glaptop>  <1377607592.8828.149.camel@edumazet-glaptop> <521DA8BE.3060709@redhat.com> <1377686084.8828.175.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Van Jacobson <vanj@google.com>,
-	Tom Herbert <therbert@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH v2 01/11] net: calxedaxgmac: remove NETIF_F_FRAGLIST setting
+Date: Thu, 29 Aug 2013 22:13:38 -0500
+Message-ID: <1377832428-18117-1-git-send-email-robherring2@gmail.com>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	bhutchings@solarflare.com, Rob Herring <rob.herring@calxeda.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42477 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968Ab3H3DCX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Aug 2013 23:02:23 -0400
-In-Reply-To: <1377686084.8828.175.camel@edumazet-glaptop>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:46524 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753340Ab3H3DN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:13:59 -0400
+Received: by mail-ob0-f181.google.com with SMTP id dn14so1390227obc.12
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 20:13:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/28/2013 06:34 PM, Eric Dumazet wrote:
-> On Wed, 2013-08-28 at 15:37 +0800, Jason Wang wrote:
->
->>> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
->>> index 884efff..e63ae4c 100644
->>> --- a/net/ipv4/tcp_output.c
->>> +++ b/net/ipv4/tcp_output.c
->>> @@ -1631,7 +1631,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
->>>  
->>>  	/* If a full-sized TSO skb can be sent, do it. */
->>>  	if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
->>> -			   sk->sk_gso_max_segs * tp->mss_cache))
->>> +			   tp->xmit_size_goal_segs * tp->mss_cache))
->>>  		goto send_now;
->> A question is: Does this really guarantee the minimal TSO segments
->> excluding the case of small available window? The skb->len may be much
->> smaller and can still be sent here. Maybe we should check skb->len also?
-> tcp_tso_should_defer() is all about hoping the application will
-> 'complete' the last skb in write queue with more payload in the near
-> future.
->
-> skb->len might therefore change because sendmsg()/sendpage() will add
-> new stuff in the skb.
+From: Rob Herring <rob.herring@calxeda.com>
 
-Ture, but sometimes the application may be slow to fill the bytes into
-skb. Especially the application run in virt guest with multiqueue. In
-the case, the application in guest tends to be slower than the
-nic(virtio-net) which does the transmission through a host thread
-(vhost). Looks like current defer algorithm could not do this very well
-and if we want to force the batching of 64K packet, tcp_min_tso_segs
-could not works well also.
-> We try hard to not remove tcp_tso_should_defer() and take the best of
-> it. We have not yet decided to add a real timer instead of relying on
-> upcoming ACKS.
->
-> Neal has an idea/patch to avoid a defer depending on
-> the expected time of following ACKS.
->
-> By making the TSO sizes smaller for low rates, we avoid these stalls
-> from tcp_tso_should_defer(), because an incoming ACK has normally freed
-> enough window to send the next packet in write queue without the need to
-> split it into two parts.
->
-> These changes are fundamental to use delay based congestion modules like
-> Vegas/Westwood and experimental new ones, without having to disable TSO.
->
->
->
+The xgmac does not actually handle frag lists, so this option should not
+be set. It does not appear to have had any impact though.
+
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+---
+v2: No change
+
+ drivers/net/ethernet/calxeda/xgmac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 7cb148c..71f6720 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1759,7 +1759,7 @@ static int xgmac_probe(struct platform_device *pdev)
+ 	if (device_can_wakeup(priv->device))
+ 		priv->wolopts = WAKE_MAGIC;	/* Magic Frame as default */
+ 
+-	ndev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++	ndev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
+ 	if (readl(priv->base + XGMAC_DMA_HW_FEATURE) & DMA_HW_FEAT_TXCOESEL)
+ 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				     NETIF_F_RXCSUM;
+-- 
+1.8.1.2
