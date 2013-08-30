@@ -1,65 +1,56 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH v2 net-next 7/9] net: hostap: inherit addr_assign_type along with dev_addr
-Date: Fri, 30 Aug 2013 18:08:50 +0200
-Message-ID: <1377878932-26881-8-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH v2 net-next 1/9] net: etherdevice: add address inherit helper
+Date: Fri, 30 Aug 2013 18:08:44 +0200
+Message-ID: <1377878932-26881-2-git-send-email-bjorn@mork.no>
 References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jouni Malinen <j@w1.fi>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1377878932-26881-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devel@driverdev.osuosl.org, Jiri Pirko <jiri@resnulli.us>,
+ libertas-dev@lists.infradead.org, Jouni Malinen <j@w1.fi>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ linux-wireless@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>,
+ Stephen Hemminger <stephen@networkplumber.org>,
+ Forest Bond <forest@alittletooquiet.net>, Patrick McHardy <kaber@trash.net>,
+ =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1377878932-26881-1-git-send-email-bjorn@mork.no>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-A device inheriting a random or set address should reflect this in
-its addr_assign_type.
-
-Cc: Jouni Malinen <j@w1.fi>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
- drivers/net/wireless/hostap/hostap_hw.c   |    2 +-
- drivers/net/wireless/hostap/hostap_main.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wire=
-less/hostap/hostap_hw.c
-index 6307a4e..c275dc1 100644
---- a/drivers/net/wireless/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/hostap/hostap_hw.c
-@@ -1425,7 +1425,7 @@ static int prism2_hw_init2(struct net_device *dev=
-, int initial)
- 		}
- 		list_for_each(ptr, &local->hostap_interfaces) {
- 			iface =3D list_entry(ptr, struct hostap_interface, list);
--			memcpy(iface->dev->dev_addr, dev->dev_addr, ETH_ALEN);
-+			eth_hw_addr_inherit(iface->dev, dev);
- 		}
- 	} else if (local->fw_ap)
- 		prism2_check_sta_fw_version(local);
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wi=
-reless/hostap/hostap_main.c
-index e4f56ad..a1257c9 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -66,7 +66,7 @@ struct net_device * hostap_add_interface(struct local=
-_info *local,
- 	list_add(&iface->list, &local->hostap_interfaces);
-=20
- 	mdev =3D local->dev;
--	memcpy(dev->dev_addr, mdev->dev_addr, ETH_ALEN);
-+	eth_hw_addr_inherit(dev, mdev);
- 	dev->base_addr =3D mdev->base_addr;
- 	dev->irq =3D mdev->irq;
- 	dev->mem_start =3D mdev->mem_start;
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+U29tZSBldGhlcmRldmljZXMgaW5oZXJpdCB0aGVpciBhZGRyZXNzIGZyb20gYSBwYXJlbnQgb3IK
+bWFzdGVyIGRldmljZS4gVGhlIGFkZHJfYXNzaWduX3R5cGUgc2hvdWxkIGJlIHVwZGF0ZWQgYWxv
+bmcKd2l0aCB0aGUgYWRkcmVzcyBpbiB0aGVzZSBjYXNlcy4gIEFkZGluZyBhIGhlbHBlciBmdW5j
+dGlvbgp0byBzaW1wbGlmeSB0aGlzLgoKU2lnbmVkLW9mZi1ieTogQmrDuHJuIE1vcmsgPGJqb3Ju
+QG1vcmsubm8+Ci0tLQogaW5jbHVkZS9saW51eC9ldGhlcmRldmljZS5oIHwgICAxNSArKysrKysr
+KysrKysrKysKIDEgZmlsZSBjaGFuZ2VkLCAxNSBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEv
+aW5jbHVkZS9saW51eC9ldGhlcmRldmljZS5oIGIvaW5jbHVkZS9saW51eC9ldGhlcmRldmljZS5o
+CmluZGV4IGM2MjM4NjEuLmQ4YjUxMjQgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvZXRoZXJk
+ZXZpY2UuaAorKysgYi9pbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmgKQEAgLTE5OSw2ICsxOTks
+MjEgQEAgc3RhdGljIGlubGluZSB2b2lkIGV0aF9od19hZGRyX3JhbmRvbShzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2KQogfQogCiAvKioKKyAqIGV0aF9od19hZGRyX2luaGVyaXQgLSBDb3B5IGRldl9h
+ZGRyIGZyb20gYW5vdGhlciBuZXRfZGV2aWNlCisgKiBAZHN0OiBwb2ludGVyIHRvIG5ldF9kZXZp
+Y2UgdG8gY29weSBkZXZfYWRkciB0bworICogQHNyYzogcG9pbnRlciB0byBuZXRfZGV2aWNlIHRv
+IGNvcHkgZGV2X2FkZHIgZnJvbQorICoKKyAqIENvcHkgdGhlIEV0aGVybmV0IGFkZHJlc3MgZnJv
+bSBvbmUgbmV0X2RldmljZSB0byBhbm90aGVyIGFsb25nIHdpdGgKKyAqIHRoZSBhZGRyZXNzIGF0
+dHJpYnV0ZXMgKGFkZHJfYXNzaWduX3R5cGUpLgorICovCitzdGF0aWMgaW5saW5lIHZvaWQgZXRo
+X2h3X2FkZHJfaW5oZXJpdChzdHJ1Y3QgbmV0X2RldmljZSAqZHN0LAorCQkJCSAgICAgICBzdHJ1
+Y3QgbmV0X2RldmljZSAqc3JjKQoreworCWRzdC0+YWRkcl9hc3NpZ25fdHlwZSA9IHNyYy0+YWRk
+cl9hc3NpZ25fdHlwZTsKKwltZW1jcHkoZHN0LT5kZXZfYWRkciwgc3JjLT5kZXZfYWRkciwgRVRI
+X0FMRU4pOworfQorCisvKioKICAqIGNvbXBhcmVfZXRoZXJfYWRkciAtIENvbXBhcmUgdHdvIEV0
+aGVybmV0IGFkZHJlc3NlcwogICogQGFkZHIxOiBQb2ludGVyIHRvIGEgc2l4LWJ5dGUgYXJyYXkg
+Y29udGFpbmluZyB0aGUgRXRoZXJuZXQgYWRkcmVzcwogICogQGFkZHIyOiBQb2ludGVyIG90aGVy
+IHNpeC1ieXRlIGFycmF5IGNvbnRhaW5pbmcgdGhlIEV0aGVybmV0IGFkZHJlc3MKLS0gCjEuNy4x
+MC40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXZl
+bCBtYWlsaW5nIGxpc3QKZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZwpodHRwOi8vZHJpdmVy
+ZGV2LmxpbnV4ZHJpdmVycHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcml2ZXJkZXYtZGV2
+ZWwK
