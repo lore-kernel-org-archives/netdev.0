@@ -1,51 +1,139 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v2 05/11] net: calxedaxgmac: update ring buffer tx_head after barriers
-Date: Thu, 29 Aug 2013 22:13:42 -0500
-Message-ID: <1377832428-18117-5-git-send-email-robherring2@gmail.com>
+Subject: [PATCH v2 03/11] net: calxedaxgmac: fix race between xgmac_tx_complete and xgmac_tx_err
+Date: Thu, 29 Aug 2013 22:13:40 -0500
+Message-ID: <1377832428-18117-3-git-send-email-robherring2@gmail.com>
 References: <1377832428-18117-1-git-send-email-robherring2@gmail.com>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
 	bhutchings@solarflare.com, Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:41127 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754042Ab3H3DOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:14:04 -0400
-Received: by mail-ob0-f171.google.com with SMTP id tb18so1360646obb.2
-        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 20:14:03 -0700 (PDT)
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:53435 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753857Ab3H3DOB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:14:01 -0400
+Received: by mail-ob0-f172.google.com with SMTP id er7so1389190obc.3
+        for <netdev@vger.kernel.org>; Thu, 29 Aug 2013 20:14:01 -0700 (PDT)
 In-Reply-To: <1377832428-18117-1-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-Ensure that the descriptor writes are visible before the ring buffer head
-is updated. Since writel is a barrier, we can simply update the head after
-the writel.
+It is possible for the xgmac_tx_complete to run concurrently with
+xgmac_tx_err since there are no locks. Fix this by moving the tx
+error handling to a workqueue so we can disable napi while we reset
+the transmitter.
 
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Reported-by: Andreas Herrmann <andreas.herrmann@calxeda.com>
 Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
 v2: No change
 
- drivers/net/ethernet/calxeda/xgmac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/calxeda/xgmac.c | 38 +++++++++++++++++-------------------
+ 1 file changed, 18 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 64854ad..f630855 100644
+index d41af68..df7e3e2 100644
 --- a/drivers/net/ethernet/calxeda/xgmac.c
 +++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1121,9 +1121,10 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	wmb();
- 	desc_set_tx_owner(first, desc_flags | TXDESC_FIRST_SEG);
+@@ -393,6 +393,7 @@ struct xgmac_priv {
+ 	char rx_pause;
+ 	char tx_pause;
+ 	int wolopts;
++	struct work_struct tx_timeout_work;
+ };
  
-+	writel(1, priv->base + XGMAC_DMA_TX_POLL);
+ /* XGMAC Configuration Settings */
+@@ -897,21 +898,18 @@ static void xgmac_tx_complete(struct xgmac_priv *priv)
+ 		netif_wake_queue(priv->dev);
+ }
+ 
+-/**
+- * xgmac_tx_err:
+- * @priv: pointer to the private device structure
+- * Description: it cleans the descriptors and restarts the transmission
+- * in case of errors.
+- */
+-static void xgmac_tx_err(struct xgmac_priv *priv)
++static void xgmac_tx_timeout_work(struct work_struct *work)
+ {
+-	u32 reg, value, inten;
++	u32 reg, value;
++	struct xgmac_priv *priv =
++		container_of(work, struct xgmac_priv, tx_timeout_work);
+ 
+-	netif_stop_queue(priv->dev);
++	napi_disable(&priv->napi);
+ 
+-	inten = readl(priv->base + XGMAC_DMA_INTR_ENA);
+ 	writel(0, priv->base + XGMAC_DMA_INTR_ENA);
+ 
++	netif_tx_lock(priv->dev);
 +
- 	priv->tx_head = dma_ring_incr(entry, DMA_TX_RING_SZ);
+ 	reg = readl(priv->base + XGMAC_DMA_CONTROL);
+ 	writel(reg & ~DMA_CONTROL_ST, priv->base + XGMAC_DMA_CONTROL);
+ 	do {
+@@ -927,9 +925,15 @@ static void xgmac_tx_err(struct xgmac_priv *priv)
  
--	writel(1, priv->base + XGMAC_DMA_TX_POLL);
- 	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
- 	    MAX_SKB_FRAGS)
- 		netif_stop_queue(dev);
+ 	writel(DMA_STATUS_TU | DMA_STATUS_TPS | DMA_STATUS_NIS | DMA_STATUS_AIS,
+ 		priv->base + XGMAC_DMA_STATUS);
+-	writel(inten, priv->base + XGMAC_DMA_INTR_ENA);
+ 
++	netif_tx_unlock(priv->dev);
+ 	netif_wake_queue(priv->dev);
++
++	napi_enable(&priv->napi);
++
++	/* Enable interrupts */
++	writel(DMA_INTR_DEFAULT_MASK, priv->base + XGMAC_DMA_STATUS);
++	writel(DMA_INTR_DEFAULT_MASK, priv->base + XGMAC_DMA_INTR_ENA);
+ }
+ 
+ static int xgmac_hw_init(struct net_device *dev)
+@@ -1225,9 +1229,7 @@ static int xgmac_poll(struct napi_struct *napi, int budget)
+ static void xgmac_tx_timeout(struct net_device *dev)
+ {
+ 	struct xgmac_priv *priv = netdev_priv(dev);
+-
+-	/* Clear Tx resources and restart transmitting again */
+-	xgmac_tx_err(priv);
++	schedule_work(&priv->tx_timeout_work);
+ }
+ 
+ /**
+@@ -1366,7 +1368,6 @@ static irqreturn_t xgmac_pmt_interrupt(int irq, void *dev_id)
+ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
+ {
+ 	u32 intr_status;
+-	bool tx_err = false;
+ 	struct net_device *dev = (struct net_device *)dev_id;
+ 	struct xgmac_priv *priv = netdev_priv(dev);
+ 	struct xgmac_extra_stats *x = &priv->xstats;
+@@ -1396,16 +1397,12 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
+ 		if (intr_status & DMA_STATUS_TPS) {
+ 			netdev_err(priv->dev, "transmit process stopped\n");
+ 			x->tx_process_stopped++;
+-			tx_err = true;
++			schedule_work(&priv->tx_timeout_work);
+ 		}
+ 		if (intr_status & DMA_STATUS_FBI) {
+ 			netdev_err(priv->dev, "fatal bus error\n");
+ 			x->fatal_bus_error++;
+-			tx_err = true;
+ 		}
+-
+-		if (tx_err)
+-			xgmac_tx_err(priv);
+ 	}
+ 
+ 	/* TX/RX NORMAL interrupts */
+@@ -1708,6 +1705,7 @@ static int xgmac_probe(struct platform_device *pdev)
+ 	ndev->netdev_ops = &xgmac_netdev_ops;
+ 	SET_ETHTOOL_OPS(ndev, &xgmac_ethtool_ops);
+ 	spin_lock_init(&priv->stats_lock);
++	INIT_WORK(&priv->tx_timeout_work, xgmac_tx_timeout_work);
+ 
+ 	priv->device = &pdev->dev;
+ 	priv->dev = ndev;
 -- 
 1.8.1.2
