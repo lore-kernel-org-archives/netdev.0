@@ -1,69 +1,58 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 0/5] bonding: Patchset for rcu use in bonding
-Date: Fri, 30 Aug 2013 09:37:25 +0800
-Message-ID: <521FF755.6050306@huawei.com>
-References: <521D7AA3.6030205@huawei.com> <521F5AA3.4030105@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
+Date: Thu, 29 Aug 2013 21:47:30 -0400 (EDT)
+Message-ID: <20130829.214730.2158572637993114547.davem@davemloft.net>
+References: <1377816595.8277.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:8792 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089Ab3H3Bhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 21:37:50 -0400
-In-Reply-To: <521F5AA3.4030105@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41165 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754227Ab3H3Brf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 21:47:35 -0400
+In-Reply-To: <1377816595.8277.54.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/8/29 22:28, Nikolay Aleksandrov wrote:
-> On 08/28/2013 06:20 AM, Ding Tianhong wrote:
->> Hi:
->>
->> The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
->> replace and add more rcu list function.
->> fix a bug to protect bonding_store_xmit_hash().
->>
->> I test well and no problems found till now.
->>
->> Ding Tianhong (3):
->> Wang Yufen (1):
->> Yang Yingliang (1):
->>   bonding: simplify and use RCU protection for 3ad xmit path
->>   bonding: replace read_lock to rcu_read_lock for
->>   bond_3ad_get_active_agg_info()
->>   bonding: add rtnl lock for bonding_store_xmit_hash
->>   bonding: restructure and simplify bond_for_each_slave_next()
->>   bonding: use RCU protection for alb xmit path
->>
->>  drivers/net/bonding/bond_3ad.c   | 35 +++++++++++++++-------------------
->>  drivers/net/bonding/bond_alb.c   | 23 ++++++++++------------
->>  drivers/net/bonding/bond_main.c  |  6 ++----
->>  drivers/net/bonding/bond_sysfs.c |  4 ++++
->>  drivers/net/bonding/bonding.h    | 41 ++++++++++++++++++++++++++++++++++++----
->>  5 files changed, 68 insertions(+), 41 deletions(-)
->>
-> Thanks for the work, I was on vacation and travelling after my initial RCU
-> conversion so I got a little behind with these conversions, my idea was quite
-> different :-)
-> Anyway, I'd also appreciate some benchmarks, also some more information on what
-> type of testing did you run ?
-> I've given some preliminary comments to the patches, I'll have to think more
-> about them in this form.
-> 
-> Cheers,
->  Nik
-> 
-> .
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Aug 2013 15:49:55 -0700
 
-It looks like a wonderful vocation :).
-I focus on the 3ad and alb mode, because the modify was manly for xmit, so my test environment was consist of 4 Intel82599 10G card, and use mode lacp ,alb.
-I use iperf to test, after the patch, the performance was a little better and no problem
-occurs. 
-
+> From: Eric Dumazet <edumazet@google.com>
 > 
+> - Uses perfect flow match (not stochastic hash like SFQ/FQ_codel)
+> - Uses the new_flow/old_flow separation from FQ_codel
+> - New flows get an initial credit allowing IW10 without added delay.
+> - Special FIFO queue for high prio packets (no need for PRIO + FQ)
+> - Uses a hash table of RB trees to locate the flows at enqueue() time
+> - Smart on demand gc (at enqueue() time, RB tree lookup evicts old
+>   unused flows)
+> - Dynamic memory allocations.
+> - Designed to allow millions of concurrent flows per Qdisc.
+> - Small memory footprint : ~8K per Qdisc, and 104 bytes per flow.
+> - Single high resolution timer for throttled flows (if any).
+> - One RB tree to link throttled flows.
+> - Ability to have a max rate per flow. We might add a socket option
+>   to add per socket limitation.
+> 
+> Attempts have been made to add TCP pacing in TCP stack, but this
+> seems to add complex code to an already complex stack.
+> 
+> TCP pacing is welcomed for flows having idle times, as the cwnd
+> permits TCP stack to queue a possibly large number of packets.
+> 
+> This removes the 'slow start after idle' choice, hitting badly
+> large BDP flows, and applications delivering chunks of data
+> as video streams.
+> 
+> Nicely spaced packets :
+> Here interface is 10Gbit, but flow bottleneck is ~20Mbit
+> 
+> cwin is big, yet FQ avoids the typical bursts generated by TCP
+> (as in netperf TCP_RR -- -r 100000,100000)
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied, thanks Eric!
