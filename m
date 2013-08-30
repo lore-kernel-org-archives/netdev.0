@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 10/16] sfc: Use a global count of active queues
- instead of pending drains
-Date: Fri, 30 Aug 2013 04:41:49 +0100
-Message-ID: <1377834109.2552.36.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 11/16] sfc: Extend struct efx_tx_buffer to allow
+ pushing option descriptors
+Date: Fri, 30 Aug 2013 04:42:11 +0100
+Message-ID: <1377834131.2552.37.camel@deadeye.wl.decadent.org.uk>
 References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,143 +10,86 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35036 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:35042 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753905Ab3H3Dlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:41:53 -0400
+	with ESMTP id S1755529Ab3H3DmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:42:15 -0400
 In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandre Rames <arames@solarflare.com>
-
-On EF10, the firmware will initiate a queue flush in certain
-error cases.  We need to accept that flush events might appear
-at any time after a queue has been initialised, not just when
-we try to flush them.
-
-We can handle Falcon-architecture in just the same way.
+The TX path firmware for EF10 supports 'option descriptors' to control
+offloads and various other features.  Add a flag and field for these
+in struct efx_tx_buffer, and don't treat them as DMA descriptors on
+completion.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |    5 ++++-
- drivers/net/ethernet/sfc/farch.c      |   18 ++++++++----------
- drivers/net/ethernet/sfc/net_driver.h |    4 ++--
- 3 files changed, 14 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/sfc/farch.c      |    2 ++
+ drivers/net/ethernet/sfc/net_driver.h |    7 ++++++-
+ drivers/net/ethernet/sfc/tx.c         |    4 +++-
+ 3 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index b483223..34788fb 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -631,11 +631,14 @@ static void efx_start_datapath(struct efx_nic *efx)
- 
- 	/* Initialise the channels */
- 	efx_for_each_channel(channel, efx) {
--		efx_for_each_channel_tx_queue(tx_queue, channel)
-+		efx_for_each_channel_tx_queue(tx_queue, channel) {
- 			efx_init_tx_queue(tx_queue);
-+			atomic_inc(&efx->active_queues);
-+		}
- 
- 		efx_for_each_channel_rx_queue(rx_queue, channel) {
- 			efx_init_rx_queue(rx_queue);
-+			atomic_inc(&efx->active_queues);
- 			efx_nic_generate_fill_event(rx_queue);
- 		}
- 
 diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index eb754cf..842f92e 100644
+index 842f92e..65073aa 100644
 --- a/drivers/net/ethernet/sfc/farch.c
 +++ b/drivers/net/ethernet/sfc/farch.c
-@@ -594,7 +594,7 @@ static bool efx_farch_flush_wake(struct efx_nic *efx)
- 	/* Ensure that all updates are visible to efx_farch_flush_queues() */
- 	smp_mb();
+@@ -325,6 +325,8 @@ void efx_farch_tx_write(struct efx_tx_queue *tx_queue)
+ 		txd = efx_tx_desc(tx_queue, write_ptr);
+ 		++tx_queue->write_count;
  
--	return (atomic_read(&efx->drain_pending) == 0 ||
-+	return (atomic_read(&efx->active_queues) == 0 ||
- 		(atomic_read(&efx->rxq_flush_outstanding) < EFX_RX_FLUSH_COUNT
- 		 && atomic_read(&efx->rxq_flush_pending) > 0));
- }
-@@ -626,7 +626,7 @@ static bool efx_check_tx_flush_complete(struct efx_nic *efx)
- 				netif_dbg(efx, hw, efx->net_dev,
- 					  "flush complete on TXQ %d, so drain "
- 					  "the queue\n", tx_queue->queue);
--				/* Don't need to increment drain_pending as it
-+				/* Don't need to increment active_queues as it
- 				 * has already been incremented for the queues
- 				 * which did not drain
- 				 */
-@@ -653,17 +653,15 @@ static int efx_farch_do_flush(struct efx_nic *efx)
- 
- 	efx_for_each_channel(channel, efx) {
- 		efx_for_each_channel_tx_queue(tx_queue, channel) {
--			atomic_inc(&efx->drain_pending);
- 			efx_farch_flush_tx_queue(tx_queue);
- 		}
- 		efx_for_each_channel_rx_queue(rx_queue, channel) {
--			atomic_inc(&efx->drain_pending);
- 			rx_queue->flush_pending = true;
- 			atomic_inc(&efx->rxq_flush_pending);
- 		}
- 	}
- 
--	while (timeout && atomic_read(&efx->drain_pending) > 0) {
-+	while (timeout && atomic_read(&efx->active_queues) > 0) {
- 		/* If SRIOV is enabled, then offload receive queue flushing to
- 		 * the firmware (though we will still have to poll for
- 		 * completion). If that fails, fall back to the old scheme.
-@@ -699,15 +697,15 @@ static int efx_farch_do_flush(struct efx_nic *efx)
- 					     timeout);
- 	}
- 
--	if (atomic_read(&efx->drain_pending) &&
-+	if (atomic_read(&efx->active_queues) &&
- 	    !efx_check_tx_flush_complete(efx)) {
- 		netif_err(efx, hw, efx->net_dev, "failed to flush %d queues "
--			  "(rx %d+%d)\n", atomic_read(&efx->drain_pending),
-+			  "(rx %d+%d)\n", atomic_read(&efx->active_queues),
- 			  atomic_read(&efx->rxq_flush_outstanding),
- 			  atomic_read(&efx->rxq_flush_pending));
- 		rc = -ETIMEDOUT;
- 
--		atomic_set(&efx->drain_pending, 0);
-+		atomic_set(&efx->active_queues, 0);
- 		atomic_set(&efx->rxq_flush_pending, 0);
- 		atomic_set(&efx->rxq_flush_outstanding, 0);
- 	}
-@@ -1123,8 +1121,8 @@ efx_farch_handle_drain_event(struct efx_channel *channel)
- {
- 	struct efx_nic *efx = channel->efx;
- 
--	WARN_ON(atomic_read(&efx->drain_pending) == 0);
--	atomic_dec(&efx->drain_pending);
-+	WARN_ON(atomic_read(&efx->active_queues) == 0);
-+	atomic_dec(&efx->active_queues);
- 	if (efx_farch_flush_wake(efx))
- 		wake_up(&efx->flush_wq);
- }
++		EFX_BUG_ON_PARANOID(buffer->flags & EFX_TX_BUF_OPTION);
++
+ 		/* Create TX descriptor ring entry */
+ 		BUILD_BUG_ON(EFX_TX_BUF_CONT != 1);
+ 		EFX_POPULATE_QWORD_4(*txd,
 diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 5341c76..c9b6f2d 100644
+index c9b6f2d..d1aa5dc 100644
 --- a/drivers/net/ethernet/sfc/net_driver.h
 +++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -723,7 +723,7 @@ struct vfdi_status;
-  * @rps_flow_id: Flow IDs of filters allocated for accelerated RFS,
-  *	indexed by filter ID
-  * @rps_expire_index: Next index to check for expiry in @rps_flow_id
-- * @drain_pending: Count of RX and TX queues that haven't been flushed and drained.
-+ * @active_queues: Count of RX and TX queues that haven't been flushed and drained.
-  * @rxq_flush_pending: Count of number of receive queues that need to be flushed.
-  *	Decremented when the efx_flush_rx_queue() is called.
-  * @rxq_flush_outstanding: Count of number of RX flushes started but not yet
-@@ -864,7 +864,7 @@ struct efx_nic {
- 	unsigned int rps_expire_index;
- #endif
+@@ -135,6 +135,7 @@ struct efx_special_buffer {
+  *	freed when descriptor completes
+  * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
+  *	freed when descriptor completes.
++ * @option: When @flags & %EFX_TX_BUF_OPTION, a NIC-specific option descriptor.
+  * @dma_addr: DMA address of the fragment.
+  * @flags: Flags for allocation and DMA mapping type
+  * @len: Length of this fragment.
+@@ -146,7 +147,10 @@ struct efx_tx_buffer {
+ 		const struct sk_buff *skb;
+ 		void *heap_buf;
+ 	};
+-	dma_addr_t dma_addr;
++	union {
++		efx_qword_t option;
++		dma_addr_t dma_addr;
++	};
+ 	unsigned short flags;
+ 	unsigned short len;
+ 	unsigned short unmap_len;
+@@ -155,6 +159,7 @@ struct efx_tx_buffer {
+ #define EFX_TX_BUF_SKB		2	/* buffer is last part of skb */
+ #define EFX_TX_BUF_HEAP		4	/* buffer was allocated with kmalloc() */
+ #define EFX_TX_BUF_MAP_SINGLE	8	/* buffer was mapped with dma_map_single() */
++#define EFX_TX_BUF_OPTION	0x10	/* empty buffer for option descriptor */
  
--	atomic_t drain_pending;
-+	atomic_t active_queues;
- 	atomic_t rxq_flush_pending;
- 	atomic_t rxq_flush_outstanding;
- 	wait_queue_head_t flush_wq;
+ /**
+  * struct efx_tx_queue - An Efx TX queue
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 85ee647..82075f9 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -306,7 +306,9 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
+ 
+ 	while (read_ptr != stop_index) {
+ 		struct efx_tx_buffer *buffer = &tx_queue->buffer[read_ptr];
+-		if (unlikely(buffer->len == 0)) {
++
++		if (!(buffer->flags & EFX_TX_BUF_OPTION) &&
++		    unlikely(buffer->len == 0)) {
+ 			netif_err(efx, tx_err, efx->net_dev,
+ 				  "TX queue %d spurious TX completion id %x\n",
+ 				  tx_queue->queue, read_ptr);
 
 
 -- 
