@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 13/16] sfc: Allocate NVRAM partition ID range for
- PHY images
-Date: Fri, 30 Aug 2013 04:43:14 +0100
-Message-ID: <1377834194.2552.39.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 14/16] sfc: Make efx_mcdi_{init,fini}() call
+ efx_mcdi_drv_attach()
+Date: Fri, 30 Aug 2013 04:43:46 +0100
+Message-ID: <1377834226.2552.40.camel@deadeye.wl.decadent.org.uk>
 References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,36 +10,166 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35071 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:35088 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619Ab3H3DnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:43:18 -0400
+	with ESMTP id S1752271Ab3H3Dnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:43:49 -0400
 In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Slattery <mslattery@solarflare.com>
+This should be done during MCDI initialisation for any NIC.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/sfc/mcdi.c  |   37 +++++++++++++++++++++++++++++++++----
+ drivers/net/ethernet/sfc/mcdi.h  |    2 --
+ drivers/net/ethernet/sfc/siena.c |   21 +--------------------
+ 3 files changed, 34 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 9e824f7..b5cf624 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -3799,6 +3799,10 @@
- #define          NVRAM_PARTITION_TYPE_DUMP                 0x800
- /* enum: Application license key storage partition */
- #define          NVRAM_PARTITION_TYPE_LICENSE              0x900
-+/* enum: Start of range used for PHY partitions (low 8 bits are the PHY ID) */
-+#define          NVRAM_PARTITION_TYPE_PHY_MIN              0xa00
-+/* enum: End of range used for PHY partitions (low 8 bits are the PHY ID) */
-+#define          NVRAM_PARTITION_TYPE_PHY_MAX              0xaff
- /* enum: Start of reserved value range (firmware may use for any purpose) */
- #define          NVRAM_PARTITION_TYPE_RESERVED_VALUES_MIN  0xff00
- /* enum: End of reserved value range (firmware may use for any purpose) */
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 8150781..d8a20f5 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -48,6 +48,8 @@ struct efx_mcdi_async_param {
+ };
+ 
+ static void efx_mcdi_timeout_async(unsigned long context);
++static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
++			       bool *was_attached_out);
+ 
+ static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
+ {
+@@ -58,6 +60,8 @@ static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
+ int efx_mcdi_init(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_iface *mcdi;
++	bool already_attached;
++	int rc;
+ 
+ 	efx->mcdi = kzalloc(sizeof(*efx->mcdi), GFP_KERNEL);
+ 	if (!efx->mcdi)
+@@ -78,12 +82,37 @@ int efx_mcdi_init(struct efx_nic *efx)
+ 	mcdi->new_epoch = true;
+ 
+ 	/* Recover from a failed assertion before probing */
+-	return efx_mcdi_handle_assertion(efx);
++	rc = efx_mcdi_handle_assertion(efx);
++	if (rc)
++		return rc;
++
++	/* Let the MC (and BMC, if this is a LOM) know that the driver
++	 * is loaded. We should do this before we reset the NIC.
++	 */
++	rc = efx_mcdi_drv_attach(efx, true, &already_attached);
++	if (rc) {
++		netif_err(efx, probe, efx->net_dev,
++			  "Unable to register driver with MCPU\n");
++		return rc;
++	}
++	if (already_attached)
++		/* Not a fatal error */
++		netif_err(efx, probe, efx->net_dev,
++			  "Host already registered with MCPU\n");
++
++	return 0;
+ }
+ 
+ void efx_mcdi_fini(struct efx_nic *efx)
+ {
+-	BUG_ON(efx->mcdi && efx->mcdi->iface.state != MCDI_STATE_QUIESCENT);
++	if (!efx->mcdi)
++		return;
++
++	BUG_ON(efx->mcdi->iface.state != MCDI_STATE_QUIESCENT);
++
++	/* Relinquish the device (back to the BMC, if this is a LOM) */
++	efx_mcdi_drv_attach(efx, false, NULL);
++
+ 	kfree(efx->mcdi);
+ }
+ 
+@@ -889,8 +918,8 @@ fail:
+ 	buf[0] = 0;
+ }
+ 
+-int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+-			bool *was_attached)
++static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
++			       bool *was_attached)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_DRV_ATTACH_IN_LEN);
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_OUT_LEN);
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index e37cf1d..0ca00a6 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -273,8 +273,6 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 	EFX_QWORD_FIELD(_ev, MCDI_EVENT_ ## _field)
+ 
+ extern void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len);
+-extern int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+-			       bool *was_attached_out);
+ extern int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 				  u16 *fw_subtype_list, u32 *capabilities);
+ extern int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart,
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 1500405..e8eef63 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -196,7 +196,6 @@ static unsigned int siena_mem_map_size(struct efx_nic *efx)
+ static int siena_probe_nic(struct efx_nic *efx)
+ {
+ 	struct siena_nic_data *nic_data;
+-	bool already_attached = false;
+ 	efx_oword_t reg;
+ 	int rc;
+ 
+@@ -222,19 +221,6 @@ static int siena_probe_nic(struct efx_nic *efx)
+ 	if (rc)
+ 		goto fail1;
+ 
+-	/* Let the BMC know that the driver is now in charge of link and
+-	 * filter settings. We must do this before we reset the NIC */
+-	rc = efx_mcdi_drv_attach(efx, true, &already_attached);
+-	if (rc) {
+-		netif_err(efx, probe, efx->net_dev,
+-			  "Unable to register driver with MCPU\n");
+-		goto fail2;
+-	}
+-	if (already_attached)
+-		/* Not a fatal error */
+-		netif_err(efx, probe, efx->net_dev,
+-			  "Host already registered with MCPU\n");
+-
+ 	/* Now we can reset the NIC */
+ 	rc = efx_mcdi_reset(efx, RESET_TYPE_ALL);
+ 	if (rc) {
+@@ -281,8 +267,6 @@ fail5:
+ 	efx_nic_free_buffer(efx, &efx->irq_status);
+ fail4:
+ fail3:
+-	efx_mcdi_drv_attach(efx, false, NULL);
+-fail2:
+ 	efx_mcdi_fini(efx);
+ fail1:
+ 	kfree(efx->nic_data);
+@@ -371,14 +355,11 @@ static void siena_remove_nic(struct efx_nic *efx)
+ 
+ 	efx_mcdi_reset(efx, RESET_TYPE_ALL);
+ 
+-	/* Relinquish the device back to the BMC */
+-	efx_mcdi_drv_attach(efx, false, NULL);
++	efx_mcdi_fini(efx);
+ 
+ 	/* Tear down the private nic state */
+ 	kfree(efx->nic_data);
+ 	efx->nic_data = NULL;
+-
+-	efx_mcdi_fini(efx);
+ }
+ 
+ #define SIENA_DMA_STAT(ext_name, mcdi_name)			\
 
 
 -- 
