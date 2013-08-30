@@ -1,53 +1,50 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net-next v10 03/11] ipv6: export a stub for IPv6 symbols
- used by vxlan
-Date: Fri, 30 Aug 2013 15:47:47 +0800
-Message-ID: <1377848867.2591.5.camel@cr0>
-References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
-	 <1377667379-2315-4-git-send-email-amwang@redhat.com>
-	 <20130828091208.4bcaedcf@nehalam.linuxnetplumber.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 05/31] net: at91_ether: use dev_get_platdata()
+Date: Fri, 30 Aug 2013 09:53:55 +0200
+Message-ID: <52204F93.8050400@atmel.com>
+References: <003101cea53b$9fc95b30$df5c1190$%han@samsung.com> <005701cea53f$70f6fac0$52e4f040$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "'David S. Miller'" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11083 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751995Ab3H3Hr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 03:47:56 -0400
-In-Reply-To: <20130828091208.4bcaedcf@nehalam.linuxnetplumber.net>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:50963 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752453Ab3H3Hx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 03:53:59 -0400
+In-Reply-To: <005701cea53f$70f6fac0$52e4f040$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-08-28 at 09:12 -0700, Stephen Hemminger wrote:
-> On Wed, 28 Aug 2013 13:22:51 +0800
-> Cong Wang <amwang@redhat.com> wrote:
-> 
-> > +struct ipv6_stub {
-> > +	int (*ipv6_sock_mc_join)(struct sock *sk, int ifindex,
-> > +				 const struct in6_addr *addr);
-> > +	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
-> > +				 const struct in6_addr *addr);
-> > +	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
-> > +				struct flowi6 *fl6);
-> > +	void (*udpv6_encap_enable)(void);
-> > +};
-> > +extern const struct ipv6_stub *ipv6_stub __read_mostly;
-> > +
-> 
-> Since IPv6 really can't ever be safely unloaded. why not:
->  * admit that, and get rid of ipv6_module exit.
->  * then this stub can be a static const table.
-> 
-> You see virtual function tables that are writeable are potential malware
-> targets, although eliminating all of them is impossible, I hate to
-> see adding new ones.
+On 30/08/2013 07:11, Jingoo Han :
+> Use the wrapper function for retrieving the platform data instead of
+> accessing dev->platform_data directly. This is a cosmetic change
+> to make the code simpler and enhance the readability.
+>
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
-I think getting rid of ipv6 exit deserves another thread for discussion,
-not in this thread. Actually I raised same question before, but no one
-replied me. If you want, I can send another patch for it after this
-patchset gets merged.
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks!
+> ---
+>   drivers/net/ethernet/cadence/at91_ether.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+> index bb5d63f..ce75de9 100644
+> --- a/drivers/net/ethernet/cadence/at91_ether.c
+> +++ b/drivers/net/ethernet/cadence/at91_ether.c
+> @@ -304,7 +304,7 @@ MODULE_DEVICE_TABLE(of, at91ether_dt_ids);
+>   /* Detect MAC & PHY and perform ethernet interface initialization */
+>   static int __init at91ether_probe(struct platform_device *pdev)
+>   {
+> -	struct macb_platform_data *board_data = pdev->dev.platform_data;
+> +	struct macb_platform_data *board_data = dev_get_platdata(&pdev->dev);
+>   	struct resource *regs;
+>   	struct net_device *dev;
+>   	struct phy_device *phydev;
+>
+
+
+-- 
+Nicolas Ferre
