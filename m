@@ -1,89 +1,87 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] drivers: net: ethernet: 8390: Kconfig: add
- H8300H_AKI3068NET and H8300H_H8MAX dependancy for NE_H8300
-Date: Fri, 30 Aug 2013 10:36:40 -0400
-Message-ID: <20130830143639.GA16269@windriver.com>
-References: <522011A1.2080305@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
-	Kees Cook <keescook@chromium.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: VLAN filtering/VLAN aware bridge problems
+Date: Fri, 30 Aug 2013 17:01:04 +0200
+Message-ID: <D45CE0BB-B748-4203-B48C-0D4EC2824768@profihost.ag>
+References: <521F4393.1020907@profihost.ag> <521FB2E3.6060508@redhat.com> <522048CB.1090000@profihost.ag> <5220A895.5040501@redhat.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "vyasevic@redhat.com" <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43192 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755636Ab3H3Ogv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 10:36:51 -0400
-Content-Disposition: inline
-In-Reply-To: <522011A1.2080305@asianux.com>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:46430 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752627Ab3H3PBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 11:01:07 -0400
+In-Reply-To: <5220A895.5040501@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[[PATCH] drivers: net: ethernet: 8390: Kconfig: add H8300H_AKI3068NET and H8300H_H8MAX dependancy for NE_H8300] On 30/08/2013 (Fri 11:29) Chen Gang wrote:
+Yes
 
-> Only H8300H_AKI3068NET and H8300H_H8MAX can support NE_H8300 (or it
-> will no related irq and base address).
+Stefan
 
-Do you have an H83000 and really know that is true?  I'm guessing no.
+This mail was sent with my iPhone.
 
-Looking at the driver, it is kind of broken that it only assigns I/O and
-irq for two platforms, but the H8300 arch Kconfig.cpu only allows building
-a single platform in a given kernel anyway, so a dependency fix is
-probably acceptable here.
+Am 30.08.2013 um 16:13 schrieb Vlad Yasevich <vyasevic@redhat.com>:
 
-Given that, what you really want to indicate is something like:
-
-  Currently only H8300H_AKI3068NET and H8300H_H8MAX define default
-  I/O base and IRQ values for the NE_H8300 driver.  Hence builds
-  for other H8300H platforms will fail as per below. Since H8300H
-  does not support multi platform builds, we simply limit building
-  the driver to those two platforms specifically.
-
+> On 08/30/2013 03:24 AM, Stefan Priebe - Profihost AG wrote:
+>> Am 29.08.2013 22:45, schrieb Vlad Yasevich:
+>>> On 08/29/2013 08:50 AM, Stefan Priebe - Profihost AG wrote:
+>> 
+>>>> The packets never reach the TAP device.
+>>>> 
+>>>> Here is an output of ip a l (vlan 3021):
+>>> 
+>>> Can you provide output of brctl show?
+>> 
+>> Sure:
+>> # brctl show
+>> bridge name     bridge id               STP enabled     interfaces
+>> vmbr0           8000.00259084dea8       no              bond0
+>>                                                         tap320i0
+>> vmbr1           8000.00259084deaa       no              bond1
+>> vmbr1v3021              8000.00259084deaa       no              tap320i1
+>>                                                         vmbr1.3021
 > 
-> The release error:
+> so let me see if I can understand this configuration.
 > 
->     CC [M]  drivers/net/hamradio/bpqether.o
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This file has nothing to do with the problem in question.  [If you are
-going to do a "make -j30" in testing, then at least restart with -j1 to
-properly capture the error message.]
-
-Please update the commit log appropriately and resubmit.
-
-Paul.
---
-
->   drivers/net/ethernet/8390/ne-h8300.c: In function 'init_dev':
->   drivers/net/ethernet/8390/ne-h8300.c:117:23: error: 'h8300_ne_base' undeclared (first use in this function)
->   drivers/net/ethernet/8390/ne-h8300.c:117:23: note: each undeclared identifier is reported only once for each function it appears in
->   drivers/net/ethernet/8390/ne-h8300.c:117:23: error: bit-field '<anonymous>' width not an integer constant
->   drivers/net/ethernet/8390/ne-h8300.c:119:20: error: 'h8300_ne_irq' undeclared (first use in this function)
->   drivers/net/ethernet/8390/ne-h8300.c: In function 'init_module':
->   drivers/net/ethernet/8390/ne-h8300.c:647:21: error: 'h8300_ne_base' undeclared (first use in this function)
->   drivers/net/ethernet/8390/ne-h8300.c:648:15: error: 'h8300_ne_irq' undeclared (first use in this function)
->   drivers/net/ethernet/8390/ne-h8300.c:661:4: warning: format '%x' expects argument of type 'unsigned int', but argument 2 has type 'long unsigned int' [-Wformat]
->  
+>          vmbr1v3021 (bridge)
+>           /          \
+>       tap320i1       vmbr1.3021 (vlan)
+>                          \
+>                          vmbr1 (bridge)
+>                             \
+>                            bond1
+>                               \
+>                             eth X
 > 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> ---
->  drivers/net/ethernet/8390/Kconfig |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-> index a5f91e1..becef25 100644
-> --- a/drivers/net/ethernet/8390/Kconfig
-> +++ b/drivers/net/ethernet/8390/Kconfig
-> @@ -148,7 +148,7 @@ config PCMCIA_PCNET
->  
->  config NE_H8300
->  	tristate "NE2000 compatible support for H8/300"
-> -	depends on H8300
-> +	depends on H8300H_AKI3068NET || H8300H_H8MAX
->  	---help---
->  	  Say Y here if you want to use the NE2000 compatible
->  	  controller on the Renesas H8/300 processor.
-> -- 
-> 1.7.7.6
+> Is that right? Is this the setup that has the problem you are
+> describing?
+> 
+> Thanks
+> -vlad
+> 
+>>> On the off chance that you are actually trying to configure vlan
+>>> filtering, can you give this patch a try (net-2.6 tree):
+>>> 
+>>> Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>> Date:   Tue Aug 20 17:10:18 2013 +0900
+>>> 
+>>>     bridge: Use the correct bit length for bitmap functions in the VLAN
+>>> code
+>>> 
+>>> I don't think it made it to stable yet.
+>> 
+>> I addd that patch and now the vlan stuff works at least on the host
+>> node. But my tap devices still don't work.
+>> 
+>> I also tried to attach the tap device on top of a vlan attached to bond1
+>> but then gvrp does not work anymore. The kernel announces gvrp once and
+>> then does not answer the query packets from the switch.
+>> 
+>> Stefan
+> 
