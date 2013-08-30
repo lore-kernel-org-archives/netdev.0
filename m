@@ -1,73 +1,37 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 6/6] vhost_net: correctly limit the max pending buffers
-Date: Fri, 30 Aug 2013 12:29:22 +0800
-Message-ID: <1377836962-49780-7-git-send-email-jasowang@redhat.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] USB2NET : SR9700 : One Chip USB 1.1 USB2NET SR9700
+ Device Driver Support
+Date: Thu, 29 Aug 2013 21:42:41 -0700
+Message-ID: <1377837761.1928.139.camel@joe-AO722>
+References: <1377746832-6201-1-git-send-email-liujunliang_ljl@163.com>
+	 <20130829230644.GA12124@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: liujunliang_ljl@163.com, davem@davemloft.net, horms@verge.net.au,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sunhecheng@vip.126.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130829230644.GA12124@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As Michael point out, We used to limit the max pending DMAs to get better cache
-utilization. But it was not done correctly since it was one done when there's no
-new buffers submitted from guest. Guest can easily exceeds the limitation by
-keeping sending packets.
+On Fri, 2013-08-30 at 01:06 +0200, Francois Romieu wrote:
 
-So this patch moves the check into main loop. Tests shows about 5%-10%
-improvement on per cpu throughput for guest tx. But a 5% drop on per cpu
-transaction rate for a single session TCP_RR.
+just trivia:
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c |   15 ++++-----------
- 1 files changed, 4 insertions(+), 11 deletions(-)
+> diff --git a/drivers/net/usb/sr9700.c b/drivers/net/usb/sr9700.c
+[]
+> @@ -288,19 +291,19 @@ static void sr9700_set_multicast(struct net_device *net)
+[]
+> +static int sr9700_set_mac_address(struct net_device *netdev, void *p)
+[]
+> -	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
+> -	sr_write_async(dev, PAR, 6, dev->net->dev_addr);
+> +	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+> +	sr_write_async(dev, PAR, 6, netdev->dev_addr);
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index d09c17c..592e1f2 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -363,6 +363,10 @@ static void handle_tx(struct vhost_net *net)
- 		if (zcopy)
- 			vhost_zerocopy_signal_used(net, vq);
+s/6/ETH_ALEN/
  
-+		if ((nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV ==
-+		    nvq->done_idx)
-+			break;
-+
- 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
- 					 &out, &in,
-@@ -372,17 +376,6 @@ static void handle_tx(struct vhost_net *net)
- 			break;
- 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
- 		if (head == vq->num) {
--			int num_pends;
--
--			/* If more outstanding DMAs, queue the work.
--			 * Handle upend_idx wrap around
--			 */
--			num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
--				    (nvq->upend_idx - nvq->done_idx) :
--				    (nvq->upend_idx + UIO_MAXIOV -
--				     nvq->done_idx);
--			if (unlikely(num_pends > VHOST_MAX_PEND))
--				break;
- 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
- 				vhost_disable_notify(&net->dev, vq);
- 				continue;
--- 
-1.7.1
