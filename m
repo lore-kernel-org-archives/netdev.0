@@ -1,45 +1,89 @@
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: fix comment typo for __skb_alloc_pages()
-Date: Fri, 30 Aug 2013 15:36:14 +0100
-Message-ID: <1377873374-11350-1-git-send-email-f.fainelli@gmail.com>
-References: <1377869297-19805-1-git-send-email-f.fainelli@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] drivers: net: ethernet: 8390: Kconfig: add
+ H8300H_AKI3068NET and H8300H_H8MAX dependancy for NE_H8300
+Date: Fri, 30 Aug 2013 10:36:40 -0400
+Message-ID: <20130830143639.GA16269@windriver.com>
+References: <522011A1.2080305@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, "Florian Fainelli" <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
+	Kees Cook <keescook@chromium.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2996 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755636Ab3H3Og3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 10:36:29 -0400
-In-Reply-To: <1377869297-19805-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:43192 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755636Ab3H3Ogv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 10:36:51 -0400
+Content-Disposition: inline
+In-Reply-To: <522011A1.2080305@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The name of the function in the comment is __skb_alloc_page() while we
-are actually commenting __skb_alloc_pages(). Fix this typo and make it
-a valid kernel doc comment.
+[[PATCH] drivers: net: ethernet: 8390: Kconfig: add H8300H_AKI3068NET and H8300H_H8MAX dependancy for NE_H8300] On 30/08/2013 (Fri 11:29) Chen Gang wrote:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/linux/skbuff.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Only H8300H_AKI3068NET and H8300H_H8MAX can support NE_H8300 (or it
+> will no related irq and base address).
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5ac96f3..6f1330a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1905,8 +1905,8 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
- 	return __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC);
- }
- 
--/*
-- *	__skb_alloc_page - allocate pages for ps-rx on a skb and preserve pfmemalloc data
-+/**
-+ *	__skb_alloc_pages - allocate pages for ps-rx on a skb and preserve pfmemalloc data
-  *	@gfp_mask: alloc_pages_node mask. Set __GFP_NOMEMALLOC if not for network packet RX
-  *	@skb: skb to set pfmemalloc on if __GFP_MEMALLOC is used
-  *	@order: size of the allocation
--- 
-1.8.1.2
+Do you have an H83000 and really know that is true?  I'm guessing no.
+
+Looking at the driver, it is kind of broken that it only assigns I/O and
+irq for two platforms, but the H8300 arch Kconfig.cpu only allows building
+a single platform in a given kernel anyway, so a dependency fix is
+probably acceptable here.
+
+Given that, what you really want to indicate is something like:
+
+  Currently only H8300H_AKI3068NET and H8300H_H8MAX define default
+  I/O base and IRQ values for the NE_H8300 driver.  Hence builds
+  for other H8300H platforms will fail as per below. Since H8300H
+  does not support multi platform builds, we simply limit building
+  the driver to those two platforms specifically.
+
+> 
+> The release error:
+> 
+>     CC [M]  drivers/net/hamradio/bpqether.o
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This file has nothing to do with the problem in question.  [If you are
+going to do a "make -j30" in testing, then at least restart with -j1 to
+properly capture the error message.]
+
+Please update the commit log appropriately and resubmit.
+
+Paul.
+--
+
+>   drivers/net/ethernet/8390/ne-h8300.c: In function 'init_dev':
+>   drivers/net/ethernet/8390/ne-h8300.c:117:23: error: 'h8300_ne_base' undeclared (first use in this function)
+>   drivers/net/ethernet/8390/ne-h8300.c:117:23: note: each undeclared identifier is reported only once for each function it appears in
+>   drivers/net/ethernet/8390/ne-h8300.c:117:23: error: bit-field '<anonymous>' width not an integer constant
+>   drivers/net/ethernet/8390/ne-h8300.c:119:20: error: 'h8300_ne_irq' undeclared (first use in this function)
+>   drivers/net/ethernet/8390/ne-h8300.c: In function 'init_module':
+>   drivers/net/ethernet/8390/ne-h8300.c:647:21: error: 'h8300_ne_base' undeclared (first use in this function)
+>   drivers/net/ethernet/8390/ne-h8300.c:648:15: error: 'h8300_ne_irq' undeclared (first use in this function)
+>   drivers/net/ethernet/8390/ne-h8300.c:661:4: warning: format '%x' expects argument of type 'unsigned int', but argument 2 has type 'long unsigned int' [-Wformat]
+>  
+> 
+> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> ---
+>  drivers/net/ethernet/8390/Kconfig |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+> index a5f91e1..becef25 100644
+> --- a/drivers/net/ethernet/8390/Kconfig
+> +++ b/drivers/net/ethernet/8390/Kconfig
+> @@ -148,7 +148,7 @@ config PCMCIA_PCNET
+>  
+>  config NE_H8300
+>  	tristate "NE2000 compatible support for H8/300"
+> -	depends on H8300
+> +	depends on H8300H_AKI3068NET || H8300H_H8MAX
+>  	---help---
+>  	  Say Y here if you want to use the NE2000 compatible
+>  	  controller on the Renesas H8/300 processor.
+> -- 
+> 1.7.7.6
