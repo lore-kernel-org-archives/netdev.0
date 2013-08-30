@@ -1,375 +1,330 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 8/9] qlcnic: Add support for per port eswitch configuration
-Date: Fri, 30 Aug 2013 13:51:23 -0400
-Message-ID: <1377885084-6441-9-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 4/9] qlcnic: Store firmware dump state in CAMRAM register
+Date: Fri, 30 Aug 2013 13:51:19 -0400
+Message-ID: <1377885084-6441-5-git-send-email-shahed.shaikh@qlogic.com>
 References: <1377885084-6441-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37844 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37820 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756948Ab3H3SUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:20:37 -0400
+	by vger.kernel.org with ESMTP id S1756665Ab3H3SU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 14:20:26 -0400
 In-Reply-To: <1377885084-6441-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-There is an embedded switch per physical port on the adapter.
-Add support for enabling and disabling the embedded switch
-on per port basis.
+-Use CAMRAM register to store firmware dump state in adapter
+ instead of maintaining it in each function driver separately.
+-Return appropriate error code on failure
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    2 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   67 ++++++-------------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |   40 +++++++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   41 +++++++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |   19 +++++-
- 7 files changed, 120 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    4 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  152 ++++++++++++++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |    8 +-
+ 5 files changed, 135 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 0cd993f..0c223ca 100644
+index 6c360d7..8ae725f 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -837,6 +837,7 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_FW_CAP2_HW_LRO_IPV6		BIT_3
- #define QLCNIC_FW_CAPABILITY_SET_DRV_VER	BIT_5
- #define QLCNIC_FW_CAPABILITY_2_BEACON		BIT_7
-+#define QLCNIC_FW_CAPABILITY_2_PER_PORT_ESWITCH_CFG	BIT_8
+@@ -392,7 +392,7 @@ struct qlcnic_dump_template_hdr {
  
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -1184,6 +1185,7 @@ struct qlcnic_pci_info {
- };
+ struct qlcnic_fw_dump {
+ 	u8	clr;	/* flag to indicate if dump is cleared */
+-	u8	enable; /* enable/disable dump */
++	bool	enable; /* enable/disable dump */
+ 	u32	size;	/* total size of the dump */
+ 	void	*data;	/* dump data area */
+ 	struct	qlcnic_dump_template_hdr *tmpl_hdr;
+@@ -1477,6 +1477,8 @@ int qlcnic_wol_supported(struct qlcnic_adapter *adapter);
+ void qlcnic_prune_lb_filters(struct qlcnic_adapter *adapter);
+ void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter);
+ int qlcnic_dump_fw(struct qlcnic_adapter *);
++int qlcnic_enable_fw_dump_state(struct qlcnic_adapter *);
++bool qlcnic_check_fw_dump_state(struct qlcnic_adapter *);
  
- struct qlcnic_npar_info {
-+	bool	eswitch_status;
- 	u16	pvid;
- 	u16	min_bw;
- 	u16	max_bw;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3ef5437..a1818da 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -2331,7 +2331,7 @@ int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 					 pci_info->tx_max_bw, pci_info->mac);
- 		}
- 		if (ahw->op_mode == QLCNIC_MGMT_FUNC)
--			dev_info(dev, "Max vNIC functions = %d, active vNIC functions = %d\n",
-+			dev_info(dev, "Max functions = %d, active functions = %d\n",
- 				 ahw->max_pci_func, ahw->act_pci_func);
- 
- 	} else {
+ /* Functions from qlcnic_init.c */
+ void qlcnic_schedule_work(struct qlcnic_adapter *, work_func_t, int);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 2a2ab6b..533e150 100644
+index 0fc5616..053a3a1 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -411,6 +411,7 @@ enum qlcnic_83xx_states {
- #define QLC_83XX_GET_HW_LRO_CAPABILITY(val)		(val & 0x400)
- #define QLC_83XX_GET_VLAN_ALIGN_CAPABILITY(val)	(val & 0x4000)
- #define QLC_83XX_GET_FW_LRO_MSS_CAPABILITY(val)	(val & 0x20000)
-+#define QLC_83XX_ESWITCH_CAPABILITY			BIT_23
- #define QLC_83XX_VIRTUAL_NIC_MODE			0xFF
- #define QLC_83XX_DEFAULT_MODE				0x0
- #define QLC_83XX_SRIOV_MODE				0x1
-@@ -625,6 +626,7 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *);
- int qlcnic_83xx_get_vnic_vport_info(struct qlcnic_adapter *,
- 				    struct qlcnic_info *, u8);
- int qlcnic_83xx_get_vnic_pf_info(struct qlcnic_adapter *, struct qlcnic_info *);
-+int qlcnic_83xx_enable_port_eswitch(struct qlcnic_adapter *, int);
+@@ -297,6 +297,7 @@ struct qlc_83xx_reset {
  
- void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *);
- void qlcnic_83xx_get_stats(struct qlcnic_adapter *adapter, u64 *data);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index c24c2a4..f09e787 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -2003,36 +2003,6 @@ static int qlcnic_83xx_restart_hw(struct qlcnic_adapter *adapter)
- 	return 0;
+ #define QLC_83XX_IDC_DISABLE_FW_RESET_RECOVERY		0x1
+ #define QLC_83XX_IDC_GRACEFULL_RESET			0x2
++#define QLC_83XX_IDC_DISABLE_FW_DUMP			0x4
+ #define QLC_83XX_IDC_TIMESTAMP				0
+ #define QLC_83XX_IDC_DURATION				1
+ #define QLC_83XX_IDC_INIT_TIMEOUT_SECS			30
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 7b0c90e..332aa71 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -1509,6 +1509,68 @@ static void qlcnic_set_msglevel(struct net_device *netdev, u32 msglvl)
+ 	adapter->ahw->msg_enable = msglvl;
  }
  
--/**
--* qlcnic_83xx_config_default_opmode
--*
--* @adapter: adapter structure
--*
--* Configure default driver operating mode
--*
--* Returns: Error code or Success(0)
--* */
--int qlcnic_83xx_config_default_opmode(struct qlcnic_adapter *adapter)
--{
--	u32 op_mode;
--	struct qlcnic_hardware_context *ahw = adapter->ahw;
--
--	qlcnic_get_func_no(adapter);
--	op_mode = QLCRDX(ahw, QLC_83XX_DRV_OP_MODE);
--
--	if (test_bit(__QLCNIC_SRIOV_CAPABLE, &adapter->state))
--		op_mode = QLC_83XX_DEFAULT_OPMODE;
--
--	if (op_mode == QLC_83XX_DEFAULT_OPMODE) {
--		adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
--		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
--	} else {
--		return -EIO;
--	}
--
--	return 0;
--}
--
- int qlcnic_83xx_get_nic_configuration(struct qlcnic_adapter *adapter)
- {
- 	int err;
-@@ -2052,26 +2022,26 @@ int qlcnic_83xx_get_nic_configuration(struct qlcnic_adapter *adapter)
- 	ahw->max_mac_filters = nic_info.max_mac_filters;
- 	ahw->max_mtu = nic_info.max_mtu;
- 
--	/* VNIC mode is detected by BIT_23 in capabilities. This bit is also
--	 * set in case device is SRIOV capable. VNIC and SRIOV are mutually
--	 * exclusive. So in case of sriov capable device load driver in
--	 * default mode
-+	/* eSwitch capability indicates vNIC mode.
-+	 * vNIC and SRIOV are mutually exclusive operational modes.
-+	 * If SR-IOV capability is detected, SR-IOV physical function
-+	 * will get initialized in default mode.
-+	 * SR-IOV virtual function initialization follows a
-+	 * different code path and opmode.
-+	 * SRIOV mode has precedence over vNIC mode.
- 	 */
--	if (test_bit(__QLCNIC_SRIOV_CAPABLE, &adapter->state)) {
--		ahw->nic_mode = QLC_83XX_DEFAULT_MODE;
--		return ahw->nic_mode;
--	}
-+	if (test_bit(__QLCNIC_SRIOV_CAPABLE, &adapter->state))
-+		return QLC_83XX_DEFAULT_OPMODE;
- 
--	if (ahw->capabilities & BIT_23)
--		ahw->nic_mode = QLC_83XX_VIRTUAL_NIC_MODE;
--	else
--		ahw->nic_mode = QLC_83XX_DEFAULT_MODE;
-+	if (ahw->capabilities & QLC_83XX_ESWITCH_CAPABILITY)
-+		return QLC_83XX_VIRTUAL_NIC_MODE;
- 
--	return ahw->nic_mode;
-+	return QLC_83XX_DEFAULT_OPMODE;
- }
- 
- int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
- {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	int ret;
- 
- 	ret = qlcnic_83xx_get_nic_configuration(adapter);
-@@ -2079,11 +2049,16 @@ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
- 		return -EIO;
- 
- 	if (ret == QLC_83XX_VIRTUAL_NIC_MODE) {
-+		ahw->nic_mode = QLC_83XX_VIRTUAL_NIC_MODE;
- 		if (qlcnic_83xx_config_vnic_opmode(adapter))
- 			return -EIO;
--	} else if (ret == QLC_83XX_DEFAULT_MODE) {
--		if (qlcnic_83xx_config_default_opmode(adapter))
--			return -EIO;
-+
-+	} else if (ret == QLC_83XX_DEFAULT_OPMODE) {
-+		ahw->nic_mode = QLC_83XX_DEFAULT_MODE;
-+		adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
-+		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
-+	} else {
-+		return -EIO;
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index 599d1fd..0248a4c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -208,7 +208,7 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
- 		return -EIO;
- 	}
- 
--	if (ahw->capabilities & BIT_23)
-+	if (ahw->capabilities & QLC_83XX_ESWITCH_CAPABILITY)
- 		adapter->flags |= QLCNIC_ESWITCH_ENABLED;
- 	else
- 		adapter->flags &= ~QLCNIC_ESWITCH_ENABLED;
-@@ -239,3 +239,41 @@ int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter *adapter)
- 
- 	return 0;
- }
-+
-+static int qlcnic_83xx_get_eswitch_port_info(struct qlcnic_adapter *adapter,
-+					     int func, int *port_id)
++int qlcnic_enable_fw_dump_state(struct qlcnic_adapter *adapter)
 +{
-+	struct qlcnic_info nic_info;
-+	int err = 0;
-+
-+	memset(&nic_info, 0, sizeof(struct qlcnic_info));
-+
-+	err = qlcnic_get_nic_info(adapter, &nic_info, func);
-+	if (err)
-+		return err;
-+
-+	if (nic_info.capabilities & QLC_83XX_ESWITCH_CAPABILITY)
-+		*port_id = nic_info.phys_port;
-+	else
-+		err = -EIO;
-+
-+	return err;
-+}
-+
-+int qlcnic_83xx_enable_port_eswitch(struct qlcnic_adapter *adapter, int func)
-+{
-+	int id, err = 0;
-+
-+	err = qlcnic_83xx_get_eswitch_port_info(adapter, func, &id);
-+	if (err)
-+		return err;
-+
-+	if (!(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE)) {
-+		if (!qlcnic_enable_eswitch(adapter, id, 1))
-+			adapter->eswitch[id].flags |= QLCNIC_SWITCH_ENABLE;
-+		else
-+			err = -EIO;
-+	}
-+
-+	return err;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 98d6a9d..bc47694 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -796,6 +796,23 @@ static int qlcnic_get_act_pci_func(struct qlcnic_adapter *adapter)
- 	return ret;
- }
- 
-+static bool qlcnic_port_eswitch_cfg_capability(struct qlcnic_adapter *adapter)
-+{
-+	bool ret = false;
++	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	u32 val;
 +
 +	if (qlcnic_84xx_check(adapter)) {
-+		ret = true;
-+	} else if (qlcnic_83xx_check(adapter)) {
-+		if (adapter->ahw->extra_capability[0] &
-+		    QLCNIC_FW_CAPABILITY_2_PER_PORT_ESWITCH_CFG)
-+			ret = true;
-+		else
-+			ret = false;
++		if (qlcnic_83xx_lock_driver(adapter))
++			return -EBUSY;
++
++		val = QLCRDX(adapter->ahw, QLC_83XX_IDC_CTRL);
++		val &= ~QLC_83XX_IDC_DISABLE_FW_DUMP;
++		QLCWRX(adapter->ahw, QLC_83XX_IDC_CTRL, val);
++
++		qlcnic_83xx_unlock_driver(adapter);
++	} else {
++		fw_dump->enable = true;
 +	}
 +
-+	return ret;
++	dev_info(&adapter->pdev->dev, "FW dump enabled\n");
++
++	return 0;
 +}
 +
- int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
++static int qlcnic_disable_fw_dump_state(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	u32 val;
++
++	if (qlcnic_84xx_check(adapter)) {
++		if (qlcnic_83xx_lock_driver(adapter))
++			return -EBUSY;
++
++		val = QLCRDX(adapter->ahw, QLC_83XX_IDC_CTRL);
++		val |= QLC_83XX_IDC_DISABLE_FW_DUMP;
++		QLCWRX(adapter->ahw, QLC_83XX_IDC_CTRL, val);
++
++		qlcnic_83xx_unlock_driver(adapter);
++	} else {
++		fw_dump->enable = false;
++	}
++
++	dev_info(&adapter->pdev->dev, "FW dump disabled\n");
++
++	return 0;
++}
++
++bool qlcnic_check_fw_dump_state(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	bool state;
++	u32 val;
++
++	if (qlcnic_84xx_check(adapter)) {
++		val = QLCRDX(adapter->ahw, QLC_83XX_IDC_CTRL);
++		state = (val & QLC_83XX_IDC_DISABLE_FW_DUMP) ? false : true;
++	} else {
++		state = fw_dump->enable;
++	}
++
++	return state;
++}
++
+ static int
+ qlcnic_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
  {
- 	struct qlcnic_pci_info *pci_info;
-@@ -839,18 +856,30 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 		    (pci_info[i].type != QLCNIC_TYPE_NIC))
- 			continue;
+@@ -1525,7 +1587,7 @@ qlcnic_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
+ 	else
+ 		dump->len = 0;
  
-+		if (qlcnic_port_eswitch_cfg_capability(adapter)) {
-+			if (!qlcnic_83xx_enable_port_eswitch(adapter, pfn))
-+				adapter->npars[j].eswitch_status = true;
-+			else
-+				continue;
+-	if (!fw_dump->enable)
++	if (!qlcnic_check_fw_dump_state(adapter))
+ 		dump->flag = ETH_FW_DUMP_DISABLE;
+ 	else
+ 		dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
+@@ -1573,77 +1635,111 @@ qlcnic_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
+ 	return 0;
+ }
+ 
++static int qlcnic_set_dump_mask(struct qlcnic_adapter *adapter, u32 mask)
++{
++	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	struct net_device *netdev = adapter->netdev;
++
++	if (!qlcnic_check_fw_dump_state(adapter)) {
++		netdev_info(netdev,
++			    "Can not change driver mask to 0x%x. FW dump not enabled\n",
++			    mask);
++		return -EOPNOTSUPP;
++	}
++
++	fw_dump->tmpl_hdr->drv_cap_mask = mask;
++	netdev_info(netdev, "Driver mask changed to: 0x%x\n", mask);
++	return 0;
++}
++
+ static int
+ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
+ {
+-	int i;
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	bool valid_mask = false;
++	int i, ret = 0;
+ 	u32 state;
+ 
+ 	switch (val->flag) {
+ 	case QLCNIC_FORCE_FW_DUMP_KEY:
+ 		if (!fw_dump->tmpl_hdr) {
+ 			netdev_err(netdev, "FW dump not supported\n");
+-			return -ENOTSUPP;
++			ret = -EOPNOTSUPP;
++			break;
+ 		}
+-		if (!fw_dump->enable) {
++
++		if (!qlcnic_check_fw_dump_state(adapter)) {
+ 			netdev_info(netdev, "FW dump not enabled\n");
+-			return 0;
++			ret = -EOPNOTSUPP;
++			break;
+ 		}
++
+ 		if (fw_dump->clr) {
+ 			netdev_info(netdev,
+-			"Previous dump not cleared, not forcing dump\n");
+-			return 0;
++				    "Previous dump not cleared, not forcing dump\n");
++			break;
+ 		}
++
+ 		netdev_info(netdev, "Forcing a FW dump\n");
+ 		qlcnic_dev_request_reset(adapter, val->flag);
+ 		break;
+ 	case QLCNIC_DISABLE_FW_DUMP:
+-		if (fw_dump->enable && fw_dump->tmpl_hdr) {
+-			netdev_info(netdev, "Disabling FW dump\n");
+-			fw_dump->enable = 0;
++		if (!fw_dump->tmpl_hdr) {
++			netdev_err(netdev, "FW dump not supported\n");
++			ret = -EOPNOTSUPP;
++			break;
+ 		}
+-		return 0;
++
++		ret = qlcnic_disable_fw_dump_state(adapter);
++		break;
++
+ 	case QLCNIC_ENABLE_FW_DUMP:
+ 		if (!fw_dump->tmpl_hdr) {
+ 			netdev_err(netdev, "FW dump not supported\n");
+-			return -ENOTSUPP;
+-		}
+-		if (!fw_dump->enable) {
+-			netdev_info(netdev, "Enabling FW dump\n");
+-			fw_dump->enable = 1;
++			ret = -EOPNOTSUPP;
++			break;
+ 		}
+-		return 0;
++
++		ret = qlcnic_enable_fw_dump_state(adapter);
++		break;
++
+ 	case QLCNIC_FORCE_FW_RESET:
+ 		netdev_info(netdev, "Forcing a FW reset\n");
+ 		qlcnic_dev_request_reset(adapter, val->flag);
+ 		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
+-		return 0;
++		break;
++;
+ 	case QLCNIC_SET_QUIESCENT:
+ 	case QLCNIC_RESET_QUIESCENT:
+ 		state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
+ 		if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD))
+ 			netdev_info(netdev, "Device in FAILED state\n");
+-		return 0;
++		break;
++
+ 	default:
+ 		if (!fw_dump->tmpl_hdr) {
+ 			netdev_err(netdev, "FW dump not supported\n");
+-			return -ENOTSUPP;
++			ret = -EOPNOTSUPP;
++			break;
+ 		}
++
+ 		for (i = 0; i < ARRAY_SIZE(qlcnic_fw_dump_level); i++) {
+ 			if (val->flag == qlcnic_fw_dump_level[i]) {
+-				fw_dump->tmpl_hdr->drv_cap_mask =
+-							val->flag;
+-				netdev_info(netdev, "Driver mask changed to: 0x%x\n",
+-					fw_dump->tmpl_hdr->drv_cap_mask);
+-				return 0;
++				valid_mask = true;
++				break;
+ 			}
+ 		}
+-		netdev_info(netdev, "Invalid dump level: 0x%x\n", val->flag);
+-		return -EINVAL;
++
++		if (valid_mask) {
++			ret = qlcnic_set_dump_mask(adapter, val->flag);
 +		} else {
-+			adapter->npars[j].eswitch_status = true;
++			netdev_info(netdev, "Invalid dump level: 0x%x\n",
++				    val->flag);
++			ret = -EINVAL;
 +		}
-+
- 		adapter->npars[j].pci_func = pfn;
- 		adapter->npars[j].active = (u8)pci_info[i].active;
- 		adapter->npars[j].type = (u8)pci_info[i].type;
- 		adapter->npars[j].phy_port = (u8)pci_info[i].default_port;
- 		adapter->npars[j].min_bw = pci_info[i].tx_min_bw;
- 		adapter->npars[j].max_bw = pci_info[i].tx_max_bw;
-+
- 		j++;
  	}
+-	return 0;
++	return ret;
+ }
  
--	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++) {
--		adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
--		if (qlcnic_83xx_check(adapter))
-+	if (qlcnic_82xx_check(adapter)) {
-+		for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
-+			adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
-+	} else if (!qlcnic_port_eswitch_cfg_capability(adapter)) {
-+		for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
- 			qlcnic_enable_eswitch(adapter, i, 1);
+ const struct ethtool_ops qlcnic_ethtool_ops = {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index c99cee8..9fe6a2d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3045,7 +3045,7 @@ skip_ack_check:
+ 		qlcnic_api_unlock(adapter);
+ 
+ 		rtnl_lock();
+-		if (adapter->ahw->fw_dump.enable &&
++		if (qlcnic_check_fw_dump_state(adapter) &&
+ 		    (adapter->flags & QLCNIC_FW_RESET_OWNER)) {
+ 			QLCDB(adapter, DRV, "Take FW dump\n");
+ 			qlcnic_dump_fw(adapter);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+index b7871fe..1551360 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+@@ -1092,7 +1092,7 @@ flash_temp:
+ 	else
+ 		ahw->fw_dump.use_pex_dma = false;
+ 
+-	ahw->fw_dump.enable = 1;
++	qlcnic_enable_fw_dump_state(adapter);
+ 
+ 	return 0;
+ }
+@@ -1115,7 +1115,11 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
+ 
+ 	ahw = adapter->ahw;
+ 
+-	if (!fw_dump->enable) {
++	/* Return if we don't have firmware dump template header */
++	if (!tmpl_hdr)
++		return -EIO;
++
++	if (!qlcnic_check_fw_dump_state(adapter)) {
+ 		dev_info(&adapter->pdev->dev, "Dump not enabled\n");
+ 		return -EIO;
  	}
- 
-@@ -1275,6 +1304,9 @@ int qlcnic_set_default_offload_settings(struct qlcnic_adapter *adapter)
- 		return 0;
- 
- 	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+		if (!adapter->npars[i].eswitch_status)
-+			continue;
-+
- 		memset(&esw_cfg, 0, sizeof(struct qlcnic_esw_func_cfg));
- 		esw_cfg.pci_func = adapter->npars[i].pci_func;
- 		esw_cfg.mac_override = BIT_0;
-@@ -1337,6 +1369,9 @@ int qlcnic_reset_npar_config(struct qlcnic_adapter *adapter)
- 	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
- 		npar = &adapter->npars[i];
- 		pci_func = npar->pci_func;
-+		if (!adapter->npars[i].eswitch_status)
-+			continue;
-+
- 		memset(&nic_info, 0, sizeof(struct qlcnic_info));
- 		err = qlcnic_get_nic_info(adapter, &nic_info, pci_func);
- 		if (err)
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index 660c3f5..c6165d0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -465,8 +465,14 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
- 	memset(&pm_cfg, 0,
- 	       sizeof(struct qlcnic_pm_func_cfg) * QLCNIC_MAX_PCI_FUNC);
- 
--	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
- 		pci_func = adapter->npars[i].pci_func;
-+		if (!adapter->npars[i].active)
-+			continue;
-+
-+		if (!adapter->npars[i].eswitch_status)
-+			continue;
-+
- 		pm_cfg[pci_func].action = adapter->npars[i].enable_pm;
- 		pm_cfg[pci_func].dest_npar = 0;
- 		pm_cfg[pci_func].pci_func = i;
-@@ -632,8 +638,14 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
- 	memset(&esw_cfg, 0,
- 	       sizeof(struct qlcnic_esw_func_cfg) * QLCNIC_MAX_PCI_FUNC);
- 
--	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
- 		pci_func = adapter->npars[i].pci_func;
-+		if (!adapter->npars[i].active)
-+			continue;
-+
-+		if (!adapter->npars[i].eswitch_status)
-+			continue;
-+
- 		esw_cfg[pci_func].pci_func = pci_func;
- 		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[pci_func]))
- 			return QL_STATUS_INVALID_PARAM;
-@@ -732,6 +744,9 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
- 		if (ret)
- 			return ret;
- 
-+		if (!adapter->npars[i].eswitch_status)
-+			continue;
-+
- 		np_cfg[i].pci_func = i;
- 		np_cfg[i].op_mode = (u8)nic_info.op_mode;
- 		np_cfg[i].port_num = nic_info.phys_port;
 -- 
 1.5.6
