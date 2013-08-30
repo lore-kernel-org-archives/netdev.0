@@ -1,31 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: Remove needless check of return value
-Date: Thu, 29 Aug 2013 21:36:27 -0400 (EDT)
-Message-ID: <20130829.213627.1536495569096415942.davem@davemloft.net>
-References: <1377825558-8800-1-git-send-email-subramanian.vijay@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH 0/5] bonding: Patchset for rcu use in bonding
+Date: Fri, 30 Aug 2013 09:37:25 +0800
+Message-ID: <521FF755.6050306@huawei.com>
+References: <521D7AA3.6030205@huawei.com> <521F5AA3.4030105@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: subramanian.vijay@gmail.com
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41070 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924Ab3H3Bgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 21:36:31 -0400
-In-Reply-To: <1377825558-8800-1-git-send-email-subramanian.vijay@gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:8792 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753089Ab3H3Bhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 21:37:50 -0400
+In-Reply-To: <521F5AA3.4030105@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Thu, 29 Aug 2013 18:19:18 -0700
-
-> After commit 0c24604b (tcp: implement RFC 5961 4.2), tcp_rcv_established() only
-> returns 0 since we no longer send RSTs in response to SYNs. We can remove the
-> check on the return value.
+On 2013/8/29 22:28, Nikolay Aleksandrov wrote:
+> On 08/28/2013 06:20 AM, Ding Tianhong wrote:
+>> Hi:
+>>
+>> The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
+>> replace and add more rcu list function.
+>> fix a bug to protect bonding_store_xmit_hash().
+>>
+>> I test well and no problems found till now.
+>>
+>> Ding Tianhong (3):
+>> Wang Yufen (1):
+>> Yang Yingliang (1):
+>>   bonding: simplify and use RCU protection for 3ad xmit path
+>>   bonding: replace read_lock to rcu_read_lock for
+>>   bond_3ad_get_active_agg_info()
+>>   bonding: add rtnl lock for bonding_store_xmit_hash
+>>   bonding: restructure and simplify bond_for_each_slave_next()
+>>   bonding: use RCU protection for alb xmit path
+>>
+>>  drivers/net/bonding/bond_3ad.c   | 35 +++++++++++++++-------------------
+>>  drivers/net/bonding/bond_alb.c   | 23 ++++++++++------------
+>>  drivers/net/bonding/bond_main.c  |  6 ++----
+>>  drivers/net/bonding/bond_sysfs.c |  4 ++++
+>>  drivers/net/bonding/bonding.h    | 41 ++++++++++++++++++++++++++++++++++++----
+>>  5 files changed, 68 insertions(+), 41 deletions(-)
+>>
+> Thanks for the work, I was on vacation and travelling after my initial RCU
+> conversion so I got a little behind with these conversions, my idea was quite
+> different :-)
+> Anyway, I'd also appreciate some benchmarks, also some more information on what
+> type of testing did you run ?
+> I've given some preliminary comments to the patches, I'll have to think more
+> about them in this form.
 > 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Cheers,
+>  Nik
+> 
+> .
 
-Always returning the same value is the same as returning no value at all.
+It looks like a wonderful vocation :).
+I focus on the 3ad and alb mode, because the modify was manly for xmit, so my test environment was consist of 4 Intel82599 10G card, and use mode lacp ,alb.
+I use iperf to test, after the patch, the performance was a little better and no problem
+occurs. 
 
-Make tcp_rcv_established() return void please.
+> 
