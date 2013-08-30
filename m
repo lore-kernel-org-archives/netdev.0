@@ -1,50 +1,24 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/2] sh_eth: Fix cache invalidation omission of
- receive buffer
-Date: Fri, 30 Aug 2013 09:16:52 +0900
-Message-ID: <20130830001651.GE25167@verge.net.au>
-References: <1377650589-20960-1-git-send-email-horms+renesas@verge.net.au>
- <1377650589-20960-2-git-send-email-horms+renesas@verge.net.au>
- <20130829.161553.755954777649764863.davem@davemloft.net>
+From: Doris Omar <1735963831@qq.com>
+Subject: Re:Very Urgent!!!
+Date: Thu, 29 Aug 2013 17:55:15 -0700 (PDT)
+Message-ID: <1377824115.53247.YahooMailBasic@web162705.mail.bf1.yahoo.com>
+Reply-To: doris_mrx@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	magnus.damm@gmail.com, sergei.shtylyov@cogentembedded.com,
-	kouei.abe.cp@renesas.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130829.161553.755954777649764863.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm11-vm0.bullet.mail.bf1.yahoo.com ([98.139.213.136]:41300 "EHLO
+	nm11-vm0.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753694Ab3H3BCI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Aug 2013 21:02:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 29, 2013 at 04:15:53PM -0400, David Miller wrote:
-> From: Simon Horman <horms+renesas@verge.net.au>
-> Date: Wed, 28 Aug 2013 09:43:08 +0900
-> 
-> > From: Kouei Abe <kouei.abe.cp@renesas.com>
-> > 
-> > Signed-off-by: Kouei Abe <kouei.abe.cp@renesas.com>
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> > ---
-> >  drivers/net/ethernet/renesas/sh_eth.c | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> > index c357076..f386a8f 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> > @@ -1342,6 +1342,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
-> >  			mdp->rx_skbuff[entry] = NULL;
-> >  			if (mdp->cd->rpadir)
-> >  				skb_reserve(skb, NET_IP_ALIGN);
-> > +			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
-> > +				mdp->rx_buf_sz,	DMA_FROM_DEVICE);
-> 
-> Please indent the second line of the dma sync call properly.
-> 
-> The arguments should start at the first column after the openning
-> parenthesis of the function call on the first line, using the
-> appropriate number of TAB then space characters (as needed).
 
-Sorry for missing that. I'll fix it up and re-post.
+Greetings from BURKINA FASO:
+Let me start by introduce myself,I am Mrs Doris Omar, BILL AND EXCHANGE MANAGER (Bank of Africa) Ouagadougou, Burkina Faso.I am writting you this letter based on the latest development at our bank which I will like to bring to your personal edification. $12,250million transfer claims. this is a legitimate transaction and I agreed to offer you 40% of this money as my foreign partner after confirmation of the fund in your bank account,If you are interested, please get back to me for more clarification.
+
+Yours faithful, 
+Mrs Doris Omar.
