@@ -1,21 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB2NET : SR9700 : One Chip USB 1.1 USB2NET SR9700
- Device Driver Support
-Date: Fri, 30 Aug 2013 17:30:17 -0400 (EDT)
-Message-ID: <20130830.173017.777375461543979311.davem@davemloft.net>
-References: <1377746832-6201-1-git-send-email-liujunliang_ljl@163.com>
+Subject: Re: [PATCH] macvlan: fix typo in assignment
+Date: Fri, 30 Aug 2013 17:31:26 -0400 (EDT)
+Message-ID: <20130830.173126.128593611207734649.davem@davemloft.net>
+References: <1377689671-28666-1-git-send-email-ljaenicke@innominate.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, joe@perches.com, romieu@fr.zoreil.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sunhecheng@vip.126.com
-To: liujunliang_ljl@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377746832-6201-1-git-send-email-liujunliang_ljl@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ljaenicke@innominate.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57817 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612Ab3H3Vb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:31:28 -0400
+In-Reply-To: <1377689671-28666-1-git-send-email-ljaenicke@innominate.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Lutz Jaenicke <ljaenicke@innominate.com>
+Date: Wed, 28 Aug 2013 13:34:31 +0200
 
-Please integrate the fixes Francois has proposed.
+> commit 3b04ddde02cf1b6f14f2697da5c20eca5715017f
+> "[NET]: Move hardware header operations out of netdevice."
+> moved the handling into macvlan setup adding
+>   dev->header_ops         = &macvlan_hard_header_ops,
+> At the end of the line the ',' should have been a ';'
+> 
+> Signed-off-by: Lutz Jaenicke <ljaenicke@innominate.com>
+
+This is a harmless error, because semantically it causes no bug.
+
+So this is a cleanup and I've thus applied it to net-next, thanks.
