@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 07/16] sfc: Allow efx_nic_type::dimension_resources
- to fail
-Date: Fri, 30 Aug 2013 04:40:25 +0100
-Message-ID: <1377834025.2552.33.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 08/16] sfc: Initialise IRQ moderation for all NIC
+ types from efx_init_eventq()
+Date: Fri, 30 Aug 2013 04:40:51 +0100
+Message-ID: <1377834051.2552.34.camel@deadeye.wl.decadent.org.uk>
 References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,101 +10,56 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:34996 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:35004 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab3H3Dka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:40:30 -0400
+	with ESMTP id S1753417Ab3H3Dkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:40:55 -0400
 In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |   10 +++++++---
- drivers/net/ethernet/sfc/falcon.c     |    3 ++-
- drivers/net/ethernet/sfc/net_driver.h |    2 +-
- drivers/net/ethernet/sfc/siena.c      |    3 ++-
- 4 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/sfc/efx.c   |    4 +++-
+ drivers/net/ethernet/sfc/farch.c |    2 --
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 84c47d3..59aa73c 100644
+index 59aa73c..aec6213 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1513,9 +1513,11 @@ static int efx_probe_nic(struct efx_nic *efx)
- 	 * in MSI-X interrupts. */
- 	rc = efx_probe_interrupts(efx);
- 	if (rc)
--		goto fail;
-+		goto fail1;
+@@ -331,15 +331,17 @@ static int efx_probe_eventq(struct efx_channel *channel)
+ /* Prepare channel's event queue */
+ static int efx_init_eventq(struct efx_channel *channel)
+ {
++	struct efx_nic *efx = channel->efx;
+ 	int rc;
  
--	efx->type->dimension_resources(efx);
-+	rc = efx->type->dimension_resources(efx);
-+	if (rc)
-+		goto fail2;
+ 	EFX_WARN_ON_PARANOID(channel->eventq_init);
  
- 	if (efx->n_channels > 1)
- 		get_random_bytes(&efx->rx_hash_key, sizeof(efx->rx_hash_key));
-@@ -1533,7 +1535,9 @@ static int efx_probe_nic(struct efx_nic *efx)
+-	netif_dbg(channel->efx, drv, channel->efx->net_dev,
++	netif_dbg(efx, drv, efx->net_dev,
+ 		  "chan %d init event queue\n", channel->channel);
  
+ 	rc = efx_nic_init_eventq(channel);
+ 	if (rc == 0) {
++		efx->type->push_irq_moderation(channel);
+ 		channel->eventq_read_ptr = 0;
+ 		channel->eventq_init = true;
+ 	}
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index 904af5c..eb754cf 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -1357,8 +1357,6 @@ int efx_farch_ev_init(struct efx_channel *channel)
+ 	efx_writeo_table(efx, &reg, efx->type->evq_ptr_tbl_base,
+ 			 channel->channel);
+ 
+-	efx->type->push_irq_moderation(channel);
+-
  	return 0;
- 
--fail:
-+fail2:
-+	efx_remove_interrupts(efx);
-+fail1:
- 	efx->type->remove(efx);
- 	return rc;
- }
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index ec77611..a7b30ddb 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -2174,10 +2174,11 @@ out:
- 	return rc;
  }
  
--static void falcon_dimension_resources(struct efx_nic *efx)
-+static int falcon_dimension_resources(struct efx_nic *efx)
- {
- 	efx->rx_dc_base = 0x20000;
- 	efx->tx_dc_base = 0x26000;
-+	return 0;
- }
- 
- /* Probe all SPI devices on the NIC */
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 54900f3..89974f7 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1036,7 +1036,7 @@ struct efx_nic_type {
- 	int (*probe)(struct efx_nic *efx);
- 	void (*remove)(struct efx_nic *efx);
- 	int (*init)(struct efx_nic *efx);
--	void (*dimension_resources)(struct efx_nic *efx);
-+	int (*dimension_resources)(struct efx_nic *efx);
- 	void (*fini)(struct efx_nic *efx);
- 	void (*monitor)(struct efx_nic *efx);
- 	enum reset_type (*map_reset_reason)(enum reset_type reason);
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 89180d4..1500405 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -177,13 +177,14 @@ static int siena_probe_nvconfig(struct efx_nic *efx)
- 	return rc;
- }
- 
--static void siena_dimension_resources(struct efx_nic *efx)
-+static int siena_dimension_resources(struct efx_nic *efx)
- {
- 	/* Each port has a small block of internal SRAM dedicated to
- 	 * the buffer table and descriptor caches.  In theory we can
- 	 * map both blocks to one port, but we don't.
- 	 */
- 	efx_farch_dimension_resources(efx, FR_CZ_BUF_FULL_TBL_ROWS / 2);
-+	return 0;
- }
- 
- static unsigned int siena_mem_map_size(struct efx_nic *efx)
 
 
 -- 
