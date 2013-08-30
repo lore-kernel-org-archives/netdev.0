@@ -1,36 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4 tunnels: fix an oops when using ipip/sit with
- IPsec
-Date: Fri, 30 Aug 2013 17:14:15 -0400 (EDT)
-Message-ID: <20130830.171415.1757619806522159250.davem@davemloft.net>
-References: <1377683690-4506-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: 1f324e3 ipv6: Don't depend on per socket memory for neighbour
+ discovery messages
+Date: Fri, 30 Aug 2013 18:19:21 -0300
+Message-ID: <CAOMZO5AHm5UO8LJ6WNThSABRHO3BoAb82hOAB+2B=rypJGY4dQ@mail.gmail.com>
+References: <5220F691.4020808@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, hongjun.li@6wind.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57598 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752650Ab3H3VRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:17:39 -0400
-In-Reply-To: <1377683690-4506-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <5220F691.4020808@wwwdotorg.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 28 Aug 2013 11:54:50 +0200
+On Fri, Aug 30, 2013 at 4:46 PM, Stephen Warren <swarren@wwwdotorg.org> wrote:
+> Commit 1f324e3 "ipv6: Don't depend on per socket memory for neighbour
+> discovery messages" appears to cause issues for me. If I run
+> next-20130830, I see the issue, but if I then just revert that one
+> patch, I don't see any problem, and can use the network without issue.
+>
+> The problem is: with a network device enabled (in my case, a USB
+> Ethernet dongle, although I don't know if the type is relevant), then
+> the system appears to hang soon after enabling the interface; neither
+> the serial console nor the framebuffer echo my typing, and the cursor on
+> the framebuffer stops flashing. After a short delay, I see the following
+> kernel spew:
 
-> From: Li Hongjun <hongjun.li@6wind.com>
-> 
-> Since commit 3d7b46cd20e3 (ip_tunnel: push generic protocol handling to
-> ip_tunnel module.), an Oops is triggered when an xfrm policy is configured on
-> an IPv4 over IPv4 tunnel.
-> 
-> xfrm4_policy_check() calls __xfrm_policy_check2(), which uses skb_dst(skb). But
-> this field is NULL because iptunnel_pull_header() calls skb_dst_drop(skb).
-> 
-> Signed-off-by: Li Hongjun <hongjun.li@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
-Applied, thanks everyone.
+I see the same problem on a ARM system (mx6 board) using the built-in
+ethernet driver (fec).
