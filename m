@@ -1,147 +1,267 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: ipv4: warnings on sk_wmem_queued
-Date: Fri, 30 Aug 2013 19:56:38 +0000
-Message-ID: <20130830195638.GA27393@dcvr.yhbt.net>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next] be2net: set and query VEB/VEPA mode of the PF
+ interface
+Date: Fri, 30 Aug 2013 15:01:16 -0500
+Message-ID: <20130830200116.GA6311@emulex.com>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:31294 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616Ab3H3UBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 16:01:20 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I noticed these warnings on stock 3.10.9 running stress tests on
-cmogstored.git (git://bogomips.org/cmogstored.git) doing standard
-HTTP server stuff between lo and tmpfs:
+SkyHawk-R can support VEB or VEPA mode.
+This patch will allow the user to set/query this switch setting.
 
-HTTP PUT requests hit: read(socket) + pwrite()
-HTTP GET requests hit: send(MSG_MORE) + sendfile()
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   27 ++++++++--
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   17 ++++--
+ drivers/net/ethernet/emulex/benet/be_main.c |   77 +++++++++++++++++++++++++-
+ 3 files changed, 108 insertions(+), 13 deletions(-)
 
-HTTP/1.1 persistent connections used for all GETs (using ab), but not
-PUTs since I was lazy at curl scripting.
-
-PUT requests are concurrent 100M uploads,
-GET responses range from 110 bytes to 1GB
-
-I'm doing a bunch of these requests in parallel with ab and curl so I
-can't tell which caused the warning.  No errors bubbled up cmogstored.
-
-This is fairly new hardware: Haswell E3-1230 v3 @ 3.30GHz on
-NO_HZ_{FULL,_ALL}=y, PREEMPT=y
-
-sysctl: tcp_low_latency=1, tcp_slow_start_after_idle=0
-sockopts: TCP_NODELAY, SO_KEEPALIVE, SO_REUSEADDR
-
-No changes to socket buffers anywhere, no TFO.
-
-I was going to reboot into 3.10.10 before I looked at dmesg.  These
-warnings happened after ~8 hours of stress tests, and those stress tests
-are still running.
-
-Aug 30 06:03:54 localhost kernel: ------------[ cut here ]------------
-Aug 30 06:03:54 localhost kernel: WARNING: at net/core/stream.c:200 sk_stream_kill_queues+0x131/0x140()
-Aug 30 06:03:54 localhost kernel: Modules linked in: fuse ufs minix ntfs vfat msdos fat libcrc32c reiserfs ext2 dm_mod binfmt_misc w83627ehf hwmon_vid lm63 loop snd_hda_codec_realtek coretemp kvm_intel kvm crc32c_intel aesni_intel aes_x86_64 lrw gf128mul glue_helper ablk_helper cryptd radeon cfbfillrect cfbimgblt cfbcopyarea sg ttm snd_hda_intel drm_kms_helper microcode snd_hda_codec drm snd_hwdep snd_pcm agpgart e1000e igb snd_page_alloc snd_timer snd sr_mod evdev firewire_core firmware_class i2c_algo_bit crc_itu_t ptp ehci_pci dca i2c_i801 cdrom pps_core ehci_hcd xhci_hcd fan video backlight thermal acpi_cpufreq mperf freq_table button processor [last unloaded: firewire_ohci]
-Aug 30 06:03:54 localhost kernel: CPU: 5 PID: 8390 Comm: cmogstored Tainted: G        W    3.10.9meltdown2 #11
-Aug 30 06:03:54 localhost kernel: Hardware name: Supermicro X10SAE/X10SAE, BIOS 1.00 05/03/2013
-Aug 30 06:03:54 localhost kernel: 0000000000000009 ffff88083dd43a38 ffffffff814244c6 ffff88083dd43a78
-Aug 30 06:03:54 localhost kernel: ffffffff81034720 0000000000000000 ffff8803addf2080 ffff8803addf21d8
-Aug 30 06:03:54 localhost kernel: 0000000000000000 0000000000000000 00000000000002d1 ffff88083dd43a88
-Aug 30 06:03:54 localhost kernel: Call Trace:
-Aug 30 06:03:54 localhost kernel: <IRQ>  [<ffffffff814244c6>] dump_stack+0x19/0x1b
-Aug 30 06:03:54 localhost kernel: [<ffffffff81034720>] warn_slowpath_common+0x70/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103476a>] warn_slowpath_null+0x1a/0x20
-Aug 30 06:03:54 localhost kernel: [<ffffffff81388c01>] sk_stream_kill_queues+0x131/0x140
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c5d1a>] inet_csk_destroy_sock+0x5a/0x140
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c8ef7>] tcp_done+0x67/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff813dfd94>] tcp_time_wait+0x74/0x1c0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813cdc24>] tcp_fin+0x114/0x1f0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d1098>] tcp_data_queue+0x708/0xcb0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d4b07>] tcp_rcv_state_process+0x6d7/0xc80
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d3ab6>] ? tcp_rcv_established+0x166/0x790
-Aug 30 06:03:54 localhost kernel: [<ffffffff813db90f>] tcp_v4_do_rcv+0xcf/0x380
-Aug 30 06:03:54 localhost kernel: [<ffffffff813debe1>] tcp_v4_rcv+0x691/0x800
-Aug 30 06:03:54 localhost kernel: [<ffffffff81068565>] ? sched_clock_cpu+0xc5/0x120
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb05e>] ip_local_deliver_finish+0xbe/0x220
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb338>] ip_local_deliver+0x38/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bad99>] ip_rcv_finish+0x109/0x310
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb561>] ip_rcv+0x1d1/0x300
-Aug 30 06:03:54 localhost kernel: [<ffffffff8105a76d>] ? run_posix_cpu_timers+0x3d/0x830
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138c3b2>] __netif_receive_skb_core+0x4a2/0x610
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f2c1>] __netif_receive_skb+0x21/0x70
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f3ac>] process_backlog+0x9c/0x170
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f77c>] net_rx_action+0xbc/0x200
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103c140>] __do_softirq+0xe0/0x280
-Aug 30 06:03:54 localhost kernel: [<ffffffff8143173c>] call_softirq+0x1c/0x30
-Aug 30 06:03:54 localhost kernel: <EOI>  [<ffffffff810039f5>] do_softirq+0x55/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103c057>] local_bh_enable+0xa7/0xb0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bf1f4>] ip_finish_output+0x224/0x390
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c073e>] ip_output+0x4e/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bff19>] ip_local_out+0x29/0x30
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c0073>] ip_queue_xmit+0x153/0x3c0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d6c25>] tcp_transmit_skb+0x3c5/0x820
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d72c1>] tcp_write_xmit+0x191/0xaa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138434c>] ? __kmalloc_reserve.isra.49+0x3c/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d7c42>] __tcp_push_pending_frames+0x32/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d8a8f>] tcp_send_fin+0x6f/0x190
-Aug 30 06:03:54 localhost kernel: [<ffffffff813cc508>] tcp_close+0x378/0x410
-Aug 30 06:03:54 localhost kernel: [<ffffffff813efe5a>] inet_release+0x5a/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137a218>] sock_release+0x28/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137a5c2>] sock_close+0x12/0x20
-Aug 30 06:03:54 localhost kernel: [<ffffffff81123def>] __fput+0xaf/0x240
-Aug 30 06:03:54 localhost kernel: [<ffffffff8112403e>] ____fput+0xe/0x10
-Aug 30 06:03:54 localhost kernel: [<ffffffff81054d47>] task_work_run+0xa7/0xe0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8100209c>] do_notify_resume+0x9c/0xb0
-Aug 30 06:03:54 localhost kernel: [<ffffffff81430788>] int_signal+0x12/0x17
-Aug 30 06:03:54 localhost kernel: ---[ end trace 1a0bb0997c6a8dcf ]---
-Aug 30 06:03:54 localhost kernel: ------------[ cut here ]------------
-Aug 30 06:03:54 localhost kernel: WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x191/0x1e0()
-Aug 30 06:03:54 localhost kernel: Modules linked in: fuse ufs minix ntfs vfat msdos fat libcrc32c reiserfs ext2 dm_mod binfmt_misc w83627ehf hwmon_vid lm63 loop snd_hda_codec_realtek coretemp kvm_intel kvm crc32c_intel aesni_intel aes_x86_64 lrw gf128mul glue_helper ablk_helper cryptd radeon cfbfillrect cfbimgblt cfbcopyarea sg ttm snd_hda_intel drm_kms_helper microcode snd_hda_codec drm snd_hwdep snd_pcm agpgart e1000e igb snd_page_alloc snd_timer snd sr_mod evdev firewire_core firmware_class i2c_algo_bit crc_itu_t ptp ehci_pci dca i2c_i801 cdrom pps_core ehci_hcd xhci_hcd fan video backlight thermal acpi_cpufreq mperf freq_table button processor [last unloaded: firewire_ohci]
-Aug 30 06:03:54 localhost kernel: CPU: 5 PID: 8390 Comm: cmogstored Tainted: G        W    3.10.9meltdown2 #11
-Aug 30 06:03:54 localhost kernel: Hardware name: Supermicro X10SAE/X10SAE, BIOS 1.00 05/03/2013
-Aug 30 06:03:54 localhost kernel: 0000000000000009 ffff88083dd43bf8 ffffffff814244c6 ffff88083dd43c38
-Aug 30 06:03:54 localhost kernel: ffffffff81034720 ffff8807e84147b0 ffff8803addf2080 ffff8803addf21d8
-Aug 30 06:03:54 localhost kernel: ffff8803addf2080 ffff8805dd8150ac 0000000000004c1d ffff88083dd43c48
-Aug 30 06:03:54 localhost kernel: Call Trace:
-Aug 30 06:03:54 localhost kernel: <IRQ>  [<ffffffff814244c6>] dump_stack+0x19/0x1b
-Aug 30 06:03:54 localhost kernel: [<ffffffff81034720>] warn_slowpath_common+0x70/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103476a>] warn_slowpath_null+0x1a/0x20
-Aug 30 06:03:54 localhost kernel: [<ffffffff813f01d1>] inet_sock_destruct+0x191/0x1e0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137f2ed>] __sk_free+0x1d/0x110
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137f471>] sk_free+0x21/0x30
-Aug 30 06:03:54 localhost kernel: [<ffffffff813dec07>] tcp_v4_rcv+0x6b7/0x800
-Aug 30 06:03:54 localhost kernel: [<ffffffff81068565>] ? sched_clock_cpu+0xc5/0x120
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb05e>] ip_local_deliver_finish+0xbe/0x220
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb338>] ip_local_deliver+0x38/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bad99>] ip_rcv_finish+0x109/0x310
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bb561>] ip_rcv+0x1d1/0x300
-Aug 30 06:03:54 localhost kernel: [<ffffffff8105a76d>] ? run_posix_cpu_timers+0x3d/0x830
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138c3b2>] __netif_receive_skb_core+0x4a2/0x610
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f2c1>] __netif_receive_skb+0x21/0x70
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f3ac>] process_backlog+0x9c/0x170
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138f77c>] net_rx_action+0xbc/0x200
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103c140>] __do_softirq+0xe0/0x280
-Aug 30 06:03:54 localhost kernel: [<ffffffff8143173c>] call_softirq+0x1c/0x30
-Aug 30 06:03:54 localhost kernel: <EOI>  [<ffffffff810039f5>] do_softirq+0x55/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff8103c057>] local_bh_enable+0xa7/0xb0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bf1f4>] ip_finish_output+0x224/0x390
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c073e>] ip_output+0x4e/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff813bff19>] ip_local_out+0x29/0x30
-Aug 30 06:03:54 localhost kernel: [<ffffffff813c0073>] ip_queue_xmit+0x153/0x3c0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d6c25>] tcp_transmit_skb+0x3c5/0x820
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d72c1>] tcp_write_xmit+0x191/0xaa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8138434c>] ? __kmalloc_reserve.isra.49+0x3c/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d7c42>] __tcp_push_pending_frames+0x32/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff813d8a8f>] tcp_send_fin+0x6f/0x190
-Aug 30 06:03:54 localhost kernel: [<ffffffff813cc508>] tcp_close+0x378/0x410
-Aug 30 06:03:54 localhost kernel: [<ffffffff813efe5a>] inet_release+0x5a/0xa0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137a218>] sock_release+0x28/0x90
-Aug 30 06:03:54 localhost kernel: [<ffffffff8137a5c2>] sock_close+0x12/0x20
-Aug 30 06:03:54 localhost kernel: [<ffffffff81123def>] __fput+0xaf/0x240
-Aug 30 06:03:54 localhost kernel: [<ffffffff8112403e>] ____fput+0xe/0x10
-Aug 30 06:03:54 localhost kernel: [<ffffffff81054d47>] task_work_run+0xa7/0xe0
-Aug 30 06:03:54 localhost kernel: [<ffffffff8100209c>] do_notify_resume+0x9c/0xb0
-Aug 30 06:03:54 localhost kernel: [<ffffffff81430788>] int_signal+0x12/0x17
-Aug 30 06:03:54 localhost kernel: ---[ end trace 1a0bb0997c6a8dd0 ]---
-
-Thanks for reading!
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 52c9085..1ab5dab 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2876,7 +2876,7 @@ int be_cmd_set_mac(struct be_adapter *adapter, u8 *mac, int if_id, u32 dom)
+ }
+ 
+ int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+-			u32 domain, u16 intf_id)
++			  u32 domain, u16 intf_id, u16 hsw_mode)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_set_hsw_config *req;
+@@ -2903,6 +2903,13 @@ int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+ 		AMAP_SET_BITS(struct amap_set_hsw_context, pvid_valid, ctxt, 1);
+ 		AMAP_SET_BITS(struct amap_set_hsw_context, pvid, ctxt, pvid);
+ 	}
++	if (!BEx_chip(adapter) && hsw_mode) {
++		AMAP_SET_BITS(struct amap_set_hsw_context, interface_id,
++			      ctxt, adapter->hba_port_num);
++		AMAP_SET_BITS(struct amap_set_hsw_context, pport, ctxt, 1);
++		AMAP_SET_BITS(struct amap_set_hsw_context, port_fwd_type,
++			      ctxt, hsw_mode);
++	}
+ 
+ 	be_dws_cpu_to_le(req->context, sizeof(req->context));
+ 	status = be_mcc_notify_wait(adapter);
+@@ -2914,7 +2921,7 @@ err:
+ 
+ /* Get Hyper switch config */
+ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+-			u32 domain, u16 intf_id)
++			  u32 domain, u16 intf_id, u8 *mode)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_hsw_config *req;
+@@ -2937,9 +2944,15 @@ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+ 			OPCODE_COMMON_GET_HSW_CONFIG, sizeof(*req), wrb, NULL);
+ 
+ 	req->hdr.domain = domain;
+-	AMAP_SET_BITS(struct amap_get_hsw_req_context, interface_id, ctxt,
+-								intf_id);
++	AMAP_SET_BITS(struct amap_get_hsw_req_context, interface_id,
++		      ctxt, intf_id);
+ 	AMAP_SET_BITS(struct amap_get_hsw_req_context, pvid_valid, ctxt, 1);
++
++	if (!BEx_chip(adapter)) {
++		AMAP_SET_BITS(struct amap_get_hsw_req_context, interface_id,
++			      ctxt, adapter->hba_port_num);
++		AMAP_SET_BITS(struct amap_get_hsw_req_context, pport, ctxt, 1);
++	}
+ 	be_dws_cpu_to_le(req->context, sizeof(req->context));
+ 
+ 	status = be_mcc_notify_wait(adapter);
+@@ -2950,7 +2963,11 @@ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+ 						sizeof(resp->context));
+ 		vid = AMAP_GET_BITS(struct amap_get_hsw_resp_context,
+ 							pvid, &resp->context);
+-		*pvid = le16_to_cpu(vid);
++		if (pvid)
++			*pvid = le16_to_cpu(vid);
++		if (mode)
++			*mode = AMAP_GET_BITS(struct amap_get_hsw_resp_context,
++					      port_fwd_type, &resp->context);
+ 	}
+ 
+ err:
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 52f3d4c..d026226 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1533,12 +1533,17 @@ struct be_cmd_req_set_mac_list {
+ } __packed;
+ 
+ /*********************** HSW Config ***********************/
++#define PORT_FWD_TYPE_VEPA		0x3
++#define PORT_FWD_TYPE_VEB		0x2
++
+ struct amap_set_hsw_context {
+ 	u8 interface_id[16];
+ 	u8 rsvd0[14];
+ 	u8 pvid_valid;
+-	u8 rsvd1;
+-	u8 rsvd2[16];
++	u8 pport;
++	u8 rsvd1[6];
++	u8 port_fwd_type[3];
++	u8 rsvd2[7];
+ 	u8 pvid[16];
+ 	u8 rsvd3[32];
+ 	u8 rsvd4[32];
+@@ -1563,7 +1568,9 @@ struct amap_get_hsw_req_context {
+ } __packed;
+ 
+ struct amap_get_hsw_resp_context {
+-	u8 rsvd1[16];
++	u8 rsvd0[6];
++	u8 port_fwd_type[3];
++	u8 rsvd1[7];
+ 	u8 pvid[16];
+ 	u8 rsvd2[32];
+ 	u8 rsvd3[32];
+@@ -1965,9 +1972,9 @@ extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
+ extern int be_cmd_set_mac(struct be_adapter *adapter, u8 *mac, int if_id,
+ 			  u32 dom);
+ extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+-			u32 domain, u16 intf_id);
++				 u32 domain, u16 intf_id, u16 hsw_mode);
+ extern int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+-			u32 domain, u16 intf_id);
++				 u32 domain, u16 intf_id, u8 *mode);
+ extern int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
+ extern int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
+ 					  struct be_dma_mem *cmd);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 50116f8..61f97dc 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -21,6 +21,7 @@
+ #include "be_cmds.h"
+ #include <asm/div64.h>
+ #include <linux/aer.h>
++#include <linux/if_bridge.h>
+ 
+ MODULE_VERSION(DRV_VER);
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+@@ -1212,14 +1213,14 @@ static int be_set_vf_vlan(struct net_device *netdev,
+ 			adapter->vf_cfg[vf].vlan_tag = vlan;
+ 
+ 			status = be_cmd_set_hsw_config(adapter, vlan,
+-				vf + 1, adapter->vf_cfg[vf].if_handle);
++				vf + 1, adapter->vf_cfg[vf].if_handle, 0);
+ 		}
+ 	} else {
+ 		/* Reset Transparent Vlan Tagging. */
+ 		adapter->vf_cfg[vf].vlan_tag = 0;
+ 		vlan = adapter->vf_cfg[vf].def_vid;
+ 		status = be_cmd_set_hsw_config(adapter, vlan, vf + 1,
+-			adapter->vf_cfg[vf].if_handle);
++			adapter->vf_cfg[vf].if_handle, 0);
+ 	}
+ 
+ 
+@@ -2917,7 +2918,7 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 			vf_cfg->tx_rate = lnk_speed;
+ 
+ 		status = be_cmd_get_hsw_config(adapter, &def_vlan,
+-					       vf + 1, vf_cfg->if_handle);
++					       vf + 1, vf_cfg->if_handle, NULL);
+ 		if (status)
+ 			goto err;
+ 		vf_cfg->def_vid = def_vlan;
+@@ -3795,6 +3796,74 @@ fw_exit:
+ 	return status;
+ }
+ 
++static int be_ndo_bridge_setlink(struct net_device *dev,
++				    struct nlmsghdr *nlh)
++{
++	struct be_adapter *adapter = netdev_priv(dev);
++	struct nlattr *attr, *br_spec;
++	int rem;
++	int status = 0;
++	u16 mode = 0;
++
++	if (!sriov_enabled(adapter))
++		return -EOPNOTSUPP;
++
++	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
++
++	nla_for_each_nested(attr, br_spec, rem) {
++		if (nla_type(attr) != IFLA_BRIDGE_MODE)
++			continue;
++
++		mode = nla_get_u16(attr);
++		if (mode != BRIDGE_MODE_VEPA && mode != BRIDGE_MODE_VEB)
++			return -EINVAL;
++
++		status = be_cmd_set_hsw_config(adapter, 0, 0,
++					       adapter->if_handle,
++					       mode == BRIDGE_MODE_VEPA ?
++					       PORT_FWD_TYPE_VEPA :
++					       PORT_FWD_TYPE_VEB);
++		if (status)
++			goto err;
++
++		dev_info(&adapter->pdev->dev, "enabled switch mode: %s\n",
++			 mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
++
++		return status;
++	}
++err:
++	dev_err(&adapter->pdev->dev, "Failed to set switch mode %s\n",
++		mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
++
++	return status;
++}
++
++static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
++				    struct net_device *dev,
++				    u32 filter_mask)
++{
++	struct be_adapter *adapter = netdev_priv(dev);
++	int status = 0;
++	u8 hsw_mode;
++
++	if (!sriov_enabled(adapter))
++		return 0;
++
++	/* BE and Lancer chips support VEB mode only */
++	if (BEx_chip(adapter) || lancer_chip(adapter)) {
++		hsw_mode = PORT_FWD_TYPE_VEB;
++	} else {
++		status = be_cmd_get_hsw_config(adapter, NULL, 0,
++					       adapter->if_handle, &hsw_mode);
++		if (status)
++			return 0;
++	}
++
++	return ndo_dflt_bridge_getlink(skb, pid, seq, dev,
++				       hsw_mode == PORT_FWD_TYPE_VEPA ?
++				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB);
++}
++
+ static const struct net_device_ops be_netdev_ops = {
+ 	.ndo_open		= be_open,
+ 	.ndo_stop		= be_close,
+@@ -3813,6 +3882,8 @@ static const struct net_device_ops be_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= be_netpoll,
+ #endif
++	.ndo_bridge_setlink	= be_ndo_bridge_setlink,
++	.ndo_bridge_getlink	= be_ndo_bridge_getlink,
+ };
+ 
+ static void be_netdev_init(struct net_device *netdev)
+-- 
+1.7.1
