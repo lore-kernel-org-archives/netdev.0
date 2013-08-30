@@ -1,72 +1,216 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 4/5] bonding: restructure and simplify bond_for_each_slave_next()
-Date: Fri, 30 Aug 2013 11:37:12 +0800
-Message-ID: <52201368.4070200@huawei.com>
-References: <521D7AC7.6090508@huawei.com> <521F59EE.1080408@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 01/16] sfc: Add support for new board sensors
+Date: Fri, 30 Aug 2013 04:38:14 +0100
+Message-ID: <1377833894.2552.27.camel@deadeye.wl.decadent.org.uk>
+References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:47446 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab3H3Dhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:37:41 -0400
-In-Reply-To: <521F59EE.1080408@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:34923 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754965Ab3H3DiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:38:18 -0400
+In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add support for power and current sensors, which need to be named
+differently in sysfs.  Power sensors also require values to be scaled
+between MCDI and sysfs, and have no minimum value.
 
->>  			slave->link = BOND_LINK_BACK;
->>  			bond_set_slave_active_flags(slave);
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index ecb5d1d..7670584 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -119,14 +119,25 @@
->>   * bond_for_each_slave_from - iterate the slaves list from a starting point
->>   * @bond:	the bond holding this list.
->>   * @pos:	current slave.
->> - * @cnt:	counter for max number of moves
->>   * @start:	starting point.
->>   *
->>   * Caller must hold bond->lock
->>   */
->> -#define bond_for_each_slave_from(bond, pos, cnt, start) \
->> -	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
->> -	     cnt++, pos = bond_next_slave(bond, pos))
->> +#define bond_for_each_slave_from(bond, pos, start) \
->> +	for (pos = bond_next_slave(bond, start); pos && pos != start; \
->> +			pos = bond_next_slave(bond, pos))
->> +
->> +/**
->> + * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
->> + * @bond:	the bond holding this list.
->> + * @pos:	current slave.
->> + * @start:	starting point.
->> + *
->> + * Caller must hold rcu_read_lock
->> + */
->> +#define bond_for_each_slave_from_rcu(bond, pos, start) \
->> +	for (pos = bond_next_slave_rcu(bond, start); pos && pos != start; \
->> +			pos = bond_next_slave_rcu(bond, pos))
->>  
-> One question here: what if "start" gets deleted while we're traversing the list,
-> could this lead to an infinite loop ?
-> 
+Add definitions of the power, current, fan, and additional temperature
+and voltage sensors found on SFA6902F, SFN7022F and SFN7122F.
 
-agree, so the start should not be delete while traversing the list, the func should not run
-without protection. 
+(Includes a bug fix from Andrew Jackson.)
 
->>  /**
->>   * bond_for_each_slave - iterate over all slaves
->>
-> 
-> 
-> .
-> 
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/mcdi_mon.c |  121 ++++++++++++++++++++++++++---------
+ 1 file changed, 91 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+index d7d4566..e22d938 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mon.c
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -21,7 +21,9 @@ enum efx_hwmon_type {
+ 	EFX_HWMON_UNKNOWN,
+ 	EFX_HWMON_TEMP,         /* temperature */
+ 	EFX_HWMON_COOL,         /* cooling device, probably a heatsink */
+-	EFX_HWMON_IN            /* input voltage */
++	EFX_HWMON_IN,		/* voltage */
++	EFX_HWMON_CURR,		/* current */
++	EFX_HWMON_POWER,	/* power */
+ };
+ 
+ static const struct {
+@@ -29,23 +31,52 @@ static const struct {
+ 	enum efx_hwmon_type hwmon_type;
+ 	int port;
+ } efx_mcdi_sensor_type[] = {
+-#define SENSOR(name, label, hwmon_type, port)			\
+-	[MC_CMD_SENSOR_##name] = { label, hwmon_type, port }
+-	SENSOR(CONTROLLER_TEMP,	   "Controller temp.",	   EFX_HWMON_TEMP, -1),
+-	SENSOR(PHY_COMMON_TEMP,	   "PHY temp.",		   EFX_HWMON_TEMP, -1),
+-	SENSOR(CONTROLLER_COOLING, "Controller cooling",   EFX_HWMON_COOL, -1),
+-	SENSOR(PHY0_TEMP,	   "PHY temp.",		   EFX_HWMON_TEMP, 0),
+-	SENSOR(PHY0_COOLING,	   "PHY cooling",	   EFX_HWMON_COOL, 0),
+-	SENSOR(PHY1_TEMP,	   "PHY temp.",		   EFX_HWMON_TEMP, 1),
+-	SENSOR(PHY1_COOLING,	   "PHY cooling",	   EFX_HWMON_COOL, 1),
+-	SENSOR(IN_1V0,		   "1.0V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_1V2,		   "1.2V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_1V8,		   "1.8V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_2V5,		   "2.5V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_3V3,		   "3.3V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_12V0,		   "12.0V supply",	   EFX_HWMON_IN,   -1),
+-	SENSOR(IN_1V2A,		   "1.2V analogue supply", EFX_HWMON_IN,   -1),
+-	SENSOR(IN_VREF,		   "ref. voltage",	   EFX_HWMON_IN,   -1),
++#define SENSOR(name, label, hwmon_type, port)				\
++	[MC_CMD_SENSOR_##name] = { label, EFX_HWMON_ ## hwmon_type, port }
++	SENSOR(CONTROLLER_TEMP,		"Controller ext. temp.",    TEMP,  -1),
++	SENSOR(PHY_COMMON_TEMP,		"PHY temp.",		    TEMP,  -1),
++	SENSOR(CONTROLLER_COOLING,	"Controller cooling",	    COOL,  -1),
++	SENSOR(PHY0_TEMP,		"PHY temp.",		    TEMP,  0),
++	SENSOR(PHY0_COOLING,		"PHY cooling",		    COOL,  0),
++	SENSOR(PHY1_TEMP,		"PHY temp.",		    TEMP,  1),
++	SENSOR(PHY1_COOLING,		"PHY cooling",		    COOL,  1),
++	SENSOR(IN_1V0,			"1.0V supply",		    IN,    -1),
++	SENSOR(IN_1V2,			"1.2V supply",		    IN,    -1),
++	SENSOR(IN_1V8,			"1.8V supply",		    IN,    -1),
++	SENSOR(IN_2V5,			"2.5V supply",		    IN,    -1),
++	SENSOR(IN_3V3,			"3.3V supply",		    IN,    -1),
++	SENSOR(IN_12V0,			"12.0V supply",		    IN,    -1),
++	SENSOR(IN_1V2A,			"1.2V analogue supply",	    IN,    -1),
++	SENSOR(IN_VREF,			"ref. voltage",		    IN,    -1),
++	SENSOR(OUT_VAOE,		"AOE power supply",	    IN,    -1),
++	SENSOR(AOE_TEMP,		"AOE temp.",		    TEMP,  -1),
++	SENSOR(PSU_AOE_TEMP,		"AOE PSU temp.",	    TEMP,  -1),
++	SENSOR(PSU_TEMP,		"Controller PSU temp.",	    TEMP,  -1),
++	SENSOR(FAN_0,			NULL,			    COOL,  -1),
++	SENSOR(FAN_1,			NULL,			    COOL,  -1),
++	SENSOR(FAN_2,			NULL,			    COOL,  -1),
++	SENSOR(FAN_3,			NULL,			    COOL,  -1),
++	SENSOR(FAN_4,			NULL,			    COOL,  -1),
++	SENSOR(IN_VAOE,			"AOE input supply",	    IN,    -1),
++	SENSOR(OUT_IAOE,		"AOE output current",	    CURR,  -1),
++	SENSOR(IN_IAOE,			"AOE input current",	    CURR,  -1),
++	SENSOR(NIC_POWER,		"Board power use",	    POWER, -1),
++	SENSOR(IN_0V9,			"0.9V supply",		    IN,    -1),
++	SENSOR(IN_I0V9,			"0.9V input current",	    CURR,  -1),
++	SENSOR(IN_I1V2,			"1.2V input current",	    CURR,  -1),
++	SENSOR(IN_0V9_ADC,		"0.9V supply (at ADC)",	    IN,    -1),
++	SENSOR(CONTROLLER_2_TEMP,	"Controller ext. temp. 2",  TEMP,  -1),
++	SENSOR(VREG_INTERNAL_TEMP,	"Voltage regulator temp.",  TEMP,  -1),
++	SENSOR(VREG_0V9_TEMP,		"0.9V regulator temp.",     TEMP,  -1),
++	SENSOR(VREG_1V2_TEMP,		"1.2V regulator temp.",     TEMP,  -1),
++	SENSOR(CONTROLLER_VPTAT,       "Controller int. temp. raw", IN,    -1),
++	SENSOR(CONTROLLER_INTERNAL_TEMP, "Controller int. temp.",   TEMP,  -1),
++	SENSOR(CONTROLLER_VPTAT_EXTADC,
++			      "Controller int. temp. raw (at ADC)", IN,    -1),
++	SENSOR(CONTROLLER_INTERNAL_TEMP_EXTADC,
++				 "Controller int. temp. (via ADC)", TEMP,  -1),
++	SENSOR(AMBIENT_TEMP,		"Ambient temp.",	    TEMP,  -1),
++	SENSOR(AIRFLOW,			"Air flow raw",		    IN,    -1),
+ #undef SENSOR
+ };
+ 
+@@ -160,9 +191,19 @@ static ssize_t efx_mcdi_mon_show_value(struct device *dev,
+ 
+ 	value = EFX_DWORD_FIELD(entry, MC_CMD_SENSOR_VALUE_ENTRY_TYPEDEF_VALUE);
+ 
+-	/* Convert temperature from degrees to milli-degrees Celsius */
+-	if (mon_attr->hwmon_type == EFX_HWMON_TEMP)
++	switch (mon_attr->hwmon_type) {
++	case EFX_HWMON_TEMP:
++		/* Convert temperature from degrees to milli-degrees Celsius */
+ 		value *= 1000;
++		break;
++	case EFX_HWMON_POWER:
++		/* Convert power from watts to microwatts */
++		value *= 1000000;
++		break;
++	default:
++		/* No conversion needed */
++		break;
++	}
+ 
+ 	return sprintf(buf, "%u\n", value);
+ }
+@@ -177,9 +218,19 @@ static ssize_t efx_mcdi_mon_show_limit(struct device *dev,
+ 
+ 	value = mon_attr->limit_value;
+ 
+-	/* Convert temperature from degrees to milli-degrees Celsius */
+-	if (mon_attr->hwmon_type == EFX_HWMON_TEMP)
++	switch (mon_attr->hwmon_type) {
++	case EFX_HWMON_TEMP:
++		/* Convert temperature from degrees to milli-degrees Celsius */
+ 		value *= 1000;
++		break;
++	case EFX_HWMON_POWER:
++		/* Convert power from watts to microwatts */
++		value *= 1000000;
++		break;
++	default:
++		/* No conversion needed */
++		break;
++	}
+ 
+ 	return sprintf(buf, "%u\n", value);
+ }
+@@ -243,8 +294,8 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+ 
+ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ {
++	unsigned int n_temp = 0, n_cool = 0, n_in = 0, n_curr = 0, n_power = 0;
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+-	unsigned int n_temp = 0, n_cool = 0, n_in = 0;
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_SENSOR_INFO_EXT_IN_LEN);
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_SENSOR_INFO_OUT_LENMAX);
+ 	unsigned int n_pages, n_sensors, n_attrs, page;
+@@ -380,6 +431,14 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 			hwmon_prefix = "in";
+ 			hwmon_index = n_in++; /* 0-based */
+ 			break;
++		case EFX_HWMON_CURR:
++			hwmon_prefix = "curr";
++			hwmon_index = ++n_curr; /* 1-based */
++			break;
++		case EFX_HWMON_POWER:
++			hwmon_prefix = "power";
++			hwmon_index = ++n_power; /* 1-based */
++			break;
+ 		}
+ 
+ 		min1 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
+@@ -399,13 +458,15 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 			if (rc)
+ 				goto fail;
+ 
+-			snprintf(name, sizeof(name), "%s%u_min",
+-				 hwmon_prefix, hwmon_index);
+-			rc = efx_mcdi_mon_add_attr(
+-				efx, name, efx_mcdi_mon_show_limit,
+-				i, type, min1);
+-			if (rc)
+-				goto fail;
++			if (hwmon_type != EFX_HWMON_POWER) {
++				snprintf(name, sizeof(name), "%s%u_min",
++					 hwmon_prefix, hwmon_index);
++				rc = efx_mcdi_mon_add_attr(
++					efx, name, efx_mcdi_mon_show_limit,
++					i, type, min1);
++				if (rc)
++					goto fail;
++			}
+ 
+ 			snprintf(name, sizeof(name), "%s%u_max",
+ 				 hwmon_prefix, hwmon_index);
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
