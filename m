@@ -1,73 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH V2 5/6] vhost_net: poll vhost queue after marking DMA
-	is done
-Date: Fri, 30 Aug 2013 17:44:33 +0100
-Message-ID: <1377881073.2065.10.camel@bwh-desktop.uk.level5networks.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-6-git-send-email-jasowang@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v10 11/11] ipv6: Add generic UDP Tunnel segmentation
+Date: Fri, 30 Aug 2013 14:14:10 -0700
+Message-ID: <CALnjE+rKhTKK6wptN=dwkaEEj9T0R-vu9Fr0q+xiGZQjLUfbFg@mail.gmail.com>
+References: <1377667379-2315-1-git-send-email-amwang@redhat.com>
+	<1377667379-2315-12-git-send-email-amwang@redhat.com>
+	<CALnjE+p87D301m8oJ=rkJap44zcPkVp=YkThUT70fW1kkrQ9AQ@mail.gmail.com>
+	<1377850563.2591.11.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1377836962-49780-6-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:46346 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752525Ab3H3VOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:14:12 -0400
+Received: by mail-qc0-f176.google.com with SMTP id u20so1110534qcx.21
+        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 14:14:10 -0700 (PDT)
+In-Reply-To: <1377850563.2591.11.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-08-30 at 12:29 +0800, Jason Wang wrote:
-> We used to poll vhost queue before making DMA is done, this is racy if vhost
-> thread were waked up before marking DMA is done which can result the signal to
-> be missed. Fix this by always poll the vhost thread before DMA is done.
+On Fri, Aug 30, 2013 at 1:16 AM, Cong Wang <amwang@redhat.com> wrote:
+> On Wed, 2013-08-28 at 10:55 -0700, Pravin Shelar wrote:
+>> On Tue, Aug 27, 2013 at 10:22 PM, Cong Wang <amwang@redhat.com> wrote:
+>> > From: Cong Wang <amwang@redhat.com>
+>> >
+>> > Similar to commit 731362674580cb0c696cd1b1a03d8461a10cf90a
+>> > (tunneling: Add generic Tunnel segmentation)
+>> >
+>> Can we factor out ipv4-udp-tunnel code so that there is no duplicating code?
+>
+> Probably we can, but it will make code review harder? Or you mean doing
+> it in a separated patch? If you insist, I can do it in a separated
+> patch.
+>
 
-Does this bug only exist in net-next or is it older?  Should the fix go
-to net and stable branches?
-
-Ben.
-
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/net.c |    9 +++++----
->  1 files changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index ff60c2a..d09c17c 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -308,6 +308,11 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->  	struct vhost_virtqueue *vq = ubufs->vq;
->  	int cnt = atomic_read(&ubufs->kref.refcount);
->  
-> +	/* set len to mark this desc buffers done DMA */
-> +	vq->heads[ubuf->desc].len = success ?
-> +		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
-> +	vhost_net_ubuf_put(ubufs);
-> +
->  	/*
->  	 * Trigger polling thread if guest stopped submitting new buffers:
->  	 * in this case, the refcount after decrement will eventually reach 1
-> @@ -318,10 +323,6 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->  	 */
->  	if (cnt <= 2 || !(cnt % 16))
->  		vhost_poll_queue(&vq->poll);
-> -	/* set len to mark this desc buffers done DMA */
-> -	vq->heads[ubuf->desc].len = success ?
-> -		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
-> -	vhost_net_ubuf_put(ubufs);
->  }
->  
->  /* Expects to be always run from workqueue - which acts as
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I doubt it makes review any harder. But separate patch is also fine with me.
