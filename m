@@ -1,93 +1,53 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
- for xfrm tunnel mode callback
-Date: Fri, 30 Aug 2013 16:29:47 +0800
-Message-ID: <522057FB.2010306@windriver.com>
-References: <1377673780-9778-1-git-send-email-fan.du@windriver.com> <20130830073801.GH7660@secunet.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
+Date: Fri, 30 Aug 2013 12:00:49 +0300
+Message-ID: <20130830090049.GJ19256@mwanda>
+References: <20130829082514.GB14334@elgon.mountain>
+ <1377802138.5372.12.camel@bwh-desktop.uk.level5networks.com>
+ <9848F2DB572E5649BA045B288BE08FBE01662A4B@039-SN2MPN1-021.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <herbert@gondor.hengli.com.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51769 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974Ab3H3I30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 04:29:26 -0400
-In-Reply-To: <20130830073801.GH7660@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Li Frank-B20596 <B20596@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Duan Fugang-B38611 <B38611@freescale.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01662A4B@039-SN2MPN1-021.039d.mgd.msft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 30, 2013 at 02:02:00AM +0000, Duan Fugang-B38611 wrote:
+> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> Data: Friday, August 30, 2013 2:49 AM
+> 
+> > To: Dan Carpenter
+> > Cc: Grant Likely; Rob Herring; David S. Miller; Estevam Fabio-R49496; Li
+> > Frank-B20596; Jim Baxter; Duan Fugang-B38611; netdev@vger.kernel.org;
+> > devicetree@vger.kernel.org; kernel-janitors@vger.kernel.org
+> > Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
+> > 
+> > On Thu, 2013-08-29 at 11:25 +0300, Dan Carpenter wrote:
+> > > My static checker complains that on some arches unsigned longs can be
+> > > 8 characters which is larger than the buffer is only 6 chars.
+> > > Additionally, Ben Hutchings points out that the buffer actually holds
+> > > big endian data and the buffer we are reading from is CPU endian.
+> > 
+> > It's not really as clear-cut as that. :-)  But I think it's slightly more
+> > logical this way.
+> > 
+> Yes, it is not clear, pls remove somebody's name from the commit log.
 
+Huh?  No, I'm going to leave Ben's name as is.  It's weird that you
+would ask for that.
 
-On 2013=E5=B9=B408=E6=9C=8830=E6=97=A5 15:38, Steffen Klassert wrote:
-> On Wed, Aug 28, 2013 at 03:09:40PM +0800, Fan Du wrote:
->> Some thoughts on IPv4 VTI implementation:
->>
->> The connection between VTI receiving part and xfrm tunnel mode input=
- process
->> is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g =
-ipip/sit
->> and xfrm4_tunnel, acts like a true "tunnel" device.
->>
->> In addition, IMHO, VTI doesn't need vti_err to do something meaningf=
-ul, as all
->> VTI needs is just a notifier to be called whenever xfrm_input ingres=
-s a packet
->> to update statistics.
->>
->> A IPsec protected packet is first handled by protocol handlers, e.g =
-AH/ESP,
->> to check packet authentication or encryption rightness. PMTU update =
-is taken
->> care of in this stage by protocol error handler.
->>
->> Then the packet is rearranged properly depending on whether it's tra=
-nsport
->> mode or tunnel mode packed by mode "input" handler. The VTI handler =
-code
->> takes effects in this stage in tunnel mode only. So it neither need =
-propagate
->> PMTU, as it has already been done if necessary, nor the VTI handler =
-is
->> qualified as a xfrm_tunnel.
->>
->> So this patch introduces xfrm_tunnel_notifier and meanwhile wipe out=
- vti_err
->> code.
->>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> Cc: Steffen Klassert<steffen.klassert@secunet.com>
->> Cc: David S. Miller<davem@davemloft.net>
->> Reviewed-by: Saurabh Mohan<saurabh.mohan@vyatta.com>
->
-> Applied to ipsec-next, thanks a lot!
->
+regards,
+dan carpenter
 
-Hi, Steffen
-
-Thanks for picking this up!
-
-About "xfrm: Refactor xfrm_state timer management", Thomas objects addi=
-ng notifier
-at clock_was_set( https://lkml.org/lkml/2013/8/18/36 ), frankly speakin=
-g I'm not
-experienced to argue with such high level person, neither could I convi=
-nce David
-that getting rid of wall clock in xfrm_state is the right thing to do.
-So I really don't know what to do with this patch now :( scratching my =
-head harder=E3=80=82=E3=80=82=E3=80=82
-
-Is there any slim light of hope for me to keep working on this IPsec is=
-sue?
-Or should I drop it?
-
-Thanks
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
