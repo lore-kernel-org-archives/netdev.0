@@ -1,50 +1,48 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Fri, 30 Aug 2013 12:35:25 +0800
-Message-ID: <1377837325-5232-1-git-send-email-B38611@freescale.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 01/31] net: ax88796: use dev_get_platdata()
+Date: Fri, 30 Aug 2013 13:44:34 +0900
+Message-ID: <003101cea53b$9fc95b30$df5c1190$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<bhutchings@solarflare.com>, <l.stach@pengutronix.de>
-To: <davem@davemloft.net>, <b20596@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:24703
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756364Ab3H3Emo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 00:42:44 -0400
+Received: from mailout3.samsung.com ([203.254.224.33]:63524 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621Ab3H3Eoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 00:44:34 -0400
+Received: from epcpsbgr2.samsung.com
+ (u142.gpu120.samsung.co.kr [203.254.230.142])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MSB0000UUI9RDP0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Fri, 30 Aug 2013 13:44:33 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the current BD is the first BD, the previous BD entry
-must be the last BD, not "bdp - 1".
+Use the wrapper function for retrieving the platform data instead of
+accessing dev->platform_data directly. This is a cosmetic change
+to make the code simpler and enhance the readability.
 
-Add BD entry check to get the previous BD entry correctly.
-
-Signed-off-by: Fugang Duan  <B38611@freescale.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/8390/ax88796.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4ea1555..b13746f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -380,7 +380,15 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		}
- 	}
+diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
+index b7232a9..f92f001 100644
+--- a/drivers/net/ethernet/8390/ax88796.c
++++ b/drivers/net/ethernet/8390/ax88796.c
+@@ -840,7 +840,7 @@ static int ax_probe(struct platform_device *pdev)
+ 	ei_local = netdev_priv(dev);
+ 	ax = to_ax_dev(dev);
  
--	bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	if (bdp == fep->tx_bd_base) {
-+		if (fep->bufdesc_ex)
-+			bdp_pre = (struct bufdesc *)((void *)bdp +
-+				(sizeof(struct bufdesc_ex) * (TX_RING_SIZE - 1)));
-+		else
-+			bdp_pre = bdp + TX_RING_SIZE - 1;
-+	} else {
-+		bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	}
- 	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
- 	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
- 		fep->delay_work.trig_tx = true;
+-	ax->plat = pdev->dev.platform_data;
++	ax->plat = dev_get_platdata(&pdev->dev);
+ 	platform_set_drvdata(pdev, dev);
+ 
+ 	ei_local->rxcr_base = ax->plat->rcr_val;
 -- 
-1.7.1
+1.7.10.4
