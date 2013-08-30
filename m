@@ -1,59 +1,65 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 5/7] watchdog: Drop references to H8300 architecture
-Date: Fri, 30 Aug 2013 09:40:40 -0700
-Message-ID: <1377880842-6835-6-git-send-email-linux@roeck-us.net>
-References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
-Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org,
-	linux-watchdog@vger.kernel.org, Wim Van Sebroeck <wim@iguana.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eric Paris <eparis@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	David Howells <dhowells@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Guenter Roeck <linux@roeck-us.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] pkt_sched: fq: prefetch() fix
+Date: Fri, 30 Aug 2013 09:46:43 -0700
+Message-ID: <1377881203.7360.15.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:50616 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755448Ab3H3Qqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 12:46:44 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so2101387pdi.33
+        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 09:46:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Architecture is gone.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+kbuild bot reported following m68k build error :
+
+  net/sched/sch_fq.c: In function 'fq_dequeue':
+>> net/sched/sch_fq.c:491:2: error: implicit declaration of function
+'prefetch' [-Werror=implicit-function-declaration]
+   cc1: some warnings being treated as errors
+
+
+While we are fixing this, move this prefetch() call a bit earlier.
+
+Reported-by: Wu Fengguang <fengguang.wu@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/watchdog/Kconfig  |    2 --
- drivers/watchdog/Makefile |    2 --
- 2 files changed, 4 deletions(-)
+ net/sched/sch_fq.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/watchdog/Kconfig b/drivers/watchdog/Kconfig
-index 362085d..08a8a4d 100644
---- a/drivers/watchdog/Kconfig
-+++ b/drivers/watchdog/Kconfig
-@@ -408,8 +408,6 @@ config BFIN_WDT
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 91ceca7..32ad015 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -46,6 +46,7 @@
+ #include <linux/slab.h>
+ #include <linux/rbtree.h>
+ #include <linux/hash.h>
++#include <linux/prefetch.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ #include <net/sock.h>
+@@ -461,6 +462,7 @@ begin:
+ 		}
+ 		goto begin;
+ 	}
++	prefetch(&skb->end);
+ 	f->time_next_packet = now;
+ 	f->credit -= qdisc_pkt_len(skb);
  
- # FRV Architecture
- 
--# H8300 Architecture
--
- # X86 (i386 + ia64 + x86_64) Architecture
- 
- config ACQUIRE_WDT
-diff --git a/drivers/watchdog/Makefile b/drivers/watchdog/Makefile
-index 2f26a0b..3989d3e 100644
---- a/drivers/watchdog/Makefile
-+++ b/drivers/watchdog/Makefile
-@@ -65,8 +65,6 @@ obj-$(CONFIG_BFIN_WDT) += bfin_wdt.o
- 
- # FRV Architecture
- 
--# H8300 Architecture
--
- # X86 (i386 + ia64 + x86_64) Architecture
- obj-$(CONFIG_ACQUIRE_WDT) += acquirewdt.o
- obj-$(CONFIG_ADVANTECH_WDT) += advantechwdt.o
--- 
-1.7.9.7
+@@ -488,7 +490,6 @@ begin:
+ 		}
+ 	}
+ out:
+-	prefetch(&skb->end);
+ 	sch->qstats.backlog -= qdisc_pkt_len(skb);
+ 	qdisc_bstats_update(sch, skb);
+ 	sch->q.qlen--;
