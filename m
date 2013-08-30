@@ -1,33 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf 0/5] IPVS fixes for v3.11
-Date: Fri, 30 Aug 2013 21:26:53 +0200
-Message-ID: <20130830192653.GA8350@localhost>
-References: <1377854068-22340-1-git-send-email-horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] bridge: separate querier and query timer
+ into IGMP/IPv4 and MLD/IPv6 ones
+Date: Fri, 30 Aug 2013 15:29:02 -0400 (EDT)
+Message-ID: <20130830.152902.1277686222231900490.davem@davemloft.net>
+References: <20130828.200831.289304393401193657.davem@davemloft.net>
+	<1377876497-6185-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1377854068-22340-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux@baker-net.org.uk, stephen@networkplumber.org,
+	herbert@gondor.apana.org.au
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1377876497-6185-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon,
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Fri, 30 Aug 2013 17:28:17 +0200
 
-On Fri, Aug 30, 2013 at 06:14:23PM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> I'm not sure if it is too late in the cycle but
-> if not could you please consider these fixes for v3.11?
-> 
-> In my opinion these all seem to be -stable candidates.
-> I would appreciate your opinion on that.
+> Currently we would still potentially suffer multicast packet loss if =
+there
+> is just either an IGMP or an MLD querier: For the former case, we wou=
+ld
+> possibly drop IPv6 multicast packets, for the latter IPv4 ones. This =
+is
+> because we are currently assuming that if either an IGMP or MLD queri=
+er
+> is present that the other one is present, too.
+> =
 
-We're fairly late in the -rc cycle. I prefer to ask David to take
-these once 3.11 is released, then ask for -stable inclusion.
+> This patch makes the behaviour and fix added in
+> "bridge: disable snooping if there is no querier" (b00589af3b04)
+> to also work if there is either just an IGMP or an MLD querier on the=
 
-Regards.
+> link: It refines the deactivation of the snooping to be protocol
+> specific by using separate timers for the snooped IGMP and MLD querie=
+s
+> as well as separate timers for our internal IGMP and MLD queriers.
+> =
+
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+
+Looks great, applied, thanks.
