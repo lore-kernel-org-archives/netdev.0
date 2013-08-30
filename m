@@ -1,65 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pkt_sched: fq: prefetch() fix
-Date: Fri, 30 Aug 2013 09:46:43 -0700
-Message-ID: <1377881203.7360.15.camel@edumazet-glaptop>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
+Date: Fri, 30 Aug 2013 09:55:50 -0700
+Message-ID: <20130830165550.GA8151@kroah.com>
+References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:50616 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755448Ab3H3Qqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 12:46:44 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so2101387pdi.33
-        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 09:46:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
+	netdev@vger.kernel.org, linux-watchdog@vger.kernel.org,
+	Wim Van Sebroeck <wim@iguana.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eric Paris <eparis@redhat.com>,
+	Jiang Liu <jiang.liu@huawei.com>,
+	David Howells <dhowells@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Aug 30, 2013 at 09:40:35AM -0700, Guenter Roeck wrote:
+> H8/300 has been dead for several years, the kernel for it has
+> not compiled for ages, and recent versions of gcc for it are broken.
+> It is time to drop support for it.
+> 
+> Yes, I understand it is not that simple to drop an architecture,
+> and it may need some discussion, but someone has to put a stake
+> into the ground. Keeping a virtually dead architecture on life support
+> takes resources which are better spent elsewhere.
 
-kbuild bot reported following m68k build error :
+If this doesn't build, and no one is using it anymore, I agree, it
+should be removed.  If someone wants to revive it, 'git revert' works
+just fine.
 
-  net/sched/sch_fq.c: In function 'fq_dequeue':
->> net/sched/sch_fq.c:491:2: error: implicit declaration of function
-'prefetch' [-Werror=implicit-function-declaration]
-   cc1: some warnings being treated as errors
+You can put my:
 
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-While we are fixing this, move this prefetch() call a bit earlier.
+on these patches, unless someone steps up to be the active maintainer of
+the arch and gets it building/working again.
 
-Reported-by: Wu Fengguang <fengguang.wu@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_fq.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+thanks,
 
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 91ceca7..32ad015 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -46,6 +46,7 @@
- #include <linux/slab.h>
- #include <linux/rbtree.h>
- #include <linux/hash.h>
-+#include <linux/prefetch.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
- #include <net/sock.h>
-@@ -461,6 +462,7 @@ begin:
- 		}
- 		goto begin;
- 	}
-+	prefetch(&skb->end);
- 	f->time_next_packet = now;
- 	f->credit -= qdisc_pkt_len(skb);
- 
-@@ -488,7 +490,6 @@ begin:
- 		}
- 	}
- out:
--	prefetch(&skb->end);
- 	sch->qstats.backlog -= qdisc_pkt_len(skb);
- 	qdisc_bstats_update(sch, skb);
- 	sch->q.qlen--;
+greg k-h
