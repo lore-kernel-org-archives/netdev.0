@@ -1,61 +1,52 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH] net: usbnet: update addr_assign_type if appropriate
-Date: Fri, 30 Aug 2013 20:56:15 +0200
-Message-ID: <8761unxb1s.fsf@nemi.mork.no>
-References: <1377171946-19133-1-git-send-email-bjorn@mork.no>
-	<87d2ovxcrx.fsf@nemi.mork.no>
-	<20130830.144118.1671225313340653567.davem@davemloft.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
+Date: Fri, 30 Aug 2013 12:11:46 -0700
+Message-ID: <20130830191146.GA12090@roeck-us.net>
+References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
+ <20130830184611.GA27455@spo001.leaseweb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130830.144118.1671225313340653567.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Fri, 30 Aug 2013 14:41:18 -0400 (EDT)")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
+	netdev@vger.kernel.org, linux-watchdog@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eric Paris <eparis@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiang Liu <jiang.liu@huawei.com>,
+	David Howells <dhowells@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Wim Van Sebroeck <wim@iguana.be>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130830184611.GA27455@spo001.leaseweb.com>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-> From: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> Date: Fri, 30 Aug 2013 20:18:58 +0200
->
->> Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
->>=20
->>> This module generates a common default address on init,
->>> using eth_random_addr. Set addr_assign_type to let
->>> userspace know the address is random unless it was
->>> overridden by the minidriver.
->>>
->>> Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
->>=20
->> David,
->>=20
->> I see that this patch is marked "Changes Requested" in patchworks:
->> http://patchwork.ozlabs.org/patch/269030/
->>=20
->> But I haven't seen any request for changes, only Olivers ack. And th=
-at's
->> all patchworks has recorded as well. Did I miss something?
->
-> Your v2 of this series is all marked as Under Review.
->
-> You have to understand, wrt. your initial submission, when someone
-> asks for changes in one of the patches in a series I mark the whole
-> series as changes requested.
->
-> This gives a second level of reminder that when one patch needs chang=
-es
-> I expect the entire series to be resubmitted.
+On Fri, Aug 30, 2013 at 08:46:11PM +0200, Wim Van Sebroeck wrote:
+> Hi Guenter,
+> 
+> > H8/300 has been dead for several years, the kernel for it has
+> > not compiled for ages, and recent versions of gcc for it are broken.
+> > It is time to drop support for it.
+> > 
+> > Yes, I understand it is not that simple to drop an architecture,
+> > and it may need some discussion, but someone has to put a stake
+> > into the ground. Keeping a virtually dead architecture on life support
+> > takes resources which are better spent elsewhere.
+> 
+> Agree. You may add my Acked-by.
+> How do you plan to get this upstream? Do I need to take the watchdog in my tree or do you plan to keep the set of patches together in one tree?
+> 
+My plan is create a branch on my repository on kernel.org, ask Stephen
+to add it to linux-next, and then ask Linus to pull it after one
+release cycle (ie for 3.13). This should give people enough time
+to find out about it and complain, and give everyone else enough time
+to find any missing pieces.
 
-Huh?  This patch was never part of any series.  There are no references
-or numbering in it.  I sent it as a standalone patch because the fix wa=
-s
-different and not depending on the other addr_assign_type changes.
+I would not mind if Linus would agree to pull it right away for 3.12,
+but that seems to be a bit on the fast side.
 
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Guenter
