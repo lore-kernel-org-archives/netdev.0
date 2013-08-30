@@ -1,48 +1,75 @@
-From: Rob Herring <rob.herring@calxeda.com>
-Subject: Re: [PATCH] xgmac: use bufsz not dma_buf_sz in rx_refill
-Date: Thu, 29 Aug 2013 22:17:56 -0500
-Message-ID: <52200EE4.9020600@calxeda.com>
-References: <20130829201151.GJ8764@redacted.bos.redhat.com> <20130829.163437.1817937756134021051.davem@davemloft.net> <20130829203523.GL8764@redacted.bos.redhat.com> <20130829.163835.1514973445858189297.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 6/6] vhost_net: remove the max pending check
+Date: Fri, 30 Aug 2013 11:23:07 +0800
+Message-ID: <5220101B.3020108@redhat.com>
+References: <1376630190-5912-1-git-send-email-jasowang@redhat.com>
+	<1376630190-5912-7-git-send-email-jasowang@redhat.com>
+	<20130816100225.GD21821@redhat.com> <5212D8F2.10307@redhat.com>
+	<52172395.9000400@redhat.com> <20130825115344.GB1829@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kmcmarti@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp141.iad.emailsrvr.com ([207.97.245.141]:54461 "EHLO
-	smtp141.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab3H3DR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:17:58 -0400
-In-Reply-To: <20130829.163835.1514973445858189297.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130825115344.GB1829@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2013 03:38 PM, David Miller wrote:
-> From: Kyle McMartin <kmcmarti@redhat.com>
-> Date: Thu, 29 Aug 2013 16:35:23 -0400
-> 
->> On Thu, Aug 29, 2013 at 04:34:37PM -0400, David Miller wrote:
->>> From: Kyle McMartin <kyle@redhat.com>
->>> Date: Thu, 29 Aug 2013 16:11:51 -0400
+On 08/25/2013 07:53 PM, Michael S. Tsirkin wrote:
+> On Fri, Aug 23, 2013 at 04:55:49PM +0800, Jason Wang wrote:
+>> On 08/20/2013 10:48 AM, Jason Wang wrote:
+>>> On 08/16/2013 06:02 PM, Michael S. Tsirkin wrote:
+>>>>> On Fri, Aug 16, 2013 at 01:16:30PM +0800, Jason Wang wrote:
+>>>>>>> We used to limit the max pending DMAs to prevent guest from pinning too many
+>>>>>>> pages. But this could be removed since:
+>>>>>>>
+>>>>>>> - We have the sk_wmem_alloc check in both tun/macvtap to do the same work
+>>>>>>> - This max pending check were almost useless since it was one done when there's
+>>>>>>>   no new buffers coming from guest. Guest can easily exceeds the limitation.
+>>>>>>> - We've already check upend_idx != done_idx and switch to non zerocopy then. So
+>>>>>>>   even if all vq->heads were used, we can still does the packet transmission.
+>>>>> We can but performance will suffer.
+>>> The check were in fact only done when no new buffers submitted from
+>>> guest. So if guest keep sending, the check won't be done.
 >>>
->>>> Noticed while debugging another issue that DMA debug turned up, looks
->>>> like commit ef468d23 missed a case when switching to bufsz instead of
->>>> priv->dma_buf_sz? (tbf, the whole handling of DMA buffers seems slightly
->>>> suspect since we're not tracking the size, but trusting the hardware
->>>> between map and unmap...)
->>>>
->>>> Signed-off-by: Kyle McMartin <kyle@redhat.com>
->>>
->>> Applied and queued up for -stable, thanks.
+>>> If we really want to do this, we should do it unconditionally. Anyway, I
+>>> will do test to see the result.
+>> There's a bug in PATCH 5/6, the check:
 >>
->> Heh, too fast David, Rob nak'd it. :)
+>> nvq->upend_idx != nvq->done_idx
 >>
->> Sorry about that.
-> 
-> If Rob had resubmitted his series in a timely manner this wouldn't
-> have happened.
+>> makes the zerocopy always been disabled since we initialize both
+>> upend_idx and done_idx to zero. So I change it to:
+>>
+>> (nvq->upend_idx + 1) % UIO_MAXIOV != nvq->done_idx.
+> But what I would really like to try is limit ubuf_info to VHOST_MAX_PEND.
+> I think this has a chance to improve performance since
+> we'll be using less cache.
+> Of course this means we must fix the code to really never submit
+> more than VHOST_MAX_PEND requests.
+>
+> Want to try?
 
-I was giving them more time hoping to have some feedback from Lennert.
-Anyways, I've just resubmitted v2 which addresses Ben's comments.
+The result is, I see about 5%-10% improvement for per cpu throughput on
+guest tx. But about 5% degradation on per cpu transaction rate on TCP_RR.
+>> With this change on top, I didn't see performance difference w/ and w/o
+>> this patch.
+> Did you try small message sizes btw (like 1K)? Or just netperf
+> default of 64K?
+>
 
-Rob
+5%-10% improvement on for per cpu throughput on guest rx, but some
+regressions (5%) on guest tx. So we'd better keep and make it doing
+properly.
+
+Will post V2 for your reviewing.
