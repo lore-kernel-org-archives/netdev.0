@@ -1,55 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] bridge: separate querier and query timer
- into IGMP/IPv4 and MLD/IPv6 ones
-Date: Fri, 30 Aug 2013 15:29:02 -0400 (EDT)
-Message-ID: <20130830.152902.1277686222231900490.davem@davemloft.net>
-References: <20130828.200831.289304393401193657.davem@davemloft.net>
-	<1377876497-6185-1-git-send-email-linus.luessing@web.de>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
+Date: Fri, 30 Aug 2013 12:37:40 -0700
+Message-ID: <20130830193740.GA13101@roeck-us.net>
+References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
+ <20130830184611.GA27455@spo001.leaseweb.com>
+ <20130830191146.GA12090@roeck-us.net>
+ <CA+55aFyxHsKhtqqz9jTDYo89bCNqCWhjHGJ4HzFrHnJ0yxLXjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	linux@baker-net.org.uk, stephen@networkplumber.org,
-	herbert@gondor.apana.org.au
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1377876497-6185-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wim Van Sebroeck <wim@iguana.be>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	IDE-ML <linux-ide@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Watchdog Mailing List <linux-watchdog@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eric Paris <eparis@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiang Liu <jiang.liu@huawei.com>,
+	David Howells <dhowells@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFyxHsKhtqqz9jTDYo89bCNqCWhjHGJ4HzFrHnJ0yxLXjQ@mail.gmail.com>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Fri, 30 Aug 2013 17:28:17 +0200
+On Fri, Aug 30, 2013 at 12:14:20PM -0700, Linus Torvalds wrote:
+> On Fri, Aug 30, 2013 at 12:11 PM, Guenter Roeck <linux@roeck-us.net> wrote:
+> >
+> > I would not mind if Linus would agree to pull it right away for 3.12,
+> > but that seems to be a bit on the fast side.
+> 
+> I'm ok with code deletion patches, I don't think that would be a
+> problem. I didn't check them, but I assume this is all literally just
+> removing code that is conditional on h8/300 config options?
+> 
+Yes.
 
-> Currently we would still potentially suffer multicast packet loss if =
-there
-> is just either an IGMP or an MLD querier: For the former case, we wou=
-ld
-> possibly drop IPv6 multicast packets, for the latter IPv4 ones. This =
-is
-> because we are currently assuming that if either an IGMP or MLD queri=
-er
-> is present that the other one is present, too.
-> =
+I found a couple more since I sent the series, but nothing significant.
 
-> This patch makes the behaviour and fix added in
-> "bridge: disable snooping if there is no querier" (b00589af3b04)
-> to also work if there is either just an IGMP or an MLD querier on the=
+What is your preference - keep it until 3.13, or prepare it now and send you
+a pull request for 3.12 ?
 
-> link: It refines the deactivation of the snooping to be protocol
-> specific by using separate timers for the snooped IGMP and MLD querie=
-s
-> as well as separate timers for our internal IGMP and MLD queriers.
-> =
-
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-Looks great, applied, thanks.
+Thanks,
+Guenter
