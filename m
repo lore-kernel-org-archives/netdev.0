@@ -1,140 +1,161 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: 3.11-rc7:BUG: soft lockup
-Date: Fri, 30 Aug 2013 20:18:05 +0800
-Message-ID: <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com>
-References: <522055D7.70002@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Baoquan He <baoquan.he@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <522055D7.70002@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 30 Aug 2013 05:38:59 -0700
+Message-ID: <1377866347-23846-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:40314 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756052Ab3H3MjK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 08:39:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cc'ing netdev
+This series implements the new i40e driver for Intel's upcoming
+Intel(R) Ethernet Controller XL710 Family of devices.
 
-On Fri, Aug 30, 2013 at 4:20 PM, Baoquan He <baoquan.he@gmail.com> wrote:
-> Hi,
->
-> I tried the 3.11.0-rc7+ on x86_64, and after bootup, the soft lockup bug
-> happened.
->
-> [   48.895000] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
-> [   48.901191] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
-> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
-> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
-> [   48.950034] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
-> 3.11.0-rc7+ #1
-> [   48.957433] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
-> BIOS J61 v01.02 03/09/2012
-> [   48.966131] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
-> ffff8804187d2000
-> [   48.973610] RIP: 0010:[<ffffffff812e57a7>]  [<ffffffff812e57a7>]
-> strcmp+0x27/0x40
-> [   48.981119] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000246
-> [   48.986430] RAX: 0000000000000000 RBX: 00007fffda942730 RCX:
-> ffff8804187d3fd8
-> [   48.993566] RDX: 0000000000000000 RSI: ffff8804187d3e01 RDI:
-> ffffffff81cb8a39
-> [   49.000707] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
-> 0000000000000000
-> [   49.007841] R10: 0000000000000163 R11: 0000000000000000 R12:
-> ffffffff8128300c
-> [   49.014972] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
-> 0000000000000004
-> [   49.022112] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
-> knlGS:0000000000000000
-> [   49.030194] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   49.035942] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
-> 00000000000407e0
-> [   49.043077] Stack:
-> [   49.045096]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
-> ffffffff81cb8180
-> [   49.052559]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
-> ffffffffa02497a9
-> [   49.060020]  0000000000000000 00007265746c6966 0000003f0d7b92c0
-> 00007fffda942850
-> [   49.067487] Call Trace:
-> [   49.069949]  [<ffffffffa0249674>]
-> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
-> [   49.077779]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
-> [   49.084306]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
-> [   49.089717]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
-> [   49.095113]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
-> [   49.100588]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
-> [   49.106766]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
-> [   49.112257]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
-> [   49.118260] Code: 00 00 00 00 55 48 89 e5 eb 0e 66 2e 0f 1f 84 00 00
-> 00 00 00 84 c0 74 1c 48 83 c7 01 0f b6 47 ff 48 83 c6 01 3a 46 ff 74 eb
-> 19 c0 <83> c8 01 5d c3 0f 1
-> [   76.925880] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
-> [   76.932069] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
-> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
-> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
-> [   76.980847] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
-> 3.11.0-rc7+ #1
-> [   76.988245] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
-> BIOS J61 v01.02 03/09/2012
-> [   76.996940] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
-> ffff8804187d2000
-> [   77.004426] RIP: 0010:[<ffffffff812e5784>]  [<ffffffff812e5784>]
-> strcmp+0x4/0x40
-> [   77.011849] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000212
-> [   77.017163] RAX: 0000000000000001 RBX: 00007fffda942730 RCX:
-> ffff8804187d3fd8
-> [   77.024304] RDX: 0000000000000000 RSI: ffff8804187d3e00 RDI:
-> ffffffff81cb8a38
-> [   77.031434] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
-> 0000000000000000
-> [   77.038566] R10: 0000000000000163 R11: 0000000000000000 R12:
-> ffffffff8128300c
-> [   77.045699] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
-> 0000000000000004
-> [   77.052842] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
-> knlGS:0000000000000000
-> [   77.060934] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   77.066668] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
-> 00000000000407e0
-> [   77.073799] Stack:
-> [   77.075818]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
-> ffffffff81cb8180
-> [   77.083287]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
-> ffffffffa02497a9
-> [   77.090749]  0000000000000000 00007265746c6966 0000003f0d7b92c0
-> 00007fffda942850
-> [   77.098215] Call Trace:
-> [   77.100668]  [<ffffffffa0249674>]
-> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
-> [   77.108500]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
-> [   77.115035]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
-> [   77.120438]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
-> [   77.125845]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
-> [   77.131328]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
-> [   77.137515]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
-> [   77.143011]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
-> [   77.149019] Code: 0f 1f 80 00 00 00 00 48 83 c6 01 0f b6 4e ff 48 83
-> c2 01 84 c9 88 4a ff 75 ed 5d c3 66 66 2e 0f 1f 84 00 00 00 00 00 55 48
-> 89 e5 <eb> 0e 66 2e 0f 1f 8
+V1: initial send
+V2: each patch has individual comments, in general, feedback from the
+    list was applied and addressed. Many changes due to internal review
+    and coding as well.
+V3: many more individual comments addressed, thanks reviewers!  Many
+    other changes due to internal review and development.
 
+Let me start by saying thanks and we appreciate any time spent by
+those of you who review and comment on this new driver, and we will
+attempt to address and respond to all issues brought to our attention.
 
-Does the following patch help?
+Jesse tried to break the patches up to ease review, but the series should
+apply and still be bisectable, as the last patch adds the driver to
+the kernel compile with CONFIG_I40E.
 
+This driver is for a brand new bit of silicon that has a different
+design than other Intel Ethernet silicon, and therefore needed a new
+driver.
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index ac78024..4a0ec8f 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1503,6 +1503,10 @@ static int do_ebt_get_ctl(struct sock *sk, int
-cmd, void __user *user, int *len)
-        if (copy_from_user(&tmp, user, sizeof(tmp)))
-                return -EFAULT;
+The hardware has quite a bit of capability and this driver is only
+meant to provide basic functionality at first.  Future patches will
+continue to add functionality and bug fixes.
 
-+       if (memscan(tmp.name, '\0', EBT_TABLE_MAXNAMELEN) ==
-+                   (tmp.name + EBT_TABLE_MAXNAMELEN))
-+               return -EINVAL;
-+
-        t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
-        if (!t)
-                return ret;
+This initial release is very early in the product cycle with the intent
+of getting initial support into the kernel before users have the
+hardware available to purchase.  A software development manual is not
+ready yet but will be available when the hardware ships.
+
+V3: To be clear, the driver development model and interaction with
+community submitted patches *will not be any different* than what
+we are currently doing today.
+
+This driver *does* use some code (as our previous drivers do) that is
+meant to be shared to different OS drivers.  One of the following
+patches has the majority of this code in it, and is clearly called out
+in the commit message.
+
+An associated i40evf driver will follow in the future.
+
+List of tools we ran in preparation:
+sparse clean
+make W=1, W=2 clean
+checkpatch (almost) clean
+	total: 3 errors, 33 warnings, 31481 lines checked
+	NOTE: Ignored message types: LONG_LINE
+	- issues have been addressed and the remainders
+	  are noise.
+codespell clean
+smatch (almost) clean with a couple minor warnings
+coccicheck clean
+namespacecheck clean
+allmodconfig clean
+ppc64 build clean (unable to test yet)
+
+This driver is a team effort, thank you to Joseph Gasparakis,
+Shannon Nelson, Anjali Singhai-Jain, Mitch Williams, Neerav
+Parikh, Vasu Dev, Yi Zou, and PJ Waskiewicz.
+
+TODO (known issues)
+BQL implementation
+finish rtnl_stat64 locking (we have a patch but debugging it)
+
+The following are changes since commit ede23fa8161c1a04aa1b3bf5447812ca14b3fef1:
+  drivers:net: Convert dma_alloc_coherent(...__GFP_ZERO) to dma_zalloc_coherent
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Jesse Brandeburg (8):
+  i40e: main driver core
+  i40e: transmit, receive, and napi
+  i40e: driver ethtool core
+  i40e: driver core headers
+  i40e: implement virtual device interface
+  i40e: init code and hardware support
+  i40e: sysfs and debugfs interfaces
+  i40e: include i40e in kernel proper
+
+ Documentation/networking/00-INDEX                  |    2 +
+ Documentation/networking/i40e.txt                  |  115 +
+ MAINTAINERS                                        |    3 +-
+ drivers/net/ethernet/intel/Kconfig                 |   18 +
+ drivers/net/ethernet/intel/Makefile                |    1 +
+ drivers/net/ethernet/intel/i40e/Kbuild             |   45 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |  570 ++
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  976 +++
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  112 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 2077 ++++++
+ drivers/net/ethernet/intel/i40e/i40e_alloc.h       |   59 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 2039 ++++++
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 2205 ++++++
+ drivers/net/ethernet/intel/i40e/i40e_diag.c        |  133 +
+ drivers/net/ethernet/intel/i40e/i40e_diag.h        |   52 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 1455 ++++
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c         |  370 +
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h         |  245 +
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     | 1007 +++
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h     |  169 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 7489 ++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  391 +
+ drivers/net/ethernet/intel/i40e/i40e_osdep.h       |   85 +
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  243 +
+ drivers/net/ethernet/intel/i40e/i40e_register.h    | 4688 ++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_status.h      |  101 +
+ drivers/net/ethernet/intel/i40e/i40e_sysfs.c       |  627 ++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 1820 +++++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  259 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        | 1157 +++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  368 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2426 +++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  121 +
+ 33 files changed, 31427 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/i40e.txt
+ create mode 100644 drivers/net/ethernet/intel/i40e/Kbuild
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_adminq.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_adminq.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_alloc.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_common.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_diag.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_diag.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_hmc.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_hmc.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_main.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_nvm.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_osdep.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_prototype.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_register.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_status.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_sysfs.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_txrx.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_txrx.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_type.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+
+-- 
+1.8.3.1
