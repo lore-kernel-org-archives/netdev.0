@@ -1,58 +1,51 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: VLAN filtering/VLAN aware bridge problems
-Date: Fri, 30 Aug 2013 09:24:59 +0200
-Message-ID: <522048CB.1090000@profihost.ag>
-References: <521F4393.1020907@profihost.ag> <521FB2E3.6060508@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 net-next] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier
+ for xfrm tunnel mode callback
+Date: Fri, 30 Aug 2013 09:38:01 +0200
+Message-ID: <20130830073801.GH7660@secunet.com>
+References: <1377673780-9778-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.hengli.com.au, saurabh.mohan@vyatta.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:52594 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467Ab3H3HZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 03:25:10 -0400
-In-Reply-To: <521FB2E3.6060508@redhat.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:48014 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751625Ab3H3HiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 03:38:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1377673780-9778-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 29.08.2013 22:45, schrieb Vlad Yasevich:
-> On 08/29/2013 08:50 AM, Stefan Priebe - Profihost AG wrote:
-
->> The packets never reach the TAP device.
->>
->> Here is an output of ip a l (vlan 3021):
+On Wed, Aug 28, 2013 at 03:09:40PM +0800, Fan Du wrote:
+> Some thoughts on IPv4 VTI implementation:
 > 
-> Can you provide output of brctl show?
-
-Sure:
-# brctl show
-bridge name     bridge id               STP enabled     interfaces
-vmbr0           8000.00259084dea8       no              bond0
-                                                        tap320i0
-vmbr1           8000.00259084deaa       no              bond1
-vmbr1v3021              8000.00259084deaa       no              tap320i1
-                                                        vmbr1.3021
-
-
-> On the off chance that you are actually trying to configure vlan
-> filtering, can you give this patch a try (net-2.6 tree):
+> The connection between VTI receiving part and xfrm tunnel mode input process
+> is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g ipip/sit
+> and xfrm4_tunnel, acts like a true "tunnel" device.
 > 
-> Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Date:   Tue Aug 20 17:10:18 2013 +0900
+> In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as all
+> VTI needs is just a notifier to be called whenever xfrm_input ingress a packet
+> to update statistics.
 > 
->     bridge: Use the correct bit length for bitmap functions in the VLAN
-> code
+> A IPsec protected packet is first handled by protocol handlers, e.g AH/ESP,
+> to check packet authentication or encryption rightness. PMTU update is taken
+> care of in this stage by protocol error handler.
 > 
-> I don't think it made it to stable yet.
+> Then the packet is rearranged properly depending on whether it's transport
+> mode or tunnel mode packed by mode "input" handler. The VTI handler code
+> takes effects in this stage in tunnel mode only. So it neither need propagate
+> PMTU, as it has already been done if necessary, nor the VTI handler is
+> qualified as a xfrm_tunnel. 
+> 
+> So this patch introduces xfrm_tunnel_notifier and meanwhile wipe out vti_err
+> code.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
 
-I addd that patch and now the vlan stuff works at least on the host
-node. But my tap devices still don't work.
-
-I also tried to attach the tap device on top of a vlan attached to bond1
-but then gvrp does not work anymore. The kernel announces gvrp once and
-then does not answer the query packets from the switch.
-
-Stefan
+Applied to ipsec-next, thanks a lot!
