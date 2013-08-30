@@ -1,54 +1,27 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] sh_eth: no need to call ether_setup()
-Date: Fri, 30 Aug 2013 12:49:58 +0900
-Message-ID: <20130830034957.GC17800@verge.net.au>
-References: <201308300024.48415.sergei.shtylyov@cogentembedded.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] drivers:net: Convert
+ dma_alloc_coherent(...__GFP_ZERO) to dma_zalloc_coherent
+Date: Thu, 29 Aug 2013 21:14:32 -0700
+Message-ID: <1377836072.1928.137.camel@joe-AO722>
+References: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
+	 <1377582323.2658.10.camel@joe-AO722>
+	 <20130829.220926.226210132086755040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60707 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941Ab3H3DuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 23:50:04 -0400
-Content-Disposition: inline
-In-Reply-To: <201308300024.48415.sergei.shtylyov@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, linux-wireless@vger.kernel.org,
+	b43-dev@lists.infradead.org, users@rt2x00.serialmonkey.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130829.220926.226210132086755040.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 30, 2013 at 12:24:47AM +0400, Sergei Shtylyov wrote:
-> There's no need to call ether_setup() in the driver since prior alloc_etherdev()
-> call already arranges for it.
-> 
-> Suggested-by: Denis Kirjanov <kda@linux-powerpc.org>
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On Thu, 2013-08-29 at 22:09 -0400, David Miller wrote:
+> Applied, thanks a lot Joe.
 
+Too bad I didn't know there was a dma_zalloc_coherent
+the first time...
 
-Reviewed-by: Simon Horman <horms+renesas@verge.net.au>
-
-> 
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c |    3 ---
->  1 file changed, 3 deletions(-)
-> 
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2639,9 +2639,6 @@ static int sh_eth_drv_probe(struct platf
->  
->  	SET_NETDEV_DEV(ndev, &pdev->dev);
->  
-> -	/* Fill in the fields of the device structure with ethernet values. */
-> -	ether_setup(ndev);
-> -
->  	mdp = netdev_priv(ndev);
->  	mdp->num_tx_ring = TX_RING_SIZE;
->  	mdp->num_rx_ring = RX_RING_SIZE;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+cheers, Joe
