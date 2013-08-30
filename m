@@ -1,51 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tipc: set sk_err correctly when connection fails
-Date: Fri, 30 Aug 2013 16:07:30 -0400 (EDT)
-Message-ID: <20130830.160730.2177121530101785269.davem@davemloft.net>
-References: <1377674998-18872-1-git-send-email-erik.hugne@ericsson.com>
-	<521F62AE.40101@windriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 06/11] net: calxedaxgmac: fix race with tx queue
+ stop/wake
+Date: Fri, 30 Aug 2013 18:12:46 +0100
+Message-ID: <1377882766.2065.18.camel@bwh-desktop.uk.level5networks.com>
+References: <1377832428-18117-1-git-send-email-robherring2@gmail.com>
+	 <1377832428-18117-6-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	ying.xue@windriver.com, jon.maloy@ericsson.com,
-	tipc-discussion@lists.sourceforge.net, nhan.tt.vo@dektech.com.au
-To: paul.gortmaker@windriver.com
+Cc: <netdev@vger.kernel.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	"Rob Herring" <rob.herring@calxeda.com>
+To: Rob Herring <robherring2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336Ab3H3UHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 16:07:34 -0400
-In-Reply-To: <521F62AE.40101@windriver.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43094 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525Ab3H3VKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:10:18 -0400
+In-Reply-To: <1377832428-18117-6-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Thu, 29 Aug 2013 11:03:10 -0400
-
-> On 13-08-28 03:29 AM, erik.hugne@ericsson.com wrote:
->> From: Erik Hugne <erik.hugne@ericsson.com>
->> 
->> Should a connect fail, if the publication/server is unavailable or
->> due to some other error, a positive value will be returned and errno
->> is never set. If the application code checks for an explicit zero
->> return from connect (success) or a negative return (failure), it
->> will not catch the error and subsequent send() calls will fail as
->> shown from the strace snippet below.
->> 
->> socket(0x1e /* PF_??? */, SOCK_SEQPACKET, 0) = 3
->> connect(3, {sa_family=0x1e /* AF_??? */, sa_data="\2\1\322\4\0\0\322\4\0\0\0\0\0\0"}, 16) = 111
->> sendto(3, "test", 4, 0, NULL, 0)        = -1 EPIPE (Broken pipe)
->> 
->> The reason for this behaviour is that TIPC wrongly inverts error
->> codes set in sk_err.
->> 
->> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
->> ---
->> 
->> [v2: add more details to commit message]
+On Thu, 2013-08-29 at 22:13 -0500, Rob Herring wrote:
+> From: Rob Herring <rob.herring@calxeda.com>
 > 
-> Thanks -- this now conveys the required triplet: 1) user visible symptom,
-> 2) underlying technical cause, and 3) the why and how of the fix.
+> Since the xgmac transmit start and completion work locklessly, it is
+> possible for xgmac_xmit to stop the tx queue after the xgmac_tx_complete
+> has run resulting in the tx queue never being woken up. Fix this by
+> ensuring that ring buffer index updates are visible and recheck the ring
+> space after stopping the queue.
+> 
+> The implementation used here was copied from
+> drivers/net/ethernet/broadcom/tg3.c.
+> 
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+> ---
+> v2:
+> - drop netif_tx_lock
+> - use netif_start_queue instead of netif_wake_queue
+[...]
+> @@ -1125,10 +1130,15 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	priv->tx_head = dma_ring_incr(entry, DMA_TX_RING_SZ);
+>  
+> -	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
+> -	    MAX_SKB_FRAGS)
+> +	/* Ensure tx_head update is visible to tx completion */
+> +	smp_mb();
+> +	if (unlikely(tx_dma_ring_space(priv) < MAX_SKB_FRAGS)) {
+[...]
 
-Applied and queued up for -stable, thanks everyone.
+On re-reading, I see there's an off-by-one bug lingering here.  You use
+up to 1 + MAX_SKB_FRAGS descriptors per skb.  So you must stop the queue
+when the ring space is <= MAX_SKB_FRAGS.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
