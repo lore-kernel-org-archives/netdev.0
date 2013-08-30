@@ -1,39 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [RFC PATCH net-next 0/7] IPv6 MLD updates
-Date: Fri, 30 Aug 2013 18:58:21 +0200
-Message-ID: <1377881908-8022-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next 2/6] bonding: remove the no effect lock for bond_3ad_lacpdu_recv()
+Date: Fri, 30 Aug 2013 10:07:38 -0700
+Message-ID: <5220D15A.1070308@hp.com>
+References: <52206E3F.6090007@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6256 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756773Ab3H3Q6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 12:58:30 -0400
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:38119 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547Ab3H3RHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 13:07:40 -0400
+In-Reply-To: <52206E3F.6090007@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If there are no further objections, I'll send out the non-RFC version on
-Monday after some more testing. That's just a heads up. This set includes
-my improved fix from yesterday as well besides other things.
+On 08/30/2013 03:04 AM, Ding Tianhong wrote:
+> There is no pointer needed read lock protection, remove the unnecessary lock
+> and improve performance for the 3ad recv path.
 
-Thanks!
+Improve performance by how much?  For example, by how much is service 
+demand lower on a netperf TCP_STREAM or TCP_RR test through a bond.  I 
+suppose that applies not only to this specific patch to to the set as a 
+whole.
 
-Daniel Borkmann (7):
-  net: ipv6: mld: fix v1/v2 switchback timeout to rfc3810, 9.12.
-  net: ipv6: mld: clean up MLD_V1_SEEN macro
-  net: ipv6: mld: get rid of MLDV2_MRC and simplify calculation
-  net: ipv6: mld: implement RFC3810 MLDv2 mode only
-  net: ipv6: mld: restrict min/max of sysctl force_mld_version
-  net: ipv6: mld: similarly to MLDv2 have min max_delay of 1
-  net: ipv6: mld: document force_mld_version in ip-sysctl.txt
+rick jones
 
- Documentation/networking/ip-sysctl.txt |   5 ++
- include/net/if_inet6.h                 |   9 +-
- include/net/mld.h                      |  51 +++++++++--
- net/bridge/br_multicast.c              |   3 +-
- net/ipv6/addrconf.c                    |   7 +-
- net/ipv6/mcast.c                       | 159 +++++++++++++++++++++++++++------
- 6 files changed, 195 insertions(+), 39 deletions(-)
 
--- 
-1.7.11.7
+>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+>   drivers/net/bonding/bond_3ad.c | 2 --
+>   1 file changed, 2 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index 7a3860f..c134f43 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -2494,9 +2494,7 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+>   	if (!lacpdu)
+>   		return ret;
+>
+> -	read_lock(&bond->lock);
+>   	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
+> -	read_unlock(&bond->lock);
+>   	return ret;
+>   }
+>
+>
