@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
-Date: Fri, 30 Aug 2013 17:54:57 -0400 (EDT)
-Message-ID: <20130830.175457.2230524537752247474.davem@davemloft.net>
-References: <1377261869.3364.3.camel@bwh-desktop.uk.level5networks.com>
-	<20130829082514.GB14334@elgon.mountain>
+Subject: Re: [PATCH net] net: bridge: convert MLDv2 Query MRC into
+ msecs_to_jiffies for max_delay
+Date: Fri, 30 Aug 2013 17:57:14 -0400 (EDT)
+Message-ID: <20130830.175714.561284513170389446.davem@davemloft.net>
+References: <1377813305-11058-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
-	fabio.estevam@freescale.com, Frank.Li@freescale.com,
-	jim_baxter@mentor.com, B38611@freescale.com,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	devicetree@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, linus.luessing@web.de,
+	hannes@stressinduktion.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58145 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58180 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791Ab3H3Vy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:54:59 -0400
-In-Reply-To: <20130829082514.GB14334@elgon.mountain>
+	with ESMTP id S1754870Ab3H3V5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 17:57:16 -0400
+In-Reply-To: <1377813305-11058-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 29 Aug 2013 11:25:14 +0300
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 29 Aug 2013 23:55:05 +0200
 
-> My static checker complains that on some arches unsigned longs can be 8
-> characters which is larger than the buffer is only 6 chars.
-> Additionally, Ben Hutchings points out that the buffer actually holds
-> big endian data and the buffer we are reading from is CPU endian.
+> While looking into MLDv1/v2 code, I noticed that bridging code does
+> not convert it's max delay into jiffies for MLDv2 messages as we do
+> in core IPv6' multicast code.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: fix endian annotations and reverse the beXX_to_cpu() calls so that
->     they say cpu_to_beXX().
+> RFC3810, 5.1.3. Maximum Response Code says:
+> 
+>   The Maximum Response Code field specifies the maximum time allowed
+>   before sending a responding Report. The actual time allowed, called
+>   the Maximum Response Delay, is represented in units of milliseconds,
+>   and is derived from the Maximum Response Code as follows: [...]
+> 
+> As we update timers that work with jiffies, we need to convert it.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
