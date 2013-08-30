@@ -1,65 +1,65 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2 net-next 9/9] staging: vt6655: inherit addr_assign_type
- along with dev_addr
-Date: Fri, 30 Aug 2013 18:08:52 +0200
-Message-ID: <1377878932-26881-10-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH v2 net-next 7/9] net: hostap: inherit addr_assign_type along with dev_addr
+Date: Fri, 30 Aug 2013 18:08:50 +0200
+Message-ID: <1377878932-26881-8-git-send-email-bjorn@mork.no>
 References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Forest Bond <forest@alittletooquiet.net>,
- =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1377878932-26881-1-git-send-email-bjorn@mork.no>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jouni Malinen <j@w1.fi>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1377878932-26881-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-QSBkZXZpY2UgaW5oZXJpdGluZyBhIHJhbmRvbSBvciBzZXQgYWRkcmVzcyBzaG91bGQgcmVmbGVj
-dCB0aGlzIGluCml0cyBhZGRyX2Fzc2lnbl90eXBlLgoKQ2M6IEZvcmVzdCBCb25kIDxmb3Jlc3RA
-YWxpdHRsZXRvb3F1aWV0Lm5ldD4KU2lnbmVkLW9mZi1ieTogQmrDuHJuIE1vcmsgPGJqb3JuQG1v
-cmsubm8+Ci0tLQogZHJpdmVycy9zdGFnaW5nL3Z0NjY1NS9ob3N0YXAuYyB8ICAgIDIgKy0KIGRy
-aXZlcnMvc3RhZ2luZy92dDY2NTUvaW9jdGwuYyAgfCAgICAyICstCiBkcml2ZXJzL3N0YWdpbmcv
-dnQ2NjU1L3dwYWN0bC5jIHwgICAgMiArLQogMyBmaWxlcyBjaGFuZ2VkLCAzIGluc2VydGlvbnMo
-KyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFnaW5nL3Z0NjY1NS9o
-b3N0YXAuYyBiL2RyaXZlcnMvc3RhZ2luZy92dDY2NTUvaG9zdGFwLmMKaW5kZXggNTdhMDhjNS4u
-OGFjZmY0NCAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3Z0NjY1NS9ob3N0YXAuYworKysg
-Yi9kcml2ZXJzL3N0YWdpbmcvdnQ2NjU1L2hvc3RhcC5jCkBAIC04Niw3ICs4Niw3IEBAIHN0YXRp
-YyBpbnQgaG9zdGFwX2VuYWJsZV9ob3N0YXBkKFBTRGV2aWNlIHBEZXZpY2UsIGludCBydG5sX2xv
-Y2tlZCkKIAogCWFwZGV2X3ByaXYgPSBuZXRkZXZfcHJpdihwRGV2aWNlLT5hcGRldik7CiAJKmFw
-ZGV2X3ByaXYgPSAqcERldmljZTsKLQltZW1jcHkocERldmljZS0+YXBkZXYtPmRldl9hZGRyLCBk
-ZXYtPmRldl9hZGRyLCBFVEhfQUxFTik7CisJZXRoX2h3X2FkZHJfaW5oZXJpdChwRGV2aWNlLT5h
-cGRldiwgZGV2KTsKIAogCXBEZXZpY2UtPmFwZGV2LT5uZXRkZXZfb3BzID0gJmFwZGV2X25ldGRl
-dl9vcHM7CiAKZGlmZiAtLWdpdCBhL2RyaXZlcnMvc3RhZ2luZy92dDY2NTUvaW9jdGwuYyBiL2Ry
-aXZlcnMvc3RhZ2luZy92dDY2NTUvaW9jdGwuYwppbmRleCA0NmUwZTQxLi5iNWNkMmU0IDEwMDY0
-NAotLS0gYS9kcml2ZXJzL3N0YWdpbmcvdnQ2NjU1L2lvY3RsLmMKKysrIGIvZHJpdmVycy9zdGFn
-aW5nL3Z0NjY1NS9pb2N0bC5jCkBAIC00NjAsNyArNDYwLDcgQEAgaW50IHByaXZhdGVfaW9jdGwo
-UFNEZXZpY2UgcERldmljZSwgc3RydWN0IGlmcmVxICpycSkKIAkJfQogCQlpZiAoc1ZhbHVlLmR3
-VmFsdWUgPT0gMSkgewogCQkJREJHX1BSVChNU0dfTEVWRUxfREVCVUcsIEtFUk5fSU5GTyAidXAg
-d3BhZGV2XG4iKTsKLQkJCW1lbWNweShwRGV2aWNlLT53cGFkZXYtPmRldl9hZGRyLCBwRGV2aWNl
-LT5kZXYtPmRldl9hZGRyLCBFVEhfQUxFTik7CisJCQlldGhfaHdfYWRkcl9pbmhlcml0KHBEZXZp
-Y2UtPndwYWRldiwgcERldmljZS0+ZGV2KTsKIAkJCXBEZXZpY2UtPmJXUEFERVZVcCA9IHRydWU7
-CiAJCX0gZWxzZSB7CiAJCQlEQkdfUFJUKE1TR19MRVZFTF9ERUJVRywgS0VSTl9JTkZPICJjbG9z
-ZSB3cGFkZXZcbiIpOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFnaW5nL3Z0NjY1NS93cGFjdGwu
-YyBiL2RyaXZlcnMvc3RhZ2luZy92dDY2NTUvd3BhY3RsLmMKaW5kZXggODY5ZjYyYy4uZThkOWVj
-ZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3Z0NjY1NS93cGFjdGwuYworKysgYi9kcml2
-ZXJzL3N0YWdpbmcvdnQ2NjU1L3dwYWN0bC5jCkBAIC05Niw3ICs5Niw3IEBAIHN0YXRpYyBpbnQg
-d3BhX2luaXRfd3BhZGV2KFBTRGV2aWNlIHBEZXZpY2UpCiAKIAl3cGFkZXZfcHJpdiA9IG5ldGRl
-dl9wcml2KHBEZXZpY2UtPndwYWRldik7CiAJKndwYWRldl9wcml2ID0gKnBEZXZpY2U7Ci0JbWVt
-Y3B5KHBEZXZpY2UtPndwYWRldi0+ZGV2X2FkZHIsIGRldi0+ZGV2X2FkZHIsIEVUSF9BTEVOKTsK
-KwlldGhfaHdfYWRkcl9pbmhlcml0KHBEZXZpY2UtPndwYWRldiwgZGV2KTsKIAlwRGV2aWNlLT53
-cGFkZXYtPmJhc2VfYWRkciA9IGRldi0+YmFzZV9hZGRyOwogCXBEZXZpY2UtPndwYWRldi0+aXJx
-ID0gZGV2LT5pcnE7CiAJcERldmljZS0+d3BhZGV2LT5tZW1fc3RhcnQgPSBkZXYtPm1lbV9zdGFy
-dDsKLS0gCjEuNy4xMC40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpkZXZlbCBtYWlsaW5nIGxpc3QKZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZwpo
-dHRwOi8vZHJpdmVyZGV2LmxpbnV4ZHJpdmVycHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
-cml2ZXJkZXYtZGV2ZWwK
+A device inheriting a random or set address should reflect this in
+its addr_assign_type.
+
+Cc: Jouni Malinen <j@w1.fi>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/wireless/hostap/hostap_hw.c   |    2 +-
+ drivers/net/wireless/hostap/hostap_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wire=
+less/hostap/hostap_hw.c
+index 6307a4e..c275dc1 100644
+--- a/drivers/net/wireless/hostap/hostap_hw.c
++++ b/drivers/net/wireless/hostap/hostap_hw.c
+@@ -1425,7 +1425,7 @@ static int prism2_hw_init2(struct net_device *dev=
+, int initial)
+ 		}
+ 		list_for_each(ptr, &local->hostap_interfaces) {
+ 			iface =3D list_entry(ptr, struct hostap_interface, list);
+-			memcpy(iface->dev->dev_addr, dev->dev_addr, ETH_ALEN);
++			eth_hw_addr_inherit(iface->dev, dev);
+ 		}
+ 	} else if (local->fw_ap)
+ 		prism2_check_sta_fw_version(local);
+diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wi=
+reless/hostap/hostap_main.c
+index e4f56ad..a1257c9 100644
+--- a/drivers/net/wireless/hostap/hostap_main.c
++++ b/drivers/net/wireless/hostap/hostap_main.c
+@@ -66,7 +66,7 @@ struct net_device * hostap_add_interface(struct local=
+_info *local,
+ 	list_add(&iface->list, &local->hostap_interfaces);
+=20
+ 	mdev =3D local->dev;
+-	memcpy(dev->dev_addr, mdev->dev_addr, ETH_ALEN);
++	eth_hw_addr_inherit(dev, mdev);
+ 	dev->base_addr =3D mdev->base_addr;
+ 	dev->irq =3D mdev->irq;
+ 	dev->mem_start =3D mdev->mem_start;
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
