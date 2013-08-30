@@ -1,7 +1,7 @@
 From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Subject: Re: VLAN filtering/VLAN aware bridge problems
-Date: Fri, 30 Aug 2013 17:01:04 +0200
-Message-ID: <D45CE0BB-B748-4203-B48C-0D4EC2824768@profihost.ag>
+Date: Fri, 30 Aug 2013 17:01:10 +0200
+Message-ID: <2036307B-46CC-40F6-ACE0-93A08BDEE0B9@profihost.ag>
 References: <521F4393.1020907@profihost.ag> <521FB2E3.6060508@redhat.com> <522048CB.1090000@profihost.ag> <5220A895.5040501@redhat.com>
 Mime-Version: 1.0 (1.0)
 Content-Type: text/plain;
@@ -11,10 +11,10 @@ Cc: David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: "vyasevic@redhat.com" <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:46430 "EHLO
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:46370 "EHLO
 	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627Ab3H3PBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 11:01:07 -0400
+	with ESMTP id S1752627Ab3H3PBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 11:01:11 -0400
 In-Reply-To: <5220A895.5040501@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
