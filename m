@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers:net: Convert
- dma_alloc_coherent(...__GFP_ZERO) to dma_zalloc_coherent
-Date: Thu, 29 Aug 2013 22:09:26 -0400 (EDT)
-Message-ID: <20130829.220926.226210132086755040.davem@davemloft.net>
-References: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
-	<1377582323.2658.10.camel@joe-AO722>
+Subject: Re: [PATCH net-next] qdisc: allow setting default queuing
+ discipline
+Date: Thu, 29 Aug 2013 22:23:48 -0400 (EDT)
+Message-ID: <20130829.222348.1264641492942426245.davem@davemloft.net>
+References: <20130827161908.26062336@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, users@rt2x00.serialmonkey.com
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377582323.2658.10.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752113Ab3H3CXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Aug 2013 22:23:54 -0400
+In-Reply-To: <20130827161908.26062336@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 26 Aug 2013 22:45:23 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 27 Aug 2013 16:19:08 -0700
 
-> __GFP_ZERO is an uncommon flag and perhaps is better
-> not used.  static inline dma_zalloc_coherent exists
-> so convert the uses of dma_alloc_coherent with __GFP_ZERO
-> to the more common kernel style with zalloc.
+> By default, the pfifo_fast queue discipline has been used by default
+> for all devices. But we have better choices now.
 > 
-> Remove memset from the static inline dma_zalloc_coherent
-> and add just one use of __GFP_ZERO instead.
+> This patch allow setting the default queueing discipline with sysctl.
+> This allows easy use of better queueing disciplines on all devices
+> without having to use tc qdisc scripts. It is intended to allow
+> an easy path for distributions to make fq_codel or sfq the default
+> qdisc.
 > 
-> Trivially reduces the size of the existing uses of
-> dma_zalloc_coherent.
+> This patch also makes pfifo_fast more of a first class qdisc, since
+> it is now possible to manually override the default and explicitly
+> use pfifo_fast. The behavior for systems who do not use the sysctl
+> is unchanged, they still get pfifo_fast
 > 
-> Realign arguments as appropriate.
+> Also removes leftover random # in sysctl net core.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks a lot Joe.
+Applied, thanks Stpehen.
