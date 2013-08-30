@@ -1,214 +1,127 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [iproute2 PATCH] iproute2: linklayer interface between kernel and
- tc/userspace
-Date: Fri, 30 Aug 2013 14:02:10 +0200
-Message-ID: <20130830120210.1510.80733.stgit@localhost>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: Fix reported number of sent bytes to BQL
+Date: Fri, 30 Aug 2013 15:01:15 +0300
+Message-ID: <1377864075-19491-1-git-send-email-claudiu.manoil@freescale.com>
+References: <1367251193.8964.326.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62986 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751616Ab3H3MCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 08:02:13 -0400
+Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:30655
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755569Ab3H3MD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 08:03:27 -0400
+In-Reply-To: <1367251193.8964.326.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This iproute2 tc patch is connected to the kernel
- - commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
+Fix the amount of sent bytes reported to BQL by reporting the
+number of bytes on wire in the xmit routine, and recording that
+value for each skb in order to be correctly confirmed on Tx
+confirmation cleanup.
 
-The rate table calculated by tc, have gotten replaced in the kernel
-and is no-longer used for lookups.
+Reporting skb->len to BQL just before exiting xmit is not correct
+due to possible insertions of TOE block and alignment bytes in the
+skb->data, which are being stripped off by the controller before
+transmission on wire.  This led to mismatch of (incorrectly)
+reported bytes to BQL b/w xmit and Tx confirmation, resulting in
+Tx timeout firing, for the h/w tx timestamping acceleration case.
 
-This happened in kernel release v3.8 caused by kernel
- - commit 56b765b79 ("htb: improved accuracy at high rates").
-This change unfortunately caused breakage of tc overhead and
-linklayer parameters.
+There's no easy way to obtain the number of bytes on wire in the Tx
+confirmation routine, so skb->cb is used to convey that information
+from xmit to Tx confirmation, for now (as proposed by Eric). Revived
+the currently unused GFAR_CB() construct for that purpose.
 
- Kernel overhead handling got fixed in kernel v3.10 by
- - commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
- Kernel linklayer handling got fixed in kernel v3.11 by
- - commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
-
-The linklayer fix introduced a struct change, that allow the linklayer
-attribute to be transferred between tc and kernel. This patch make use
-of this linklayer attribute.
-
-The linklayer setting is transfer to the kernel.  And linklayer
-setting received from the kernel is printed with a prefixed
-"linklayer" when listing current configuration.  The default
-TC_LINKLAYER_ETHERNET is only printed in detailed output mode.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/pkt_sched.h |   10 +++++++++-
- tc/m_police.c             |    5 +++++
- tc/q_cbq.c                |    5 +++++
- tc/q_htb.c                |    5 +++++
- tc/q_tbf.c                |    5 +++++
- tc/tc_core.c              |   16 ++++++++++++++++
- 6 files changed, 45 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/gianfar.c | 18 +++++++++++-------
+ drivers/net/ethernet/freescale/gianfar.h |  2 +-
+ 2 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index dbd71b0..09d62b9 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -73,9 +73,17 @@ struct tc_estimator {
- #define TC_H_ROOT	(0xFFFFFFFFU)
- #define TC_H_INGRESS    (0xFFFFFFF1U)
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index b2c91dc..c4eaade 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2092,7 +2092,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int do_tstamp, do_csum, do_vlan;
+ 	u32 bufaddr;
+ 	unsigned long flags;
+-	unsigned int nr_frags, nr_txbds, length, fcb_len = 0;
++	unsigned int nr_frags, nr_txbds, bytes_sent, fcb_len = 0;
  
-+/* Need to corrospond to iproute2 tc/tc_core.h "enum link_layer" */
-+enum tc_link_layer {
-+	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
-+	TC_LINKLAYER_ETHERNET,
-+	TC_LINKLAYER_ATM,
-+};
-+#define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
-+
- struct tc_ratespec {
- 	unsigned char	cell_log;
--	unsigned char	__reserved;
-+	__u8		linklayer; /* lower 4 bits */
- 	unsigned short	overhead;
- 	short		cell_align;
- 	unsigned short	mpu;
-diff --git a/tc/m_police.c b/tc/m_police.c
-index 53cbefc..300287e 100644
---- a/tc/m_police.c
-+++ b/tc/m_police.c
-@@ -322,9 +322,11 @@ int
- print_police(struct action_util *a, FILE *f, struct rtattr *arg)
- {
- 	SPRINT_BUF(b1);
-+	SPRINT_BUF(b2);
- 	struct tc_police *p;
- 	struct rtattr *tb[TCA_POLICE_MAX+1];
- 	unsigned buffer;
-+	unsigned int linklayer;
- 
- 	if (arg == NULL)
- 		return 0;
-@@ -360,6 +362,9 @@ print_police(struct action_util *a, FILE *f, struct rtattr *arg)
- 	} else
- 		fprintf(f, " ");
- 	fprintf(f, "overhead %ub ", p->rate.overhead);
-+	linklayer = (p->rate.linklayer & TC_LINKLAYER_MASK);
-+	if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
-+		fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b2));
- 	fprintf(f, "\nref %d bind %d\n",p->refcnt, p->bindcnt);
- 
- 	return 0;
-diff --git a/tc/q_cbq.c b/tc/q_cbq.c
-index 3c5e72c..d76600c 100644
---- a/tc/q_cbq.c
-+++ b/tc/q_cbq.c
-@@ -442,7 +442,9 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	struct tc_cbq_wrropt *wrr = NULL;
- 	struct tc_cbq_fopt *fopt = NULL;
- 	struct tc_cbq_ovl *ovl = NULL;
-+	unsigned int linklayer;
- 	SPRINT_BUF(b1);
-+	SPRINT_BUF(b2);
- 
- 	if (opt == NULL)
- 		return 0;
-@@ -486,6 +488,9 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		char buf[64];
- 		print_rate(buf, sizeof(buf), r->rate);
- 		fprintf(f, "rate %s ", buf);
-+		linklayer = (r->linklayer & TC_LINKLAYER_MASK);
-+		if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
-+			fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b2));
- 		if (show_details) {
- 			fprintf(f, "cell %ub ", 1<<r->cell_log);
- 			if (r->mpu)
-diff --git a/tc/q_htb.c b/tc/q_htb.c
-index 9321c0a..7b6f908 100644
---- a/tc/q_htb.c
-+++ b/tc/q_htb.c
-@@ -244,9 +244,11 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	struct tc_htb_opt *hopt;
- 	struct tc_htb_glob *gopt;
- 	double buffer,cbuffer;
-+	unsigned int linklayer;
- 	SPRINT_BUF(b1);
- 	SPRINT_BUF(b2);
- 	SPRINT_BUF(b3);
-+	SPRINT_BUF(b4);
- 
- 	if (opt == NULL)
- 		return 0;
-@@ -268,6 +270,9 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		buffer = tc_calc_xmitsize(hopt->rate.rate, hopt->buffer);
- 		fprintf(f, "ceil %s ", sprint_rate(hopt->ceil.rate, b1));
- 		cbuffer = tc_calc_xmitsize(hopt->ceil.rate, hopt->cbuffer);
-+		linklayer = (hopt->rate.linklayer & TC_LINKLAYER_MASK);
-+		if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
-+			fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b4));
- 		if (show_details) {
- 			fprintf(f, "burst %s/%u mpu %s overhead %s ",
- 				sprint_size(buffer, b1),
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index 72cfff6..34784a4 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -239,10 +239,12 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
- 	struct rtattr *tb[TCA_TBF_PTAB+1];
- 	struct tc_tbf_qopt *qopt;
-+	unsigned int linklayer;
- 	double buffer, mtu;
- 	double latency;
- 	SPRINT_BUF(b1);
- 	SPRINT_BUF(b2);
-+	SPRINT_BUF(b3);
- 
- 	if (opt == NULL)
- 		return 0;
-@@ -294,6 +296,9 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (qopt->rate.overhead) {
- 		fprintf(f, "overhead %d", qopt->rate.overhead);
+ 	rq = skb->queue_mapping;
+ 	tx_queue = priv->tx_queue[rq];
+@@ -2147,7 +2147,10 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
-+	linklayer = (qopt->rate.linklayer & TC_LINKLAYER_MASK);
-+	if (linklayer > TC_LINKLAYER_ETHERNET || show_details)
-+		fprintf(f, "linklayer %s ", sprint_linklayer(linklayer, b3));
  
- 	return 0;
- }
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 85b072e..a524337 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -102,6 +102,21 @@ static unsigned tc_adjust_size(unsigned sz, unsigned mpu, enum link_layer linkla
+ 	/* Update transmit stats */
+-	tx_queue->stats.tx_bytes += skb->len;
++	bytes_sent = skb->len;
++	tx_queue->stats.tx_bytes += bytes_sent;
++	/* keep Tx bytes on wire for BQL accounting */
++	GFAR_CB(skb)->bytes_sent = bytes_sent;
+ 	tx_queue->stats.tx_packets++;
+ 
+ 	txbdp = txbdp_start = tx_queue->cur_tx;
+@@ -2167,12 +2170,13 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	} else {
+ 		/* Place the fragment addresses and lengths into the TxBDs */
+ 		for (i = 0; i < nr_frags; i++) {
++			unsigned int frag_len;
+ 			/* Point at the next BD, wrapping as needed */
+ 			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+ 
+-			length = skb_shinfo(skb)->frags[i].size;
++			frag_len = skb_shinfo(skb)->frags[i].size;
+ 
+-			lstatus = txbdp->lstatus | length |
++			lstatus = txbdp->lstatus | frag_len |
+ 				  BD_LFLAG(TXBD_READY);
+ 
+ 			/* Handle the last BD specially */
+@@ -2182,7 +2186,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			bufaddr = skb_frag_dma_map(priv->dev,
+ 						   &skb_shinfo(skb)->frags[i],
+ 						   0,
+-						   length,
++						   frag_len,
+ 						   DMA_TO_DEVICE);
+ 
+ 			/* set the TxBD length and buffer pointer */
+@@ -2250,7 +2254,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
  	}
- }
  
-+/* Notice, the rate table calculated here, have gotten replaced in the
-+ * kernel and is no-longer used for lookups.
-+ *
-+ * This happened in kernel release v3.8 caused by kernel
-+ *  - commit 56b765b79 ("htb: improved accuracy at high rates").
-+ * This change unfortunately caused breakage of tc overhead and
-+ * linklayer parameters.
-+ *
-+ * Kernel overhead handling got fixed in kernel v3.10 by
-+ * - commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
-+ *
-+ * Kernel linklayer handling got fixed in kernel v3.11 by
-+ * - commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
-+ */
-+
- /*
-    rtab[pkt_len>>cell_log] = pkt_xmit_time
-  */
-@@ -131,6 +146,7 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab,
+-	netdev_tx_sent_queue(txq, skb->len);
++	netdev_tx_sent_queue(txq, bytes_sent);
  
- 	r->cell_align=-1; // Due to the sz calc
- 	r->cell_log=cell_log;
-+	r->linklayer = (linklayer & TC_LINKLAYER_MASK);
- 	return cell_log;
- }
+ 	/* We can work in parallel with gfar_clean_tx_ring(), except
+ 	 * when modifying num_txbdfree. Note that we didn't grab the lock
+@@ -2570,7 +2574,7 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 			bdp = next_txbd(bdp, base, tx_ring_size);
+ 		}
  
+-		bytes_sent += skb->len;
++		bytes_sent += GFAR_CB(skb)->bytes_sent;
+ 
+ 		dev_kfree_skb_any(skb);
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 46f56f3..04112b9 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -575,7 +575,7 @@ struct rxfcb {
+ };
+ 
+ struct gianfar_skb_cb {
+-	int alignamount;
++	unsigned int bytes_sent; /* bytes-on-wire (i.e. no FCB) */
+ };
+ 
+ #define GFAR_CB(skb) ((struct gianfar_skb_cb *)((skb)->cb))
+-- 
+1.7.11.7
