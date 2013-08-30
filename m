@@ -1,127 +1,140 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH][net-next] gianfar: Fix reported number of sent bytes to BQL
-Date: Fri, 30 Aug 2013 15:01:15 +0300
-Message-ID: <1377864075-19491-1-git-send-email-claudiu.manoil@freescale.com>
-References: <1367251193.8964.326.camel@edumazet-glaptop>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: 3.11-rc7:BUG: soft lockup
+Date: Fri, 30 Aug 2013 20:18:05 +0800
+Message-ID: <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com>
+References: <522055D7.70002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:30655
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755569Ab3H3MD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Aug 2013 08:03:27 -0400
-In-Reply-To: <1367251193.8964.326.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Baoquan He <baoquan.he@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <522055D7.70002@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix the amount of sent bytes reported to BQL by reporting the
-number of bytes on wire in the xmit routine, and recording that
-value for each skb in order to be correctly confirmed on Tx
-confirmation cleanup.
+Cc'ing netdev
 
-Reporting skb->len to BQL just before exiting xmit is not correct
-due to possible insertions of TOE block and alignment bytes in the
-skb->data, which are being stripped off by the controller before
-transmission on wire.  This led to mismatch of (incorrectly)
-reported bytes to BQL b/w xmit and Tx confirmation, resulting in
-Tx timeout firing, for the h/w tx timestamping acceleration case.
+On Fri, Aug 30, 2013 at 4:20 PM, Baoquan He <baoquan.he@gmail.com> wrote:
+> Hi,
+>
+> I tried the 3.11.0-rc7+ on x86_64, and after bootup, the soft lockup bug
+> happened.
+>
+> [   48.895000] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
+> [   48.901191] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
+> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
+> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
+> [   48.950034] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
+> 3.11.0-rc7+ #1
+> [   48.957433] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
+> BIOS J61 v01.02 03/09/2012
+> [   48.966131] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
+> ffff8804187d2000
+> [   48.973610] RIP: 0010:[<ffffffff812e57a7>]  [<ffffffff812e57a7>]
+> strcmp+0x27/0x40
+> [   48.981119] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000246
+> [   48.986430] RAX: 0000000000000000 RBX: 00007fffda942730 RCX:
+> ffff8804187d3fd8
+> [   48.993566] RDX: 0000000000000000 RSI: ffff8804187d3e01 RDI:
+> ffffffff81cb8a39
+> [   49.000707] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
+> 0000000000000000
+> [   49.007841] R10: 0000000000000163 R11: 0000000000000000 R12:
+> ffffffff8128300c
+> [   49.014972] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
+> 0000000000000004
+> [   49.022112] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
+> knlGS:0000000000000000
+> [   49.030194] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   49.035942] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
+> 00000000000407e0
+> [   49.043077] Stack:
+> [   49.045096]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
+> ffffffff81cb8180
+> [   49.052559]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
+> ffffffffa02497a9
+> [   49.060020]  0000000000000000 00007265746c6966 0000003f0d7b92c0
+> 00007fffda942850
+> [   49.067487] Call Trace:
+> [   49.069949]  [<ffffffffa0249674>]
+> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
+> [   49.077779]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
+> [   49.084306]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
+> [   49.089717]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
+> [   49.095113]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
+> [   49.100588]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
+> [   49.106766]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
+> [   49.112257]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
+> [   49.118260] Code: 00 00 00 00 55 48 89 e5 eb 0e 66 2e 0f 1f 84 00 00
+> 00 00 00 84 c0 74 1c 48 83 c7 01 0f b6 47 ff 48 83 c6 01 3a 46 ff 74 eb
+> 19 c0 <83> c8 01 5d c3 0f 1
+> [   76.925880] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
+> [   76.932069] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
+> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
+> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
+> [   76.980847] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
+> 3.11.0-rc7+ #1
+> [   76.988245] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
+> BIOS J61 v01.02 03/09/2012
+> [   76.996940] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
+> ffff8804187d2000
+> [   77.004426] RIP: 0010:[<ffffffff812e5784>]  [<ffffffff812e5784>]
+> strcmp+0x4/0x40
+> [   77.011849] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000212
+> [   77.017163] RAX: 0000000000000001 RBX: 00007fffda942730 RCX:
+> ffff8804187d3fd8
+> [   77.024304] RDX: 0000000000000000 RSI: ffff8804187d3e00 RDI:
+> ffffffff81cb8a38
+> [   77.031434] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
+> 0000000000000000
+> [   77.038566] R10: 0000000000000163 R11: 0000000000000000 R12:
+> ffffffff8128300c
+> [   77.045699] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
+> 0000000000000004
+> [   77.052842] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
+> knlGS:0000000000000000
+> [   77.060934] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   77.066668] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
+> 00000000000407e0
+> [   77.073799] Stack:
+> [   77.075818]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
+> ffffffff81cb8180
+> [   77.083287]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
+> ffffffffa02497a9
+> [   77.090749]  0000000000000000 00007265746c6966 0000003f0d7b92c0
+> 00007fffda942850
+> [   77.098215] Call Trace:
+> [   77.100668]  [<ffffffffa0249674>]
+> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
+> [   77.108500]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
+> [   77.115035]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
+> [   77.120438]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
+> [   77.125845]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
+> [   77.131328]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
+> [   77.137515]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
+> [   77.143011]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
+> [   77.149019] Code: 0f 1f 80 00 00 00 00 48 83 c6 01 0f b6 4e ff 48 83
+> c2 01 84 c9 88 4a ff 75 ed 5d c3 66 66 2e 0f 1f 84 00 00 00 00 00 55 48
+> 89 e5 <eb> 0e 66 2e 0f 1f 8
 
-There's no easy way to obtain the number of bytes on wire in the Tx
-confirmation routine, so skb->cb is used to convey that information
-from xmit to Tx confirmation, for now (as proposed by Eric). Revived
-the currently unused GFAR_CB() construct for that purpose.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+Does the following patch help?
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 18 +++++++++++-------
- drivers/net/ethernet/freescale/gianfar.h |  2 +-
- 2 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index b2c91dc..c4eaade 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2092,7 +2092,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int do_tstamp, do_csum, do_vlan;
- 	u32 bufaddr;
- 	unsigned long flags;
--	unsigned int nr_frags, nr_txbds, length, fcb_len = 0;
-+	unsigned int nr_frags, nr_txbds, bytes_sent, fcb_len = 0;
- 
- 	rq = skb->queue_mapping;
- 	tx_queue = priv->tx_queue[rq];
-@@ -2147,7 +2147,10 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/* Update transmit stats */
--	tx_queue->stats.tx_bytes += skb->len;
-+	bytes_sent = skb->len;
-+	tx_queue->stats.tx_bytes += bytes_sent;
-+	/* keep Tx bytes on wire for BQL accounting */
-+	GFAR_CB(skb)->bytes_sent = bytes_sent;
- 	tx_queue->stats.tx_packets++;
- 
- 	txbdp = txbdp_start = tx_queue->cur_tx;
-@@ -2167,12 +2170,13 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	} else {
- 		/* Place the fragment addresses and lengths into the TxBDs */
- 		for (i = 0; i < nr_frags; i++) {
-+			unsigned int frag_len;
- 			/* Point at the next BD, wrapping as needed */
- 			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
- 
--			length = skb_shinfo(skb)->frags[i].size;
-+			frag_len = skb_shinfo(skb)->frags[i].size;
- 
--			lstatus = txbdp->lstatus | length |
-+			lstatus = txbdp->lstatus | frag_len |
- 				  BD_LFLAG(TXBD_READY);
- 
- 			/* Handle the last BD specially */
-@@ -2182,7 +2186,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			bufaddr = skb_frag_dma_map(priv->dev,
- 						   &skb_shinfo(skb)->frags[i],
- 						   0,
--						   length,
-+						   frag_len,
- 						   DMA_TO_DEVICE);
- 
- 			/* set the TxBD length and buffer pointer */
-@@ -2250,7 +2254,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
- 	}
- 
--	netdev_tx_sent_queue(txq, skb->len);
-+	netdev_tx_sent_queue(txq, bytes_sent);
- 
- 	/* We can work in parallel with gfar_clean_tx_ring(), except
- 	 * when modifying num_txbdfree. Note that we didn't grab the lock
-@@ -2570,7 +2574,7 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 			bdp = next_txbd(bdp, base, tx_ring_size);
- 		}
- 
--		bytes_sent += skb->len;
-+		bytes_sent += GFAR_CB(skb)->bytes_sent;
- 
- 		dev_kfree_skb_any(skb);
- 
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 46f56f3..04112b9 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -575,7 +575,7 @@ struct rxfcb {
- };
- 
- struct gianfar_skb_cb {
--	int alignamount;
-+	unsigned int bytes_sent; /* bytes-on-wire (i.e. no FCB) */
- };
- 
- #define GFAR_CB(skb) ((struct gianfar_skb_cb *)((skb)->cb))
--- 
-1.7.11.7
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index ac78024..4a0ec8f 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1503,6 +1503,10 @@ static int do_ebt_get_ctl(struct sock *sk, int
+cmd, void __user *user, int *len)
+        if (copy_from_user(&tmp, user, sizeof(tmp)))
+                return -EFAULT;
+
++       if (memscan(tmp.name, '\0', EBT_TABLE_MAXNAMELEN) ==
++                   (tmp.name + EBT_TABLE_MAXNAMELEN))
++               return -EINVAL;
++
+        t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+        if (!t)
+                return ret;
