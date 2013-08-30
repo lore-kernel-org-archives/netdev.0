@@ -1,48 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
-Date: Fri, 30 Aug 2013 14:30:20 -0400 (EDT)
-Message-ID: <20130830.143020.1246803952303746167.davem@davemloft.net>
-References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
-	<20130830165550.GA8151@kroah.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH V2 4/6] vhost_net: determine whether or not to use zerocopy
+	at one time
+Date: Fri, 30 Aug 2013 22:35:50 +0400
+Message-ID: <5220E606.8010008@cogentembedded.com>
+References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
+	<1377836962-49780-5-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: linux@roeck-us.net, linux-kernel@vger.kernel.org,
-	linux-ide@vger.kernel.org, netdev@vger.kernel.org,
-	linux-watchdog@vger.kernel.org, wim@iguana.be,
-	viro@zeniv.linux.org.uk, eparis@redhat.com, jiang.liu@huawei.com,
-	dhowells@redhat.com, tglx@linutronix.de, sfr@canb.auug.org.au,
-	torvalds@linux-foundation.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130830165550.GA8151@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1377836962-49780-5-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 30 Aug 2013 09:55:50 -0700
+Hello.
 
-> On Fri, Aug 30, 2013 at 09:40:35AM -0700, Guenter Roeck wrote:
->> H8/300 has been dead for several years, the kernel for it has
->> not compiled for ages, and recent versions of gcc for it are broken.
->> It is time to drop support for it.
->> 
->> Yes, I understand it is not that simple to drop an architecture,
->> and it may need some discussion, but someone has to put a stake
->> into the ground. Keeping a virtually dead architecture on life support
->> takes resources which are better spent elsewhere.
-> 
-> If this doesn't build, and no one is using it anymore, I agree, it
-> should be removed.  If someone wants to revive it, 'git revert' works
-> just fine.
-> 
-> You can put my:
-> 
-> Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> 
-> on these patches, unless someone steps up to be the active maintainer of
-> the arch and gets it building/working again.
+On 08/30/2013 08:29 AM, Jason Wang wrote:
 
-I completely agree with Greg, and for the IDE and networking bits:
+> Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
+> upend_idx != done_idx we still set zcopy_used to true and rollback this choice
+> later. This could be avoided by determine zerocopy once by checking all
+> conditions at one time before.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/vhost/net.c |   46 +++++++++++++++++++---------------------------
+>   1 files changed, 19 insertions(+), 27 deletions(-)
+
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 8a6dd0d..ff60c2a 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -404,43 +404,35 @@ static void handle_tx(struct vhost_net *net)
+>   			       iov_length(nvq->hdr, s), hdr_size);
+>   			break;
+>   		}
+> -		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
+> -				       nvq->upend_idx != nvq->done_idx);
+> +
+> +		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+> +			&& (nvq->upend_idx + 1) % UIO_MAXIOV != nvq->done_idx
+> +			&& vhost_net_tx_select_zcopy(net);
+
+    Could you leave && on a first of two lines, matching the previous style?
+
+>
+>   		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+>   		if (zcopy_used) {
+> +			struct ubuf_info *ubuf;
+> +			ubuf = nvq->ubuf_info + nvq->upend_idx;
+> +
+>   			vq->heads[nvq->upend_idx].id = head;
+[...]
+> +			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
+> +			ubuf->callback = vhost_zerocopy_callback;
+> +			ubuf->ctx = nvq->ubufs;
+> +			ubuf->desc = nvq->upend_idx;
+> +			msg.msg_control = ubuf;
+> +			msg.msg_controllen = sizeof(ubuf);
+
+    'sizeof(ubuf)' where 'ubuf' is a pointer? Are you sure it shouldn't be 
+'sizeof(*ubuf)'?
+
+WBR, Sergei
