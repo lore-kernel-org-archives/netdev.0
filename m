@@ -1,53 +1,99 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
-Date: Fri, 30 Aug 2013 12:00:49 +0300
-Message-ID: <20130830090049.GJ19256@mwanda>
-References: <20130829082514.GB14334@elgon.mountain>
- <1377802138.5372.12.camel@bwh-desktop.uk.level5networks.com>
- <9848F2DB572E5649BA045B288BE08FBE01662A4B@039-SN2MPN1-021.039d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Duan Fugang-B38611 <B38611@freescale.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01662A4B@039-SN2MPN1-021.039d.mgd.msft.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf 0/5] IPVS fixes for v3.11
+Date: Fri, 30 Aug 2013 18:14:23 +0900
+Message-ID: <1377854068-22340-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 30, 2013 at 02:02:00AM +0000, Duan Fugang-B38611 wrote:
-> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> Data: Friday, August 30, 2013 2:49 AM
-> 
-> > To: Dan Carpenter
-> > Cc: Grant Likely; Rob Herring; David S. Miller; Estevam Fabio-R49496; Li
-> > Frank-B20596; Jim Baxter; Duan Fugang-B38611; netdev@vger.kernel.org;
-> > devicetree@vger.kernel.org; kernel-janitors@vger.kernel.org
-> > Subject: Re: [patch v2] net/fec: cleanup types in fec_get_mac()
-> > 
-> > On Thu, 2013-08-29 at 11:25 +0300, Dan Carpenter wrote:
-> > > My static checker complains that on some arches unsigned longs can be
-> > > 8 characters which is larger than the buffer is only 6 chars.
-> > > Additionally, Ben Hutchings points out that the buffer actually holds
-> > > big endian data and the buffer we are reading from is CPU endian.
-> > 
-> > It's not really as clear-cut as that. :-)  But I think it's slightly more
-> > logical this way.
-> > 
-> Yes, it is not clear, pls remove somebody's name from the commit log.
+Hi Pablo,
 
-Huh?  No, I'm going to leave Ben's name as is.  It's weird that you
-would ask for that.
+I'm not sure if it is too late in the cycle but
+if not could you please consider these fixes for v3.11?
 
-regards,
-dan carpenter
+In my opinion these all seem to be -stable candidates.
+I would appreciate your opinion on that.
+
+
+The following changes since commit e75dc677ff8d06ffa61bef6fee436227ae5440c6:
+
+  hso: Fix stack corruption on some architectures (2013-08-21 20:47:59 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.11
+
+for you to fetch changes up to d5af9df3233d4cb2e7c9011af86ed53cdd12a136:
+
+  ipvs: fix overflow on dest weight multiply (2013-08-30 17:52:03 +0900)
+
+----------------------------------------------------------------
+Fixes for IPVS for v3.11
+
+* Fix overflow in LBLC and LBLCR schedulers.
+
+  This resolves a regression introduced by commit b552f7e3a9524abcbcdf
+  ("ipvs: unify the formula to estimate the overhead of processing
+  connections").
+
+  This problem was introduced in v2.6.38
+
+* Correct stats calculation in the absence of CPU 0 in the possible mask
+
+  This resolves a regression introduced by commit 17fc9963f837ef1
+  ("IPVS: netns, ip_vs_stats and its procfs").
+
+  This problem was introduced in v2.6.38
+
+* Make the service replacement more robust
+
+  This resolves a regression introduced by commit 578bc3ef1e473a
+  ("ipvs: reorganize dest trash")
+
+  This problem was introduced in 3.9
+
+* Do not use dest after ip_vs_dest_put in LBLCR
+
+  This resolves a regression introduced by commit c5549571f975ab
+  ("ipvs: convert lblcr scheduler to rcu")
+
+  This problem was introduced in 3.9
+
+* Do not use dest after ip_vs_dest_put in LBLC
+
+  This resolves a regression introduced by commit 2a4ffb70eef39
+  ("ipvs: convert lblc scheduler to rcu")
+
+  This problem was introduced in 3.9
+
+----------------------------------------------------------------
+Julian Anastasov (4):
+      ipvs: do not use dest after ip_vs_dest_put in LBLC
+      ipvs: do not use dest after ip_vs_dest_put in LBLCR
+      ipvs: make the service replacement more robust
+      ipvs: stats should not depend on CPU 0
+
+Simon Kirby (1):
+      ipvs: fix overflow on dest weight multiply
+
+ include/net/ip_vs.h              |  8 ++--
+ net/netfilter/ipvs/ip_vs_core.c  | 12 +++++-
+ net/netfilter/ipvs/ip_vs_ctl.c   | 90 ++++++++++++++++------------------------
+ net/netfilter/ipvs/ip_vs_est.c   |  4 +-
+ net/netfilter/ipvs/ip_vs_lblc.c  | 72 +++++++++++++++-----------------
+ net/netfilter/ipvs/ip_vs_lblcr.c | 62 ++++++++++++---------------
+ net/netfilter/ipvs/ip_vs_nq.c    |  8 ++--
+ net/netfilter/ipvs/ip_vs_sed.c   |  8 ++--
+ net/netfilter/ipvs/ip_vs_wlc.c   |  6 +--
+ 9 files changed, 121 insertions(+), 149 deletions(-)
+
+
+
+-- 
+1.8.4
 
