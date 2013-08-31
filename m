@@ -1,120 +1,258 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v11 07/11] vxlan: add ipv6 route short circuit support
-Date: Sat, 31 Aug 2013 11:07:24 +0800
-Message-ID: <1377918448-29888-8-git-send-email-amwang@redhat.com>
+Subject: [PATCH net-next v11 10/11] ipv6: Add generic UDP Tunnel segmentation
+Date: Sat, 31 Aug 2013 11:07:27 +0800
+Message-ID: <1377918448-29888-11-git-send-email-amwang@redhat.com>
 References: <1377918448-29888-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43464 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:8015 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755802Ab3HaDIF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 23:08:05 -0400
+	id S1756238Ab3HaDIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 23:08:17 -0400
 In-Reply-To: <1377918448-29888-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-route short circuit only has IPv4 part, this patch adds
-the IPv6 part. nd_tbl will be needed.
+Similar to commit 731362674580cb0c696cd1b1a03d8461a10cf90a
+(tunneling: Add generic Tunnel segmentation)
 
+This patch adds generic tunneling offloading support for
+IPv6-UDP based tunnels.
+
+This can be used by tunneling protocols like VXLAN.
+
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: David S. Miller <davem@davemloft.net>
-Cc: David Stevens <dlstevens@us.ibm.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/vxlan.c    |   30 ++++++++++++++++++++++++++++--
- include/net/addrconf.h |    1 +
- net/ipv6/af_inet6.c    |    1 +
- 3 files changed, 30 insertions(+), 2 deletions(-)
+ net/ipv6/ip6_offload.c |    4 +-
+ net/ipv6/udp_offload.c |  159 ++++++++++++++++++++++++++++++++---------------
+ 2 files changed, 111 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index faf131e..c833763 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1200,7 +1200,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct neighbour *n;
--	struct iphdr *pip;
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index a263b99..d82de72 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -91,6 +91,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	unsigned int unfrag_ip6hlen;
+ 	u8 *prevhdr;
+ 	int offset = 0;
++	bool tunnel;
  
- 	if (is_multicast_ether_addr(eth_hdr(skb)->h_dest))
- 		return false;
-@@ -1208,6 +1207,9 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- 	n = NULL;
- 	switch (ntohs(eth_hdr(skb)->h_proto)) {
- 	case ETH_P_IP:
-+	{
-+		struct iphdr *pip;
+ 	if (unlikely(skb_shinfo(skb)->gso_type &
+ 		     ~(SKB_GSO_UDP |
+@@ -106,6 +107,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+ 		goto out;
+ 
++	tunnel = skb->encapsulation;
+ 	ipv6h = ipv6_hdr(skb);
+ 	__skb_pull(skb, sizeof(*ipv6h));
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+@@ -126,7 +128,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		ipv6h = ipv6_hdr(skb);
+ 		ipv6h->payload_len = htons(skb->len - skb->mac_len -
+ 					   sizeof(*ipv6h));
+-		if (proto == IPPROTO_UDP) {
++		if (!tunnel && proto == IPPROTO_UDP) {
+ 			unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+ 			fptr = (struct frag_hdr *)(skb_network_header(skb) +
+ 				unfrag_ip6hlen);
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 5d1b8d7..7e5e5ac 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -21,26 +21,79 @@ static int udp6_ufo_send_check(struct sk_buff *skb)
+ 	const struct ipv6hdr *ipv6h;
+ 	struct udphdr *uh;
+ 
+-	/* UDP Tunnel offload on ipv6 is not yet supported. */
+-	if (skb->encapsulation)
+-		return -EINVAL;
+-
+ 	if (!pskb_may_pull(skb, sizeof(*uh)))
+ 		return -EINVAL;
+ 
+-	ipv6h = ipv6_hdr(skb);
+-	uh = udp_hdr(skb);
++	if (likely(!skb->encapsulation)) {
++		ipv6h = ipv6_hdr(skb);
++		uh = udp_hdr(skb);
 +
- 		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
- 			return false;
- 		pip = ip_hdr(skb);
-@@ -1223,6 +1225,29 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- 		}
- 
- 		break;
++		uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
++					     IPPROTO_UDP, 0);
++		skb->csum_start = skb_transport_header(skb) - skb->head;
++		skb->csum_offset = offsetof(struct udphdr, check);
++		skb->ip_summed = CHECKSUM_PARTIAL;
 +	}
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case ETH_P_IPV6:
-+	{
-+		struct ipv6hdr *pip6;
+ 
+-	uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
+-				     IPPROTO_UDP, 0);
+-	skb->csum_start = skb_transport_header(skb) - skb->head;
+-	skb->csum_offset = offsetof(struct udphdr, check);
+-	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	return 0;
+ }
+ 
++static struct sk_buff *skb_udp6_tunnel_segment(struct sk_buff *skb,
++					       netdev_features_t features)
++{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	int mac_len = skb->mac_len;
++	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
++	int outer_hlen;
++	netdev_features_t enc_features;
 +
-+		if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
-+			return false;
-+		pip6 = ipv6_hdr(skb);
-+		n = neigh_lookup(ipv6_stub->nd_tbl, &pip6->daddr, dev);
-+		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
-+			union vxlan_addr ipa = {
-+				.sin6.sin6_addr = pip6->daddr,
-+				.sa.sa_family = AF_INET6,
-+			};
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++		goto out;
 +
-+			vxlan_ip_miss(dev, &ipa);
-+			return false;
++	skb->encapsulation = 0;
++	__skb_pull(skb, tnl_hlen);
++	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb_inner_network_offset(skb));
++	skb->mac_len = skb_inner_network_offset(skb);
++
++	/* segment inner packet. */
++	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
++	segs = skb_mac_gso_segment(skb, enc_features);
++	if (!segs || IS_ERR(segs))
++		goto out;
++
++	outer_hlen = skb_tnl_header_len(skb);
++	skb = segs;
++	do {
++		struct udphdr *uh;
++		struct ipv6hdr *ipv6h;
++		int udp_offset = outer_hlen - tnl_hlen;
++		u32 len;
++
++		skb->mac_len = mac_len;
++
++		skb_push(skb, outer_hlen);
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++		skb_set_transport_header(skb, udp_offset);
++		uh = udp_hdr(skb);
++		uh->len = htons(skb->len - udp_offset);
++		ipv6h = ipv6_hdr(skb);
++		len = skb->len - udp_offset;
++
++		uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
++					     len, IPPROTO_UDP, 0);
++		uh->check = csum_fold(skb_checksum(skb, udp_offset, len, 0));
++		if (uh->check == 0)
++			uh->check = CSUM_MANGLED_0;
++		skb->ip_summed = CHECKSUM_NONE;
++	} while ((skb = skb->next));
++out:
++	return segs;
++}
++
+ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+-	netdev_features_t features)
++					 netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	unsigned int mss;
+@@ -75,47 +128,51 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		goto out;
+ 	}
+ 
+-	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
+-	 * do checksum of UDP packets sent as multiple IP fragments.
+-	 */
+-	offset = skb_checksum_start_offset(skb);
+-	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+-	offset += skb->csum_offset;
+-	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+-	skb->ip_summed = CHECKSUM_NONE;
+-
+-	/* Check if there is enough headroom to insert fragment header. */
+-	tnl_hlen = skb_tnl_header_len(skb);
+-	if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
+-		if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
+-			goto out;
++	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
++		segs = skb_udp6_tunnel_segment(skb, features);
++	else {
++		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
++		 * do checksum of UDP packets sent as multiple IP fragments.
++		 */
++		offset = skb_checksum_start_offset(skb);
++		csum = skb_checksum(skb, offset, skb->len - offset, 0);
++		offset += skb->csum_offset;
++		*(__sum16 *)(skb->data + offset) = csum_fold(csum);
++		skb->ip_summed = CHECKSUM_NONE;
++
++		/* Check if there is enough headroom to insert fragment header. */
++		tnl_hlen = skb_tnl_header_len(skb);
++		if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
++			if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
++				goto out;
 +		}
 +
-+		break;
-+	}
-+#endif
- 	default:
- 		return false;
++		/* Find the unfragmentable header and shift it left by frag_hdr_sz
++		 * bytes to insert fragment header.
++		 */
++		unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
++		nexthdr = *prevhdr;
++		*prevhdr = NEXTHDR_FRAGMENT;
++		unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
++			     unfrag_ip6hlen + tnl_hlen;
++		packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
++		memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
++
++		SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
++		skb->mac_header -= frag_hdr_sz;
++		skb->network_header -= frag_hdr_sz;
++
++		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
++		fptr->nexthdr = nexthdr;
++		fptr->reserved = 0;
++		ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
++
++		/* Fragment the skb. ipv6 header and the remaining fields of the
++		 * fragment header are updated in ipv6_gso_segment()
++		 */
++		segs = skb_segment(skb, features);
  	}
-@@ -1659,7 +1684,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	did_rsc = false;
  
- 	if (f && (f->flags & NTF_ROUTER) && (vxlan->flags & VXLAN_F_RSC) &&
--	    ntohs(eth->h_proto) == ETH_P_IP) {
-+	    (ntohs(eth->h_proto) == ETH_P_IP ||
-+	     ntohs(eth->h_proto) == ETH_P_IPV6)) {
- 		did_rsc = route_shortcircuit(dev, skb);
- 		if (did_rsc)
- 			f = vxlan_find_mac(vxlan, eth->h_dest);
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 5339cab..bcf9573 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -153,6 +153,7 @@ struct ipv6_stub {
- 	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
- 				struct flowi6 *fl6);
- 	void (*udpv6_encap_enable)(void);
-+	struct neigh_table *nd_tbl;
- };
- extern const struct ipv6_stub *ipv6_stub __read_mostly;
- 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 0c9c22f..1996a7c 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -815,6 +815,7 @@ static const struct ipv6_stub ipv6_stub_impl = {
- 	.ipv6_sock_mc_drop = ipv6_sock_mc_drop,
- 	.ipv6_dst_lookup = ip6_dst_lookup,
- 	.udpv6_encap_enable = udpv6_encap_enable,
-+	.nd_tbl	= &nd_tbl,
- };
- 
- static int __init inet6_init(void)
+-	/* Find the unfragmentable header and shift it left by frag_hdr_sz
+-	 * bytes to insert fragment header.
+-	 */
+-	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-	nexthdr = *prevhdr;
+-	*prevhdr = NEXTHDR_FRAGMENT;
+-	unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
+-		     unfrag_ip6hlen + tnl_hlen;
+-	packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
+-	memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
+-
+-	SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
+-	skb->mac_header -= frag_hdr_sz;
+-	skb->network_header -= frag_hdr_sz;
+-
+-	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+-	fptr->nexthdr = nexthdr;
+-	fptr->reserved = 0;
+-	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
+-
+-	/* Fragment the skb. ipv6 header and the remaining fields of the
+-	 * fragment header are updated in ipv6_gso_segment()
+-	 */
+-	segs = skb_segment(skb, features);
+-
+ out:
+ 	return segs;
+ }
 -- 
 1.7.7.6
