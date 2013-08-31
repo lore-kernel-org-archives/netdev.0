@@ -1,75 +1,118 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v11 04/11] ipv6: export in6addr_loopback to modules
-Date: Sat, 31 Aug 2013 11:07:21 +0800
-Message-ID: <1377918448-29888-5-git-send-email-amwang@redhat.com>
+Subject: [PATCH net-next v11 08/11] ipv6: move in6_dev_finish_destroy() into core kernel
+Date: Sat, 31 Aug 2013 11:07:25 +0800
+Message-ID: <1377918448-29888-9-git-send-email-amwang@redhat.com>
 References: <1377918448-29888-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33483 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5423 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755387Ab3HaDH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Aug 2013 23:07:56 -0400
+	id S1755951Ab3HaDIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 23:08:07 -0400
 In-Reply-To: <1377918448-29888-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-It is needed by vxlan module. Noticed by Mike.
+in6_dev_put() will be needed by vxlan module, so is
+in6_dev_finish_destroy().
 
-Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/ipv6/addrconf.c      |    9 ---------
- net/ipv6/addrconf_core.c |   16 ++++++++++++++++
- 2 files changed, 16 insertions(+), 9 deletions(-)
+ net/ipv6/addrconf.c      |   30 ------------------------------
+ net/ipv6/addrconf_core.c |   31 +++++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+), 30 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a7183fc..6194513 100644
+index baaaead..2a66eaa 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -245,15 +245,6 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.suppress_frag_ndisc	= 1,
- };
+@@ -304,36 +304,6 @@ err_ip:
+ 	return -ENOMEM;
+ }
  
--/* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
--const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
--const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
--const struct in6_addr in6addr_linklocal_allnodes = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
--const struct in6_addr in6addr_linklocal_allrouters = IN6ADDR_LINKLOCAL_ALLROUTERS_INIT;
--const struct in6_addr in6addr_interfacelocal_allnodes = IN6ADDR_INTERFACELOCAL_ALLNODES_INIT;
--const struct in6_addr in6addr_interfacelocal_allrouters = IN6ADDR_INTERFACELOCAL_ALLROUTERS_INIT;
--const struct in6_addr in6addr_sitelocal_allrouters = IN6ADDR_SITELOCAL_ALLROUTERS_INIT;
+-static void snmp6_free_dev(struct inet6_dev *idev)
+-{
+-	kfree(idev->stats.icmpv6msgdev);
+-	kfree(idev->stats.icmpv6dev);
+-	snmp_mib_free((void __percpu **)idev->stats.ipv6);
+-}
 -
- /* Check if a valid qdisc is available */
- static inline bool addrconf_qdisc_ok(const struct net_device *dev)
+-/* Nobody refers to this device, we may destroy it. */
+-
+-void in6_dev_finish_destroy(struct inet6_dev *idev)
+-{
+-	struct net_device *dev = idev->dev;
+-
+-	WARN_ON(!list_empty(&idev->addr_list));
+-	WARN_ON(idev->mc_list != NULL);
+-	WARN_ON(timer_pending(&idev->rs_timer));
+-
+-#ifdef NET_REFCNT_DEBUG
+-	pr_debug("%s: %s\n", __func__, dev ? dev->name : "NIL");
+-#endif
+-	dev_put(dev);
+-	if (!idev->dead) {
+-		pr_warn("Freeing alive inet6 device %p\n", idev);
+-		return;
+-	}
+-	snmp6_free_dev(idev);
+-	kfree_rcu(idev, rcu);
+-}
+-EXPORT_SYMBOL(in6_dev_finish_destroy);
+-
+ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
  {
+ 	struct inet6_dev *ndev;
 diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
-index 93b24c6..a864033 100644
+index a864033..4c11cbc 100644
 --- a/net/ipv6/addrconf_core.c
 +++ b/net/ipv6/addrconf_core.c
-@@ -101,3 +101,19 @@ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
+@@ -6,6 +6,7 @@
+ #include <linux/export.h>
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
++#include <net/ip.h>
  
- const struct ipv6_stub *ipv6_stub __read_mostly;
- EXPORT_SYMBOL_GPL(ipv6_stub);
+ #define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+ 
+@@ -117,3 +118,33 @@ const struct in6_addr in6addr_interfacelocal_allrouters = IN6ADDR_INTERFACELOCAL
+ EXPORT_SYMBOL(in6addr_interfacelocal_allrouters);
+ const struct in6_addr in6addr_sitelocal_allrouters = IN6ADDR_SITELOCAL_ALLROUTERS_INIT;
+ EXPORT_SYMBOL(in6addr_sitelocal_allrouters);
 +
-+/* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
-+const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
-+EXPORT_SYMBOL(in6addr_loopback);
-+const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
-+EXPORT_SYMBOL(in6addr_any);
-+const struct in6_addr in6addr_linklocal_allnodes = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
-+EXPORT_SYMBOL(in6addr_linklocal_allnodes);
-+const struct in6_addr in6addr_linklocal_allrouters = IN6ADDR_LINKLOCAL_ALLROUTERS_INIT;
-+EXPORT_SYMBOL(in6addr_linklocal_allrouters);
-+const struct in6_addr in6addr_interfacelocal_allnodes = IN6ADDR_INTERFACELOCAL_ALLNODES_INIT;
-+EXPORT_SYMBOL(in6addr_interfacelocal_allnodes);
-+const struct in6_addr in6addr_interfacelocal_allrouters = IN6ADDR_INTERFACELOCAL_ALLROUTERS_INIT;
-+EXPORT_SYMBOL(in6addr_interfacelocal_allrouters);
-+const struct in6_addr in6addr_sitelocal_allrouters = IN6ADDR_SITELOCAL_ALLROUTERS_INIT;
-+EXPORT_SYMBOL(in6addr_sitelocal_allrouters);
++static void snmp6_free_dev(struct inet6_dev *idev)
++{
++	kfree(idev->stats.icmpv6msgdev);
++	kfree(idev->stats.icmpv6dev);
++	snmp_mib_free((void __percpu **)idev->stats.ipv6);
++}
++
++/* Nobody refers to this device, we may destroy it. */
++
++void in6_dev_finish_destroy(struct inet6_dev *idev)
++{
++	struct net_device *dev = idev->dev;
++
++	WARN_ON(!list_empty(&idev->addr_list));
++	WARN_ON(idev->mc_list != NULL);
++	WARN_ON(timer_pending(&idev->rs_timer));
++
++#ifdef NET_REFCNT_DEBUG
++	pr_debug("%s: %s\n", __func__, dev ? dev->name : "NIL");
++#endif
++	dev_put(dev);
++	if (!idev->dead) {
++		pr_warn("Freeing alive inet6 device %p\n", idev);
++		return;
++	}
++	snmp6_free_dev(idev);
++	kfree_rcu(idev, rcu);
++}
++EXPORT_SYMBOL(in6_dev_finish_destroy);
 -- 
 1.7.7.6
