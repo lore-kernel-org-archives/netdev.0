@@ -1,64 +1,37 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 0/7] Drop support for Renesys H8/300 architecture
-Date: Sat, 31 Aug 2013 08:44:45 +0200
-Message-ID: <CAMuHMdW6KcHbpR_KzbTg9V_FJ8XvQAWQOB-2jXQxG5fo1wWg1A@mail.gmail.com>
-References: <1377880842-6835-1-git-send-email-linux@roeck-us.net>
-	<20130830184611.GA27455@spo001.leaseweb.com>
-	<20130830191146.GA12090@roeck-us.net>
-	<CA+55aFyxHsKhtqqz9jTDYo89bCNqCWhjHGJ4HzFrHnJ0yxLXjQ@mail.gmail.com>
-	<20130830193740.GA13101@roeck-us.net>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Re: Fwd: RFC 6980 on Security Implications of IPv6 Fragmentation
+ with IPv6 Neighbor Discovery
+Date: Sat, 31 Aug 2013 02:20:56 -0300
+Message-ID: <52217D38.3040804@gont.com.ar>
+References: <20130813221321.AEA1AB1E003@rfc-editor.org> <520B3D81.9070506@gont.com.ar> <20130814230617.GA13066@order.stressinduktion.org> <520C7519.1010000@gont.com.ar> <20130815100407.GA18564@order.stressinduktion.org> <CAOp4FwSatwRtx_O4Aio4e0HmahxdwiY9JToc8E+1rMT9oCjLrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Wim Van Sebroeck <wim@iguana.be>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	IDE-ML <linux-ide@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Watchdog Mailing List <linux-watchdog@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eric Paris <eparis@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	David Howells <dhowells@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Yoshinori Sato <ysato@users.sourceforge.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130830193740.GA13101@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Loganaden Velvindron <loganaden@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web01.jbserver.net ([93.186.182.34]:36643 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754476Ab3HaGpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 02:45:10 -0400
+In-Reply-To: <CAOp4FwSatwRtx_O4Aio4e0HmahxdwiY9JToc8E+1rMT9oCjLrA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 30, 2013 at 9:37 PM, Guenter Roeck <linux@roeck-us.net> wrote:
-> On Fri, Aug 30, 2013 at 12:14:20PM -0700, Linus Torvalds wrote:
->> On Fri, Aug 30, 2013 at 12:11 PM, Guenter Roeck <linux@roeck-us.net> wrote:
->> >
->> > I would not mind if Linus would agree to pull it right away for 3.12,
->> > but that seems to be a bit on the fast side.
->>
->> I'm ok with code deletion patches, I don't think that would be a
->> problem. I didn't check them, but I assume this is all literally just
->> removing code that is conditional on h8/300 config options?
->>
-> Yes.
->
-> I found a couple more since I sent the series, but nothing significant.
->
-> What is your preference - keep it until 3.13, or prepare it now and send you
-> a pull request for 3.12 ?
+On 08/15/2013 07:12 AM, Loganaden Velvindron wrote:
+> 
+> 
+> I'm not sure if you got my previous mails, but I'd like to know a couple
+> of things:
+> 
+> 1) How can I test this diff ?
 
-It would be nice to check with Sato-san, who wanted to attend Kernel
-Summit as a hobbyist architecture maintainer, and see what are his plans
-and opinions.
+Use the -y (fragmentation) option with the ns6, na6, r6, ra6, and rd6
+tools of the IPv6 toolkit (http://www.si6networks.com/tools/ipv6toolkit)
+-- there are are examples in the manpages.
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Cheers,
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
