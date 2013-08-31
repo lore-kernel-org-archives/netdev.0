@@ -1,52 +1,35 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [RFC PATCH net-next 1/4] iptunnels: remove net arg from iptunnel_xmit()
-Date: Fri, 30 Aug 2013 23:09:41 -0700
-Message-ID: <CALnjE+pKi=p0y2ot2qWG1w=pxEUcPUKY+_UUi0RXbnGqVk9poA@mail.gmail.com>
-References: <1377703210-7021-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1377703210-7021-2-git-send-email-nicolas.dichtel@6wind.com>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ipv4: warnings on sk_wmem_queued
+Date: Sat, 31 Aug 2013 06:44:30 +0000
+Message-ID: <20130831064430.GA9903@dcvr.yhbt.net>
+References: <20130830195638.GA27393@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	David Miller <davem@davemloft.net>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:50218 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753553Ab3HaGJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 02:09:42 -0400
-Received: by mail-qe0-f45.google.com with SMTP id 8so1398653qea.18
-        for <netdev@vger.kernel.org>; Fri, 30 Aug 2013 23:09:41 -0700 (PDT)
-In-Reply-To: <1377703210-7021-2-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130830195638.GA27393@dcvr.yhbt.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 28, 2013 at 8:20 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> This argument is not used, let's remove it.
->
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  drivers/net/vxlan.c         | 3 +--
->  include/net/ip_tunnels.h    | 3 +--
->  net/ipv4/ip_tunnel.c        | 3 +--
->  net/ipv4/ip_tunnel_core.c   | 3 +--
->  net/ipv6/sit.c              | 4 ++--
->  net/openvswitch/vport-gre.c | 2 +-
->  6 files changed, 7 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 3b21aca0c0c2..3bc27c2ca569 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1171,8 +1171,7 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
->         if (err)
->                 return err;
->
-> -       return iptunnel_xmit(net, rt, skb, src, dst,
-> -                       IPPROTO_UDP, tos, ttl, df);
-> +       return iptunnel_xmit(rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df);
+Eric Wong <normalperson@yhbt.net> wrote:
+> I noticed these warnings on stock 3.10.9 running stress tests on
+> cmogstored.git (git://bogomips.org/cmogstored.git) doing standard
+> HTTP server stuff between lo and tmpfs:
 
-Can you remove argument `net` from vxlan_xmit_skb() also?
+I'm still running the same test (in-place upgraded cmogstored a few
+times to fix some bugs), and haven't hit these warnings again
+(constantly pushing around 20GB/s total).
 
-Thanks.
+I forget to mention cmogstored is multithreaded and idle clients
+automatically migrate between threads when becoming active (using
+EPOLLONESHOT), so maybe this tickles some rare race condition
+somewhere...
+
+> Aug 30 06:03:54 localhost kernel: WARNING: at net/core/stream.c:200 sk_stream_kill_queues+0x131/0x140()
+<snip>
+> Aug 30 06:03:54 localhost kernel: WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x191/0x1e0()
+
+I probably won't be in a good position to reboot/test patches until
+Tuesday, though.
