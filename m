@@ -1,55 +1,69 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v2 6/8] Drop MAINTAINERS entry for H8/300
-Date: Fri, 30 Aug 2013 16:51:32 -0700
-Message-ID: <1377906694-9578-7-git-send-email-linux@roeck-us.net>
-References: <1377906694-9578-1-git-send-email-linux@roeck-us.net>
-Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org,
-	linux-watchdog@vger.kernel.org, Wim Van Sebroeck <wim@iguana.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yoshinori Sato <ysato@users.sourceforge.jp>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eric Paris <eparis@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	David Howells <dhowells@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Guenter Roeck <linux@roeck-us.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377906694-9578-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net] tg3: Don't turn off led on 5719 serdes port 0
+Date: Fri, 30 Aug 2013 17:01:36 -0700
+Message-ID: <1377907296-25737-1-git-send-email-nsujir@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Nithin Sujir" <nsujir@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2032 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751896Ab3HaABp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Aug 2013 20:01:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The architecture is gone.
+From: Nithin Sujir <nsujir@broadcom.com>
 
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Turning off led on port 0 of the 5719 serdes causes all other ports to
+lose power and stop functioning. Add tg3_phy_led_bug() function to check
+for this condition. We use a switch() in tg3_phy_led_bug() for
+consistency with the tg3_phy_power_bug() function.
+
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- MAINTAINERS |    8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 8197fbd..62e513e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8482,14 +8482,6 @@ S:	Maintained
- F:	arch/m68k/*/*_no.*
- F:	arch/m68k/include/asm/*_no.*
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 2e55ee2..5701f3d 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -3030,6 +3030,19 @@ static bool tg3_phy_power_bug(struct tg3 *tp)
+ 	return false;
+ }
  
--UCLINUX FOR RENESAS H8/300 (H8300)
--M:	Yoshinori Sato <ysato@users.sourceforge.jp>
--W:	http://uclinux-h8.sourceforge.jp/
--S:	Supported
--F:	arch/h8300/
--F:	drivers/ide/ide-h8300.c
--F:	drivers/net/ethernet/8390/ne-h8300.c
--
- UDF FILESYSTEM
- M:	Jan Kara <jack@suse.cz>
- S:	Maintained
++static bool tg3_phy_led_bug(struct tg3 *tp)
++{
++	switch (tg3_asic_rev(tp)) {
++	case ASIC_REV_5719:
++		if ((tp->phy_flags & TG3_PHYFLG_MII_SERDES) &&
++		    !tp->pci_fn)
++			return true;
++		return false;
++	}
++
++	return false;
++}
++
+ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
+ {
+ 	u32 val;
+@@ -3077,8 +3090,9 @@ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
+ 		}
+ 		return;
+ 	} else if (do_low_power) {
+-		tg3_writephy(tp, MII_TG3_EXT_CTRL,
+-			     MII_TG3_EXT_CTRL_FORCE_LED_OFF);
++		if (!tg3_phy_led_bug(tp))
++			tg3_writephy(tp, MII_TG3_EXT_CTRL,
++				     MII_TG3_EXT_CTRL_FORCE_LED_OFF);
+ 
+ 		val = MII_TG3_AUXCTL_PCTL_100TX_LPWR |
+ 		      MII_TG3_AUXCTL_PCTL_SPR_ISOLATE |
 -- 
-1.7.9.7
+1.8.1.4
