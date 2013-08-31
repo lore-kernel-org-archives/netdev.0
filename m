@@ -1,69 +1,120 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v12 05/11] ipv6: do not call ndisc_send_rs() with write lock
-Date: Sat, 31 Aug 2013 13:44:32 +0800
-Message-ID: <1377927878-23975-6-git-send-email-amwang@redhat.com>
+Subject: [PATCH net-next v12 07/11] vxlan: add ipv6 route short circuit support
+Date: Sat, 31 Aug 2013 13:44:34 +0800
+Message-ID: <1377927878-23975-8-git-send-email-amwang@redhat.com>
 References: <1377927878-23975-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46367 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11747 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756166Ab3HaFo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Aug 2013 01:44:59 -0400
+	id S1756561Ab3HaFpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Aug 2013 01:45:07 -0400
 In-Reply-To: <1377927878-23975-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-Because vxlan module will call ip6_dst_lookup() in TX path,
-which will hold write lock. So we have to release this write lock
-before calling ndisc_send_rs(), otherwise could deadlock.
+route short circuit only has IPv4 part, this patch adds
+the IPv6 part. nd_tbl will be needed.
 
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: David Stevens <dlstevens@us.ibm.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/ipv6/addrconf.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/vxlan.c    |   30 ++++++++++++++++++++++++++++--
+ include/net/addrconf.h |    1 +
+ net/ipv6/af_inet6.c    |    1 +
+ 3 files changed, 30 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6194513..baaaead 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3090,6 +3090,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- static void addrconf_rs_timer(unsigned long data)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index faf131e..c833763 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1200,7 +1200,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
  {
- 	struct inet6_dev *idev = (struct inet6_dev *)data;
-+	struct net_device *dev = idev->dev;
- 	struct in6_addr lladdr;
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct neighbour *n;
+-	struct iphdr *pip;
  
- 	write_lock(&idev->lock);
-@@ -3104,12 +3105,14 @@ static void addrconf_rs_timer(unsigned long data)
- 		goto out;
+ 	if (is_multicast_ether_addr(eth_hdr(skb)->h_dest))
+ 		return false;
+@@ -1208,6 +1207,9 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 	n = NULL;
+ 	switch (ntohs(eth_hdr(skb)->h_proto)) {
+ 	case ETH_P_IP:
++	{
++		struct iphdr *pip;
++
+ 		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 			return false;
+ 		pip = ip_hdr(skb);
+@@ -1223,6 +1225,29 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 		}
  
- 	if (idev->rs_probes++ < idev->cnf.rtr_solicits) {
--		if (!__ipv6_get_lladdr(idev, &lladdr, IFA_F_TENTATIVE))
--			ndisc_send_rs(idev->dev, &lladdr,
-+		write_unlock(&idev->lock);
-+		if (!ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
-+			ndisc_send_rs(dev, &lladdr,
- 				      &in6addr_linklocal_allrouters);
- 		else
--			goto out;
-+			goto put;
+ 		break;
++	}
++#if IS_ENABLED(CONFIG_IPV6)
++	case ETH_P_IPV6:
++	{
++		struct ipv6hdr *pip6;
++
++		if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
++			return false;
++		pip6 = ipv6_hdr(skb);
++		n = neigh_lookup(ipv6_stub->nd_tbl, &pip6->daddr, dev);
++		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
++			union vxlan_addr ipa = {
++				.sin6.sin6_addr = pip6->daddr,
++				.sa.sa_family = AF_INET6,
++			};
++
++			vxlan_ip_miss(dev, &ipa);
++			return false;
++		}
++
++		break;
++	}
++#endif
+ 	default:
+ 		return false;
+ 	}
+@@ -1659,7 +1684,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	did_rsc = false;
  
-+		write_lock(&idev->lock);
- 		/* The wait after the last probe can be shorter */
- 		addrconf_mod_rs_timer(idev, (idev->rs_probes ==
- 					     idev->cnf.rtr_solicits) ?
-@@ -3125,6 +3128,7 @@ static void addrconf_rs_timer(unsigned long data)
+ 	if (f && (f->flags & NTF_ROUTER) && (vxlan->flags & VXLAN_F_RSC) &&
+-	    ntohs(eth->h_proto) == ETH_P_IP) {
++	    (ntohs(eth->h_proto) == ETH_P_IP ||
++	     ntohs(eth->h_proto) == ETH_P_IPV6)) {
+ 		did_rsc = route_shortcircuit(dev, skb);
+ 		if (did_rsc)
+ 			f = vxlan_find_mac(vxlan, eth->h_dest);
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 5339cab..bcf9573 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -153,6 +153,7 @@ struct ipv6_stub {
+ 	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
+ 				struct flowi6 *fl6);
+ 	void (*udpv6_encap_enable)(void);
++	struct neigh_table *nd_tbl;
+ };
+ extern const struct ipv6_stub *ipv6_stub __read_mostly;
  
- out:
- 	write_unlock(&idev->lock);
-+put:
- 	in6_dev_put(idev);
- }
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 0c9c22f..1996a7c 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -815,6 +815,7 @@ static const struct ipv6_stub ipv6_stub_impl = {
+ 	.ipv6_sock_mc_drop = ipv6_sock_mc_drop,
+ 	.ipv6_dst_lookup = ip6_dst_lookup,
+ 	.udpv6_encap_enable = udpv6_encap_enable,
++	.nd_tbl	= &nd_tbl,
+ };
  
+ static int __init inet6_init(void)
 -- 
 1.7.7.6
