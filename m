@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v11 01/11] ipv6: move ip6_dst_hoplimit() into
- core kernel
-Date: Sat, 31 Aug 2013 00:59:25 -0400 (EDT)
-Message-ID: <20130831.005925.168719024280186075.davem@davemloft.net>
-References: <1377918448-29888-1-git-send-email-amwang@redhat.com>
-	<1377918448-29888-2-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: amwang@redhat.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [ethtool] ethtool: correct ixgbevf copyright date
+Date: Fri, 30 Aug 2013 22:02:52 -0700
+Message-ID: <1377925372-13385-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33500 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445Ab3HaE7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 00:59:34 -0400
-In-Reply-To: <1377918448-29888-2-git-send-email-amwang@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:59447 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753502Ab3HaFCz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Aug 2013 01:02:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Sat, 31 Aug 2013 11:07:18 +0800
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-> @@ -75,3 +76,24 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
->  	return offset;
->  }
->  EXPORT_SYMBOL(ip6_find_1stfragopt);
-> +
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +int ip6_dst_hoplimit(struct dst_entry *dst)
- ...
-> +#endif
-> +EXPORT_SYMBOL(ip6_dst_hoplimit);
+This patch corrects the copyright date of the ixgbevf code, which was only
+recently added.
 
-I don't think the export should be outside of the #if region.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ ixgbevf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Did you test the build with IPV6 disabled?
+diff --git a/ixgbevf.c b/ixgbevf.c
+index dae1178..2a3aa6f 100644
+--- a/ixgbevf.c
++++ b/ixgbevf.c
+@@ -1,4 +1,4 @@
+-/* Copyright (c) 2007 Intel Corporation */
++/* Copyright (c) 2013 Intel Corporation */
+ #include <stdio.h>
+ #include "internal.h"
+ 
+-- 
+1.8.3.1
