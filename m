@@ -1,27 +1,82 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: 1f324e3 ipv6: Don't depend on per socket memory for neighbour
- discovery messages
-Date: Sat, 31 Aug 2013 18:05:09 -0300
-Message-ID: <CAOMZO5BSw6rf6xEeBiJ2zRqTenV1hHbU1+LSv==M0KL6XCp2ig@mail.gmail.com>
-References: <5220F691.4020808@wwwdotorg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Warren <swarren@wwwdotorg.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <5220F691.4020808@wwwdotorg.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
+Date: Sun,  1 Sep 2013 00:18:48 +0300
+Message-ID: <1377983928-2440-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Herton Ronaldo Krzesinski <herton@canonical.com>,
+	Hin-Tak Leung <htl10@users.sourceforge.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+In case of __dev_alloc_skb() failure rtl8187_init_urbs()
+calls usb_free_urb(entry) where 'entry' can points to urb
+allocated at the previous iteration. That means refcnt will be
+decremented incorrectly and the urb can be used after memory
+deallocation.
 
-On Fri, Aug 30, 2013 at 4:46 PM, Stephen Warren <swarren@wwwdotorg.org> wrote:
-> Commit 1f324e3 "ipv6: Don't depend on per socket memory for neighbour
-> discovery messages" appears to cause issues for me. If I run
+The patch fixes the issue and implements error handling of init_urbs
+in rtl8187_start().
 
-This commit has been reverted in 'net' tree:
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=25ad6117e73656071b38fd19fa67ae325471c758
+Found by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+index f49220e..e83d53c 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
++++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+@@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_hw *dev)
+ 		skb_queue_tail(&priv->rx_queue, skb);
+ 		usb_anchor_urb(entry, &priv->anchored);
+ 		ret = usb_submit_urb(entry, GFP_KERNEL);
++		usb_free_urb(entry);
+ 		if (ret) {
+ 			skb_unlink(skb, &priv->rx_queue);
+ 			usb_unanchor_urb(entry);
+ 			goto err;
+ 		}
+-		usb_free_urb(entry);
+ 	}
+ 	return ret;
+ 
+ err:
+-	usb_free_urb(entry);
+ 	kfree_skb(skb);
+ 	usb_kill_anchored_urbs(&priv->anchored);
+ 	return ret;
+@@ -956,8 +955,12 @@ static int rtl8187_start(struct ieee80211_hw *dev)
+ 				  (RETRY_COUNT << 8  /* short retry limit */) |
+ 				  (RETRY_COUNT << 0  /* long retry limit */) |
+ 				  (7 << 21 /* MAX TX DMA */));
+-		rtl8187_init_urbs(dev);
+-		rtl8187b_init_status_urb(dev);
++		ret = rtl8187_init_urbs(dev);
++		if (ret)
++			goto rtl8187_start_exit;
++		ret = rtl8187b_init_status_urb(dev);
++		if (ret)
++			usb_kill_anchored_urbs(&priv->anchored);
+ 		goto rtl8187_start_exit;
+ 	}
+ 
+@@ -966,7 +969,9 @@ static int rtl8187_start(struct ieee80211_hw *dev)
+ 	rtl818x_iowrite32(priv, &priv->map->MAR[0], ~0);
+ 	rtl818x_iowrite32(priv, &priv->map->MAR[1], ~0);
+ 
+-	rtl8187_init_urbs(dev);
++	ret = rtl8187_init_urbs(dev);
++	if (ret)
++		goto rtl8187_start_exit;
+ 
+ 	reg = RTL818X_RX_CONF_ONLYERLPKT |
+ 	      RTL818X_RX_CONF_RX_AUTORESETPHY |
+-- 
+1.8.1.2
