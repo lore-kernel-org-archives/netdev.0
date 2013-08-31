@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openvswitch: fix sw_flow_key alignment
-Date: Sat, 31 Aug 2013 00:16:50 -0400 (EDT)
-Message-ID: <20130831.001650.130549489746201651.davem@davemloft.net>
-References: <CAEP_g=9y-HeG0vHS2v-dk7eDp=T0denddykDO3TJtk4UJ062Mg@mail.gmail.com>
-	<20130830.144211.1550393719904034493.davem@davemloft.net>
-	<CAEP_g=-zgaKot6f5w=sqVjOauT9OtSd1sjrJSwc5AC7xR1s99g@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH nf 0/5] IPVS fixes for v3.11
+Date: Sat, 31 Aug 2013 13:40:50 +0900
+Message-ID: <20130831044049.GM27935@verge.net.au>
+References: <1377854068-22340-1-git-send-email-horms@verge.net.au>
+ <20130830192653.GA8350@localhost>
+ <20130831012424.GA27935@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: azhou@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33142 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754013Ab3HaEQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 00:16:53 -0400
-In-Reply-To: <CAEP_g=-zgaKot6f5w=sqVjOauT9OtSd1sjrJSwc5AC7xR1s99g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130831012424.GA27935@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 30 Aug 2013 16:20:25 -0700
+On Sat, Aug 31, 2013 at 10:24:25AM +0900, Simon Horman wrote:
+> On Fri, Aug 30, 2013 at 09:26:53PM +0200, Pablo Neira Ayuso wrote:
+> > Hi Simon,
+> > 
+> > On Fri, Aug 30, 2013 at 06:14:23PM +0900, Simon Horman wrote:
+> > > Hi Pablo,
+> > > 
+> > > I'm not sure if it is too late in the cycle but
+> > > if not could you please consider these fixes for v3.11?
+> > > 
+> > > In my opinion these all seem to be -stable candidates.
+> > > I would appreciate your opinion on that.
+> > 
+> > We're fairly late in the -rc cycle. I prefer to ask David to take
+> > these once 3.11 is released, then ask for -stable inclusion.
+> 
+> Sure, that is completely fine by me.
+> 
+> Let me know if you would like me to rebase and/or
+> send a fresh pull-request at that time.
 
-> I looked through the struct definition and I think that the idea of
-> manually padding as Geert did in his patch will be difficult to
-> maintain over time (and actually there are a few that he missed) since
-> there are a number of different structs/unions contained in there.
-
-You have to be mindful of the gaps and wasted space for performance
-reasons anyways.
+Julian pointed out that there is an error in one the changelogs.
+Accordingly, I'Ll fix that and send a fresh pull-request
+once 3.11 is released.
