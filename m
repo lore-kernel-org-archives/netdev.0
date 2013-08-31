@@ -1,48 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 0/4] i40e: Neatening and object size
-	reductions
-Date: Fri, 30 Aug 2013 19:12:10 -0700
-Message-ID: <1377915130.2030.39.camel@jtkirshe-mobl>
+Subject: Re: [PATCH] i40e: Fix 32 bit shift compilation warnings
+Date: Fri, 30 Aug 2013 19:12:36 -0700
+Message-ID: <1377915156.2030.40.camel@jtkirshe-mobl>
 References: <cover.1377903831.git.joe@perches.com>
+	 <daa992875a6f542adc41069daeb81246e46b7f80.1377903831.git.joe@perches.com>
+	 <1377913655.2070.45.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0253751280563727801=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yWD5AuySMOPFe8A/Z+ip"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Tushar Dave <tushar.n.dave@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Joe Perches <joe@perches.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1377903831.git.joe@perches.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377913655.2070.45.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---===============0253751280563727801==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-R4gStmPOyFlrWktE4Wco"
-
-
---=-R4gStmPOyFlrWktE4Wco
+--=-yWD5AuySMOPFe8A/Z+ip
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2013-08-30 at 16:06 -0700, Joe Perches wrote:
-> Just some potential cleanings...
+On Fri, 2013-08-30 at 18:47 -0700, Joe Perches wrote:
+> When dma_addr_t is a 32 bit value, >> 32 emits compiler warnings
+> Use ((addr>>16) >>16) to avoid this.
 >=20
-> Joe Perches (4):
->   i40e: Whitespace cleaning
->   i40e: Add and use pf_<level>
->   i40e: pf_<level> remove "%s: " ... __func__
->   i40e: Convert pf_<level> macros to functions
+> I presume the macro should actually use the kernel.h
+> macro upper_32_bits() eventually.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_hmc.h  | 2 +-
+>  drivers/net/ethernet/intel/i40e/i40e_type.h | 4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
 
-Thanks Joe, I will add these to my queue.
+Thanks again, I will add this patch as well to my queue.
 
---=-R4gStmPOyFlrWktE4Wco
+--=-yWD5AuySMOPFe8A/Z+ip
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -50,47 +53,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.14 (GNU/Linux)
 
-iQIcBAABCgAGBQJSIVD6AAoJEOVv75VaS+3OKxQP/RAcDOeW/FBvLU+6JNSTri59
-MpESVelGQUOsUzhzWxYoPJkpfWUlZEH+o+NCrs9zq9E5eon9qUPN9XPROKbbyvZU
-wj4SU0tOfRih4EwE3VkdJiUCksWc7VVby0gXaz1FAWzRtIfPDwh3u2mDRPvZxL4J
-Ats5g7QJAaUJ1szRezdcXC4SHfWXNZciEfCL/soxmLajhN7fmPw5S7QqdaOKLuEU
-+/k1PNGasaKZSUvN96UDj5b92BaLJsC99Fs9HIsnjAt+t9WpZPN1QdWz/cdnwPRr
-0s5L8552nTtytXJKK1hZU0oIWJICSfkTNfClVbX1HRoM9qy0ABSlQDpe7Dh+PnWL
-ToIlWWMJtWinWIwANXss+C+T2AfzSVXoGktTTdVFPEJBsSPcai7/xTSG4VOVFBHo
-6ypyZ2zo8KghxjEwV5bGiCi26fcenzcn9tbwygOFRwg7X2yY64K8sdPEWHMfFzdH
-JyWcIYdpRBJ8FXfJxyi8m3eZhZceq9tMwWMoNNpJzTlq+pRscRIJOTl6CY/snUdN
-FT3KW0xjNG+kVLcPEM/bejauqzfrm74V7RVn1HjJkDnyEU4jD8j7DxX9NiYtfzOT
-QNu7QuQeqUovQi+qmiwnhgbIiajQBhXxikgkw+i63NtKx2GvsPuZ5F06f87gn3lu
-LQ7+0zlWzkGuggiBYJBc
-=S0Fm
+iQIcBAABCgAGBQJSIVEUAAoJEOVv75VaS+3OdKkP/AiKMeYIwZK7igp+wtZn+w7J
+v965VK6eRu+SSDdZVLF/Clm6iA3he7zZUUNKbDrh1E+6X/w05/JpTPpcfPQXtWUy
+STAodePK7Ui18RY1UZpyYZucROGxxuuswqZOfwCYduu3NazH7Ch8HwPVuBDv+Anz
+ljXltQbkJl6AiZfjr5qZdFl2V7TuGHYi49FghCdKzj4oXz3SGtULJKGAVDO1syKY
+DUdrK2fNRumnEy+GcUjsvgTBAedrU+JssHzR5Cx4x08aoTZ+TEInBKJ7X7SnFe92
+Iq5ZcDZDExiKPxkXJHgXBEzFjZYu09ucBfjdNbVDfhJJiAVIUsf/m6nVNpmIw3/6
+wc6JDKlT7sOODQsQ7xg26xBy0T/e8t32cOAkyiKEzYqREIbogYrVn5Z82S6R1yvg
+9E5ArAn9vQs7Wfcc+g1AU8g6BKchvHWhhPfFdFw+nYpd1bG+PhdfHb3H49JhRzyO
+4dhQP2xBGH4992U5ZwwFcu0PqrTqTtIiZxqrlKijiyHn1mFehKq+WOK2tAkx6Usn
+p4hfHMlH89K8Q2fpPVzc4UP6ku6fLPwMAiijWGCKj/PoEuErG+CAkFx93OuEcr6s
+PVg86JG4u3llZ+0L3lbRblpgxSuSisxgiWPKHNoGhCMsbaEaIV4AJRUd3aECJkvf
+RqmYXxg9U7DNFtC4+RNN
+=mWdb
 -----END PGP SIGNATURE-----
 
---=-R4gStmPOyFlrWktE4Wco--
-
-
-
---===============0253751280563727801==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
-Discover the easy way to master current and previous Microsoft technologies
-and advance your career. Get an incredible 1,500+ hours of step-by-step
-tutorial videos with LearnDevNow. Subscribe today and save!
-http://pubads.g.doubleclick.net/gampad/clk?id=58040911&iu=/4140/ostg.clktrk
---===============0253751280563727801==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============0253751280563727801==--
+--=-yWD5AuySMOPFe8A/Z+ip--
