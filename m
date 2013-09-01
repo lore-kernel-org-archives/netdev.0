@@ -1,45 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/9] set addr_assign_type when inheriting a
- dev_addr
-Date: Sat, 31 Aug 2013 22:50:57 -0400 (EDT)
-Message-ID: <20130831.225057.1874268263797742541.davem@davemloft.net>
-References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
+From: Hin-Tak Leung <htl10@users.sourceforge.net>
+Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
+Date: Sun, 1 Sep 2013 08:51:21 +0100 (BST)
+Message-ID: <1378021881.73447.YahooMailBasic@web172302.mail.ir2.yahoo.com>
+Reply-To: htl10@users.sourceforge.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kaber@trash.net, jiri@resnulli.us,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org, j@w1.fi,
-	libertas-dev@lists.infradead.org, gregkh@linuxfoundation.org,
-	devel@driverdev.osuosl.org, forest@alittletooquiet.net,
-	stephen@networkplumber.org, dan.carpenter@oracle.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46042 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754831Ab3IACvA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 22:51:00 -0400
-In-Reply-To: <1377878932-26881-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru, herton@canonical.com,
+	larry.finger@lwfinger.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri, 30 Aug 2013 18:08:43 +0200
+------------------------------
+On Sat, Aug 31, 2013 22:18 BST Alexey Khoroshilov wrote:
 
-> Copying the dev_addr from a parent device is an operation
-> common to a number of drivers. The addr_assign_type should
-> be updated accordingly, either by reusing the value from
-> the source device or explicitly indicating that the address
-> is stolen by setting addr_assign_type to NET_ADDR_STOLEN.
+>In case of __dev_alloc_skb() failure rtl8187_init_urbs()
+>calls usb_free_urb(entry) where 'entry' can points to urb
+>allocated at the previous iteration. That means refcnt will be
+>decremented incorrectly and the urb can be used after memory
+>deallocation.
+>
+>The patch fixes the issue and implements error handling of init_urbs
+>in rtl8187_start().
+>
+>Found by Linux Driver Verification project (linuxtesting.org).
+>
+>Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+>---
+> drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
+> 1 file changed, 10 insertions(+), 5 deletions(-)
+>
+>diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/=
+wireless/rtl818x/rtl8187/dev.c
+>index f49220e..e83d53c 100644
+>--- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
+>+++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+>@@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_hw=
+ *dev)
+> =A0=A0=A0 =A0=A0=A0 skb_queue_tail(&priv->rx_queue, skb);
+> =A0=A0=A0 =A0=A0=A0 usb_anchor_urb(entry, &priv->anchored);
+> =A0=A0=A0 =A0=A0=A0 ret =3D usb_submit_urb(entry, GFP_KERNEL);
+>+=A0=A0=A0 =A0=A0=A0 usb_free_urb(entry);
+> =A0=A0=A0 =A0=A0=A0 if (ret) {
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 skb_unlink(skb, &priv->rx_queue);
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 usb_unanchor_urb(entry);
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 goto err;
+> =A0=A0=A0 =A0=A0=A0 }
+>-=A0=A0=A0 =A0=A0=A0 usb_free_urb(entry);
+> =A0=A0=A0 }
+> =A0=A0=A0 return ret;
+>
+> err:
+>-=A0=A0=A0 usb_free_urb(entry);
+> =A0=A0=A0 kfree_skb(skb);
+> =A0=A0=A0 usb_kill_anchored_urbs(&priv->anchored);
+> =A0=A0=A0 return ret;
+
+This part looks wrong - you free_urb(entry) then unanchor_urb(entry).
+
+>@@ -956,8 +955,12 @@ static int rtl8187_start(struct ieee80211_hw *dev=
+)
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0 (RETRY_COUNT < 8=A0 /* sh=
+ort retry limit */) |
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0 (RETRY_COUNT < 0=A0 /* lo=
+ng retry limit */) |
+> =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0 (7 < 21 /* MAX TX DMA */)=
+);
+>-=A0=A0=A0 =A0=A0=A0 rtl8187_init_urbs(dev);
+>-=A0=A0=A0 =A0=A0=A0 rtl8187b_init_status_urb(dev);
+>+=A0=A0=A0 =A0=A0=A0 ret =3D rtl8187_init_urbs(dev);
+>+=A0=A0=A0 =A0=A0=A0 if (ret)
+>+=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 goto rtl8187_start_exit;
+>+=A0=A0=A0 =A0=A0=A0 ret =3D rtl8187b_init_status_urb(dev);
+>+=A0=A0=A0 =A0=A0=A0 if (ret)
+>+=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 usb_kill_anchored_urbs(&priv->anchored)=
+;
+> =A0=A0=A0 =A0=A0=A0 goto rtl8187_start_exit;
+> =A0=A0=A0 }
 >=20
-> This patch set adds a helper copying both the dev_addr and
-> the addr_assign_type, and use this helper in drivers which
-> don't currently set the addr_assign_type. Using NET_ADDR_STOLEN
-> might be more appropriate in some of these cases.  Please
-> let me know, and I'll update the patch accordingly.
+>@@ -966,7 +969,9 @@ static int rtl8187_start(struct ieee80211_hw *dev)
+> =A0=A0=A0 rtl818x_iowrite32(priv, &priv->map->MAR[0], ~0);
+> =A0=A0=A0 rtl818x_iowrite32(priv, &priv->map->MAR[1], ~0);
 >=20
-> Changes in v2:
->  - assuming addr_len =3D=3D ETH_ALEN to allow optimized memcpy
->  - dropped the vt6656 patch due to addr_len being unset in that drive=
-r
-
-Looks good, series applied, thanks.
+>-=A0=A0=A0 rtl8187_init_urbs(dev);
+>+=A0=A0=A0 ret =3D rtl8187_init_urbs(dev);
+>+=A0=A0=A0 if (ret)
+>+=A0=A0=A0 =A0=A0=A0 goto rtl8187_start_exit;
+>=20
+> =A0=A0=A0 reg =3D RTL818X_RX_CONF_ONLYERLPKT |
+> =A0=A0=A0 =A0 =A0 =A0 RTL818X_RX_CONF_RX_AUTORESETPHY |
+>--=20
+>1.8.1.2
+>
