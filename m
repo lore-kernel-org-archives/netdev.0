@@ -1,46 +1,36 @@
-From: "Cham Tao Soon" <citybranch.mgr@smib.lk>
-Subject: Good day
-Date: Sat, 31 Aug 2013 16:15:30 +0100
-Message-ID: <20130831154202.D2A4B65A4FD4@scanner.udes.edu.co>
-Reply-To: ctaocham@yahoo.com.hk
+From: David Miller <davem@davemloft.net>
+Subject: Re: Pull request: sfc-next 2013-08-30
+Date: Sat, 31 Aug 2013 22:28:57 -0400 (EDT)
+Message-ID: <20130831.222857.845781578450355342.davem@davemloft.net>
+References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [190.90.163.7] ([190.90.163.7]:34189 "HELO scanner.udes.edu.co"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1752780Ab3HaXj5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 19:39:57 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by scanner.udes.edu.co (Postfix) with ESMTP id 1CC4365A0D5A
-	for <netdev@vger.kernel.org>; Sat, 31 Aug 2013 11:05:42 -0500 (COT)
-Received: from scanner.udes.edu.co ([127.0.0.1])
-	by localhost (scanner.udes.edu.co [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id HlGomx9WBQLn for <netdev@vger.kernel.org>;
-	Sat, 31 Aug 2013 11:05:42 -0500 (COT)
-Received: from [41.71.217.181] (unknown [41.71.217.181])
-	by scanner.udes.edu.co (Postfix) with ESMTPSA id D2A4B65A4FD4
-	for <netdev@vger.kernel.org>; Sat, 31 Aug 2013 10:42:01 -0500 (COT)
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:45948 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139Ab3IAC3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Aug 2013 22:29:01 -0400
+In-Reply-To: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day,
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 30 Aug 2013 04:36:34 +0100
 
-This is a personal email directed to you for your consideration alone, =
-I request that it  remain and be treated as such only. I am Mr. Cham Ta=
-o Soon, Chairman Audit Committee of UOB  Bank, Singapore. I have an int=
-eresting business proposal for you that will be of immense benefit to b=
-oth of us. Although this may be hard for you to believe, we stand to ga=
-in =E2=82=AC105,000,000.00 EUR between us in a matter of days. Please g=
-rant me the benefit of  doubt and hear me out. I need you to signify yo=
-ur interest by replying to this email.
+> 1. A little more refactoring.
+> 2. Remove the unnecessary use of atomic_t that you pointed out.
+> 3. Add support for starting or queueing firmware requests from atomic
+> context.
+> 4. Add hwmon support for additional sensors found on some new boards.
+> 5. Add support for the EF10 controller architecture, the SFC9100 family
+> and specifically the SFC9120 controller.
 
-Most importantly, I will need you to promise to keep whatever you learn=
- from me between us even if you decide not to go along with me. I will =
-make more details available to you on receipt of a positive response fr=
-om you.
+Pulled, thanks Ben.
 
-Greetings
-Mr. Cham Tao Soon.
+Maybe you can get away with just doing "atomic_inc_return()" for the
+MCDI sequence number bump and avoid the iface lock in those paths?
+
+Just an idea.
