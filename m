@@ -1,138 +1,258 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] llc: Use normal etherdevice.h tests
-Date: Sun, 01 Sep 2013 13:11:55 -0700
-Message-ID: <1378066315.1953.23.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3] ipv6:introduce function to find route for redirect
+Date: Sun, 1 Sep 2013 23:08:25 +0200
+Message-ID: <20130901210825.GD19455@order.stressinduktion.org>
+References: <52217A8D.9010008@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:59753 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752286Ab3IAVI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Sep 2013 17:08:27 -0400
+Content-Disposition: inline
+In-Reply-To: <52217A8D.9010008@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert the llc_<foo> static inlines to the
-equivalents from etherdevice.h and remove
-the llc_<foo> static inline functions.
+On Sat, Aug 31, 2013 at 01:09:33PM +0800, Duan Jiong wrote:
+> RFC 4861 says that the IP source address of the Redirect is the
+> same as the current first-hop router for the specified ICMP
+> Destination Address, so the gateway should be taken into
+> consideration when we find the route for redirect.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-llc_mac_null -> is_zero_ether_addr
-llc_mac_multicast -> is_multicast_ether_addr
-llc_mac_match -> ether_addr_equal
+This patch looks good!
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/llc_if.h | 30 ------------------------------
- net/llc/af_llc.c     |  6 +++---
- net/llc/llc_conn.c   |  6 +++---
- net/llc/llc_sap.c    |  4 ++--
- 4 files changed, 8 insertions(+), 38 deletions(-)
+Maybe you could also point to commit
+a6279458c534d01ccc39498aba61c93083ee0372 ("NDISC: Search over all possible
+rules on receipt of redirect.") and where the check went away?
 
-diff --git a/include/net/llc_if.h b/include/net/llc_if.h
-index b595a00..f0cb909 100644
---- a/include/net/llc_if.h
-+++ b/include/net/llc_if.h
-@@ -62,36 +62,6 @@
- #define LLC_STATUS_CONFLICT	7 /* disconnect conn */
- #define LLC_STATUS_RESET_DONE	8 /*  */
- 
--/**
-- *      llc_mac_null - determines if a address is a null mac address
-- *      @mac: Mac address to test if null.
-- *
-- *      Determines if a given address is a null mac address.  Returns 0 if the
-- *      address is not a null mac, 1 if the address is a null mac.
-- */
--static inline int llc_mac_null(const u8 *mac)
--{
--	return is_zero_ether_addr(mac);
--}
--
--static inline int llc_mac_multicast(const u8 *mac)
--{
--	return is_multicast_ether_addr(mac);
--}
--/**
-- *	llc_mac_match - determines if two mac addresses are the same
-- *	@mac1: First mac address to compare.
-- *	@mac2: Second mac address to compare.
-- *
-- *	Determines if two given mac address are the same.  Returns 0 if there
-- *	is not a complete match up to len, 1 if a complete match up to len is
-- *	found.
-- */
--static inline int llc_mac_match(const u8 *mac1, const u8 *mac2)
--{
--	return !compare_ether_addr(mac1, mac2);
--}
--
- extern int llc_establish_connection(struct sock *sk, u8 *lmac,
- 				    u8 *dmac, u8 dsap);
- extern int llc_build_and_send_pkt(struct sock *sk, struct sk_buff *skb);
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index 48aaa89..6cba486 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -321,12 +321,12 @@ static int llc_ui_bind(struct socket *sock, struct sockaddr *uaddr, int addrlen)
- 		if (llc->dev) {
- 			if (!addr->sllc_arphrd)
- 				addr->sllc_arphrd = llc->dev->type;
--			if (llc_mac_null(addr->sllc_mac))
-+			if (is_zero_ether_addr(addr->sllc_mac))
- 				memcpy(addr->sllc_mac, llc->dev->dev_addr,
- 				       IFHWADDRLEN);
- 			if (addr->sllc_arphrd != llc->dev->type ||
--			    !llc_mac_match(addr->sllc_mac,
--					   llc->dev->dev_addr)) {
-+			    !ether_addr_equal(addr->sllc_mac,
-+					      llc->dev->dev_addr)) {
- 				rc = -EINVAL;
- 				llc->dev = NULL;
- 			}
-diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
-index 0d0d416..cd87241 100644
---- a/net/llc/llc_conn.c
-+++ b/net/llc/llc_conn.c
-@@ -478,8 +478,8 @@ static inline bool llc_estab_match(const struct llc_sap *sap,
- 
- 	return llc->laddr.lsap == laddr->lsap &&
- 		llc->daddr.lsap == daddr->lsap &&
--		llc_mac_match(llc->laddr.mac, laddr->mac) &&
--		llc_mac_match(llc->daddr.mac, daddr->mac);
-+		ether_addr_equal(llc->laddr.mac, laddr->mac) &&
-+		ether_addr_equal(llc->daddr.mac, daddr->mac);
- }
- 
- /**
-@@ -550,7 +550,7 @@ static inline bool llc_listener_match(const struct llc_sap *sap,
- 
- 	return sk->sk_type == SOCK_STREAM && sk->sk_state == TCP_LISTEN &&
- 		llc->laddr.lsap == laddr->lsap &&
--		llc_mac_match(llc->laddr.mac, laddr->mac);
-+		ether_addr_equal(llc->laddr.mac, laddr->mac);
- }
- 
- static struct sock *__llc_lookup_listener(struct llc_sap *sap,
-diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-index 78be45c..e585069 100644
---- a/net/llc/llc_sap.c
-+++ b/net/llc/llc_sap.c
-@@ -302,7 +302,7 @@ static inline bool llc_dgram_match(const struct llc_sap *sap,
- 
-      return sk->sk_type == SOCK_DGRAM &&
- 	  llc->laddr.lsap == laddr->lsap &&
--	  llc_mac_match(llc->laddr.mac, laddr->mac);
-+	  ether_addr_equal(llc->laddr.mac, laddr->mac);
- }
- 
- /**
-@@ -425,7 +425,7 @@ void llc_sap_handler(struct llc_sap *sap, struct sk_buff *skb)
- 	llc_pdu_decode_da(skb, laddr.mac);
- 	llc_pdu_decode_dsap(skb, &laddr.lsap);
- 
--	if (llc_mac_multicast(laddr.mac)) {
-+	if (is_multicast_ether_addr(laddr.mac)) {
- 		llc_sap_mcast(sap, &laddr, skb);
- 		kfree_skb(skb);
- 	} else {
+The bug is only "exploitable" on layer-2 because the source address of the
+redirect is checked to be a valid link-local address but it makes spoofing a
+lot easier in the same L2 domain nonetheless.
+
+Nice work!
+
+Some smaller comments inline:
+
+> ---
+>  Changes for v3:
+>  1.Fix the comments style problems
+> 
+>  net/ipv6/ah6.c     |  2 +-
+>  net/ipv6/esp6.c    |  2 +-
+>  net/ipv6/icmp.c    |  2 +-
+>  net/ipv6/ipcomp6.c |  2 +-
+>  net/ipv6/ndisc.c   |  3 ++-
+>  net/ipv6/route.c   | 78 +++++++++++++++++++++++++++++++++++++++++++++++++-----
+>  6 files changed, 78 insertions(+), 11 deletions(-)
+> 
+> diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+> index bb02e17..73784c3 100644
+> --- a/net/ipv6/ah6.c
+> +++ b/net/ipv6/ah6.c
+> @@ -628,7 +628,7 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  		return;
+>  
+>  	if (type == NDISC_REDIRECT)
+> -		ip6_redirect(skb, net, 0, 0);
+> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+>  	else
+>  		ip6_update_pmtu(skb, net, info, 0, 0);
+>  	xfrm_state_put(x);
+> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+> index aeac0dc..d3618a7 100644
+> --- a/net/ipv6/esp6.c
+> +++ b/net/ipv6/esp6.c
+> @@ -447,7 +447,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  		return;
+>  
+>  	if (type == NDISC_REDIRECT)
+> -		ip6_redirect(skb, net, 0, 0);
+> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+>  	else
+>  		ip6_update_pmtu(skb, net, info, 0, 0);
+>  	xfrm_state_put(x);
+> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> index 7cfc8d2..73681c2 100644
+> --- a/net/ipv6/icmp.c
+> +++ b/net/ipv6/icmp.c
+> @@ -92,7 +92,7 @@ static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  	if (type == ICMPV6_PKT_TOOBIG)
+>  		ip6_update_pmtu(skb, net, info, 0, 0);
+>  	else if (type == NDISC_REDIRECT)
+> -		ip6_redirect(skb, net, 0, 0);
+> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+>  
+>  	if (!(type & ICMPV6_INFOMSG_MASK))
+>  		if (icmp6->icmp6_type == ICMPV6_ECHO_REQUEST)
+> diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+> index 7af5aee..5636a91 100644
+> --- a/net/ipv6/ipcomp6.c
+> +++ b/net/ipv6/ipcomp6.c
+> @@ -76,7 +76,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  		return;
+>  
+>  	if (type == NDISC_REDIRECT)
+> -		ip6_redirect(skb, net, 0, 0);
+> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+>  	else
+>  		ip6_update_pmtu(skb, net, info, 0, 0);
+>  	xfrm_state_put(x);
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 04d31c2..90f474b 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -1370,7 +1370,8 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+>  		return;
+>  
+>  	if (!ndopts.nd_opts_rh) {
+> -		ip6_redirect_no_header(skb, dev_net(skb->dev), 0, 0);
+> +		ip6_redirect_no_header(skb, dev_net(skb->dev),
+> +							skb->dev->ifindex, 0);
+
+This is not indented correctly. skb->dev->ifindex should be placed right below
+the upper skb variable.
+
+>  		return;
+>  	}
+>  
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 8d9a93e..2e1d378 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1157,6 +1157,74 @@ void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
+>  }
+>  EXPORT_SYMBOL_GPL(ip6_sk_update_pmtu);
+>  
+> +/* Handle redirects */
+> +struct ip6rd_flowi {
+> +	struct flowi6 fl6;
+> +	struct in6_addr gateway;
+> +};
+> +
+> +static struct rt6_info *__ip6_route_redirect(struct net *net,
+> +					     struct fib6_table *table,
+> +					     struct flowi6 *fl6,
+> +					     int flags)
+> +{
+> +	struct ip6rd_flowi *rdfl = (struct ip6rd_flowi *)fl6;
+> +	struct rt6_info *rt;
+> +	struct fib6_node *fn;
+> +
+> +	/* Get the "current" route for this destination and
+> +	 * check if the redirect has come from approriate router.
+> +	 *
+> +	 * RFC 4861 specifies that redirects should only be
+> +	 * accepted if they come from the nexthop to the target.
+> +	 * Due to the way the routes are chosen, this notion
+> +	 * is a bit fuzzy and one might need to check all possible
+> +	 * routes.
+> +	 */
+> +
+> +	read_lock_bh(&table->tb6_lock);
+> +	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+> +restart:
+> +	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
+> +		if (rt6_check_expired(rt))
+> +			continue;
+
+[1] (backreference for a comment below)
+
+> +		if (!(rt->rt6i_flags & RTF_GATEWAY))
+> +			continue;
+> +		if (fl6->flowi6_oif != rt->dst.dev->ifindex)
+> +			continue;
+> +		if (!ipv6_addr_equal(&rdfl->gateway, &rt->rt6i_gateway))
+> +			continue;
+> +		break;
+> +	}
+> +
+> +	if (!rt)
+> +		rt = net->ipv6.ip6_null_entry;
+> +	BACKTRACK(net, &fl6->saddr);
+> +out:
+> +	dst_hold(&rt->dst);
+> +
+> +	read_unlock_bh(&table->tb6_lock);
+> +
+> +	return rt;
+> +};
+> +
+> +static struct dst_entry *ip6_route_redirect(const struct flowi6 *fl6,
+> +					   const struct in6_addr *gateway,
+> +					   struct net *net)
+
+The ordering of the arguments could be in the same style as the other
+ip6_route_* functions (net, flow, gateway). But that is not that important.
+
+> +{
+> +	int flags = RT6_LOOKUP_F_HAS_SADDR;
+> +	struct ip6rd_flowi rdfl;
+> +
+> +	rdfl.fl6 = *fl6;
+> +	rdfl.gateway = *gateway;
+> +
+> +	if (rt6_need_strict(&fl6->daddr))
+> +		flags |= RT6_LOOKUP_F_IFACE;
+
+This is not needed because you do the matching on interfaces yourself
+in __ip6_route_redirect. The flag should currently not be checked on
+this code path down in fib6_rule_lookup.
+
+> +
+> +	return fib6_rule_lookup(net, &rdfl.fl6,
+> +						   flags, __ip6_route_redirect);
+
+This line jumped a bit too far to the right, too. ;)
+
+> +}
+> +
+>  void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
+
+Maybe we should rename oif to iif now?
+
+>  {
+>  	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
+> @@ -1171,9 +1239,8 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
+>  	fl6.saddr = iph->saddr;
+>  	fl6.flowlabel = ip6_flowinfo(iph);
+>  
+> -	dst = ip6_route_output(net, NULL, &fl6);
+> -	if (!dst->error)
+> -		rt6_do_redirect(dst, NULL, skb);
+> +	dst = ip6_route_redirect(&fl6, &ipv6_hdr(skb)->saddr, net);
+> +	rt6_do_redirect(dst, NULL, skb);
+
+What is the reason you left out the dst.error check? E.g. if a system had a
+prohbit rule it is possible to circumvent this with a redirect packet now.
+
+I would think about placing this check at [1] and fail the lookup
+early. rt6_do_redirect does check for null-entry, so you could omit the
+check here, then.
+
+>  	dst_release(dst);
+>  }
+>  EXPORT_SYMBOL_GPL(ip6_redirect);
+> @@ -1193,9 +1260,8 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
+>  	fl6.daddr = msg->dest;
+>  	fl6.saddr = iph->daddr;
+>  
+> -	dst = ip6_route_output(net, NULL, &fl6);
+> -	if (!dst->error)
+> -		rt6_do_redirect(dst, NULL, skb);
+> +	dst = ip6_route_redirect(&fl6, &iph->saddr, net);
+> +	rt6_do_redirect(dst, NULL, skb);
+
+Likewise.
+
+>  	dst_release(dst);
+>  }
+
+Thanks,
+
+  Hannes
