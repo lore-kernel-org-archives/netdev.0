@@ -1,48 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ICMPv6: treat dest unreachable codes 5 and 6 as EACCES, not EPROTO
-Date: Sun, 1 Sep 2013 20:54:32 +0200
-Message-ID: <20130901185432.GC19455@order.stressinduktion.org>
-References: <20130830091844.GA2706@midget.suse.cz>
+From: Paul Wouters <pwouters@redhat.com>
+Subject: [PATCH] Fix for loading non-namespace aware ipv4 protocols without
+ CONFIG_NAMESPACES
+Date: Sun, 01 Sep 2013 15:30:26 -0400
+Message-ID: <522395D2.7080209@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: multipart/mixed;
+ boundary="------------070908040609020805090302"
+Cc: netdev@vger.kernel.org
+To: James Morris <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59553 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756605Ab3IASyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Sep 2013 14:54:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20130830091844.GA2706@midget.suse.cz>
+Received: from mx1.redhat.com ([209.132.183.28]:53170 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755958Ab3IATaa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Sep 2013 15:30:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 30, 2013 at 11:18:45AM +0200, Jiri Bohac wrote:
-> RFC 4443 has defined two additional codes for ICMPv6 type 1 (destination
-> unreachable) messages:
->         5 - Source address failed ingress/egress policy
-> 	6 - Reject route to destination
-> 
-> Now they are treated as protocol error and icmpv6_err_convert() converts them
-> to EPROTO.
-> 
-> RFC 4443 says:
-> 	"Codes 5 and 6 are more informative subsets of code 1."
-> 
-> Treat codes 5 and 6 as code 1 (EACCES)
-> 
-> Btw, connect() returning -EPROTO confuses firefox, so that fallback to
-> other/IPv4 addresses does not work:
-> https://bugzilla.mozilla.org/show_bug.cgi?id=910773
-> 
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+This is a multi-part message in MIME format.
+--------------070908040609020805090302
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-I would also propose it for stable.
+Attached is a trivial patch to allow inet_add_protocol on kernels without CONFIG_NAMESPACES to load non-namespace aware (out of kernel) modules.
+For IPv6, there is no such check. Some discussion of that can be found in the archive: http://www.spinics.net/lists/netdev/msg225184.html
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+I'm ambivalent on whether the check should be there (like in ipv4) or not (like in ipv6). But if it is there, it should use the proper #ifdef.
 
-Thanks,
+Paul
 
-  Hannes
+--------------070908040609020805090302
+Content-Type: text/x-patch;
+ name="ipv4-protocol-nonamespace.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ipv4-protocol-nonamespace.patch"
+
+commit 9e3ddb21568284fb9061a91bbd3158909b1dec45
+Author: Paul Wouters <pwouters@redhat.com>
+Date:   Sun Sep 1 15:18:37 2013 -0400
+
+    * Fix for loading non-namespace aware ipv4 protocols without
+      CONFIG_NAMESPACES set. IPv6 does not have this check.
+
+diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+index ce84846..b5f785c 100644
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -37,11 +37,13 @@ const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
+ 
+ int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
++#ifdef CONFIG_NAMESPACES
+ 	if (!prot->netns_ok) {
+ 		pr_err("Protocol %u is not namespace aware, cannot register.\n",
+ 			protocol);
+ 		return -EINVAL;
+ 	}
++#endif
+ 
+ 	return !cmpxchg((const struct net_protocol **)&inet_protos[protocol],
+ 			NULL, prot) ? 0 : -1;
+
+--------------070908040609020805090302--
