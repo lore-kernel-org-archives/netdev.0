@@ -1,258 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3] ipv6:introduce function to find route for redirect
-Date: Sun, 1 Sep 2013 23:08:25 +0200
-Message-ID: <20130901210825.GD19455@order.stressinduktion.org>
-References: <52217A8D.9010008@cn.fujitsu.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next] bcm87xx: Add MODULE_DEVICE_TABLE
+Date: Sun, 01 Sep 2013 22:33:04 +0100
+Message-ID: <1378071184.25743.52.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-cOYSjxHXdn2xJi6NdXfo"
+Cc: David Daney <david.daney@cavium.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59753 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286Ab3IAVI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Sep 2013 17:08:27 -0400
-Content-Disposition: inline
-In-Reply-To: <52217A8D.9010008@cn.fujitsu.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60093 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753071Ab3IAVdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Sep 2013 17:33:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 31, 2013 at 01:09:33PM +0800, Duan Jiong wrote:
-> RFC 4861 says that the IP source address of the Redirect is the
-> same as the current first-hop router for the specified ICMP
-> Destination Address, so the gateway should be taken into
-> consideration when we find the route for redirect.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-This patch looks good!
+--=-cOYSjxHXdn2xJi6NdXfo
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Maybe you could also point to commit
-a6279458c534d01ccc39498aba61c93083ee0372 ("NDISC: Search over all possible
-rules on receipt of redirect.") and where the check went away?
+bcm87xx currently isn't auto-loaded if built as a module.
 
-The bug is only "exploitable" on layer-2 because the source address of the
-redirect is checked to be a valid link-local address but it makes spoofing a
-lot easier in the same L2 domain nonetheless.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Compile-tested only.
 
-Nice work!
+Ben.
 
-Some smaller comments inline:
+ drivers/net/phy/bcm87xx.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-> ---
->  Changes for v3:
->  1.Fix the comments style problems
-> 
->  net/ipv6/ah6.c     |  2 +-
->  net/ipv6/esp6.c    |  2 +-
->  net/ipv6/icmp.c    |  2 +-
->  net/ipv6/ipcomp6.c |  2 +-
->  net/ipv6/ndisc.c   |  3 ++-
->  net/ipv6/route.c   | 78 +++++++++++++++++++++++++++++++++++++++++++++++++-----
->  6 files changed, 78 insertions(+), 11 deletions(-)
-> 
-> diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-> index bb02e17..73784c3 100644
-> --- a/net/ipv6/ah6.c
-> +++ b/net/ipv6/ah6.c
-> @@ -628,7 +628,7 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->  		return;
->  
->  	if (type == NDISC_REDIRECT)
-> -		ip6_redirect(skb, net, 0, 0);
-> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
->  	else
->  		ip6_update_pmtu(skb, net, info, 0, 0);
->  	xfrm_state_put(x);
-> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-> index aeac0dc..d3618a7 100644
-> --- a/net/ipv6/esp6.c
-> +++ b/net/ipv6/esp6.c
-> @@ -447,7 +447,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->  		return;
->  
->  	if (type == NDISC_REDIRECT)
-> -		ip6_redirect(skb, net, 0, 0);
-> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
->  	else
->  		ip6_update_pmtu(skb, net, info, 0, 0);
->  	xfrm_state_put(x);
-> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-> index 7cfc8d2..73681c2 100644
-> --- a/net/ipv6/icmp.c
-> +++ b/net/ipv6/icmp.c
-> @@ -92,7 +92,7 @@ static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->  	if (type == ICMPV6_PKT_TOOBIG)
->  		ip6_update_pmtu(skb, net, info, 0, 0);
->  	else if (type == NDISC_REDIRECT)
-> -		ip6_redirect(skb, net, 0, 0);
-> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
->  
->  	if (!(type & ICMPV6_INFOMSG_MASK))
->  		if (icmp6->icmp6_type == ICMPV6_ECHO_REQUEST)
-> diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-> index 7af5aee..5636a91 100644
-> --- a/net/ipv6/ipcomp6.c
-> +++ b/net/ipv6/ipcomp6.c
-> @@ -76,7 +76,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->  		return;
->  
->  	if (type == NDISC_REDIRECT)
-> -		ip6_redirect(skb, net, 0, 0);
-> +		ip6_redirect(skb, net, skb->dev->ifindex, 0);
->  	else
->  		ip6_update_pmtu(skb, net, info, 0, 0);
->  	xfrm_state_put(x);
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 04d31c2..90f474b 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -1370,7 +1370,8 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
->  		return;
->  
->  	if (!ndopts.nd_opts_rh) {
-> -		ip6_redirect_no_header(skb, dev_net(skb->dev), 0, 0);
-> +		ip6_redirect_no_header(skb, dev_net(skb->dev),
-> +							skb->dev->ifindex, 0);
+diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
+index 7997895..f5b44ff 100644
+--- a/drivers/net/phy/bcm87xx.c
++++ b/drivers/net/phy/bcm87xx.c
+@@ -230,4 +230,11 @@ static void __exit bcm87xx_exit(void)
+ }
+ module_exit(bcm87xx_exit);
+=20
++static struct mdio_device_id __maybe_unused bcm87xx_tbl[] =3D {
++	{ PHY_ID_BCM8706, 0xffffffff },
++	{ PHY_ID_BCM8727, 0xffffffff },
++	{ }
++};
++
+ MODULE_LICENSE("GPL");
++MODULE_DEVICE_TABLE(mdio, bcm87xx_tbl);
 
-This is not indented correctly. skb->dev->ifindex should be placed right below
-the upper skb variable.
 
->  		return;
->  	}
->  
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 8d9a93e..2e1d378 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1157,6 +1157,74 @@ void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
->  }
->  EXPORT_SYMBOL_GPL(ip6_sk_update_pmtu);
->  
-> +/* Handle redirects */
-> +struct ip6rd_flowi {
-> +	struct flowi6 fl6;
-> +	struct in6_addr gateway;
-> +};
-> +
-> +static struct rt6_info *__ip6_route_redirect(struct net *net,
-> +					     struct fib6_table *table,
-> +					     struct flowi6 *fl6,
-> +					     int flags)
-> +{
-> +	struct ip6rd_flowi *rdfl = (struct ip6rd_flowi *)fl6;
-> +	struct rt6_info *rt;
-> +	struct fib6_node *fn;
-> +
-> +	/* Get the "current" route for this destination and
-> +	 * check if the redirect has come from approriate router.
-> +	 *
-> +	 * RFC 4861 specifies that redirects should only be
-> +	 * accepted if they come from the nexthop to the target.
-> +	 * Due to the way the routes are chosen, this notion
-> +	 * is a bit fuzzy and one might need to check all possible
-> +	 * routes.
-> +	 */
-> +
-> +	read_lock_bh(&table->tb6_lock);
-> +	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
-> +restart:
-> +	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
-> +		if (rt6_check_expired(rt))
-> +			continue;
+--=-cOYSjxHXdn2xJi6NdXfo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-[1] (backreference for a comment below)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
 
-> +		if (!(rt->rt6i_flags & RTF_GATEWAY))
-> +			continue;
-> +		if (fl6->flowi6_oif != rt->dst.dev->ifindex)
-> +			continue;
-> +		if (!ipv6_addr_equal(&rdfl->gateway, &rt->rt6i_gateway))
-> +			continue;
-> +		break;
-> +	}
-> +
-> +	if (!rt)
-> +		rt = net->ipv6.ip6_null_entry;
-> +	BACKTRACK(net, &fl6->saddr);
-> +out:
-> +	dst_hold(&rt->dst);
-> +
-> +	read_unlock_bh(&table->tb6_lock);
-> +
-> +	return rt;
-> +};
-> +
-> +static struct dst_entry *ip6_route_redirect(const struct flowi6 *fl6,
-> +					   const struct in6_addr *gateway,
-> +					   struct net *net)
+iQIVAwUAUiOykOe/yOyVhhEJAQrIcA/+MECuiQKDOTIMuVFavssHeukuG3TPOflb
+PM3CjxP4t7EfJVohtavXmykJE7DIDRraUNf2tVGvlxQUpIjrA2vOmV5AhZfGmSkr
+BOuE391SHvy9q25UmwA/OGfKuryQwI2ogzlchKQg3Xj+9uHtAQf2yqQTduqaC8Dz
+3FhaCbHpL9Vh9hwi886lDFemV2uvUyH3Ij9lRE1xTGnWyzhl8X1V2vRmicikNeqs
+lO3AbzjuC8jHAnfQke/M+BqV6zbrTmUCMI188DVaNH9MkBgMjwSwZnjFHUhOvNWs
+9rrPcM+a645g8IdKr1+/vDLVMoKdxieE9Da0QODJ0NaNeXTmiuHDTU95TbcBfpu8
+GOEITVSXj3yziCeXSY+PusjFq68OgGA2pL2PAV65QvgeRbzYuTusjnKgWxu9tXOp
+/vlrYZuO/202rJeE4k9YiQ+f3E9YhnpS+7rBabZPNh/NrwRSDM7OVVtEC3+tG4Dt
+yee5iWXL5lFvM6E8odobEh92e6Hnz292Y2TSd4ZwWbn9+TFPnvJ+98W21Xie5B9R
+pvn4iykOYj2+getUO4drwwj+GU2gehXtGa+srBKLeY3xtD5GKOa2mbdEbZczwKGx
+v93TII1FpKXtsmJjw2z4sC/NU/qzbRGX2ZmuR8wfdNUQZU7lTty7JiqQaQ7UND/G
+L7CE+CstXgU=
+=eUJX
+-----END PGP SIGNATURE-----
 
-The ordering of the arguments could be in the same style as the other
-ip6_route_* functions (net, flow, gateway). But that is not that important.
-
-> +{
-> +	int flags = RT6_LOOKUP_F_HAS_SADDR;
-> +	struct ip6rd_flowi rdfl;
-> +
-> +	rdfl.fl6 = *fl6;
-> +	rdfl.gateway = *gateway;
-> +
-> +	if (rt6_need_strict(&fl6->daddr))
-> +		flags |= RT6_LOOKUP_F_IFACE;
-
-This is not needed because you do the matching on interfaces yourself
-in __ip6_route_redirect. The flag should currently not be checked on
-this code path down in fib6_rule_lookup.
-
-> +
-> +	return fib6_rule_lookup(net, &rdfl.fl6,
-> +						   flags, __ip6_route_redirect);
-
-This line jumped a bit too far to the right, too. ;)
-
-> +}
-> +
->  void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
-
-Maybe we should rename oif to iif now?
-
->  {
->  	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
-> @@ -1171,9 +1239,8 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
->  	fl6.saddr = iph->saddr;
->  	fl6.flowlabel = ip6_flowinfo(iph);
->  
-> -	dst = ip6_route_output(net, NULL, &fl6);
-> -	if (!dst->error)
-> -		rt6_do_redirect(dst, NULL, skb);
-> +	dst = ip6_route_redirect(&fl6, &ipv6_hdr(skb)->saddr, net);
-> +	rt6_do_redirect(dst, NULL, skb);
-
-What is the reason you left out the dst.error check? E.g. if a system had a
-prohbit rule it is possible to circumvent this with a redirect packet now.
-
-I would think about placing this check at [1] and fail the lookup
-early. rt6_do_redirect does check for null-entry, so you could omit the
-check here, then.
-
->  	dst_release(dst);
->  }
->  EXPORT_SYMBOL_GPL(ip6_redirect);
-> @@ -1193,9 +1260,8 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
->  	fl6.daddr = msg->dest;
->  	fl6.saddr = iph->daddr;
->  
-> -	dst = ip6_route_output(net, NULL, &fl6);
-> -	if (!dst->error)
-> -		rt6_do_redirect(dst, NULL, skb);
-> +	dst = ip6_route_redirect(&fl6, &iph->saddr, net);
-> +	rt6_do_redirect(dst, NULL, skb);
-
-Likewise.
-
->  	dst_release(dst);
->  }
-
-Thanks,
-
-  Hannes
+--=-cOYSjxHXdn2xJi6NdXfo--
