@@ -1,61 +1,47 @@
-From: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
-Subject: Re: [PATCH v2 3/3] Send cgroup_path in SCM_CGROUP
-Date: Mon, 2 Sep 2013 19:17:00 +0200
-Message-ID: <CAPXgP120-PZHvEkAOgvUNkYYXnNfPt=SbxjRWY1hDXY9RWTJWQ@mail.gmail.com>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
-	<1377785602-10766-1-git-send-email-jkaluza@redhat.com>
-	<1377785602-10766-4-git-send-email-jkaluza@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Pull request: sfc-next 2013-08-30
+Date: Mon, 2 Sep 2013 18:20:13 +0100
+Message-ID: <1378142413.1552.12.camel@bwh-desktop.uk.level5networks.com>
+References: <1377833794.2552.26.camel@deadeye.wl.decadent.org.uk>
+	 <20130831.222857.845781578450355342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1377785602-10766-4-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:60449 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755333Ab3IBRUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 13:20:17 -0400
+In-Reply-To: <20130831.222857.845781578450355342.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 29, 2013 at 4:13 PM, Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> Add new SCM type called SCM_CGROUP to send "cgroup_path" in SCM.
-> This is useful for journald (systemd logging daemon) to get additional context
-> with each log line received using UNIX socket.
->
-> Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+On Sat, 2013-08-31 at 22:28 -0400, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Fri, 30 Aug 2013 04:36:34 +0100
+> 
+> > 1. A little more refactoring.
+> > 2. Remove the unnecessary use of atomic_t that you pointed out.
+> > 3. Add support for starting or queueing firmware requests from atomic
+> > context.
+> > 4. Add hwmon support for additional sensors found on some new boards.
+> > 5. Add support for the EF10 controller architecture, the SFC9100 family
+> > and specifically the SFC9120 controller.
+> 
+> Pulled, thanks Ben.
+> 
+> Maybe you can get away with just doing "atomic_inc_return()" for the
+> MCDI sequence number bump and avoid the iface lock in those paths?
 
-In many cases it's generally more useful to explain *why* something is
-done, not *where* it is used. It makes it easier for people to match
-the described problem to their own use-cases, where it possibly occurs
-too. The problem this patch solves is very generic and not so much
-specific to logging or the journal. Maybe something like this:
+I haven't checked, but I think the spinlock will almost always be
+uncontended.  It can bounce between CPUs, but then so will seqno.  So I
+don't think that would make any significant difference to performance.
 
-"Server-like processes in many cases need credentials and other
-metadata of the peer, to decide if the calling process is allowed to
-request a specific action, or the server just wants to log away this
-type of information for auditing tasks.
+Ben.
 
-The current practice to retrieve such process metadata is to look that
-information up in procfs with the $PID received over SCM_CREDENTIALS.
-This is sufficient for long-running tasks, but introduces a race which
-cannot be worked around for short-living processes; the calling
-process and all the information in /proc/$PID/ is gone before the
-receiver of the socket message can look it up.
-
-This introduces a new SCM type called SCM_CGROUP to allow the direct
-attaching of "cgroup_path" to SCM, which is significantly more
-efficient and will reliably avoid the race with the round-trip over
-procfs."
-
-Thanks,
-Kay
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
