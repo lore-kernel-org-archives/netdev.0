@@ -1,175 +1,144 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 11/21] bonding: remove bond_for_each_slave_reverse()
-Date: Mon,  2 Sep 2013 23:39:15 +0200
-Message-ID: <1378157965-17537-12-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 14/21] net: add netdev_for_each_lower_neigh_private_continue()
+Date: Mon,  2 Sep 2013 23:39:18 +0200
+Message-ID: <1378157965-17537-15-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14172 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24419 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759150Ab3IBVj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:26 -0400
+	id S932192Ab3IBVjc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:32 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We only use it in rollback scenarios and can easily use the standart
-bond_for_each_dev() instead.
+This macro allows going through the neighbour lower list private's from a
+specific position and till it doesn't hit the same position again.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+For that, two functions are needed:
+
+netdev_lower_neigh_set_iter_per_private(dev, iter, from_priv) - which
+searches for from_priv and, if found, sets the iter to the correct
+position, returning from_priv.
+
+netdev_lower_neigh_get_next_private_to(dev, iter, from_priv) - gets the
+next ->private (and skips the list head), or if the next private equals
+from_priv - returns NULL. Also returns NULL if the ->private is NULL, to
+catch the case if the list doesn't have any elements.
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c  | 14 ++++++++------
- drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++------------
- drivers/net/bonding/bonding.h   | 10 ----------
- 3 files changed, 30 insertions(+), 28 deletions(-)
+ include/linux/netdevice.h | 14 +++++++++++
+ net/core/dev.c            | 62 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index a277465..bda976f 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1248,9 +1248,9 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
-  */
- static int alb_set_mac_address(struct bonding *bond, void *addr)
- {
--	char tmp_addr[ETH_ALEN];
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	struct sockaddr sa;
-+	char tmp_addr[ETH_ALEN];
- 	int res;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a149ef..20afdf98 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2788,6 +2788,20 @@ extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+ 	     updev; \
+ 	     updev = netdev_upper_get_next_dev_rcu(dev, &(iter)))
  
- 	if (bond->alb_info.rlb_enabled)
-@@ -1276,10 +1276,12 @@ unwind:
- 	sa.sa_family = bond->dev->type;
- 
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
--		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
--		dev_set_mac_address(slave->dev, &sa);
--		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
-+	bond_for_each_slave(bond, rollback_slave) {
-+		if (rollback_slave == slave)
-+			break;
-+		memcpy(tmp_addr, rollback_slave->dev->dev_addr, ETH_ALEN);
-+		dev_set_mac_address(rollback_slave->dev, &sa);
-+		memcpy(rollback_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
- 	}
- 
- 	return res;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 427d943..0a4aa0d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -332,7 +332,7 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 				__be16 proto, u16 vid)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	int res;
- 
- 	bond_for_each_slave(bond, slave) {
-@@ -344,9 +344,13 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 	return 0;
- 
- unwind:
--	/* unwind from the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave)
--		vlan_vid_del(slave->dev, proto, vid);
-+	/* unwind to the slave that failed */
-+	bond_for_each_slave(bond, rollback_slave) {
-+		if (rollback_slave == slave)
-+			break;
++extern void *netdev_lower_neigh_set_iter_per_private(struct net_device *dev,
++						     struct list_head **iter,
++						     void *private);
++extern void *netdev_lower_neigh_get_next_private_to(struct net_device *dev,
++						    struct list_head **iter,
++						    void *to);
 +
-+		vlan_vid_del(rollback_slave->dev, proto, vid);
-+	}
- 
- 	return res;
++#define netdev_for_each_lower_neigh_private_continue(dev, priv, from_priv, iter) \
++	for (priv = netdev_lower_neigh_set_iter_per_private(dev, &(iter), \
++							    from_priv);   \
++	     priv; \
++	     priv = netdev_lower_neigh_get_next_private_to(dev, &(iter),  \
++							   from_priv))
++
+ extern void *netdev_lower_neigh_get_next_private(struct net_device *dev,
+ 						 struct list_head **iter);
+ extern void *netdev_lower_neigh_get_next_private_rcu(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 55f8ac4..1b9862b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4555,6 +4555,68 @@ struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
  }
-@@ -3477,7 +3481,7 @@ static int bond_neigh_setup(struct net_device *dev,
- static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	int res = 0;
+ EXPORT_SYMBOL(netdev_upper_get_next_dev_rcu);
  
- 	pr_debug("bond=%p, name=%s, new_mtu=%d\n", bond,
-@@ -3526,13 +3530,16 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- 
- unwind:
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
-+	bond_for_each_slave(bond, rollback_slave) {
- 		int tmp_res;
- 
--		tmp_res = dev_set_mtu(slave->dev, bond_dev->mtu);
-+		if (rollback_slave == slave);
++/* netdev_lower_neigh_set_iter_per_private - Set the iter to reflect the
++ *					     position of the ->private
++ * @dev: device
++ * @iter: iter to be set
++ * @private: private to be found
++ *
++ * Iterates through lower neighbours, searching for private. When found,
++ * sets the iter to the ->list. Returns private or NULL if not found. User
++ * must hold RTNL lock or make sure that the list isn't modified.
++ */
++void *netdev_lower_neigh_set_iter_per_private(struct net_device *dev,
++					      struct list_head **iter,
++					      void *private)
++{
++	struct netdev_adjacent *lower;
++
++	list_for_each_entry(lower, &dev->neighbour_dev_list.lower, list)
++		if (lower->private == private)
 +			break;
 +
-+		tmp_res = dev_set_mtu(rollback_slave->dev, bond_dev->mtu);
- 		if (tmp_res) {
- 			pr_debug("unwind err %d dev %s\n",
--				 tmp_res, slave->dev->name);
-+				 tmp_res, rollback_slave->dev->name);
- 		}
- 	}
- 
-@@ -3549,8 +3556,8 @@ unwind:
- static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave, *rollback_slave;
- 	struct sockaddr *sa = addr, tmp_sa;
--	struct slave *slave;
- 	int res = 0;
- 
- 	if (bond->params.mode == BOND_MODE_ALB)
-@@ -3616,13 +3623,16 @@ unwind:
- 	tmp_sa.sa_family = bond_dev->type;
- 
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
-+	bond_for_each_slave(bond, rollback_slave) {
- 		int tmp_res;
- 
--		tmp_res = dev_set_mac_address(slave->dev, &tmp_sa);
-+		if (rollback_slave == slave)
-+			break;
++	if (&lower->list == &dev->neighbour_dev_list.lower)
++		return NULL;
 +
-+		tmp_res = dev_set_mac_address(rollback_slave->dev, &tmp_sa);
- 		if (tmp_res) {
- 			pr_debug("unwind err %d dev %s\n",
--				 tmp_res, slave->dev->name);
-+				 tmp_res, rollback_slave->dev->name);
- 		}
- 	}
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 7cb60f9..8c11f96 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -122,16 +122,6 @@
- #define bond_for_each_slave_rcu(bond, pos) \
- 	list_for_each_entry_rcu(pos, &(bond)->slave_list, list)
- 
--/**
-- * bond_for_each_slave_reverse - iterate in reverse from a given position
-- * @bond:	the bond holding this list
-- * @pos:	slave to continue from
-- *
-- * Caller must hold bond->lock
-- */
--#define bond_for_each_slave_continue_reverse(bond, pos) \
--	list_for_each_entry_continue_reverse(pos, &(bond)->slave_list, list)
--
- #ifdef CONFIG_NET_POLL_CONTROLLER
- extern atomic_t netpoll_block_tx;
- 
++	*iter = &lower->list;
++
++	return private;
++}
++EXPORT_SYMBOL(netdev_lower_neigh_set_iter_per_private);
++
++/* netdev_lower_neigh_get_next_private_to - Get the next ->private from the
++ *					    lower neighbour list, stop at to
++ * @dev: device
++ * @iter: list_head ** of the current position
++ * @to: if private == to then stop
++ *
++ * Gets the next netdev_adjacent->private from the dev's lower neighbour
++ * list, starting from iter position. The caller must hold either hold the
++ * RTNL lock or its own locking that guarantees that the neighbour lower
++ * list will remain unchainged. Stops when private == to or when it hits a
++ * NULL private.
++ */
++void *netdev_lower_neigh_get_next_private_to(struct net_device *dev,
++					     struct list_head **iter,
++					     void *to)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->neighbour_dev_list.lower)
++		lower = list_entry(lower->list.next, struct netdev_adjacent,
++				   list);
++
++	if (lower->private == to || !lower->private)
++		return NULL;
++
++	*iter = &lower->list;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_neigh_get_next_private_to);
++
+ /* netdev_lower_neigh_get_next_private - Get the next ->private from the
+  *					 lower neighbour list
+  * @dev: device
 -- 
 1.8.4
