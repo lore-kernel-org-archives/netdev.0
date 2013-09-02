@@ -1,18 +1,14 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 6/6] vhost_net: correctly limit the max pending buffers
-Date: Mon, 02 Sep 2013 16:37:38 +0800
-Message-ID: <52244E52.3060408@redhat.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-7-git-send-email-jasowang@redhat.com>
-	<20130902055609.GC19838@redhat.com> <52243071.5090303@redhat.com>
+Subject: [PATCH V3 0/6] vhost code cleanup and minor enhancement
+Date: Mon,  2 Sep 2013 16:40:55 +0800
+Message-ID: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52243071.5090303@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,23 +20,32 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 09/02/2013 02:30 PM, Jason Wang wrote:
-> On 09/02/2013 01:56 PM, Michael S. Tsirkin wrote:
->> > On Fri, Aug 30, 2013 at 12:29:22PM +0800, Jason Wang wrote:
->>> >> As Michael point out, We used to limit the max pending DMAs to get better cache
->>> >> utilization. But it was not done correctly since it was one done when there's no
->>> >> new buffers submitted from guest. Guest can easily exceeds the limitation by
->>> >> keeping sending packets.
->>> >>
->>> >> So this patch moves the check into main loop. Tests shows about 5%-10%
->>> >> improvement on per cpu throughput for guest tx. But a 5% drop on per cpu
->>> >> transaction rate for a single session TCP_RR.
->> > Any explanation for the drop? single session TCP_RR is unlikely to
->> > exceed VHOST_MAX_PEND, correct?
-> Unlikely to exceed. Recheck the result, looks like it was not stable
-> enough. Will re-test and report.
+This series tries to unify and simplify vhost codes especially for
+zerocopy. With this series, 5% - 10% improvement for per cpu throughput were
+seen during netperf guest sending test.
 
-Re-tested with more iterations, result shows no difference on TCP_RR
-test and 5%-10% improvement on per cpu throughput for guest tx.
+Plase review.
 
-Will post V3 soon.
+Changes from V2:
+- Typo fixes and code style fix
+- Add performance gain in the commit log of patch 2/6
+- Retest the update the result in patch 6/6
+
+Changes from V1:
+- Fix the zerocopy enabling check by changing the check of upend_idx != done_idx
+  to (upend_idx + 1) % UIO_MAXIOV == done_idx.
+- Switch to use put_user() in __vhost_add_used_n() if there's only one used
+- Keep the max pending check based on Michael's suggestion.
+
+Jason Wang (6):
+  vhost_net: make vhost_zerocopy_signal_used() return void
+  vhost_net: use vhost_add_used_and_signal_n() in
+    vhost_zerocopy_signal_used()
+  vhost: switch to use vhost_add_used_n()
+  vhost_net: determine whether or not to use zerocopy at one time
+  vhost_net: poll vhost queue after marking DMA is done
+  vhost_net: correctly limit the max pending buffers
+
+ drivers/vhost/net.c   |   92 ++++++++++++++++++++++--------------------------
+ drivers/vhost/vhost.c |   54 ++++++----------------------
+ 2 files changed, 54 insertions(+), 92 deletions(-)
