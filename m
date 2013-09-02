@@ -1,39 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: NAPI requires netif_receive_skb()
-Date: Tue, 3 Sep 2013 03:03:10 +0400
-Message-ID: <201309030303.11381.sergei.shtylyov@cogentembedded.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH V2] net: netx-eth: remove unnecessary casting
+Date: Tue, 03 Sep 2013 08:54:04 +0900
+Message-ID: <001101cea837$b49bf370$1dd3da50$%han@samsung.com>
+References: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:53664 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756204Ab3IBXyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 19:54:08 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MSI00CECVQ11820@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Tue, 03 Sep 2013 08:54:06 +0900 (KST)
+In-reply-to: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Driver supporting NAPI should use NAPI-specific function for receiving packets,
-so netif_rx() should be changed to netif_receive_skb().
+Casting from 'void *' is unnecessary, because casting from 'void *'
+to any pointer type is automatic.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
-This patch is against Dave's 'net-next.git' repo (it also applies to 'net.git'
-with offset). Perhaps it should  be backported to 3.11 once it is out...
-
- drivers/net/ethernet/renesas/sh_eth.c |    2 +-
+ drivers/net/ethernet/netx-eth.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1347,7 +1347,7 @@ static int sh_eth_rx(struct net_device *
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
--			netif_rx(skb);
-+			netif_receive_skb(skb);
- 			ndev->stats.rx_packets++;
- 			ndev->stats.rx_bytes += pkt_len;
- 		}
+diff --git a/drivers/net/ethernet/netx-eth.c b/drivers/net/ethernet/netx-eth.c
+index 235fd51..e6f0a43 100644
+--- a/drivers/net/ethernet/netx-eth.c
++++ b/drivers/net/ethernet/netx-eth.c
+@@ -390,7 +390,7 @@ static int netx_eth_drv_probe(struct platform_device *pdev)
+ 
+ 	priv = netdev_priv(ndev);
+ 
+-	pdata = (struct netxeth_platform_data *)dev_get_platdata(&pdev->dev);
++	pdata = dev_get_platdata(&pdev->dev);
+ 	priv->xc = request_xc(pdata->xcno, &pdev->dev);
+ 	if (!priv->xc) {
+ 		dev_err(&pdev->dev, "unable to request xc engine\n");
+-- 
+1.7.10.4
