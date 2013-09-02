@@ -1,303 +1,94 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Mon, 2 Sep 2013 19:35:35 +0800
-Message-ID: <1378121735-5681-1-git-send-email-B38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
-	<stephen@networkplumber.org>
-To: <b20596@freescale.com>, <davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next 1/5] bonding: simplify and fix peer notification
+Date: Mon,  2 Sep 2013 13:51:38 +0200
+Message-ID: <1378122702-28943-2-git-send-email-nikolay@redhat.com>
+References: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0251.outbound.messaging.microsoft.com ([213.199.154.251]:18814
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755133Ab3IBLmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 07:42:08 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:57494 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754338Ab3IBLzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 07:55:22 -0400
+In-Reply-To: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bug: error to get the previous BD entry. When the current BD
-is the first BD, the previous BD entry must be the last BD,
-not "bdp - 1" in current logic.
+This patch aims to remove a use of the bond->lock for mutual exclusion
+which will later allow easier migration to RCU of the users of this
+functionality. We use RTNL as a synchronizing mechanism since it's
+always held when send_peer_notif is set, and when it is decremented from
+the notifier function. We can also drop some locking, and fix the
+leakage of the send_peer_notif counter.
 
-V2:
-  Add tx_ring_size and rx_ring_size to struct fec_enet_private.
-  Replace api fec_enet_get_nextdesc() with next_bd().
-  Replace api fec_enet_get_prevdesc() with pre_bd().
-
-  Move all ring size check logic to next_bd() and pre_bd, which
-  simplifies the code redundancy.
-
-V1:
-  Add BD ring size check to get the previous BD entry in correctly.
-
-Signed-off-by: Fugang Duan  <B38611@freescale.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |    3 +
- drivers/net/ethernet/freescale/fec_main.c |   94 +++++++++++++++-------------
- 2 files changed, 53 insertions(+), 44 deletions(-)
+ drivers/net/bonding/bond_main.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index ae23600..0120217 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -296,6 +296,9 @@ struct fec_enet_private {
- 	/* The ring entries to be free()ed */
- 	struct bufdesc	*dirty_tx;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c50679f..05e638b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -828,7 +828,6 @@ static bool bond_should_notify_peers(struct bonding *bond)
+ 	    test_bit(__LINK_STATE_LINKWATCH_PENDING, &slave->dev->state))
+ 		return false;
  
-+	unsigned short tx_ring_size;
-+	unsigned short rx_ring_size;
-+
- 	struct	platform_device *pdev;
+-	bond->send_peer_notif--;
+ 	return true;
+ }
  
- 	int	opened;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4ea1555..9894dd3 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -239,22 +239,35 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+@@ -2259,12 +2258,8 @@ re_arm:
+ 	read_unlock(&bond->lock);
  
- static int mii_cnt;
+ 	if (should_notify_peers) {
+-		if (!rtnl_trylock()) {
+-			read_lock(&bond->lock);
+-			bond->send_peer_notif++;
+-			read_unlock(&bond->lock);
++		if (!rtnl_trylock())
+ 			return;
+-		}
+ 		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+ 		rtnl_unlock();
+ 	}
+@@ -2876,12 +2871,8 @@ re_arm:
+ 	read_unlock(&bond->lock);
  
--static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int is_ex)
-+static inline
-+struct bufdesc *next_bd(struct bufdesc *bdp, struct bufdesc *base,
-+			int ring_size, int is_ex)
+ 	if (should_notify_peers) {
+-		if (!rtnl_trylock()) {
+-			read_lock(&bond->lock);
+-			bond->send_peer_notif++;
+-			read_unlock(&bond->lock);
++		if (!rtnl_trylock())
+ 			return;
+-		}
+ 		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+ 		rtnl_unlock();
+ 	}
+@@ -2916,6 +2907,10 @@ static int bond_master_netdev_event(unsigned long event,
+ 	case NETDEV_REGISTER:
+ 		bond_create_proc_entry(event_bond);
+ 		break;
++	case NETDEV_NOTIFY_PEERS:
++		if (event_bond->send_peer_notif)
++			event_bond->send_peer_notif--;
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -3213,11 +3208,8 @@ static int bond_close(struct net_device *bond_dev)
  {
--	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-+	struct bufdesc *new_bd = bdp + 1;
-+	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp + 1;
-+	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
-+
- 	if (is_ex)
--		return (struct bufdesc *)(ex + 1);
-+		return (struct bufdesc *)((ex_new_bd >= (ex_base + ring_size)) ?
-+			(ex_new_bd - ring_size) : ex_new_bd);
- 	else
--		return bdp + 1;
-+		return (new_bd >= (base + ring_size)) ?
-+			(new_bd - ring_size) : new_bd;
- }
+ 	struct bonding *bond = netdev_priv(bond_dev);
  
--static struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, int is_ex)
-+static inline
-+struct bufdesc *pre_bd(struct bufdesc *bdp, struct bufdesc *base,
-+			int ring_size, int is_ex)
- {
--	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-+	struct bufdesc *new_bd = bdp - 1;
-+	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp - 1;
-+	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
-+
- 	if (is_ex)
--		return (struct bufdesc *)(ex - 1);
-+		return (struct bufdesc *)((ex_new_bd < ex_base) ?
-+			(ex_new_bd + ring_size) : ex_new_bd);
- 	else
--		return bdp - 1;
-+		return (new_bd < base) ? (new_bd + ring_size) : new_bd;
- }
- 
- static void *swap_buffer(void *bufaddr, int len)
-@@ -380,7 +393,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		}
- 	}
- 
--	bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp_pre = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
- 	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
- 		fep->delay_work.trig_tx = true;
-@@ -389,10 +402,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	}
- 
- 	/* If this was the last BD in the ring, start at the beginning again. */
--	if (status & BD_ENET_TX_WRAP)
--		bdp = fep->tx_bd_base;
--	else
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+	bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 
- 	fep->cur_tx = bdp;
- 
-@@ -417,18 +427,18 @@ static void fec_enet_bd_init(struct net_device *dev)
- 
- 	/* Initialize the receive buffer descriptors. */
- 	bdp = fep->rx_bd_base;
--	for (i = 0; i < RX_RING_SIZE; i++) {
-+	for (i = 0; i < fep->rx_ring_size; i++) {
- 
- 		/* Initialize the BD for every fragment in the page. */
- 		if (bdp->cbd_bufaddr)
- 			bdp->cbd_sc = BD_ENET_RX_EMPTY;
- 		else
- 			bdp->cbd_sc = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp = pre_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	fep->cur_rx = fep->rx_bd_base;
-@@ -436,7 +446,7 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	/* ...and the same for transmit */
- 	bdp = fep->tx_bd_base;
- 	fep->cur_tx = bdp;
--	for (i = 0; i < TX_RING_SIZE; i++) {
-+	for (i = 0; i < fep->tx_ring_size; i++) {
- 
- 		/* Initialize the BD for every fragment in the page. */
- 		bdp->cbd_sc = 0;
-@@ -445,11 +455,11 @@ static void fec_enet_bd_init(struct net_device *dev)
- 			fep->tx_skbuff[i] = NULL;
- 		}
- 		bdp->cbd_bufaddr = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 	fep->dirty_tx = bdp;
- }
-@@ -510,10 +520,10 @@ fec_restart(struct net_device *ndev, int duplex)
- 	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
- 	if (fep->bufdesc_ex)
- 		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc_ex)
--			* RX_RING_SIZE, fep->hwp + FEC_X_DES_START);
-+			* fep->rx_ring_size, fep->hwp + FEC_X_DES_START);
- 	else
- 		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
--			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
-+			* fep->rx_ring_size,	fep->hwp + FEC_X_DES_START);
- 
- 
- 	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
-@@ -727,10 +737,7 @@ fec_enet_tx(struct net_device *ndev)
- 	bdp = fep->dirty_tx;
- 
- 	/* get next bdp of dirty_tx */
--	if (bdp->cbd_sc & BD_ENET_TX_WRAP)
--		bdp = fep->tx_bd_base;
--	else
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+	bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 
- 	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
- 
-@@ -800,10 +807,7 @@ fec_enet_tx(struct net_device *ndev)
- 		fep->dirty_tx = bdp;
- 
- 		/* Update pointer to next buffer descriptor to be transmitted */
--		if (status & BD_ENET_TX_WRAP)
--			bdp = fep->tx_bd_base;
--		else
--			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 
- 		/* Since we have freed up a buffer, the ring is no longer full
- 		 */
-@@ -994,10 +998,8 @@ rx_processing_done:
- 		}
- 
- 		/* Update BD pointer to next entry */
--		if (status & BD_ENET_RX_WRAP)
--			bdp = fep->rx_bd_base;
--		else
--			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
-+
- 		/* Doing this here will keep the FEC running while we process
- 		 * incoming frames.  On a heavily loaded network, we should be
- 		 * able to keep up at the expense of system resources.
-@@ -1663,7 +1665,7 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 	struct bufdesc	*bdp;
- 
- 	bdp = fep->rx_bd_base;
--	for (i = 0; i < RX_RING_SIZE; i++) {
-+	for (i = 0; i < fep->rx_ring_size; i++) {
- 		skb = fep->rx_skbuff[i];
- 
- 		if (bdp->cbd_bufaddr)
-@@ -1671,11 +1673,11 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
- 		if (skb)
- 			dev_kfree_skb(skb);
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
- 	}
- 
- 	bdp = fep->tx_bd_base;
--	for (i = 0; i < TX_RING_SIZE; i++)
-+	for (i = 0; i < fep->tx_ring_size; i++)
- 		kfree(fep->tx_bounce[i]);
- }
- 
-@@ -1687,7 +1689,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 	struct bufdesc	*bdp;
- 
- 	bdp = fep->rx_bd_base;
--	for (i = 0; i < RX_RING_SIZE; i++) {
-+	for (i = 0; i < fep->rx_ring_size; i++) {
- 		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 		if (!skb) {
- 			fec_enet_free_buffers(ndev);
-@@ -1704,15 +1706,15 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 			ebdp->cbd_esc = BD_ENET_RX_INT;
- 		}
- 
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp = pre_bd(bdp, fep->rx_bd_base, fep->rx_ring_size, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	bdp = fep->tx_bd_base;
--	for (i = 0; i < TX_RING_SIZE; i++) {
-+	for (i = 0; i < fep->tx_ring_size; i++) {
- 		fep->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
- 
- 		bdp->cbd_sc = 0;
-@@ -1723,11 +1725,11 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 			ebdp->cbd_esc = BD_ENET_TX_INT;
- 		}
- 
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	return 0;
-@@ -1967,13 +1969,17 @@ static int fec_enet_init(struct net_device *ndev)
- 	/* Get the Ethernet address */
- 	fec_get_mac(ndev);
- 
-+	/* init the tx & rx ring size */
-+	fep->tx_ring_size = TX_RING_SIZE;
-+	fep->rx_ring_size = RX_RING_SIZE;
-+
- 	/* Set receive and transmit descriptor base. */
- 	fep->rx_bd_base = cbd_base;
- 	if (fep->bufdesc_ex)
- 		fep->tx_bd_base = (struct bufdesc *)
--			(((struct bufdesc_ex *)cbd_base) + RX_RING_SIZE);
-+			(((struct bufdesc_ex *)cbd_base) + fep->rx_ring_size);
- 	else
--		fep->tx_bd_base = cbd_base + RX_RING_SIZE;
-+		fep->tx_bd_base = cbd_base + fep->rx_ring_size;
- 
- 	/* The FEC Ethernet specific entries in the device structure */
- 	ndev->watchdog_timeo = TX_TIMEOUT;
+-	write_lock_bh(&bond->lock);
+-	bond->send_peer_notif = 0;
+-	write_unlock_bh(&bond->lock);
+-
+ 	bond_work_cancel_all(bond);
++	bond->send_peer_notif = 0;
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after all
+ 		 * slaves have been released
 -- 
-1.7.1
+1.8.1.4
