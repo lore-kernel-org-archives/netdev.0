@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
 Subject: Re: 3.11-rc7:BUG: soft lockup
-Date: Mon, 2 Sep 2013 14:57:16 +0800
-Message-ID: <522436CC.3080108@huawei.com>
+Date: Mon, 2 Sep 2013 15:44:41 +0800
+Message-ID: <522441E9.8040809@huawei.com>
 References: <522055D7.70002@gmail.com> <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com> <CAJd=RBCT6dbLwX6z+1LxCvJ9-NOYQRe0zzBkEQosFgLvNgg4bg@mail.gmail.com> <52242AEA.9020502@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -176,11 +176,86 @@ On 2013/9/2 14:06, Baoquan He wrote:
 >>   *error = -ENOENT;
 >>   mutex_unlock(mutex);
 >> --
-
-could not release lock here, otherwise there will unlock twice. I did not meet any problem about the drivers, maybe
-it is hard to occur.
-
 > 
+
+please try this patch and give me the result, thanks.
+
+Return the correct value if mutex_lock_interruptible() failed, avoid
+confusion with that the modules is not exist, and deal with the return
+value in right way.
+
+if mutex_lock_interrupt() failed, sh
+
+Signed-off-by: root <root@linux-yocto.site>
+---
+ net/bridge/netfilter/ebtables.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index ac78024..e7fe9f8 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -322,17 +322,14 @@ static inline void *
+ find_inlist_lock_noload(struct list_head *head, const char *name, int *error,
+    struct mutex *mutex)
+ {
+-	struct {
+-		struct list_head list;
+-		char name[EBT_FUNCTION_MAXNAMELEN];
+-	} *e;
++	struct ebt_table *e;
+ 
+ 	*error = mutex_lock_interruptible(mutex);
+ 	if (*error != 0)
+-		return NULL;
++		return ERR_PTR(-EINTR);
+ 
+ 	list_for_each_entry(e, head, list) {
+-		if (strcmp(e->name, name) == 0)
++		 if (strcmp(e->name, name) == 0 && try_module_get(e->me))
+ 			return e;
+ 	}
+ 	*error = -ENOENT;
+@@ -1005,7 +1002,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
+ 		goto free_counterstmp;
+ 
+ 	t = find_table_lock(net, repl->name, &ret, &ebt_mutex);
+-	if (!t) {
++	if (IS_ERR_OR_NULL(t)) {
+ 		ret = -ENOENT;
+ 		goto free_iterate;
+ 	}
+@@ -1284,7 +1281,7 @@ static int do_update_counters(struct net *net, const char *name,
+ 		return -ENOMEM;
+ 
+ 	t = find_table_lock(net, name, &ret, &ebt_mutex);
+-	if (!t)
++	if (IS_ERR_OR_NULL(t))
+ 		goto free_tmp;
+ 
+ 	if (num_counters != t->private->nentries) {
+@@ -1504,7 +1501,7 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 		return -EFAULT;
+ 
+ 	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+-	if (!t)
++	if (IS_ERR_OR_NULL(t))
+ 		return ret;
+ 
+ 	switch(cmd) {
+@@ -2319,7 +2316,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
+ 		return -EFAULT;
+ 
+ 	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+-	if (!t)
++	if (IS_ERR_OR_NULL(t))
+ 		return ret;
+ 
+ 	xt_compat_lock(NFPROTO_BRIDGE);
+-- 
+1.8.2.1
+
+
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
