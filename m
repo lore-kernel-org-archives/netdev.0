@@ -1,110 +1,46 @@
-From: Baoquan He <baoquan.he@gmail.com>
-Subject: Re: 3.11-rc7:BUG: soft lockup
-Date: Mon, 02 Sep 2013 16:24:36 +0800
-Message-ID: <52244B44.4030703@gmail.com>
-References: <522055D7.70002@gmail.com> <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com> <CAJd=RBCT6dbLwX6z+1LxCvJ9-NOYQRe0zzBkEQosFgLvNgg4bg@mail.gmail.com> <52242AEA.9020502@gmail.com> <522441E9.8040809@huawei.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 6/6] vhost_net: correctly limit the max pending buffers
+Date: Mon, 02 Sep 2013 16:37:38 +0800
+Message-ID: <52244E52.3060408@redhat.com>
+References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
+	<1377836962-49780-7-git-send-email-jasowang@redhat.com>
+	<20130902055609.GC19838@redhat.com> <52243071.5090303@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hillf Danton <dhillf@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <522441E9.8040809@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <52243071.5090303@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tianhong,
+On 09/02/2013 02:30 PM, Jason Wang wrote:
+> On 09/02/2013 01:56 PM, Michael S. Tsirkin wrote:
+>> > On Fri, Aug 30, 2013 at 12:29:22PM +0800, Jason Wang wrote:
+>>> >> As Michael point out, We used to limit the max pending DMAs to get better cache
+>>> >> utilization. But it was not done correctly since it was one done when there's no
+>>> >> new buffers submitted from guest. Guest can easily exceeds the limitation by
+>>> >> keeping sending packets.
+>>> >>
+>>> >> So this patch moves the check into main loop. Tests shows about 5%-10%
+>>> >> improvement on per cpu throughput for guest tx. But a 5% drop on per cpu
+>>> >> transaction rate for a single session TCP_RR.
+>> > Any explanation for the drop? single session TCP_RR is unlikely to
+>> > exceed VHOST_MAX_PEND, correct?
+> Unlikely to exceed. Recheck the result, looks like it was not stable
+> enough. Will re-test and report.
 
-I applied your patch and execute below cmd. 
-Then keyboard inputting problems happened, 
-I can't enter user/password correctly, then reboot again, it's OK now.
+Re-tested with more iterations, result shows no difference on TCP_RR
+test and 5%-10% improvement on per cpu throughput for guest tx.
 
-The original bug still can't be reproduced.
-
-make SUBDIRS=net/bridge/netfilter/
-cp /net/bridge/netfilter/ebtables.ko
-/lib/modules/3.11.0-rc7+/kernel/net/bridge/netfilter/ebtables.ko
-depmod
-modprobe ebtables.ko
-reboot
-
-Baoquan
-Thanks
-
-> please try this patch and give me the result, thanks.
->
-> Return the correct value if mutex_lock_interruptible() failed, avoid
-> confusion with that the modules is not exist, and deal with the return
-> value in right way.
->
-> if mutex_lock_interrupt() failed, sh
->
-> Signed-off-by: root <root@linux-yocto.site>
-> ---
->  net/bridge/netfilter/ebtables.c | 17 +++++++----------
->  1 file changed, 7 insertions(+), 10 deletions(-)
->
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index ac78024..e7fe9f8 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -322,17 +322,14 @@ static inline void *
->  find_inlist_lock_noload(struct list_head *head, const char *name, int *error,
->     struct mutex *mutex)
->  {
-> -	struct {
-> -		struct list_head list;
-> -		char name[EBT_FUNCTION_MAXNAMELEN];
-> -	} *e;
-> +	struct ebt_table *e;
->  
->  	*error = mutex_lock_interruptible(mutex);
->  	if (*error != 0)
-> -		return NULL;
-> +		return ERR_PTR(-EINTR);
->  
->  	list_for_each_entry(e, head, list) {
-> -		if (strcmp(e->name, name) == 0)
-> +		 if (strcmp(e->name, name) == 0 && try_module_get(e->me))
->  			return e;
->  	}
->  	*error = -ENOENT;
-> @@ -1005,7 +1002,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
->  		goto free_counterstmp;
->  
->  	t = find_table_lock(net, repl->name, &ret, &ebt_mutex);
-> -	if (!t) {
-> +	if (IS_ERR_OR_NULL(t)) {
->  		ret = -ENOENT;
->  		goto free_iterate;
->  	}
-> @@ -1284,7 +1281,7 @@ static int do_update_counters(struct net *net, const char *name,
->  		return -ENOMEM;
->  
->  	t = find_table_lock(net, name, &ret, &ebt_mutex);
-> -	if (!t)
-> +	if (IS_ERR_OR_NULL(t))
->  		goto free_tmp;
->  
->  	if (num_counters != t->private->nentries) {
-> @@ -1504,7 +1501,7 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
->  		return -EFAULT;
->  
->  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
-> -	if (!t)
-> +	if (IS_ERR_OR_NULL(t))
->  		return ret;
->  
->  	switch(cmd) {
-> @@ -2319,7 +2316,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
->  		return -EFAULT;
->  
->  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
-> -	if (!t)
-> +	if (IS_ERR_OR_NULL(t))
->  		return ret;
->  
->  	xt_compat_lock(NFPROTO_BRIDGE);
+Will post V3 soon.
