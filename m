@@ -1,82 +1,58 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 18/21] net: add a function to get the next/prev private
-Date: Mon,  2 Sep 2013 23:39:22 +0200
-Message-ID: <1378157965-17537-19-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 19/21] bonding: use neighbours for bond_next/prev_slave()
+Date: Mon,  2 Sep 2013 23:39:23 +0200
+Message-ID: <1378157965-17537-20-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44574 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43903 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932259Ab3IBVji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:38 -0400
+	id S932280Ab3IBVjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:39 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The boolean flag specifies which direction to go.
+Use netdev_lower_dev_get_next_private(), it will return NULL in case the
+list is empty, so no need to verify.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            | 24 ++++++++++++++++++++++++
- 2 files changed, 26 insertions(+)
+ drivers/net/bonding/bonding.h | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bde2244..a112ccc 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2835,6 +2835,8 @@ extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
- 					      struct net_device *lower_dev);
- extern void *netdev_lower_dev_get_private(struct net_device *dev,
- 					  struct net_device *lower_dev);
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private, bool prev);
- extern int skb_checksum_help(struct sk_buff *skb);
- extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6df11a0..c694059 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5163,6 +5163,30 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_lower_dev_get_private);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 6731281..b8047f3 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -76,8 +76,6 @@
  
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private, bool prev)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	list_for_each_entry(lower, &dev->neighbour_dev_list.lower, list)
-+		if (lower->private == private)
-+			break;
-+
-+	if (&lower->list == &dev->neighbour_dev_list.lower)
-+		return NULL;
-+
-+	lower = prev ? list_entry(lower->list.prev, struct netdev_adjacent, list) :
-+		       list_entry(lower->list.next, struct netdev_adjacent, list);
-+	if (&lower->list != &dev->neighbour_dev_list.lower)
-+		return lower->private;
-+
-+	lower = prev ? list_entry(lower->list.prev, struct netdev_adjacent, list) :
-+		       list_entry(lower->list.next, struct netdev_adjacent, list);
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+ #define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
+ 
+-#define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
+-
+ /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
+ #define bond_first_slave(bond) \
+ 	(bond_has_slaves(bond) ? \
+@@ -93,12 +91,10 @@
+ 
+ /* Since bond_first/last_slave can return NULL, these can return NULL too */
+ #define bond_next_slave(bond, pos) \
+-	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
+-					 bond_to_slave((pos)->list.next))
++	netdev_lower_dev_get_next_private((bond)->dev, pos, false)
+ 
+ #define bond_prev_slave(bond, pos) \
+-	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
+-					  bond_to_slave((pos)->list.prev))
++	netdev_lower_dev_get_next_private((bond)->dev, pos, true)
+ 
+ /**
+  * bond_for_each_slave_from - iterate the slaves list from a starting point
 -- 
 1.8.4
