@@ -1,50 +1,44 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH] net: netx-eth: remove unnecessary casting when using
- dev_get_platdata()
-Date: Mon, 02 Sep 2013 09:37:23 +0900
-Message-ID: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v12 06/11] vxlan: add ipv6 support
+Date: Mon, 02 Sep 2013 09:17:48 +0800
+Message-ID: <1378084668.2169.1.camel@cr0>
+References: <1377927878-23975-1-git-send-email-amwang@redhat.com>
+	 <1377927878-23975-7-git-send-email-amwang@redhat.com>
+	 <20130831102726.21896150@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:25273 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753816Ab3IBAh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Sep 2013 20:37:26 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSH008KT327ANB0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Mon, 02 Sep 2013 09:37:24 +0900 (KST)
-Content-language: ko
+Received: from mx1.redhat.com ([209.132.183.28]:16108 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752366Ab3IBBS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Sep 2013 21:18:56 -0400
+In-Reply-To: <20130831102726.21896150@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Casting from 'void *' is unnecessary when using dev_get_platdata().
+On Sat, 2013-08-31 at 10:27 -0700, Stephen Hemminger wrote:
+> On Sat, 31 Aug 2013 13:44:33 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> 
+> > +#if IS_ENABLED(CONFIG_IPV6)
+> > +	} else {
+> > +		ipv6_stub->ipv6_sock_mc_join(sk, ifindex,
+> > +					     &ip->sin6.sin6_addr);
+> > +#endif
+> 
+> This isn't safe against IPv6 module getting unloaded. You either
+> have to figure out a reference count method, or disable IPv6
+> module unload.
+> 
+> Since it can only be forced unload anyway, I still argue
+> it should just be disabled (by removing the module exit hook
+> and code).
 
-Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/netx-eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I will send a patch to remove ipv6 module exit code, since there is
+other problem too.
 
-diff --git a/drivers/net/ethernet/netx-eth.c b/drivers/net/ethernet/netx-eth.c
-index 235fd51..e6f0a43 100644
---- a/drivers/net/ethernet/netx-eth.c
-+++ b/drivers/net/ethernet/netx-eth.c
-@@ -390,7 +390,7 @@ static int netx_eth_drv_probe(struct platform_device *pdev)
- 
- 	priv = netdev_priv(ndev);
- 
--	pdata = (struct netxeth_platform_data *)dev_get_platdata(&pdev->dev);
-+	pdata = dev_get_platdata(&pdev->dev);
- 	priv->xc = request_xc(pdata->xcno, &pdev->dev);
- 	if (!priv->xc) {
- 		dev_err(&pdev->dev, "unable to request xc engine\n");
--- 
-1.7.10.4
+Thanks!
