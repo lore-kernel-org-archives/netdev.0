@@ -1,144 +1,139 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 14/21] net: add netdev_for_each_lower_neigh_private_continue()
-Date: Mon,  2 Sep 2013 23:39:18 +0200
-Message-ID: <1378157965-17537-15-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 15/21] bonding: use neighbour list for bond_for_each_slave_continue()
+Date: Mon,  2 Sep 2013 23:39:19 +0200
+Message-ID: <1378157965-17537-16-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24419 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2333 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932192Ab3IBVjc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:32 -0400
+	id S932259Ab3IBVjd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:33 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This macro allows going through the neighbour lower list private's from a
-specific position and till it doesn't hit the same position again.
+Use netdev_for_each_lower_neigh_private_continue() macro to iterate through
+bonding slaves. It needs a struct list_head *, so add where needed.
 
-For that, two functions are needed:
-
-netdev_lower_neigh_set_iter_per_private(dev, iter, from_priv) - which
-searches for from_priv and, if found, sets the iter to the correct
-position, returning from_priv.
-
-netdev_lower_neigh_get_next_private_to(dev, iter, from_priv) - gets the
-next ->private (and skips the list head), or if the next private equals
-from_priv - returns NULL. Also returns NULL if the ->private is NULL, to
-catch the case if the list doesn't have any elements.
-
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/linux/netdevice.h | 14 +++++++++++
- net/core/dev.c            | 62 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 76 insertions(+)
+ drivers/net/bonding/bond_3ad.c  | 3 +--
+ drivers/net/bonding/bond_alb.c  | 4 ++--
+ drivers/net/bonding/bond_main.c | 8 ++++----
+ drivers/net/bonding/bonding.h   | 7 +++----
+ 4 files changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1a149ef..20afdf98 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2788,6 +2788,20 @@ extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
- 	     updev; \
- 	     updev = netdev_upper_get_next_dev_rcu(dev, &(iter)))
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 7430cbb..325ce90 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2423,7 +2423,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	int slave_agg_no;
+ 	int slaves_in_agg;
+ 	int agg_id;
+-	int i;
+ 	struct ad_info ad_info;
+ 	int res = 1;
  
-+extern void *netdev_lower_neigh_set_iter_per_private(struct net_device *dev,
-+						     struct list_head **iter,
-+						     void *private);
-+extern void *netdev_lower_neigh_get_next_private_to(struct net_device *dev,
-+						    struct list_head **iter,
-+						    void *to);
-+
-+#define netdev_for_each_lower_neigh_private_continue(dev, priv, from_priv, iter) \
-+	for (priv = netdev_lower_neigh_set_iter_per_private(dev, &(iter), \
-+							    from_priv);   \
-+	     priv; \
-+	     priv = netdev_lower_neigh_get_next_private_to(dev, &(iter),  \
-+							   from_priv))
-+
- extern void *netdev_lower_neigh_get_next_private(struct net_device *dev,
- 						 struct list_head **iter);
- extern void *netdev_lower_neigh_get_next_private_rcu(struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 55f8ac4..1b9862b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4555,6 +4555,68 @@ struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_upper_get_next_dev_rcu);
+@@ -2463,7 +2462,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
  
-+/* netdev_lower_neigh_set_iter_per_private - Set the iter to reflect the
-+ *					     position of the ->private
-+ * @dev: device
-+ * @iter: iter to be set
-+ * @private: private to be found
-+ *
-+ * Iterates through lower neighbours, searching for private. When found,
-+ * sets the iter to the ->list. Returns private or NULL if not found. User
-+ * must hold RTNL lock or make sure that the list isn't modified.
-+ */
-+void *netdev_lower_neigh_set_iter_per_private(struct net_device *dev,
-+					      struct list_head **iter,
-+					      void *private)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	list_for_each_entry(lower, &dev->neighbour_dev_list.lower, list)
-+		if (lower->private == private)
-+			break;
-+
-+	if (&lower->list == &dev->neighbour_dev_list.lower)
-+		return NULL;
-+
-+	*iter = &lower->list;
-+
-+	return private;
-+}
-+EXPORT_SYMBOL(netdev_lower_neigh_set_iter_per_private);
-+
-+/* netdev_lower_neigh_get_next_private_to - Get the next ->private from the
-+ *					    lower neighbour list, stop at to
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ * @to: if private == to then stop
-+ *
-+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold either hold the
-+ * RTNL lock or its own locking that guarantees that the neighbour lower
-+ * list will remain unchainged. Stops when private == to or when it hits a
-+ * NULL private.
-+ */
-+void *netdev_lower_neigh_get_next_private_to(struct net_device *dev,
-+					     struct list_head **iter,
-+					     void *to)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->neighbour_dev_list.lower)
-+		lower = list_entry(lower->list.next, struct netdev_adjacent,
-+				   list);
-+
-+	if (lower->private == to || !lower->private)
-+		return NULL;
-+
-+	*iter = &lower->list;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_neigh_get_next_private_to);
-+
- /* netdev_lower_neigh_get_next_private - Get the next ->private from the
-  *					 lower neighbour list
-  * @dev: device
+ 	start_at = slave;
+ 
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
++	bond_for_each_slave_from(bond, slave, iter, start_at) {
+ 		int slave_agg_id = 0;
+ 		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+ 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 738eeae..9633ca2 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -384,7 +384,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct slave *rx_slave, *slave, *start_at;
+-	int i = 0;
++	struct list_head *iter;
+ 
+ 	if (bond_info->next_rx_slave)
+ 		start_at = bond_info->next_rx_slave;
+@@ -393,7 +393,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+ 
+ 	rx_slave = NULL;
+ 
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
++	bond_for_each_slave_from(bond, slave, iter, start_at) {
+ 		if (SLAVE_IS_OK(slave)) {
+ 			if (!rx_slave) {
+ 				rx_slave = slave;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 297b910..59814c9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -792,8 +792,8 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ {
+ 	struct slave *new_active, *old_active;
+ 	struct slave *bestslave = NULL;
++	struct list_head *iter;
+ 	int mintime = bond->params.updelay;
+-	int i;
+ 
+ 	new_active = bond->curr_active_slave;
+ 
+@@ -812,7 +812,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	/* remember where to stop iterating over the slaves */
+ 	old_active = new_active;
+ 
+-	bond_for_each_slave_from(bond, new_active, i, old_active) {
++	bond_for_each_slave_from(bond, new_active, iter, old_active) {
+ 		if (new_active->link == BOND_LINK_UP) {
+ 			return new_active;
+ 		} else if (new_active->link == BOND_LINK_BACK &&
+@@ -2783,7 +2783,7 @@ do_failover:
+ static void bond_ab_arp_probe(struct bonding *bond)
+ {
+ 	struct slave *slave, *next_slave;
+-	int i;
++	struct list_head *iter;
+ 
+ 	read_lock(&bond->curr_slave_lock);
+ 
+@@ -2815,7 +2815,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	/* search for next candidate */
+ 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
++	bond_for_each_slave_from(bond, slave, iter, next_slave) {
+ 		if (IS_UP(slave->dev)) {
+ 			slave->link = BOND_LINK_BACK;
+ 			bond_set_slave_active_flags(slave);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index b6dc9db..583077d 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -99,14 +99,13 @@
+  * bond_for_each_slave_from - iterate the slaves list from a starting point
+  * @bond:	the bond holding this list.
+  * @pos:	current slave.
+- * @cnt:	counter for max number of moves
++ * @iter:	list_head * iterator
+  * @start:	starting point.
+  *
+  * Caller must hold bond->lock
+  */
+-#define bond_for_each_slave_from(bond, pos, cnt, start) \
+-	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+-	     cnt++, pos = bond_next_slave(bond, pos))
++#define bond_for_each_slave_from(bond, pos, iter, start) \
++	netdev_for_each_lower_neigh_private_continue((bond)->dev, pos, start, iter)
+ 
+ /**
+  * bond_for_each_slave - iterate over all slaves
 -- 
 1.8.4
