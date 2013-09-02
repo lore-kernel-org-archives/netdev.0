@@ -1,71 +1,110 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 5/5] net: sunhme: use pci_{get,set}_drvdata()
-Date: Mon, 02 Sep 2013 17:12:41 +0900
-Message-ID: <001301cea7b4$3225c110$96714330$%han@samsung.com>
-References: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
+From: Baoquan He <baoquan.he@gmail.com>
+Subject: Re: 3.11-rc7:BUG: soft lockup
+Date: Mon, 02 Sep 2013 16:24:36 +0800
+Message-ID: <52244B44.4030703@gmail.com>
+References: <522055D7.70002@gmail.com> <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com> <CAJd=RBCT6dbLwX6z+1LxCvJ9-NOYQRe0zzBkEQosFgLvNgg4bg@mail.gmail.com> <52242AEA.9020502@gmail.com> <522441E9.8040809@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jon Mason' <jdmason@kudzu.us>,
-	'Francois Romieu' <romieu@fr.zoreil.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:37603 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310Ab3IBIMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 04:12:43 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSH008XPO4I5310@mailout1.samsung.com> for
- netdev@vger.kernel.org; Mon, 02 Sep 2013 17:12:42 +0900 (KST)
-In-reply-to: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hillf Danton <dhillf@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <522441E9.8040809@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the wrapper functions for getting and setting the driver data
-using pci_dev instead of using dev_{get,set}_drvdata() with
-&pdev->dev, so we can directly pass a struct pci_dev. This is
-a purely cosmetic change.
+Hi Tianhong,
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/sun/sunhme.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I applied your patch and execute below cmd. 
+Then keyboard inputting problems happened, 
+I can't enter user/password correctly, then reboot again, it's OK now.
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 227c499..e37b587 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -3111,7 +3111,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
- 		goto err_out_iounmap;
- 	}
- 
--	dev_set_drvdata(&pdev->dev, hp);
-+	pci_set_drvdata(pdev, hp);
- 
- 	if (!qfe_slot) {
- 		struct pci_dev *qpdev = qp->quattro_dev;
-@@ -3159,7 +3159,7 @@ err_out:
- 
- static void happy_meal_pci_remove(struct pci_dev *pdev)
- {
--	struct happy_meal *hp = dev_get_drvdata(&pdev->dev);
-+	struct happy_meal *hp = pci_get_drvdata(pdev);
- 	struct net_device *net_dev = hp->dev;
- 
- 	unregister_netdev(net_dev);
-@@ -3171,7 +3171,7 @@ static void happy_meal_pci_remove(struct pci_dev *pdev)
- 
- 	free_netdev(net_dev);
- 
--	dev_set_drvdata(&pdev->dev, NULL);
-+	pci_set_drvdata(pdev, NULL);
- }
- 
- static DEFINE_PCI_DEVICE_TABLE(happymeal_pci_ids) = {
--- 
-1.7.10.4
+The original bug still can't be reproduced.
+
+make SUBDIRS=net/bridge/netfilter/
+cp /net/bridge/netfilter/ebtables.ko
+/lib/modules/3.11.0-rc7+/kernel/net/bridge/netfilter/ebtables.ko
+depmod
+modprobe ebtables.ko
+reboot
+
+Baoquan
+Thanks
+
+> please try this patch and give me the result, thanks.
+>
+> Return the correct value if mutex_lock_interruptible() failed, avoid
+> confusion with that the modules is not exist, and deal with the return
+> value in right way.
+>
+> if mutex_lock_interrupt() failed, sh
+>
+> Signed-off-by: root <root@linux-yocto.site>
+> ---
+>  net/bridge/netfilter/ebtables.c | 17 +++++++----------
+>  1 file changed, 7 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+> index ac78024..e7fe9f8 100644
+> --- a/net/bridge/netfilter/ebtables.c
+> +++ b/net/bridge/netfilter/ebtables.c
+> @@ -322,17 +322,14 @@ static inline void *
+>  find_inlist_lock_noload(struct list_head *head, const char *name, int *error,
+>     struct mutex *mutex)
+>  {
+> -	struct {
+> -		struct list_head list;
+> -		char name[EBT_FUNCTION_MAXNAMELEN];
+> -	} *e;
+> +	struct ebt_table *e;
+>  
+>  	*error = mutex_lock_interruptible(mutex);
+>  	if (*error != 0)
+> -		return NULL;
+> +		return ERR_PTR(-EINTR);
+>  
+>  	list_for_each_entry(e, head, list) {
+> -		if (strcmp(e->name, name) == 0)
+> +		 if (strcmp(e->name, name) == 0 && try_module_get(e->me))
+>  			return e;
+>  	}
+>  	*error = -ENOENT;
+> @@ -1005,7 +1002,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
+>  		goto free_counterstmp;
+>  
+>  	t = find_table_lock(net, repl->name, &ret, &ebt_mutex);
+> -	if (!t) {
+> +	if (IS_ERR_OR_NULL(t)) {
+>  		ret = -ENOENT;
+>  		goto free_iterate;
+>  	}
+> @@ -1284,7 +1281,7 @@ static int do_update_counters(struct net *net, const char *name,
+>  		return -ENOMEM;
+>  
+>  	t = find_table_lock(net, name, &ret, &ebt_mutex);
+> -	if (!t)
+> +	if (IS_ERR_OR_NULL(t))
+>  		goto free_tmp;
+>  
+>  	if (num_counters != t->private->nentries) {
+> @@ -1504,7 +1501,7 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+>  		return -EFAULT;
+>  
+>  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+> -	if (!t)
+> +	if (IS_ERR_OR_NULL(t))
+>  		return ret;
+>  
+>  	switch(cmd) {
+> @@ -2319,7 +2316,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
+>  		return -EFAULT;
+>  
+>  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+> -	if (!t)
+> +	if (IS_ERR_OR_NULL(t))
+>  		return ret;
+>  
+>  	xt_compat_lock(NFPROTO_BRIDGE);
