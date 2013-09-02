@@ -1,8 +1,8 @@
 From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 2/5] vxlan: remove net arg from
-	vxlan[6]_xmit_skb()
-Date: Mon,  2 Sep 2013 15:34:55 +0200
-Message-ID: <1378128898-15136-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 5/5] tunnels: harmonize cleanup done
+	on skb on rx path
+Date: Mon,  2 Sep 2013 15:34:58 +0200
+Message-ID: <1378128898-15136-6-git-send-email-nicolas.dichtel@6wind.com>
 References: <CALnjE+pKi=p0y2ot2qWG1w=pxEUcPUKY+_UUi0RXbnGqVk9poA@mail.gmail.com>
 	<1378128898-15136-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
@@ -24,80 +24,203 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This argument is not used, let's remove it.
+The goal of this patch is to harmonize cleanup done on a skbuff on rx path.
+Before this patch, behaviors were different depending of the tunnel type.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/vxlan.c           | 8 ++++----
- include/net/vxlan.h           | 2 +-
- net/openvswitch/vport-vxlan.c | 2 +-
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ include/net/dst.h     | 12 +++++++-----
+ net/ipv4/ip_tunnel.c  |  3 +--
+ net/ipv4/ipmr.c       |  3 +--
+ net/ipv6/ip6_gre.c    |  5 +----
+ net/ipv6/ip6_tunnel.c |  7 +------
+ net/ipv6/ip6mr.c      |  3 +--
+ net/ipv6/sit.c        |  6 +-----
+ 7 files changed, 13 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 18165c02d614..5f46d2f3222f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1380,7 +1380,7 @@ static int handle_offloads(struct sk_buff *skb)
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 1f8fd109e225..3bc4865f8267 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -311,11 +311,13 @@ static inline void skb_dst_force(struct sk_buff *skb)
+  *	__skb_tunnel_rx - prepare skb for rx reinsert
+  *	@skb: buffer
+  *	@dev: tunnel device
++ *	@net: netns for packet i/o
+  *
+  *	After decapsulation, packet is going to re-enter (netif_rx()) our stack,
+  *	so make some cleanups. (no accounting done)
+  */
+-static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
++static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
++				   struct net *net)
+ {
+ 	skb->dev = dev;
+ 
+@@ -327,8 +329,7 @@ static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
+ 	if (!skb->l4_rxhash)
+ 		skb->rxhash = 0;
+ 	skb_set_queue_mapping(skb, 0);
+-	skb_dst_drop(skb);
+-	nf_reset(skb);
++	skb_scrub_packet(skb, !net_eq(net, dev_net(dev)));
  }
  
- #if IS_ENABLED(CONFIG_IPV6)
--static int vxlan6_xmit_skb(struct net *net, struct vxlan_sock *vs,
-+static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 			   struct dst_entry *dst, struct sk_buff *skb,
- 			   struct net_device *dev, struct in6_addr *saddr,
- 			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
-@@ -1475,7 +1475,7 @@ static int vxlan6_xmit_skb(struct net *net, struct vxlan_sock *vs,
+ /**
+@@ -340,12 +341,13 @@ static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
+  *	so make some cleanups, and perform accounting.
+  *	Note: this accounting is not SMP safe.
+  */
+-static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
++static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
++				 struct net *net)
+ {
+ 	/* TODO : stats should be SMP safe */
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += skb->len;
+-	__skb_tunnel_rx(skb, dev);
++	__skb_tunnel_rx(skb, dev, net);
  }
- #endif
  
--int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
-+int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
- 		   __be16 src_port, __be16 dst_port, __be32 vni)
-@@ -1651,7 +1651,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+ /* Children define the path of the packet through the
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 88d7d7d1eccb..ac9fabe0300f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -461,8 +461,7 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 		skb->dev = tunnel->dev;
+ 	}
  
--		err = vxlan_xmit_skb(dev_net(dev), vxlan->vn_sock, rt, skb,
-+		err = vxlan_xmit_skb(vxlan->vn_sock, rt, skb,
- 				     fl4.saddr, dst->sin.sin_addr.s_addr,
- 				     tos, ttl, df, src_port, dst_port,
- 				     htonl(vni << 8));
-@@ -1703,7 +1703,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+-	if (!net_eq(tunnel->net, dev_net(tunnel->dev)))
+-		skb_scrub_packet(skb, true);
++	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(tunnel->dev)));
  
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
+ 	gro_cells_receive(&tunnel->gro_cells, skb);
+ 	return 0;
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index bacc0bcf48ce..9ae54b09254f 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2067,9 +2067,8 @@ static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
+ 	skb_reset_network_header(skb);
+ 	skb->protocol = htons(ETH_P_IP);
+ 	skb->ip_summed = CHECKSUM_NONE;
+-	skb->pkt_type = PACKET_HOST;
  
--		err = vxlan6_xmit_skb(dev_net(dev), vxlan->vn_sock, ndst, skb,
-+		err = vxlan6_xmit_skb(vxlan->vn_sock, ndst, skb,
- 				      dev, &fl6.saddr, &fl6.daddr, 0, ttl,
- 				      src_port, dst_port, htonl(vni << 8));
- #endif
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index d2b88cafa7a2..e09c40b68027 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -29,7 +29,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
+-	skb_tunnel_rx(skb, reg_dev);
++	skb_tunnel_rx(skb, reg_dev, dev_net(reg_dev));
  
- void vxlan_sock_release(struct vxlan_sock *vs);
+ 	netif_rx(skb);
  
--int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
-+int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
- 		   __be16 src_port, __be16 dst_port, __be32 vni);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index a0060245b4e1..a481c03e2861 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -176,7 +176,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	inet_get_local_port_range(&port_min, &port_max);
- 	src_port = vxlan_src_port(port_min, port_max, skb);
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index f179ff1f56ec..db992a373011 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -509,8 +509,6 @@ static int ip6gre_rcv(struct sk_buff *skb)
+ 			goto drop;
+ 		}
  
--	err = vxlan_xmit_skb(net, vxlan_port->vs, rt, skb,
-+	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
- 			     fl.saddr, OVS_CB(skb)->tun_key->ipv4_dst,
- 			     OVS_CB(skb)->tun_key->ipv4_tos,
- 			     OVS_CB(skb)->tun_key->ipv4_ttl, df,
+-		secpath_reset(skb);
+-
+ 		skb->protocol = gre_proto;
+ 		/* WCCP version 1 and 2 protocol decoding.
+ 		 * - Change protocol to IP
+@@ -525,7 +523,6 @@ static int ip6gre_rcv(struct sk_buff *skb)
+ 		skb->mac_header = skb->network_header;
+ 		__pskb_pull(skb, offset);
+ 		skb_postpull_rcsum(skb, skb_transport_header(skb), offset);
+-		skb->pkt_type = PACKET_HOST;
+ 
+ 		if (((flags&GRE_CSUM) && csum) ||
+ 		    (!(flags&GRE_CSUM) && tunnel->parms.i_flags&GRE_CSUM)) {
+@@ -557,7 +554,7 @@ static int ip6gre_rcv(struct sk_buff *skb)
+ 			skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+ 		}
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev);
++		__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
+ 
+ 		skb_reset_network_header(skb);
+ 
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ecbcdbd4bc4f..55999d923f26 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -802,14 +802,12 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
+ 			rcu_read_unlock();
+ 			goto discard;
+ 		}
+-		secpath_reset(skb);
+ 		skb->mac_header = skb->network_header;
+ 		skb_reset_network_header(skb);
+ 		skb->protocol = htons(protocol);
+-		skb->pkt_type = PACKET_HOST;
+ 		memset(skb->cb, 0, sizeof(struct inet6_skb_parm));
+ 
+-		__skb_tunnel_rx(skb, t->dev);
++		__skb_tunnel_rx(skb, t->dev, t->net);
+ 
+ 		err = dscp_ecn_decapsulate(t, ipv6h, skb);
+ 		if (unlikely(err)) {
+@@ -829,9 +827,6 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 
+-		if (!net_eq(t->net, dev_net(t->dev)))
+-			skb_scrub_packet(skb, true);
+-
+ 		netif_rx(skb);
+ 
+ 		rcu_read_unlock();
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index a60a84ef04f7..f365310bfcca 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -672,9 +672,8 @@ static int pim6_rcv(struct sk_buff *skb)
+ 	skb_reset_network_header(skb);
+ 	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->ip_summed = CHECKSUM_NONE;
+-	skb->pkt_type = PACKET_HOST;
+ 
+-	skb_tunnel_rx(skb, reg_dev);
++	skb_tunnel_rx(skb, reg_dev, dev_net(reg_dev));
+ 
+ 	netif_rx(skb);
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 82b425b9b7d2..19abcc9d6a1a 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -581,12 +581,10 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 		    tunnel->parms.iph.protocol != 0)
+ 			goto out;
+ 
+-		secpath_reset(skb);
+ 		skb->mac_header = skb->network_header;
+ 		skb_reset_network_header(skb);
+ 		IPCB(skb)->flags = 0;
+ 		skb->protocol = htons(ETH_P_IPV6);
+-		skb->pkt_type = PACKET_HOST;
+ 
+ 		if (tunnel->dev->priv_flags & IFF_ISATAP) {
+ 			if (!isatap_chksrc(skb, iph, tunnel)) {
+@@ -603,7 +601,7 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 			}
+ 		}
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev);
++		__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
+ 
+ 		err = IP_ECN_decapsulate(iph, skb);
+ 		if (unlikely(err)) {
+@@ -621,8 +619,6 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 
+-		if (!net_eq(tunnel->net, dev_net(tunnel->dev)))
+-			skb_scrub_packet(skb, true);
+ 		netif_rx(skb);
+ 
+ 		return 0;
 -- 
 1.8.2.1
