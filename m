@@ -1,88 +1,126 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 3/5] bonding: simplify bond_3ad_update_lacp_rate and use RTNL for sync
-Date: Mon,  2 Sep 2013 13:51:40 +0200
-Message-ID: <1378122702-28943-4-git-send-email-nikolay@redhat.com>
-References: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2338 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758232Ab3IBL4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 07:56:24 -0400
-In-Reply-To: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baoquan He <baoquan.he@gmail.com>
+Subject: Re: 3.11-rc7:BUG: soft lockup
+Date: Mon, 02 Sep 2013 20:09:02 +0800
+Message-ID: <52247FDE.80306@gmail.com>
+References: <522055D7.70002@gmail.com> <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com> <CAJd=RBCT6dbLwX6z+1LxCvJ9-NOYQRe0zzBkEQosFgLvNgg4bg@mail.gmail.com> <52242AEA.9020502@gmail.com> <522441E9.8040809@huawei.com> <52244B44.4030703@gmail.com> <5224548C.8000603@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Hillf Danton <dhillf@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5224548C.8000603@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can drop the use of bond->lock for mutual exclusion in
-bond_3ad_update_lacp_rate and use RTNL in the sysfs store function
-instead. This way we'll prevent races with mode change and interface
-up/down as well as simplify update_lacp_rate by removing the check for
-port->slave because it'll always be initialized (done while enslaving
-with RTNL). This change will also help in the future removal of reader
-bond->lock from bond_enslave.
+On 09/02/2013 05:04 PM, Ding Tianhong wrote:
+> On 2013/9/2 16:24, Baoquan He wrote:
+>> Hi Tianhong,
+>>
+>> I applied your patch and execute below cmd. 
+>> Then keyboard inputting problems happened, 
+>> I can't enter user/password correctly, then reboot again, it's OK now.
+> Thanks for your work, I don't understand that the keyboard problem is the patch fault or your system problem, 
+> if it is not happen again, I think the problem is fixed.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_3ad.c   | 8 +-------
- drivers/net/bonding/bond_sysfs.c | 7 ++++++-
- 2 files changed, 7 insertions(+), 8 deletions(-)
+Yeah,  I will wait and see if it will happen again. Up to now, it's OK.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9010265..0d8f427 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2514,17 +2514,13 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
-  */
- void bond_3ad_update_lacp_rate(struct bonding *bond)
- {
--	struct slave *slave;
- 	struct port *port = NULL;
-+	struct slave *slave;
- 	int lacp_fast;
- 
--	write_lock_bh(&bond->lock);
- 	lacp_fast = bond->params.lacp_fast;
--
- 	bond_for_each_slave(bond, slave) {
- 		port = &(SLAVE_AD_INFO(slave).port);
--		if (port->slave == NULL)
--			continue;
- 		__get_state_machine_lock(port);
- 		if (lacp_fast)
- 			port->actor_oper_port_state |= AD_STATE_LACP_TIMEOUT;
-@@ -2532,6 +2528,4 @@ void bond_3ad_update_lacp_rate(struct bonding *bond)
- 			port->actor_oper_port_state &= ~AD_STATE_LACP_TIMEOUT;
- 		__release_state_machine_lock(port);
- 	}
--
--	write_unlock_bh(&bond->lock);
- }
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 0f539de..ce46776 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -852,8 +852,11 @@ static ssize_t bonding_store_lacp(struct device *d,
- 				  struct device_attribute *attr,
- 				  const char *buf, size_t count)
- {
--	int new_value, ret = count;
- 	struct bonding *bond = to_bond(d);
-+	int new_value, ret = count;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
- 
- 	if (bond->dev->flags & IFF_UP) {
- 		pr_err("%s: Unable to update LACP rate because interface is up.\n",
-@@ -883,6 +886,8 @@ static ssize_t bonding_store_lacp(struct device *d,
- 		ret = -EINVAL;
- 	}
- out:
-+	rtnl_unlock();
-+
- 	return ret;
- }
- static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR,
--- 
-1.8.1.4
+Thank you all for help.
+
+Baoquan
+Thanks
+
+>
+>> The original bug still can't be reproduced.
+>>
+>> make SUBDIRS=net/bridge/netfilter/
+>> cp /net/bridge/netfilter/ebtables.ko
+>> /lib/modules/3.11.0-rc7+/kernel/net/bridge/netfilter/ebtables.ko
+>> depmod
+>> modprobe ebtables.ko
+>> reboot
+>>
+>> Baoquan
+>> Thanks
+>>
+>>> please try this patch and give me the result, thanks.
+>>>
+>>> Return the correct value if mutex_lock_interruptible() failed, avoid
+>>> confusion with that the modules is not exist, and deal with the return
+>>> value in right way.
+>>>
+>>> if mutex_lock_interrupt() failed, sh
+>>>
+>>> Signed-off-by: root <root@linux-yocto.site>
+>>> ---
+>>>  net/bridge/netfilter/ebtables.c | 17 +++++++----------
+>>>  1 file changed, 7 insertions(+), 10 deletions(-)
+>>>
+>>> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+>>> index ac78024..e7fe9f8 100644
+>>> --- a/net/bridge/netfilter/ebtables.c
+>>> +++ b/net/bridge/netfilter/ebtables.c
+>>> @@ -322,17 +322,14 @@ static inline void *
+>>>  find_inlist_lock_noload(struct list_head *head, const char *name, int *error,
+>>>     struct mutex *mutex)
+>>>  {
+>>> -	struct {
+>>> -		struct list_head list;
+>>> -		char name[EBT_FUNCTION_MAXNAMELEN];
+>>> -	} *e;
+>>> +	struct ebt_table *e;
+>>>  
+>>>  	*error = mutex_lock_interruptible(mutex);
+>>>  	if (*error != 0)
+>>> -		return NULL;
+>>> +		return ERR_PTR(-EINTR);
+>>>  
+>>>  	list_for_each_entry(e, head, list) {
+>>> -		if (strcmp(e->name, name) == 0)
+>>> +		 if (strcmp(e->name, name) == 0 && try_module_get(e->me))
+>>>  			return e;
+>>>  	}
+>>>  	*error = -ENOENT;
+>>> @@ -1005,7 +1002,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
+>>>  		goto free_counterstmp;
+>>>  
+>>>  	t = find_table_lock(net, repl->name, &ret, &ebt_mutex);
+>>> -	if (!t) {
+>>> +	if (IS_ERR_OR_NULL(t)) {
+>>>  		ret = -ENOENT;
+>>>  		goto free_iterate;
+>>>  	}
+>>> @@ -1284,7 +1281,7 @@ static int do_update_counters(struct net *net, const char *name,
+>>>  		return -ENOMEM;
+>>>  
+>>>  	t = find_table_lock(net, name, &ret, &ebt_mutex);
+>>> -	if (!t)
+>>> +	if (IS_ERR_OR_NULL(t))
+>>>  		goto free_tmp;
+>>>  
+>>>  	if (num_counters != t->private->nentries) {
+>>> @@ -1504,7 +1501,7 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+>>>  		return -EFAULT;
+>>>  
+>>>  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+>>> -	if (!t)
+>>> +	if (IS_ERR_OR_NULL(t))
+>>>  		return ret;
+>>>  
+>>>  	switch(cmd) {
+>>> @@ -2319,7 +2316,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
+>>>  		return -EFAULT;
+>>>  
+>>>  	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+>>> -	if (!t)
+>>> +	if (IS_ERR_OR_NULL(t))
+>>>  		return ret;
+>>>  
+>>>  	xt_compat_lock(NFPROTO_BRIDGE);
+>>
+>> .
+>>
+>
