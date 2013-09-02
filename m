@@ -1,99 +1,83 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: BQL support in gianfar causes network hiccup
-Date: Mon, 2 Sep 2013 16:53:29 +0300
-Message-ID: <52249859.2040605@freescale.com>
-References: <522490CB.60008@appeartv.com>
+From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+Subject: [PATCH] net: sctp: Fix data chunk fragmentation for MTU values which
+ are not multiple of 4
+Date: Mon, 02 Sep 2013 15:58:25 +0200
+Message-ID: <52249981.8040006@nsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Per_Dal=E9n?= <per.dalen@appeartv.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Glavinic-Pecotic, Matija (EXT-Other - DE/Ulm)"
+	<matija.glavinic-pecotic.ext@nsn.com>, netdev@vger.kernel.org
+To: linux-sctp@vger.kernel.org, davem@davemloft.net,
+	vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe002.messaging.microsoft.com ([216.32.180.185]:31857
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758310Ab3IBNyW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 09:54:22 -0400
-In-Reply-To: <522490CB.60008@appeartv.com>
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:11608 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758552Ab3IBN6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 09:58:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/2/2013 4:21 PM, Per Dal=E9n wrote:
->  > On Mo, 2013-04-29 at 15:20 +0200, Tino Keitel wrote:
->  > > On Mo, 2013-04-29 at 15:14 +0200, Claudiu Manoil wrote:
->  > >
->  > > > The proposed fix (passes this test):
->  > > > http://patchwork.ozlabs.org/patch/240365/
->  > > >
->  > > > Does it work for you?
->
-> Hi,
->
-> This patch do not work for me. I have the same problems that Tino on =
-my
-> card. My card is a Freescale P2020 and I use "iperf -c 10.10.51.36 -n
-> 100M -P 50" to trigger the error.
-> The network interface is set to 100M half duplex.
-> I have tested this using 3.4.35 and 3.4.60 kernel.
->
-> NETDEV WATCHDOG: eth0 (fsl-gianfar): transmit queue 0 timed out
-> ------------[ cut here ]------------
-> WARNING: at net/sched/sch_generic.c:256
-> Modules linked in:
-> NIP: c039bb94 LR: c039bb94 CTR: c02ee500
-> REGS: dffe7e60 TRAP: 0700   Not tainted  (3.4.60+)
-> MSR: 00029000 <CE,EE,ME>  CR: 40000084  XER: 20000000
-> TASK =3D df843200[0] 'swapper/1' THREAD: df864000 CPU: 1
-> GPR00: c039bb94 dffe7f10 df843200 00000046 00021000 ffffffff c02eecf0
-> 00029000
-> GPR08: 00000001 00008000 00463000 00003fff 80000028 00000000 00000000
-> 00000004
-> GPR16: 00000001 df858e14 c051f1f4 00000001 df858c14 df858a14 df858814
-> ffffffff
-> GPR24: 00000001 df813234 00000004 df8f9a00 c05e0000 c05e0000 df813000
-> 00000000
-> NIP [c039bb94] dev_watchdog+0x2d4/0x2e4
-> LR [c039bb94] dev_watchdog+0x2d4/0x2e4
-> Call Trace:
-> [dffe7f10] [c039bb94] dev_watchdog+0x2d4/0x2e4 (unreliable)
-> [dffe7f40] [c003e944] run_timer_softirq+0x11c/0x20c
-> [dffe7fa0] [c00377dc] __do_softirq+0xe4/0x16c
-> [dffe7ff0] [c000c408] call_do_softirq+0x14/0x24
-> [df865e80] [c00043c4] do_softirq+0xb4/0xe4
-> [df865ea0] [c0037b4c] irq_exit+0xb0/0xcc
-> [df865eb0] [c0008958] timer_interrupt+0x188/0x1a4
-> [df865ee0] [c000db68] ret_from_except+0x0/0x18
-> --- Exception: 901 at cpu_idle+0x90/0xf4
->      LR =3D cpu_idle+0x90/0xf4
-> [df865fa0] [c0007b30] cpu_idle+0x5c/0xf4 (unreliable)
-> [df865fc0] [c049d68c] start_secondary+0x2b0/0x2b4
-> [df865ff0] [c0001cf8] __secondary_start+0x30/0x84
-> Instruction dump:
-> 4e800421 80fe0244 4bffff40 7fc3f378 4bfeab6d 7fc4f378 7c651b78 3c60c0=
-55
-> 7fe6fb78 38633108 4cc63182 480fc889 <0fe00000> 39200001 993cea1a 4bff=
-ffb4
-> ---[ end trace 4be011773b23dae3 ]---
->
->
-> When I revert "gianfar: Add support for byte queue limits.", commit
-> d8a0f1b0af67679bba886784de10d8c21acc4e0e, the network test work fine
-> without any "hiccup".
-> If the network interface is set to 1000M full duplex there's also no
-> "hiccup".
->
+From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
 
-Hi,
+net: sctp: Fix data chunk fragmentation for MTU values which are not multiple of 4
 
-That patch wasn't approved (for good reasons).
-The proposed fix is currently under review:
-http://patchwork.ozlabs.org/patch/271242/
-"gianfar: Fix reported number of sent bytes to BQL"
+Initially the problem was observed with ipsec, but later it became clear that
+SCTP data chunk fragmentation algorithm has problems with MTU values which are
+not multiple of 4. Test program was used which just transmits 2000 bytes long
+packets to other host. tcpdump was used to observe re-fragmentation in IP layer
+after SCTP already fragmented data chunks.
 
-Does this one work for you? You might need to pull
-one recent gianfar clean-up patch from net-next in order
-to apply this one without incidents.
+With MTU 1500:
+12:54:34.082904 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1500)
+    10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 2366088589] [SID: 0] [SSEQ 1] [PPID 0x0]
+12:54:34.082933 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 596)
+    10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 2366088590] [SID: 0] [SSEQ 1] [PPID 0x0]
+12:54:34.090576 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+    10.151.24.91.54321 > 10.151.38.153.39303: sctp (1) [SACK] [cum ack 2366088590] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
 
-Thanks,
-Claudiu
+With MTU 1499:
+13:02:49.955220 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 0, flags [+], proto SCTP (132), length 1492)
+    10.151.38.153.39084 > 10.151.24.91.54321: sctp[|sctp]
+13:02:49.955249 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 1472, flags [none], proto SCTP (132), length 28)
+    10.151.38.153 > 10.151.24.91: ip-proto-132
+13:02:49.955262 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
+    10.151.38.153.39084 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 404355346] [SID: 0] [SSEQ 1] [PPID 0x0]
+13:02:49.956770 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+    10.151.24.91.54321 > 10.151.38.153.39084: sctp (1) [SACK] [cum ack 404355346] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
+
+Here problem in data portion limit calculation leads to re-fragmentation in IP,
+which is sub-optimal. The problem is max_data initial value, which doesn't take
+into account the fact, that data chunk must be padded to 4-bytes boundary.
+It's enough to correct max_data, because all later adjustments are correctly
+aligned to 4-bytes boundary.
+
+After the fix is applied, everything is fragmented correctly for uneven MTUs:
+15:16:27.083881 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1496)
+    10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 3077098183] [SID: 0] [SSEQ 1] [PPID 0x0]
+15:16:27.083907 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
+    10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 3077098184] [SID: 0] [SSEQ 1] [PPID 0x0]
+15:16:27.085640 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+    10.151.24.91.54321 > 10.151.38.153.53417: sctp (1) [SACK] [cum ack 3077098184] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
+
+The bug was there for years already, but
+ - is a performance issue, the packets are still transmitted
+ - doesn't show up with default MTU 1500, but possibly with ipsec (MTU 1438)
+
+Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+---
+
+--- linux-3.10.orig/net/sctp/chunk.c
++++ linux-3.10/net/sctp/chunk.c
+@@ -200,9 +200,9 @@ struct sctp_datamsg *sctp_datamsg_from_u
+ 	/* This is the biggest possible DATA chunk that can fit into
+ 	 * the packet
+ 	 */
+-	max_data = asoc->pathmtu -
++	max_data = (asoc->pathmtu -
+ 		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
+-		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
++		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
+
+ 	max = asoc->frag_point;
+ 	/* If the the peer requested that we authenticate DATA chunks
