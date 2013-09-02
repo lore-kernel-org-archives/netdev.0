@@ -1,49 +1,121 @@
-From: =?UTF-8?B?RnLDqWTDqXJpYyBMZXJveQ==?= <fredo@starox.org>
-Subject: Re: Realtek r8168 hangs when sending data at full speed on a gigabit
- link
-Date: Mon, 02 Sep 2013 11:46:42 +0200
-Message-ID: <52245E82.5020004@starox.org>
-References: <5221C226.9040209@starox.org> <20130901213610.GA25211@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-34071.dedibox.fr ([88.191.154.35]:58074 "EHLO
-	sd-34071.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752995Ab3IBJqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 05:46:45 -0400
-In-Reply-To: <20130901213610.GA25211@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/2] delete premature free_irq
+Date: Mon,  2 Sep 2013 11:54:19 +0200
+Message-ID: <1378115661-5371-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: linux-spi@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Francois,
+platform_get_request, or its wrapper platform_get_irq, doesn't allocate
+anything, so there is nothing to free.  Free_irq matches up with
+request_irq and related functions.
 
-Le 01/09/2013 23:36, Francois Romieu a =C3=A9crit :
-> Fr=C3=A9d=C3=A9ric Leroy <fredo@starox.org> :
-> [...]
-> > For triggering the bug, I use iperf, which either works, or hangs a=
-lmost
-> > immediately
-> > with multiple threads :
-> >=20
-> >         iperf -c myiperfserver -P 3 -t 60
-> >=20
-> > Could you help me to fix this ?
->
-> Does it behave the same if you don't load the vbox modules at all ?
->
+The complete semantic patch used is as follows
+(http://coccinelle.lip6.fr/)
 
-When I don't load the vbox modules, it behaves the same.
+// <smpl>
+@@
+identifier l;
+statement S1;
+expression e,e1;
+@@
 
-I forget to say that with an unique tcp stream, it hangs after a longer
-time.
-I took one capture of a hanged tcp stream.
-You can find it there : http://www.starox.org/pub/linux/r8169/
+*e = platform_get_irq(...);
+... when != request_irq(e,...)
+    when != request_threaded_irq(e,...)
+    when != request_any_context_irq(e,...)
+    when != if (...) { <+... request_irq(e,...) ...+> } else S1
+    when != if (...) { <+... request_threaded_irq(e,...) ...+> } else S1
+    when != if (...) { <+... request_any_context_irq(e,...) ...+> } else S1
+    when != e1 = e
+*goto l;
+...
+*free_irq(e,...)
 
-Regards,
+@@
+identifier l;
+statement S,S1;
+expression e,e1;
+@@
 
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+*e = platform_get_irq(...);
+... when != request_irq(e,...)
+    when != request_threaded_irq(e,...)
+    when != request_any_context_irq(e,...)
+    when != if (...) { <+... request_irq(e,...) ...+> } else S1
+    when != if (...) { <+... request_threaded_irq(e,...) ...+> } else S1
+    when != if (...) { <+... request_any_context_irq(e,...) ...+> } else S1
+*e1 = e;
+... when != request_irq(\(e\|e1\),...)
+    when != request_threaded_irq(\(e\|e1\),...)
+    when != request_any_context_irq(\(e\|e1\),...)
+    when != if (...) { <+... request_irq(\(e\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_threaded_irq(\(e\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_any_context_irq(\(e\|e1\),...) ...+> } else S
+*goto l;
+...
+*free_irq(\(e\|e1\),...)
+
+@@
+identifier l;
+statement S;
+expression e,e1;
+@@
+
+*e1 = e = platform_get_irq(...);
+... when != request_irq(\(e\|e1\),...)
+    when != request_threaded_irq(\(e\|e1\),...)
+    when != request_any_context_irq(\(e\|e1\),...)
+    when != if (...) { <+... request_irq(\(e\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_threaded_irq(\(e\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_any_context_irq(\(e\|e1\),...) ...+> } else S
+*goto l;
+...
+*free_irq(\(e\|e1\),...)
+
+// -------------------------------------------------------------------------
+
+@@
+identifier l;
+statement S,S1;
+expression e,e2,e3;
+@@
+
+*e = platform_get_resource(e2,IORESOURCE_IRQ,e3);
+... when != request_irq(e->start,...)
+    when != request_threaded_irq(e->start,...)
+    when != request_any_context_irq(e->start,...)
+    when != if (...) { <+... request_irq(e->start,...) ...+> } else S1
+    when != if (...) { <+... request_threaded_irq(e->start,...) ...+> } else S1
+    when != if (...) { <+... request_any_context_irq(e->start,...) ...+> } else S1
+*goto l;
+...
+*free_irq(e->start,...)
+
+@@
+identifier l;
+statement S,S1;
+expression e,e1,e2,e3;
+@@
+
+*e = platform_get_resource(e2,IORESOURCE_IRQ,e3);
+... when != request_irq(e->start,...)
+    when != request_threaded_irq(e->start,...)
+    when != request_any_context_irq(e->start,...)
+    when != if (...) { <+... request_irq(e->start,...) ...+> } else S1
+    when != if (...) { <+... request_threaded_irq(e->start,...) ...+> } else S1
+    when != if (...) { <+... request_any_context_irq(e->start,...) ...+> } else S1
+e1 = e->start;
+... when != request_irq(\(e->start\|e1\),...)
+    when != request_threaded_irq(\(e->start\|e1\),...)
+    when != request_any_context_irq(\(e->start\|e1\),...)
+    when != if (...) { <+... request_irq(\(e->start\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_threaded_irq(\(e->start\|e1\),...) ...+> } else S
+    when != if (...) { <+... request_any_context_irq(\(e->start\|e1\),...) ...+> } else S
+*goto l;
+...
+*free_irq(\(e->start\|e1\),...)
+// </smpl>
