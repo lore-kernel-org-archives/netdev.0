@@ -1,98 +1,190 @@
-From: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
-Date: Mon, 2 Sep 2013 07:34:45 +0100 (BST)
-Message-ID: <1378103685.43571.YahooMailBasic@web172301.mail.ir2.yahoo.com>
-Reply-To: htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: 3.11-rc7:BUG: soft lockup
+Date: Mon, 2 Sep 2013 14:57:16 +0800
+Message-ID: <522436CC.3080108@huawei.com>
+References: <522055D7.70002@gmail.com> <CAM_iQpW3F=inR0y6GFE64OgkhKSdzF-trrZamgThXTiyOYYmBw@mail.gmail.com> <CAJd=RBCT6dbLwX6z+1LxCvJ9-NOYQRe0zzBkEQosFgLvNgg4bg@mail.gmail.com> <52242AEA.9020502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
-To: khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hillf Danton <dhillf@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Baoquan He <baoquan.he@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52242AEA.9020502@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------------------------------
-On Mon, Sep 2, 2013 05:06 BST Alexey Khoroshilov wrote:
-
->On 01.09.2013 10:51, Hin-Tak Leung wrote:
->> ------------------------------
->> On Sat, Aug 31, 2013 22:18 BST Alexey Khoroshilov wrote:
+On 2013/9/2 14:06, Baoquan He wrote:
+> Hi both,
+> 
+> Thanks for your patches. I tried to test your patches,  first the 2nd 
+> one, namely Hillf's patch, it's OK. Then when I wanted to reproduce and 
+> test Cong's patch, it failed to happen again. 
+> 
+> I remember this bug happened randomly at the very beginning, 
+> just after kernel compiling  it always happened one day. 
+> 
+> So maybe when it happened again, I will test your patch separately. 
+> 
+> Baoquan
+> Thanks 
+> 
+> On 08/31/2013 11:25 AM, Hillf Danton wrote:
+>> On Fri, Aug 30, 2013 at 8:18 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> Cc'ing netdev
+>>>
+>>> On Fri, Aug 30, 2013 at 4:20 PM, Baoquan He <baoquan.he@gmail.com> wrote:
+>>>> Hi,
+>>>>
+>>>> I tried the 3.11.0-rc7+ on x86_64, and after bootup, the soft lockup bug
+>>>> happened.
+>>>>
+>>>> [   48.895000] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
+>>>> [   48.901191] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
+>>>> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
+>>>> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
+>>>> [   48.950034] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
+>>>> 3.11.0-rc7+ #1
+>>>> [   48.957433] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
+>>>> BIOS J61 v01.02 03/09/2012
+>>>> [   48.966131] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
+>>>> ffff8804187d2000
+>>>> [   48.973610] RIP: 0010:[<ffffffff812e57a7>]  [<ffffffff812e57a7>]
+>>>> strcmp+0x27/0x40
+>>>> [   48.981119] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000246
+>>>> [   48.986430] RAX: 0000000000000000 RBX: 00007fffda942730 RCX:
+>>>> ffff8804187d3fd8
+>>>> [   48.993566] RDX: 0000000000000000 RSI: ffff8804187d3e01 RDI:
+>>>> ffffffff81cb8a39
+>>>> [   49.000707] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
+>>>> 0000000000000000
+>>>> [   49.007841] R10: 0000000000000163 R11: 0000000000000000 R12:
+>>>> ffffffff8128300c
+>>>> [   49.014972] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
+>>>> 0000000000000004
+>>>> [   49.022112] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
+>>>> knlGS:0000000000000000
+>>>> [   49.030194] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>>> [   49.035942] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
+>>>> 00000000000407e0
+>>>> [   49.043077] Stack:
+>>>> [   49.045096]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
+>>>> ffffffff81cb8180
+>>>> [   49.052559]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
+>>>> ffffffffa02497a9
+>>>> [   49.060020]  0000000000000000 00007265746c6966 0000003f0d7b92c0
+>>>> 00007fffda942850
+>>>> [   49.067487] Call Trace:
+>>>> [   49.069949]  [<ffffffffa0249674>]
+>>>> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
+>>>> [   49.077779]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
+>>>> [   49.084306]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
+>>>> [   49.089717]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
+>>>> [   49.095113]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
+>>>> [   49.100588]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
+>>>> [   49.106766]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
+>>>> [   49.112257]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
+>>>> [   49.118260] Code: 00 00 00 00 55 48 89 e5 eb 0e 66 2e 0f 1f 84 00 00
+>>>> 00 00 00 84 c0 74 1c 48 83 c7 01 0f b6 47 ff 48 83 c6 01 3a 46 ff 74 eb
+>>>> 19 c0 <83> c8 01 5d c3 0f 1
+>>>> [   76.925880] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
+>>>> [   76.932069] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
+>>>> ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
+>>>> snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
+>>>> [   76.980847] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
+>>>> 3.11.0-rc7+ #1
+>>>> [   76.988245] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
+>>>> BIOS J61 v01.02 03/09/2012
+>>>> [   76.996940] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
+>>>> ffff8804187d2000
+>>>> [   77.004426] RIP: 0010:[<ffffffff812e5784>]  [<ffffffff812e5784>]
+>>>> strcmp+0x4/0x40
+>>>> [   77.011849] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000212
+>>>> [   77.017163] RAX: 0000000000000001 RBX: 00007fffda942730 RCX:
+>>>> ffff8804187d3fd8
+>>>> [   77.024304] RDX: 0000000000000000 RSI: ffff8804187d3e00 RDI:
+>>>> ffffffff81cb8a38
+>>>> [   77.031434] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
+>>>> 0000000000000000
+>>>> [   77.038566] R10: 0000000000000163 R11: 0000000000000000 R12:
+>>>> ffffffff8128300c
+>>>> [   77.045699] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
+>>>> 0000000000000004
+>>>> [   77.052842] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
+>>>> knlGS:0000000000000000
+>>>> [   77.060934] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>>> [   77.066668] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
+>>>> 00000000000407e0
+>>>> [   77.073799] Stack:
+>>>> [   77.075818]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
+>>>> ffffffff81cb8180
+>>>> [   77.083287]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
+>>>> ffffffffa02497a9
+>>>> [   77.090749]  0000000000000000 00007265746c6966 0000003f0d7b92c0
+>>>> 00007fffda942850
+>>>> [   77.098215] Call Trace:
+>>>> [   77.100668]  [<ffffffffa0249674>]
+>>>> find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
+>>>> [   77.108500]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
+>>>> [   77.115035]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
+>>>> [   77.120438]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
+>>>> [   77.125845]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
+>>>> [   77.131328]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
+>>>> [   77.137515]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
+>>>> [   77.143011]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
+>>>> [   77.149019] Code: 0f 1f 80 00 00 00 00 48 83 c6 01 0f b6 4e ff 48 83
+>>>> c2 01 84 c9 88 4a ff 75 ed 5d c3 66 66 2e 0f 1f 84 00 00 00 00 00 55 48
+>>>> 89 e5 <eb> 0e 66 2e 0f 1f 8
+>>>
+>>> Does the following patch help?
+>>>
+>>>
+>>> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+>>> index ac78024..4a0ec8f 100644
+>>> --- a/net/bridge/netfilter/ebtables.c
+>>> +++ b/net/bridge/netfilter/ebtables.c
+>>> @@ -1503,6 +1503,10 @@ static int do_ebt_get_ctl(struct sock *sk, int
+>>> cmd, void __user *user, int *len)
+>>>         if (copy_from_user(&tmp, user, sizeof(tmp)))
+>>>                 return -EFAULT;
+>>>
+>>> +       if (memscan(tmp.name, '\0', EBT_TABLE_MAXNAMELEN) ==
+>>> +                   (tmp.name + EBT_TABLE_MAXNAMELEN))
+>>> +               return -EINVAL;
+>>> +
+>>>         t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
+>>>         if (!t)
+>>>                 return ret;
+>>> --
+>>>
+>> release lock!!
 >>
->> In case of __dev_alloc_skb() failure rtl8187_init_urbs()
->> calls usb_free_urb(entry) where 'entry' can points to urb
->> allocated at the previous iteration. That means refcnt will be
->> decremented incorrectly and the urb can be used after memory
->> deallocation.
+>> --- a/net/bridge/netfilter/ebtables.c Sat Aug 31 11:12:54 2013
+>> +++ b/net/bridge/netfilter/ebtables.c Sat Aug 31 11:15:24 2013
+>> @@ -332,8 +332,10 @@ find_inlist_lock_noload(struct list_head
+>>   return NULL;
 >>
->> The patch fixes the issue and implements error handling of init_urbs
->> in rtl8187_start().
->>
->> Found by Linux Driver Verification project (linuxtesting.org).
->>
->> Signed-off-by: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
->> ---
->> drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
->> 1 file changed, 10 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/ne=
-t/wireless/rtl818x/rtl8187/dev.c
->> index f49220e..e83d53c 100644
->> --- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
->> +++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
->> @@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_=
-hw *dev)
->>=A0 =A0 =A0 =A0 =A0 skb_queue_tail(&priv->rx_queue, skb);
->>=A0 =A0 =A0 =A0 =A0 usb_anchor_urb(entry, &priv->anchored);
->>=A0 =A0 =A0 =A0 =A0 ret =3D usb_submit_urb(entry, GFP_KERNEL);
->> +=A0 =A0 =A0 =A0 usb_free_urb(entry);
->>=A0 =A0 =A0 =A0 =A0 if (ret) {
->>=A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_unlink(skb, &priv->rx_queue);
->>=A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_unanchor_urb(entry);
->>=A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
->>=A0 =A0 =A0 =A0 =A0 }
->> -=A0 =A0 =A0 =A0 usb_free_urb(entry);
->>=A0 =A0 =A0 }
->>=A0 =A0 =A0 return ret;
->>
->> err:
->> -=A0 =A0 usb_free_urb(entry);
->>=A0 =A0 =A0 kfree_skb(skb);
->>=A0 =A0 =A0 usb_kill_anchored_urbs(&priv->anchored);
->>=A0 =A0 =A0 return ret;
->> This part looks wrong - you free_urb(entry) then unanchor_urb(entry)=
-=2E
->I do not see any problems here.
->usb_free_urb() just decrements refcnt of the urb.
->While usb_anchor_urb() and usb_unanchor_urb() increment and decrement =
-it=20
->as well.
->So actual memory deallocation will happen in usb_unanchor_urb().
+>>   list_for_each_entry(e, head, list) {
+>> - if (strcmp(e->name, name) == 0)
+>> + if (strcmp(e->name, name) == 0) {
+>> + mutex_unlock(mutex);
+>>   return e;
+>> + }
+>>   }
+>>   *error = -ENOENT;
+>>   mutex_unlock(mutex);
+>> --
 
-If the routines work as you say, they probably are misnamed, and/or pro=
-totyped wrongly?
-Also, you are making assumptions about how they are implemented, and re=
-lying
-on the implementation details to be fixed for eternity.
+could not release lock here, otherwise there will unlock twice. I did not meet any problem about the drivers, maybe
+it is hard to occur.
 
-I am just saying,
-
-XXX_free(some_entity);
-if(condtion)
-     do_stuff(some_entity);
-
-looks wrong, and if that's intentional, those routines really shouldn't=
- be named as such.
-
-Hin-Tak
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
