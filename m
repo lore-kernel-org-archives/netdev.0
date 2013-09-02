@@ -1,72 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Is fallback vhost_net to =?utf-8?Q?qem?=
- =?utf-8?Q?u_for_live_migrate_available=EF=BC=9F?=
-Date: Mon, 2 Sep 2013 11:11:47 +0300
-Message-ID: <20130902081147.GA21387@redhat.com>
-References: <521C1DCF.5090202@huawei.com>
- <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com>
- <522174D7.6080903@huawei.com>
- <20130902075722.GZ15729@zion.uk.xensource.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 4/5] net: tulip: use pci_{get,set}_drvdata()
+Date: Mon, 02 Sep 2013 17:11:53 +0900
+Message-ID: <001201cea7b4$15851c40$408f54c0$%han@samsung.com>
+References: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Qin Chuanyu <qinchuanyu@huawei.com>,
-	Anthony Liguori <anthony@codemonkey.ws>, jasowang@redhat.com,
-	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org,
-	qianhuibin@huawei.com,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	wangfuhai@huawei.com, likunyun@huawei.com, liuyongan@huawei.com,
-	liuyingdong@huawei.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Danny Kukawka' <danny.kukawka@bisect.de>,
+	'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50831 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752789Ab3IBILH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 04:11:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20130902075722.GZ15729@zion.uk.xensource.com>
+Received: from mailout2.samsung.com ([203.254.224.25]:45468 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789Ab3IBIL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 04:11:57 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MSH008JIO3HHTN0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Mon, 02 Sep 2013 17:11:54 +0900 (KST)
+In-reply-to: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 02, 2013 at 08:57:22AM +0100, Wei Liu wrote:
-> On Sat, Aug 31, 2013 at 12:45:11PM +0800, Qin Chuanyu wrote:
-> > On 2013/8/30 0:08, Anthony Liguori wrote:
-> > >Hi Qin,
-> >=20
-> > >>By change the memory copy and notify mechanism =EF=BC=8Ccurrently=
- virtio-net with
-> > >>vhost_net could run on Xen with good performance=E3=80=82
-> > >
-> > >I think the key in doing this would be to implement a property
-> > >ioeventfd and irqfd interface in the driver domain kernel.  Just
-> > >hacking vhost_net with Xen specific knowledge would be pretty nast=
-y
-> > >IMHO.
-> > >
-> > Yes, I add a kernel module which persist virtio-net pio_addr and
-> > msix address as what kvm module did. Guest wake up vhost thread by
-> > adding a hook func in evtchn_interrupt.
-> >=20
-> > >Did you modify the front end driver to do grant table mapping or i=
-s
-> > >this all being done by mapping the domain's memory?
-> > >
-> > There is nothing changed in front end driver. Currently I use
-> > alloc_vm_area to get address space=EF=BC=8C and map the domain's me=
-mory as
-> > what what qemu did.
-> >=20
->=20
-> You mean you're using xc_map_foreign_range and friends in the backend=
- to
-> map guest memory? That's not very desirable as it violates Xen's
-> security model. It would not be too hard to pass grant references
-> instead of guest physical memory address IMHO.
->=20
-> Wei.
+Use the wrapper functions for getting and setting the driver data
+using pci_dev instead of using dev_{get,set}_drvdata() with
+&pdev->dev, so we can directly pass a struct pci_dev. This is
+a purely cosmetic change.
 
-It's a start and it should make it fast and work with existing
-infrastructure in the host, though.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/dec/tulip/de4x5.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---=20
-MST
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index 4c83003..2db6c57 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -2319,7 +2319,7 @@ static void de4x5_pci_remove(struct pci_dev *pdev)
+ 	struct net_device *dev;
+ 	u_long iobase;
+ 
+-	dev = dev_get_drvdata(&pdev->dev);
++	dev = pci_get_drvdata(pdev);
+ 	iobase = dev->base_addr;
+ 
+ 	unregister_netdev (dev);
+-- 
+1.7.10.4
