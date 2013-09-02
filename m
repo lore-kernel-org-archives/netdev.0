@@ -1,10 +1,10 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 2/6] vhost_net: use vhost_add_used_and_signal_n() in
-	vhost_zerocopy_signal_used()
-Date: Mon, 2 Sep 2013 08:50:48 +0300
-Message-ID: <20130902055048.GA19838@redhat.com>
+Subject: Re: [PATCH V2 1/6] vhost_net: make vhost_zerocopy_signal_used()
+	returns void
+Date: Mon, 2 Sep 2013 08:51:18 +0300
+Message-ID: <20130902055118.GB19838@redhat.com>
 References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-3-git-send-email-jasowang@redhat.com>
+	<1377836962-49780-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1377836962-49780-3-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1377836962-49780-2-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,57 +25,36 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 30, 2013 at 12:29:18PM +0800, Jason Wang wrote:
-> We tend to batch the used adding and signaling in vhost_zerocopy_callback()
-> which may result more than 100 used buffers to be updated in
-> vhost_zerocopy_signal_used() in some cases. So wwitch to use
+tweak subj s/returns/return/
 
-switch
-
-> vhost_add_used_and_signal_n() to avoid multiple calls to
-> vhost_add_used_and_signal(). Which means much more less times of used index
-> updating and memory barriers.
-
-pls put info on perf gain in commit log too
-
+On Fri, Aug 30, 2013 at 12:29:17PM +0800, Jason Wang wrote:
+> None of its caller use its return value, so let it return void.
 > 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/vhost/net.c |   13 ++++++++-----
->  1 files changed, 8 insertions(+), 5 deletions(-)
+>  drivers/vhost/net.c |    5 ++---
+>  1 files changed, 2 insertions(+), 3 deletions(-)
 > 
 > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 280ee66..8a6dd0d 100644
+> index 969a859..280ee66 100644
 > --- a/drivers/vhost/net.c
 > +++ b/drivers/vhost/net.c
-> @@ -281,7 +281,7 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+> @@ -276,8 +276,8 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+>   * of used idx. Once lower device DMA done contiguously, we will signal KVM
+>   * guest used idx.
+>   */
+> -static int vhost_zerocopy_signal_used(struct vhost_net *net,
+> -				      struct vhost_virtqueue *vq)
+> +static void vhost_zerocopy_signal_used(struct vhost_net *net,
+> +				       struct vhost_virtqueue *vq)
 >  {
 >  	struct vhost_net_virtqueue *nvq =
 >  		container_of(vq, struct vhost_net_virtqueue, vq);
-> -	int i;
-> +	int i, add;
->  	int j = 0;
->  
->  	for (i = nvq->done_idx; i != nvq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
-> @@ -289,14 +289,17 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
->  			vhost_net_tx_err(net);
->  		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
->  			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
-> -			vhost_add_used_and_signal(vq->dev, vq,
-> -						  vq->heads[i].id, 0);
->  			++j;
->  		} else
->  			break;
+> @@ -297,7 +297,6 @@ static int vhost_zerocopy_signal_used(struct vhost_net *net,
 >  	}
-> -	if (j)
-> -		nvq->done_idx = i;
-> +	while (j) {
-> +		add = min(UIO_MAXIOV - nvq->done_idx, j);
-> +		vhost_add_used_and_signal_n(vq->dev, vq,
-> +					    &vq->heads[nvq->done_idx], add);
-> +		nvq->done_idx = (nvq->done_idx + add) % UIO_MAXIOV;
-> +		j -= add;
-> +	}
+>  	if (j)
+>  		nvq->done_idx = i;
+> -	return j;
 >  }
 >  
 >  static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
