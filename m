@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V3 3/6] vhost: switch to use vhost_add_used_n()
-Date: Mon,  2 Sep 2013 16:40:58 +0800
-Message-ID: <1378111261-14826-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V3 4/6] vhost_net: determine whether or not to use zerocopy at
+	one time
+Date: Mon,  2 Sep 2013 16:40:59 +0800
+Message-ID: <1378111261-14826-5-git-send-email-jasowang@redhat.com>
 References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,87 +23,83 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Let vhost_add_used() to use vhost_add_used_n() to reduce the code
-duplication. To avoid the overhead brought by __copy_to_user(). We will use
-put_user() when one used need to be added.
+Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
+upend_idx != done_idx we still set zcopy_used to true and rollback this choice
+later. This could be avoided by determining zerocopy once by checking all
+conditions at one time before.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.c |   54 ++++++++++--------------------------------------
- 1 files changed, 12 insertions(+), 42 deletions(-)
+ drivers/vhost/net.c |   47 ++++++++++++++++++++---------------------------
+ 1 files changed, 20 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 448efe0..9a9502a 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1332,48 +1332,9 @@ EXPORT_SYMBOL_GPL(vhost_discard_vq_desc);
-  * want to notify the guest, using eventfd. */
- int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
- {
--	struct vring_used_elem __user *used;
-+	struct vring_used_elem heads = { head, len };
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 8a6dd0d..3f89dea 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -404,43 +404,36 @@ static void handle_tx(struct vhost_net *net)
+ 			       iov_length(nvq->hdr, s), hdr_size);
+ 			break;
+ 		}
+-		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
+-				       nvq->upend_idx != nvq->done_idx);
++
++		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
++				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
++				      nvq->done_idx
++				   && vhost_net_tx_select_zcopy(net);
  
--	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
--	 * next entry in that used ring. */
--	used = &vq->used->ring[vq->last_used_idx % vq->num];
--	if (__put_user(head, &used->id)) {
--		vq_err(vq, "Failed to write used id");
--		return -EFAULT;
--	}
--	if (__put_user(len, &used->len)) {
--		vq_err(vq, "Failed to write used len");
--		return -EFAULT;
--	}
--	/* Make sure buffer is written before we update index. */
--	smp_wmb();
--	if (__put_user(vq->last_used_idx + 1, &vq->used->idx)) {
--		vq_err(vq, "Failed to increment used idx");
--		return -EFAULT;
--	}
--	if (unlikely(vq->log_used)) {
--		/* Make sure data is seen before log. */
--		smp_wmb();
--		/* Log used ring entry write. */
--		log_write(vq->log_base,
--			  vq->log_addr +
--			   ((void __user *)used - (void __user *)vq->used),
--			  sizeof *used);
--		/* Log used index update. */
--		log_write(vq->log_base,
--			  vq->log_addr + offsetof(struct vring_used, idx),
--			  sizeof vq->used->idx);
--		if (vq->log_ctx)
--			eventfd_signal(vq->log_ctx, 1);
--	}
--	vq->last_used_idx++;
--	/* If the driver never bothers to signal in a very long while,
--	 * used index might wrap around. If that happens, invalidate
--	 * signalled_used index we stored. TODO: make sure driver
--	 * signals at least once in 2^16 and remove this. */
--	if (unlikely(vq->last_used_idx == vq->signalled_used))
--		vq->signalled_used_valid = false;
--	return 0;
-+	return vhost_add_used_n(vq, &heads, 1);
- }
- EXPORT_SYMBOL_GPL(vhost_add_used);
- 
-@@ -1387,7 +1348,16 @@ static int __vhost_add_used_n(struct vhost_virtqueue *vq,
- 
- 	start = vq->last_used_idx % vq->num;
- 	used = vq->used->ring + start;
--	if (__copy_to_user(used, heads, count * sizeof *used)) {
-+	if (count == 1) {
-+		if (__put_user(heads[0].id, &used->id)) {
-+			vq_err(vq, "Failed to write used id");
-+			return -EFAULT;
+ 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+ 		if (zcopy_used) {
++			struct ubuf_info *ubuf;
++			ubuf = nvq->ubuf_info + nvq->upend_idx;
++
+ 			vq->heads[nvq->upend_idx].id = head;
+-			if (!vhost_net_tx_select_zcopy(net) ||
+-			    len < VHOST_GOODCOPY_LEN) {
+-				/* copy don't need to wait for DMA done */
+-				vq->heads[nvq->upend_idx].len =
+-							VHOST_DMA_DONE_LEN;
+-				msg.msg_control = NULL;
+-				msg.msg_controllen = 0;
+-				ubufs = NULL;
+-			} else {
+-				struct ubuf_info *ubuf;
+-				ubuf = nvq->ubuf_info + nvq->upend_idx;
+-
+-				vq->heads[nvq->upend_idx].len =
+-					VHOST_DMA_IN_PROGRESS;
+-				ubuf->callback = vhost_zerocopy_callback;
+-				ubuf->ctx = nvq->ubufs;
+-				ubuf->desc = nvq->upend_idx;
+-				msg.msg_control = ubuf;
+-				msg.msg_controllen = sizeof(ubuf);
+-				ubufs = nvq->ubufs;
+-				kref_get(&ubufs->kref);
+-			}
++			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
++			ubuf->callback = vhost_zerocopy_callback;
++			ubuf->ctx = nvq->ubufs;
++			ubuf->desc = nvq->upend_idx;
++			msg.msg_control = ubuf;
++			msg.msg_controllen = sizeof(ubuf);
++			ubufs = nvq->ubufs;
++			kref_get(&ubufs->kref);
+ 			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
+-		} else
++		} else {
+ 			msg.msg_control = NULL;
++			ubufs = NULL;
 +		}
-+		if (__put_user(heads[0].len, &used->len)) {
-+			vq_err(vq, "Failed to write used len");
-+			return -EFAULT;
-+		}
-+	} else if (__copy_to_user(used, heads, count * sizeof *used)) {
- 		vq_err(vq, "Failed to write used");
- 		return -EFAULT;
- 	}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+ 			if (zcopy_used) {
+-				if (ubufs)
+-					vhost_net_ubuf_put(ubufs);
++				vhost_net_ubuf_put(ubufs);
+ 				nvq->upend_idx = ((unsigned)nvq->upend_idx - 1)
+ 					% UIO_MAXIOV;
+ 			}
 -- 
 1.7.1
