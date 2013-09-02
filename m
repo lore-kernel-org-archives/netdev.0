@@ -1,49 +1,67 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 20/21] bonding: use bond_for_each_slave() in bond_uninit()
-Date: Mon,  2 Sep 2013 23:39:24 +0200
-Message-ID: <1378157965-17537-21-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 16/21] net: add a possibility to get private from netdev_adjacent->list
+Date: Mon,  2 Sep 2013 23:39:20 +0200
+Message-ID: <1378157965-17537-17-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57779 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10559 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932192Ab3IBVjk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:40 -0400
+	id S932192Ab3IBVjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:35 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We're safe agains removal there, cause we use neighbours primitives.
+It will be useful to get first/last element.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 59814c9..ce1b0fb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4099,12 +4099,13 @@ static void bond_setup(struct net_device *bond_dev)
- static void bond_uninit(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave, *tmp_slave;
-+	struct list_head *iter;
-+	struct slave *slave;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 20afdf98..bde2244 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2819,6 +2819,7 @@ extern void *netdev_lower_neigh_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_neigh_get_next_private_rcu(dev, &(iter)))
  
- 	bond_netpoll_cleanup(bond_dev);
++extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1b9862b..6df11a0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4530,6 +4530,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
  
- 	/* Release the bonded slaves */
--	list_for_each_entry_safe(slave, tmp_slave, &bond->slave_list, list)
-+	bond_for_each_slave(bond, slave, iter)
- 		__bond_release_one(bond_dev, slave->dev, true);
- 	pr_info("%s: released all slaves\n", bond_dev->name);
- 
++void *netdev_adjacent_get_private(struct list_head *adj_list)
++{
++	struct netdev_adjacent *adj;
++
++	adj = list_entry(adj_list, struct netdev_adjacent, list);
++
++	return adj->private;
++}
++EXPORT_SYMBOL(netdev_adjacent_get_private);
++
+ /* netdev_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
+  * @iter: list_head ** of the current position
 -- 
 1.8.4
