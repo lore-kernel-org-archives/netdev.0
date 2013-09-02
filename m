@@ -1,83 +1,52 @@
-From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-Subject: [PATCH] net: sctp: Fix data chunk fragmentation for MTU values which
- are not multiple of 4
-Date: Mon, 02 Sep 2013 15:58:25 +0200
-Message-ID: <52249981.8040006@nsn.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Glavinic-Pecotic, Matija (EXT-Other - DE/Ulm)"
-	<matija.glavinic-pecotic.ext@nsn.com>, netdev@vger.kernel.org
-To: linux-sctp@vger.kernel.org, davem@davemloft.net,
-	vyasevich@gmail.com
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next] net: correctly interlink lower/upper devices
+Date: Mon,  2 Sep 2013 16:26:51 +0200
+Message-ID: <1378132011-2910-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:11608 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758552Ab3IBN6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 09:58:39 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:7624 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756399Ab3IBO0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 10:26:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+Currently we're linking upper devices to lower ones, which results in
+upside-down relationship: upper devices seeing lower devices via its upper
+lists.
 
-net: sctp: Fix data chunk fragmentation for MTU values which are not multiple of 4
+Fix this by correctly linking lower devices to the upper ones.
 
-Initially the problem was observed with ipsec, but later it became clear that
-SCTP data chunk fragmentation algorithm has problems with MTU values which are
-not multiple of 4. Test program was used which just transmits 2000 bytes long
-packets to other host. tcpdump was used to observe re-fragmentation in IP layer
-after SCTP already fragmented data chunks.
-
-With MTU 1500:
-12:54:34.082904 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1500)
-    10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 2366088589] [SID: 0] [SSEQ 1] [PPID 0x0]
-12:54:34.082933 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 596)
-    10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 2366088590] [SID: 0] [SSEQ 1] [PPID 0x0]
-12:54:34.090576 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
-    10.151.24.91.54321 > 10.151.38.153.39303: sctp (1) [SACK] [cum ack 2366088590] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
-
-With MTU 1499:
-13:02:49.955220 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 0, flags [+], proto SCTP (132), length 1492)
-    10.151.38.153.39084 > 10.151.24.91.54321: sctp[|sctp]
-13:02:49.955249 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 1472, flags [none], proto SCTP (132), length 28)
-    10.151.38.153 > 10.151.24.91: ip-proto-132
-13:02:49.955262 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
-    10.151.38.153.39084 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 404355346] [SID: 0] [SSEQ 1] [PPID 0x0]
-13:02:49.956770 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
-    10.151.24.91.54321 > 10.151.38.153.39084: sctp (1) [SACK] [cum ack 404355346] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
-
-Here problem in data portion limit calculation leads to re-fragmentation in IP,
-which is sub-optimal. The problem is max_data initial value, which doesn't take
-into account the fact, that data chunk must be padded to 4-bytes boundary.
-It's enough to correct max_data, because all later adjustments are correctly
-aligned to 4-bytes boundary.
-
-After the fix is applied, everything is fragmented correctly for uneven MTUs:
-15:16:27.083881 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1496)
-    10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 3077098183] [SID: 0] [SSEQ 1] [PPID 0x0]
-15:16:27.083907 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
-    10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 3077098184] [SID: 0] [SSEQ 1] [PPID 0x0]
-15:16:27.085640 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
-    10.151.24.91.54321 > 10.151.38.153.53417: sctp (1) [SACK] [cum ack 3077098184] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
-
-The bug was there for years already, but
- - is a performance issue, the packets are still transmitted
- - doesn't show up with default MTU 1500, but possibly with ipsec (MTU 1438)
-
-Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Cong Wang <amwang@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
+ net/core/dev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---- linux-3.10.orig/net/sctp/chunk.c
-+++ linux-3.10/net/sctp/chunk.c
-@@ -200,9 +200,9 @@ struct sctp_datamsg *sctp_datamsg_from_u
- 	/* This is the biggest possible DATA chunk that can fit into
- 	 * the packet
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6fbb0c9..743620e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4679,8 +4679,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	 * versa, and don't forget the devices itself. All of these
+ 	 * links are non-neighbours.
  	 */
--	max_data = asoc->pathmtu -
-+	max_data = (asoc->pathmtu -
- 		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
--		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
-+		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
-
- 	max = asoc->frag_point;
- 	/* If the the peer requested that we authenticate DATA chunks
+-	list_for_each_entry(i, &upper_dev->upper_dev_list, list) {
+-		list_for_each_entry(j, &dev->lower_dev_list, list) {
++	list_for_each_entry(i, &dev->lower_dev_list, list) {
++		list_for_each_entry(j, &upper_dev->upper_dev_list, list) {
+ 			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
+ 			if (ret)
+ 				goto rollback_mesh;
+-- 
+1.8.4
