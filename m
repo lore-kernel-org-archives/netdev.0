@@ -1,49 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch] sfc: check for allocation failure
-Date: Mon, 2 Sep 2013 18:00:54 +0100
-Message-ID: <1378141254.1552.0.camel@bwh-desktop.uk.level5networks.com>
-References: <20130902082828.GA30037@elgon.mountain>
+From: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
+Subject: Re: [PATCH v2 3/3] Send cgroup_path in SCM_CGROUP
+Date: Mon, 2 Sep 2013 19:17:00 +0200
+Message-ID: <CAPXgP120-PZHvEkAOgvUNkYYXnNfPt=SbxjRWY1hDXY9RWTJWQ@mail.gmail.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1377785602-10766-1-git-send-email-jkaluza@redhat.com>
+	<1377785602-10766-4-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30196 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756557Ab3IBRBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 13:01:03 -0400
-In-Reply-To: <20130902082828.GA30037@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1377785602-10766-4-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-09-02 at 12:04 +0300, Dan Carpenter wrote:
-> It upsets static analyzers when we don't check for allocation failure.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On Thu, Aug 29, 2013 at 4:13 PM, Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> Add new SCM type called SCM_CGROUP to send "cgroup_path" in SCM.
+> This is useful for journald (systemd logging daemon) to get additional context
+> with each log line received using UNIX socket.
+>
+> Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+In many cases it's generally more useful to explain *why* something is
+done, not *where* it is used. It makes it easier for people to match
+the described problem to their own use-cases, where it possibly occurs
+too. The problem this patch solves is very generic and not so much
+specific to logging or the journal. Maybe something like this:
 
-Thanks Dan.
+"Server-like processes in many cases need credentials and other
+metadata of the peer, to decide if the calling process is allowed to
+request a specific action, or the server just wants to log away this
+type of information for auditing tasks.
 
-Ben.
+The current practice to retrieve such process metadata is to look that
+information up in procfs with the $PID received over SCM_CREDENTIALS.
+This is sufficient for long-running tasks, but introduces a race which
+cannot be worked around for short-living processes; the calling
+process and all the information in /proc/$PID/ is gone before the
+receiver of the socket message can look it up.
 
-> diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
-> index ba6c87a..aac6897 100644
-> --- a/drivers/net/ethernet/sfc/mtd.c
-> +++ b/drivers/net/ethernet/sfc/mtd.c
-> @@ -384,6 +384,8 @@ static int falcon_mtd_probe(struct efx_nic *efx)
->  
->  	/* Allocate space for maximum number of partitions */
->  	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
-> +	if (!parts)
-> +		return -ENOMEM;
->  	n_parts = 0;
->  
->  	spi = &nic_data->spi_flash;
+This introduces a new SCM type called SCM_CGROUP to allow the direct
+attaching of "cgroup_path" to SCM, which is significantly more
+efficient and will reliably avoid the race with the round-trip over
+procfs."
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Kay
