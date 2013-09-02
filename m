@@ -1,75 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V3 6/6] vhost_net: correctly limit the max pending buffers
-Date: Mon,  2 Sep 2013 16:41:01 +0800
-Message-ID: <1378111261-14826-7-git-send-email-jasowang@redhat.com>
-References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] sfc: check for allocation failure
+Date: Mon, 2 Sep 2013 12:04:42 +0300
+Message-ID: <20130902082828.GA30037@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:21395 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758053Ab3IBJEs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 05:04:48 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As Michael point out, We used to limit the max pending DMAs to get better cache
-utilization. But it was not done correctly since it was one done when there's no
-new buffers submitted from guest. Guest can easily exceeds the limitation by
-keeping sending packets.
+It upsets static analyzers when we don't check for allocation failure.
 
-So this patch moves the check into main loop. Tests shows about 5%-10%
-improvement on per cpu throughput for guest tx.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c |   18 +++++++-----------
- 1 files changed, 7 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 8e9dc55..831eb4f 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -363,6 +363,13 @@ static void handle_tx(struct vhost_net *net)
- 		if (zcopy)
- 			vhost_zerocopy_signal_used(net, vq);
+diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+index ba6c87a..aac6897 100644
+--- a/drivers/net/ethernet/sfc/mtd.c
++++ b/drivers/net/ethernet/sfc/mtd.c
+@@ -384,6 +384,8 @@ static int falcon_mtd_probe(struct efx_nic *efx)
  
-+		/* If more outstanding DMAs, queue the work.
-+		 * Handle upend_idx wrap around
-+		 */
-+		if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
-+			      % UIO_MAXIOV == nvq->done_idx))
-+			break;
-+
- 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
- 					 &out, &in,
-@@ -372,17 +379,6 @@ static void handle_tx(struct vhost_net *net)
- 			break;
- 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
- 		if (head == vq->num) {
--			int num_pends;
--
--			/* If more outstanding DMAs, queue the work.
--			 * Handle upend_idx wrap around
--			 */
--			num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
--				    (nvq->upend_idx - nvq->done_idx) :
--				    (nvq->upend_idx + UIO_MAXIOV -
--				     nvq->done_idx);
--			if (unlikely(num_pends > VHOST_MAX_PEND))
--				break;
- 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
- 				vhost_disable_notify(&net->dev, vq);
- 				continue;
--- 
-1.7.1
+ 	/* Allocate space for maximum number of partitions */
+ 	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
++	if (!parts)
++		return -ENOMEM;
+ 	n_parts = 0;
+ 
+ 	spi = &nic_data->spi_flash;
