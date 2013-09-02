@@ -1,55 +1,167 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs interfaces
-Date: Wed, 4 Sep 2013 21:55:39 -0700
-Message-ID: <CAOaVG17stH4K=MOfB0-OfqerVOmXpGQtERD7kgCF97AOtpn18A@mail.gmail.com>
-References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
-	<FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH 2/2] sh_eth: add device tree support
+Date: Mon, 2 Sep 2013 09:52:25 +0100
+Message-ID: <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
+References: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f176.google.com ([209.85.128.176]:41499 "EHLO
-	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754844Ab3IEEzl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 00:55:41 -0400
-Received: by mail-ve0-f176.google.com with SMTP id jx11so151885veb.35
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 21:55:40 -0700 (PDT)
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
+	Pawel Moll <Pawel.Moll@arm.com>,
+	"swarren@wwwdotorg.org" <swarren@wwwdotorg.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"nobuhiro.iwamatsu.yj@renesas.com" <nobuhiro.iwamatsu.yj@renesas.com>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"rob@landley.net" <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am very busy with work and personal issues. Don't depend on my time.
-More surprising is that others did not see the same things.
-Your business is your problem.
+On Sat, Aug 31, 2013 at 01:29:33AM +0100, Sergei Shtylyov wrote:
+> Add support of the device tree probing for the Renesas SH-Mobile SoCs.
+> 
+> This work is loosely based on an original patch by Nobuhiro Iwamatsu
+> <nobuhiro.iwamatsu.yj@renesas.com>.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> ---
+> This patch is against Dave's 'net-next.git' repo.
+> 
+>  Documentation/devicetree/bindings/net/sh_eth.txt |   40 +++++++++++++
+>  drivers/net/ethernet/renesas/sh_eth.c            |   66 ++++++++++++++++++++++-
+>  2 files changed, 105 insertions(+), 1 deletion(-)
+> 
+> Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+> ===================================================================
+> --- /dev/null
+> +++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+> @@ -0,0 +1,40 @@
+> +* Renesas Electronics SH EtherMAC
+> +
+> +This file provides information on what the device node for the SH EtherMAC
+> +interface contains.
+> +
+> +Required properties:
+> +- compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
+> +	      "renesas,ether-r8a7779" if the device is a part of R8A7778/9 SoCs.
+> +	      "renesas,ether-r8a7790" if the device is a part of R8A7790/1 SoCs.
 
-On Wed, Sep 4, 2013 at 6:25 PM, Nelson, Shannon
-<shannon.nelson@intel.com> wrote:
->> -----Original Message-----
->> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
->> Sent: Wednesday, September 04, 2013 5:38 PM
->>
->
-> [ ... many good comments on i40e_sysfs.c ... ]
->
-> Hi Stephen,
->
-> Thanks for your comments.  Frankly, we were hoping for this kind of feedback when we posted the first version of this driver a couple of months ago, with the intent of clearing up any issues in time to get settled and accepted about now.  Yes, this is driven by business reasons that this list doesn't need to hear me whine about, but that is our reality.
->
-> We'll be happy to work with you on- or off-list over the next few days to come up with a good resolution to your concerns, and from that we can publish follow-on patches to this current submission.  We should be able to get it settled and done quickly and without too much fuss.  I won't be at Plumber's this year, but perhaps Jesse or John can get together with you and other concerned sysfs folks if needed to finalize any issues.
->
-> Will this work for you?
->
-> Thanks,
-> sln
->
+What are the functional differences between the blocks in these devices
+that mean they have different compatible strings?
+
+> +- reg: offset and length of the register set for the device; if the device has
+> +       TSU registers, you need to specify two register sets here.
+
+This doesn't explicitly state ordering, and doesn't describe what the
+first register set is (control registers?). If possible, it would be
+nice to refer to the set of registers by the name given in
+documentation; is there any available?
+
+I think we should have something like the below to ensure it's explicit.
+In general we need more consistency in the the way bindings describe reg
+properties.
+
+	- reg: offset and length of:
+	     [1] the control registers of the device (required)
+	     [2] the TSU registers for the device (optional)
+
+> +- interrupt-parent: the phandle for the interrupt controller that services
+> +		    interrupts for this device.
+
+Why is that required?
+
+> +- interrupts: interrupt mapping for the interrupt source.
+
+Interrupts are defined in terms of interrupt-specifiers. How about:
+
+	- interrupts: an interrupt-specifier for the sole interrupt
+	              generated by the device.
+
+> +- phy-mode: string, operation mode of the PHY interface (a string that
+> +	    of_get_phy_mode() can understand).
+
+That looks suspicious. Bindings should *not* refer to Linux internals.
+Instead, we should document the phy-handle and phy-mode properties and
+how they are meant to be used in a generic binding document (I couldn't
+see a generic document doing this so far...).
+
+> +- phy-handle: phandle of the PHY device.
+> +
+> +Optional properties:
+> +- local-mac-address: 6 bytes, MAC address.
+> +- renesas,no-ether-link: specify when a board does not provide a proper LINK
+> +			 signal.
+> +- renesas,ether-link-active-low: specify when the LINK signal is active-low.
+
+What types are these? I know local-mac-address is a byte-string by
+ePAPR, presumably the last two are empty (boolean)?
+
+> +
+> +Example (Armadillo800EVA board):
+> +
+> +	ethernet@e9a00000 {
+> +		compatible = "renesas,gether-r8a7740";
+> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
+> +		interrupt-parent = <&gic>;
+> +		interrupts = <0 142 0x4>;
+> +		phy-mode = "mii";
+> +		phy-handle = <&phy0>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		phy0: ethernet-phy@0 {
+> +			reg = <0>;
+> +		};
+
+The binding didn't state anything about sub-nodes. Is it a general
+property of phy bindings that they may be embedded within a consumer's
+node?
+
+> +	};
+> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> ===================================================================
+> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -32,6 +32,9 @@
+>  #include <linux/platform_device.h>
+>  #include <linux/mdio-bitbang.h>
+>  #include <linux/netdevice.h>
+> +#include <linux/of.h>
+> +#include <linux/of_device.h>
+> +#include <linux/of_net.h>
+>  #include <linux/phy.h>
+>  #include <linux/cache.h>
+>  #include <linux/io.h>
+> @@ -2600,6 +2603,52 @@ static const struct net_device_ops sh_et
+>  	.ndo_change_mtu		= eth_change_mtu,
+>  };
+>  
+> +#ifdef CONFIG_OF
+> +static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
+> +{
+> +	struct device_node *np = dev->of_node;
+> +	struct sh_eth_plat_data *pdata;
+> +	struct device_node *phy;
+> +	const char *mac_addr;
+> +
+> +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+> +	if (!pdata)
+> +		return NULL;
+> +
+> +	pdata->phy_interface = of_get_phy_mode(np);
+> +
+> +	phy = of_parse_phandle(np, "phy-handle", 0);
+> +	if (!phy || of_property_read_u32(phy, "reg", &pdata->phy)) {
+
+NAK. You didn't describe the format of the phy node, yet you are reading
+values from it from a logically separate driver.
+
+Thanks,
+Mark.
