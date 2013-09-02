@@ -1,49 +1,39 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: Set RXCSUM feature if GUEST_CSUM is available
-Date: Mon, 02 Sep 2013 11:17:57 +0930
-Message-ID: <87ioyk9epe.fsf@rustcorp.com.au>
-References: <1377616142-29590-1-git-send-email-thuth@linux.vnet.ibm.com>
-	<20130829.155704.248095796202059854.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>, thuth@linux.vnet.ibm.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130829.155704.248095796202059854.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH net-next] vxlan: fix flowi6_proto value
+Date: Mon,  2 Sep 2013 10:06:51 +0800
+Message-ID: <1378087613-15279-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41633 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756338Ab3IBCHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Sep 2013 22:07:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Thomas Huth <thuth@linux.vnet.ibm.com>
-> Date: Tue, 27 Aug 2013 17:09:02 +0200
->
->> If the VIRTIO_NET_F_GUEST_CSUM virtio feature is available, the guest
->> does not have to calculate the checksums on all received packets. This
->> is pretty much the same feature as RX checksum offloading on real
->> network cards, so the virtio-net driver should report this by setting
->> the NETIF_F_RXCSUM flag. When the user now runs "ethtool -k", he or she
->> can see whether the virtio-net interface has to calculate RX checksums
->> or not.
->> 
->> Signed-off-by: Thomas Huth <thuth@linux.vnet.ibm.com>
->
-> Can one of the virtio_net folks please review this?
+From: Cong Wang <amwang@redhat.com>
 
-Hmm, so NETIF_F_RXCSUM only exists for ethtool's benefit.  Weird.
+It should be IPPROTO_UDP.
 
-But this patch is correct:
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ drivers/net/vxlan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-
-Thanks,
-Rusty.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 3ffb22d..0fcf3f7 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1671,7 +1671,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		fl6.flowi6_oif = rdst->remote_ifindex;
+ 		fl6.daddr = dst->sin6.sin6_addr;
+ 		fl6.saddr = vxlan->saddr.sin6.sin6_addr;
+-		fl6.flowi6_proto = skb->protocol;
++		fl6.flowi6_proto = IPPROTO_UDP;
+ 
+ 		if (ipv6_stub->ipv6_dst_lookup(sk, &ndst, &fl6)) {
+ 			netdev_dbg(dev, "no route to %pI6\n",
+-- 
+1.7.7.6
