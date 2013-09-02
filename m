@@ -1,100 +1,83 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
-Date: Mon, 02 Sep 2013 07:06:01 +0300
-Message-ID: <52240EA9.7010207@ispras.ru>
-References: <1378021881.73447.YahooMailBasic@web172302.mail.ir2.yahoo.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 2/6] vhost_net: use vhost_add_used_and_signal_n() in
+	vhost_zerocopy_signal_used()
+Date: Mon, 2 Sep 2013 08:50:48 +0300
+Message-ID: <20130902055048.GA19838@redhat.com>
+References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
+	<1377836962-49780-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: larry.finger@lwfinger.net, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: htl10@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378021881.73447.YahooMailBasic@web172302.mail.ir2.yahoo.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1377836962-49780-3-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 01.09.2013 10:51, Hin-Tak Leung wrote:
-> ------------------------------
-> On Sat, Aug 31, 2013 22:18 BST Alexey Khoroshilov wrote:
->
->> In case of __dev_alloc_skb() failure rtl8187_init_urbs()
->> calls usb_free_urb(entry) where 'entry' can points to urb
->> allocated at the previous iteration. That means refcnt will be
->> decremented incorrectly and the urb can be used after memory
->> deallocation.
->>
->> The patch fixes the issue and implements error handling of init_urbs
->> in rtl8187_start().
->>
->> Found by Linux Driver Verification project (linuxtesting.org).
->>
->> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
->> ---
->> drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
->> 1 file changed, 10 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
->> index f49220e..e83d53c 100644
->> --- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
->> +++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
->> @@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_hw *dev)
->>          skb_queue_tail(&priv->rx_queue, skb);
->>          usb_anchor_urb(entry, &priv->anchored);
->>          ret = usb_submit_urb(entry, GFP_KERNEL);
->> +        usb_free_urb(entry);
->>          if (ret) {
->>              skb_unlink(skb, &priv->rx_queue);
->>              usb_unanchor_urb(entry);
->>              goto err;
->>          }
->> -        usb_free_urb(entry);
->>      }
->>      return ret;
->>
->> err:
->> -    usb_free_urb(entry);
->>      kfree_skb(skb);
->>      usb_kill_anchored_urbs(&priv->anchored);
->>      return ret;
-> This part looks wrong - you free_urb(entry) then unanchor_urb(entry).
-I do not see any problems here.
-usb_free_urb() just decrements refcnt of the urb.
-While usb_anchor_urb() and usb_unanchor_urb() increment and decrement it 
-as well.
-So actual memory deallocation will happen in usb_unanchor_urb().
+On Fri, Aug 30, 2013 at 12:29:18PM +0800, Jason Wang wrote:
+> We tend to batch the used adding and signaling in vhost_zerocopy_callback()
+> which may result more than 100 used buffers to be updated in
+> vhost_zerocopy_signal_used() in some cases. So wwitch to use
 
->
->> @@ -956,8 +955,12 @@ static int rtl8187_start(struct ieee80211_hw *dev)
->>                    (RETRY_COUNT < 8  /* short retry limit */) |
->>                    (RETRY_COUNT < 0  /* long retry limit */) |
->>                    (7 < 21 /* MAX TX DMA */));
->> -        rtl8187_init_urbs(dev);
->> -        rtl8187b_init_status_urb(dev);
->> +        ret = rtl8187_init_urbs(dev);
->> +        if (ret)
->> +            goto rtl8187_start_exit;
->> +        ret = rtl8187b_init_status_urb(dev);
->> +        if (ret)
->> +            usb_kill_anchored_urbs(&priv->anchored);
->>          goto rtl8187_start_exit;
->>      }
->>
->> @@ -966,7 +969,9 @@ static int rtl8187_start(struct ieee80211_hw *dev)
->>      rtl818x_iowrite32(priv, &priv->map->MAR[0], ~0);
->>      rtl818x_iowrite32(priv, &priv->map->MAR[1], ~0);
->>
->> -    rtl8187_init_urbs(dev);
->> +    ret = rtl8187_init_urbs(dev);
->> +    if (ret)
->> +        goto rtl8187_start_exit;
->>
->>      reg = RTL818X_RX_CONF_ONLYERLPKT |
->>            RTL818X_RX_CONF_RX_AUTORESETPHY |
->> -- 
->> 1.8.1.2
->>
->
->
+switch
+
+> vhost_add_used_and_signal_n() to avoid multiple calls to
+> vhost_add_used_and_signal(). Which means much more less times of used index
+> updating and memory barriers.
+
+pls put info on perf gain in commit log too
+
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c |   13 ++++++++-----
+>  1 files changed, 8 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 280ee66..8a6dd0d 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -281,7 +281,7 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+>  {
+>  	struct vhost_net_virtqueue *nvq =
+>  		container_of(vq, struct vhost_net_virtqueue, vq);
+> -	int i;
+> +	int i, add;
+>  	int j = 0;
+>  
+>  	for (i = nvq->done_idx; i != nvq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
+> @@ -289,14 +289,17 @@ static void vhost_zerocopy_signal_used(struct vhost_net *net,
+>  			vhost_net_tx_err(net);
+>  		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
+>  			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
+> -			vhost_add_used_and_signal(vq->dev, vq,
+> -						  vq->heads[i].id, 0);
+>  			++j;
+>  		} else
+>  			break;
+>  	}
+> -	if (j)
+> -		nvq->done_idx = i;
+> +	while (j) {
+> +		add = min(UIO_MAXIOV - nvq->done_idx, j);
+> +		vhost_add_used_and_signal_n(vq->dev, vq,
+> +					    &vq->heads[nvq->done_idx], add);
+> +		nvq->done_idx = (nvq->done_idx + add) % UIO_MAXIOV;
+> +		j -= add;
+> +	}
+>  }
+>  
+>  static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+> -- 
+> 1.7.1
