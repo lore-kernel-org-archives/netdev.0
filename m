@@ -1,51 +1,91 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [sfc:master 79/80] drivers/net/ethernet/sfc/mcdi.c:960:1:
- warning: 'efx_mcdi_print_fwver' uses dynamic stack allocation
-Date: Mon, 2 Sep 2013 19:35:12 +0100
-Message-ID: <1378146912.1552.29.camel@bwh-desktop.uk.level5networks.com>
-References: <5221261c.gkIQ84VFSaPYEYzp%fengguang.wu@intel.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can-next 2013-08-29
+Date: Mon, 02 Sep 2013 21:06:10 +0200
+Message-ID: <5224E1A2.1010302@pengutronix.de>
+References: <521FB992.5080002@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <kbuild-all@01.org>, netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23512 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758926Ab3IBSfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 14:35:17 -0400
-In-Reply-To: <5221261c.gkIQ84VFSaPYEYzp%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="T4CrLkgH3rfKUh3Pr154f85gjdKKPhUgA"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <521FB992.5080002@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-08-31 at 07:09 +0800, kbuild test robot wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next master
-> head:   f7a6d2c4427790cc8695401576dc594fcce8fc80
-> commit: 8127d661e77f5ec410093bce411f540afa34593f [79/80] sfc: Add support for Solarflare SFC9100 family
-> config: make ARCH=s390 allmodconfig
-> 
-> All warnings:
-> 
->    drivers/net/ethernet/sfc/mcdi.c: In function 'efx_mcdi_print_fwver':
-> >> drivers/net/ethernet/sfc/mcdi.c:960:1: warning: 'efx_mcdi_print_fwver' uses dynamic stack allocation [enabled by default]
-[...]
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--T4CrLkgH3rfKUh3Pr154f85gjdKKPhUgA
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-What we actually do is:
+Hello David,
 
-	MCDI_DECLARE_BUF(outbuf,
-			 max(MC_CMD_GET_VERSION_OUT_LEN,
-			     MC_CMD_GET_CAPABILITIES_OUT_LEN));
+On 08/29/2013 11:13 PM, Marc Kleine-Budde wrote:
+> this is a pull request for net-next. There are two patches from Gerhard=
 
-The dimension of the outbuf array is constant, even though max() doesn't
-expand to a compile-time constant expression.  It's odd that gcc would
-complain about this specifically on s390 (or is it that you're using a
-different compiler version there?).  I don't know whether anything can
-or should be done about to fix the warning.
+> Sittig, which improves the clock handling on mpc5121. Oliver Hartkopp
+> provides a patch that adds a per rule limitation of frame hops.
 
-Ben.
+have you forgotten this pull request?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Marc
+
+> The following changes since commit 7ec06da81d2b98859b558d8d551a0c4e3d95=
+16a3:
+>=20
+>   net: packet: document available fanout policies (2013-08-29 16:43:29 =
+-0400)
+>=20
+> are available in the git repository at:
+>=20
+>   git://gitorious.org/linux-can/linux-can-next.git for-davem
+>=20
+> for you to fetch changes up to 391ac1282dd7ff1cb8245cccc5262e8e4173edc4=
+:
+>=20
+>   can: gw: add a per rule limitation of frame hops (2013-08-29 22:58:24=
+ +0200)
+>=20
+> ----------------------------------------------------------------
+> Gerhard Sittig (2):
+>       can: mscan: add a comment on reg to idx mapping
+>       can: mscan: improve clock API use
+>=20
+> Oliver Hartkopp (1):
+>       can: gw: add a per rule limitation of frame hops
+>=20
+>  drivers/net/can/mscan/mpc5xxx_can.c | 23 ++++++++++++++++-------
+>  drivers/net/can/mscan/mscan.c       | 25 ++++++++++++++++++++++++-
+>  drivers/net/can/mscan/mscan.h       |  3 +++
+>  include/uapi/linux/can/gw.h         |  9 ++++++++-
+>  net/can/gw.c                        | 35 +++++++++++++++++++++++++++++=
+++----
+>  5 files changed, 82 insertions(+), 13 deletions(-)
+>=20
+
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--T4CrLkgH3rfKUh3Pr154f85gjdKKPhUgA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlIk4aMACgkQjTAFq1RaXHNyJACePAwdlsR21ZAagFtm/gL8I4b9
+urIAnjHPqLJ6i8e7QFXFBtYnuAMIUA0o
+=LtzB
+-----END PGP SIGNATURE-----
+
+--T4CrLkgH3rfKUh3Pr154f85gjdKKPhUgA--
