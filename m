@@ -1,52 +1,96 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH V2] net: netx-eth: remove unnecessary casting
-Date: Tue, 03 Sep 2013 08:54:04 +0900
-Message-ID: <001101cea837$b49bf370$1dd3da50$%han@samsung.com>
-References: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] ibmveth: Fix little endian issues
+Date: Tue, 3 Sep 2013 09:55:32 +1000
+Message-ID: <20130903095532.507dcb44@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+To: santil@linux.vnet.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:53664 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756204Ab3IBXyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 19:54:08 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSI00CECVQ11820@mailout1.samsung.com> for
- netdev@vger.kernel.org; Tue, 03 Sep 2013 08:54:06 +0900 (KST)
-In-reply-to: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
-Content-language: ko
+Received: from ozlabs.org ([203.10.76.45]:43846 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756805Ab3IBXze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 19:55:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Casting from 'void *' is unnecessary, because casting from 'void *'
-to any pointer type is automatic.
 
-Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+The hypervisor is big endian, so little endian kernel builds need
+to byteswap.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
- drivers/net/ethernet/netx-eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netx-eth.c b/drivers/net/ethernet/netx-eth.c
-index 235fd51..e6f0a43 100644
---- a/drivers/net/ethernet/netx-eth.c
-+++ b/drivers/net/ethernet/netx-eth.c
-@@ -390,7 +390,7 @@ static int netx_eth_drv_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 70fd559..5d41aee 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -106,7 +106,7 @@ struct ibmveth_stat ibmveth_stats[] = {
+ /* simple methods of getting data from the current rxq entry */
+ static inline u32 ibmveth_rxq_flags(struct ibmveth_adapter *adapter)
+ {
+-	return adapter->rx_queue.queue_addr[adapter->rx_queue.index].flags_off;
++	return be32_to_cpu(adapter->rx_queue.queue_addr[adapter->rx_queue.index].flags_off);
+ }
  
- 	priv = netdev_priv(ndev);
+ static inline int ibmveth_rxq_toggle(struct ibmveth_adapter *adapter)
+@@ -132,7 +132,7 @@ static inline int ibmveth_rxq_frame_offset(struct ibmveth_adapter *adapter)
  
--	pdata = (struct netxeth_platform_data *)dev_get_platdata(&pdev->dev);
-+	pdata = dev_get_platdata(&pdev->dev);
- 	priv->xc = request_xc(pdata->xcno, &pdev->dev);
- 	if (!priv->xc) {
- 		dev_err(&pdev->dev, "unable to request xc engine\n");
--- 
-1.7.10.4
+ static inline int ibmveth_rxq_frame_length(struct ibmveth_adapter *adapter)
+ {
+-	return adapter->rx_queue.queue_addr[adapter->rx_queue.index].length;
++	return be32_to_cpu(adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
+ }
+ 
+ static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
+diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+index 43a794f..84066ba 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.h
++++ b/drivers/net/ethernet/ibm/ibmveth.h
+@@ -164,14 +164,26 @@ struct ibmveth_adapter {
+     u64 tx_send_failed;
+ };
+ 
++/*
++ * We pass struct ibmveth_buf_desc_fields to the hypervisor in registers,
++ * so we don't need to byteswap the two elements. However since we use
++ * a union (ibmveth_buf_desc) to convert from the struct to a u64 we
++ * do end up with endian specific ordering of the elements and that
++ * needs correcting.
++ */
+ struct ibmveth_buf_desc_fields {
++#ifdef __BIG_ENDIAN
++	u32 flags_len;
++	u32 address;
++#else
++	u32 address;
+ 	u32 flags_len;
++#endif
+ #define IBMVETH_BUF_VALID	0x80000000
+ #define IBMVETH_BUF_TOGGLE	0x40000000
+ #define IBMVETH_BUF_NO_CSUM	0x02000000
+ #define IBMVETH_BUF_CSUM_GOOD	0x01000000
+ #define IBMVETH_BUF_LEN_MASK	0x00FFFFFF
+-	u32 address;
+ };
+ 
+ union ibmveth_buf_desc {
+@@ -180,7 +192,7 @@ union ibmveth_buf_desc {
+ };
+ 
+ struct ibmveth_rx_q_entry {
+-	u32 flags_off;
++	__be32 flags_off;
+ #define IBMVETH_RXQ_TOGGLE		0x80000000
+ #define IBMVETH_RXQ_TOGGLE_SHIFT	31
+ #define IBMVETH_RXQ_VALID		0x40000000
+@@ -188,7 +200,8 @@ struct ibmveth_rx_q_entry {
+ #define IBMVETH_RXQ_CSUM_GOOD		0x01000000
+ #define IBMVETH_RXQ_OFF_MASK		0x0000FFFF
+ 
+-	u32 length;
++	__be32 length;
++	/* correlator is only used by the OS, no need to byte swap */
+ 	u64 correlator;
+ };
+ 
