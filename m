@@ -1,58 +1,144 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 19/21] bonding: use neighbours for bond_next/prev_slave()
-Date: Mon,  2 Sep 2013 23:39:23 +0200
-Message-ID: <1378157965-17537-20-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 12/21] net: add for_each iterators through neighbour lower link's private
+Date: Mon,  2 Sep 2013 23:39:16 +0200
+Message-ID: <1378157965-17537-13-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43903 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10558 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932280Ab3IBVjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:39 -0400
+	id S1759065Ab3IBVj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:29 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use netdev_lower_dev_get_next_private(), it will return NULL in case the
-list is empty, so no need to verify.
+Currently we can only iterate through the devices itself, however it'd be
+really costy to first get the next device and then search for the link and
+get its private - which is a common method to go through slaves of a
+device.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+Add both RCU and RTNL/other locking variants of iterators.
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bonding.h | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ include/linux/netdevice.h | 17 ++++++++++++
+ net/core/dev.c            | 66 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 83 insertions(+)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 6731281..b8047f3 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -76,8 +76,6 @@
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ef1ddee..1a149ef 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2788,6 +2788,23 @@ extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+ 	     updev; \
+ 	     updev = netdev_upper_get_next_dev_rcu(dev, &(iter)))
  
- #define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
++extern void *netdev_lower_neigh_get_next_private(struct net_device *dev,
++						 struct list_head **iter);
++extern void *netdev_lower_neigh_get_next_private_rcu(struct net_device *dev,
++						     struct list_head **iter);
++
++#define netdev_for_each_lower_neigh_private(dev, priv, iter) \
++	for (iter = &(dev)->neighbour_dev_list.lower, \
++	     priv = netdev_lower_neigh_get_next_private(dev, &(iter)); \
++	     priv; \
++	     priv = netdev_lower_neigh_get_next_private(dev, &(iter)))
++
++#define netdev_for_each_lower_neigh_private_rcu(dev, priv, iter) \
++	for (iter = &(dev)->neighbour_dev_list.lower, \
++	     priv = netdev_lower_neigh_get_next_private_rcu(dev, &(iter)); \
++	     priv; \
++	     priv = netdev_lower_neigh_get_next_private_rcu(dev, &(iter)))
++
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1c3e98d..55f8ac4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4555,6 +4555,72 @@ struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_get_next_dev_rcu);
  
--#define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
--
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
- 	(bond_has_slaves(bond) ? \
-@@ -93,12 +91,10 @@
- 
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
- #define bond_next_slave(bond, pos) \
--	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
--					 bond_to_slave((pos)->list.next))
-+	netdev_lower_dev_get_next_private((bond)->dev, pos, false)
- 
- #define bond_prev_slave(bond, pos) \
--	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
--					  bond_to_slave((pos)->list.prev))
-+	netdev_lower_dev_get_next_private((bond)->dev, pos, true)
- 
++/* netdev_lower_neigh_get_next_private - Get the next ->private from the
++ *					 lower neighbour list
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent->private from the dev's lower neighbour
++ * list, starting from iter position. The caller must hold either hold the
++ * RTNL lock or its own locking that guarantees that the neighbour lower
++ * list will remain unchainged. If iter is NULL - return the first private.
++ */
++void *netdev_lower_neigh_get_next_private(struct net_device *dev,
++					  struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	if (iter)
++		lower = list_entry((*iter)->next, struct netdev_adjacent,
++				   list);
++	else
++		lower = list_entry(dev->neighbour_dev_list.lower.next,
++				   struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->neighbour_dev_list.lower)
++		return NULL;
++
++	if (iter)
++		*iter = &lower->list;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_neigh_get_next_private);
++
++/* netdev_lower_neigh_get_next_private_rcu - Get the next ->private from the
++ *					     lower neighbour list, RCU
++ *					     variant
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent->private from the dev's lower neighbour
++ * list, starting from iter position. The caller must hold RCU read lock.
++ * If iter is NULL - returns the first private.
++ */
++void *netdev_lower_neigh_get_next_private_rcu(struct net_device *dev,
++					      struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	if (iter)
++		lower = list_entry_rcu((*iter)->next, struct netdev_adjacent,
++				       list);
++	else
++		lower = list_entry_rcu(dev->neighbour_dev_list.lower.next,
++				       struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->neighbour_dev_list.lower)
++		return NULL;
++
++	if (iter)
++		*iter = &lower->list;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_neigh_get_next_private_rcu);
++
  /**
-  * bond_for_each_slave_from - iterate the slaves list from a starting point
+  * netdev_master_upper_dev_get_rcu - Get master upper device
+  * @dev: device
 -- 
 1.8.4
