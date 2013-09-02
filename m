@@ -1,124 +1,99 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 1/5] iptunnels: remove net arg from
-	iptunnel_xmit()
-Date: Mon,  2 Sep 2013 15:34:54 +0200
-Message-ID: <1378128898-15136-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <CALnjE+pKi=p0y2ot2qWG1w=pxEUcPUKY+_UUi0RXbnGqVk9poA@mail.gmail.com>
-	<1378128898-15136-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: BQL support in gianfar causes network hiccup
+Date: Mon, 2 Sep 2013 16:53:29 +0300
+Message-ID: <52249859.2040605@freescale.com>
+References: <522490CB.60008@appeartv.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1378128898-15136-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Per_Dal=E9n?= <per.dalen@appeartv.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co1ehsobe002.messaging.microsoft.com ([216.32.180.185]:31857
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758310Ab3IBNyW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 09:54:22 -0400
+In-Reply-To: <522490CB.60008@appeartv.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This argument is not used, let's remove it.
+On 9/2/2013 4:21 PM, Per Dal=E9n wrote:
+>  > On Mo, 2013-04-29 at 15:20 +0200, Tino Keitel wrote:
+>  > > On Mo, 2013-04-29 at 15:14 +0200, Claudiu Manoil wrote:
+>  > >
+>  > > > The proposed fix (passes this test):
+>  > > > http://patchwork.ozlabs.org/patch/240365/
+>  > > >
+>  > > > Does it work for you?
+>
+> Hi,
+>
+> This patch do not work for me. I have the same problems that Tino on =
+my
+> card. My card is a Freescale P2020 and I use "iperf -c 10.10.51.36 -n
+> 100M -P 50" to trigger the error.
+> The network interface is set to 100M half duplex.
+> I have tested this using 3.4.35 and 3.4.60 kernel.
+>
+> NETDEV WATCHDOG: eth0 (fsl-gianfar): transmit queue 0 timed out
+> ------------[ cut here ]------------
+> WARNING: at net/sched/sch_generic.c:256
+> Modules linked in:
+> NIP: c039bb94 LR: c039bb94 CTR: c02ee500
+> REGS: dffe7e60 TRAP: 0700   Not tainted  (3.4.60+)
+> MSR: 00029000 <CE,EE,ME>  CR: 40000084  XER: 20000000
+> TASK =3D df843200[0] 'swapper/1' THREAD: df864000 CPU: 1
+> GPR00: c039bb94 dffe7f10 df843200 00000046 00021000 ffffffff c02eecf0
+> 00029000
+> GPR08: 00000001 00008000 00463000 00003fff 80000028 00000000 00000000
+> 00000004
+> GPR16: 00000001 df858e14 c051f1f4 00000001 df858c14 df858a14 df858814
+> ffffffff
+> GPR24: 00000001 df813234 00000004 df8f9a00 c05e0000 c05e0000 df813000
+> 00000000
+> NIP [c039bb94] dev_watchdog+0x2d4/0x2e4
+> LR [c039bb94] dev_watchdog+0x2d4/0x2e4
+> Call Trace:
+> [dffe7f10] [c039bb94] dev_watchdog+0x2d4/0x2e4 (unreliable)
+> [dffe7f40] [c003e944] run_timer_softirq+0x11c/0x20c
+> [dffe7fa0] [c00377dc] __do_softirq+0xe4/0x16c
+> [dffe7ff0] [c000c408] call_do_softirq+0x14/0x24
+> [df865e80] [c00043c4] do_softirq+0xb4/0xe4
+> [df865ea0] [c0037b4c] irq_exit+0xb0/0xcc
+> [df865eb0] [c0008958] timer_interrupt+0x188/0x1a4
+> [df865ee0] [c000db68] ret_from_except+0x0/0x18
+> --- Exception: 901 at cpu_idle+0x90/0xf4
+>      LR =3D cpu_idle+0x90/0xf4
+> [df865fa0] [c0007b30] cpu_idle+0x5c/0xf4 (unreliable)
+> [df865fc0] [c049d68c] start_secondary+0x2b0/0x2b4
+> [df865ff0] [c0001cf8] __secondary_start+0x30/0x84
+> Instruction dump:
+> 4e800421 80fe0244 4bffff40 7fc3f378 4bfeab6d 7fc4f378 7c651b78 3c60c0=
+55
+> 7fe6fb78 38633108 4cc63182 480fc889 <0fe00000> 39200001 993cea1a 4bff=
+ffb4
+> ---[ end trace 4be011773b23dae3 ]---
+>
+>
+> When I revert "gianfar: Add support for byte queue limits.", commit
+> d8a0f1b0af67679bba886784de10d8c21acc4e0e, the network test work fine
+> without any "hiccup".
+> If the network interface is set to 1000M full duplex there's also no
+> "hiccup".
+>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
----
- drivers/net/vxlan.c         | 3 +--
- include/net/ip_tunnels.h    | 3 +--
- net/ipv4/ip_tunnel.c        | 3 +--
- net/ipv4/ip_tunnel_core.c   | 3 +--
- net/ipv6/sit.c              | 4 ++--
- net/openvswitch/vport-gre.c | 2 +-
- 6 files changed, 7 insertions(+), 11 deletions(-)
+Hi,
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3ffb22d684a9..18165c02d614 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1528,8 +1528,7 @@ int vxlan_xmit_skb(struct net *net, struct vxlan_sock *vs,
- 	if (err)
- 		return err;
- 
--	return iptunnel_xmit(net, rt, skb, src, dst,
--			IPPROTO_UDP, tos, ttl, df);
-+	return iptunnel_xmit(rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df);
- }
- EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
- 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 0ce316bb3c65..94fe8fd07bc9 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -146,8 +146,7 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- }
- 
- int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
--int iptunnel_xmit(struct net *net, struct rtable *rt,
--		  struct sk_buff *skb,
-+int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
- 		  __u8 tos, __u8 ttl, __be16 df);
- 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 830de3f4e293..0a6cf0e69478 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -654,8 +654,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	}
- 
--	err = iptunnel_xmit(tunnel->net, rt, skb,
--			    fl4.saddr, fl4.daddr, protocol,
-+	err = iptunnel_xmit(rt, skb, fl4.saddr, fl4.daddr, protocol,
- 			    ip_tunnel_ecn_encap(tos, inner_iph, skb), ttl, df);
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 850525b34899..e82045842351 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -46,8 +46,7 @@
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
- 
--int iptunnel_xmit(struct net *net, struct rtable *rt,
--		  struct sk_buff *skb,
-+int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
- 		  __u8 tos, __u8 ttl, __be16 df)
- {
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index f18f842ac893..1d1458a3b7c4 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -888,8 +888,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		ttl = iph6->hop_limit;
- 	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
- 
--	err = iptunnel_xmit(dev_net(dev), rt, skb, fl4.saddr, fl4.daddr,
--			    IPPROTO_IPV6, tos, ttl, df);
-+	err = iptunnel_xmit(rt, skb, fl4.saddr, fl4.daddr, IPPROTO_IPV6, tos,
-+			    ttl, df);
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
- 
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 21d5073e148e..9b3713ef831e 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -176,7 +176,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
- 
- 	skb->local_df = 1;
- 
--	return iptunnel_xmit(net, rt, skb, fl.saddr,
-+	return iptunnel_xmit(rt, skb, fl.saddr,
- 			     OVS_CB(skb)->tun_key->ipv4_dst, IPPROTO_GRE,
- 			     OVS_CB(skb)->tun_key->ipv4_tos,
- 			     OVS_CB(skb)->tun_key->ipv4_ttl, df);
--- 
-1.8.2.1
+That patch wasn't approved (for good reasons).
+The proposed fix is currently under review:
+http://patchwork.ozlabs.org/patch/271242/
+"gianfar: Fix reported number of sent bytes to BQL"
+
+Does this one work for you? You might need to pull
+one recent gianfar clean-up patch from net-next in order
+to apply this one without incidents.
+
+Thanks,
+Claudiu
