@@ -1,365 +1,128 @@
-From: Li Frank-B20596 <B20596@freescale.com>
-Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Mon, 2 Sep 2013 14:30:20 +0000
-Message-ID: <1F990F8245A4214A8CC4BFFBD9F790F908B45674@039-SN1MPN1-001.039d.mgd.msft.net>
-References: <1378121735-5681-1-git-send-email-B38611@freescale.com>
+From: =?ISO-8859-1?Q?Per_Dal=E9n?= <per.dalen@appeartv.com>
+Subject: Re: BQL support in gianfar causes network hiccup
+Date: Mon, 02 Sep 2013 16:37:28 +0200
+Message-ID: <5224A2A8.6000306@appeartv.com>
+References: <522490CB.60008@appeartv.com> <52249859.2040605@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Duan Fugang-B38611 <B38611@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:7486
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758552Ab3IBOa0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 10:30:26 -0400
-In-Reply-To: <1378121735-5681-1-git-send-email-B38611@freescale.com>
-Content-Language: en-US
+Received: from outmx2.itpays.net ([193.107.29.97]:39813 "EHLO
+	outmx2.itpays.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754038Ab3IBOhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 10:37:38 -0400
+Received: from server12.itpays.net (unknown [193.107.28.22])
+	by outmx2.itpays.net (Postfix) with SMTP id 56E17107AAD1
+	for <netdev@vger.kernel.org>; Mon,  2 Sep 2013 16:37:36 +0200 (CEST)
+In-Reply-To: <52249859.2040605@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 09/02/2013 03:53 PM, Claudiu Manoil wrote:
+> On 9/2/2013 4:21 PM, Per Dal=E9n wrote:
+>>  > On Mo, 2013-04-29 at 15:20 +0200, Tino Keitel wrote:
+>>  > > On Mo, 2013-04-29 at 15:14 +0200, Claudiu Manoil wrote:
+>>  > >
+>>  > > > The proposed fix (passes this test):
+>>  > > > http://patchwork.ozlabs.org/patch/240365/
+>>  > > >
+>>  > > > Does it work for you?
+>>
+>> Hi,
+>>
+>> This patch do not work for me. I have the same problems that Tino on=
+ my
+>> card. My card is a Freescale P2020 and I use "iperf -c 10.10.51.36 -=
+n
+>> 100M -P 50" to trigger the error.
+>> The network interface is set to 100M half duplex.
+>> I have tested this using 3.4.35 and 3.4.60 kernel.
+>>
+>> NETDEV WATCHDOG: eth0 (fsl-gianfar): transmit queue 0 timed out
+>> ------------[ cut here ]------------
+>> WARNING: at net/sched/sch_generic.c:256
+>> Modules linked in:
+>> NIP: c039bb94 LR: c039bb94 CTR: c02ee500
+>> REGS: dffe7e60 TRAP: 0700   Not tainted  (3.4.60+)
+>> MSR: 00029000 <CE,EE,ME>  CR: 40000084  XER: 20000000
+>> TASK =3D df843200[0] 'swapper/1' THREAD: df864000 CPU: 1
+>> GPR00: c039bb94 dffe7f10 df843200 00000046 00021000 ffffffff c02eecf=
+0
+>> 00029000
+>> GPR08: 00000001 00008000 00463000 00003fff 80000028 00000000 0000000=
+0
+>> 00000004
+>> GPR16: 00000001 df858e14 c051f1f4 00000001 df858c14 df858a14 df85881=
+4
+>> ffffffff
+>> GPR24: 00000001 df813234 00000004 df8f9a00 c05e0000 c05e0000 df81300=
+0
+>> 00000000
+>> NIP [c039bb94] dev_watchdog+0x2d4/0x2e4
+>> LR [c039bb94] dev_watchdog+0x2d4/0x2e4
+>> Call Trace:
+>> [dffe7f10] [c039bb94] dev_watchdog+0x2d4/0x2e4 (unreliable)
+>> [dffe7f40] [c003e944] run_timer_softirq+0x11c/0x20c
+>> [dffe7fa0] [c00377dc] __do_softirq+0xe4/0x16c
+>> [dffe7ff0] [c000c408] call_do_softirq+0x14/0x24
+>> [df865e80] [c00043c4] do_softirq+0xb4/0xe4
+>> [df865ea0] [c0037b4c] irq_exit+0xb0/0xcc
+>> [df865eb0] [c0008958] timer_interrupt+0x188/0x1a4
+>> [df865ee0] [c000db68] ret_from_except+0x0/0x18
+>> --- Exception: 901 at cpu_idle+0x90/0xf4
+>>      LR =3D cpu_idle+0x90/0xf4
+>> [df865fa0] [c0007b30] cpu_idle+0x5c/0xf4 (unreliable)
+>> [df865fc0] [c049d68c] start_secondary+0x2b0/0x2b4
+>> [df865ff0] [c0001cf8] __secondary_start+0x30/0x84
+>> Instruction dump:
+>> 4e800421 80fe0244 4bffff40 7fc3f378 4bfeab6d 7fc4f378 7c651b78 3c60c=
+055
+>> 7fe6fb78 38633108 4cc63182 480fc889 <0fe00000> 39200001 993cea1a 4bf=
+fffb4
+>> ---[ end trace 4be011773b23dae3 ]---
+>>
+>>
+>> When I revert "gianfar: Add support for byte queue limits.", commit
+>> d8a0f1b0af67679bba886784de10d8c21acc4e0e, the network test work fine
+>> without any "hiccup".
+>> If the network interface is set to 1000M full duplex there's also no
+>> "hiccup".
+>>
+>
+> Hi,
+>
+> That patch wasn't approved (for good reasons).
+> The proposed fix is currently under review:
+> http://patchwork.ozlabs.org/patch/271242/
+> "gianfar: Fix reported number of sent bytes to BQL"
+>
+> Does this one work for you? You might need to pull
+> one recent gianfar clean-up patch from net-next in order
+> to apply this one without incidents.
+>
+
+No, still the same error:
+
+NETDEV WATCHDOG: eth0 (fsl-gianfar): transmit queue 0 timed out
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:256
+Modules linked in:
+NIP: c039ce0c LR: c039ce0c CTR: c02ef578
+=2E..
+4e800421 80fe0244 4bffff40 7fc3f378 4bfea9d1 7fc4f378 7c651b78 3c60c055
+7fe6fb78 38635304 4cc63182 480fcddd <0fe00000> 39200001 993c0a3c 4bffff=
+b4
+---[ end trace 5f5e1e3c30024010 ]---
 
 
-> -----Original Message-----
-> From: Duan Fugang-B38611
-> Sent: Monday, September 02, 2013 6:36 AM
-> To: Li Frank-B20596; davem@davemloft.net
-> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
-> stephen@networkplumber.org
-> Subject: [PATCH] net: fec: fix the error to get the previous BD entry
-> 
-> Bug: error to get the previous BD entry. When the current BD is the first BD,
-> the previous BD entry must be the last BD, not "bdp - 1" in current logic.
-> 
-> V2:
->   Add tx_ring_size and rx_ring_size to struct fec_enet_private.
->   Replace api fec_enet_get_nextdesc() with next_bd().
->   Replace api fec_enet_get_prevdesc() with pre_bd().
-> 
->   Move all ring size check logic to next_bd() and pre_bd, which
->   simplifies the code redundancy.
-> 
-> V1:
->   Add BD ring size check to get the previous BD entry in correctly.
-> 
-> Signed-off-by: Fugang Duan  <B38611@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec.h      |    3 +
->  drivers/net/ethernet/freescale/fec_main.c |   94 +++++++++++++++------------
-> -
->  2 files changed, 53 insertions(+), 44 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec.h
-> b/drivers/net/ethernet/freescale/fec.h
-> index ae23600..0120217 100644
-> --- a/drivers/net/ethernet/freescale/fec.h
-> +++ b/drivers/net/ethernet/freescale/fec.h
-> @@ -296,6 +296,9 @@ struct fec_enet_private {
->  	/* The ring entries to be free()ed */
->  	struct bufdesc	*dirty_tx;
-> 
-> +	unsigned short tx_ring_size;
-> +	unsigned short rx_ring_size;
-> +
->  	struct	platform_device *pdev;
-> 
->  	int	opened;
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 4ea1555..9894dd3 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -239,22 +239,35 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
-> 
->  static int mii_cnt;
-> 
-> -static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int is_ex)
-> +static inline
-> +struct bufdesc *next_bd(struct bufdesc *bdp, struct bufdesc *base,
-> +			int ring_size, int is_ex)
+> Thanks,
+> Claudiu
+>
+>
+>
 
-David suggest use fec_enet_ prefix for all function in fec driver when
-I upstream it. 
-
-
-How about use 
-	Fec_enet_next_bd(struct bufdesc *bdp, *fep)
-	The parameter will become little and easy to call. 
-
->  {
-> -	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-> +	struct bufdesc *new_bd = bdp + 1;
-> +	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp + 1;
-> +	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
-> +
-
-If pass down fep,  
-	If( bdp > fep->rx_base) {
-		Ex_base = fep->rx_base;
-		Ring_size = fep->rx_ring_size;
-	}
-	Else {
-		Ex_base = fep->tx_base.
-		Ring_size = fep->tx_ring_size;
-	} 
-
-Because RX always behind of TX. 
-
->  	if (is_ex)
-> -		return (struct bufdesc *)(ex + 1);
-> +		return (struct bufdesc *)((ex_new_bd >= (ex_base + ring_size)) ?
-> +			(ex_new_bd - ring_size) : ex_new_bd);
->  	else
-> -		return bdp + 1;
-> +		return (new_bd >= (base + ring_size)) ?
-> +			(new_bd - ring_size) : new_bd;
->  }
-> 
-> -static struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, int is_ex)
-> +static inline
-> +struct bufdesc *pre_bd(struct bufdesc *bdp, struct bufdesc *base,
-> +			int ring_size, int is_ex)
->  {
-> -	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-> +	struct bufdesc *new_bd = bdp - 1;
-> +	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp - 1;
-> +	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
-> +
->  	if (is_ex)
-> -		return (struct bufdesc *)(ex - 1);
-> +		return (struct bufdesc *)((ex_new_bd < ex_base) ?
-> +			(ex_new_bd + ring_size) : ex_new_bd);
->  	else
-> -		return bdp - 1;
-> +		return (new_bd < base) ? (new_bd + ring_size) : new_bd;
->  }
-> 
->  static void *swap_buffer(void *bufaddr, int len) @@ -380,7 +393,7 @@
-> fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->  		}
->  	}
-> 
-> -	bdp_pre = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-> +	bdp_pre = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
->  	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
->  	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
->  		fep->delay_work.trig_tx = true;
-> @@ -389,10 +402,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->  	}
-> 
->  	/* If this was the last BD in the ring, start at the beginning again.
-> */
-> -	if (status & BD_ENET_TX_WRAP)
-> -		bdp = fep->tx_bd_base;
-> -	else
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +	bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
-> 
->  	fep->cur_tx = bdp;
-> 
-> @@ -417,18 +427,18 @@ static void fec_enet_bd_init(struct net_device *dev)
-> 
->  	/* Initialize the receive buffer descriptors. */
->  	bdp = fep->rx_bd_base;
-> -	for (i = 0; i < RX_RING_SIZE; i++) {
-> +	for (i = 0; i < fep->rx_ring_size; i++) {
-> 
->  		/* Initialize the BD for every fragment in the page. */
->  		if (bdp->cbd_bufaddr)
->  			bdp->cbd_sc = BD_ENET_RX_EMPTY;
->  		else
->  			bdp->cbd_sc = 0;
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
->  	}
-> 
->  	/* Set the last buffer to wrap */
-> -	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-> +	bdp = pre_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
->  	bdp->cbd_sc |= BD_SC_WRAP;
-> 
->  	fep->cur_rx = fep->rx_bd_base;
-> @@ -436,7 +446,7 @@ static void fec_enet_bd_init(struct net_device *dev)
->  	/* ...and the same for transmit */
->  	bdp = fep->tx_bd_base;
->  	fep->cur_tx = bdp;
-> -	for (i = 0; i < TX_RING_SIZE; i++) {
-> +	for (i = 0; i < fep->tx_ring_size; i++) {
-> 
->  		/* Initialize the BD for every fragment in the page. */
->  		bdp->cbd_sc = 0;
-> @@ -445,11 +455,11 @@ static void fec_enet_bd_init(struct net_device *dev)
->  			fep->tx_skbuff[i] = NULL;
->  		}
->  		bdp->cbd_bufaddr = 0;
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
->  	}
-> 
->  	/* Set the last buffer to wrap */
-> -	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-> +	bdp = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
->  	bdp->cbd_sc |= BD_SC_WRAP;
->  	fep->dirty_tx = bdp;
->  }
-> @@ -510,10 +520,10 @@ fec_restart(struct net_device *ndev, int duplex)
->  	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
->  	if (fep->bufdesc_ex)
->  		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc_ex)
-> -			* RX_RING_SIZE, fep->hwp + FEC_X_DES_START);
-> +			* fep->rx_ring_size, fep->hwp + FEC_X_DES_START);
->  	else
->  		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
-> -			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
-> +			* fep->rx_ring_size,	fep->hwp + FEC_X_DES_START);
-> 
-> 
->  	for (i = 0; i <= TX_RING_MOD_MASK; i++) { @@ -727,10 +737,7 @@
-> fec_enet_tx(struct net_device *ndev)
->  	bdp = fep->dirty_tx;
-> 
->  	/* get next bdp of dirty_tx */
-> -	if (bdp->cbd_sc & BD_ENET_TX_WRAP)
-> -		bdp = fep->tx_bd_base;
-> -	else
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +	bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
-> 
->  	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
-> 
-> @@ -800,10 +807,7 @@ fec_enet_tx(struct net_device *ndev)
->  		fep->dirty_tx = bdp;
-> 
->  		/* Update pointer to next buffer descriptor to be transmitted */
-> -		if (status & BD_ENET_TX_WRAP)
-> -			bdp = fep->tx_bd_base;
-> -		else
-> -			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
-> 
->  		/* Since we have freed up a buffer, the ring is no longer full
->  		 */
-> @@ -994,10 +998,8 @@ rx_processing_done:
->  		}
-> 
->  		/* Update BD pointer to next entry */
-> -		if (status & BD_ENET_RX_WRAP)
-> -			bdp = fep->rx_bd_base;
-> -		else
-> -			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
-> +
->  		/* Doing this here will keep the FEC running while we process
->  		 * incoming frames.  On a heavily loaded network, we should be
->  		 * able to keep up at the expense of system resources.
-> @@ -1663,7 +1665,7 @@ static void fec_enet_free_buffers(struct net_device
-> *ndev)
->  	struct bufdesc	*bdp;
-> 
->  	bdp = fep->rx_bd_base;
-> -	for (i = 0; i < RX_RING_SIZE; i++) {
-> +	for (i = 0; i < fep->rx_ring_size; i++) {
->  		skb = fep->rx_skbuff[i];
-> 
->  		if (bdp->cbd_bufaddr)
-> @@ -1671,11 +1673,11 @@ static void fec_enet_free_buffers(struct net_device
-> *ndev)
->  					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
->  		if (skb)
->  			dev_kfree_skb(skb);
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
->  	}
-> 
->  	bdp = fep->tx_bd_base;
-> -	for (i = 0; i < TX_RING_SIZE; i++)
-> +	for (i = 0; i < fep->tx_ring_size; i++)
->  		kfree(fep->tx_bounce[i]);
->  }
-> 
-> @@ -1687,7 +1689,7 @@ static int fec_enet_alloc_buffers(struct net_device
-> *ndev)
->  	struct bufdesc	*bdp;
-> 
->  	bdp = fep->rx_bd_base;
-> -	for (i = 0; i < RX_RING_SIZE; i++) {
-> +	for (i = 0; i < fep->rx_ring_size; i++) {
->  		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
->  		if (!skb) {
->  			fec_enet_free_buffers(ndev);
-> @@ -1704,15 +1706,15 @@ static int fec_enet_alloc_buffers(struct net_device
-> *ndev)
->  			ebdp->cbd_esc = BD_ENET_RX_INT;
->  		}
-> 
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
->  	}
-> 
->  	/* Set the last buffer to wrap. */
-> -	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-> +	bdp = pre_bd(bdp, fep->rx_bd_base, fep->rx_ring_size,
-> +fep->bufdesc_ex);
->  	bdp->cbd_sc |= BD_SC_WRAP;
-> 
->  	bdp = fep->tx_bd_base;
-> -	for (i = 0; i < TX_RING_SIZE; i++) {
-> +	for (i = 0; i < fep->tx_ring_size; i++) {
->  		fep->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
-> 
->  		bdp->cbd_sc = 0;
-> @@ -1723,11 +1725,11 @@ static int fec_enet_alloc_buffers(struct net_device
-> *ndev)
->  			ebdp->cbd_esc = BD_ENET_TX_INT;
->  		}
-> 
-> -		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> +		bdp = next_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
->  	}
-> 
->  	/* Set the last buffer to wrap. */
-> -	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-> +	bdp = pre_bd(bdp, fep->tx_bd_base, fep->tx_ring_size,
-> +fep->bufdesc_ex);
->  	bdp->cbd_sc |= BD_SC_WRAP;
-> 
->  	return 0;
-> @@ -1967,13 +1969,17 @@ static int fec_enet_init(struct net_device *ndev)
->  	/* Get the Ethernet address */
->  	fec_get_mac(ndev);
-> 
-> +	/* init the tx & rx ring size */
-> +	fep->tx_ring_size = TX_RING_SIZE;
-> +	fep->rx_ring_size = RX_RING_SIZE;
-> +
->  	/* Set receive and transmit descriptor base. */
->  	fep->rx_bd_base = cbd_base;
->  	if (fep->bufdesc_ex)
->  		fep->tx_bd_base = (struct bufdesc *)
-> -			(((struct bufdesc_ex *)cbd_base) + RX_RING_SIZE);
-> +			(((struct bufdesc_ex *)cbd_base) + fep->rx_ring_size);
->  	else
-> -		fep->tx_bd_base = cbd_base + RX_RING_SIZE;
-> +		fep->tx_bd_base = cbd_base + fep->rx_ring_size;
-> 
->  	/* The FEC Ethernet specific entries in the device structure */
->  	ndev->watchdog_timeo = TX_TIMEOUT;
-> --
-> 1.7.1
+Thanks,
+Per
