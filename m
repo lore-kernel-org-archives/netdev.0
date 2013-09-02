@@ -1,92 +1,107 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 4/6] vhost_net: determine whether or not to use zerocopy
-	at one time
-Date: Mon, 02 Sep 2013 11:15:14 +0800
-Message-ID: <522402C2.9000802@redhat.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-5-git-send-email-jasowang@redhat.com>
-	<5220E606.8010008@cogentembedded.com>
+Subject: =?UTF-8?B?UmU6IElzIGZhbGxiYWNrIHZob3N0X25ldCB0byBxZW11IGZvciBsaXY=?=
+ =?UTF-8?B?ZSBtaWdyYXRlIGF2YWlsYWJsZe+8nw==?=
+Date: Mon, 02 Sep 2013 11:19:05 +0800
+Message-ID: <522403A9.9020007@redhat.com>
+References: <521C1DCF.5090202@huawei.com> <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com> <522174D7.6080903@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5220E606.8010008@cogentembedded.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	KVM list <kvm@vger.kernel.org>, netdev@vger.kernel.org,
+	qianhuibin@huawei.com,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	wangfuhai@huawei.com, likunyun@huawei.com, liuyongan@huawei.com,
+	liuyingdong@huawei.com
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30972 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755408Ab3IBDTV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Sep 2013 23:19:21 -0400
+In-Reply-To: <522174D7.6080903@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2013 02:35 AM, Sergei Shtylyov wrote:
-> Hello.
+On 08/31/2013 12:45 PM, Qin Chuanyu wrote:
+> On 2013/8/30 0:08, Anthony Liguori wrote:
+>> Hi Qin,
 >
-> On 08/30/2013 08:29 AM, Jason Wang wrote:
->
->> Currently, even if the packet length is smaller than
->> VHOST_GOODCOPY_LEN, if
->> upend_idx != done_idx we still set zcopy_used to true and rollback
->> this choice
->> later. This could be avoided by determine zerocopy once by checking all
->> conditions at one time before.
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/vhost/net.c |   46
->> +++++++++++++++++++---------------------------
->>   1 files changed, 19 insertions(+), 27 deletions(-)
->
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index 8a6dd0d..ff60c2a 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -404,43 +404,35 @@ static void handle_tx(struct vhost_net *net)
->>                      iov_length(nvq->hdr, s), hdr_size);
->>               break;
->>           }
->> -        zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
->> -                       nvq->upend_idx != nvq->done_idx);
->> +
->> +        zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
->> +            && (nvq->upend_idx + 1) % UIO_MAXIOV != nvq->done_idx
->> +            && vhost_net_tx_select_zcopy(net);
->
->    Could you leave && on a first of two lines, matching the previous
-> style?
->
-
-ok.
+>>> By change the memory copy and notify mechanism =EF=BC=8Ccurrently
+>>> virtio-net with
+>>> vhost_net could run on Xen with good performance=E3=80=82
 >>
->>           /* use msg_control to pass vhost zerocopy ubuf info to skb */
->>           if (zcopy_used) {
->> +            struct ubuf_info *ubuf;
->> +            ubuf = nvq->ubuf_info + nvq->upend_idx;
->> +
->>               vq->heads[nvq->upend_idx].id = head;
-> [...]
->> +            vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
->> +            ubuf->callback = vhost_zerocopy_callback;
->> +            ubuf->ctx = nvq->ubufs;
->> +            ubuf->desc = nvq->upend_idx;
->> +            msg.msg_control = ubuf;
->> +            msg.msg_controllen = sizeof(ubuf);
+>> I think the key in doing this would be to implement a property
+>> ioeventfd and irqfd interface in the driver domain kernel.  Just
+>> hacking vhost_net with Xen specific knowledge would be pretty nasty
+>> IMHO.
+>>
+> Yes, I add a kernel module which persist virtio-net pio_addr and msix
+> address as what kvm module did. Guest wake up vhost thread by adding =
+a
+> hook func in evtchn_interrupt.
 >
->    'sizeof(ubuf)' where 'ubuf' is a pointer? Are you sure it shouldn't
-> be 'sizeof(*ubuf)'?
+>> Did you modify the front end driver to do grant table mapping or is
+>> this all being done by mapping the domain's memory?
+>>
+> There is nothing changed in front end driver. Currently I use
+> alloc_vm_area to get address space=EF=BC=8C and map the domain's memo=
+ry as
+> what what qemu did.
+>
+>> KVM and Xen represent memory in a very different way.  KVM can only
+>> track when guest mode code dirties memory.  It relies on QEMU to tra=
+ck
+>> when guest memory is dirtied by QEMU.  Since vhost is running outsid=
+e
+>> of QEMU, vhost also needs to tell QEMU when it has dirtied memory.
+>>
+>> I don't think this is a problem with Xen though.  I believe (althoug=
+h
+>> could be wrong) that Xen is able to track when either the domain or
+>> dom0 dirties memory.
+>>
+>> So I think you can simply ignore the dirty logging with vhost and it
+>> should Just Work.
+>>
+> Thanks for your advice, I have tried it, without ping, it could
+> migrate successfully, but if there has skb been received, domU would
+> crash. I guess that because though Xen track domU memory, but it coul=
+d
+> only track memory that changed in DomU. memory changed by Dom0 is out
+> of control.
+>
+>>
+>> No, we don't have a mechanism to fallback  to QEMU for the datapath.
+>> It would be possible but I think it's a bad idea to mix and match th=
+e
+>> two.
+>>
+> Next I would try to fallback datapath to qemu for three reason:
+> 1: memory translate mechanism has been changed for vhost_net on
+> Xen=EF=BC=8Cso there would be some necessary changed needed for vhost=
+_log in
+> kernel.
+>
+> 2: I also maped IOREQ_PFN page(which is used for communication betwee=
+n
+> qemu and Xen) in kernel notify module, so it also needed been marked
+> as dirty when tx/rx exist in migrate period.
+>
+> 3: Most important of all=EF=BC=8C Michael S. Tsirkin said that he had=
+n't
+> considered about vhost_net migrate on Xen=EF=BC=8Cso there would be s=
+ome
+> changed needed in vhost_log for qemu.
+>
+> fallback to qemu seems to much easier, isn't it.
 
-Yes, pointer is sufficiet. Vhost allocate an arrays of ubuf and
-tun/macvtap just need a reference of it.
+Maybe we can just stop vhost_net in pre_save() and enable it in
+post_load()? Then no need to use enable the dirty logging of vhost_net.
 >
-> WBR, Sergei
 >
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Regards
+> Qin chuanyu
+>
+>
