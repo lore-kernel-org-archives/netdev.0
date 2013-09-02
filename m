@@ -1,87 +1,98 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 6/6] vhost_net: correctly limit the max pending buffers
-Date: Mon, 02 Sep 2013 14:30:09 +0800
-Message-ID: <52243071.5090303@redhat.com>
-References: <1377836962-49780-1-git-send-email-jasowang@redhat.com>
-	<1377836962-49780-7-git-send-email-jasowang@redhat.com>
-	<20130902055609.GC19838@redhat.com>
+From: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
+Date: Mon, 2 Sep 2013 07:34:45 +0100 (BST)
+Message-ID: <1378103685.43571.YahooMailBasic@web172301.mail.ir2.yahoo.com>
+Reply-To: htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130902055609.GC19838@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
+To: khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/02/2013 01:56 PM, Michael S. Tsirkin wrote:
-> On Fri, Aug 30, 2013 at 12:29:22PM +0800, Jason Wang wrote:
->> As Michael point out, We used to limit the max pending DMAs to get better cache
->> utilization. But it was not done correctly since it was one done when there's no
->> new buffers submitted from guest. Guest can easily exceeds the limitation by
->> keeping sending packets.
->>
->> So this patch moves the check into main loop. Tests shows about 5%-10%
->> improvement on per cpu throughput for guest tx. But a 5% drop on per cpu
->> transaction rate for a single session TCP_RR.
-> Any explanation for the drop? single session TCP_RR is unlikely to
-> exceed VHOST_MAX_PEND, correct?
+------------------------------
+On Mon, Sep 2, 2013 05:06 BST Alexey Khoroshilov wrote:
 
-Unlikely to exceed. Recheck the result, looks like it was not stable
-enough. Will re-test and report.
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/vhost/net.c |   15 ++++-----------
->>  1 files changed, 4 insertions(+), 11 deletions(-)
+>On 01.09.2013 10:51, Hin-Tak Leung wrote:
+>> ------------------------------
+>> On Sat, Aug 31, 2013 22:18 BST Alexey Khoroshilov wrote:
 >>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index d09c17c..592e1f2 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -363,6 +363,10 @@ static void handle_tx(struct vhost_net *net)
->>  		if (zcopy)
->>  			vhost_zerocopy_signal_used(net, vq);
->>  
->> +		if ((nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV ==
->> +		    nvq->done_idx)
->> +			break;
->> +
->>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
->>  					 ARRAY_SIZE(vq->iov),
->>  					 &out, &in,
->> @@ -372,17 +376,6 @@ static void handle_tx(struct vhost_net *net)
->>  			break;
->>  		/* Nothing new?  Wait for eventfd to tell us they refilled. */
->>  		if (head == vq->num) {
->> -			int num_pends;
->> -
->> -			/* If more outstanding DMAs, queue the work.
->> -			 * Handle upend_idx wrap around
->> -			 */
->> -			num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
->> -				    (nvq->upend_idx - nvq->done_idx) :
->> -				    (nvq->upend_idx + UIO_MAXIOV -
->> -				     nvq->done_idx);
->> -			if (unlikely(num_pends > VHOST_MAX_PEND))
->> -				break;
->>  			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
->>  				vhost_disable_notify(&net->dev, vq);
->>  				continue;
->> -- 
->> 1.7.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+>> In case of __dev_alloc_skb() failure rtl8187_init_urbs()
+>> calls usb_free_urb(entry) where 'entry' can points to urb
+>> allocated at the previous iteration. That means refcnt will be
+>> decremented incorrectly and the urb can be used after memory
+>> deallocation.
+>>
+>> The patch fixes the issue and implements error handling of init_urbs
+>> in rtl8187_start().
+>>
+>> Found by Linux Driver Verification project (linuxtesting.org).
+>>
+>> Signed-off-by: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
+>> ---
+>> drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
+>> 1 file changed, 10 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/ne=
+t/wireless/rtl818x/rtl8187/dev.c
+>> index f49220e..e83d53c 100644
+>> --- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
+>> +++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+>> @@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_=
+hw *dev)
+>>=A0 =A0 =A0 =A0 =A0 skb_queue_tail(&priv->rx_queue, skb);
+>>=A0 =A0 =A0 =A0 =A0 usb_anchor_urb(entry, &priv->anchored);
+>>=A0 =A0 =A0 =A0 =A0 ret =3D usb_submit_urb(entry, GFP_KERNEL);
+>> +=A0 =A0 =A0 =A0 usb_free_urb(entry);
+>>=A0 =A0 =A0 =A0 =A0 if (ret) {
+>>=A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_unlink(skb, &priv->rx_queue);
+>>=A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_unanchor_urb(entry);
+>>=A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
+>>=A0 =A0 =A0 =A0 =A0 }
+>> -=A0 =A0 =A0 =A0 usb_free_urb(entry);
+>>=A0 =A0 =A0 }
+>>=A0 =A0 =A0 return ret;
+>>
+>> err:
+>> -=A0 =A0 usb_free_urb(entry);
+>>=A0 =A0 =A0 kfree_skb(skb);
+>>=A0 =A0 =A0 usb_kill_anchored_urbs(&priv->anchored);
+>>=A0 =A0 =A0 return ret;
+>> This part looks wrong - you free_urb(entry) then unanchor_urb(entry)=
+=2E
+>I do not see any problems here.
+>usb_free_urb() just decrements refcnt of the urb.
+>While usb_anchor_urb() and usb_unanchor_urb() increment and decrement =
+it=20
+>as well.
+>So actual memory deallocation will happen in usb_unanchor_urb().
+
+If the routines work as you say, they probably are misnamed, and/or pro=
+totyped wrongly?
+Also, you are making assumptions about how they are implemented, and re=
+lying
+on the implementation details to be fixed for eternity.
+
+I am just saying,
+
+XXX_free(some_entity);
+if(condtion)
+     do_stuff(some_entity);
+
+looks wrong, and if that's intentional, those routines really shouldn't=
+ be named as such.
+
+Hin-Tak
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
