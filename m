@@ -1,111 +1,122 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH RFC net-next 04/21] net: expose the master link to sysfs, and remove it from bond
-Date: Mon,  2 Sep 2013 23:39:08 +0200
-Message-ID: <1378157965-17537-5-git-send-email-vfalico@redhat.com>
+Subject: [PATCH RFC net-next 09/21] bonding: populate neighbour's private on enslave
+Date: Mon,  2 Sep 2013 23:39:13 +0200
+Message-ID: <1378157965-17537-10-git-send-email-vfalico@redhat.com>
 References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53846 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54619 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759113Ab3IBVjU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 17:39:20 -0400
+	id S1759113Ab3IBVjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 17:39:23 -0400
 In-Reply-To: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we can have only one master upper neighbour, so it would be
-useful to create a symlink to it in the sysfs device directory, the way
-that bonding now does it, for every device. Lower devices from
-bridge/team/etc will automagically get it, so we could rely on it.
-
-Also, remove the same functionality from bonding.
+Use the new provided function when attaching the lower slave to populate
+its ->private with struct slave *new_slave. Also, move it to the end to
+be able to 'find' it only after it was completely initialized, and
+deinitialize in the first place on release.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 12 +-----------
- net/core/dev.c                   |  9 +++++++++
- 2 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/bonding/bond_main.c | 30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 0f539de..5715277 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -174,20 +174,11 @@ int bond_create_slave_symlinks(struct net_device *master,
- 	char linkname[IFNAMSIZ+7];
- 	int ret = 0;
- 
--	/* first, create a link from the slave back to the master */
--	ret = sysfs_create_link(&(slave->dev.kobj), &(master->dev.kobj),
--				"master");
--	if (ret)
--		return ret;
--	/* next, create a link from the master to the slave */
-+	/* create a link from the master to the slave */
- 	sprintf(linkname, "slave_%s", slave->name);
- 	ret = sysfs_create_link(&(master->dev.kobj), &(slave->dev.kobj),
- 				linkname);
- 
--	/* free the master link created earlier in case of error */
--	if (ret)
--		sysfs_remove_link(&(slave->dev.kobj), "master");
--
- 	return ret;
- 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b347b3d..427d943 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1242,11 +1242,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
  }
-@@ -197,7 +188,6 @@ void bond_destroy_slave_symlinks(struct net_device *master,
+ 
+ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+-				      struct net_device *slave_dev)
++				      struct net_device *slave_dev,
++				      struct slave *slave)
  {
- 	char linkname[IFNAMSIZ+7];
+ 	int err;
  
--	sysfs_remove_link(&(slave->dev.kobj), "master");
- 	sprintf(linkname, "slave_%s", slave->name);
- 	sysfs_remove_link(&(master->dev.kobj), linkname);
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fc5c5a1..7eecf35 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4580,6 +4580,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					bool upper, void *private)
- {
- 	struct netdev_adjacent *adj, *neigh = NULL;
-+	int ret;
- 
- 	adj = __netdev_find_adj(dev, adj_dev, upper, false);
- 
-@@ -4636,6 +4637,12 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- 	/* Ensure that master upper link is always the first item in list. */
- 	if (master) {
-+		ret = sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj), "master");
-+		if (ret) {
-+			kfree(neigh);
-+			kfree(adj);
-+			return ret;
-+		}
- 		if (neigh)
- 			list_add_rcu(&neigh->list,
- 				     &dev->neighbour_dev_list.upper);
-@@ -4716,6 +4723,8 @@ void __netdev_adjacent_dev_remove(struct net_device *dev,
- 			 adj_dev->name, upper ? "upper" : "lower", dev->name,
- 			 adj_dev->name);
- 		list_del_rcu(&neighbour->list);
-+		if (neighbour->master && upper)
-+			sysfs_remove_link(&(dev->dev.kobj), "master");
- 		dev_put(adj_dev);
- 		kfree_rcu(neighbour, rcu);
+-	err = netdev_master_upper_dev_link(slave_dev, bond_dev);
++	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
+ 	if (err)
+ 		return err;
+ 	slave_dev->flags |= IFF_SLAVE;
+@@ -1422,17 +1423,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
  	}
+ 
+-	res = bond_master_upper_dev_link(bond_dev, slave_dev);
+-	if (res) {
+-		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
+-		goto err_restore_mac;
+-	}
+-
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+ 		pr_debug("Opening slave %s failed\n", slave_dev->name);
+-		goto err_unset_master;
++		goto err_restore_mac;
+ 	}
+ 
+ 	new_slave->bond = bond;
+@@ -1642,6 +1637,13 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_detach;
+ 	}
+ 
++	res = bond_master_upper_dev_link(bond_dev, slave_dev, new_slave);
++	if (res) {
++		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
++		goto err_unregister;
++	}
++
++
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+ 		bond_dev->name, slave_dev->name,
+ 		bond_is_active_slave(new_slave) ? "n active" : " backup",
+@@ -1651,6 +1653,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	return 0;
+ 
+ /* Undo stages on error */
++err_unregister:
++	netdev_rx_handler_unregister(slave_dev);
++
+ err_detach:
+ 	if (!USES_PRIMARY(bond->params.mode))
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+@@ -1677,9 +1682,6 @@ err_close:
+ 	slave_dev->priv_flags &= ~IFF_BONDING;
+ 	dev_close(slave_dev);
+ 
+-err_unset_master:
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
+-
+ err_restore_mac:
+ 	if (!bond->params.fail_over_mac) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+@@ -1750,6 +1752,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	write_unlock_bh(&bond->lock);
++
++	bond_upper_dev_unlink(bond_dev, slave_dev);
+ 	/* unregister rx_handler early so bond_handle_frame wouldn't be called
+ 	 * for this slave anymore.
+ 	 */
+@@ -1866,8 +1870,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+ 	}
+ 
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
+-
+ 	slave_disable_netpoll(slave);
+ 
+ 	/* close slave before restoring its mac address */
 -- 
 1.8.4
