@@ -1,35 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] ipv6: Don't depend on per socket memory for
- neighbour discovery messages
-Date: Tue, 03 Sep 2013 10:51:37 -0700
-Message-ID: <1378230697.7360.38.camel@edumazet-glaptop>
-References: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch>
-	 <52261A12.3060203@wwwdotorg.org>
-	 <20130903172736.GB21729@order.stressinduktion.org>
-	 <52261F68.70907@wwwdotorg.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/8] net: ipv6: mld: fix v1/v2 switchback timeout to rfc3810, 9.12.
+Date: Tue, 3 Sep 2013 19:52:55 +0200
+Message-ID: <20130903175255.GC21729@order.stressinduktion.org>
+References: <1378195178-21002-1-git-send-email-dborkman@redhat.com> <1378195178-21002-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org, Fabio Estevam <festevam@gmail.com>
-To: Stephen Warren <swarren@wwwdotorg.org>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	David Stevens <dlstevens@us.ibm.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:37614 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756594Ab3ICRvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:51:38 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so6367332pde.9
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 10:51:37 -0700 (PDT)
-In-Reply-To: <52261F68.70907@wwwdotorg.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:35086 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753910Ab3ICRw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:52:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1378195178-21002-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-03 at 11:42 -0600, Stephen Warren wrote:
+On Tue, Sep 03, 2013 at 09:59:31AM +0200, Daniel Borkmann wrote:
+> i) RFC3810, 9.2. Query Interval [QI] says:
+> 
+>    The Query Interval variable denotes the interval between General
+>    Queries sent by the Querier. Default value: 125 seconds. [...]
+> 
+> ii) RFC3810, 9.3. Query Response Interval [QRI] says:
+> 
+>   The Maximum Response Delay used to calculate the Maximum Response
+>   Code inserted into the periodic General Queries. Default value:
+>   10000 (10 seconds) [...] The number of seconds represented by the
+>   [Query Response Interval] must be less than the [Query Interval].
+> 
+> iii) RFC3810, 9.12. Older Version Querier Present Timeout [OVQPT] says:
+> 
+>   The Older Version Querier Present Timeout is the time-out for
+>   transitioning a host back to MLDv2 Host Compatibility Mode. When an
+>   MLDv1 query is received, MLDv2 hosts set their Older Version Querier
+>   Present Timer to [Older Version Querier Present Timeout].
+> 
+>   This value MUST be ([Robustness Variable] times (the [Query Interval]
+>   in the last Query received)) plus ([Query Response Interval]).
+> 
+> Hence, on *default* the timeout results in:
+> 
+>   [RV] = 2, [QI] = 125sec, [QRI] = 10sec
+>   [OVQPT] = [RV] * [QI] + [QRI] = 260sec
+> 
+> Having that said, we currently calculate [OVQPT] (here given as 'switchback'
+> variable) as ...
+> 
+>   switchback = (idev->mc_qrv + 1) * max_delay
+> 
+> RFC3810, 9.12. says "the [Query Interval] in the last Query received". In
+> section "9.14. Configuring timers", it is said:
+> 
+>   This section is meant to provide advice to network administrators on
+>   how to tune these settings to their network. Ambitious router
+>   implementations might tune these settings dynamically based upon
+>   changing characteristics of the network. [...]
+> 
+> iv) RFC38010, 9.14.2. Query Interval:
+> 
+>   The overall level of periodic MLD traffic is inversely proportional
+>   to the Query Interval. A longer Query Interval results in a lower
+>   overall level of MLD traffic. The value of the Query Interval MUST
+>   be equal to or greater than the Maximum Response Delay used to
+>   calculate the Maximum Response Code inserted in General Query
+>   messages.
+> 
+> I assume that was why switchback is calculated as is (3 * max_delay), although
+> this setting seems to be meant for routers only to configure their [QI]
+> interval for non-default intervals. So usage here like this is clearly wrong.
+> 
+> Concluding, the current behaviour in IPv6's multicast code is not conform
+> to the RFC as switch back is calculated wrongly. That is, it has a too small
+> value, so MLDv2 hosts switch back again to MLDv2 way too early, i.e. ~30secs
+> instead of ~260secs on default.
+> 
+> Hence, introduce necessary helper functions and fix this up properly as it
+> should be.
+> 
+> Introduced in 06da92283 ("[IPV6]: Add MLDv2 support."). Credits to Hannes
+> Frederic Sowa who also had a hand in this as well. Also thanks to Hangbin Liu
+> who did initial testing.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: David Stevens <dlstevens@us.ibm.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-> I don't see any extra messages from PROVE_LOCKING related to networking.
-> There is a single extra message from inside the audio driver, but that's
-> not networking-related at all.
-
-LOCKDEP is automatically disabled at first splat.
-
-Please try a kernel without audio driver ;)
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
