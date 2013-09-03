@@ -1,50 +1,36 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] x25: add a sanity check parsing X.25 facilities
-Date: Tue, 3 Sep 2013 12:03:40 +0300
-Message-ID: <20130903090340.GB4351@elgon.mountain>
+Subject: [patch] qlcnic: remove a stray semicolon
+Date: Tue, 3 Sep 2013 12:13:47 +0300
+Message-ID: <20130903091347.GA4630@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Andrew Hendry <andrew.hendry@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37940 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932515Ab3ICJD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 05:03:57 -0400
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This was found with a manual audit and I don't have a reproducer.  We
-limit ->calling_len and ->called_len when we get them from
-copy_from_user() in x25_ioctl() so when they come from skb->data then
-we should cap them there as well.
+Just remove a small semicolon.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Possibly should be applied to -stable.  My guess is that this leads to
-memory corruption, but I don't know.
 
-diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index 66c63873..b825325 100644
---- a/net/x25/x25_facilities.c
-+++ b/net/x25/x25_facilities.c
-@@ -156,6 +156,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 			case X25_FAC_CALLING_AE:
- 				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
- 					return -1;
-+				if (p[2] > X25_MAX_AE_LEN)
-+					return -1;
- 				dte_facs->calling_len = p[2];
- 				memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
- 				*vc_fac_mask |= X25_MASK_CALLING_AE;
-@@ -163,6 +165,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 			case X25_FAC_CALLED_AE:
- 				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
- 					return -1;
-+				if (p[2] > X25_MAX_AE_LEN)
-+					return -1;
- 				dte_facs->called_len = p[2];
- 				memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
- 				*vc_fac_mask |= X25_MASK_CALLED_AE;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 332aa71..4d7ad00 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -1709,7 +1709,7 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
+ 		qlcnic_dev_request_reset(adapter, val->flag);
+ 		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
+ 		break;
+-;
++
+ 	case QLCNIC_SET_QUIESCENT:
+ 	case QLCNIC_RESET_QUIESCENT:
+ 		state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
