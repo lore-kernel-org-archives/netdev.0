@@ -1,108 +1,79 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH v2 0/8] Drop support for Renesas H8/300 architecture
-Date: Tue, 3 Sep 2013 13:59:22 -0700
-Message-ID: <20130903205922.GA3372@roeck-us.net>
-References: <1377906694-9578-1-git-send-email-linux@roeck-us.net>
- <52254F11.8070601@gmail.com>
- <522556D8.803@roeck-us.net>
- <52255CF1.6020700@gmail.com>
- <20130903193938.GB13318@ZenIV.linux.org.uk>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 4/8] net: ipv6: mld: implement RFC3810 MLDv2 mode only
+Date: Tue, 3 Sep 2013 23:00:11 +0200
+Message-ID: <20130903210011.GB28889@order.stressinduktion.org>
+References: <1378195178-21002-1-git-send-email-dborkman@redhat.com> <1378195178-21002-5-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen Gang F T <chen.gang.flying.transformer@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org, linux-watchdog@vger.kernel.org,
-	Wim Van Sebroeck <wim@iguana.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yoshinori Sato <ysato@users.sourceforge.jp>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Eric Paris <eparis@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	David Howells <dhowells@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:35513 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932324Ab3ICVAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 17:00:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20130903193938.GB13318@ZenIV.linux.org.uk>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1378195178-21002-5-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 03, 2013 at 08:39:38PM +0100, Al Viro wrote:
-> On Tue, Sep 03, 2013 at 11:52:17AM +0800, Chen Gang F T wrote:
+Hi Daniel!
+
+On Tue, Sep 03, 2013 at 09:59:34AM +0200, Daniel Borkmann wrote:
+> RFC3810, 10. Security Considerations says under subsection 10.1.
+> Query Message:
 > 
-> >   extreme sample: let 'kernel code style' and 'gcc code style' in one file, that will make the code very ugly.
+>   A forged Version 1 Query message will put MLDv2 listeners on that
+>   link in MLDv1 Host Compatibility Mode. This scenario can be avoided
+>   by providing MLDv2 hosts with a configuration option to ignore
+>   Version 1 messages completely.
 > 
-> gcc style will make any code very ugly, no matter what (if anything) else is
-> in the same file...
+> Hence, implement a MLDv2-only mode that will ignore MLDv1 traffic:
 > 
-> [digs out the ports history table]
-> x86:		0.01			[alive]
-> 	i386:		0.01..2.6.24-rc1 [folded into x86]
-> 	x86_64:		2.5.5-pre1..2.6.24-rc1 [folded into x86]
-> 	x86:		2.6.24-rc1		[alive]
-> alpha:		1.1.67			[alive]
-> sparc:		1.1.77			[alive]
-> 	sparc64:	2.1.19..2.6.28 [folded into sparc]
-> mips:		1.1.82			[alive]
-> 	mips64:		2.3.48-pre2..2.6.0-test2 [folded into mips]
-> powerpc:	1.3.45			[alive]
-> 	ppc:    	1.3.45..2.6.26 [folded into powerpc]
-> 	ppc64:		2.5.5..2.6.15-rc1 [folded into powerpc]
-> 	powerpc:	2.6.15-rc1		[alive]
-> m68k:		1.3.94			[alive]
-> 	m68knommu:	2.5.46..2.6.38 [folded into m68k]
-> arm:		2.1.80			[alive]
-> 	arm26:		2.5.71..2.6.23-rc2 [gone]
-> 	arm64:		3.7-rc1			[alive][might eventually fold]
-> sh:		2.3.16			[alive]
-> 	sh64:		2.6.8-rc1..2.6.24 [folded into sh, nearly dead there]
-> ia64:		2.3.43-pre1		[alive]
-> s390:		2.3.99pre8		[alive]
-> 	s390x:		2.5.0..2.5.67 [folded into s390]
-> parisc:		2.4.0-test12		[alive]
-> cris:		2.5.0			[alive]
-> um:		2.5.35			[alive]
-> v850:		2.5.46..2.6.26 [gone]
-> h8300:		2.5.68			[moderately responsive]
-> m32r:		2.6.9-rc3		[alive]
-> frv:		2.6.11-rc1		[alive]
-> xtensa:		2.6.13-rc1		[alive]
-> avr32:		2.6.19-rc1		[alive]
-> blackfin:	2.6.22-rc1		[alive]
-> mn10300:	2.6.25-rc1		[alive]
-> microblaze:	2.6.30-rc2		[alive]
-> score:		2.6.32-rc1		[abandoned][cloned off mips]
-> tile:		2.6.36-rc1		[alive]
-> unicore32:	2.6.39-rc1		[alive][cloned off arm]
-> openrisc:	3.1-rc1			[alive]
-> hexagon:	3.2-rc1			[alive]
-> c6x:		3.3-rc1			[alive]
-> arc:		3.9-rc1			[alive]
-> metag:		3.9-rc1			[alive]
-> 
-> Frankly, I would've expected score and lefotvers of sh64 (aka sh5) to be
-> the first against the wall - h8300 was a bit surprising...
-> 
+>   echo 2 > /proc/sys/net/ipv6/conf/ethX/force_mld_version
 
-Great summary.
+I just played around with MLDv2-only mode and noticed that the commit message
+diverges from the code:
 
-There seemed to be a consensus to remove h8300, at least so far and sufficiently
-enough for me to ask Stephen to add the removal branch to linux-next.
-We'll see if that triggers any further responses.
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 005b22f..02cd0c5 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -1112,9 +1112,21 @@ static bool mld_marksources(struct ifmcaddr6 *pmc, int nsrcs,
+>  	return true;
+>  }
+>  
+> +static bool mld_in_v2_mode_only(const struct inet6_dev *idev)
+> +{
+> +	return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version == 2;
 
-With score, I am not entirely sure. I got one Ack for the removal, but
-on the other side the score maintainers came back and claimed they would
-still support it. We'll see if anything changes in practice. I am still
-not sure if I should ask for the removal branch to be added to linux-next.
-Frankly I thought I might jump the gun here more than with h8300.
+Maybe something like
 
-Either case, what to ultimately do with those two architectures will be
-up to the community to decide.
+int val = idev->cnf.force_mld_version ?: dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
+return val == 2;
 
-Guenter
+> +}
+> +
+> +static bool mld_in_v1_mode_only(const struct inet6_dev *idev)
+> +{
+> +	return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version == 1;
+
+Likewise.
+
+> +}
+> +
+>  static bool mld_in_v1_mode(const struct inet6_dev *idev)
+>  {
+> -	if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version == 1)
+> +	if (mld_in_v2_mode_only(idev))
+> +		return false;
+> +	if (mld_in_v1_mode_only(idev))
+>  		return true;
+>  	if (idev->cnf.force_mld_version == 1)
+>  		return true;
+
+This last if statement could be dropped then.
+
+Thanks,
+
+  Hannes
