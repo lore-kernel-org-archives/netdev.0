@@ -1,216 +1,43 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net] bridge: netfiler: update find_inlist_lock_noload() more
- accurate
-Date: Tue, 3 Sep 2013 15:15:05 +0800
-Message-ID: <52258C79.2010508@huawei.com>
+From: Chris Clayton <chris2553@gmail.com>
+Subject: Re: Networking problem with 3.11-rc6+
+Date: Tue, 03 Sep 2013 08:35:41 +0100
+Message-ID: <5225914D.5050305@googlemail.com>
+References: <5213CB17.5050308@googlemail.com> <20130820215419.GA29560@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Bart De Schuymer <bart.de.schuymer@pandora.be>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	<bridge@lists.linux-foundation.org>,
-	<netfilter-devel@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
-	Baoquan He <baoquan.he@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:28473 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932470Ab3ICHQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 03:16:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chris Clayton <chris2553@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130820215419.GA29560@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Baoquan He <baoquan.he@gmail.com> has report a problem which occurred by the following command:
 
-make SUBDIRS=net/bridge/netfilter/
-cp /net/bridge/netfilter/ebtables.ko
-/lib/modules/3.11.0-rc7+/kernel/net/bridge/netfilter/ebtables.ko
-depmod
-modprobe ebtables.ko
-reboot
 
-----------------------------------------------------------------------
+On 08/20/13 22:54, Francois Romieu wrote:
+> Chris Clayton <chris2553@gmail.com> :
+> [...]
+>> [    0.207094] acpi PNP0A08:00: ACPI _OSC support notification failed, disabling PCIe ASPM
+>> [    0.207155] acpi PNP0A08:00: Unable to request _OSC control (_OSC support mask: 0x08)
+> [...]
+>> [    5.311191] r8169 0000:07:00.0: can't disable ASPM; OS doesn't have ASPM control
+> [...]
+>> [   65.181715] [<f8e38000>] rtl8169_interrupt [r8169]
+>> [   65.181717] Disabling IRQ #17
+>>
+>> Let me know if I can provide any additional information, although to
+>> be honest, the boot completed and the KDE desktop started up OK, so
+>> there may not be much else I can provide unless I find that the
+>> problem is repeatable.
+>
+> Please don't hesitate if it happens again, even if it can't be reproduced
+> on demand.
+>
 
-[   48.895000] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
-[   48.901191] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
-ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
-snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
-[   48.950034] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
-3.11.0-rc7+ #1
-[   48.957433] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
-BIOS J61 v01.02 03/09/2012
-[   48.966131] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
-ffff8804187d2000
-[   48.973610] RIP: 0010:[<ffffffff812e57a7>]  [<ffffffff812e57a7>]
-strcmp+0x27/0x40
-[   48.981119] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000246
-[   48.986430] RAX: 0000000000000000 RBX: 00007fffda942730 RCX:
-ffff8804187d3fd8
-[   48.993566] RDX: 0000000000000000 RSI: ffff8804187d3e01 RDI:
-ffffffff81cb8a39
-[   49.000707] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
-0000000000000000
-[   49.007841] R10: 0000000000000163 R11: 0000000000000000 R12:
-ffffffff8128300c
-[   49.014972] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
-0000000000000004
-[   49.022112] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
-knlGS:0000000000000000
-[   49.030194] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   49.035942] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
-00000000000407e0
-[   49.043077] Stack:
-[   49.045096]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
-ffffffff81cb8180
-[   49.052559]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
-ffffffffa02497a9
-[   49.060020]  0000000000000000 00007265746c6966 0000003f0d7b92c0
-00007fffda942850
-[   49.067487] Call Trace:
-[   49.069949]  [<ffffffffa0249674>]
-find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
-[   49.077779]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
-[   49.084306]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
-[   49.089717]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
-[   49.095113]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
-[   49.100588]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
-[   49.106766]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
-[   49.112257]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
-[   49.118260] Code: 00 00 00 00 55 48 89 e5 eb 0e 66 2e 0f 1f 84 00 00
-00 00 00 84 c0 74 1c 48 83 c7 01 0f b6 47 ff 48 83 c6 01 3a 46 ff 74 eb
-19 c0 <83> c8 01 5d c3 0f 1
-[   76.925880] BUG: soft lockup - CPU#1 stuck for 22s! [ebtables:444]
-[   76.932069] Modules linked in: bnep(F) bluetooth(F) ebtables(F)
-ip6table_filter(F) ip6_tables(F) rfkill(F) snd_hda_intel(F+)
-snd_hda_codec(F) snd_hwdep(F) snd_seq(F) sn)
-[   76.980847] CPU: 1 PID: 444 Comm: ebtables Tainted: GF     D
-3.11.0-rc7+ #1
-[   76.988245] Hardware name: Hewlett-Packard HP Z420 Workstation/1589,
-BIOS J61 v01.02 03/09/2012
-[   76.996940] task: ffff88040c2dc650 ti: ffff8804187d2000 task.ti:
-ffff8804187d2000
-[   77.004426] RIP: 0010:[<ffffffff812e5784>]  [<ffffffff812e5784>]
-strcmp+0x4/0x40
-[   77.011849] RSP: 0018:ffff8804187d3db8  EFLAGS: 00000212
-[   77.017163] RAX: 0000000000000001 RBX: 00007fffda942730 RCX:
-ffff8804187d3fd8
-[   77.024304] RDX: 0000000000000000 RSI: ffff8804187d3e00 RDI:
-ffffffff81cb8a38
-[   77.031434] RBP: ffff8804187d3db8 R08: 00000000fffffff2 R09:
-0000000000000000
-[   77.038566] R10: 0000000000000163 R11: 0000000000000000 R12:
-ffffffff8128300c
-[   77.045699] R13: ffff8804187d3d98 R14: ffff8804187d3ef4 R15:
-0000000000000004
-[   77.052842] FS:  00007faab6589740(0000) GS:ffff88042fc80000(0000)
-knlGS:0000000000000000
-[   77.060934] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   77.066668] CR2: 0000003f0d810414 CR3: 000000040d2cc000 CR4:
-00000000000407e0
-[   77.073799] Stack:
-[   77.075818]  ffff8804187d3de8 ffffffffa0249674 0000000000000080
-ffffffff81cb8180
-[   77.083287]  00007fffda942730 ffff8804187d3ef4 ffff8804187d3ea0
-ffffffffa02497a9
-[   77.090749]  0000000000000000 00007265746c6966 0000003f0d7b92c0
-00007fffda942850
-[   77.098215] Call Trace:
-[   77.100668]  [<ffffffffa0249674>]
-find_inlist_lock.constprop.16+0x54/0x100 [ebtables]
-[   77.108500]  [<ffffffffa02497a9>] do_ebt_get_ctl+0x89/0x1d0 [ebtables]
-[   77.115035]  [<ffffffff81551ca8>] nf_getsockopt+0x68/0x90
-[   77.120438]  [<ffffffff81560d40>] ip_getsockopt+0x80/0xa0
-[   77.125845]  [<ffffffff815835c5>] raw_getsockopt+0x25/0x50
-[   77.131328]  [<ffffffff8150ddd4>] sock_common_getsockopt+0x14/0x20
-[   77.137515]  [<ffffffff8150d208>] SyS_getsockopt+0x68/0xd0
-[   77.143011]  [<ffffffff8162c682>] system_call_fastpath+0x16/0x1b
-[   77.149019] Code: 0f 1f 80 00 00 00 00 48 83 c6 01 0f b6 4e ff 48 83
-c2 01 84 c9 88 4a ff 75 ed 5d c3 66 66 2e 0f 1f 84 00 00 00 00 00 55 48
-89 e5 <eb> 0e 66 2e 0f 1f 8
+I've booted the kernel numerous times since the incident reported above, 
+but haven't encountered the problem again. If it does happen again, are 
+there any files from /sys or /proc that might help diagnostics?
 
----------------------------------------------------------------------------
-
-The find_inlist_lock did not distinguish the error whether lock failed or
-module non-existent, the imperfection processing procedure may course the
-problem.
-
-Return the correct value if mutex_lock_interruptible() failed, avoid
-confusion with that the modules is not exist, and deal with the return
-value in right way.
-
-After the patch, the problem didn't happened again, so I confident the bug
-was fixed.
-
-Reported-by: Baoquan He <baoquan.he@gmail.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Cc: Baoquan He <baoquan.he@gmail.com>
----
- net/bridge/netfilter/ebtables.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
-
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index ac78024..e7fe9f8 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -322,17 +322,14 @@ static inline void *
- find_inlist_lock_noload(struct list_head *head, const char *name, int *error,
-    struct mutex *mutex)
- {
--	struct {
--		struct list_head list;
--		char name[EBT_FUNCTION_MAXNAMELEN];
--	} *e;
-+	struct ebt_table *e;
- 
- 	*error = mutex_lock_interruptible(mutex);
- 	if (*error != 0)
--		return NULL;
-+		return ERR_PTR(-EINTR);
- 
- 	list_for_each_entry(e, head, list) {
--		if (strcmp(e->name, name) == 0)
-+		 if (strcmp(e->name, name) == 0 && try_module_get(e->me))
- 			return e;
- 	}
- 	*error = -ENOENT;
-@@ -1005,7 +1002,7 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
- 		goto free_counterstmp;
- 
- 	t = find_table_lock(net, repl->name, &ret, &ebt_mutex);
--	if (!t) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = -ENOENT;
- 		goto free_iterate;
- 	}
-@@ -1284,7 +1281,7 @@ static int do_update_counters(struct net *net, const char *name,
- 		return -ENOMEM;
- 
- 	t = find_table_lock(net, name, &ret, &ebt_mutex);
--	if (!t)
-+	if (IS_ERR_OR_NULL(t))
- 		goto free_tmp;
- 
- 	if (num_counters != t->private->nentries) {
-@@ -1504,7 +1501,7 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 		return -EFAULT;
- 
- 	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
--	if (!t)
-+	if (IS_ERR_OR_NULL(t))
- 		return ret;
- 
- 	switch(cmd) {
-@@ -2319,7 +2316,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
- 		return -EFAULT;
- 
- 	t = find_table_lock(net, tmp.name, &ret, &ebt_mutex);
--	if (!t)
-+	if (IS_ERR_OR_NULL(t))
- 		return ret;
- 
- 	xt_compat_lock(NFPROTO_BRIDGE);
--- 
-1.8.2.1
+Chris
