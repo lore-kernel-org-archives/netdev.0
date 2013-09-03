@@ -1,118 +1,68 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
-Date: Tue, 3 Sep 2013 02:13:31 +0200
-Message-ID: <20130903001331.GA8820@order.stressinduktion.org>
-References: <20130902213128.GB14301@marquez.int.rhx>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: =?UTF-8?B?UmU6IElzIGZhbGxiYWNrIHZob3N0X25ldCB0byBxZW11IGZvciBsaXY=?=
+ =?UTF-8?B?ZSBtaWdyYXRlIGF2YWlsYWJsZe+8nw==?=
+Date: Tue, 3 Sep 2013 09:28:11 +0800
+Message-ID: <52253B2B.6050909@huawei.com>
+References: <521C1DCF.5090202@huawei.com> <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com> <522174D7.6080903@huawei.com> <20130902075722.GZ15729@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Michele Baldessari <michele@acksyn.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>,
+	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<qianhuibin@huawei.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	<wangfuhai@huawei.com>, <likunyun@huawei.com>,
+	<liuyongan@huawei.com>, <liuyingdong@huawei.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33608 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755107Ab3ICANc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 20:13:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20130902213128.GB14301@marquez.int.rhx>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:8417 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522Ab3ICB2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 21:28:55 -0400
+In-Reply-To: <20130902075722.GZ15729@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 2013/9/2 15:57, Wei Liu wrote:
+> On Sat, Aug 31, 2013 at 12:45:11PM +0800, Qin Chuanyu wrote:
+>> On 2013/8/30 0:08, Anthony Liguori wrote:
+>>> Hi Qin,
+>>
+>>>> By change the memory copy and notify mechanism =EF=BC=8Ccurrently =
+virtio-net with
+>>>> vhost_net could run on Xen with good performance=E3=80=82
+>>>
+>>> I think the key in doing this would be to implement a property
+>>> ioeventfd and irqfd interface in the driver domain kernel.  Just
+>>> hacking vhost_net with Xen specific knowledge would be pretty nasty
+>>> IMHO.
+>>>
+>> Yes, I add a kernel module which persist virtio-net pio_addr and
+>> msix address as what kvm module did. Guest wake up vhost thread by
+>> adding a hook func in evtchn_interrupt.
+>>
+>>> Did you modify the front end driver to do grant table mapping or is
+>>> this all being done by mapping the domain's memory?
+>>>
+>> There is nothing changed in front end driver. Currently I use
+>> alloc_vm_area to get address space=EF=BC=8C and map the domain's mem=
+ory as
+>> what what qemu did.
+>>
+>
+> You mean you're using xc_map_foreign_range and friends in the backend=
+ to
+> map guest memory? That's not very desirable as it violates Xen's
+> security model. It would not be too hard to pass grant references
+> instead of guest physical memory address IMHO.
+>
+In fact, I did what virtio-net have done in Qemu. I think security
+is a pseudo question because Dom0 is under control.
 
-On Mon, Sep 02, 2013 at 10:31:28PM +0100, Michele Baldessari wrote:
-> with the latest linux master git tree from Linus
-> (248d296d6d9df384996c2ed95676b367d876d48c - 2 Sep) I can reproduceably oops 
-> the kernel with the following commands:
-> ip addrlabel flush
-> ip addrlabel add prefix ::1/128              label 0
-> ip addrlabel add prefix ::/0                 label 1
+Host could access memory of guest in KVM much easier than Xen,
+but I hadn't heard someone said KVM is un-secret.
 
-Thanks for the report! This patch should fix this issue:
-
-[PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
-
-Commit b67bfe0d42cac56c512dd5da4b1b347a23f4b70a ("hlist: drop
-the node parameter from iterators") changed the behavior of
-hlist_for_each_entry_safe to leave the p argument NULL.
-
-Fix this up by tracking the last argument.
-
-Reported-by: Michele Baldessari <michele@acksyn.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/addrlabel.c | 48 +++++++++++++++++++++++-------------------------
- 1 file changed, 23 insertions(+), 25 deletions(-)
-
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index f083a58..b30ad37 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -251,38 +251,36 @@ static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
- /* add a label */
- static int __ip6addrlbl_add(struct ip6addrlbl_entry *newp, int replace)
- {
-+	struct hlist_node *n;
-+	struct ip6addrlbl_entry *last = NULL, *p = NULL;
- 	int ret = 0;
- 
--	ADDRLABEL(KERN_DEBUG "%s(newp=%p, replace=%d)\n",
--			__func__,
--			newp, replace);
-+	ADDRLABEL(KERN_DEBUG "%s(newp=%p, replace=%d)\n", __func__, newp,
-+		  replace);
- 
--	if (hlist_empty(&ip6addrlbl_table.head)) {
--		hlist_add_head_rcu(&newp->list, &ip6addrlbl_table.head);
--	} else {
--		struct hlist_node *n;
--		struct ip6addrlbl_entry *p = NULL;
--		hlist_for_each_entry_safe(p, n,
--					  &ip6addrlbl_table.head, list) {
--			if (p->prefixlen == newp->prefixlen &&
--			    net_eq(ip6addrlbl_net(p), ip6addrlbl_net(newp)) &&
--			    p->ifindex == newp->ifindex &&
--			    ipv6_addr_equal(&p->prefix, &newp->prefix)) {
--				if (!replace) {
--					ret = -EEXIST;
--					goto out;
--				}
--				hlist_replace_rcu(&p->list, &newp->list);
--				ip6addrlbl_put(p);
--				goto out;
--			} else if ((p->prefixlen == newp->prefixlen && !p->ifindex) ||
--				   (p->prefixlen < newp->prefixlen)) {
--				hlist_add_before_rcu(&newp->list, &p->list);
-+	hlist_for_each_entry_safe(p, n,	&ip6addrlbl_table.head, list) {
-+		if (p->prefixlen == newp->prefixlen &&
-+		    net_eq(ip6addrlbl_net(p), ip6addrlbl_net(newp)) &&
-+		    p->ifindex == newp->ifindex &&
-+		    ipv6_addr_equal(&p->prefix, &newp->prefix)) {
-+			if (!replace) {
-+				ret = -EEXIST;
- 				goto out;
- 			}
-+			hlist_replace_rcu(&p->list, &newp->list);
-+			ip6addrlbl_put(p);
-+			goto out;
-+		} else if ((p->prefixlen == newp->prefixlen && !p->ifindex) ||
-+			   (p->prefixlen < newp->prefixlen)) {
-+			hlist_add_before_rcu(&newp->list, &p->list);
-+			goto out;
- 		}
--		hlist_add_after_rcu(&p->list, &newp->list);
-+		last = p;
- 	}
-+	if (last)
-+		hlist_add_after_rcu(&last->list, &newp->list);
-+	else
-+		hlist_add_head_rcu(&newp->list, &ip6addrlbl_table.head);
- out:
- 	if (!ret)
- 		ip6addrlbl_table.seq++;
--- 
-1.8.3.1
+Regards
+Qin chuanyu
