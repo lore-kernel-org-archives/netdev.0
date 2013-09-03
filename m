@@ -1,56 +1,62 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: RE: [patch] qlcnic: remove a stray semicolon
-Date: Tue, 3 Sep 2013 16:43:59 +0000
-Message-ID: <ADFE82A996F10145934E45547759F763311D56C3@avmb3.qlogic.org>
-References: <20130903091347.GA4630@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130903091347.GA4630@elgon.mountain>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next] vxlan: Optimize vxlan rcv
+Date: Tue,  3 Sep 2013 09:44:44 -0700
+Message-ID: <1378226684-7751-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:44947 "HELO
+	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932217Ab3ICQou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 12:44:50 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz10so6640689pad.30
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 09:44:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+vxlan-udp-recv function lookup vxlan_sock struct on every packet
+recv by using udp-port number. we can use sk->sk_user_data to
+store vxlan_sock and avoid lookup.
+I have open coded rcu-api to store and read vxlan_sock from
+sk_user_data to avoid sparse warning as sk_user_data is not
+__rcu pointer.
 
-> -----Original Message-----
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Tuesday, September 03, 2013 2:14 AM
-> To: Himanshu Madhani
-> Cc: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko; Sucheta
-> Chakraborty; Dept-Eng Linux Driver; netdev; kernel-janitors@vger.kernel.org
-> Subject: [patch] qlcnic: remove a stray semicolon
-> 
-> Just remove a small semicolon.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-> index 332aa71..4d7ad00 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-> @@ -1709,7 +1709,7 @@ qlcnic_set_dump(struct net_device *netdev, struct
-> ethtool_dump *val)
->  		qlcnic_dev_request_reset(adapter, val->flag);
->  		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
->  		break;
-> -;
-> +
->  	case QLCNIC_SET_QUIESCENT:
->  	case QLCNIC_RESET_QUIESCENT:
->  		state = QLC_SHARED_REG_RD32(adapter,
-> QLCNIC_CRB_DEV_STATE);
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ drivers/net/vxlan.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-Thanks
-
-Acked-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 6b560f3..7de131f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -916,6 +916,8 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+ 
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
++	smp_wmb();
++	vs->sock->sk->sk_user_data = NULL;
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	queue_work(vxlan_wq, &vs->del_work);
+@@ -1009,7 +1011,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	port = inet_sk(sk)->inet_sport;
+ 
+-	vs = vxlan_find_sock(sock_net(sk), port);
++	smp_read_barrier_depends();
++	vs = (struct vxlan_sock *)sk->sk_user_data;
+ 	if (!vs)
+ 		goto drop;
+ 
+@@ -2236,6 +2239,8 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	atomic_set(&vs->refcnt, 1);
+ 	vs->rcv = rcv;
+ 	vs->data = data;
++	smp_wmb();
++	vs->sock->sk->sk_user_data = vs;
+ 
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+-- 
+1.7.1
