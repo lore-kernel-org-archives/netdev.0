@@ -1,59 +1,61 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH net-next] bcm87xx: Add MODULE_DEVICE_TABLE
-Date: Tue, 03 Sep 2013 10:32:02 -0700
-Message-ID: <52261D12.5000009@gmail.com>
-References: <1378071184.25743.52.camel@deadeye.wl.decadent.org.uk>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH v2] ipv6: Don't depend on per socket memory for neighbour
+ discovery messages
+Date: Tue, 03 Sep 2013 11:42:00 -0600
+Message-ID: <52261F68.70907@wwwdotorg.org>
+References: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch> <52261A12.3060203@wwwdotorg.org> <20130903172736.GB21729@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Daney <david.daney@cavium.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:63184 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755735Ab3ICRcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:32:05 -0400
-Received: by mail-ob0-f177.google.com with SMTP id f8so6097760obp.22
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 10:32:04 -0700 (PDT)
-In-Reply-To: <1378071184.25743.52.camel@deadeye.wl.decadent.org.uk>
+Received: from avon.wwwdotorg.org ([70.85.31.133]:41006 "EHLO
+	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754676Ab3ICRmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:42:04 -0400
+In-Reply-To: <20130903172736.GB21729@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2013 02:33 PM, Ben Hutchings wrote:
-> bcm87xx currently isn't auto-loaded if built as a module.
->
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> Compile-tested only.
+On 09/03/2013 11:27 AM, Hannes Frederic Sowa wrote:
+> On Tue, Sep 03, 2013 at 11:19:14AM -0600, Stephen Warren wrote:
+>> On 09/03/2013 05:37 AM, Thomas Graf wrote:
+>>> Allocating skbs when sending out neighbour discovery messages
+>>> currently uses sock_alloc_send_skb() based on a per net namespace
+>>> socket and thus share a socket wmem buffer space.
+>>>
+>>> If a netdevice is temporarily unable to transmit due to carrier
+>>> loss or for other reasons, the queued up ndisc messages will cosnume
+>>> all of the wmem space and will thus prevent from any more skbs to
+>>> be allocated even for netdevices that are able to transmit packets.
+>>>
+>>> The number of neighbour discovery messages sent is very limited,
+>>> use of alloc_skb() bypasses the socket wmem buffer size enforcement
+>>> while the manual call to skb_set_owner_w() maintains the socket
+>>> reference needed for the IPv6 output path.
+>>>
+>>> This patch has orginally been posted by Eric Dumazet in a modified
+>>> form.
+>>
+>> Tested-by: Stephen Warren <swarren@nvidia.com>
+>>
+>> Although I do note something slightly odd:
+>>
+>> next-20130830 had an issue, and reverting V1 of this patch solved it.
+>>
+>> However, in next-20130903, if I revert the revert of V1 of this patch, I
+>> don't see any issue; it appears that the problem was some interaction
+>> between V1 of this patch and something else in next-20130830.
+>>
+>> Either way, this patch doesn't seem to introduce any issue when applied
+>> on top of either next-20130830 with V1 reverted, or on top of
+>> next-20130903, so it's fine.
+> 
+> Could either of you run the v1 version of the patch with CONFIG_PROVE_LOCKING
+> enabled? I also do think there is some side-effect we don't understand yet.
 
-Then how do you know that it does anything sensible?
-
-Other than that, it seems plausible.
-
-David Daney
-
->
-> Ben.
->
->   drivers/net/phy/bcm87xx.c | 7 +++++++
->   1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-> index 7997895..f5b44ff 100644
-> --- a/drivers/net/phy/bcm87xx.c
-> +++ b/drivers/net/phy/bcm87xx.c
-> @@ -230,4 +230,11 @@ static void __exit bcm87xx_exit(void)
->   }
->   module_exit(bcm87xx_exit);
->
-> +static struct mdio_device_id __maybe_unused bcm87xx_tbl[] = {
-> +	{ PHY_ID_BCM8706, 0xffffffff },
-> +	{ PHY_ID_BCM8727, 0xffffffff },
-> +	{ }
-> +};
-> +
->   MODULE_LICENSE("GPL");
-> +MODULE_DEVICE_TABLE(mdio, bcm87xx_tbl);
->
+I don't see any extra messages from PROVE_LOCKING related to networking.
+There is a single extra message from inside the audio driver, but that's
+not networking-related at all.
