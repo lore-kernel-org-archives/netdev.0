@@ -1,61 +1,62 @@
-From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: Re: [PATCH v2] ipv6: Don't depend on per socket memory for neighbour
- discovery messages
-Date: Tue, 03 Sep 2013 11:42:00 -0600
-Message-ID: <52261F68.70907@wwwdotorg.org>
-References: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch> <52261A12.3060203@wwwdotorg.org> <20130903172736.GB21729@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
+ tcp_v6_do_rcv
+Date: Tue, 03 Sep 2013 10:48:33 -0700
+Message-ID: <1378230513.7360.37.camel@edumazet-glaptop>
+References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Fabio Estevam <festevam@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avon.wwwdotorg.org ([70.85.31.133]:41006 "EHLO
-	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754676Ab3ICRmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:42:04 -0400
-In-Reply-To: <20130903172736.GB21729@order.stressinduktion.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:54715 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753910Ab3ICRsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:48:35 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bg4so6716902pad.18
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 10:48:35 -0700 (PDT)
+In-Reply-To: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2013 11:27 AM, Hannes Frederic Sowa wrote:
-> On Tue, Sep 03, 2013 at 11:19:14AM -0600, Stephen Warren wrote:
->> On 09/03/2013 05:37 AM, Thomas Graf wrote:
->>> Allocating skbs when sending out neighbour discovery messages
->>> currently uses sock_alloc_send_skb() based on a per net namespace
->>> socket and thus share a socket wmem buffer space.
->>>
->>> If a netdevice is temporarily unable to transmit due to carrier
->>> loss or for other reasons, the queued up ndisc messages will cosnume
->>> all of the wmem space and will thus prevent from any more skbs to
->>> be allocated even for netdevices that are able to transmit packets.
->>>
->>> The number of neighbour discovery messages sent is very limited,
->>> use of alloc_skb() bypasses the socket wmem buffer size enforcement
->>> while the manual call to skb_set_owner_w() maintains the socket
->>> reference needed for the IPv6 output path.
->>>
->>> This patch has orginally been posted by Eric Dumazet in a modified
->>> form.
->>
->> Tested-by: Stephen Warren <swarren@nvidia.com>
->>
->> Although I do note something slightly odd:
->>
->> next-20130830 had an issue, and reverting V1 of this patch solved it.
->>
->> However, in next-20130903, if I revert the revert of V1 of this patch, I
->> don't see any issue; it appears that the problem was some interaction
->> between V1 of this patch and something else in next-20130830.
->>
->> Either way, this patch doesn't seem to introduce any issue when applied
->> on top of either next-20130830 with V1 reverted, or on top of
->> next-20130903, so it's fine.
+On Tue, 2013-09-03 at 19:29 +0200, Daniel Borkmann wrote:
+> In tcp_v6_do_rcv() code, when processing pkt options, we soley work
+> on our skb clone opt_skb that we've created earlier before entering
+> tcp_rcv_established() on our way. However, only in condition ...
 > 
-> Could either of you run the v1 version of the patch with CONFIG_PROVE_LOCKING
-> enabled? I also do think there is some side-effect we don't understand yet.
+>   if (np->rxopt.bits.rxtclass)
+>     np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+> 
+> ... we work on skb itself. As we extract every other information out
+> of opt_skb in ipv6_pktoptions path, this seems wrong, since skb can
+> already be released by tcp_rcv_established() earlier on. When we try
+> to access it in ipv6_hdr(), we will dereference freed skb.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv6/tcp_ipv6.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 6e1649d..eeb4cb0 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -1427,7 +1427,7 @@ ipv6_pktoptions:
+>  		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
+>  			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
+>  		if (np->rxopt.bits.rxtclass)
+> -			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+> +			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(opt_skb));
+>  		if (ipv6_opt_accepted(sk, opt_skb)) {
+>  			skb_set_owner_r(opt_skb, sk);
+>  			opt_skb = xchg(&np->pktoptions, opt_skb);
 
-I don't see any extra messages from PROVE_LOCKING related to networking.
-There is a single extra message from inside the audio driver, but that's
-not networking-related at all.
+Bug added in commit 4c507d2897bd9b
+("net: implement IP_RECVTOS for IP_PKTOPTIONS")
+
+CC Jiri
+
+Acked-by: Eric Dumazet <edumazet@google.com>
