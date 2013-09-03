@@ -1,76 +1,57 @@
-From: Arvid Brodin <arvid.brodin@xdin.com>
-Subject: Re: [PATCH v3] net/hsr: Add support for the High-availability Seamless
- Redundancy protocol (HSRv0)
-Date: Tue, 3 Sep 2013 17:30:58 +0200
-Message-ID: <522600B2.8090507@xdin.com>
-References: <521504E1.5060309@xdin.com> <20130830.155415.1756229438072680437.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BQL support in gianfar causes network hiccup
+Date: Tue, 03 Sep 2013 08:42:20 -0700
+Message-ID: <1378222940.7360.34.camel@edumazet-glaptop>
+References: <522490CB.60008@appeartv.com> <52249859.2040605@freescale.com>
+	 <5224A2A8.6000306@appeartv.com> <5224B026.8090803@freescale.com>
+	 <5224C1EB.3030307@appeartv.com> <52258A60.8040305@freescale.com>
+	 <522595DD.1030600@appeartv.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <shemminger@vyatta.com>,
-	<joe@perches.com>, <jboticario@gmail.com>,
-	<balferreira@googlemail.com>
-To: David Miller <davem@davemloft.net>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+	netdev@vger.kernel.org
+To: Per =?ISO-8859-1?Q?Dal=E9n?= <per.dalen@appeartv.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:60701 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754298Ab3ICPkd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 11:40:33 -0400
-In-Reply-To: <20130830.155415.1756229438072680437.davem@davemloft.net>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:51610 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754298Ab3ICPn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 11:43:29 -0400
+Received: by mail-pb0-f42.google.com with SMTP id un15so6176317pbc.15
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 08:43:28 -0700 (PDT)
+In-Reply-To: <522595DD.1030600@appeartv.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-08-30 21:54, David Miller wrote:
-> From: Arvid Brodin <arvid.brodin@xdin.com>
-> Date: Wed, 21 Aug 2013 20:20:17 +0200
->=20
->> This is a patch against net-next (2013-08-21).
->=20
-> First of all, your email client corrupted the patch, chopping up long=
- lines
-> and making whitespace changes to the content of the patch.  Please fi=
-x this
-> before resubmitting, and do so by first sending a test patch to yours=
-elf
-> and making sure you can apply the patch you receive in that email.  D=
-o not
-> use attachments to deal with this issue.
+On Tue, 2013-09-03 at 09:55 +0200, Per Dal=C3=A9n wrote:
 
-Sorry about that - I forgot to disable Format=3DFlowed... :(
+> Yes, it's weird. The only reason I removed the BQL commit=20
+> (d8a0f1b0af67679bba886784de10d8c21acc4e0e) was because the error Tino=
+=20
+> Keitel had was the similar as mine.
 
 
->> +	if (dev->operstate !=3D transition) {
->> +		write_lock_bh(&dev_base_lock);
->> +		dev->operstate =3D transition;
->> +		write_unlock_bh(&dev_base_lock);
->> +		netdev_state_change(dev);
->> +	}
->=20
-> This is racy.  And it appears that set_operstate() in net/core/rtnetl=
-ink.c
-> has the same bug, I guess that's what you used as a guide.
->=20
-> Any "test and set" sequence must be guarded completely by the lock, i=
-t
-> doesn't make any sense to only guard the change of the value.
+I suspect a genuine race in this driver. BQL only makes this race happe=
+n
+more often.
 
-I never did understand the purpose of the locking done in set_operstate=
-(). Will fix.
+gfar_poll_sq() has the following :
 
-Also, Stephen Hemminger told me to use rtnl_mutex instead, but when I p=
-ointed
-to net/core/rtnetlink.c and asked if he was sure, I did not get a reply=
-=2E This=20
-function - __hsr_set_operstate() - is only called from a notifier_call =
-function,=20
-so rtnl_mutex is already held here. Do I even need additional locking?
+/* run Tx cleanup to completion */
+if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx])
+        gfar_clean_tx_ring(tx_queue);
 
+While gfar_poll() has a different method :
 
-(According to ULNI* pp 171 Stephen is right and net/core/rtnetlink.c is=
- wrong...)
+if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx]) {=20
+    gfar_clean_tx_ring(tx_queue);
+    has_tx_work =3D 1;
+}
 
-* ULNI =3D Understanding Linux Network Internals
+Note the has_tx_work use in gfar_poll() only.
 
---=20
-Arvid Brodin | Consultant (Linux)
-XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
+Note that memory barriers seems to be missing.
+
+1) In your cases, is it gfar_poll_sq() or gfar_poll() that is used ?
+
+2) Is the bug happening if only one CPU is used ?
