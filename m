@@ -1,43 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: tcp_probe: adapt tbuf size for recent changes
-Date: Tue,  3 Sep 2013 18:24:02 +0200
-Message-ID: <1378225442-6676-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11520 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754053Ab3ICQYE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 12:24:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: RE: [patch] qlcnic: remove a stray semicolon
+Date: Tue, 3 Sep 2013 16:43:59 +0000
+Message-ID: <ADFE82A996F10145934E45547759F763311D56C3@avmb3.qlogic.org>
+References: <20130903091347.GA4630@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130903091347.GA4630@elgon.mountain>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With recent changes in tcp_probe module (e.g. f925d0a62d ("net: tcp_probe:
-add IPv6 support")) we also need to take into account that tbuf needs to
-be updated as format string will be further expanded. tbuf sits on the stack
-in tcpprobe_read() function that is invoked when user space reads procfs
-file /proc/net/tcpprobe, hence not fast path as in jtcp_rcv_established().
-Having a size similarly as in sctp_probe module of 256 bytes is fully
-sufficient for that, we need theoretical maximum of 252 bytes otherwise we
-could get truncated.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/ipv4/tcp_probe.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+> Sent: Tuesday, September 03, 2013 2:14 AM
+> To: Himanshu Madhani
+> Cc: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko; Sucheta
+> Chakraborty; Dept-Eng Linux Driver; netdev; kernel-janitors@vger.kernel.org
+> Subject: [patch] qlcnic: remove a stray semicolon
+> 
+> Just remove a small semicolon.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> index 332aa71..4d7ad00 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> @@ -1709,7 +1709,7 @@ qlcnic_set_dump(struct net_device *netdev, struct
+> ethtool_dump *val)
+>  		qlcnic_dev_request_reset(adapter, val->flag);
+>  		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
+>  		break;
+> -;
+> +
+>  	case QLCNIC_SET_QUIESCENT:
+>  	case QLCNIC_RESET_QUIESCENT:
+>  		state = QLC_SHARED_REG_RD32(adapter,
+> QLCNIC_CRB_DEV_STATE);
 
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 622a437..1f6aa54 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -218,7 +218,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
- 		return -EINVAL;
- 
- 	while (cnt < len) {
--		char tbuf[164];
-+		char tbuf[256];
- 		int width;
- 
- 		/* Wait for data in buffer */
--- 
-1.7.11.7
+Thanks
+
+Acked-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
