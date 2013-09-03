@@ -1,151 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 6/8] net: ipv6: mld: refactor query processing into v1/v2 functions
-Date: Tue,  3 Sep 2013 09:59:36 +0200
-Message-ID: <1378195178-21002-7-git-send-email-dborkman@redhat.com>
-References: <1378195178-21002-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: Michele Baldessari <michele@acksyn.org>
+Subject: Re: [PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
+Date: Tue, 3 Sep 2013 09:04:25 +0100
+Message-ID: <20130903080425.GB2990@marquez.int.rhx>
+References: <20130902213128.GB14301@marquez.int.rhx>
+ <20130903001331.GA8820@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sasha Levin <sasha.levin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16738 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932456Ab3ICH7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 03:59:53 -0400
-In-Reply-To: <1378195178-21002-1-git-send-email-dborkman@redhat.com>
+Received: from palahniuk.acksyn.org ([5.9.7.26]:36605 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753584Ab3ICIE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 04:04:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20130903001331.GA8820@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make igmp6_event_query() a bit easier to read by refactoring code
-parts into mld_process_v1() and mld_process_v2().
+Hi Hannes,
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/mcast.c | 89 +++++++++++++++++++++++++++++++++++---------------------
- 1 file changed, 56 insertions(+), 33 deletions(-)
+On Tue, Sep 03, 2013 at 02:13:31AM +0200, Hannes Frederic Sowa wrote:
+> On Mon, Sep 02, 2013 at 10:31:28PM +0100, Michele Baldessari wrote:
+> > with the latest linux master git tree from Linus
+> > (248d296d6d9df384996c2ed95676b367d876d48c - 2 Sep) I can reproduceably oops 
+> > the kernel with the following commands:
+> > ip addrlabel flush
+> > ip addrlabel add prefix ::1/128              label 0
+> > ip addrlabel add prefix ::/0                 label 1
+> 
+> Thanks for the report! This patch should fix this issue:
+> 
+> [PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
+> 
+> Commit b67bfe0d42cac56c512dd5da4b1b347a23f4b70a ("hlist: drop
+> the node parameter from iterators") changed the behavior of
+> hlist_for_each_entry_safe to leave the p argument NULL.
+> 
+> Fix this up by tracking the last argument.
+> 
+> Reported-by: Michele Baldessari <michele@acksyn.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 75a4324..b01aa32 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1207,6 +1207,55 @@ static void mld_update_qri(struct inet6_dev *idev,
- 	idev->mc_qri = msecs_to_jiffies(mldv2_mrc(mlh2));
- }
- 
-+static int mld_process_v1(struct inet6_dev *idev, struct mld_msg *mld,
-+			  unsigned long *max_delay)
-+{
-+	unsigned long mldv1_md;
-+
-+	/* Ignore v1 queries */
-+	if (mld_in_v2_mode_only(idev))
-+		return -EINVAL;
-+
-+	/* MLDv1 router present */
-+	mldv1_md = ntohs(mld->mld_maxdelay);
-+	*max_delay = max(msecs_to_jiffies(mldv1_md), 1UL);
-+
-+	mld_set_v1_mode(idev);
-+
-+	/* cancel MLDv2 report timer */
-+	idev->mc_gq_running = 0;
-+	if (del_timer(&idev->mc_gq_timer))
-+		__in6_dev_put(idev);
-+
-+	/* cancel the interface change timer */
-+	idev->mc_ifc_count = 0;
-+	if (del_timer(&idev->mc_ifc_timer))
-+		__in6_dev_put(idev);
-+
-+	/* clear deleted report items */
-+	mld_clear_delrec(idev);
-+
-+	return 0;
-+}
-+
-+static int mld_process_v2(struct inet6_dev *idev, struct mld2_query *mld,
-+			  unsigned long *max_delay)
-+{
-+	/* hosts need to stay in MLDv1 mode, discard MLDv2 queries */
-+	if (mld_in_v1_mode(idev))
-+		return -EINVAL;
-+
-+	*max_delay = max(msecs_to_jiffies(mldv2_mrc(mld)), 1UL);
-+
-+	mld_update_qrv(idev, mld);
-+	mld_update_qi(idev, mld);
-+	mld_update_qri(idev, mld);
-+
-+	idev->mc_maxdelay = *max_delay;
-+
-+	return 0;
-+}
-+
- /* called with rcu_read_lock() */
- int igmp6_event_query(struct sk_buff *skb)
- {
-@@ -1218,7 +1267,7 @@ int igmp6_event_query(struct sk_buff *skb)
- 	struct mld_msg *mld;
- 	int group_type;
- 	int mark = 0;
--	int len;
-+	int len, err;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
- 		return -EINVAL;
-@@ -1244,47 +1293,21 @@ int igmp6_event_query(struct sk_buff *skb)
- 		return -EINVAL;
- 
- 	if (len == MLD_V1_QUERY_LEN) {
--		unsigned long mldv1_md;
--
--		/* Ignore v1 queries */
--		if (mld_in_v2_mode_only(idev))
--			return 0;
--
--		/* MLDv1 router present */
--		mldv1_md = ntohs(mld->mld_maxdelay);
--		max_delay = max(msecs_to_jiffies(mldv1_md), 1UL);
--
--		mld_set_v1_mode(idev);
--
--		/* cancel MLDv2 report timer */
--		idev->mc_gq_running = 0;
--		if (del_timer(&idev->mc_gq_timer))
--			__in6_dev_put(idev);
--
--		/* cancel the interface change timer */
--		idev->mc_ifc_count = 0;
--		if (del_timer(&idev->mc_ifc_timer))
--			__in6_dev_put(idev);
--		/* clear deleted report items */
--		mld_clear_delrec(idev);
-+		err = mld_process_v1(idev, mld, &max_delay);
-+		if (err < 0)
-+			return err;
- 	} else if (len >= MLD_V2_QUERY_LEN_MIN) {
- 		int srcs_offset = sizeof(struct mld2_query) -
- 				  sizeof(struct icmp6hdr);
- 
--		/* hosts need to stay in MLDv1 mode, discard MLDv2 queries */
--		if (mld_in_v1_mode(idev))
--			return 0;
- 		if (!pskb_may_pull(skb, srcs_offset))
- 			return -EINVAL;
- 
- 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
- 
--		max_delay = max(msecs_to_jiffies(mldv2_mrc(mlh2)), 1UL);
--		idev->mc_maxdelay = max_delay;
--
--		mld_update_qrv(idev, mlh2);
--		mld_update_qi(idev, mlh2);
--		mld_update_qri(idev, mlh2);
-+		err = mld_process_v2(idev, mlh2, &max_delay);
-+		if (err < 0)
-+			return err;
- 
- 		if (group_type == IPV6_ADDR_ANY) { /* general query */
- 			if (mlh2->mld2q_nsrcs)
--- 
-1.7.11.7
+Thanks for the patch, fixes it for me. 
+
+Tested-by: Michele Baldessari <michele@acksyn.org>
