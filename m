@@ -1,36 +1,43 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
- tcp_v6_do_rcv
-Date: Tue, 3 Sep 2013 15:59:15 -0600
-Message-ID: <20130903215915.GF8262@mail.gmail.com>
-References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
- <1378230513.7360.37.camel@edumazet-glaptop>
- <20130903194620.GE8262@mail.gmail.com>
- <1378240517.7360.41.camel@edumazet-glaptop>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH] openvswitch: fix sw_flow_key alignment
+Date: Tue, 3 Sep 2013 15:06:36 -0700
+Message-ID: <CAEP_g=-9ezK5MqiHKvKuFNn3SVoGBRy7p6V5JanKFFG86i8EDw@mail.gmail.com>
+References: <CAEP_g=9y-HeG0vHS2v-dk7eDp=T0denddykDO3TJtk4UJ062Mg@mail.gmail.com>
+ <20130830.144211.1550393719904034493.davem@davemloft.net> <CAEP_g=-zgaKot6f5w=sqVjOauT9OtSd1sjrJSwc5AC7xR1s99g@mail.gmail.com>
+ <20130831.001650.130549489746201651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	Jiri Benc <jbenc@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Zhou <azhou@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:60734 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759828Ab3ICWBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 18:01:41 -0400
-Received: by mail-pb0-f53.google.com with SMTP id up15so6519931pbc.26
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 15:01:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1378240517.7360.41.camel@edumazet-glaptop>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:35310 "HELO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1759704Ab3ICWG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 18:06:57 -0400
+Received: by mail-lb0-f179.google.com with SMTP id x18so5608265lbi.10
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 15:06:56 -0700 (PDT)
+In-Reply-To: <20130831.001650.130549489746201651.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Sep 2013 13:35:17 -0700
+On Fri, Aug 30, 2013 at 9:16 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Fri, 30 Aug 2013 16:20:25 -0700
 >
-> How did you get your conclusion ?
+>> I looked through the struct definition and I think that the idea of
+>> manually padding as Geert did in his patch will be difficult to
+>> maintain over time (and actually there are a few that he missed) since
+>> there are a number of different structs/unions contained in there.
+>
+> You have to be mindful of the gaps and wasted space for performance
+> reasons anyways.
 
-If one changes one line of code, doesn't one own that line?
-
--- 
-Jean Sacren
+Yes, although the approaches for performance and correctness are not
+necessarily the same. For example, we're taking about potentially
+packing the struct, in which case we would still have the same
+alignment needs even without any gaps. If the correctness is clearly
+handled (through an explicit align and build assert) then it's easier
+to pack/rearrange/whatever for performance since the whole thing isn't
+fragile.
