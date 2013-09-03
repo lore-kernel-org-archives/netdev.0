@@ -1,80 +1,52 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Subject: [PATCH 5/7] ixgbe: use pcie_capability_read_word() to
-	simplify code
-Date: Tue, 3 Sep 2013 15:35:13 +0800
-Message-ID: <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
-References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v2 net-next 0/9] set addr_assign_type when inheriting a
+ dev_addr
+Date: Tue, 03 Sep 2013 09:38:10 +0200
+Message-ID: <87mwnuqrrx.fsf@nemi.mork.no>
+References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
+ <20130831.225057.1874268263797742541.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, linux-pci@vger.kernel.org,
-	Hanjun Guo <guohanjun@huawei.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Yijing Wang <wangyijing@huawei.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Gavin Shan
-	<shangw@linux.vnet.ibm.com>, Bjorn Helgaas <bhelgaas@google.com>, "James
-	E.J. Bottomley" <JBottomley@parallels.com>, "David S. Miller"
-	<davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devel@driverdev.osuosl.org, jiri@resnulli.us,
+ libertas-dev@lists.infradead.org, j@w1.fi, netdev@vger.kernel.org,
+ linux-wireless@vger.kernel.org, linville@tuxdriver.com,
+ stephen@networkplumber.org, forest@alittletooquiet.net,
+ gregkh@linuxfoundation.org, kaber@trash.net, dan.carpenter@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20130831.225057.1874268263797742541.davem@davemloft.net> (David
+ Miller's message of "Sat, 31 Aug 2013 22:50:57 -0400 (EDT)")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-use pcie_capability_read_word() to simplify code.
-
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: e1000-devel@lists.sourceforge.net
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bad8f14..bfa0b06 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -152,7 +152,6 @@ MODULE_VERSION(DRV_VERSION);
- static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
- 					  u32 reg, u16 *value)
- {
--	int pos = 0;
- 	struct pci_dev *parent_dev;
- 	struct pci_bus *parent_bus;
- 
-@@ -164,11 +163,10 @@ static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
- 	if (!parent_dev)
- 		return -1;
- 
--	pos = pci_find_capability(parent_dev, PCI_CAP_ID_EXP);
--	if (!pos)
-+	if (!pci_is_pcie(parent_dev))
- 		return -1;
- 
--	pci_read_config_word(parent_dev, pos + reg, value);
-+	pcie_capability_read_word(parent_dev, reg, value);
- 	return 0;
- }
- 
--- 
-1.7.1
-
-
-
-------------------------------------------------------------------------------
-Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
-Discover the easy way to master current and previous Microsoft technologies
-and advance your career. Get an incredible 1,500+ hours of step-by-step
-tutorial videos with LearnDevNow. Subscribe today and save!
-http://pubads.g.doubleclick.net/gampad/clk?id=58040911&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+RGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cml0ZXM6Cgo+IEZyb206IEJqw7hy
+biBNb3JrIDxiam9ybkBtb3JrLm5vPgo+IERhdGU6IEZyaSwgMzAgQXVnIDIwMTMgMTg6MDg6NDMg
+KzAyMDAKPgo+PiBDb3B5aW5nIHRoZSBkZXZfYWRkciBmcm9tIGEgcGFyZW50IGRldmljZSBpcyBh
+biBvcGVyYXRpb24KPj4gY29tbW9uIHRvIGEgbnVtYmVyIG9mIGRyaXZlcnMuIFRoZSBhZGRyX2Fz
+c2lnbl90eXBlIHNob3VsZAo+PiBiZSB1cGRhdGVkIGFjY29yZGluZ2x5LCBlaXRoZXIgYnkgcmV1
+c2luZyB0aGUgdmFsdWUgZnJvbQo+PiB0aGUgc291cmNlIGRldmljZSBvciBleHBsaWNpdGx5IGlu
+ZGljYXRpbmcgdGhhdCB0aGUgYWRkcmVzcwo+PiBpcyBzdG9sZW4gYnkgc2V0dGluZyBhZGRyX2Fz
+c2lnbl90eXBlIHRvIE5FVF9BRERSX1NUT0xFTi4KPj4gCj4+IFRoaXMgcGF0Y2ggc2V0IGFkZHMg
+YSBoZWxwZXIgY29weWluZyBib3RoIHRoZSBkZXZfYWRkciBhbmQKPj4gdGhlIGFkZHJfYXNzaWdu
+X3R5cGUsIGFuZCB1c2UgdGhpcyBoZWxwZXIgaW4gZHJpdmVycyB3aGljaAo+PiBkb24ndCBjdXJy
+ZW50bHkgc2V0IHRoZSBhZGRyX2Fzc2lnbl90eXBlLiBVc2luZyBORVRfQUREUl9TVE9MRU4KPj4g
+bWlnaHQgYmUgbW9yZSBhcHByb3ByaWF0ZSBpbiBzb21lIG9mIHRoZXNlIGNhc2VzLiAgUGxlYXNl
+Cj4+IGxldCBtZSBrbm93LCBhbmQgSSdsbCB1cGRhdGUgdGhlIHBhdGNoIGFjY29yZGluZ2x5Lgo+
+PiAKPj4gQ2hhbmdlcyBpbiB2MjoKPj4gIC0gYXNzdW1pbmcgYWRkcl9sZW4gPT0gRVRIX0FMRU4g
+dG8gYWxsb3cgb3B0aW1pemVkIG1lbWNweQo+PiAgLSBkcm9wcGVkIHRoZSB2dDY2NTYgcGF0Y2gg
+ZHVlIHRvIGFkZHJfbGVuIGJlaW5nIHVuc2V0IGluIHRoYXQgZHJpdmVyCj4KPiBMb29rcyBnb29k
+LCBzZXJpZXMgYXBwbGllZCwgdGhhbmtzLgoKVGhhbmtzLiAgQnV0IGl0IGRvZXNuJ3QgbG9vayBs
+aWtlIGl0IGVuZGVkIHVwIGluIG5ldC1uZXh0PyAgT3IgYW0gSQptaXNzaW5nIHNvbWV0aGluZyAo
+YWdhaW4pPwoKCkJqw7hybgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXZlbCBtYWlsaW5nIGxpc3QKZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZwpo
+dHRwOi8vZHJpdmVyZGV2LmxpbnV4ZHJpdmVycHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+cml2ZXJkZXYtZGV2ZWwK
