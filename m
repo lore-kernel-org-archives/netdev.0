@@ -1,85 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH v2] ipv6: Don't depend on per socket memory for neighbour discovery messages
-Date: Tue,  3 Sep 2013 13:37:01 +0200
-Message-ID: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Fabio Estevam <festevam@gmail.com>
-To: davem@davemloft.net
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] net: introduce generic net_random_N helper
+Date: Tue, 03 Sep 2013 13:40:33 +0200
+Message-ID: <5225CAB1.7080402@redhat.com>
+References: <1378204010-27050-1-git-send-email-dborkman@redhat.com>  <1378204010-27050-2-git-send-email-dborkman@redhat.com> <1378206045.2048.9.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	"Theodore Ts'o" <tytso@mit.edu>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59100 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932595Ab3ICLhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 07:37:07 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:62925 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932595Ab3ICLkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 07:40:40 -0400
+In-Reply-To: <1378206045.2048.9.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocating skbs when sending out neighbour discovery messages
-currently uses sock_alloc_send_skb() based on a per net namespace
-socket and thus share a socket wmem buffer space.
+On 09/03/2013 01:00 PM, Joe Perches wrote:
+> On Tue, 2013-09-03 at 12:26 +0200, Daniel Borkmann wrote:
+>> We have implemented the same function over and over, so introduce a
+>> generic helper net_random_N() that unifies these implementations.
+>> It internally used net_random() which eventually resolves to
+>> prandom_u32(). Explicit include of reciprocal_div.h is not necessary.
+>
+> Perhaps adding a generic helper to random.h like
+> 	u32 prandom_u32_between(u32 low, u32 high);
+> or
+> 	u32 prandom_u32_range(u32 bound1, u32 bound2)
+> would be better.
 
-If a netdevice is temporarily unable to transmit due to carrier
-loss or for other reasons, the queued up ndisc messages will cosnume
-all of the wmem space and will thus prevent from any more skbs to
-be allocated even for netdevices that are able to transmit packets.
-
-The number of neighbour discovery messages sent is very limited,
-use of alloc_skb() bypasses the socket wmem buffer size enforcement
-while the manual call to skb_set_owner_w() maintains the socket
-reference needed for the IPv6 output path.
-
-This patch has orginally been posted by Eric Dumazet in a modified
-form.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Stephen Warren <swarren@wwwdotorg.org>
-Cc: Fabio Estevam <festevam@gmail.com>
----
- net/ipv6/ndisc.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-v2: Maintain socket reference to account for the IPv6 output path.
-    Problem reported by Stephen Warren <swarren@wwwdotorg.org> and
-    Fabio Estevam <festevam@gmail.com>.
-
-    Tested on x86_64
-
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 04d31c2..78141fa 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -372,14 +372,11 @@ static struct sk_buff *ndisc_alloc_skb(struct net_device *dev,
- 	int tlen = dev->needed_tailroom;
- 	struct sock *sk = dev_net(dev)->ipv6.ndisc_sk;
- 	struct sk_buff *skb;
--	int err;
- 
--	skb = sock_alloc_send_skb(sk,
--				  hlen + sizeof(struct ipv6hdr) + len + tlen,
--				  1, &err);
-+	skb = alloc_skb(hlen + sizeof(struct ipv6hdr) + len + tlen, GFP_ATOMIC);
- 	if (!skb) {
--		ND_PRINTK(0, err, "ndisc: %s failed to allocate an skb, err=%d\n",
--			  __func__, err);
-+		ND_PRINTK(0, err, "ndisc: %s failed to allocate an skb\n",
-+			  __func__);
- 		return NULL;
- 	}
- 
-@@ -389,6 +386,11 @@ static struct sk_buff *ndisc_alloc_skb(struct net_device *dev,
- 	skb_reserve(skb, hlen + sizeof(struct ipv6hdr));
- 	skb_reset_transport_header(skb);
- 
-+	/* Manually assign socket ownership as we avoid calling
-+	 * sock_alloc_send_pskb() to bypass wmem buffer limits
-+	 */
-+	skb_set_owner_w(skb, sk);
-+
- 	return skb;
- }
- 
--- 
-1.8.3.1
+Sure, this could be done as a follow-up. Once, we've migrated users to
+the new API, follow-ups could go ahead to do the rest, and migration
+will be easy. Note that the lower bound is 0 here.
