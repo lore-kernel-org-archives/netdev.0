@@ -1,96 +1,118 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] ibmveth: Fix little endian issues
-Date: Tue, 3 Sep 2013 09:55:32 +1000
-Message-ID: <20130903095532.507dcb44@kryten>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
+Date: Tue, 3 Sep 2013 02:13:31 +0200
+Message-ID: <20130903001331.GA8820@order.stressinduktion.org>
+References: <20130902213128.GB14301@marquez.int.rhx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: santil@linux.vnet.ibm.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43846 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756805Ab3IBXze (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 19:55:34 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:33608 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755107Ab3ICANc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 20:13:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20130902213128.GB14301@marquez.int.rhx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-The hypervisor is big endian, so little endian kernel builds need
-to byteswap.
+On Mon, Sep 02, 2013 at 10:31:28PM +0100, Michele Baldessari wrote:
+> with the latest linux master git tree from Linus
+> (248d296d6d9df384996c2ed95676b367d876d48c - 2 Sep) I can reproduceably oops 
+> the kernel with the following commands:
+> ip addrlabel flush
+> ip addrlabel add prefix ::1/128              label 0
+> ip addrlabel add prefix ::/0                 label 1
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
+Thanks for the report! This patch should fix this issue:
+
+[PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
+
+Commit b67bfe0d42cac56c512dd5da4b1b347a23f4b70a ("hlist: drop
+the node parameter from iterators") changed the behavior of
+hlist_for_each_entry_safe to leave the p argument NULL.
+
+Fix this up by tracking the last argument.
+
+Reported-by: Michele Baldessari <michele@acksyn.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
+ net/ipv6/addrlabel.c | 48 +++++++++++++++++++++++-------------------------
+ 1 file changed, 23 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 70fd559..5d41aee 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -106,7 +106,7 @@ struct ibmveth_stat ibmveth_stats[] = {
- /* simple methods of getting data from the current rxq entry */
- static inline u32 ibmveth_rxq_flags(struct ibmveth_adapter *adapter)
+diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
+index f083a58..b30ad37 100644
+--- a/net/ipv6/addrlabel.c
++++ b/net/ipv6/addrlabel.c
+@@ -251,38 +251,36 @@ static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
+ /* add a label */
+ static int __ip6addrlbl_add(struct ip6addrlbl_entry *newp, int replace)
  {
--	return adapter->rx_queue.queue_addr[adapter->rx_queue.index].flags_off;
-+	return be32_to_cpu(adapter->rx_queue.queue_addr[adapter->rx_queue.index].flags_off);
- }
++	struct hlist_node *n;
++	struct ip6addrlbl_entry *last = NULL, *p = NULL;
+ 	int ret = 0;
  
- static inline int ibmveth_rxq_toggle(struct ibmveth_adapter *adapter)
-@@ -132,7 +132,7 @@ static inline int ibmveth_rxq_frame_offset(struct ibmveth_adapter *adapter)
+-	ADDRLABEL(KERN_DEBUG "%s(newp=%p, replace=%d)\n",
+-			__func__,
+-			newp, replace);
++	ADDRLABEL(KERN_DEBUG "%s(newp=%p, replace=%d)\n", __func__, newp,
++		  replace);
  
- static inline int ibmveth_rxq_frame_length(struct ibmveth_adapter *adapter)
- {
--	return adapter->rx_queue.queue_addr[adapter->rx_queue.index].length;
-+	return be32_to_cpu(adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
- }
- 
- static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
-diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
-index 43a794f..84066ba 100644
---- a/drivers/net/ethernet/ibm/ibmveth.h
-+++ b/drivers/net/ethernet/ibm/ibmveth.h
-@@ -164,14 +164,26 @@ struct ibmveth_adapter {
-     u64 tx_send_failed;
- };
- 
-+/*
-+ * We pass struct ibmveth_buf_desc_fields to the hypervisor in registers,
-+ * so we don't need to byteswap the two elements. However since we use
-+ * a union (ibmveth_buf_desc) to convert from the struct to a u64 we
-+ * do end up with endian specific ordering of the elements and that
-+ * needs correcting.
-+ */
- struct ibmveth_buf_desc_fields {
-+#ifdef __BIG_ENDIAN
-+	u32 flags_len;
-+	u32 address;
-+#else
-+	u32 address;
- 	u32 flags_len;
-+#endif
- #define IBMVETH_BUF_VALID	0x80000000
- #define IBMVETH_BUF_TOGGLE	0x40000000
- #define IBMVETH_BUF_NO_CSUM	0x02000000
- #define IBMVETH_BUF_CSUM_GOOD	0x01000000
- #define IBMVETH_BUF_LEN_MASK	0x00FFFFFF
--	u32 address;
- };
- 
- union ibmveth_buf_desc {
-@@ -180,7 +192,7 @@ union ibmveth_buf_desc {
- };
- 
- struct ibmveth_rx_q_entry {
--	u32 flags_off;
-+	__be32 flags_off;
- #define IBMVETH_RXQ_TOGGLE		0x80000000
- #define IBMVETH_RXQ_TOGGLE_SHIFT	31
- #define IBMVETH_RXQ_VALID		0x40000000
-@@ -188,7 +200,8 @@ struct ibmveth_rx_q_entry {
- #define IBMVETH_RXQ_CSUM_GOOD		0x01000000
- #define IBMVETH_RXQ_OFF_MASK		0x0000FFFF
- 
--	u32 length;
-+	__be32 length;
-+	/* correlator is only used by the OS, no need to byte swap */
- 	u64 correlator;
- };
- 
+-	if (hlist_empty(&ip6addrlbl_table.head)) {
+-		hlist_add_head_rcu(&newp->list, &ip6addrlbl_table.head);
+-	} else {
+-		struct hlist_node *n;
+-		struct ip6addrlbl_entry *p = NULL;
+-		hlist_for_each_entry_safe(p, n,
+-					  &ip6addrlbl_table.head, list) {
+-			if (p->prefixlen == newp->prefixlen &&
+-			    net_eq(ip6addrlbl_net(p), ip6addrlbl_net(newp)) &&
+-			    p->ifindex == newp->ifindex &&
+-			    ipv6_addr_equal(&p->prefix, &newp->prefix)) {
+-				if (!replace) {
+-					ret = -EEXIST;
+-					goto out;
+-				}
+-				hlist_replace_rcu(&p->list, &newp->list);
+-				ip6addrlbl_put(p);
+-				goto out;
+-			} else if ((p->prefixlen == newp->prefixlen && !p->ifindex) ||
+-				   (p->prefixlen < newp->prefixlen)) {
+-				hlist_add_before_rcu(&newp->list, &p->list);
++	hlist_for_each_entry_safe(p, n,	&ip6addrlbl_table.head, list) {
++		if (p->prefixlen == newp->prefixlen &&
++		    net_eq(ip6addrlbl_net(p), ip6addrlbl_net(newp)) &&
++		    p->ifindex == newp->ifindex &&
++		    ipv6_addr_equal(&p->prefix, &newp->prefix)) {
++			if (!replace) {
++				ret = -EEXIST;
+ 				goto out;
+ 			}
++			hlist_replace_rcu(&p->list, &newp->list);
++			ip6addrlbl_put(p);
++			goto out;
++		} else if ((p->prefixlen == newp->prefixlen && !p->ifindex) ||
++			   (p->prefixlen < newp->prefixlen)) {
++			hlist_add_before_rcu(&newp->list, &p->list);
++			goto out;
+ 		}
+-		hlist_add_after_rcu(&p->list, &newp->list);
++		last = p;
+ 	}
++	if (last)
++		hlist_add_after_rcu(&last->list, &newp->list);
++	else
++		hlist_add_head_rcu(&newp->list, &ip6addrlbl_table.head);
+ out:
+ 	if (!ret)
+ 		ip6addrlbl_table.seq++;
+-- 
+1.8.3.1
