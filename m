@@ -1,144 +1,128 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/8] net: ipv6: mld: clean up MLD_V1_SEEN macro
-Date: Tue,  3 Sep 2013 09:59:32 +0200
-Message-ID: <1378195178-21002-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 3/8] net: ipv6: mld: get rid of MLDV2_MRC and simplify calculation
+Date: Tue,  3 Sep 2013 09:59:33 +0200
+Message-ID: <1378195178-21002-4-git-send-email-dborkman@redhat.com>
 References: <1378195178-21002-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10745 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35774 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932370Ab3ICH7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 03:59:45 -0400
+	id S932457Ab3ICH7r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 03:59:47 -0400
 In-Reply-To: <1378195178-21002-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the macro with a function to make it more readable. GCC will
-eventually decide whether to inline this or not (also, that's not
-fast-path anyway).
+Get rid of MLDV2_MRC and use our new macros for mantisse and
+exponent to calculate Maximum Response Delay out of the Maximum
+Response Code.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/mcast.c | 34 +++++++++++++++++++++-------------
- 1 file changed, 21 insertions(+), 13 deletions(-)
+ This will give a merge conflict in net/bridge/br_multicast.c with net tree. You can
+ resolve it by simply taking this version as we already do msecs_to_jiffies() here.
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 8992ff2..f86e26b 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -95,6 +95,7 @@ static void mld_ifc_event(struct inet6_dev *idev);
- static void mld_add_delrec(struct inet6_dev *idev, struct ifmcaddr6 *pmc);
- static void mld_del_delrec(struct inet6_dev *idev, const struct in6_addr *addr);
- static void mld_clear_delrec(struct inet6_dev *idev);
-+static bool mld_in_v1_mode(const struct inet6_dev *idev);
- static int sf_setstate(struct ifmcaddr6 *pmc);
- static void sf_markstate(struct ifmcaddr6 *pmc);
- static void ip6_mc_clear_src(struct ifmcaddr6 *pmc);
-@@ -117,11 +118,6 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
- #define MLD_V1_QUERY_LEN	24
- #define MLD_V2_QUERY_LEN_MIN	28
+ include/net/mld.h         | 28 +++++++++++++++++++---------
+ net/bridge/br_multicast.c |  3 ++-
+ net/ipv6/mcast.c          | 18 ++----------------
+ 3 files changed, 23 insertions(+), 26 deletions(-)
+
+diff --git a/include/net/mld.h b/include/net/mld.h
+index 2b5421f..faa1d16 100644
+--- a/include/net/mld.h
++++ b/include/net/mld.h
+@@ -63,15 +63,6 @@ struct mld2_query {
+ #define mld2q_mrc		mld2q_hdr.icmp6_maxdelay
+ #define mld2q_resv1		mld2q_hdr.icmp6_dataun.un_data16[1]
  
--#define MLD_V1_SEEN(idev) (dev_net((idev)->dev)->ipv6.devconf_all->force_mld_version == 1 || \
--		(idev)->cnf.force_mld_version == 1 || \
--		((idev)->mc_v1_seen && \
--		time_before(jiffies, (idev)->mc_v1_seen)))
+-/* Max Response Code, TODO: transform this to use the below */
+-#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
+-#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
+-	((value) < (thresh) ? (value) : \
+-	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
+-	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
 -
- #define IPV6_MLD_MAX_MSF	64
+-#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
+-
+ /* RFC3810, 5.1.3. Maximum Response Code:
+  *
+  * If Maximum Response Code >= 32768, Maximum Response Code represents a
+@@ -97,4 +88,23 @@ struct mld2_query {
+ #define MLDV2_QQIC_EXP(value)	(((value) >> 4) & 0x07)
+ #define MLDV2_QQIC_MAN(value)	((value) & 0x0f)
  
- int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
-@@ -139,7 +135,7 @@ static int unsolicited_report_interval(struct inet6_dev *idev)
- {
- 	int iv;
- 
--	if (MLD_V1_SEEN(idev))
-+	if (mld_in_v1_mode(idev))
- 		iv = idev->cnf.mldv1_unsolicited_report_interval;
- 	else
- 		iv = idev->cnf.mldv2_unsolicited_report_interval;
-@@ -695,7 +691,7 @@ static void igmp6_group_added(struct ifmcaddr6 *mc)
- 	if (!(dev->flags & IFF_UP) || (mc->mca_flags & MAF_NOREPORT))
- 		return;
- 
--	if (MLD_V1_SEEN(mc->idev)) {
-+	if (mld_in_v1_mode(mc->idev)) {
- 		igmp6_join_group(mc);
- 		return;
- 	}
-@@ -1116,6 +1112,18 @@ static bool mld_marksources(struct ifmcaddr6 *pmc, int nsrcs,
- 	return true;
- }
- 
-+static bool mld_in_v1_mode(const struct inet6_dev *idev)
++static inline unsigned long mldv2_mrc(const struct mld2_query *mlh2)
 +{
-+	if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version == 1)
-+		return true;
-+	if (idev->cnf.force_mld_version == 1)
-+		return true;
-+	if (idev->mc_v1_seen && time_before(jiffies, idev->mc_v1_seen))
-+		return true;
++	/* RFC3810, 5.1.3. Maximum Response Code */
++	unsigned long ret, mc_mrc = ntohs(mlh2->mld2q_mrc);
 +
-+	return false;
++	if (mc_mrc < 32768) {
++		ret = mc_mrc;
++	} else {
++		unsigned long mc_man, mc_exp;
++
++		mc_exp = MLDV2_MRC_EXP(mc_mrc);
++		mc_man = MLDV2_MRC_MAN(mc_mrc);
++
++		ret = (mc_man | 0x1000) << (mc_exp + 3);
++	}
++
++	return ret;
 +}
 +
- static void mld_set_v1_mode(struct inet6_dev *idev)
- {
- 	/* RFC3810, relevant sections:
-@@ -1262,7 +1270,7 @@ int igmp6_event_query(struct sk_buff *skb)
- 				  sizeof(struct icmp6hdr);
+ #endif
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 08e576a..4accd0d 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1203,7 +1203,8 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 		mld2q = (struct mld2_query *)icmp6_hdr(skb);
+ 		if (!mld2q->mld2q_nsrcs)
+ 			group = &mld2q->mld2q_mca;
+-		max_delay = mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_mrc)) : 1;
++
++		max_delay = max(msecs_to_jiffies(mldv2_mrc(mld2q)), 1UL);
+ 	}
  
- 		/* hosts need to stay in MLDv1 mode, discard MLDv2 queries */
--		if (MLD_V1_SEEN(idev))
-+		if (mld_in_v1_mode(idev))
- 			return 0;
- 		if (!pskb_may_pull(skb, srcs_offset))
- 			return -EINVAL;
-@@ -1942,7 +1950,7 @@ err_out:
+ 	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr),
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index f86e26b..005b22f 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1195,20 +1195,7 @@ static void mld_update_qri(struct inet6_dev *idev,
+ 	 *  - 5.1.3. Maximum Response Code
+ 	 *  - 9.3. Query Response Interval
+ 	 */
+-	unsigned long mc_qri, mc_mrc = ntohs(mlh2->mld2q_mrc);
+-
+-	if (mc_mrc < 32768) {
+-		mc_qri = mc_mrc;
+-	} else {
+-		unsigned long mc_man, mc_exp;
+-
+-		mc_exp = MLDV2_MRC_EXP(mc_mrc);
+-		mc_man = MLDV2_MRC_MAN(mc_mrc);
+-
+-		mc_qri = (mc_man | 0x1000) << (mc_exp + 3);
+-	}
+-
+-	idev->mc_qri = msecs_to_jiffies(mc_qri);
++	idev->mc_qri = msecs_to_jiffies(mldv2_mrc(mlh2));
+ }
  
- static void mld_resend_report(struct inet6_dev *idev)
- {
--	if (MLD_V1_SEEN(idev)) {
-+	if (mld_in_v1_mode(idev)) {
- 		struct ifmcaddr6 *mcaddr;
- 		read_lock_bh(&idev->lock);
- 		for (mcaddr = idev->mc_list; mcaddr; mcaddr = mcaddr->next) {
-@@ -2006,7 +2014,7 @@ static int ip6_mc_del1_src(struct ifmcaddr6 *pmc, int sfmode,
- 		else
- 			pmc->mca_sources = psf->sf_next;
- 		if (psf->sf_oldin && !(pmc->mca_flags & MAF_NOREPORT) &&
--		    !MLD_V1_SEEN(idev)) {
-+		    !mld_in_v1_mode(idev)) {
- 			psf->sf_crcount = idev->mc_qrv;
- 			psf->sf_next = pmc->mca_tomb;
- 			pmc->mca_tomb = psf;
-@@ -2306,7 +2314,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ /* called with rcu_read_lock() */
+@@ -1277,8 +1264,7 @@ int igmp6_event_query(struct sk_buff *skb)
  
- static void igmp6_leave_group(struct ifmcaddr6 *ma)
- {
--	if (MLD_V1_SEEN(ma->idev)) {
-+	if (mld_in_v1_mode(ma->idev)) {
- 		if (ma->mca_flags & MAF_LAST_REPORTER)
- 			igmp6_send(&ma->mca_addr, ma->idev->dev,
- 				ICMPV6_MGM_REDUCTION);
-@@ -2340,7 +2348,7 @@ static void mld_ifc_timer_expire(unsigned long data)
+ 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
  
- static void mld_ifc_event(struct inet6_dev *idev)
- {
--	if (MLD_V1_SEEN(idev))
-+	if (mld_in_v1_mode(idev))
- 		return;
- 	idev->mc_ifc_count = idev->mc_qrv;
- 	mld_ifc_start_timer(idev, 1);
-@@ -2351,7 +2359,7 @@ static void igmp6_timer_handler(unsigned long data)
- {
- 	struct ifmcaddr6 *ma = (struct ifmcaddr6 *) data;
+-		max_delay = max(msecs_to_jiffies(MLDV2_MRC(ntohs(mlh2->mld2q_mrc))), 1UL);
+-
++		max_delay = max(msecs_to_jiffies(mldv2_mrc(mlh2)), 1UL);
+ 		idev->mc_maxdelay = max_delay;
  
--	if (MLD_V1_SEEN(ma->idev))
-+	if (mld_in_v1_mode(ma->idev))
- 		igmp6_send(&ma->mca_addr, ma->idev->dev, ICMPV6_MGM_REPORT);
- 	else
- 		mld_send_report(ma->idev, ma);
+ 		mld_update_qrv(idev, mlh2);
 -- 
 1.7.11.7
