@@ -1,88 +1,58 @@
-From: =?ISO-8859-1?Q?Per_Dal=E9n?= <per.dalen@appeartv.com>
-Subject: Re: BQL support in gianfar causes network hiccup
-Date: Tue, 03 Sep 2013 09:55:09 +0200
-Message-ID: <522595DD.1030600@appeartv.com>
-References: <522490CB.60008@appeartv.com> <52249859.2040605@freescale.com> <5224A2A8.6000306@appeartv.com> <5224B026.8090803@freescale.com> <5224C1EB.3030307@appeartv.com> <52258A60.8040305@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/8] IPv6 MLD updates
+Date: Tue,  3 Sep 2013 09:59:30 +0200
+Message-ID: <1378195178-21002-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outmx2.itpays.net ([193.107.29.97]:43801 "EHLO
-	outmx2.itpays.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932229Ab3ICHzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 03:55:19 -0400
-Received: from server12.itpays.net (unknown [193.107.28.22])
-	by outmx2.itpays.net (Postfix) with SMTP id 1163A107AAD0
-	for <netdev@vger.kernel.org>; Tue,  3 Sep 2013 09:55:17 +0200 (CEST)
-In-Reply-To: <52258A60.8040305@freescale.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53346 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752039Ab3ICH7l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 03:59:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2013 09:06 AM, Claudiu Manoil wrote:
-> On 9/2/2013 7:50 PM, Per Dal=E9n wrote:
->> On 09/02/2013 05:35 PM, Claudiu Manoil wrote:
->>> On 9/2/2013 5:37 PM, Per Dal=E9n wrote:
->>>>> The proposed fix is currently under review:
->>>>> http://patchwork.ozlabs.org/patch/271242/
->>>>> "gianfar: Fix reported number of sent bytes to BQL"
->>>>>
->>>>> Does this one work for you? You might need to pull
->>>>> one recent gianfar clean-up patch from net-next in order
->>>>> to apply this one without incidents.
->>>>>
->>>>
->>>> No, still the same error:
->>>>
->>>> NETDEV WATCHDOG: eth0 (fsl-gianfar): transmit queue 0 timed out
->>>> ------------[ cut here ]------------
->>>> WARNING: at net/sched/sch_generic.c:256
->>>> Modules linked in:
->>>> NIP: c039ce0c LR: c039ce0c CTR: c02ef578
->>>> ...
->>>> 4e800421 80fe0244 4bffff40 7fc3f378 4bfea9d1 7fc4f378 7c651b78 3c6=
-0c055
->>>> 7fe6fb78 38635304 4cc63182 480fcddd <0fe00000> 39200001 993c0a3c
->>>> 4bffffb4
->>>> ---[ end trace 5f5e1e3c30024010 ]---
->>>>
->>>>
->>>
->>> Tried to reproduce the issue with a recent net-next kernel (Linux
->>> p2020rdb 3.11.0-rc6) + BQL fix patch (http://patchwork.ozlabs.org/p=
-atc
->>> /271242/), but the iperf test finished without incidents (see log
->>> below).
->>> Will try if the problem is apparent without the fix patch, on the s=
-ame
->>> net-next kernel (3.11.0-rc6).
->>>
->>
->> I was able to reproduce it on our card and the P2020RDB using 3.11.0=
--rc7
->> + David Miller's -next networking tree and your patch
->> (http://patchwork.ozlabs.org/patch/271242/).
->>
->> root@p2020rdb:~# iperf -s
->
-> Ok, I see, iperf -s on P2020. This way I was able to get the tx timeo=
-ut
-> too.  With iperf -c on P2020 it doesn't come up.  Now it'll be
-> interesting to find out what BQL/ BQL integration in gianfar has to d=
-o
-> with this.
+This set contains the non-RFC version of the previous submission entitled
+"[RFC PATCH net-next 0/7] IPv6 MLD updates". Most importantly it contains
+a fix for MLDv1/v2 switchback timeout where hosts currently are switching
+back from v1 compat mode to normal v2 too early (i.e. switchback time was
+<= 30secs instead of >= 260secs on default), and the set also contains a
+patch that allows for v2-only mode as per RFC recommendation. The rest is
+related to cleanups that make the code more readable resp. maintainable.
 
-Yes, it's weird. The only reason I removed the BQL commit=20
-(d8a0f1b0af67679bba886784de10d8c21acc4e0e) was because the error Tino=20
-Keitel had was the similar as mine.
+Changes from RFC to non-RFC:
 
->
-> Thanks.
-> claudiu
->
->
+We ignore v2 messages now when in v1 compat mode, otherwise report timers
+are reset and triggered, also stop current v2 report timer in case it is
+currently running and we received a v1 query; use WARN_ON instead of BUG_ON
+for RV of 0 (patch1).
 
-Thanks,
-Per
+Two more patches have been added that makes to code more readable, that is
+"net: ipv6: mld: refactor query processing into v1/v2 functions" and
+"net: ipv6: mld: introduce mld_{gq,ifc,dad}_stop_timer functions", the
+sysctl patch "net: ipv6: mld: restrict min/max of sysctl force_mld_version"
+has been dropped as extra1 and extra2 vars are overwritten with idev and net
+anyway when addrconf sysctl is registered, hence dropped for now. The rest is
+unchanged, only adapted to take changes into account.
+
+Thanks!
+
+Daniel Borkmann (8):
+  net: ipv6: mld: fix v1/v2 switchback timeout to rfc3810, 9.12.
+  net: ipv6: mld: clean up MLD_V1_SEEN macro
+  net: ipv6: mld: get rid of MLDV2_MRC and simplify calculation
+  net: ipv6: mld: implement RFC3810 MLDv2 mode only
+  net: ipv6: mld: similarly to MLDv2 have min max_delay of 1
+  net: ipv6: mld: refactor query processing into v1/v2 functions
+  net: ipv6: mld: introduce mld_{gq,ifc,dad}_stop_timer functions
+  net: ipv6: mld: document force_mld_version in ip-sysctl.txt
+
+ Documentation/networking/ip-sysctl.txt |   5 +
+ include/net/if_inet6.h                 |   9 +-
+ include/net/mld.h                      |  51 +++++--
+ net/bridge/br_multicast.c              |   3 +-
+ net/ipv6/mcast.c                       | 237 ++++++++++++++++++++++++++-------
+ 5 files changed, 248 insertions(+), 57 deletions(-)
+
+-- 
+1.7.11.7
