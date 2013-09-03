@@ -1,58 +1,32 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH v2 0/8] Drop support for Renesas H8/300 architecture
-Date: Mon, 02 Sep 2013 20:26:16 -0700
-Message-ID: <522556D8.803@roeck-us.net>
-References: <1377906694-9578-1-git-send-email-linux@roeck-us.net> <52254F11.8070601@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [guv v2 04/31] net: Replace __get_cpu_var uses
+Date: Mon, 02 Sep 2013 20:33:55 -0700 (PDT)
+Message-ID: <20130902.203355.117341085023152754.davem@davemloft.net>
+References: <00000140bc5ef9df-d7f75909-a25e-4471-84b2-dfbec07117b0-000000@email.amazonses.com>
+	<20130826204351.725357339@linux.com>
+	<7435.1378157706@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org, linux-watchdog@vger.kernel.org,
-	Wim Van Sebroeck <wim@iguana.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yoshinori Sato <ysato@users.sourceforge.jp>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eric Paris <eparis@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	David Howells <dhowells@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Chen Gang F T <chen.gang.flying.transformer@gmail.com>
+Cc: cl@linux.com, tj@kernel.org, akpm@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-arch@vger.kernel.org,
+	srostedt@redhat.com, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52254F11.8070601@gmail.com>
+In-Reply-To: <7435.1378157706@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/02/2013 07:53 PM, Chen Gang F T wrote:
-> Hello Guenter Roeck:
-> 
-> 
-> I don't care about whether I am in cc mailing list, but at least,
-> please help confirm 2 things:
-> 
->    Is what I had done for h8300 just making wastes and noisy in kernel and related sub-system mailing list ?
-> 
->    and is the disccusion about h8300 between us also wastes and noisy in kernel mailing list ?
-> 
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 02 Sep 2013 22:35:06 +0100
 
-It raised my awareness of the status of h8300 maintenance,
-so I would not see it as noise or waste. I might have suggested
-a different target for your efforts, but that is your choice to make,
-not mine.
+> Would it be possible to use __thread annotations for per-CPU
+> variables, I wonder?
 
-On the code review side, I had suggested that you should not add new
-ifdefs into code, much less unnecessary ones. Your counter-argument
-was that you wanted to follow the existing coding style in the file
-in question. To me, that argument is along the line of "the coding
-style in this file is bad, let's do more of it".
-That doesn't make much sense to me, so I did not bother to respond.
-Setting that aside, it is not up to me to approve or reject your patches.
-Whoever does that would be the one you have to convince.
+Paul Mackerras tried it on powerpc and you can't do it.
 
-Guenter
+The problem is that there is no way to tell the compiler that sched()
+and similar (potentially) change the thread pointer base.
+
+It really will cache pre-computed __thread pointer calculations across
+sched().
