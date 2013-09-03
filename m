@@ -1,101 +1,64 @@
-From: Kumar Gala <galak@codeaurora.org>
-Subject: Re: [PATCH 2/2] sh_eth: add device tree support
-Date: Tue, 3 Sep 2013 17:08:28 -0500
-Message-ID: <E4C90BAA-A89F-4C7C-B186-12C2DF7E6F31@codeaurora.org>
-References: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, rob.herring@calxeda.com,
-	pawel.moll@arm.com, mark.rutland@arm.com, swarren@wwwdotorg.org,
-	ian.campbell@citrix.com, grant.likely@linaro.org,
-	devicetree@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, rob@landley.net,
-	linux-doc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v2 0/8] IPv6 MLD updates
+Date: Wed,  4 Sep 2013 00:19:36 +0200
+Message-ID: <1378246784-21067-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55565 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761056Ab3ICWTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 18:19:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This set contains the non-RFC version of the previous submission entitled
+"[RFC PATCH net-next 0/7] IPv6 MLD updates". Most importantly it contains
+a fix for MLDv1/v2 switchback timeout where hosts currently are switching
+back from v1 compat mode to normal v2 too early (i.e. switchback time was
+<= 30secs instead of >= 260secs on default), and the set also contains a
+patch that allows for v2-only mode as per RFC recommendation. The rest is
+related to cleanups that make the code more readable resp. maintainable.
 
-On Aug 30, 2013, at 7:29 PM, Sergei Shtylyov wrote:
+Changes from RFC to non-RFC:
 
-> Add support of the device tree probing for the Renesas SH-Mobile SoCs.
-> 
-> This work is loosely based on an original patch by Nobuhiro Iwamatsu
-> <nobuhiro.iwamatsu.yj@renesas.com>.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> ---
-> This patch is against Dave's 'net-next.git' repo.
-> 
-> Documentation/devicetree/bindings/net/sh_eth.txt |   40 +++++++++++++
-> drivers/net/ethernet/renesas/sh_eth.c            |   66 ++++++++++++++++++++++-
-> 2 files changed, 105 insertions(+), 1 deletion(-)
-> 
-> Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
-> ===================================================================
-> --- /dev/null
-> +++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
-> @@ -0,0 +1,40 @@
-> +* Renesas Electronics SH EtherMAC
-> +
-> +This file provides information on what the device node for the SH EtherMAC
-> +interface contains.
-> +
-> +Required properties:
-> +- compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
-> +	      "renesas,ether-r8a7779" if the device is a part of R8A7778/9 SoCs.
-> +	      "renesas,ether-r8a7790" if the device is a part of R8A7790/1 SoCs.
+We ignore v2 messages now when in v1 compat mode, otherwise report timers
+are reset and triggered, also stop current v2 report timer in case it is
+currently running and we received a v1 query; use WARN_ON instead of BUG_ON
+for RV of 0 (patch1).
 
-Curious, 7779 (vs 7778) but 7790 (vs 7791).
+Two more patches have been added that makes to code more readable, that is
+"net: ipv6: mld: refactor query processing into v1/v2 functions" and
+"net: ipv6: mld: introduce mld_{gq,ifc,dad}_stop_timer functions", the
+sysctl patch "net: ipv6: mld: restrict min/max of sysctl force_mld_version"
+has been dropped as extra1 and extra2 vars are overwritten with idev and net
+anyway when addrconf sysctl is registered, hence dropped for now. The rest is
+unchanged, only adapted to take changes into account.
 
-> +- reg: offset and length of the register set for the device; if the device has
-> +       TSU registers, you need to specify two register sets here.
-> +- interrupt-parent: the phandle for the interrupt controller that services
-> +		    interrupts for this device.
-> +- interrupts: interrupt mapping for the interrupt source.
-> +- phy-mode: string, operation mode of the PHY interface (a string that
-> +	    of_get_phy_mode() can understand).
-> +- phy-handle: phandle of the PHY device.
-> +
+Changes from v1 to v2:
 
-Should add something about requiring a phy subnode
+Minor update in "net: ipv6: mld: implement RFC3810 MLDv2 mode only" in MLD
+version selection. Rest stays the same, added Acked-bys from Hannes in
+unchanged patches.
 
-> +Optional properties:
-> +- local-mac-address: 6 bytes, MAC address.
+Thanks!
 
-What's the assumption if local-mac-address is not specified?
+Daniel Borkmann (8):
+  net: ipv6: mld: fix v1/v2 switchback timeout to rfc3810, 9.12.
+  net: ipv6: mld: clean up MLD_V1_SEEN macro
+  net: ipv6: mld: get rid of MLDV2_MRC and simplify calculation
+  net: ipv6: mld: implement RFC3810 MLDv2 mode only
+  net: ipv6: mld: similarly to MLDv2 have min max_delay of 1
+  net: ipv6: mld: refactor query processing into v1/v2 functions
+  net: ipv6: mld: introduce mld_{gq,ifc,dad}_stop_timer functions
+  net: ipv6: mld: document force_mld_version in ip-sysctl.txt
 
-> +- renesas,no-ether-link: specify when a board does not provide a proper LINK
-> +			 signal.
-
-How is this different from the fixed link concept we have?
-
-> +- renesas,ether-link-active-low: specify when the LINK signal is active-low.
-> +
-> +Example (Armadillo800EVA board):
-> +
-> +	ethernet@e9a00000 {
-> +		compatible = "renesas,gether-r8a7740";
-> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
-> +		interrupt-parent = <&gic>;
-> +		interrupts = <0 142 0x4>;
-> +		phy-mode = "mii";
-> +		phy-handle = <&phy0>;
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		phy0: ethernet-phy@0 {
-> +			reg = <0>;
-> +		};
-> +	};
-
-- k
+ Documentation/networking/ip-sysctl.txt |   5 +
+ include/net/if_inet6.h                 |   9 +-
+ include/net/mld.h                      |  51 +++++--
+ net/bridge/br_multicast.c              |   3 +-
+ net/ipv6/mcast.c                       | 248 +++++++++++++++++++++++++++------
+ 5 files changed, 259 insertions(+), 57 deletions(-)
 
 -- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
-
+1.7.11.7
