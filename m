@@ -1,60 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] ipv6: Don't depend on per socket memory for neighbour discovery messages
-Date: Tue, 3 Sep 2013 19:27:36 +0200
-Message-ID: <20130903172736.GB21729@order.stressinduktion.org>
-References: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch> <52261A12.3060203@wwwdotorg.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Fabio Estevam <festevam@gmail.com>
-To: Stephen Warren <swarren@wwwdotorg.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: ipv6: tcp: fix potential use after free in tcp_v6_do_rcv
+Date: Tue,  3 Sep 2013 19:29:12 +0200
+Message-ID: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35019 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759357Ab3ICR1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:27:38 -0400
-Content-Disposition: inline
-In-Reply-To: <52261A12.3060203@wwwdotorg.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17705 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757058Ab3ICR3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 13:29:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 03, 2013 at 11:19:14AM -0600, Stephen Warren wrote:
-> On 09/03/2013 05:37 AM, Thomas Graf wrote:
-> > Allocating skbs when sending out neighbour discovery messages
-> > currently uses sock_alloc_send_skb() based on a per net namespace
-> > socket and thus share a socket wmem buffer space.
-> > 
-> > If a netdevice is temporarily unable to transmit due to carrier
-> > loss or for other reasons, the queued up ndisc messages will cosnume
-> > all of the wmem space and will thus prevent from any more skbs to
-> > be allocated even for netdevices that are able to transmit packets.
-> > 
-> > The number of neighbour discovery messages sent is very limited,
-> > use of alloc_skb() bypasses the socket wmem buffer size enforcement
-> > while the manual call to skb_set_owner_w() maintains the socket
-> > reference needed for the IPv6 output path.
-> > 
-> > This patch has orginally been posted by Eric Dumazet in a modified
-> > form.
-> 
-> Tested-by: Stephen Warren <swarren@nvidia.com>
-> 
-> Although I do note something slightly odd:
-> 
-> next-20130830 had an issue, and reverting V1 of this patch solved it.
-> 
-> However, in next-20130903, if I revert the revert of V1 of this patch, I
-> don't see any issue; it appears that the problem was some interaction
-> between V1 of this patch and something else in next-20130830.
-> 
-> Either way, this patch doesn't seem to introduce any issue when applied
-> on top of either next-20130830 with V1 reverted, or on top of
-> next-20130903, so it's fine.
+In tcp_v6_do_rcv() code, when processing pkt options, we soley work
+on our skb clone opt_skb that we've created earlier before entering
+tcp_rcv_established() on our way. However, only in condition ...
 
-Could either of you run the v1 version of the patch with CONFIG_PROVE_LOCKING
-enabled? I also do think there is some side-effect we don't understand yet.
+  if (np->rxopt.bits.rxtclass)
+    np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
 
-Thanks,
+... we work on skb itself. As we extract every other information out
+of opt_skb in ipv6_pktoptions path, this seems wrong, since skb can
+already be released by tcp_rcv_established() earlier on. When we try
+to access it in ipv6_hdr(), we will dereference freed skb.
 
-  Hannes
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/tcp_ipv6.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6e1649d..eeb4cb0 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1427,7 +1427,7 @@ ipv6_pktoptions:
+ 		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
+ 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
+ 		if (np->rxopt.bits.rxtclass)
+-			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
++			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(opt_skb));
+ 		if (ipv6_opt_accepted(sk, opt_skb)) {
+ 			skb_set_owner_r(opt_skb, sk);
+ 			opt_skb = xchg(&np->pktoptions, opt_skb);
+-- 
+1.7.11.7
