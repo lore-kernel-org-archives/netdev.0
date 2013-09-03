@@ -1,54 +1,76 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 PATCH] iproute2: linklayer interface between kernel
- and tc/userspace
-Date: Tue, 3 Sep 2013 08:33:15 -0700
-Message-ID: <20130903083315.1639bb0f@nehalam.linuxnetplumber.net>
-References: <20130830120210.1510.80733.stgit@localhost>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: [PATCH v3] net/hsr: Add support for the High-availability Seamless
+ Redundancy protocol (HSRv0)
+Date: Tue, 3 Sep 2013 17:30:58 +0200
+Message-ID: <522600B2.8090507@xdin.com>
+References: <521504E1.5060309@xdin.com> <20130830.155415.1756229438072680437.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <shemminger@vyatta.com>,
+	<joe@perches.com>, <jboticario@gmail.com>,
+	<balferreira@googlemail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:60711 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754053Ab3ICPdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 11:33:19 -0400
-Received: by mail-pa0-f54.google.com with SMTP id kx10so6624378pab.27
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 08:33:19 -0700 (PDT)
-In-Reply-To: <20130830120210.1510.80733.stgit@localhost>
+Received: from spam1.webland.se ([91.207.112.90]:60701 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754298Ab3ICPkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 11:40:33 -0400
+In-Reply-To: <20130830.155415.1756229438072680437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Aug 2013 14:02:10 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On 2013-08-30 21:54, David Miller wrote:
+> From: Arvid Brodin <arvid.brodin@xdin.com>
+> Date: Wed, 21 Aug 2013 20:20:17 +0200
+>=20
+>> This is a patch against net-next (2013-08-21).
+>=20
+> First of all, your email client corrupted the patch, chopping up long=
+ lines
+> and making whitespace changes to the content of the patch.  Please fi=
+x this
+> before resubmitting, and do so by first sending a test patch to yours=
+elf
+> and making sure you can apply the patch you receive in that email.  D=
+o not
+> use attachments to deal with this issue.
 
-> This iproute2 tc patch is connected to the kernel
->  - commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
-> 
-> The rate table calculated by tc, have gotten replaced in the kernel
-> and is no-longer used for lookups.
-> 
-> This happened in kernel release v3.8 caused by kernel
->  - commit 56b765b79 ("htb: improved accuracy at high rates").
-> This change unfortunately caused breakage of tc overhead and
-> linklayer parameters.
-> 
->  Kernel overhead handling got fixed in kernel v3.10 by
->  - commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
-> 
->  Kernel linklayer handling got fixed in kernel v3.11 by
->  - commit 8a8e3d84b17 (net_sched: restore "linklayer atm" handling)
-> 
-> The linklayer fix introduced a struct change, that allow the linklayer
-> attribute to be transferred between tc and kernel. This patch make use
-> of this linklayer attribute.
-> 
-> The linklayer setting is transfer to the kernel.  And linklayer
-> setting received from the kernel is printed with a prefixed
-> "linklayer" when listing current configuration.  The default
-> TC_LINKLAYER_ETHERNET is only printed in detailed output mode.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Sorry about that - I forgot to disable Format=3DFlowed... :(
 
-Ok, Applied for 3.11
+
+>> +	if (dev->operstate !=3D transition) {
+>> +		write_lock_bh(&dev_base_lock);
+>> +		dev->operstate =3D transition;
+>> +		write_unlock_bh(&dev_base_lock);
+>> +		netdev_state_change(dev);
+>> +	}
+>=20
+> This is racy.  And it appears that set_operstate() in net/core/rtnetl=
+ink.c
+> has the same bug, I guess that's what you used as a guide.
+>=20
+> Any "test and set" sequence must be guarded completely by the lock, i=
+t
+> doesn't make any sense to only guard the change of the value.
+
+I never did understand the purpose of the locking done in set_operstate=
+(). Will fix.
+
+Also, Stephen Hemminger told me to use rtnl_mutex instead, but when I p=
+ointed
+to net/core/rtnetlink.c and asked if he was sure, I did not get a reply=
+=2E This=20
+function - __hsr_set_operstate() - is only called from a notifier_call =
+function,=20
+so rtnl_mutex is already held here. Do I even need additional locking?
+
+
+(According to ULNI* pp 171 Stephen is right and net/core/rtnetlink.c is=
+ wrong...)
+
+* ULNI =3D Understanding Linux Network Internals
+
+--=20
+Arvid Brodin | Consultant (Linux)
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
