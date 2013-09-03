@@ -1,62 +1,94 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH RFC net-next 01/21] net: add neighbour_dev_list to save
- only neighbours
-Date: Tue, 3 Sep 2013 10:34:29 +0200
-Message-ID: <20130903083429.GC18504@redhat.com>
-References: <1378157965-17537-1-git-send-email-vfalico@redhat.com>
- <1378157965-17537-2-git-send-email-vfalico@redhat.com>
- <20130903082943.GD1437@minipsycho.brq.redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: Is fallback vhost_net to =?utf-8?Q?qem?=
+ =?utf-8?Q?u_for_live_migrate_available=EF=BC=9F?=
+Date: Tue, 3 Sep 2013 09:40:48 +0100
+Message-ID: <20130903084047.GF14104@zion.uk.xensource.com>
+References: <521C1DCF.5090202@huawei.com>
+ <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com>
+ <522174D7.6080903@huawei.com>
+ <20130902075722.GZ15729@zion.uk.xensource.com>
+ <52253B2B.6050909@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>,
+	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<qianhuibin@huawei.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	<wangfuhai@huawei.com>, <likunyun@huawei.com>,
+	<liuyongan@huawei.com>, <liuyingdong@huawei.com>
+To: Qin Chuanyu <qinchuanyu@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24022 "EHLO mx1.redhat.com"
+Received: from smtp.citrix.com ([66.165.176.89]:10064 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759552Ab3ICIfv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 04:35:51 -0400
+	id S1759689Ab3ICIkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 04:40:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20130903082943.GD1437@minipsycho.brq.redhat.com>
+In-Reply-To: <52253B2B.6050909@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 03, 2013 at 10:29:43AM +0200, Jiri Pirko wrote:
->Mon, Sep 02, 2013 at 11:39:05PM CEST, vfalico@redhat.com wrote:
-...snip...
->>-	struct list_head	upper_dev_list; /* List of upper devices */
->>-	struct list_head	lower_dev_list;
->>+
->>+	/* directly linked devices, like slaves for bonding */
->>+	struct {
->>+		struct list_head upper;
->>+		struct list_head lower;
->>+	} neighbour_dev_list ;
->>+
->>+	/* all linked devices, *including* neighbours */
->>+	struct {
->>+		struct list_head upper;
->>+		struct list_head lower;
->>+	} all_dev_list ;
->
->
->I think there is need for some naming consistency for functions and
->macros handling these lists.
->
->I propose:
->dev_list (drop the "neighbour") and all_dev_list
+On Tue, Sep 03, 2013 at 09:28:11AM +0800, Qin Chuanyu wrote:
+> On 2013/9/2 15:57, Wei Liu wrote:
+> >On Sat, Aug 31, 2013 at 12:45:11PM +0800, Qin Chuanyu wrote:
+> >>On 2013/8/30 0:08, Anthony Liguori wrote:
+> >>>Hi Qin,
+> >>
+> >>>>By change the memory copy and notify mechanism =EF=BC=8Ccurrently=
+ virtio-net with
+> >>>>vhost_net could run on Xen with good performance=E3=80=82
+> >>>
+> >>>I think the key in doing this would be to implement a property
+> >>>ioeventfd and irqfd interface in the driver domain kernel.  Just
+> >>>hacking vhost_net with Xen specific knowledge would be pretty nast=
+y
+> >>>IMHO.
+> >>>
+> >>Yes, I add a kernel module which persist virtio-net pio_addr and
+> >>msix address as what kvm module did. Guest wake up vhost thread by
+> >>adding a hook func in evtchn_interrupt.
+> >>
+> >>>Did you modify the front end driver to do grant table mapping or i=
+s
+> >>>this all being done by mapping the domain's memory?
+> >>>
+> >>There is nothing changed in front end driver. Currently I use
+> >>alloc_vm_area to get address space=EF=BC=8C and map the domain's me=
+mory as
+> >>what what qemu did.
+> >>
+> >
+> >You mean you're using xc_map_foreign_range and friends in the backen=
+d to
+> >map guest memory? That's not very desirable as it violates Xen's
+> >security model. It would not be too hard to pass grant references
+> >instead of guest physical memory address IMHO.
+> >
+> In fact, I did what virtio-net have done in Qemu. I think security
+> is a pseudo question because Dom0 is under control.
+>=20
 
-Agreed.
+Consider that you might have driver domains. Not every domain is under
+control or trusted. Also consider that security model like XSM can be
+used to audit operations to enhance security so your foreign mapping
+approach might not always work.
 
->
->and exported functions and macros called like:
->netdev_lower_get_next_priv()
->netdev_lower_for_each_priv()
->netdev_all_upper_get_next_rcu()
->etc...
+In short term foreign mapping can save you some time implementing the
+prototype. In long term using grant table is the proper way to go. And
+IMHO the benifit outweights the cost.
 
-Yep, will try to convert and see how it goes.
+Wei.
 
-Thanks a lot!
+> Host could access memory of guest in KVM much easier than Xen,
+> but I hadn't heard someone said KVM is un-secret.
+>=20
+> Regards
+> Qin chuanyu
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
