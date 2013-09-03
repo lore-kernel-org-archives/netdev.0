@@ -1,43 +1,39 @@
-From: Li Frank-B20596 <B20596@freescale.com>
-Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Tue, 3 Sep 2013 15:20:24 +0000
-Message-ID: <1F990F8245A4214A8CC4BFFBD9F790F908B46E9A@039-SN1MPN1-001.039d.mgd.msft.net>
-References: <1378176078-10380-1-git-send-email-B38611@freescale.com>
-	<1F990F8245A4214A8CC4BFFBD9F790F908B45F9F@039-SN1MPN1-001.039d.mgd.msft.net>
-	<20130902.203506.1108904049878490946.davem@davemloft.net>
-	<1F990F8245A4214A8CC4BFFBD9F790F908B46E06@039-SN1MPN1-001.039d.mgd.msft.net>
- <CAOMZO5AHQr87ka2PrmMCQ0Dr46T=gB5_j1fz9BxhcjyWw9qSnw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN HW accel, performance advantage?
+Date: Tue, 03 Sep 2013 08:29:10 -0700
+Message-ID: <1378222150.7360.28.camel@edumazet-glaptop>
+References: <OF00E35E7C.7482EC01-ONC1257BDB.00314AD0-C1257BDB.0031F6D0@transmode.se>
+	 <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
+	 <OF0F246C2A.B5DC5CA4-ONC1257BDB.004CA4E6-C1257BDB.004DB31E@transmode.se>
+	 <1378219696.1545.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Duan Fugang-B38611 <B38611@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joakim Tjernlund <joakim.tjernlund@transmode.se>,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:60000
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752453Ab3ICPU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 11:20:29 -0400
-In-Reply-To: <CAOMZO5AHQr87ka2PrmMCQ0Dr46T=gB5_j1fz9BxhcjyWw9qSnw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:47862 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755248Ab3ICPa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 11:30:28 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so6116867pdj.22
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 08:30:24 -0700 (PDT)
+In-Reply-To: <1378219696.1545.9.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmFiaW8gRXN0ZXZhbSBb
-bWFpbHRvOmZlc3RldmFtQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgU2VwdGVtYmVyIDAz
-LCAyMDEzIDEwOjE1IEFNDQo+IFRvOiBMaSBGcmFuay1CMjA1OTYNCj4gQ2M6IERhdmlkIE1pbGxl
-cjsgRHVhbiBGdWdhbmctQjM4NjExOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBiaHV0Y2hp
-bmdzQHNvbGFyZmxhcmUuY29tOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZw0KPiBTdWJqZWN0
-OiBSZTogW1BBVENIXSBuZXQ6IGZlYzogZml4IHRoZSBlcnJvciB0byBnZXQgdGhlIHByZXZpb3Vz
-IEJEIGVudHJ5DQo+IA0KPiBPbiBUdWUsIFNlcCAzLCAyMDEzIGF0IDEyOjEwIFBNLCBMaSBGcmFu
-ay1CMjA1OTYgPEIyMDU5NkBmcmVlc2NhbGUuY29tPg0KPiB3cm90ZToNCj4gPg0KPiA+PiA+IEFj
-a2VkDQo+ID4+DQo+ID4+IFRoaXMgaXMgbm90IHRoZSBjb3JyZWN0IHdheSB0byBBQ0sgYSBwYXRj
-aCwgdGhlIGNvcnJlY3QgZm9ybWF0IGlzOg0KPiA+Pg0KPiA+PiBBY2tlZC1ieTogRGF2aWQgUy4g
-TWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+DQo+ID4NCj4gPiBUaGFua3MNCj4gPg0K
-PiA+IEFja2VkLWJ5OiBGcmFuayBMaSA8ZnJhbmsubGlAZnJlZXNjYWxlLm5ldD4NCj4gDQo+IEkg
-dGhvdWdodCB5b3VyIGVtYWlsIHdhcyBmcmVlc2NhbGUuY29tIDstKQ0KWWVzLCBJIGFtIHdyb25n
-LiANClNvcnJ5LiANCg0KQWNrZWQtYnk6IEZyYW5rIExpIDxmcmFuay5saUBmcmVlc2NhbGUuY29t
-Pg0K
+On Tue, 2013-09-03 at 15:48 +0100, Ben Hutchings wrote:
+
+> GRO should be beneficial for bridges if you have bursty TCP streams.  It
+> is especially beneficial if you also have TSO on the TX side.
+> 
+> Really you're going to have to try it and run benchmarks with your own
+> hardware.
+
+Note that ucc_geth does not have GRO support (it calls
+netif_receive_skb())
+
+It doesnt have RX checksuming either, so having to validate
+tcp checksums (before aggregating them in GRO stack) would hurt if
+packets only have to be forwarded.
