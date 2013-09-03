@@ -1,117 +1,66 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net] bnx2x: bail out if unable to acquire stats_sema
-Date: Tue, 3 Sep 2013 15:51:59 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20D8F504@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1378223159-8710-1-git-send-email-mschmidt@redhat.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: BQL support in gianfar causes network hiccup
+Date: Tue, 3 Sep 2013 19:09:45 +0300
+Message-ID: <522609C9.7030901@freescale.com>
+References: <522490CB.60008@appeartv.com> <52249859.2040605@freescale.com>  <5224A2A8.6000306@appeartv.com> <5224B026.8090803@freescale.com>  <5224C1EB.3030307@appeartv.com> <52258A60.8040305@freescale.com>  <522595DD.1030600@appeartv.com> <1378222940.7360.34.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Michal Schmidt" <mschmidt@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?UGVyIERhbMOpbg==?= <per.dalen@appeartv.com>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4492 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754607Ab3ICPwO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 11:52:14 -0400
-In-Reply-To: <1378223159-8710-1-git-send-email-mschmidt@redhat.com>
-Content-Language: en-US
+Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:13954
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752702Ab3ICQKG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 12:10:06 -0400
+In-Reply-To: <1378222940.7360.34.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Michal Schmidt [mailto:mschmidt@redhat.com]
-> Sent: Tuesday, September 03, 2013 6:46 PM
-> To: davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Dmitry Kravkov; Ariel Elior; Eilon Greenstein
-> Subject: [PATCH net] bnx2x: bail out if unable to acquire stats_sema
-> 
-> If we fail to acquire stats_sema in the specified time limit, the chip is
-> probably dead. It probably does not matter whether we try to continue or
-> not, but certainly we should not up() the semaphore afterwards.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 24
-> +++++++++++++++++------
->  1 file changed, 18 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-> index 86436c7..d60bb8b 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-> @@ -538,16 +538,20 @@ static void __bnx2x_stats_start(struct bnx2x *bp)
-> 
->  static void bnx2x_stats_start(struct bnx2x *bp)  {
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
->  	__bnx2x_stats_start(bp);
->  	up(&bp->stats_sema);
->  }
-> 
->  static void bnx2x_stats_pmf_start(struct bnx2x *bp)  {
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
->  	bnx2x_stats_comp(bp);
->  	__bnx2x_stats_pmf_update(bp);
->  	__bnx2x_stats_start(bp);
-> @@ -556,8 +560,10 @@ static void bnx2x_stats_pmf_start(struct bnx2x *bp)
-> 
->  static void bnx2x_stats_pmf_update(struct bnx2x *bp)  {
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
->  	__bnx2x_stats_pmf_update(bp);
->  	up(&bp->stats_sema);
->  }
-> @@ -569,8 +575,10 @@ static void bnx2x_stats_restart(struct bnx2x *bp)
->  	 */
->  	if (IS_VF(bp))
->  		return;
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
->  	bnx2x_stats_comp(bp);
->  	__bnx2x_stats_start(bp);
->  	up(&bp->stats_sema);
-> @@ -1361,8 +1369,10 @@ static void bnx2x_stats_stop(struct bnx2x *bp)  {
->  	int update = 0;
-> 
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
-> 
->  	bp->stats_started = false;
-> 
-> @@ -1997,8 +2007,10 @@ void bnx2x_afex_collect_stats(struct bnx2x *bp,
-> void *void_afex_stats,  void bnx2x_stats_safe_exec(struct bnx2x *bp,
->  			   void (func_to_exec)(void *cookie),
->  			   void *cookie){
-> -	if (down_timeout(&bp->stats_sema, HZ/10))
-> +	if (down_timeout(&bp->stats_sema, HZ/10)) {
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +		return;
-> +	}
->  	bnx2x_stats_comp(bp);
->  	func_to_exec(cookie);
->  	__bnx2x_stats_start(bp);
-> --
-> 1.8.3.1
-> 
-Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+
+
+On 9/3/2013 6:42 PM, Eric Dumazet wrote:
+> On Tue, 2013-09-03 at 09:55 +0200, Per Dal=C3=A9n wrote:
+>
+>> Yes, it's weird. The only reason I removed the BQL commit
+>> (d8a0f1b0af67679bba886784de10d8c21acc4e0e) was because the error Tin=
+o
+>> Keitel had was the similar as mine.
+>
+>
+> I suspect a genuine race in this driver. BQL only makes this race hap=
+pen
+> more often.
+>
+> gfar_poll_sq() has the following :
+>
+> /* run Tx cleanup to completion */
+> if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx])
+>          gfar_clean_tx_ring(tx_queue);
+>
+> While gfar_poll() has a different method :
+>
+> if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx]) {
+>      gfar_clean_tx_ring(tx_queue);
+>      has_tx_work =3D 1;
+> }
+>
+> Note the has_tx_work use in gfar_poll() only.
+>
+> Note that memory barriers seems to be missing.
+>
+> 1) In your cases, is it gfar_poll_sq() or gfar_poll() that is used ?
+>
+
+It's gfar_poll_sq(). P2020 single Tx/Rx queues.
+
+I'm also seeing carrier errors and packet collisions in this case
+(100/Half link).
+
+> 2) Is the bug happening if only one CPU is used ?
+>
+
+I didn't try this. Maybe Per did?
