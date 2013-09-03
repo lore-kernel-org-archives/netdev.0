@@ -1,34 +1,37 @@
-From: Masami Ichikawa <masami256@gmail.com>
-Subject: [PATCH] rt2x00: Add WLI-UC-G300HP's Product ID
-Date: Tue,  3 Sep 2013 21:51:56 +0900
-Message-ID: <1378212716-13525-1-git-send-email-masami256@gmail.com>
-Cc: Masami Ichikawa <masami256@gmail.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kvalo@adurom.com, IvDoorn@gmail.com, gwingerde@gmail.com,
-	helmut.schaa@googlemail.com, linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: VLAN HW accel, performance advantage?
+Date: Tue, 3 Sep 2013 14:50:16 +0100
+Message-ID: <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
+References: <OF00E35E7C.7482EC01-ONC1257BDB.00314AD0-C1257BDB.0031F6D0@transmode.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:45972 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932904Ab3ICNuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 09:50:24 -0400
+In-Reply-To: <OF00E35E7C.7482EC01-ONC1257BDB.00314AD0-C1257BDB.0031F6D0@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support Bufallo WLI-UC-G300HP.
+On Tue, 2013-09-03 at 11:05 +0200, Joakim Tjernlund wrote:
+> I am considering impl. VLAN HW acceleration in Freescales ucc_geth driver 
+> to improve
+> performance, primarily for bridged interfaces.
+>  I am hoping the community has some insights as to what performance gains 
+> one
+> could expect?
 
-Signed-off-by: Masami Ichikawa <masami256@gmail.com>
----
- drivers/net/wireless/rt2x00/rt2800usb.c | 1 +
- 1 file changed, 1 insertion(+)
+At the moment you need to do VLAN RX offload (or fake it in software) to
+take advantage of GRO for VLAN-encapsulated packets.  Other than that, I
+don't think it makes a lot of difference in most situations.
 
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
-index 840833b..518277d 100644
---- a/drivers/net/wireless/rt2x00/rt2800usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2800usb.c
-@@ -977,6 +977,7 @@ static struct usb_device_id rt2800usb_device_table[] = {
- 	{ USB_DEVICE(0x0411, 0x016f) },
- 	{ USB_DEVICE(0x0411, 0x01a2) },
- 	{ USB_DEVICE(0x0411, 0x01ee) },
-+	{ USB_DEVICE(0x0411, 0x01a8) },
- 	/* Corega */
- 	{ USB_DEVICE(0x07aa, 0x002f) },
- 	{ USB_DEVICE(0x07aa, 0x003c) },
+Ben.
+
 -- 
-1.8.3.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
