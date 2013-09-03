@@ -1,72 +1,49 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next] bcm87xx: Add MODULE_DEVICE_TABLE
-Date: Tue, 3 Sep 2013 19:53:05 +0100
-Message-ID: <20130903185305.GC7729@decadent.org.uk>
-References: <1378071184.25743.52.camel@deadeye.wl.decadent.org.uk>
- <52261D12.5000009@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v4] ipv6:introduce function to find route for redirect
+Date: Tue, 3 Sep 2013 21:17:29 +0200
+Message-ID: <20130903191729.GA28889@order.stressinduktion.org>
+References: <52242CE1.5050501@cn.fujitsu.com> <20130902195056.GA5451@order.stressinduktion.org> <5225758F.8080604@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	David Daney <david.daney@cavium.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Daney <ddaney.cavm@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39406 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752770Ab3ICSxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 14:53:10 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:35330 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933202Ab3ICTRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 15:17:31 -0400
 Content-Disposition: inline
-In-Reply-To: <52261D12.5000009@gmail.com>
+In-Reply-To: <5225758F.8080604@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 03, 2013 at 10:32:02AM -0700, David Daney wrote:
-> On 09/01/2013 02:33 PM, Ben Hutchings wrote:
-> >bcm87xx currently isn't auto-loaded if built as a module.
-> >
-> >Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> >---
-> >Compile-tested only.
+On Tue, Sep 03, 2013 at 01:37:19PM +0800, Duan Jiong wrote:
+> > Btw. I still think it should be possible to eliminate
+> > ip6_redirect_no_header:
+> > 
+> > We could always use ip6_redirect_no_header and use the data of the redirected
+> > header option just for finding the socket to be notified. We can do the whole
+> > verification and route updating in ndisc layer and then just call into icmpv6
+> > layer if upper protocols need a notification of the redirect. But that should
+> > go into another patch. ;)
+> > 
 > 
-> Then how do you know that it does anything sensible?
-
-This is generally required in modular PHY drivers.  I was hoping you'd
-be able to say whether that it's useful or necessary for this one.
-
-> Other than that, it seems plausible.
+> I think this is good, but i have a question below:
 > 
-> David Daney
-
-Thanks.
-
-Ben.
-
-> >
-> >Ben.
-> >
-> >  drivers/net/phy/bcm87xx.c | 7 +++++++
-> >  1 file changed, 7 insertions(+)
-> >
-> >diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-> >index 7997895..f5b44ff 100644
-> >--- a/drivers/net/phy/bcm87xx.c
-> >+++ b/drivers/net/phy/bcm87xx.c
-> >@@ -230,4 +230,11 @@ static void __exit bcm87xx_exit(void)
-> >  }
-> >  module_exit(bcm87xx_exit);
-> >
-> >+static struct mdio_device_id __maybe_unused bcm87xx_tbl[] = {
-> >+	{ PHY_ID_BCM8706, 0xffffffff },
-> >+	{ PHY_ID_BCM8727, 0xffffffff },
-> >+	{ }
-> >+};
-> >+
-> >  MODULE_LICENSE("GPL");
-> >+MODULE_DEVICE_TABLE(mdio, bcm87xx_tbl);
-> >
+>   if the socket type is connection-based, the dst information is stored in related
+> sock struct, so there is no need to look up the route for redirect in ip6_redirect
+> or ip6_redirect_no_header, in this case, we do the verification and route 
+> updating in the upper protocols' err_handler is better. 
 > 
+> How do you think of this?
 
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+This should not be a problem, because every cached dst should be validated
+with ip6_dst_check before it is used. It uses the fib6_node serial number
+which is incremented for all fib6_nodes on the path to the new installed
+node by fib6_add_1. So we are safe here.
+
+Btw. this is the same logic redirects get currently picked up, too.
+
+Greetings,
+
+  Hannes
