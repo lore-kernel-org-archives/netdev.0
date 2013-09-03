@@ -1,68 +1,126 @@
-From: Qin Chuanyu <qinchuanyu@huawei.com>
-Subject: =?UTF-8?B?UmU6IElzIGZhbGxiYWNrIHZob3N0X25ldCB0byBxZW11IGZvciBsaXY=?=
- =?UTF-8?B?ZSBtaWdyYXRlIGF2YWlsYWJsZe+8nw==?=
-Date: Tue, 3 Sep 2013 09:28:11 +0800
-Message-ID: <52253B2B.6050909@huawei.com>
-References: <521C1DCF.5090202@huawei.com> <CA+aC4kv66bvt5mREv-YXVddD9wdgAiT=heo9xhdkkVmuLOyrBw@mail.gmail.com> <522174D7.6080903@huawei.com> <20130902075722.GZ15729@zion.uk.xensource.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
+Date: Tue, 3 Sep 2013 01:39:25 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE01682504@039-SN2MPN1-021.039d.mgd.msft.net>
+References: <1378121735-5681-1-git-send-email-B38611@freescale.com>
+ <1F990F8245A4214A8CC4BFFBD9F790F908B45674@039-SN1MPN1-001.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	"Michael S. Tsirkin" <mst@redhat.com>, <jasowang@redhat.com>,
-	KVM list <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<qianhuibin@huawei.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	<wangfuhai@huawei.com>, <likunyun@huawei.com>,
-	<liuyongan@huawei.com>, <liuyingdong@huawei.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Li Frank-B20596 <B20596@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:8417 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522Ab3ICB2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 21:28:55 -0400
-In-Reply-To: <20130902075722.GZ15729@zion.uk.xensource.com>
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:17607
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756821Ab3ICBjn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Sep 2013 21:39:43 -0400
+In-Reply-To: <1F990F8245A4214A8CC4BFFBD9F790F908B45674@039-SN1MPN1-001.039d.mgd.msft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/9/2 15:57, Wei Liu wrote:
-> On Sat, Aug 31, 2013 at 12:45:11PM +0800, Qin Chuanyu wrote:
->> On 2013/8/30 0:08, Anthony Liguori wrote:
->>> Hi Qin,
->>
->>>> By change the memory copy and notify mechanism =EF=BC=8Ccurrently =
-virtio-net with
->>>> vhost_net could run on Xen with good performance=E3=80=82
->>>
->>> I think the key in doing this would be to implement a property
->>> ioeventfd and irqfd interface in the driver domain kernel.  Just
->>> hacking vhost_net with Xen specific knowledge would be pretty nasty
->>> IMHO.
->>>
->> Yes, I add a kernel module which persist virtio-net pio_addr and
->> msix address as what kvm module did. Guest wake up vhost thread by
->> adding a hook func in evtchn_interrupt.
->>
->>> Did you modify the front end driver to do grant table mapping or is
->>> this all being done by mapping the domain's memory?
->>>
->> There is nothing changed in front end driver. Currently I use
->> alloc_vm_area to get address space=EF=BC=8C and map the domain's mem=
-ory as
->> what what qemu did.
->>
->
-> You mean you're using xc_map_foreign_range and friends in the backend=
- to
-> map guest memory? That's not very desirable as it violates Xen's
-> security model. It would not be too hard to pass grant references
-> instead of guest physical memory address IMHO.
->
-In fact, I did what virtio-net have done in Qemu. I think security
-is a pseudo question because Dom0 is under control.
+From: Li Frank-B20596
+Data: Monday, September 02, 2013 10:30 PM
 
-Host could access memory of guest in KVM much easier than Xen,
-but I hadn't heard someone said KVM is un-secret.
+> To: Duan Fugang-B38611; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> stephen@networkplumber.org
+> Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: Duan Fugang-B38611
+> > Sent: Monday, September 02, 2013 6:36 AM
+> > To: Li Frank-B20596; davem@davemloft.net
+> > Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> > stephen@networkplumber.org
+> > Subject: [PATCH] net: fec: fix the error to get the previous BD entry
+> >
+> > Bug: error to get the previous BD entry. When the current BD is the
+> > first BD, the previous BD entry must be the last BD, not "bdp - 1" in
+> current logic.
+> >
+> > V2:
+> >   Add tx_ring_size and rx_ring_size to struct fec_enet_private.
+> >   Replace api fec_enet_get_nextdesc() with next_bd().
+> >   Replace api fec_enet_get_prevdesc() with pre_bd().
+> >
+> >   Move all ring size check logic to next_bd() and pre_bd, which
+> >   simplifies the code redundancy.
+> >
+> > V1:
+> >   Add BD ring size check to get the previous BD entry in correctly.
+> >
+> > Signed-off-by: Fugang Duan  <B38611@freescale.com>
+> > ---
+> >  drivers/net/ethernet/freescale/fec.h      |    3 +
+> >  drivers/net/ethernet/freescale/fec_main.c |   94 +++++++++++++++-------
+> -----
+> > -
+> >  2 files changed, 53 insertions(+), 44 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/freescale/fec.h
+> > b/drivers/net/ethernet/freescale/fec.h
+> > index ae23600..0120217 100644
+> > --- a/drivers/net/ethernet/freescale/fec.h
+> > +++ b/drivers/net/ethernet/freescale/fec.h
+> > @@ -296,6 +296,9 @@ struct fec_enet_private {
+> >  	/* The ring entries to be free()ed */
+> >  	struct bufdesc	*dirty_tx;
+> >
+> > +	unsigned short tx_ring_size;
+> > +	unsigned short rx_ring_size;
+> > +
+> >  	struct	platform_device *pdev;
+> >
+> >  	int	opened;
+> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> > b/drivers/net/ethernet/freescale/fec_main.c
+> > index 4ea1555..9894dd3 100644
+> > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > @@ -239,22 +239,35 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC
+> > address");
+> >
+> >  static int mii_cnt;
+> >
+> > -static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int
+> > is_ex)
+> > +static inline
+> > +struct bufdesc *next_bd(struct bufdesc *bdp, struct bufdesc *base,
+> > +			int ring_size, int is_ex)
+> 
+> David suggest use fec_enet_ prefix for all function in fec driver when I
+> upstream it.
+> 
+> 
+> How about use
+> 	Fec_enet_next_bd(struct bufdesc *bdp, *fep)
+> 	The parameter will become little and easy to call.
+> 
+> >  {
+> > -	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
+> > +	struct bufdesc *new_bd = bdp + 1;
+> > +	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp + 1;
+> > +	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
+> > +
+> 
+> If pass down fep,
+> 	If( bdp > fep->rx_base) {
+> 		Ex_base = fep->rx_base;
+> 		Ring_size = fep->rx_ring_size;
+> 	}
+> 	Else {
+> 		Ex_base = fep->tx_base.
+> 		Ring_size = fep->tx_ring_size;
+> 	}
+> 
+> Because RX always behind of TX.
+> 
 
-Regards
-Qin chuanyu
+Good idea, I will send patch V3.  Thanks.
