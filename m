@@ -1,26 +1,40 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [guv v2 04/31] net: Replace __get_cpu_var uses
-Date: Tue, 3 Sep 2013 14:20:08 +0000
-Message-ID: <00000140e431ded7-d71fb5bf-5a5c-418f-83e5-0e6e2f2fea9d-000000@email.amazonses.com>
-References: <00000140bc5ef9df-d7f75909-a25e-4471-84b2-dfbec07117b0-000000@email.amazonses.com> <20130826204351.725357339@linux.com> <7435.1378157706@warthog.procyon.org.uk>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: use reciprocal_divide instead of reimplementing
+ it
+Date: Tue, 03 Sep 2013 16:35:35 +0200
+Message-ID: <5225F3B7.2000202@redhat.com>
+References: <1378204010-27050-1-git-send-email-dborkman@redhat.com>  <1378204010-27050-3-git-send-email-dborkman@redhat.com> <1378216954.7360.25.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tejun Heo <tj@kernel.org>, akpm@linuxfoundation.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org, Steven Rostedt <srostedt@redhat.com>,
-	linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <7435.1378157706@warthog.procyon.org.uk>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54918 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756454Ab3ICOfm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 10:35:42 -0400
+In-Reply-To: <1378216954.7360.25.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2 Sep 2013, David Howells wrote:
+On 09/03/2013 04:02 PM, Eric Dumazet wrote:
+> On Tue, 2013-09-03 at 12:26 +0200, Daniel Borkmann wrote:
+>> Replace these places with reciprocal_divide() inline function instead of
+>> reimplementing it each time, thus it will become easier to read. We do not
+>> need to explicitly include its header as it's pulled in from linux/net.h
+>> anyway.
+>
+> Sure, (((u64) hash * qcount) >> 32) happens to be
+> reciprocal_divide(hash, qcount) but the result depends on hash being
+> well distributed in [0 .. ~0U] space.
+>
+> So 'reciprocal' and 'divide' do not accurately describe this exact
+> operation.
+>
+> I suggest making the thing more descriptive.
+>
+> (And discussed on lkml btw)
 
-> Would it be possible to use __thread annotations for per-CPU variables, I
-> wonder?
-
-We already have a __percpu annotation. Looked at __thread a couple of
-years ago but found that support for the kernel segment register was not
-available. If we had __thread then most of the operations could simply be
-provided by the compiler.
+Sure, we can do that. Then lets drop these two for now.
