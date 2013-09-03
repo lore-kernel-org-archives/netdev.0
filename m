@@ -1,91 +1,28 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/8] net: ipv6: mld: fix v1/v2 switchback timeout to rfc3810, 9.12.
-Date: Tue, 3 Sep 2013 19:52:55 +0200
-Message-ID: <20130903175255.GC21729@order.stressinduktion.org>
-References: <1378195178-21002-1-git-send-email-dborkman@redhat.com> <1378195178-21002-2-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/8] net: ipv6: mld: clean up MLD_V1_SEEN macro
+Date: Tue, 3 Sep 2013 19:55:47 +0200
+Message-ID: <20130903175547.GD21729@order.stressinduktion.org>
+References: <1378195178-21002-1-git-send-email-dborkman@redhat.com> <1378195178-21002-3-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	David Stevens <dlstevens@us.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35086 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:35100 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753910Ab3ICRw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:52:56 -0400
+	with ESMTP id S1754571Ab3ICRzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:55:48 -0400
 Content-Disposition: inline
-In-Reply-To: <1378195178-21002-2-git-send-email-dborkman@redhat.com>
+In-Reply-To: <1378195178-21002-3-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 03, 2013 at 09:59:31AM +0200, Daniel Borkmann wrote:
-> i) RFC3810, 9.2. Query Interval [QI] says:
-> 
->    The Query Interval variable denotes the interval between General
->    Queries sent by the Querier. Default value: 125 seconds. [...]
-> 
-> ii) RFC3810, 9.3. Query Response Interval [QRI] says:
-> 
->   The Maximum Response Delay used to calculate the Maximum Response
->   Code inserted into the periodic General Queries. Default value:
->   10000 (10 seconds) [...] The number of seconds represented by the
->   [Query Response Interval] must be less than the [Query Interval].
-> 
-> iii) RFC3810, 9.12. Older Version Querier Present Timeout [OVQPT] says:
-> 
->   The Older Version Querier Present Timeout is the time-out for
->   transitioning a host back to MLDv2 Host Compatibility Mode. When an
->   MLDv1 query is received, MLDv2 hosts set their Older Version Querier
->   Present Timer to [Older Version Querier Present Timeout].
-> 
->   This value MUST be ([Robustness Variable] times (the [Query Interval]
->   in the last Query received)) plus ([Query Response Interval]).
-> 
-> Hence, on *default* the timeout results in:
-> 
->   [RV] = 2, [QI] = 125sec, [QRI] = 10sec
->   [OVQPT] = [RV] * [QI] + [QRI] = 260sec
-> 
-> Having that said, we currently calculate [OVQPT] (here given as 'switchback'
-> variable) as ...
-> 
->   switchback = (idev->mc_qrv + 1) * max_delay
-> 
-> RFC3810, 9.12. says "the [Query Interval] in the last Query received". In
-> section "9.14. Configuring timers", it is said:
-> 
->   This section is meant to provide advice to network administrators on
->   how to tune these settings to their network. Ambitious router
->   implementations might tune these settings dynamically based upon
->   changing characteristics of the network. [...]
-> 
-> iv) RFC38010, 9.14.2. Query Interval:
-> 
->   The overall level of periodic MLD traffic is inversely proportional
->   to the Query Interval. A longer Query Interval results in a lower
->   overall level of MLD traffic. The value of the Query Interval MUST
->   be equal to or greater than the Maximum Response Delay used to
->   calculate the Maximum Response Code inserted in General Query
->   messages.
-> 
-> I assume that was why switchback is calculated as is (3 * max_delay), although
-> this setting seems to be meant for routers only to configure their [QI]
-> interval for non-default intervals. So usage here like this is clearly wrong.
-> 
-> Concluding, the current behaviour in IPv6's multicast code is not conform
-> to the RFC as switch back is calculated wrongly. That is, it has a too small
-> value, so MLDv2 hosts switch back again to MLDv2 way too early, i.e. ~30secs
-> instead of ~260secs on default.
-> 
-> Hence, introduce necessary helper functions and fix this up properly as it
-> should be.
-> 
-> Introduced in 06da92283 ("[IPV6]: Add MLDv2 support."). Credits to Hannes
-> Frederic Sowa who also had a hand in this as well. Also thanks to Hangbin Liu
-> who did initial testing.
+On Tue, Sep 03, 2013 at 09:59:32AM +0200, Daniel Borkmann wrote:
+> Replace the macro with a function to make it more readable. GCC will
+> eventually decide whether to inline this or not (also, that's not
+> fast-path anyway).
 > 
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: David Stevens <dlstevens@us.ibm.com>
 > Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
