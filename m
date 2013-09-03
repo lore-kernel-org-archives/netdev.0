@@ -1,49 +1,92 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: VLAN HW accel, performance advantage?
-Date: Tue, 3 Sep 2013 16:08:40 +0200
-Message-ID: <OF0F246C2A.B5DC5CA4-ONC1257BDB.004CA4E6-C1257BDB.004DB31E@transmode.se>
-References: <OF00E35E7C.7482EC01-ONC1257BDB.00314AD0-C1257BDB.0031F6D0@transmode.se> <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: Fix data chunk fragmentation for MTU values
+ which are not multiple of 4
+Date: Tue, 03 Sep 2013 10:16:08 -0400
+Message-ID: <5225EF28.8090707@gmail.com>
+References: <52249981.8040006@nsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
+	"Glavinic-Pecotic, Matija (EXT-Other - DE/Ulm)"
+	<matija.glavinic-pecotic.ext@nsn.com>, netdev@vger.kernel.org
+To: Alexander Sverdlin <alexander.sverdlin@nsn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:63772 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753694Ab3ICOIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Sep 2013 10:08:43 -0400
-In-Reply-To: <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-qe0-f52.google.com ([209.85.128.52]:52916 "EHLO
+	mail-qe0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076Ab3ICOQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 10:16:13 -0400
+In-Reply-To: <52249981.8040006@nsn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> wrote on 2013/09/03 15:50:16:
-> 
-> On Tue, 2013-09-03 at 11:05 +0200, Joakim Tjernlund wrote:
-> > I am considering impl. VLAN HW acceleration in Freescales ucc_geth 
-driver 
-> > to improve
-> > performance, primarily for bridged interfaces.
-> >  I am hoping the community has some insights as to what performance 
-gains 
-> > one
-> > could expect?
-> 
-> At the moment you need to do VLAN RX offload (or fake it in software) to
-> take advantage of GRO for VLAN-encapsulated packets.  Other than that, I
-> don't think it makes a lot of difference in most situations.
-> 
-> Ben.
+On 09/02/2013 09:58 AM, Alexander Sverdlin wrote:
+> From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+>
+> net: sctp: Fix data chunk fragmentation for MTU values which are not multiple of 4
+>
+> Initially the problem was observed with ipsec, but later it became clear that
+> SCTP data chunk fragmentation algorithm has problems with MTU values which are
+> not multiple of 4. Test program was used which just transmits 2000 bytes long
+> packets to other host. tcpdump was used to observe re-fragmentation in IP layer
+> after SCTP already fragmented data chunks.
+>
+> With MTU 1500:
+> 12:54:34.082904 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1500)
+>      10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 2366088589] [SID: 0] [SSEQ 1] [PPID 0x0]
+> 12:54:34.082933 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 596)
+>      10.151.38.153.39303 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 2366088590] [SID: 0] [SSEQ 1] [PPID 0x0]
+> 12:54:34.090576 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+>      10.151.24.91.54321 > 10.151.38.153.39303: sctp (1) [SACK] [cum ack 2366088590] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
+>
+> With MTU 1499:
+> 13:02:49.955220 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 0, flags [+], proto SCTP (132), length 1492)
+>      10.151.38.153.39084 > 10.151.24.91.54321: sctp[|sctp]
+> 13:02:49.955249 IP (tos 0x2,ECT(0), ttl 64, id 48215, offset 1472, flags [none], proto SCTP (132), length 28)
+>      10.151.38.153 > 10.151.24.91: ip-proto-132
+> 13:02:49.955262 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
+>      10.151.38.153.39084 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 404355346] [SID: 0] [SSEQ 1] [PPID 0x0]
+> 13:02:49.956770 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+>      10.151.24.91.54321 > 10.151.38.153.39084: sctp (1) [SACK] [cum ack 404355346] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
+>
+> Here problem in data portion limit calculation leads to re-fragmentation in IP,
+> which is sub-optimal. The problem is max_data initial value, which doesn't take
+> into account the fact, that data chunk must be padded to 4-bytes boundary.
+> It's enough to correct max_data, because all later adjustments are correctly
+> aligned to 4-bytes boundary.
+>
+> After the fix is applied, everything is fragmented correctly for uneven MTUs:
+> 15:16:27.083881 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 1496)
+>      10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (B) [TSN: 3077098183] [SID: 0] [SSEQ 1] [PPID 0x0]
+> 15:16:27.083907 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto SCTP (132), length 600)
+>      10.151.38.153.53417 > 10.151.24.91.54321: sctp (1) [DATA] (E) [TSN: 3077098184] [SID: 0] [SSEQ 1] [PPID 0x0]
+> 15:16:27.085640 IP (tos 0x2,ECT(0), ttl 63, id 0, offset 0, flags [DF], proto SCTP (132), length 48)
+>      10.151.24.91.54321 > 10.151.38.153.53417: sctp (1) [SACK] [cum ack 3077098184] [a_rwnd 79920] [#gap acks 0] [#dup tsns 0]
+>
+> The bug was there for years already, but
+>   - is a performance issue, the packets are still transmitted
+>   - doesn't show up with default MTU 1500, but possibly with ipsec (MTU 1438)
+>
+> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
 
-Thanks Ben
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-I figured one would avoid some memmoves if the tag was extracted and as we 
-got
-a fairly slow CPU (some 300 MHZ MPC 8321) one should gain some performance 
-but not so then.
+-vlad
 
-I am not familiar with GRO( and its friends) but I am guessing it won't 
-help
-the bridge function or reduce stress from packet storms?
-
- Jocke
- 
+> ---
+>
+> --- linux-3.10.orig/net/sctp/chunk.c
+> +++ linux-3.10/net/sctp/chunk.c
+> @@ -200,9 +200,9 @@ struct sctp_datamsg *sctp_datamsg_from_u
+>   	/* This is the biggest possible DATA chunk that can fit into
+>   	 * the packet
+>   	 */
+> -	max_data = asoc->pathmtu -
+> +	max_data = (asoc->pathmtu -
+>   		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
+> -		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
+> +		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
+>
+>   	max = asoc->frag_point;
+>   	/* If the the peer requested that we authenticate DATA chunks
+>
