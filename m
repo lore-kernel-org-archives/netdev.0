@@ -1,36 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: use reciprocal_divide instead of
- reimplementing it
-Date: Tue, 03 Sep 2013 07:02:34 -0700
-Message-ID: <1378216954.7360.25.camel@edumazet-glaptop>
-References: <1378204010-27050-1-git-send-email-dborkman@redhat.com>
-	 <1378204010-27050-3-git-send-email-dborkman@redhat.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: VLAN HW accel, performance advantage?
+Date: Tue, 3 Sep 2013 16:08:40 +0200
+Message-ID: <OF0F246C2A.B5DC5CA4-ONC1257BDB.004CA4E6-C1257BDB.004DB31E@transmode.se>
+References: <OF00E35E7C.7482EC01-ONC1257BDB.00314AD0-C1257BDB.0031F6D0@transmode.se> <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1378204010-27050-3-git-send-email-dborkman@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:63772 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753694Ab3ICOIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Sep 2013 10:08:43 -0400
+In-Reply-To: <1378216216.1545.1.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-03 at 12:26 +0200, Daniel Borkmann wrote:
-> Replace these places with reciprocal_divide() inline function instead of
-> reimplementing it each time, thus it will become easier to read. We do not
-> need to explicitly include its header as it's pulled in from linux/net.h
-> anyway.
+Ben Hutchings <bhutchings@solarflare.com> wrote on 2013/09/03 15:50:16:
+> 
+> On Tue, 2013-09-03 at 11:05 +0200, Joakim Tjernlund wrote:
+> > I am considering impl. VLAN HW acceleration in Freescales ucc_geth 
+driver 
+> > to improve
+> > performance, primarily for bridged interfaces.
+> >  I am hoping the community has some insights as to what performance 
+gains 
+> > one
+> > could expect?
+> 
+> At the moment you need to do VLAN RX offload (or fake it in software) to
+> take advantage of GRO for VLAN-encapsulated packets.  Other than that, I
+> don't think it makes a lot of difference in most situations.
+> 
+> Ben.
 
-Sure, (((u64) hash * qcount) >> 32) happens to be
-reciprocal_divide(hash, qcount) but the result depends on hash being
-well distributed in [0 .. ~0U] space.
+Thanks Ben
 
-So 'reciprocal' and 'divide' do not accurately describe this exact
-operation.
+I figured one would avoid some memmoves if the tag was extracted and as we 
+got
+a fairly slow CPU (some 300 MHZ MPC 8321) one should gain some performance 
+but not so then.
 
-I suggest making the thing more descriptive.
+I am not familiar with GRO( and its friends) but I am guessing it won't 
+help
+the bridge function or reduce stress from packet storms?
 
-(And discussed on lkml btw)
-
-
+ Jocke
+ 
