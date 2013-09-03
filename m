@@ -1,126 +1,52 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
-Date: Tue, 3 Sep 2013 01:39:25 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE01682504@039-SN2MPN1-021.039d.mgd.msft.net>
-References: <1378121735-5681-1-git-send-email-B38611@freescale.com>
- <1F990F8245A4214A8CC4BFFBD9F790F908B45674@039-SN1MPN1-001.039d.mgd.msft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 0/5] bonding: locking simplifications and cleanup
+Date: Tue, 3 Sep 2013 09:48:04 +0800
+Message-ID: <52253FD4.1060908@huawei.com>
+References: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Li Frank-B20596 <B20596@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <andy@greyhouse.net>, <fubar@us.ibm.com>,
+	<davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:17607
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756821Ab3ICBjn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Sep 2013 21:39:43 -0400
-In-Reply-To: <1F990F8245A4214A8CC4BFFBD9F790F908B45674@039-SN1MPN1-001.039d.mgd.msft.net>
-Content-Language: en-US
+Received: from szxga01-in.huawei.com ([119.145.14.64]:18609 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756897Ab3ICBsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Sep 2013 21:48:13 -0400
+In-Reply-To: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Frank-B20596
-Data: Monday, September 02, 2013 10:30 PM
-
-> To: Duan Fugang-B38611; davem@davemloft.net
-> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
-> stephen@networkplumber.org
-> Subject: RE: [PATCH] net: fec: fix the error to get the previous BD entry
+On 2013/9/2 19:51, Nikolay Aleksandrov wrote:
+> Hello,
+> This small patchset aims to remove some use cases of bond->lock for mutual
+> exclusion which will help in the RCUfication of the function users. It also
+> does some small style cleanups and fixes.
 > 
+> Patch 01 - Drops the use of bond->lock as mutual exclusion for peer
+> notification and relies on RTNL being held when send_peer_notif is modified
+> Patch 02 - trivial outdated comment removal
+> Patch 03 - Drops the use of bond->lock as mutual exclusion for lacp rate
+> update and relies on RTNL, also fixes possible races with mode change
+> Patch 04 - Drops read_lock in bond_fix_features because RTNL is held
+> Patch 05 - Drops read_lock in bond_compute_features because RTNL is held
+> whenever it's called
 > 
+> Best regards,
+>  Nikolay Aleksandrov
 > 
-> > -----Original Message-----
-> > From: Duan Fugang-B38611
-> > Sent: Monday, September 02, 2013 6:36 AM
-> > To: Li Frank-B20596; davem@davemloft.net
-> > Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
-> > stephen@networkplumber.org
-> > Subject: [PATCH] net: fec: fix the error to get the previous BD entry
-> >
-> > Bug: error to get the previous BD entry. When the current BD is the
-> > first BD, the previous BD entry must be the last BD, not "bdp - 1" in
-> current logic.
-> >
-> > V2:
-> >   Add tx_ring_size and rx_ring_size to struct fec_enet_private.
-> >   Replace api fec_enet_get_nextdesc() with next_bd().
-> >   Replace api fec_enet_get_prevdesc() with pre_bd().
-> >
-> >   Move all ring size check logic to next_bd() and pre_bd, which
-> >   simplifies the code redundancy.
-> >
-> > V1:
-> >   Add BD ring size check to get the previous BD entry in correctly.
-> >
-> > Signed-off-by: Fugang Duan  <B38611@freescale.com>
-> > ---
-> >  drivers/net/ethernet/freescale/fec.h      |    3 +
-> >  drivers/net/ethernet/freescale/fec_main.c |   94 +++++++++++++++-------
-> -----
-> > -
-> >  2 files changed, 53 insertions(+), 44 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/freescale/fec.h
-> > b/drivers/net/ethernet/freescale/fec.h
-> > index ae23600..0120217 100644
-> > --- a/drivers/net/ethernet/freescale/fec.h
-> > +++ b/drivers/net/ethernet/freescale/fec.h
-> > @@ -296,6 +296,9 @@ struct fec_enet_private {
-> >  	/* The ring entries to be free()ed */
-> >  	struct bufdesc	*dirty_tx;
-> >
-> > +	unsigned short tx_ring_size;
-> > +	unsigned short rx_ring_size;
-> > +
-> >  	struct	platform_device *pdev;
-> >
-> >  	int	opened;
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c
-> > index 4ea1555..9894dd3 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -239,22 +239,35 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC
-> > address");
-> >
-> >  static int mii_cnt;
-> >
-> > -static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int
-> > is_ex)
-> > +static inline
-> > +struct bufdesc *next_bd(struct bufdesc *bdp, struct bufdesc *base,
-> > +			int ring_size, int is_ex)
+> Nikolay Aleksandrov (5):
+>   bonding: simplify and fix peer notification
+>   bonding: trivial: remove outdated comment and braces
+>   bonding: simplify bond_3ad_update_lacp_rate and use RTNL for sync
+>   bonding: drop read_lock in bond_fix_features
+>   bonding: drop read_lock in bond_compute_features
 > 
-> David suggest use fec_enet_ prefix for all function in fec driver when I
-> upstream it.
-> 
-> 
-> How about use
-> 	Fec_enet_next_bd(struct bufdesc *bdp, *fep)
-> 	The parameter will become little and easy to call.
-> 
-> >  {
-> > -	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-> > +	struct bufdesc *new_bd = bdp + 1;
-> > +	struct bufdesc_ex *ex_new_bd = (struct bufdesc_ex *)bdp + 1;
-> > +	struct bufdesc_ex *ex_base = (struct bufdesc_ex *)base;
-> > +
-> 
-> If pass down fep,
-> 	If( bdp > fep->rx_base) {
-> 		Ex_base = fep->rx_base;
-> 		Ring_size = fep->rx_ring_size;
-> 	}
-> 	Else {
-> 		Ex_base = fep->tx_base.
-> 		Ring_size = fep->tx_ring_size;
-> 	}
-> 
-> Because RX always behind of TX.
+>  drivers/net/bonding/bond_3ad.c   |  8 +------
+>  drivers/net/bonding/bond_main.c  | 48 ++++++++++++----------------------------
+>  drivers/net/bonding/bond_sysfs.c |  7 +++++-
+>  3 files changed, 21 insertions(+), 42 deletions(-)
 > 
 
-Good idea, I will send patch V3.  Thanks.
+Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
