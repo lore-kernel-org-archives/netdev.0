@@ -1,87 +1,93 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_init_urbs()
-Date: Wed, 04 Sep 2013 00:09:02 +0400
-Message-ID: <522641DE.70902@ispras.ru>
-References: <1378103685.43571.YahooMailBasic@web172301.mail.ir2.yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
+ tcp_v6_do_rcv
+Date: Tue, 03 Sep 2013 13:35:17 -0700
+Message-ID: <1378240517.7360.41.camel@edumazet-glaptop>
+References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+	 <1378230513.7360.37.camel@edumazet-glaptop>
+	 <20130903194620.GE8262@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: larry.finger@lwfinger.net, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org,
-	gregkh@linuxfoundation.org
-To: htl10@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378103685.43571.YahooMailBasic@web172301.mail.ir2.yahoo.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	Jiri Benc <jbenc@redhat.com>
+To: Jean Sacren <sakiwit@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:41283 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760352Ab3ICUfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 16:35:19 -0400
+Received: by mail-pd0-f175.google.com with SMTP id q10so6532667pdj.34
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 13:35:18 -0700 (PDT)
+In-Reply-To: <20130903194620.GE8262@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02.09.2013 10:34, Hin-Tak Leung wrote:
-> ------------------------------
-> On Mon, Sep 2, 2013 05:06 BST Alexey Khoroshilov wrote:
->
->> On 01.09.2013 10:51, Hin-Tak Leung wrote:
->>> ------------------------------
->>> On Sat, Aug 31, 2013 22:18 BST Alexey Khoroshilov wrote:
->>>
->>> In case of __dev_alloc_skb() failure rtl8187_init_urbs()
->>> calls usb_free_urb(entry) where 'entry' can points to urb
->>> allocated at the previous iteration. That means refcnt will be
->>> decremented incorrectly and the urb can be used after memory
->>> deallocation.
->>>
->>> The patch fixes the issue and implements error handling of init_urbs
->>> in rtl8187_start().
->>>
->>> Found by Linux Driver Verification project (linuxtesting.org).
->>>
->>> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
->>> ---
->>> drivers/net/wireless/rtl818x/rtl8187/dev.c | 15 ++++++++++-----
->>> 1 file changed, 10 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
->>> index f49220e..e83d53c 100644
->>> --- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
->>> +++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
->>> @@ -438,17 +438,16 @@ static int rtl8187_init_urbs(struct ieee80211_hw *dev)
->>>            skb_queue_tail(&priv->rx_queue, skb);
->>>            usb_anchor_urb(entry, &priv->anchored);
->>>            ret = usb_submit_urb(entry, GFP_KERNEL);
->>> +        usb_free_urb(entry);
->>>            if (ret) {
->>>                skb_unlink(skb, &priv->rx_queue);
->>>                usb_unanchor_urb(entry);
->>>                goto err;
->>>            }
->>> -        usb_free_urb(entry);
->>>        }
->>>        return ret;
->>>
->>> err:
->>> -    usb_free_urb(entry);
->>>        kfree_skb(skb);
->>>        usb_kill_anchored_urbs(&priv->anchored);
->>>        return ret;
->>> This part looks wrong - you free_urb(entry) then unanchor_urb(entry).
->> I do not see any problems here.
->> usb_free_urb() just decrements refcnt of the urb.
->> While usb_anchor_urb() and usb_unanchor_urb() increment and decrement it
->> as well.
->> So actual memory deallocation will happen in usb_unanchor_urb().
-> If the routines work as you say, they probably are misnamed, and/or prototyped wrongly?
-> Also, you are making assumptions about how they are implemented, and relying
-> on the implementation details to be fixed for eternity.
->
-> I am just saying,
->
-> XXX_free(some_entity);
-> if(condtion)
->       do_stuff(some_entity);
->
-> looks wrong, and if that's intentional, those routines really shouldn't be named as such.
-There is an alias for usb_free_urb() named usb_put_urb().
-I will resend the patch with such substitution.
+On Tue, 2013-09-03 at 13:46 -0600, Jean Sacren wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 03 Sep 2013 10:48:33 -0700
+> >
+> > On Tue, 2013-09-03 at 19:29 +0200, Daniel Borkmann wrote:
+> > > In tcp_v6_do_rcv() code, when processing pkt options, we soley work
+> > > on our skb clone opt_skb that we've created earlier before entering
+> > > tcp_rcv_established() on our way. However, only in condition ...
+> > > 
+> > >   if (np->rxopt.bits.rxtclass)
+> > >     np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+> > > 
+> > > ... we work on skb itself. As we extract every other information out
+> > > of opt_skb in ipv6_pktoptions path, this seems wrong, since skb can
+> > > already be released by tcp_rcv_established() earlier on. When we try
+> > > to access it in ipv6_hdr(), we will dereference freed skb.
+> > > 
+> > > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > > ---
+> > >  net/ipv6/tcp_ipv6.c | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> > > index 6e1649d..eeb4cb0 100644
+> > > --- a/net/ipv6/tcp_ipv6.c
+> > > +++ b/net/ipv6/tcp_ipv6.c
+> > > @@ -1427,7 +1427,7 @@ ipv6_pktoptions:
+> > >  		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
+> > >  			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
+> > >  		if (np->rxopt.bits.rxtclass)
+> > > -			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+> > > +			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(opt_skb));
+> > >  		if (ipv6_opt_accepted(sk, opt_skb)) {
+> > >  			skb_set_owner_r(opt_skb, sk);
+> > >  			opt_skb = xchg(&np->pktoptions, opt_skb);
+> > 
+> > Bug added in commit 4c507d2897bd9b
+> > ("net: implement IP_RECVTOS for IP_PKTOPTIONS")
+> > 
+> > CC Jiri
+> > 
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> You made a mistake.
 
---
-Alexey
+Really ?
+
+> 
+> It was introduced in commit e7219858a ("ipv6: Use ipv6_get_dsfield()
+> instead of ipv6_tclass()").
+> 
+> Cc the right party.
+> 
+
+
+Nope, I did no mistake.
+
+The bug was really added in commit 4c507d2897bd9b as I said.
+
+Then commit e7219858a just did no change : skb was used before and after
+the patch
+
+-                       np->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
++                       np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+
+How did you get your conclusion ?
