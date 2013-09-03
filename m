@@ -1,62 +1,35 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
- tcp_v6_do_rcv
-Date: Tue, 03 Sep 2013 10:48:33 -0700
-Message-ID: <1378230513.7360.37.camel@edumazet-glaptop>
-References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH v2] ipv6: Don't depend on per socket memory for
+ neighbour discovery messages
+Date: Tue, 03 Sep 2013 10:51:37 -0700
+Message-ID: <1378230697.7360.38.camel@edumazet-glaptop>
+References: <e4600dac657e1160da7a5e7758dcb973b616a10e.1378207925.git.tgraf@suug.ch>
+	 <52261A12.3060203@wwwdotorg.org>
+	 <20130903172736.GB21729@order.stressinduktion.org>
+	 <52261F68.70907@wwwdotorg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+	netdev@vger.kernel.org, Fabio Estevam <festevam@gmail.com>
+To: Stephen Warren <swarren@wwwdotorg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:54715 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753910Ab3ICRsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:48:35 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bg4so6716902pad.18
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 10:48:35 -0700 (PDT)
-In-Reply-To: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:37614 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756594Ab3ICRvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 13:51:38 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so6367332pde.9
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 10:51:37 -0700 (PDT)
+In-Reply-To: <52261F68.70907@wwwdotorg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-03 at 19:29 +0200, Daniel Borkmann wrote:
-> In tcp_v6_do_rcv() code, when processing pkt options, we soley work
-> on our skb clone opt_skb that we've created earlier before entering
-> tcp_rcv_established() on our way. However, only in condition ...
-> 
->   if (np->rxopt.bits.rxtclass)
->     np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
-> 
-> ... we work on skb itself. As we extract every other information out
-> of opt_skb in ipv6_pktoptions path, this seems wrong, since skb can
-> already be released by tcp_rcv_established() earlier on. When we try
-> to access it in ipv6_hdr(), we will dereference freed skb.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/ipv6/tcp_ipv6.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 6e1649d..eeb4cb0 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1427,7 +1427,7 @@ ipv6_pktoptions:
->  		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
->  			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
->  		if (np->rxopt.bits.rxtclass)
-> -			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
-> +			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(opt_skb));
->  		if (ipv6_opt_accepted(sk, opt_skb)) {
->  			skb_set_owner_r(opt_skb, sk);
->  			opt_skb = xchg(&np->pktoptions, opt_skb);
+On Tue, 2013-09-03 at 11:42 -0600, Stephen Warren wrote:
 
-Bug added in commit 4c507d2897bd9b
-("net: implement IP_RECVTOS for IP_PKTOPTIONS")
+> I don't see any extra messages from PROVE_LOCKING related to networking.
+> There is a single extra message from inside the audio driver, but that's
+> not networking-related at all.
 
-CC Jiri
+LOCKDEP is automatically disabled at first splat.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Please try a kernel without audio driver ;)
