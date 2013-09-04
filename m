@@ -1,75 +1,80 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file copies
-Date: Wed, 4 Sep 2013 17:17:15 +0530
-Message-ID: <1378295235-18928-1-git-send-email-vgupta@synopsys.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH] xen-netback: count number required slots for an skb more
+ carefully
+Date: Wed, 4 Sep 2013 12:48:15 +0100
+Message-ID: <52271DFF.3070008@citrix.com>
+References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com> <20130903215328.GA13465@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <arc-linux-dev@synopsys.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <msw@amazon.com>, <annie.li@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:28527 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762529Ab3IDLsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 07:48:18 -0400
+In-Reply-To: <20130903215328.GA13465@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-copying large files to a NFS mounted host was taking absurdly large
-time.
+On 03/09/13 22:53, Wei Liu wrote:
+> On Tue, Sep 03, 2013 at 06:29:50PM +0100, David Vrabel wrote:
+>> From: David Vrabel <david.vrabel@citrix.com>
+>>
+>> When a VM is providing an iSCSI target and the LUN is used by the
+>> backend domain, the generated skbs for direct I/O writes to the disk
+>> have large, multi-page skb->data but no frags.
+>>
+>> With some lengths and starting offsets, xen_netbk_count_skb_slots()
+>> would be one short because the simple calculation of
+>> DIV_ROUND_UP(skb_headlen(), PAGE_SIZE) was not accounting for the
+>> decisions made by start_new_rx_buffer() which does not guarantee
+>> responses are fully packed.
+>>
+>> For example, a skb with length < 2 pages but which spans 3 pages would
+>> be counted as requiring 2 slots but would actually use 3 slots.
+>>
+>> skb->data:
+>>
+>>     |        1111|222222222222|3333        |
+>>
+>> Fully packed, this would need 2 slots:
+>>
+>>     |111122222222|22223333    |
+>>
+>> But because the 2nd page wholy fits into a slot it is not split across
+>> slots and goes into a slot of its own:
+>>
+>>     |1111        |222222222222|3333        |
+>>
+>> Miscounting the number of slots means netback may push more responses
+>> than the number of available requests.  This will cause the frontend
+>> to get very confused and report "Too many frags/slots".  The frontend
+>> never recovers and will eventually BUG.
+>>
+>> Fix this by counting the number of required slots more carefully.  In
+>> xen_netbk_count_skb_slots(), more closely follow the algorithm used by
+>> xen_netbk_gop_skb() by introducing xen_netbk_count_frag_slots() which
+>> is the dry-run equivalent of netbk_gop_frag_copy().
+>>
+> 
+> Phew! So this is backend miscounting bug. I thought it was a frontend
+> bug so it didn't ring a bell when we had our face-to-face discussion,
+> sorry. :-(
+> 
+> This bug was discussed back in July among Annie, Matt, Ian and I. We
+> finally agreed to take Matt's solution. Matt agreed to post final
+> version within a week but obviously he's too busy to do so. I was away
+> so I didn't follow closely. Eventually it fell through the crack. :-(
 
-Turns out that TX BD reclaim had a sublte bug.
+I think I prefer fixing the counting for backporting to stable kernels.
+ Xi's approach of packing the ring differently is a change in frontend
+visible behaviour and seems more risky. e.g., possible performance
+impact so I would like to see some performance analysis of that approach.
 
-Loop starts off from @txbd_dirty cursor and stops when it hits a BD
-still in use by controller. However when it stops it needs to keep the
-cursor at that very BD to resume scanning in next iteration. However it
-was erroneously incrementing the cursor, causing the next scan(s) to
-fail too, unless the BD chain was completely drained out.
-
-[ARCLinux]$ ls -l -sh /disk/log.txt
- 17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
-
-========== Before =====================
-[ARCLinux]$ time cp /disk/log.txt /mnt/.
-real    31m 7.95s
-user    0m 0.00s
-sys     0m 0.10s
-
-========== After =====================
-[ARCLinux]$ time cp /disk/log.txt /mnt/.
-real    0m 24.33s
-user    0m 0.00s
-sys     0m 0.19s
-
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
-Cc: Alexey Brodkin <abrodkin@synopsys.com> (commit_signer:3/4=75%)
-Cc: "David S. Miller" <davem@davemloft.net> (commit_signer:3/4=75%)
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: arc-linux-dev@synopsys.com
----
- drivers/net/ethernet/arc/emac_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index 55d79cb..9e16014 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -149,8 +149,6 @@ static void arc_emac_tx_clean(struct net_device *ndev)
- 		struct sk_buff *skb = tx_buff->skb;
- 		unsigned int info = le32_to_cpu(txbd->info);
- 
--		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
--
- 		if ((info & FOR_EMAC) || !txbd->data)
- 			break;
- 
-@@ -180,6 +178,8 @@ static void arc_emac_tx_clean(struct net_device *ndev)
- 		txbd->data = 0;
- 		txbd->info = 0;
- 
-+		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
-+
- 		if (netif_queue_stopped(ndev))
- 			netif_wake_queue(ndev);
- 	}
--- 
-1.8.1.2
+David
