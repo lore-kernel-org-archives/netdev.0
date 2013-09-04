@@ -1,149 +1,157 @@
-From: yves@cheny.fr
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
- =?UTF-8?Q?adjust=5Flink=28=29=20works?=
-Date: Wed, 04 Sep 2013 18:00:30 +0200
-Message-ID: <7f9b29792af750509fac07cbdfe869dd@cheny.fr>
+ adjust_link() works
+Date: Wed, 04 Sep 2013 18:08:59 +0200
+Message-ID: <52275B1B.8060405@free-electrons.com>
 References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20130904145051.GO19598@titan.lakedaemon.net>
- <20130904152018.GA21032@grp-vdonnefort>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Lior Amsalem <alior@marvell.com>,
- Jochen De Smet <jochen.armkernel@leahnim.org>,
- Jason Cooper <jason@lakedaemon.net>, Ryan Press <ryan@presslab.us>,
- netdev@vger.kernel.org, stable@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
- Ethan Tuttle <ethan@ethantuttle.com>,
- Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Peter Sanford <psanford@nearbuy.io>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org, Simon Guinot <simon.guinot@sequanux.org>
-To: Vincent Donnefort <vdonnefort@lacie.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20130904152018.GA21032@grp-vdonnefort>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Lior Amsalem <alior@marvell.com>,
+	Jochen De Smet <jochen.armkernel@leahnim.org>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Ryan Press <ryan@presslab.us>, vdonnefort@lacie.com,
+	Ethan Tuttle <ethan@ethantuttle.com>, stable@vger.kernel.org,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	=?UTF-8?B?Q2jDqW55IFl2ZXMtR2FlbA==?= <yves@cheny.fr>,
+	Peter Sanford <psanford@nearbuy.io>, Willy Tarreau <w@1wt.eu>,
+	linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMjAxMy0wOS0wNCAxNzoyMCwgVmluY2VudCBEb25uZWZvcnQgYSDDqWNyaXTCoDoKPiBPbiBX
-ZWQsIFNlcCAwNCwgMjAxMyBhdCAxMDo1MDo1MUFNIC0wNDAwLCBKYXNvbiBDb29wZXIgd3JvdGU6
-Cj4+IE9uIFdlZCwgU2VwIDA0LCAyMDEzIGF0IDA0OjIxOjE4UE0gKzAyMDAsIFRob21hcyBQZXRh
-enpvbmkgd3JvdGU6Cj4+ID4gVGhpcyBjb21taXQgZml4ZXMgYSBsb25nLXN0YW5kaW5nIGJ1ZyB0
-aGF0IGhhcyBiZWVuIHJlcG9ydGVkIGJ5IG1hbnkKPj4gPiB1c2Vyczogb24gc29tZSBBcm1hZGEg
-MzcwIHBsYXRmb3Jtcywgb25seSB0aGUgbmV0d29yayBpbnRlcmZhY2UgdGhhdAo+PiA+IGhhcyBi
-ZWVuIHVzZWQgaW4gVS1Cb290IHRvIHRmdHAgdGhlIGtlcm5lbCB3b3JrcyBwcm9wZXJseSBpbgo+
-PiA+IExpbnV4LiBUaGUgb3RoZXIgbmV0d29yayBpbnRlcmZhY2VzIGNhbiBzZWUgYSAnbGluayB1
-cCcsIGJ1dCBhcmUKPj4gPiB1bmFibGUgdG8gdHJhbnNtaXQgZGF0YS4gVGhlIHJlcG9ydHMgd2Vy
-ZSBnZW5lcmFsbHkgbWFkZSBvbiB0aGUgQXJtYWRhCj4+ID4gMzcwLWJhc2VkIE1pcmFib3gsIGJ1
-dCBoYXZlIGFsc28gYmVlbiBnaXZlbiBvbiB0aGUgQXJtYWRhIDM3MC1SRAo+PiA+IGJvYXJkLgo+
-PiA+Cj4+ID4gVGhlIG5ldHdvcmsgTUFDIGluIHRoZSBBcm1hZGEgMzcwL1hQIChzdXBwb3J0ZWQg
-YnkgdGhlIG12bmV0YSBkcml2ZXIKPj4gPiBpbiBMaW51eCkgaGFzIGEgZnVuY3Rpb25hbGl0eSB0
-aGF0IGFsbG93cyBpdCB0byBjb250aW51b3VzbHkgcG9sbCB0aGUKPj4gPiBQSFkgYW5kIGRpcmVj
-dGx5IHVwZGF0ZSB0aGUgTUFDIGNvbmZpZ3VyYXRpb24gYWNjb3JkaW5nbHkgKHNwZWVkLAo+PiA+
-IGR1cGxleCwgZXRjLikuIFRoZSB2ZXJ5IGZpcnN0IHZlcnNpb25zIG9mIHRoZSBkcml2ZXIgc3Vi
-bWl0dGVkIGZvcgo+PiA+IHJldmlldyB3ZXJlIHVzaW5nIHRoaXMgaGFyZHdhcmUgbWVjaGFuaXNt
-LCBidXQgZHVlIHRvIHRoaXMsIHRoZSBkcml2ZXIKPj4gPiB3YXMgbm90IGludGVncmF0ZWQgd2l0
-aCB0aGUga2VybmVsIHBoeWxpYi4gRm9sbG93aW5nIHJldmlld3MsIHRoZQo+PiA+IGRyaXZlciB3
-YXMgY2hhbmdlZCB0byB1c2UgdGhlIHBoeWxpYiwgYW5kIHRoZXJlZm9yZSBhIHNvZnR3YXJlIGJh
-c2VkCj4+ID4gcG9sbGluZy4gSW4gc29mdHdhcmUgYmFzZWQgcG9sbGluZywgTGludXggcmVndWxh
-cmx5IHRhbGtzIHRvIHRoZSBQSFkKPj4gPiBvdmVyIHRoZSBNRElPIGJ1cywgYW5kIHNlZXMgaWYg
-dGhlIGxpbmsgc3RhdHVzIGhhcyBjaGFuZ2VkLiBJZiBpdCdzCj4+ID4gdGhlIGNhc2UgdGhlbiB0
-aGUgYWRqdXN0X2xpbmsoKSBjYWxsYmFjayBvZiB0aGUgZHJpdmVyIGlzIGNhbGxlZCB0bwo+PiA+
-IHVwZGF0ZSB0aGUgTUFDIGNvbmZpZ3VyYXRpb24gYWNjb3JkaW5nbHkuCj4+ID4KPj4gPiBIb3dl
-dmVyLCBpdCB0dXJucyBvdXQgdGhhdCB0aGUgYWRqdXN0X2xpbmsoKSBjYWxsYmFjayB3YXMgbm90
-Cj4+ID4gY29uZmlndXJpbmcgdGhlIGhhcmR3YXJlIGluIGEgY29tcGxldGVseSBjb3JyZWN0IHdh
-eTogd2hpbGUgaXQgd2FzCj4+ID4gc2V0dGluZyB0aGUgc3BlZWQgYW5kIGR1cGxleCBiaXRzIGNv
-cnJlY3RseSwgaXQgd2Fzbid0IHRlbGxpbmcgdGhlCj4+ID4gaGFyZHdhcmUgdG8gYWN0dWFsbHkg
-dGFrZSBpbnRvIGFjY291bnQgdGhvc2UgYml0cyByYXRoZXIgdGhhbiB3aGF0IHRoZQo+PiA+IGhh
-cmR3YXJlLWJhc2VkIFBIWSBwb2xsaW5nIG1lY2hhbmlzbSBoYXMgY29uY2x1ZGVkLiBTbywgaW4g
-ZmFjdCB0aGUKPj4gPiBhZGp1c3RfbGluaygpIGNhbGxiYWNrIHdhcyBiYXNpY2FsbHkgYSBuby1v
-cC4KPj4gPgo+PiA+IEhvd2V2ZXIsIHRoZSBuZXR3b3JrIGhhcHBlbmVkIHRvIGJlIHdvcmtpbmcg
-YmVjYXVzZSBvbiB0aGUgbmV0d29yawo+PiA+IGludGVyZmFjZXMgdXNlZCBieSBVLUJvb3QgZm9y
-IHRmdHAgb24gQXJtYWRhIDM3MCBwbGF0Zm9ybXMgYmVjYXVzZSB0aGUKPj4gPiBoYXJkd2FyZSBQ
-SFkgcG9sbGluZyB3YXMgZW5hYmxlZCBieSB0aGUgYm9vdGxvYWRlciwgYW5kIGxlZnQgZW5hYmxl
-ZAo+PiA+IGJ5IExpbnV4LiBIb3dldmVyLCB0aGUgc2Vjb25kIG5ldHdvcmsgaW50ZXJmYWNlIG5v
-dCB1c2VkIGZvciB0ZnRwIChvcgo+PiA+IGJvdGggbmV0d29yayBpbnRlcmZhY2VzIGlmIHRoZSBr
-ZXJuZWwgaXMgbG9hZGVkIGZyb20gVVNCLCBOQU5EIG9yIFNECj4+ID4gY2FyZCkgZGlkbid0IGhh
-ZCB0aGUgaGFyZHdhcmUgUEhZIHBvbGxpbmcgZW5hYmxlZC4KPj4gPgo+PiA+IFRoaXMgcGF0Y2gg
-Zml4ZXMgdGhpcyBzaXR1YXRpb24gYnk6Cj4+ID4KPj4gPiAgKDEpIE1ha2luZyBzdXJlIHRoYXQg
-dGhlIGhhcmR3YXJlIFBIWSBwb2xsaW5nIGlzIGRpc2FibGVkIGJ5IGNsZWFyaW5nCj4+ID4gICAg
-ICB0aGUgTVZORVRBX1BIWV9QT0xMSU5HX0VOQUJMRSBiaXQgaW4gdGhlIE1WTkVUQV9VTklUX0NP
-TlRST0wKPj4gPiAgICAgIHJlZ2lzdGVyIGluIHRoZSBkcml2ZXIgLT5wcm9iZSgpIGZ1bmN0aW9u
-Lgo+PiA+Cj4+ID4gICgyKSBNYWtpbmcgc3VyZSB0aGF0IHRoZSBkdXBsZXggYW5kIHNwZWVkIHNl
-bGVjdGlvbnMgbWFkZSBieSB0aGUKPj4gPiAgICAgIGFkanVzdF9saW5rKCkgY2FsbGJhY2sgYXJl
-IHRha2VuIGludG8gYWNjb3VudCBieSBjbGVhcmluZyB0aGUKPj4gPiAgICAgIE1WTkVUQV9HTUFD
-X0FOX1NQRUVEX0VOIGFuZCBNVk5FVEFfR01BQ19BTl9EVVBMRVhfRU4gYml0cyBpbiB0aGUKPj4g
-PiAgICAgIE1WTkVUQV9HTUFDX0FVVE9ORUdfQ09ORklHIHJlZ2lzdGVyLgo+PiA+Cj4+ID4gVGhp
-cyBwYXRjaCBoYXMgYmVlbiB0ZXN0ZWQgb24gQXJtYWRhIDM3MCBNaXJhYm94LCBhbmQgbm93IGJv
-dGggbmV0d29yawo+PiA+IGludGVyZmFjZXMgYXJlIHVzYWJsZSBhZnRlciBib290Lgo+PiA+Cj4+
-ID4gU2lnbmVkLW9mZi1ieTogVGhvbWFzIFBldGF6em9uaSA8dGhvbWFzLnBldGF6em9uaUBmcmVl
-LWVsZWN0cm9ucy5jb20+Cj4+ID4gQ2M6IFdpbGx5IFRhcnJlYXUgPHdAMXd0LmV1Pgo+PiA+IENj
-OiBKb2NoZW4gRGUgU21ldCA8am9jaGVuLmFybWtlcm5lbEBsZWFobmltLm9yZz4KPj4gPiBDYzog
-UGV0ZXIgU2FuZm9yZCA8cHNhbmZvcmRAbmVhcmJ1eS5pbz4KPj4gPiBDYzogRXRoYW4gVHV0dGxl
-IDxldGhhbkBldGhhbnR1dHRsZS5jb20+Cj4+ID4gQ2M6IENow6lueSBZdmVzLUdhZWwgPHl2ZXNA
-Y2hlbnkuZnI+Cj4+ID4gQ2M6IFJ5YW4gUHJlc3MgPHJ5YW5AcHJlc3NsYWIudXM+Cj4+ID4gQ2M6
-IFNpbW9uIEd1aW5vdCA8c2ltb24uZ3Vpbm90QHNlcXVhbnV4Lm9yZz4KPj4gPiBDYzogdmRvbm5l
-Zm9ydEBsYWNpZS5jb20KPj4gPiBDYzogc3RhYmxlQHZnZXIua2VybmVsLm9yZwo+PiA+IC0tLQo+
-PiA+IERhdmlkLCB0aGlzIHBhdGNoIGlzIGEgZml4IGZvciBhIHByb2JsZW0gdGhhdCBoYXMgYmVl
-biBoZXJlIHNpbmNlIDMuOAo+PiA+ICh3aGVuIHRoZSBtdm5ldGEgZHJpdmVyIHdhcyBpbnRyb2R1
-Y2VkKSwgc28gSSd2ZSBDYydlZCBzdGFibGVAIGFuZCBpZgo+PiA+IHBvc3NpYmxlIEknZCBsaWtl
-IHRvIHBhdGNoIHRvIGJlIGluY2x1ZGVkIGZvciAzLjEyLgo+PiAKPj4gRGF2aWQsCj4+IAo+PiBP
-ZmZlbmRpbmcgcGF0Y2ggaXM6Cj4+IAo+PiAgIGM1YWZmMTggbmV0OiBtdm5ldGE6IGRyaXZlciBm
-b3IgTWFydmVsbCBBcm1hZGEgMzcwL1hQIG5ldHdvcmsgdW5pdAo+PiAKPj4gQXBwbGllcyBhbmQg
-YnVpbGRzIGNsZWFubHkgYWdhaW5zdCB2My44LjEzLCB2My45LjExLCB2My4xMC4xMCwgYW5kIAo+
-PiB2My4xMQo+PiAKPj4gQWNrZWQtYnk6IEphc29uIENvb3BlciA8amFzb25AbGFrZWRhZW1vbi5u
-ZXQ+Cj4+IAo+PiB0aHgsCj4+IAo+PiBKYXNvbi4KPiAKPiBXb3JrcyB3aXRoIHRoZSBhcm1hZGEz
-NzAtcmQgYm9hcmQuCj4gCj4gVGVzdGVkLWJ5OiBWaW5jZW50IERvbm5lZm9ydCA8dmRvbm5lZm9y
-dEBnbWFpbC5jb20+Cj4gCj4gVGhhbmsgeW91IQo+IAo+IFZpbmNlbnQuCj4gCgoKV29ya3Mgd2l0
-aCB0aGUgbWlyYWJveCBhcm1hZGEzNzAgZGV2a2l0LgoKVGVzdGVkLWJ5OiBZdmVzLUdhZWwgQ2hl
-bnkgPHl2ZXNAY2hlbnkuZnI+CgpNYW55IHRoeCwKCll2ZXMtR2HDq2wgLgoKCgo+PiAKPj4gPiAt
-LS0KPj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm5ldGEuYyB8IDEzICsrKysr
-KysrKysrKy0KPj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDEgZGVsZXRp
-b24oLSkKPj4gPgo+PiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxs
-L212bmV0YS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm5ldGEuYwo+PiA+IGlu
-ZGV4IGIwMTc4MTguLjkwYWIyOTIgMTAwNjQ0Cj4+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvbWFydmVsbC9tdm5ldGEuYwo+PiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
-bGwvbXZuZXRhLmMKPj4gPiBAQCAtMTM4LDcgKzEzOCw5IEBACj4+ID4gICNkZWZpbmUgICAgICBN
-Vk5FVEFfR01BQ19GT1JDRV9MSU5LX1BBU1MgICAgICAgICBCSVQoMSkKPj4gPiAgI2RlZmluZSAg
-ICAgIE1WTkVUQV9HTUFDX0NPTkZJR19NSUlfU1BFRUQgICAgICAgIEJJVCg1KQo+PiA+ICAjZGVm
-aW5lICAgICAgTVZORVRBX0dNQUNfQ09ORklHX0dNSUlfU1BFRUQgICAgICAgQklUKDYpCj4+ID4g
-KyNkZWZpbmUgICAgICBNVk5FVEFfR01BQ19BTl9TUEVFRF9FTiAgICAgICAgICAgICBCSVQoNykK
-Pj4gPiAgI2RlZmluZSAgICAgIE1WTkVUQV9HTUFDX0NPTkZJR19GVUxMX0RVUExFWCAgICAgIEJJ
-VCgxMikKPj4gPiArI2RlZmluZSAgICAgIE1WTkVUQV9HTUFDX0FOX0RVUExFWF9FTiAgICAgICAg
-ICAgIEJJVCgxMykKPj4gPiAgI2RlZmluZSBNVk5FVEFfTUlCX0NPVU5URVJTX0JBU0UgICAgICAg
-ICAgICAgICAgIDB4MzA4MAo+PiA+ICAjZGVmaW5lICAgICAgTVZORVRBX01JQl9MQVRFX0NPTExJ
-U0lPTiAgICAgICAgICAgMHg3Ywo+PiA+ICAjZGVmaW5lIE1WTkVUQV9EQV9GSUxUX1NQRUNfTUNB
-U1QgICAgICAgICAgICAgICAgMHgzNDAwCj4+ID4gQEAgLTkxNSw2ICs5MTcsMTMgQEAgc3RhdGlj
-IHZvaWQgbXZuZXRhX2RlZmF1bHRzX3NldChzdHJ1Y3QgbXZuZXRhX3BvcnQgKnBwKQo+PiA+ICAJ
-LyogQXNzaWduIHBvcnQgU0RNQSBjb25maWd1cmF0aW9uICovCj4+ID4gIAltdnJlZ193cml0ZShw
-cCwgTVZORVRBX1NETUFfQ09ORklHLCB2YWwpOwo+PiA+Cj4+ID4gKwkvKiBEaXNhYmxlIFBIWSBw
-b2xsaW5nIGluIGhhcmR3YXJlLCBzaW5jZSB3ZSdyZSB1c2luZyB0aGUKPj4gPiArCSAqIGtlcm5l
-bCBwaHlsaWIgdG8gZG8gdGhpcy4KPj4gPiArCSAqLwo+PiA+ICsJdmFsID0gbXZyZWdfcmVhZChw
-cCwgTVZORVRBX1VOSVRfQ09OVFJPTCk7Cj4+ID4gKwl2YWwgJj0gfk1WTkVUQV9QSFlfUE9MTElO
-R19FTkFCTEU7Cj4+ID4gKwltdnJlZ193cml0ZShwcCwgTVZORVRBX1VOSVRfQ09OVFJPTCwgdmFs
-KTsKPj4gPiArCj4+ID4gIAltdm5ldGFfc2V0X3VjYXN0X3RhYmxlKHBwLCAtMSk7Cj4+ID4gIAlt
-dm5ldGFfc2V0X3NwZWNpYWxfbWNhc3RfdGFibGUocHAsIC0xKTsKPj4gPiAgCW12bmV0YV9zZXRf
-b3RoZXJfbWNhc3RfdGFibGUocHAsIC0xKTsKPj4gPiBAQCAtMjMwNyw3ICsyMzE2LDkgQEAgc3Rh
-dGljIHZvaWQgbXZuZXRhX2FkanVzdF9saW5rKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQo+PiA+
-ICAJCQl2YWwgPSBtdnJlZ19yZWFkKHBwLCBNVk5FVEFfR01BQ19BVVRPTkVHX0NPTkZJRyk7Cj4+
-ID4gIAkJCXZhbCAmPSB+KE1WTkVUQV9HTUFDX0NPTkZJR19NSUlfU1BFRUQgfAo+PiA+ICAJCQkJ
-IE1WTkVUQV9HTUFDX0NPTkZJR19HTUlJX1NQRUVEIHwKPj4gPiAtCQkJCSBNVk5FVEFfR01BQ19D
-T05GSUdfRlVMTF9EVVBMRVgpOwo+PiA+ICsJCQkJIE1WTkVUQV9HTUFDX0NPTkZJR19GVUxMX0RV
-UExFWCB8Cj4+ID4gKwkJCQkgTVZORVRBX0dNQUNfQU5fU1BFRURfRU4gfAo+PiA+ICsJCQkJIE1W
-TkVUQV9HTUFDX0FOX0RVUExFWF9FTik7Cj4+ID4KPj4gPiAgCQkJaWYgKHBoeWRldi0+ZHVwbGV4
-KQo+PiA+ICAJCQkJdmFsIHw9IE1WTkVUQV9HTUFDX0NPTkZJR19GVUxMX0RVUExFWDsKPj4gPiAt
-LQo+PiA+IDEuOC4xLjIKPj4gPgo+PiA+Cj4+ID4gX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KPj4gPiBsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdAo+
-PiA+IGxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwo+PiA+IGh0dHA6Ly9saXN0
-cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAoKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5l
-bCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6
-Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
+On 04/09/2013 16:21, Thomas Petazzoni wrote:
+> This commit fixes a long-standing bug that has been reported by many
+> users: on some Armada 370 platforms, only the network interface that
+> has been used in U-Boot to tftp the kernel works properly in
+> Linux. The other network interfaces can see a 'link up', but are
+> unable to transmit data. The reports were generally made on the Armad=
+a
+> 370-based Mirabox, but have also been given on the Armada 370-RD
+> board.
+>=20
+> The network MAC in the Armada 370/XP (supported by the mvneta driver
+> in Linux) has a functionality that allows it to continuously poll the
+> PHY and directly update the MAC configuration accordingly (speed,
+> duplex, etc.). The very first versions of the driver submitted for
+> review were using this hardware mechanism, but due to this, the drive=
+r
+> was not integrated with the kernel phylib. Following reviews, the
+> driver was changed to use the phylib, and therefore a software based
+> polling. In software based polling, Linux regularly talks to the PHY
+> over the MDIO bus, and sees if the link status has changed. If it's
+> the case then the adjust_link() callback of the driver is called to
+> update the MAC configuration accordingly.
+>=20
+> However, it turns out that the adjust_link() callback was not
+> configuring the hardware in a completely correct way: while it was
+> setting the speed and duplex bits correctly, it wasn't telling the
+> hardware to actually take into account those bits rather than what th=
+e
+> hardware-based PHY polling mechanism has concluded. So, in fact the
+> adjust_link() callback was basically a no-op.
+>=20
+> However, the network happened to be working because on the network
+> interfaces used by U-Boot for tftp on Armada 370 platforms because th=
+e
+> hardware PHY polling was enabled by the bootloader, and left enabled
+> by Linux. However, the second network interface not used for tftp (or
+> both network interfaces if the kernel is loaded from USB, NAND or SD
+> card) didn't had the hardware PHY polling enabled.
+>=20
+> This patch fixes this situation by:
+>=20
+>  (1) Making sure that the hardware PHY polling is disabled by clearin=
+g
+>      the MVNETA_PHY_POLLING_ENABLE bit in the MVNETA_UNIT_CONTROL
+>      register in the driver ->probe() function.
+>=20
+>  (2) Making sure that the duplex and speed selections made by the
+>      adjust_link() callback are taken into account by clearing the
+>      MVNETA_GMAC_AN_SPEED_EN and MVNETA_GMAC_AN_DUPLEX_EN bits in the
+>      MVNETA_GMAC_AUTONEG_CONFIG register.
+>=20
+> This patch has been tested on Armada 370 Mirabox, and now both networ=
+k
+> interfaces are usable after boot.
+>=20
+
+Well done Thomas!
+
+I have successfully tested it on Armada 370 Mirabox:
+
+Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+
+Thanks
+
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Cc: Willy Tarreau <w@1wt.eu>
+> Cc: Jochen De Smet <jochen.armkernel@leahnim.org>
+> Cc: Peter Sanford <psanford@nearbuy.io>
+> Cc: Ethan Tuttle <ethan@ethantuttle.com>
+> Cc: Ch=C3=A9ny Yves-Gael <yves@cheny.fr>
+> Cc: Ryan Press <ryan@presslab.us>
+> Cc: Simon Guinot <simon.guinot@sequanux.org>
+> Cc: vdonnefort@lacie.com
+> Cc: stable@vger.kernel.org
+> ---
+> David, this patch is a fix for a problem that has been here since 3.8
+> (when the mvneta driver was introduced), so I've Cc'ed stable@ and if
+> possible I'd like to patch to be included for 3.12.
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 13 ++++++++++++-
+>  1 file changed, 12 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethe=
+rnet/marvell/mvneta.c
+> index b017818..90ab292 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -138,7 +138,9 @@
+>  #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
+>  #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
+>  #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
+> +#define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
+>  #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+> +#define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+>  #define MVNETA_MIB_COUNTERS_BASE                 0x3080
+>  #define      MVNETA_MIB_LATE_COLLISION           0x7c
+>  #define MVNETA_DA_FILT_SPEC_MCAST                0x3400
+> @@ -915,6 +917,13 @@ static void mvneta_defaults_set(struct mvneta_po=
+rt *pp)
+>  	/* Assign port SDMA configuration */
+>  	mvreg_write(pp, MVNETA_SDMA_CONFIG, val);
+> =20
+> +	/* Disable PHY polling in hardware, since we're using the
+> +	 * kernel phylib to do this.
+> +	 */
+> +	val =3D mvreg_read(pp, MVNETA_UNIT_CONTROL);
+> +	val &=3D ~MVNETA_PHY_POLLING_ENABLE;
+> +	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
+> +
+>  	mvneta_set_ucast_table(pp, -1);
+>  	mvneta_set_special_mcast_table(pp, -1);
+>  	mvneta_set_other_mcast_table(pp, -1);
+> @@ -2307,7 +2316,9 @@ static void mvneta_adjust_link(struct net_devic=
+e *ndev)
+>  			val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+>  			val &=3D ~(MVNETA_GMAC_CONFIG_MII_SPEED |
+>  				 MVNETA_GMAC_CONFIG_GMII_SPEED |
+> -				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
+> +				 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
+> +				 MVNETA_GMAC_AN_SPEED_EN |
+> +				 MVNETA_GMAC_AN_DUPLEX_EN);
+> =20
+>  			if (phydev->duplex)
+>  				val |=3D MVNETA_GMAC_CONFIG_FULL_DUPLEX;
+>=20
+
+
+--=20
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
