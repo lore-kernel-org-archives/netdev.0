@@ -1,86 +1,61 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen-netback: count number required slots for an skb
- more carefully
-Date: Wed, 4 Sep 2013 13:41:25 +0100
-Message-ID: <1378298485.17510.109.camel@kazak.uk.xensource.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com>
-	 <20130903215328.GA13465@zion.uk.xensource.com>
-	 <52271DFF.3070008@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] net: migrate direct users to
+ prandom_u32_max
+Date: Wed, 04 Sep 2013 05:52:15 -0700
+Message-ID: <1378299135.7360.109.camel@edumazet-glaptop>
+References: <1378298247-29364-1-git-send-email-dborkman@redhat.com>
+	 <1378298247-29364-3-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, <msw@amazon.com>, <annie.li@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:21914 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934439Ab3IDMl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 08:41:27 -0400
-In-Reply-To: <52271DFF.3070008@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1378298247-29364-3-git-send-email-dborkman@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-09-04 at 12:48 +0100, David Vrabel wrote:
-> On 03/09/13 22:53, Wei Liu wrote:
-> > On Tue, Sep 03, 2013 at 06:29:50PM +0100, David Vrabel wrote:
-> >> From: David Vrabel <david.vrabel@citrix.com>
-> >>
-> >> When a VM is providing an iSCSI target and the LUN is used by the
-> >> backend domain, the generated skbs for direct I/O writes to the disk
-> >> have large, multi-page skb->data but no frags.
-> >>
-> >> With some lengths and starting offsets, xen_netbk_count_skb_slots()
-> >> would be one short because the simple calculation of
-> >> DIV_ROUND_UP(skb_headlen(), PAGE_SIZE) was not accounting for the
-> >> decisions made by start_new_rx_buffer() which does not guarantee
-> >> responses are fully packed.
-> >>
-> >> For example, a skb with length < 2 pages but which spans 3 pages would
-> >> be counted as requiring 2 slots but would actually use 3 slots.
-> >>
-> >> skb->data:
-> >>
-> >>     |        1111|222222222222|3333        |
-> >>
-> >> Fully packed, this would need 2 slots:
-> >>
-> >>     |111122222222|22223333    |
-> >>
-> >> But because the 2nd page wholy fits into a slot it is not split across
-> >> slots and goes into a slot of its own:
-> >>
-> >>     |1111        |222222222222|3333        |
-> >>
-> >> Miscounting the number of slots means netback may push more responses
-> >> than the number of available requests.  This will cause the frontend
-> >> to get very confused and report "Too many frags/slots".  The frontend
-> >> never recovers and will eventually BUG.
-> >>
-> >> Fix this by counting the number of required slots more carefully.  In
-> >> xen_netbk_count_skb_slots(), more closely follow the algorithm used by
-> >> xen_netbk_gop_skb() by introducing xen_netbk_count_frag_slots() which
-> >> is the dry-run equivalent of netbk_gop_frag_copy().
-> >>
-> > 
-> > Phew! So this is backend miscounting bug. I thought it was a frontend
-> > bug so it didn't ring a bell when we had our face-to-face discussion,
-> > sorry. :-(
-> > 
-> > This bug was discussed back in July among Annie, Matt, Ian and I. We
-> > finally agreed to take Matt's solution. Matt agreed to post final
-> > version within a week but obviously he's too busy to do so. I was away
-> > so I didn't follow closely. Eventually it fell through the crack. :-(
+On Wed, 2013-09-04 at 14:37 +0200, Daniel Borkmann wrote:
+> Users that directly use or reimplement what we have in prandom_u32_max()
+> can be migrated for now to use it directly, so that we can reduce code size
+> and avoid reimplementations. That's obvious, follow-up patches could inspect
+> modulo use cases for possible migration as well.
 > 
-> I think I prefer fixing the counting for backporting to stable kernels.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  drivers/net/team/team_mode_random.c | 8 +-------
+>  include/net/red.h                   | 2 +-
+>  net/802/garp.c                      | 3 ++-
+>  net/802/mrp.c                       | 3 ++-
+>  net/packet/af_packet.c              | 2 +-
+>  net/sched/sch_choke.c               | 8 +-------
+>  6 files changed, 8 insertions(+), 18 deletions(-)
+> 
+> diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
+> index 7f032e2..0dbd1eb 100644
+> --- a/drivers/net/team/team_mode_random.c
+> +++ b/drivers/net/team/team_mode_random.c
+> @@ -13,20 +13,14 @@
+>  #include <linux/module.h>
+>  #include <linux/init.h>
+>  #include <linux/skbuff.h>
+> -#include <linux/reciprocal_div.h>
+>  #include <linux/if_team.h>
+>  
+> -static u32 random_N(unsigned int N)
+> -{
+> -	return reciprocal_divide(prandom_u32(), N);
+> -}
+> -
+>  static bool rnd_transmit(struct team *team, struct sk_buff *skb)
+>  {
+>  	struct team_port *port;
+>  	int port_index;
+>  
+> -	port_index = random_N(team->en_port_count);
+> +	port_index = prandom_u32_max(team->en_port_count - 1);
 
-That's a good argument. I think we should take this patch, or something
-very like it, now and then rebase the more complex thing on top.
 
->  Xi's approach of packing the ring differently is a change in frontend
-> visible behaviour and seems more risky. e.g., possible performance
-> impact so I would like to see some performance analysis of that approach.
-
-Yes.
+Note the random_N(0) gave 0, while prandom_u32_max(0 - 1) can return any
+number in [0 ... ~0U]
