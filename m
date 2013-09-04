@@ -1,73 +1,219 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: xen-netback: count number required slots for an skb more
- carefully
-Date: Wed, 4 Sep 2013 09:41:47 +0100
-Message-ID: <20130904084147.GL14104@zion.uk.xensource.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com>
- <20130903215328.GA13465@zion.uk.xensource.com>
- <52269A37.7030600@oracle.com>
- <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
- <1378283770.17510.52.camel@kazak.uk.xensource.com>
+From: =?windows-1252?Q?Jan_Kalu=9Ea?= <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v3 1/3] Send loginuid and sessionid in SCM_AUDIT
+Date: Wed, 04 Sep 2013 11:07:05 +0200
+Message-ID: <5226F839.4010704@redhat.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1378275261-4553-1-git-send-email-jkaluza@redhat.com>
+	<1378275261-4553-2-git-send-email-jkaluza@redhat.com>
+	<87bo49gifv.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Matt Wilson <msw@linux.com>, annie li <annie.li@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xen.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, <msw@amazon.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:8878 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755645Ab3IDIlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 04:41:49 -0400
-Content-Disposition: inline
-In-Reply-To: <1378283770.17510.52.camel@kazak.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87bo49gifv.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 04, 2013 at 09:36:10AM +0100, Ian Campbell wrote:
-> On Tue, 2013-09-03 at 23:04 -0700, Matt Wilson wrote:
-> > On Wed, Sep 04, 2013 at 10:25:59AM +0800, annie li wrote:
-> > > On 2013-9-4 5:53, Wei Liu wrote:
-> > [...]
-> > > >Matt, do you fancy sending the final version? IIRC the commit message
-> > > >needs to be re-written. I personally still prefer Matt's solution as
-> > > >it a) make efficient use of the ring, b) uses ring pointers to
-> > > >calculate slots which is most accurate, c) removes the dependence on
-> > > >MAX_SKB_FRAGS in guest RX path.
-> > > >
-> > > >Anyway, we should get this fixed ASAP.
-> 
-> Yes. Would there be any harm in just applying David's patch (just
-> because it is the one currently in our hands and it is based on a recent
-> enough kernel). It looks right from a correctness PoV to me.
-> 
-> > > Totally agree. This issue is easy to be reproduced with large MTU.
-> > > It is better to upstream the fix soon in case others hit it and
-> > > waste time to fix it.
-> > 
-> > I'd like to go with Xi's proposed patch that I posed earlier.
-> 
-> I don't think I saw that, do you have a message-id?
-> 
-> ("Xi" is a bit too short for a search on my INBOX unfortunately).
-> 
+On 09/04/2013 09:22 AM, Eric W. Biederman wrote:
+> Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
+>
+>> Server-like processes in many cases need credentials and other
+>> metadata of the peer, to decide if the calling process is allowed to
+>> request a specific action, or the server just wants to log away this
+>> type of information for auditing tasks.
+>>
+>> The current practice to retrieve such process metadata is to look that
+>> information up in procfs with the $PID received over SCM_CREDENTIALS.
+>> This is sufficient for long-running tasks, but introduces a race which
+>> cannot be worked around for short-living processes; the calling
+>> process and all the information in /proc/$PID/ is gone before the
+>> receiver of the socket message can look it up.
+>>
+>> This introduces a new SCM type called SCM_AUDIT to allow the direct
+>> attaching of "loginuid" and "sessionid" to SCM, which is significantly more
+>> efficient and will reliably avoid the race with the round-trip over
+>> procfs.
+>
+> Unless I am misreading something this patch will break the build if
+> CONFIG_AUDITSYSCALL is not defined.
 
-This one <1373409659-22383-1-git-send-email-msw@amazon.com>
+It does build. In this case, audit_get_loginuid returns INVALID_UID and 
+audit_get_sessionid returns -1.
 
-Wei.
+Jan Kaluza
 
-> >  The main
-> > thing that's kept me from sending a final version is lack of time to
-> > retest against a newer kernel.
-> > 
-> > Could someone help out with that? I probably can't get to it until the
-> > end of the week.
-> > 
-> > Sorry for the delay. :-(
-> > 
-> > --msw
-> 
+> Eric
+>
+>
+>> Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> ---
+>>   include/linux/socket.h |  6 ++++++
+>>   include/net/af_unix.h  |  2 ++
+>>   include/net/scm.h      | 28 ++++++++++++++++++++++++++--
+>>   net/unix/af_unix.c     |  7 +++++++
+>>   4 files changed, 41 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/linux/socket.h b/include/linux/socket.h
+>> index 445ef75..505047a 100644
+>> --- a/include/linux/socket.h
+>> +++ b/include/linux/socket.h
+>> @@ -130,6 +130,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
+>>   #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
+>>   #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
+>>   #define SCM_SECURITY	0x03		/* rw: security label		*/
+>> +#define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
+>>
+>>   struct ucred {
+>>   	__u32	pid;
+>> @@ -137,6 +138,11 @@ struct ucred {
+>>   	__u32	gid;
+>>   };
+>>
+>> +struct uaudit {
+>> +	__u32	loginuid;
+>> +	__u32	sessionid;
+>> +};
+>> +
+>>   /* Supported address families. */
+>>   #define AF_UNSPEC	0
+>>   #define AF_UNIX		1	/* Unix domain sockets 		*/
+>> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+>> index a175ba4..3b9d22a 100644
+>> --- a/include/net/af_unix.h
+>> +++ b/include/net/af_unix.h
+>> @@ -36,6 +36,8 @@ struct unix_skb_parms {
+>>   	u32			secid;		/* Security ID		*/
+>>   #endif
+>>   	u32			consumed;
+>> +	kuid_t			loginuid;
+>> +	unsigned int		sessionid;
+>>   };
+>>
+>>   #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+>> diff --git a/include/net/scm.h b/include/net/scm.h
+>> index 8de2d37..e349a25 100644
+>> --- a/include/net/scm.h
+>> +++ b/include/net/scm.h
+>> @@ -6,6 +6,7 @@
+>>   #include <linux/security.h>
+>>   #include <linux/pid.h>
+>>   #include <linux/nsproxy.h>
+>> +#include <linux/audit.h>
+>>
+>>   /* Well, we should have at least one descriptor open
+>>    * to accept passed FDs 8)
+>> @@ -18,6 +19,11 @@ struct scm_creds {
+>>   	kgid_t	gid;
+>>   };
+>>
+>> +struct scm_audit {
+>> +	kuid_t loginuid;
+>> +	unsigned int sessionid;
+>> +};
+>> +
+>>   struct scm_fp_list {
+>>   	short			count;
+>>   	short			max;
+>> @@ -28,6 +34,7 @@ struct scm_cookie {
+>>   	struct pid		*pid;		/* Skb credentials */
+>>   	struct scm_fp_list	*fp;		/* Passed files		*/
+>>   	struct scm_creds	creds;		/* Skb credentials	*/
+>> +	struct scm_audit	audit;		/* Skb audit	*/
+>>   #ifdef CONFIG_SECURITY_NETWORK
+>>   	u32			secid;		/* Passed security ID 	*/
+>>   #endif
+>> @@ -58,6 +65,13 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+>>   	scm->creds.gid = gid;
+>>   }
+>>
+>> +static inline void scm_set_audit(struct scm_cookie *scm,
+>> +				    kuid_t loginuid, unsigned int sessionid)
+>> +{
+>> +	scm->audit.loginuid = loginuid;
+>> +	scm->audit.sessionid = sessionid;
+>> +}
+>> +
+>>   static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+>>   {
+>>   	put_pid(scm->pid);
+>> @@ -77,8 +91,12 @@ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
+>>   	memset(scm, 0, sizeof(*scm));
+>>   	scm->creds.uid = INVALID_UID;
+>>   	scm->creds.gid = INVALID_GID;
+>> -	if (forcecreds)
+>> -		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
+>> +	if (forcecreds) {
+>> +		scm_set_cred(scm, task_tgid(current), current_uid(),
+>> +			     current_gid());
+>> +		scm_set_audit(scm, audit_get_loginuid(current),
+>> +			      audit_get_sessionid(current));
+>> +	}
+>>   	unix_get_peersec_dgram(sock, scm);
+>>   	if (msg->msg_controllen <= 0)
+>>   		return 0;
+>> @@ -123,7 +141,13 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+>>   			.uid = from_kuid_munged(current_ns, scm->creds.uid),
+>>   			.gid = from_kgid_munged(current_ns, scm->creds.gid),
+>>   		};
+>> +		struct uaudit uaudits = {
+>> +			.loginuid = from_kuid_munged(current_ns,
+>> +						     scm->audit.loginuid),
+>> +			.sessionid = scm->audit.sessionid,
+>> +		};
+>>   		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
+>> +		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
+>>   	}
+>>
+>>   	scm_destroy_cred(scm);
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 86de99a..c410f76 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -1393,6 +1393,8 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
+>>   	UNIXCB(skb).pid  = get_pid(scm->pid);
+>>   	UNIXCB(skb).uid = scm->creds.uid;
+>>   	UNIXCB(skb).gid = scm->creds.gid;
+>> +	UNIXCB(skb).loginuid = scm->audit.loginuid;
+>> +	UNIXCB(skb).sessionid = scm->audit.sessionid;
+>>   	UNIXCB(skb).fp = NULL;
+>>   	if (scm->fp && send_fds)
+>>   		err = unix_attach_fds(scm, skb);
+>> @@ -1416,6 +1418,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+>>   	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
+>>   		UNIXCB(skb).pid  = get_pid(task_tgid(current));
+>>   		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
+>> +		UNIXCB(skb).loginuid = audit_get_loginuid(current);
+>> +		UNIXCB(skb).sessionid = audit_get_sessionid(current);
+>>   	}
+>>   }
+>>
+>> @@ -1812,6 +1816,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+>>   		memset(&tmp_scm, 0, sizeof(tmp_scm));
+>>   	}
+>>   	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
+>> +	scm_set_audit(siocb->scm, UNIXCB(skb).loginuid, UNIXCB(skb).sessionid);
+>>   	unix_set_secdata(siocb->scm, skb);
+>>
+>>   	if (!(flags & MSG_PEEK)) {
+>> @@ -1993,6 +1998,8 @@ again:
+>>   		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
+>>   			/* Copy credentials */
+>>   			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
+>> +			scm_set_audit(siocb->scm, UNIXCB(skb).loginuid,
+>> +				      UNIXCB(skb).sessionid);
+>>   			check_creds = 1;
+>>   		}
