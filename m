@@ -1,208 +1,157 @@
-From: Jan Kaluza <jkaluza@redhat.com>
-Subject: [PATCH v3 3/3] Send cgroup_path in SCM_CGROUP
-Date: Wed,  4 Sep 2013 08:14:21 +0200
-Message-ID: <1378275261-4553-4-git-send-email-jkaluza@redhat.com>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
- <1378275261-4553-1-git-send-email-jkaluza@redhat.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	eparis@redhat.com, rgb@redhat.com, tj@kernel.org,
-	lizefan@huawei.com, containers@lists.linux-foundation.org,
-	cgroups@vger.kernel.org, viro@zeniv.linux.org.uk,
-	Jan Kaluza <jkaluza@redhat.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378275261-4553-1-git-send-email-jkaluza@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 5/6] bonding: restructure and simplify bond_for_each_slave_next()
+Date: Wed, 4 Sep 2013 14:23:51 +0800
+Message-ID: <5226D1F7.2000803@huawei.com>
+References: <52206E4E.6010507@huawei.com> <5225B852.1010601@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:25133 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753556Ab3IDGYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 02:24:38 -0400
+In-Reply-To: <5225B852.1010601@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Server-like processes in many cases need credentials and other
-metadata of the peer, to decide if the calling process is allowed to
-request a specific action, or the server just wants to log away this
-type of information for auditing tasks.
+On 2013/9/3 18:22, Nikolay Aleksandrov wrote:
+> On 08/30/2013 12:05 PM, Ding Tianhong wrote:
+>> remove the wordy int and add bond_for_each_slave_next_rcu() for future use.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+>> ---
+>>  drivers/net/bonding/bond_alb.c  |  3 +--
+>>  drivers/net/bonding/bond_main.c |  6 ++----
+>>  drivers/net/bonding/bonding.h   | 19 +++++++++++++++----
+>>  3 files changed, 18 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>> index 3a5db7b..d266c56 100644
+>> --- a/drivers/net/bonding/bond_alb.c
+>> +++ b/drivers/net/bonding/bond_alb.c
+>> @@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+>>  {
+>>  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>>  	struct slave *rx_slave, *slave, *start_at;
+>> -	int i = 0;
+>>  
+>>  	if (bond_info->next_rx_slave)
+>>  		start_at = bond_info->next_rx_slave;
+>> @@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+>>  
+>>  	rx_slave = NULL;
+>>  
+>> -	bond_for_each_slave_from(bond, slave, i, start_at) {
+>> +	bond_for_each_slave_from(bond, slave, start_at) {
+>>  		if (SLAVE_IS_OK(slave)) {
+>>  			if (!rx_slave) {
+>>  				rx_slave = slave;
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 4264a76..8c9902a 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -904,7 +904,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>>  	struct slave *new_active, *old_active;
+>>  	struct slave *bestslave = NULL;
+>>  	int mintime = bond->params.updelay;
+>> -	int i;
+>>  
+>>  	new_active = bond->curr_active_slave;
+>>  
+>> @@ -923,7 +922,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+>>  	/* remember where to stop iterating over the slaves */
+>>  	old_active = new_active;
+>>  
+>> -	bond_for_each_slave_from(bond, new_active, i, old_active) {
+>> +	bond_for_each_slave_from(bond, new_active, old_active) {
+>>  		if (new_active->link == BOND_LINK_UP) {
+>>  			return new_active;
+>>  		} else if (new_active->link == BOND_LINK_BACK &&
+>> @@ -2891,7 +2890,6 @@ do_failover:
+>>  static void bond_ab_arp_probe(struct bonding *bond)
+>>  {
+>>  	struct slave *slave, *next_slave;
+>> -	int i;
+>>  
+>>  	read_lock(&bond->curr_slave_lock);
+>>  
+>> @@ -2923,7 +2921,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+>>  
+>>  	/* search for next candidate */
+>>  	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+>> -	bond_for_each_slave_from(bond, slave, i, next_slave) {
+>> +	bond_for_each_slave_from(bond, slave, next_slave) {
+>>  		if (IS_UP(slave->dev)) {
+>>  			slave->link = BOND_LINK_BACK;
+>>  			bond_set_slave_active_flags(slave);
+>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>> index 9898493..a3ab47f 100644
+>> --- a/drivers/net/bonding/bonding.h
+>> +++ b/drivers/net/bonding/bonding.h
+>> @@ -119,14 +119,25 @@
+>>   * bond_for_each_slave_from - iterate the slaves list from a starting point
+>>   * @bond:	the bond holding this list.
+>>   * @pos:	current slave.
+>> - * @cnt:	counter for max number of moves
+>>   * @start:	starting point.
+>>   *
+>>   * Caller must hold bond->lock
+>>   */
+>> -#define bond_for_each_slave_from(bond, pos, cnt, start) \
+>> -	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+>> -	     cnt++, pos = bond_next_slave(bond, pos))
+>> +#define bond_for_each_slave_from(bond, pos, start) \
+>> +	for (int cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+>> +	    cnt++, pos = bond_next_slave(bond, pos))
+>> +
+> Please read below the argument against using the nested cnt definition.
+> 
+>> +/**
+>> + * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
+>> + * @bond:	the bond holding this list.
+>> + * @pos:	current slave.
+>> + * @start:	starting point.
+>> + *
+>> + * Caller must hold rcu_read_lock
+>> + */
+>> +#define bond_for_each_slave_from_rcu(bond, pos, start) \
+>> +	for (int cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+>> +	    cnt++, pos = bond_next_slave_rcu(bond, pos))
+>>  
+> I don't think you can rely on slave_cnt in RCU, you may go overboard and pass
+> twice over the same slave if a slave gets removed, or the opposite. Also this
+> definition of cnt is troublesome because the name is quite common, I don't know
+> if it's accepted, but it if it is at least change the name to something like
+> __cnt or anything that is less likely to be defined.
+> The cnt argument goes for bond_for_each_slave_from as well.
+> 
 
-The current practice to retrieve such process metadata is to look that
-information up in procfs with the $PID received over SCM_CREDENTIALS.
-This is sufficient for long-running tasks, but introduces a race which
-cannot be worked around for short-living processes; the calling
-process and all the information in /proc/$PID/ is gone before the
-receiver of the socket message can look it up.
+yes, more details need to think about, I modify the function to this:
 
-This introduces a new SCM type called SCM_CGROUP to allow the direct
-attaching of "cgroup_path" to SCM, which is significantly more
-efficient and will reliably avoid the race with the round-trip over
-procfs.
+#define bond_for_each_slave_from(bond, pos, start) \
+        for (pos = start; (pos == bond_next_slave(bond, start) ? \
+                    &pos->list != &bond->slave_list : \
+                    &pos->list != &start->list); \
+                    pos = bond_next_slave(bond, pos))
 
-Signed-off-by: Jan Kaluza <jkaluza@redhat.com>
----
- include/linux/socket.h |  1 +
- include/net/af_unix.h  |  1 +
- include/net/scm.h      | 15 +++++++++++++++
- net/core/scm.c         | 18 ++++++++++++++++++
- net/unix/af_unix.c     | 20 ++++++++++++++++++++
- 5 files changed, 55 insertions(+)
+I think it is fine here, or I miss something, please tell me, thanks. :)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 6c7ace0..621fff1 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -133,6 +133,7 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
- #define SCM_AUDIT	0x04		/* rw: struct uaudit		*/
- #define SCM_PROCINFO	0x05	/* rw: comm + cmdline (NULL terminated
- 					   array of char *) */
-+#define SCM_CGROUP	0x06		/* rw: cgroup path */
- 
- struct ucred {
- 	__u32	pid;
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 05c7678..c49bf35 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -32,6 +32,7 @@ struct unix_skb_parms_scm {
- 	unsigned int sessionid;
- 	char *procinfo;
- 	int procinfo_len;
-+	char *cgroup_path;
- };
- 
- struct unix_skb_parms {
-diff --git a/include/net/scm.h b/include/net/scm.h
-index 3346030..5398826 100644
---- a/include/net/scm.h
-+++ b/include/net/scm.h
-@@ -41,6 +41,7 @@ struct scm_cookie {
- 	struct scm_creds	creds;		/* Skb credentials	*/
- 	struct scm_audit	audit;		/* Skb audit	*/
- 	struct scm_procinfo	procinfo;	/* Skb procinfo */
-+	char *cgroup_path;
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Passed security ID 	*/
- #endif
-@@ -52,6 +53,7 @@ extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie
- extern void __scm_destroy(struct scm_cookie *scm);
- extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
- extern int scm_get_current_procinfo(char **procinfo);
-+extern int scm_get_current_cgroup_path(char **cgroup_path);
- 
- #ifdef CONFIG_SECURITY_NETWORK
- static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
-@@ -86,6 +88,12 @@ static inline void scm_set_procinfo(struct scm_cookie *scm,
- 	scm->procinfo.len = len;
- }
- 
-+static inline void scm_set_cgroup_path(struct scm_cookie *scm,
-+				    char *cgroup_path)
-+{
-+	scm->cgroup_path = cgroup_path;
-+}
-+
- static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
- {
- 	put_pid(scm->pid);
-@@ -140,6 +148,9 @@ static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct sc
- 			security_release_secctx(secdata, seclen);
- 		}
- 	}
-+
-+	kfree(scm->cgroup_path);
-+	scm->cgroup_path = NULL;
- }
- #else
- static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
-@@ -172,6 +183,10 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
- 		put_cmsg(msg, SOL_SOCKET, SCM_AUDIT, sizeof(uaudits), &uaudits);
- 		put_cmsg(msg, SOL_SOCKET, SCM_PROCINFO, scm->procinfo.len,
- 				 scm->procinfo.procinfo);
-+		if (scm->cgroup_path) {
-+			put_cmsg(msg, SOL_SOCKET, SCM_CGROUP,
-+				 strlen(scm->cgroup_path), scm->cgroup_path);
-+		}
- 	}
- 
- 	scm_destroy_cred(scm);
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 09ec044..2d408b9 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -404,3 +404,21 @@ out:
- 	return res;
- }
- EXPORT_SYMBOL(scm_get_current_procinfo);
-+
-+int scm_get_current_cgroup_path(char **cgroup_path)
-+{
-+	int ret = 0;
-+
-+	*cgroup_path = kmalloc(PATH_MAX, GFP_KERNEL);
-+	if (!(*cgroup_path))
-+		return -ENOMEM;
-+
-+	ret = task_cgroup_path(current, *cgroup_path, PATH_MAX);
-+	if (ret < 0) {
-+		kfree(*cgroup_path);
-+		*cgroup_path = NULL;
-+	}
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(scm_get_current_cgroup_path);
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ab0be13..b638083 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1344,6 +1344,7 @@ static void unix_destruct_scm(struct sk_buff *skb)
- 	if (UNIXCB(skb).scm) {
- 		scm.procinfo.procinfo = UNIXSCM(skb).procinfo;
- 		scm.procinfo.len = UNIXSCM(skb).procinfo_len;
-+		scm.cgroup_path = UNIXSCM(skb).cgroup_path;
- 	}
- 	if (UNIXCB(skb).fp)
- 		unix_detach_fds(&scm, skb);
-@@ -1420,6 +1421,14 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 			return -ENOMEM;
- 	}
- 
-+	UNIXSCM(skb).cgroup_path = NULL;
-+	if (scm->cgroup_path) {
-+		UNIXSCM(skb).cgroup_path = kstrdup(scm->cgroup_path,
-+						   GFP_KERNEL);
-+		if (!UNIXSCM(skb).cgroup_path)
-+			return -ENOMEM;
-+	}
-+
- 	skb->destructor = unix_destruct_scm;
- 	return err;
- }
-@@ -1443,6 +1452,7 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- 		UNIXSCM(skb).sessionid = audit_get_sessionid(current);
- 		UNIXSCM(skb).procinfo_len = scm_get_current_procinfo(
- 			&UNIXSCM(skb).procinfo);
-+		scm_get_current_cgroup_path(&UNIXSCM(skb).cgroup_path);
- 	}
- }
- 
-@@ -1849,6 +1859,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 						 GFP_KERNEL),
- 					 UNIXSCM(skb).procinfo_len);
- 		}
-+		if (UNIXSCM(skb).cgroup_path) {
-+			scm_set_cgroup_path(siocb->scm,
-+					    kstrdup(UNIXSCM(skb).cgroup_path,
-+						    GFP_KERNEL));
-+		}
- 	}
- 	unix_set_secdata(siocb->scm, skb);
- 
-@@ -2042,6 +2057,11 @@ again:
- 						GFP_KERNEL),
- 						UNIXSCM(skb).procinfo_len);
- 				}
-+				if (UNIXSCM(skb).cgroup_path) {
-+					scm_set_cgroup_path(siocb->scm,
-+							    kstrdup(UNIXSCM(skb).cgroup_path,
-+							    GFP_KERNEL));
-+				}
- 			}
- 			check_creds = 1;
- 		}
--- 
-1.8.3.1
+>>  /**
+>>   * bond_for_each_slave - iterate over all slaves
+>>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
