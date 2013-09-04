@@ -1,72 +1,57 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: [PATCH] ethernet/arc/arc_emac: optimize the Tx/Tx-reclaim paths a bit
-Date: Wed, 4 Sep 2013 18:33:11 +0530
-Message-ID: <1378299791-24598-1-git-send-email-vgupta@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Francois Romieu" <romieu@fr.zoreil.com>,
-	<linux-kernel@vger.kernel.org>, <arc-linux-dev@synopsys.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  0/9][pull request] Intel Wired LAN Driver Updates
+Date: Wed,  4 Sep 2013 06:08:47 -0700
+Message-ID: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:17747 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757098Ab3IDNI7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 09:08:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This came out of staring at code due to recent performance fix.
+This series contains updates to igb only.
 
-* TX BD reclaim can call netif_wake_queue() once, outside the loop if
-  one/more BDs were freed, NO need to do this each iteration.
+Todd provides a fix for igb to not look for a PBA in the iNVM on
+devices that are flashless.
 
-* TX need not look at next BD to stop the netif queue. It rather be done
-  in the next tx call, when it actually fails as the queue seldom gets
-  full but the check nevertheless needs to be done for each packet Tx.
-  Profiled this under heavy traffic (big tar file cp, LMBench betworking
-  tests) and saw not a single hit to that code.
+Akeem provides igb patches to add a new PHY id for i354, as well as
+a couple of patches to implement the new PHY id.  He also provides
+several patches to correctly report the appropriate media type as
+well as correctly report advertised/supported link for i354 devices.
+Lastly Akeem implements a 1 second delay mechanism for i210 devices
+to avoid erroneous link issue with the link partner.
 
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
-Cc: Alexey Brodkin <abrodkin@synopsys.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: arc-linux-dev@synopsys.com
----
- drivers/net/ethernet/arc/emac_main.c | 13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+The following are changes since commit c995ae2259ee36caf48bbfacf40111998dacd4af:
+  tcp: Change return value of tcp_rcv_established()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index 9e16014..a3dd048 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -179,10 +179,10 @@ static void arc_emac_tx_clean(struct net_device *ndev)
- 		txbd->info = 0;
- 
- 		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
--
--		if (netif_queue_stopped(ndev))
--			netif_wake_queue(ndev);
- 	}
-+
-+	if (i && netif_queue_stopped(ndev))
-+		netif_wake_queue(ndev);
- }
- 
- /**
-@@ -570,13 +570,6 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
- 	/* Increment index to point to the next BD */
- 	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
- 
--	/* Get "info" of the next BD */
--	info = &priv->txbd[*txbd_curr].info;
--
--	/* Check if if Tx BD ring is full - next BD is still owned by EMAC */
--	if (unlikely((le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC))
--		netif_stop_queue(ndev);
--
- 	arc_reg_set(priv, R_STATUS, TXPL_MASK);
- 
- 	skb_tx_timestamp(skb);
+Akeem G Abodunrin (8):
+  igb: Implementation of 1-sec delay for i210 devices
+  igb: New PHY_ID for i354 device
+  igb: M88E1543 PHY downshift implementation
+  igb: No PHPM support in i354 devices
+  igb: Support to get 2_5G link status for appropriate media type
+  igb: Get speed and duplex for 1G non_copper devices
+  igb: Implementation to report advertised/supported link on i354
+    devices
+  igb: Update version number
+
+Todd Fujinaka (1):
+  igb: Don't look for a PBA in the iNVM when flashless
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 81 ++++++++++++++++++++------
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  8 +--
+ drivers/net/ethernet/intel/igb/e1000_mac.c     | 11 ----
+ drivers/net/ethernet/intel/igb/e1000_phy.c     | 31 ++++++----
+ drivers/net/ethernet/intel/igb/igb.h           |  3 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   | 26 +++++----
+ drivers/net/ethernet/intel/igb/igb_main.c      | 43 ++++++++++++--
+ 7 files changed, 143 insertions(+), 60 deletions(-)
+
 -- 
-1.8.1.2
+1.8.3.1
