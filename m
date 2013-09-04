@@ -1,129 +1,134 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH] xen-netback: count number required slots for an skb more
- carefully
-Date: Wed, 4 Sep 2013 15:02:01 +0100
-Message-ID: <52273D59.2020205@citrix.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com> <20130903215328.GA13465@zion.uk.xensource.com> <52271DFF.3070008@citrix.com> <20130904131459.GO14104@zion.uk.xensource.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: mvneta: properly disable HW PHY polling and ensure adjust_link() works
+Date: Wed,  4 Sep 2013 16:21:18 +0200
+Message-ID: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <msw@amazon.com>, <annie.li@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:15366 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755216Ab3IDOCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 10:02:05 -0400
-In-Reply-To: <20130904131459.GO14104@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Willy Tarreau <w@1wt.eu>,
+	Jochen De Smet <jochen.armkernel@leahnim.org>,
+	Peter Sanford <psanford@nearbuy.io>,
+	Ethan Tuttle <ethan@ethantuttle.com>,
+	=?UTF-8?q?Ch=C3=A9ny=20Yves-Gael?= <yves@cheny.fr>,
+	Ryan Press <ryan@presslab.us>,
+	Simon Guinot <simon.guinot@sequanux.org>, vdonnefort@lacie.com,
+	stable@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/09/13 14:14, Wei Liu wrote:
-> On Wed, Sep 04, 2013 at 12:48:15PM +0100, David Vrabel wrote:
->> On 03/09/13 22:53, Wei Liu wrote:
->>> On Tue, Sep 03, 2013 at 06:29:50PM +0100, David Vrabel wrote:
->>>> From: David Vrabel <david.vrabel@citrix.com>
->>>>
->>>> When a VM is providing an iSCSI target and the LUN is used by the
->>>> backend domain, the generated skbs for direct I/O writes to the disk
->>>> have large, multi-page skb->data but no frags.
->>>>
->>>> With some lengths and starting offsets, xen_netbk_count_skb_slots()
->>>> would be one short because the simple calculation of
->>>> DIV_ROUND_UP(skb_headlen(), PAGE_SIZE) was not accounting for the
->>>> decisions made by start_new_rx_buffer() which does not guarantee
->>>> responses are fully packed.
->>>>
->>>> For example, a skb with length < 2 pages but which spans 3 pages would
->>>> be counted as requiring 2 slots but would actually use 3 slots.
->>>>
->>>> skb->data:
->>>>
->>>>     |        1111|222222222222|3333        |
->>>>
->>>> Fully packed, this would need 2 slots:
->>>>
->>>>     |111122222222|22223333    |
->>>>
->>>> But because the 2nd page wholy fits into a slot it is not split across
->>>> slots and goes into a slot of its own:
->>>>
->>>>     |1111        |222222222222|3333        |
->>>>
->>>> Miscounting the number of slots means netback may push more responses
->>>> than the number of available requests.  This will cause the frontend
->>>> to get very confused and report "Too many frags/slots".  The frontend
->>>> never recovers and will eventually BUG.
->>>>
->>>> Fix this by counting the number of required slots more carefully.  In
->>>> xen_netbk_count_skb_slots(), more closely follow the algorithm used by
->>>> xen_netbk_gop_skb() by introducing xen_netbk_count_frag_slots() which
->>>> is the dry-run equivalent of netbk_gop_frag_copy().
->>>>
->>>
->>> Phew! So this is backend miscounting bug. I thought it was a frontend
->>> bug so it didn't ring a bell when we had our face-to-face discussion,
->>> sorry. :-(
->>>
->>> This bug was discussed back in July among Annie, Matt, Ian and I. We
->>> finally agreed to take Matt's solution. Matt agreed to post final
->>> version within a week but obviously he's too busy to do so. I was away
->>> so I didn't follow closely. Eventually it fell through the crack. :-(
->>
->> I think I prefer fixing the counting for backporting to stable kernels.
-> 
-> The original patch has coding style change. Sans that contextual change
-> it's not a very long patch.
+This commit fixes a long-standing bug that has been reported by many
+users: on some Armada 370 platforms, only the network interface that
+has been used in U-Boot to tftp the kernel works properly in
+Linux. The other network interfaces can see a 'link up', but are
+unable to transmit data. The reports were generally made on the Armada
+370-based Mirabox, but have also been given on the Armada 370-RD
+board.
 
-The size of the patch isn't the main concern for backport-ability.  It's
-the frontend visible changes and thus any (unexpected) impacts on
-frontends -- this is especially important as only a small fraction of
-frontends in use will be tested with these changes.
+The network MAC in the Armada 370/XP (supported by the mvneta driver
+in Linux) has a functionality that allows it to continuously poll the
+PHY and directly update the MAC configuration accordingly (speed,
+duplex, etc.). The very first versions of the driver submitted for
+review were using this hardware mechanism, but due to this, the driver
+was not integrated with the kernel phylib. Following reviews, the
+driver was changed to use the phylib, and therefore a software based
+polling. In software based polling, Linux regularly talks to the PHY
+over the MDIO bus, and sees if the link status has changed. If it's
+the case then the adjust_link() callback of the driver is called to
+update the MAC configuration accordingly.
 
->>  Xi's approach of packing the ring differently is a change in frontend
->> visible behaviour and seems more risky. e.g., possible performance
->> impact so I would like to see some performance analysis of that approach.
->>
-> 
-> With Xi's approach it is more efficient for backend to process. As we
-> now use one less grant copy operation which means we copy the same
-> amount of data with less grant ops.
+However, it turns out that the adjust_link() callback was not
+configuring the hardware in a completely correct way: while it was
+setting the speed and duplex bits correctly, it wasn't telling the
+hardware to actually take into account those bits rather than what the
+hardware-based PHY polling mechanism has concluded. So, in fact the
+adjust_link() callback was basically a no-op.
 
-It think it uses more grant ops because the copies of the linear
-portion are in chunks that do not cross source page boundaries.
+However, the network happened to be working because on the network
+interfaces used by U-Boot for tftp on Armada 370 platforms because the
+hardware PHY polling was enabled by the bootloader, and left enabled
+by Linux. However, the second network interface not used for tftp (or
+both network interfaces if the kernel is loaded from USB, NAND or SD
+card) didn't had the hardware PHY polling enabled.
 
-i.e., in netbk_gop_skb():
+This patch fixes this situation by:
 
-	data = skb->data;
-	while (data < skb_tail_pointer(skb)) {
-		unsigned int offset = offset_in_page(data);
-		unsigned int len = PAGE_SIZE - offset;
-                [...]
+ (1) Making sure that the hardware PHY polling is disabled by clearing
+     the MVNETA_PHY_POLLING_ENABLE bit in the MVNETA_UNIT_CONTROL
+     register in the driver ->probe() function.
 
-It wasn't clear from the patch that this had been considered and that
-any extra space needed in the grant op array was made available.
+ (2) Making sure that the duplex and speed selections made by the
+     adjust_link() callback are taken into account by clearing the
+     MVNETA_GMAC_AN_SPEED_EN and MVNETA_GMAC_AN_DUPLEX_EN bits in the
+     MVNETA_GMAC_AUTONEG_CONFIG register.
 
-> From frontend's PoV I think the impact is minimal. Frontend is involved
-> in assembling the packets. It only takes what's in the ring and chain
-> them together. The operation involves copying so far is the
-> __pskb_pull_tail which happens a) in rare case when there's more frags
-> than frontend's MAX_SKB_FRAGS, b) when pull_to > skb_headlen which
-> happens. With Xi's change the rare case a) will even be rarer than
-> before as we use less slots. b) happens the same as it happens before
-> Xi's change, because the pull is guarded by "if (pull_to >
-> skb_headlen(skb))" and Xi's change doesn't affect skb_headlen.
-> 
-> So overall I don't see obvious downside.
+This patch has been tested on Armada 370 Mirabox, and now both network
+interfaces are usable after boot.
 
-The obvious downside is it doesn't exist (in a form that can be applied
-now), it hasn't been tested and I think there may well be a subtle bug
-that would need a careful review or testing to confirm/deny.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Willy Tarreau <w@1wt.eu>
+Cc: Jochen De Smet <jochen.armkernel@leahnim.org>
+Cc: Peter Sanford <psanford@nearbuy.io>
+Cc: Ethan Tuttle <ethan@ethantuttle.com>
+Cc: Ch=C3=A9ny Yves-Gael <yves@cheny.fr>
+Cc: Ryan Press <ryan@presslab.us>
+Cc: Simon Guinot <simon.guinot@sequanux.org>
+Cc: vdonnefort@lacie.com
+Cc: stable@vger.kernel.org
+---
+David, this patch is a fix for a problem that has been here since 3.8
+(when the mvneta driver was introduced), so I've Cc'ed stable@ and if
+possible I'd like to patch to be included for 3.12.
+---
+ drivers/net/ethernet/marvell/mvneta.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-You are free to work on this as a future improvements but I really don't
-see why this critical bug fix needs to be delayed any further.
-
-David
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethern=
+et/marvell/mvneta.c
+index b017818..90ab292 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -138,7 +138,9 @@
+ #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
+ #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
+ #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
++#define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
+ #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
++#define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+ #define MVNETA_MIB_COUNTERS_BASE                 0x3080
+ #define      MVNETA_MIB_LATE_COLLISION           0x7c
+ #define MVNETA_DA_FILT_SPEC_MCAST                0x3400
+@@ -915,6 +917,13 @@ static void mvneta_defaults_set(struct mvneta_port=
+ *pp)
+ 	/* Assign port SDMA configuration */
+ 	mvreg_write(pp, MVNETA_SDMA_CONFIG, val);
+=20
++	/* Disable PHY polling in hardware, since we're using the
++	 * kernel phylib to do this.
++	 */
++	val =3D mvreg_read(pp, MVNETA_UNIT_CONTROL);
++	val &=3D ~MVNETA_PHY_POLLING_ENABLE;
++	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
++
+ 	mvneta_set_ucast_table(pp, -1);
+ 	mvneta_set_special_mcast_table(pp, -1);
+ 	mvneta_set_other_mcast_table(pp, -1);
+@@ -2307,7 +2316,9 @@ static void mvneta_adjust_link(struct net_device =
+*ndev)
+ 			val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+ 			val &=3D ~(MVNETA_GMAC_CONFIG_MII_SPEED |
+ 				 MVNETA_GMAC_CONFIG_GMII_SPEED |
+-				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
++				 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
++				 MVNETA_GMAC_AN_SPEED_EN |
++				 MVNETA_GMAC_AN_DUPLEX_EN);
+=20
+ 			if (phydev->duplex)
+ 				val |=3D MVNETA_GMAC_CONFIG_FULL_DUPLEX;
+--=20
+1.8.1.2
