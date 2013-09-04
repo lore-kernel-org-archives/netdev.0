@@ -1,57 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  0/9][pull request] Intel Wired LAN Driver Updates
-Date: Wed,  4 Sep 2013 06:08:47 -0700
-Message-ID: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next  4/9] igb: M88E1543 PHY downshift implementation
+Date: Wed,  4 Sep 2013 06:08:51 -0700
+Message-ID: <1378300136-26003-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17747 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8588 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757098Ab3IDNI7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 09:08:59 -0400
+	id S1757142Ab3IDNJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 09:09:01 -0400
+In-Reply-To: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to igb only.
+From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-Todd provides a fix for igb to not look for a PBA in the iNVM on
-devices that are flashless.
+This patch implements downshift mechanism for M88E1543 PHY, so that
+downshift is disabled first during link setup process, and later enabled
+if we are master and downshift link is negotiated. Also cleaned up
+return code implementation.
 
-Akeem provides igb patches to add a new PHY id for i354, as well as
-a couple of patches to implement the new PHY id.  He also provides
-several patches to correctly report the appropriate media type as
-well as correctly report advertised/supported link for i354 devices.
-Lastly Akeem implements a 1 second delay mechanism for i210 devices
-to avoid erroneous link issue with the link partner.
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_phy.c | 29 ++++++++++++++++++++---------
+ 1 file changed, 20 insertions(+), 9 deletions(-)
 
-The following are changes since commit c995ae2259ee36caf48bbfacf40111998dacd4af:
-  tcp: Change return value of tcp_rcv_established()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Akeem G Abodunrin (8):
-  igb: Implementation of 1-sec delay for i210 devices
-  igb: New PHY_ID for i354 device
-  igb: M88E1543 PHY downshift implementation
-  igb: No PHPM support in i354 devices
-  igb: Support to get 2_5G link status for appropriate media type
-  igb: Get speed and duplex for 1G non_copper devices
-  igb: Implementation to report advertised/supported link on i354
-    devices
-  igb: Update version number
-
-Todd Fujinaka (1):
-  igb: Don't look for a PBA in the iNVM when flashless
-
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 81 ++++++++++++++++++++------
- drivers/net/ethernet/intel/igb/e1000_defines.h |  8 +--
- drivers/net/ethernet/intel/igb/e1000_mac.c     | 11 ----
- drivers/net/ethernet/intel/igb/e1000_phy.c     | 31 ++++++----
- drivers/net/ethernet/intel/igb/igb.h           |  3 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 26 +++++----
- drivers/net/ethernet/intel/igb/igb_main.c      | 43 ++++++++++++--
- 7 files changed, 143 insertions(+), 60 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index 5adccbc..e726675 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -731,15 +731,13 @@ s32 igb_copper_link_setup_m88_gen2(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 phy_data;
+ 
+-	if (phy->reset_disable) {
+-		ret_val = 0;
+-		goto out;
+-	}
++	if (phy->reset_disable)
++		return 0;
+ 
+ 	/* Enable CRS on Tx. This must be set for half-duplex operation. */
+ 	ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL, &phy_data);
+ 	if (ret_val)
+-		goto out;
++		return ret_val;
+ 
+ 	/* Options:
+ 	 *   MDI/MDI-X = 0 (default)
+@@ -780,23 +778,36 @@ s32 igb_copper_link_setup_m88_gen2(struct e1000_hw *hw)
+ 		phy_data |= M88E1000_PSCR_POLARITY_REVERSAL;
+ 
+ 	/* Enable downshift and setting it to X6 */
++	if (phy->id == M88E1543_E_PHY_ID) {
++		phy_data &= ~I347AT4_PSCR_DOWNSHIFT_ENABLE;
++		ret_val =
++		    phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
++		if (ret_val)
++			return ret_val;
++
++		ret_val = igb_phy_sw_reset(hw);
++		if (ret_val) {
++			hw_dbg("Error committing the PHY changes\n");
++			return ret_val;
++		}
++	}
++
+ 	phy_data &= ~I347AT4_PSCR_DOWNSHIFT_MASK;
+ 	phy_data |= I347AT4_PSCR_DOWNSHIFT_6X;
+ 	phy_data |= I347AT4_PSCR_DOWNSHIFT_ENABLE;
+ 
+ 	ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
+ 	if (ret_val)
+-		goto out;
++		return ret_val;
+ 
+ 	/* Commit the changes. */
+ 	ret_val = igb_phy_sw_reset(hw);
+ 	if (ret_val) {
+ 		hw_dbg("Error committing the PHY changes\n");
+-		goto out;
++		return ret_val;
+ 	}
+ 
+-out:
+-	return ret_val;
++	return 0;
+ }
+ 
+ /**
 -- 
 1.8.3.1
