@@ -1,43 +1,49 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: [PATCH] icplus: Use netif_running to determine device state
-Date: Wed,  4 Sep 2013 11:26:01 -0700
-Message-ID: <1378319161-18850-1-git-send-email-jdmason@kudzu.us>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Sorbica Shieh <sorbica@icplus.com.tw>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] solos-pci: Fix BUG() with shared skb
+Date: Wed, 04 Sep 2013 14:30:56 -0400 (EDT)
+Message-ID: <20130904.143056.1558570610941220565.davem@davemloft.net>
+References: <1378223125.4210.11.camel@i7.infradead.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, simon@fire.lp0.eu,
+	linux-atm-general@lists.sourceforge.net, nathan@traverse.com.au
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:62623 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752626Ab3IDSZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:25:07 -0400
-Received: by mail-pa0-f48.google.com with SMTP id kp13so765539pab.21
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 11:25:07 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:43918 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276Ab3IDSa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:30:59 -0400
+In-Reply-To: <1378223125.4210.11.camel@i7.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the __LINK_STATE_START check to verify the device is running, in
-favor of netif_running().  netif_running() performs the same check of
-__LINK_STATE_START, so the code should behave the same.
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Tue, 03 Sep 2013 16:45:25 +0100
 
-Signed-off-by: Jon Mason <jdmason@kudzu.us>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Sorbica Shieh <sorbica@icplus.com.tw>
----
- drivers/net/ethernet/icplus/ipg.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Simon reported this BUG():
+> 
+>  kernel BUG at net/core/skbuff.c:1065!
+>  Call Trace:
+>   [<f9b7c12c>] ? pppoatm_send+0x3f/0x1a0 [pppoatm]
+>   [<f8751797>] psend+0xa9/0x14a [solos_pci]
+>   [<f9b7c248>] pppoatm_send+0x15b/0x1a0 [pppoatm]
+>   [<f8a2f77d>] ppp_push+0x76/0x533 [ppp_generic]
+> 
+> (Rest of backtrace at http://s85.org/mn0aOxMN ― the skb appears to be
+> IPv6, forwarded from another interface over PPPoATM.)
+> 
+> I wasn't expecting to see shared skbs in the ATM driver's ->send()
+> function. Is this the right fix?
 
-diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
-index 1fde90b..bdf5023 100644
---- a/drivers/net/ethernet/icplus/ipg.c
-+++ b/drivers/net/ethernet/icplus/ipg.c
-@@ -1004,7 +1004,7 @@ static struct net_device_stats *ipg_nic_get_stats(struct net_device *dev)
- 	/* Check to see if the NIC has been initialized via nic_open,
- 	 * before trying to read statistic registers.
- 	 */
--	if (!test_bit(__LINK_STATE_START, &dev->state))
-+	if (!netif_running(dev))
- 		return &sp->stats;
- 
- 	sp->stats.rx_packets += ipg_r32(IPG_FRAMESRCVDOK);
--- 
-1.7.10.4
+skb_realloc_headroom() should do everything you need.
+
+This is what ethernet drivers do to prepend custom headers
+when skb_headroom() is not large enough.
+
+For example, see drivers/net/ethernet/sun/niu.c:niu_start_xmit().
+There, the driver is attempting to prepend a TX descriptor to the
+SKB.
+
+If the SKB is shared, skb_realloc_headroom() will do the clone
+for you if necessary.
