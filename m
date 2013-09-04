@@ -1,139 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  3/9] igb: New PHY_ID for i354 device
-Date: Wed,  4 Sep 2013 06:08:50 -0700
-Message-ID: <1378300136-26003-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  5/9] igb: No PHPM support in i354 devices
+Date: Wed,  4 Sep 2013 06:08:52 -0700
+Message-ID: <1378300136-26003-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17747 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56125 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757098Ab3IDNJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 09:09:00 -0400
+	id S1762404Ab3IDNJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 09:09:01 -0400
 In-Reply-To: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-This patch changes PHY_ID for i354 device, now using M88E1543
-instead of M88E1545.
+PHY Power Management does not exist for i354 device. So, there is no
+need to read and write this register or clear go link Disconnect bit,
+which could cause a lot of issues.
 
 Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 18 +++++++++---------
- drivers/net/ethernet/intel/igb/e1000_defines.h |  8 ++++----
- drivers/net/ethernet/intel/igb/e1000_phy.c     |  2 +-
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index d398fad..b0b33a1 100644
+index b0b33a1..d796e29 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -176,7 +176,7 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+@@ -1421,11 +1421,18 @@ static s32 igb_setup_copper_link_82575(struct e1000_hw *hw)
+ 	ctrl &= ~(E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
+ 	wr32(E1000_CTRL, ctrl);
  
- 	/* Verify phy id and set remaining function pointers */
- 	switch (phy->id) {
--	case M88E1545_E_PHY_ID:
-+	case M88E1543_E_PHY_ID:
- 	case I347AT4_E_PHY_ID:
- 	case M88E1112_E_PHY_ID:
- 	case M88E1111_I_PHY_ID:
-@@ -1448,7 +1448,7 @@ static s32 igb_setup_copper_link_82575(struct e1000_hw *hw)
- 		switch (hw->phy.id) {
- 		case I347AT4_E_PHY_ID:
- 		case M88E1112_E_PHY_ID:
--		case M88E1545_E_PHY_ID:
-+		case M88E1543_E_PHY_ID:
- 		case I210_I_PHY_ID:
- 			ret_val = igb_copper_link_setup_m88_gen2(hw);
- 			break;
-@@ -2477,28 +2477,28 @@ s32 igb_set_eee_i354(struct e1000_hw *hw)
- 	u16 phy_data;
+-	/* Clear Go Link Disconnect bit */
+-	if (hw->mac.type >= e1000_82580) {
++	/* Clear Go Link Disconnect bit on supported devices */
++	switch (hw->mac.type) {
++	case e1000_82580:
++	case e1000_i350:
++	case e1000_i210:
++	case e1000_i211:
+ 		phpm_reg = rd32(E1000_82580_PHY_POWER_MGMT);
+ 		phpm_reg &= ~E1000_82580_PM_GO_LINKD;
+ 		wr32(E1000_82580_PHY_POWER_MGMT, phpm_reg);
++		break;
++	default:
++		break;
+ 	}
  
- 	if ((hw->phy.media_type != e1000_media_type_copper) ||
--	    (phy->id != M88E1545_E_PHY_ID))
-+	    (phy->id != M88E1543_E_PHY_ID))
- 		goto out;
- 
- 	if (!hw->dev_spec._82575.eee_disable) {
- 		/* Switch to PHY page 18. */
--		ret_val = phy->ops.write_reg(hw, E1000_M88E1545_PAGE_ADDR, 18);
-+		ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 18);
- 		if (ret_val)
- 			goto out;
- 
--		ret_val = phy->ops.read_reg(hw, E1000_M88E1545_EEE_CTRL_1,
-+		ret_val = phy->ops.read_reg(hw, E1000_M88E1543_EEE_CTRL_1,
- 					    &phy_data);
- 		if (ret_val)
- 			goto out;
- 
--		phy_data |= E1000_M88E1545_EEE_CTRL_1_MS;
--		ret_val = phy->ops.write_reg(hw, E1000_M88E1545_EEE_CTRL_1,
-+		phy_data |= E1000_M88E1543_EEE_CTRL_1_MS;
-+		ret_val = phy->ops.write_reg(hw, E1000_M88E1543_EEE_CTRL_1,
- 					     phy_data);
- 		if (ret_val)
- 			goto out;
- 
- 		/* Return the PHY to page 0. */
--		ret_val = phy->ops.write_reg(hw, E1000_M88E1545_PAGE_ADDR, 0);
-+		ret_val = phy->ops.write_reg(hw, E1000_M88E1543_PAGE_ADDR, 0);
- 		if (ret_val)
- 			goto out;
- 
-@@ -2549,7 +2549,7 @@ s32 igb_get_eee_status_i354(struct e1000_hw *hw, bool *status)
- 
- 	/* Check if EEE is supported on this device. */
- 	if ((hw->phy.media_type != e1000_media_type_copper) ||
--	    (phy->id != M88E1545_E_PHY_ID))
-+	    (phy->id != M88E1543_E_PHY_ID))
- 		goto out;
- 
- 	ret_val = igb_read_xmdio_reg(hw, E1000_PCS_STATUS_ADDR_I354,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 60559af..978eca3 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -787,7 +787,7 @@
- #define I350_I_PHY_ID        0x015403B0
- #define M88_VENDOR           0x0141
- #define I210_I_PHY_ID        0x01410C00
--#define M88E1545_E_PHY_ID    0x01410EA0
-+#define M88E1543_E_PHY_ID    0x01410EA0
- 
- /* M88E1000 Specific Registers */
- #define M88E1000_PHY_SPEC_CTRL     0x10  /* PHY Specific Control Register */
-@@ -909,9 +909,9 @@
- #define E1000_EEE_LP_ADV_DEV_I210    7           /* EEE LP Adv Device */
- #define E1000_EEE_LP_ADV_ADDR_I210   61          /* EEE LP Adv Register */
- #define E1000_MMDAC_FUNC_DATA        0x4000      /* Data, no post increment */
--#define E1000_M88E1545_PAGE_ADDR	0x16       /* Page Offset Register */
--#define E1000_M88E1545_EEE_CTRL_1	0x0
--#define E1000_M88E1545_EEE_CTRL_1_MS	0x0001     /* EEE Master/Slave */
-+#define E1000_M88E1543_PAGE_ADDR	0x16       /* Page Offset Register */
-+#define E1000_M88E1543_EEE_CTRL_1	0x0
-+#define E1000_M88E1543_EEE_CTRL_1_MS	0x0001     /* EEE Master/Slave */
- #define E1000_EEE_ADV_DEV_I354		7
- #define E1000_EEE_ADV_ADDR_I354		60
- #define E1000_EEE_ADV_100_SUPPORTED	(1 << 1)   /* 100BaseTx EEE Supported */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 6046194..5adccbc 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -1806,7 +1806,7 @@ s32 igb_get_cable_length_m88_gen2(struct e1000_hw *hw)
- 		phy->max_cable_length = phy_data / (is_cm ? 100 : 1);
- 		phy->cable_length = phy_data / (is_cm ? 100 : 1);
- 		break;
--	case M88E1545_E_PHY_ID:
-+	case M88E1543_E_PHY_ID:
- 	case I347AT4_E_PHY_ID:
- 		/* Remember the original page select and set it to 7 */
- 		ret_val = phy->ops.read_reg(hw, I347AT4_PAGE_SELECT,
+ 	ret_val = igb_setup_serdes_link_82575(hw);
 -- 
 1.8.3.1
