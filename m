@@ -1,35 +1,122 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] sfc: check for allocation failure
-Date: Wed, 4 Sep 2013 18:07:27 +0300
-Message-ID: <20130904150727.GA32327@elgon.mountain>
-References: <20130903.224939.866623192858217581.davem@davemloft.net>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH net-next v2 5/6] bonding: restructure and add rcu for
+ bond_for_each_slave_next()
+Date: Wed, 04 Sep 2013 23:02:28 +0800
+Message-ID: <52274B84.2010509@gmail.com>
+References: <522700EF.3000702@huawei.com> <20130904103540.GP1992@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130903.224939.866623192858217581.davem@davemloft.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:57588 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762801Ab3IDPLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 11:11:50 -0400
+Received: by mail-pb0-f53.google.com with SMTP id up15so432131pbc.26
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 08:11:49 -0700 (PDT)
+In-Reply-To: <20130904103540.GP1992@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It upsets static analyzers when we don't check for allocation failure.
+=E4=BA=8E 2013/9/4 18:35, Veaceslav Falico =E5=86=99=E9=81=93:
+> On Wed, Sep 04, 2013 at 05:44:15PM +0800, Ding Tianhong wrote:
+> ...snip...
+>> +/* Check whether the slave is the only one in bond */
+>> +#define bond_is_only_slave(bond, pos) \
+>> + (((pos)->list.prev =3D=3D &(bond)->slave_list) && \
+>> + ((pos)->list.next =3D=3D &(bond)->slave_list))
+>
+> Could be done without pos at all -
+>
+> !list_empty(&(bond)->slave_list) && \
+> &(bond)->slave_list.next =3D=3D &(bond)->slave_list.prev
+>
+> If we have only one slave and pos is NOT our slave then... well.. we =
+have
+> big troubles.
+>
+yes, more simple more beautiful, thanks.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: rebased on latest linux-next
+but if the pos is not our slave, it is the mistake, not bug. :)
 
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 38d179c..75799f8 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -894,6 +894,8 @@ static int falcon_mtd_probe(struct efx_nic *efx)
- 
- 	/* Allocate space for maximum number of partitions */
- 	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
-+	if (!parts)
-+		return -ENOMEM;
- 	n_parts = 0;
- 
- 	spi = &nic_data->spi_flash;
+>> +
+>> /**
+>> * bond_for_each_slave_from - iterate the slaves list from a starting=
+=20
+>> point
+>> * @bond: the bond holding this list.
+>> * @pos: current slave.
+>> - * @cnt: counter for max number of moves
+>> * @start: starting point.
+>> *
+>> * Caller must hold bond->lock
+>> */
+>> -#define bond_for_each_slave_from(bond, pos, cnt, start) \
+>> - for (cnt =3D 0, pos =3D start; pos && cnt < (bond)->slave_cnt; \
+>> - cnt++, pos =3D bond_next_slave(bond, pos))
+>> +#define bond_for_each_slave_from(bond, pos, start) \
+>> + for (pos =3D start; pos && (bond_is_only_slave(bond, start) ? \
+>> + &pos->list !=3D &bond->slave_list : \
+>> + &pos->list !=3D &start->list); bond_is_only_slave(bond, start) ? \
+>> + (pos =3D list_entry(pos->list.next, typeof(*pos), list)) : \
+>> + (pos =3D bond_next_slave(bond, pos)))
+>
+> Did you check that?
+>
+> pos =3D slave1 (bond has more than one slave);
+> pos && &pos->list !=3D &slave1->list - false.
+>
+> We won't ever enter this loop if we have >1 slaves.
+>
+> I don't understand this at all.
+>
+
+ok, the logic is : if slaves =3D=3D 1, run once for the slave.
+if slaves > 1, run loops until reach the end list.
+I could not get a better way to simplify the function, I think it is a=20
+suitable scheme.
+
+by the way, I test the function and works well. :)
+
+>> +
+>> +/**
+>> + * bond_for_each_slave_from_rcu - iterate the slaves list from a=20
+>> starting point
+>> + * @bond: the bond holding this list.
+>> + * @pos: current slave.
+>> + * @start: starting point.
+>> + *
+>> + * Caller must hold rcu_read_lock
+>> + */
+>> +#define bond_for_each_slave_from_rcu(bond, pos, start) \
+>> + for (pos =3D start; pos && (bond_is_only_slave(bond, start) ? \
+>> + &pos->list !=3D &bond->slave_list : \
+>> + &pos->list !=3D &start->list); bond_is_only_slave(bond, start) ? \
+>> + (pos =3D list_entry_rcu(pos->list.next, typeof(*pos), list)) : \
+>> + (pos =3D bond_next_slave_rcu(bond, pos)))
+>
+> Ditto as bond_for_each_slave_from() and, also, see my comment about R=
+CU
+> from patch 1.
+>
+>>
+>> /**
+>> * bond_for_each_slave - iterate over all slaves
+>> --=20
+>> 1.8.2.1
+>>
+>>
+>>
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>
