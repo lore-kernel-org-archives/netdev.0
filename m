@@ -1,94 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/4] netfilter: more strict TCP flag matching in SYNPROXY
-Date: Wed,  4 Sep 2013 15:00:22 +0200
-Message-ID: <1378299625-4638-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/4] netfilter: synproxy_core: fix warning in __nf_ct_ext_add_length()
+Date: Wed,  4 Sep 2013 15:00:23 +0200
+Message-ID: <1378299625-4638-3-git-send-email-pablo@netfilter.org>
 References: <1378299625-4638-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:36051 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756922Ab3IDNAj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 09:00:39 -0400
 In-Reply-To: <1378299625-4638-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
 
-Its seems Patrick missed to incoorporate some of my requested changes
-during review v2 of SYNPROXY netfilter module.
+With CONFIG_NETFILTER_DEBUG we get the following warning during SYNPROXY init:
 
-Which were, to avoid SYN+ACK packets to enter the path, meant for the
-ACK packet from the client (from the 3WHS).
+[   80.558906] WARNING: CPU: 1 PID: 4833 at net/netfilter/nf_conntrack_extend.c:80 __nf_ct_ext_add_length+0x217/0x220 [nf_conntrack]()
 
-Further there were a bug in ip6t_SYNPROXY.c, for matching SYN packets
-that didn't exclude the ACK flag.
+The reason is that the conntrack template is set to confirmed before adding
+the extension and it is invalid to add extensions to already confirmed
+conntracks. Fix by adding the extensions before setting the conntrack to
+confirmed.
 
-Go a step further with SYN packet/flag matching by excluding flags
-ACK+FIN+RST, in both IPv4 and IPv6 modules.
-
-The intented usage of SYNPROXY is as follows:
-(gracefully describing usage in commit)
-
- iptables -t raw -A PREROUTING -i eth0 -p tcp --dport 80 --syn -j NOTRACK
- iptables -A INPUT -i eth0 -p tcp --dport 80 -m state UNTRACKED,INVALID \
-         -j SYNPROXY --sack-perm --timestamp --mss 1480 --wscale 7 --ecn
-
- echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
-
-This does filter SYN flags early, for packets in the UNTRACKED state,
-but packets in the INVALID state with other TCP flags could still
-reach the module, thus this stricter flag matching is still needed.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Patrick McHardy <kaber@trash.net>
+Reported-by: Jesper Dangaard Brouer <jesper.brouer@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ipt_SYNPROXY.c  |    4 ++--
- net/ipv6/netfilter/ip6t_SYNPROXY.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/nf_synproxy_core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index 94371db..90e489e 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -269,7 +269,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
+index d23dc79..6fd967c 100644
+--- a/net/netfilter/nf_synproxy_core.c
++++ b/net/netfilter/nf_synproxy_core.c
+@@ -356,12 +356,12 @@ static int __net_init synproxy_net_init(struct net *net)
+ 		goto err1;
+ 	}
  
- 	synproxy_parse_options(skb, par->thoff, th, &opts);
+-	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
+-	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+ 	if (!nfct_seqadj_ext_add(ct))
+ 		goto err2;
+ 	if (!nfct_synproxy_ext_add(ct))
+ 		goto err2;
++	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
++	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
  
--	if (th->syn && !th->ack) {
-+	if (th->syn && !(th->ack || th->fin || th->rst)) {
- 		/* Initial SYN from client */
- 		this_cpu_inc(snet->stats->syn_received);
- 
-@@ -285,7 +285,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_ECN);
- 
- 		synproxy_send_client_synack(skb, th, &opts);
--	} else if (th->ack && !(th->fin || th->rst))
-+	} else if (th->ack && !(th->fin || th->rst || th->syn))
- 		/* ACK from client */
- 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
- 
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index 4270a9b..a5af0bf 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -284,7 +284,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 
- 	synproxy_parse_options(skb, par->thoff, th, &opts);
- 
--	if (th->syn) {
-+	if (th->syn && !(th->ack || th->fin || th->rst)) {
- 		/* Initial SYN from client */
- 		this_cpu_inc(snet->stats->syn_received);
- 
-@@ -300,7 +300,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_ECN);
- 
- 		synproxy_send_client_synack(skb, th, &opts);
--	} else if (th->ack && !(th->fin || th->rst))
-+	} else if (th->ack && !(th->fin || th->rst || th->syn))
- 		/* ACK from client */
- 		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
+ 	snet->tmpl = ct;
  
 -- 
 1.7.10.4
-
