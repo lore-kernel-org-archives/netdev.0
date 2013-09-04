@@ -1,35 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 04 Sep 2013 12:41:14 -0400 (EDT)
-Message-ID: <20130904.124114.1635489897510235764.davem@davemloft.net>
-References: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Christian Benvenuti (benve)" <benve@cisco.com>
+Subject: RE: [PATCH net-next 4/5] driver/net: enic: Exposing symbols for
+ Cisco's low latency driver
+Date: Wed, 4 Sep 2013 16:32:32 +0000
+Message-ID: <6CE81A2095B0024BBC77007BD04E5538163B23CE@xmb-aln-x02.cisco.com>
+References: <1378273638-7780-1-git-send-email-govindarajulu90@gmail.com>
+	 <1378273638-7780-5-git-send-email-govindarajulu90@gmail.com>
+ <1378306376.3133.7.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39225 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935245Ab3IDQlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 12:41:16 -0400
-In-Reply-To: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Sujith Sankar (ssujith)" <ssujith@cisco.com>,
+	"Nishank Trivedi (nistrive)" <nistrive@cisco.com>,
+	"Upinder Malhi (umalhi)" <umalhi@cisco.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1378306376.3133.7.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  4 Sep 2013 06:08:47 -0700
-
-> This series contains updates to igb only.
-> 
-> Todd provides a fix for igb to not look for a PBA in the iNVM on
-> devices that are flashless.
-> 
-> Akeem provides igb patches to add a new PHY id for i354, as well as
-> a couple of patches to implement the new PHY id.  He also provides
-> several patches to correctly report the appropriate media type as
-> well as correctly report advertised/supported link for i354 devices.
-> Lastly Akeem implements a 1 second delay mechanism for i210 devices
-> to avoid erroneous link issue with the link partner.
-
-Pulled, thanks a lot Jeff.
+SGkgQmVuLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1v
+d25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+IG93bmVyQHZnZXIua2VybmVs
+Lm9yZ10gT24gQmVoYWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogV2VkbmVzZGF5LCBTZXB0
+ZW1iZXIgMDQsIDIwMTMgNzo1MyBBTQ0KPiBUbzogR292aW5kYXJhanVsdSBWYXJhZGFyYWphbg0K
+PiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgt
+DQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IENocmlzdGlhbiBCZW52ZW51dGkgKGJlbnZlKTsg
+U3VqaXRoIFNhbmthcg0KPiAoc3N1aml0aCk7IE5pc2hhbmsgVHJpdmVkaSAobmlzdHJpdmUpOyBV
+cGluZGVyIE1hbGhpICh1bWFsaGkpDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgNC81
+XSBkcml2ZXIvbmV0OiBlbmljOiBFeHBvc2luZyBzeW1ib2xzIGZvcg0KPiBDaXNjbydzIGxvdyBs
+YXRlbmN5IGRyaXZlcg0KPiANCj4gT24gV2VkLCAyMDEzLTA5LTA0IGF0IDExOjE3ICswNTMwLCBH
+b3ZpbmRhcmFqdWx1IFZhcmFkYXJhamFuIHdyb3RlOg0KPiA+IFRoaXMgcGF0Y2ggZXhwb3NlcyBz
+eW1ib2xzIGZvciB1c25pYyBsb3cgbGF0ZW5jeSBkcml2ZXIgdGhhdCBjYW4gYmUNCj4gPiB1c2Vk
+IHRvIHJlZ2lzdGVyIGFuZCB1bnJlZ2lzdGVyIHZOaWNzIGFzIHdlbGwgdG8gdHJhdmVyc2UgdGhl
+IHJlc291cmNlcyBvbg0KPiB2Tmljcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFVwaW5kZXIg
+TWFsaGkgPHVtYWxoaUBjaXNjby5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogTmlzaGFuayBUcml2
+ZWRpIDxuaXN0cml2ZUBjaXNjby5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogQ2hyaXN0aWFuIEJl
+bnZlbnV0aSA8YmVudmVAY2lzY28uY29tPg0KPiANCj4gV2lsbCB1c25pYywgb3IgYW55IG90aGVy
+IHVzZXIgb2YgdGhlc2Ugc3ltYm9scywgYmUgc3VibWl0dGVkIGZvciBpbmNsdXNpb24gaW4tDQo+
+IHRyZWUgYXMgd2VsbD8gIEl0IGlzIGdlbmVyYWxseSBleHBlY3RlZCB0aGF0IGV4cG9ydGVkIGZ1
+bmN0aW9ucyBkbyBoYXZlIGFuIGluLQ0KPiB0cmVlIHVzZXIuDQoNClRoZSB1c25pYyBkcml2ZXIg
+aGFzIGJlZW4gcG9zdGVkIHllc3RlcmRheSBvbiB0aGUgcmRtYSBsaXN0Lg0KKGh0dHA6Ly93d3cu
+c3Bpbmljcy5uZXQvbGlzdHMvbGludXgtcmRtYS9tc2cxNjk5OS5odG1sKQ0KDQovQ2hyaXMNCg0K
+PiBBbHNvLCBoZWFkZXIgZmlsZXMgdW5kZXIgZHJpdmVycy8gZ2VuZXJhbGx5IHdvbid0IGJlIGlu
+Y2x1ZGVkIGluIGRpc3RyaWJ1dGlvbg0KPiAtZGV2ZWwgcGFja2FnZXMsIHNvIHRvIHN1cHBvcnQg
+YW4gb3V0LW9mLXRyZWUgbW9kdWxlIHRoZSBmdW5jdGlvbg0KPiBwcm90b3R5cGVzIHdvdWxkIG5l
+ZWQgdG8gYmUgaW5jbHVkZWQgaW4gYSBoZWFkZXIgdW5kZXIgaW5jbHVkZS8gKG9yIGVsc2UNCj4g
+eW91IGhhdmUgdG8gcmVwZWF0IHRoZW0gYW5kIGhvcGUgdGhlIHR5cGVzIG5ldmVyIGNoYW5nZSku
+DQo+IA0KPiBCZW4uDQo+IA0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNj
+by9lbmljL3ZuaWNfZGV2LmMgfCAxMCArKysrKysrKysrDQo+ID4gZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvY2lzY28vZW5pYy92bmljX2Rldi5oIHwgIDEgKw0KPiA+ICAyIGZpbGVzIGNoYW5nZWQsIDEx
+IGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9jaXNjby9lbmljL3ZuaWNfZGV2LmMNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Npc2Nv
+L2VuaWMvdm5pY19kZXYuYw0KPiA+IGluZGV4IDk3NDU1YzUuLjY5ZGQ5MjUgMTAwNjQ0DQo+ID4g
+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy92bmljX2Rldi5jDQo+ID4gKysr
+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy92bmljX2Rldi5jDQo+ID4gQEAgLTE3
+NSw2ICsxNzUsNyBAQCB1bnNpZ25lZCBpbnQgdm5pY19kZXZfZ2V0X3Jlc19jb3VudChzdHJ1Y3QN
+Cj4gPiB2bmljX2RldiAqdmRldiwgIHsNCj4gPiAgCXJldHVybiB2ZGV2LT5yZXNbdHlwZV0uY291
+bnQ7DQo+ID4gIH0NCj4gPiArRVhQT1JUX1NZTUJPTCh2bmljX2Rldl9nZXRfcmVzX2NvdW50KTsN
+Cj4gPg0KPiA+ICB2b2lkIF9faW9tZW0gKnZuaWNfZGV2X2dldF9yZXMoc3RydWN0IHZuaWNfZGV2
+ICp2ZGV2LCBlbnVtDQo+IHZuaWNfcmVzX3R5cGUgdHlwZSwNCj4gPiAgCXVuc2lnbmVkIGludCBp
+bmRleCkNCj4gPiBAQCAtMTkzLDYgKzE5NCw3IEBAIHZvaWQgX19pb21lbSAqdm5pY19kZXZfZ2V0
+X3JlcyhzdHJ1Y3Qgdm5pY19kZXYNCj4gKnZkZXYsIGVudW0gdm5pY19yZXNfdHlwZSB0eXBlLA0K
+PiA+ICAJCXJldHVybiAoY2hhciBfX2lvbWVtICopdmRldi0+cmVzW3R5cGVdLnZhZGRyOw0KPiA+
+ICAJfQ0KPiA+ICB9DQo+ID4gK0VYUE9SVF9TWU1CT0wodm5pY19kZXZfZ2V0X3Jlcyk7DQo+ID4N
+Cj4gPiAgc3RhdGljIHVuc2lnbmVkIGludCB2bmljX2Rldl9kZXNjX3Jpbmdfc2l6ZShzdHJ1Y3Qg
+dm5pY19kZXZfcmluZyAqcmluZywNCj4gPiAgCXVuc2lnbmVkIGludCBkZXNjX2NvdW50LCB1bnNp
+Z25lZCBpbnQgZGVzY19zaXplKSBAQCAtOTQyLDYgKzk0NCw3DQo+IEBADQo+ID4gdm9pZCB2bmlj
+X2Rldl91bnJlZ2lzdGVyKHN0cnVjdCB2bmljX2RldiAqdmRldikNCj4gPiAgCQlrZnJlZSh2ZGV2
+KTsNCj4gPiAgCX0NCj4gPiAgfQ0KPiA+ICtFWFBPUlRfU1lNQk9MKHZuaWNfZGV2X3VucmVnaXN0
+ZXIpOw0KPiA+DQo+ID4gIHN0cnVjdCB2bmljX2RldiAqdm5pY19kZXZfcmVnaXN0ZXIoc3RydWN0
+IHZuaWNfZGV2ICp2ZGV2LA0KPiA+ICAJdm9pZCAqcHJpdiwgc3RydWN0IHBjaV9kZXYgKnBkZXYs
+IHN0cnVjdCB2bmljX2Rldl9iYXIgKmJhciwgQEANCj4gPiAtOTY5LDYgKzk3MiwxMyBAQCBlcnJf
+b3V0Og0KPiA+ICAJdm5pY19kZXZfdW5yZWdpc3Rlcih2ZGV2KTsNCj4gPiAgCXJldHVybiBOVUxM
+Ow0KPiA+ICB9DQo+ID4gK0VYUE9SVF9TWU1CT0wodm5pY19kZXZfcmVnaXN0ZXIpOw0KPiA+ICsN
+Cj4gPiArc3RydWN0IHBjaV9kZXYgKnZuaWNfZGV2X2dldF9wZGV2KHN0cnVjdCB2bmljX2RldiAq
+dmRldikgew0KPiA+ICsJcmV0dXJuIHZkZXYtPnBkZXY7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZ
+TUJPTCh2bmljX2Rldl9nZXRfcGRldik7DQo+ID4NCj4gPiAgaW50IHZuaWNfZGV2X2luaXRfcHJv
+djIoc3RydWN0IHZuaWNfZGV2ICp2ZGV2LCB1OCAqYnVmLCB1MzIgbGVuKSAgew0KPiA+IGRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmljL3ZuaWNfZGV2LmgNCj4gPiBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2Npc2NvL2VuaWMvdm5pY19kZXYuaA0KPiA+IGluZGV4IGYz
+ZDliNzkuLmU2NzAwMjkgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lz
+Y28vZW5pYy92bmljX2Rldi5oDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28v
+ZW5pYy92bmljX2Rldi5oDQo+ID4gQEAgLTEyNyw2ICsxMjcsNyBAQCBpbnQgdm5pY19kZXZfc2V0
+X2lnX3ZsYW5fcmV3cml0ZV9tb2RlKHN0cnVjdA0KPiA+IHZuaWNfZGV2ICp2ZGV2LCAgc3RydWN0
+IHZuaWNfZGV2ICp2bmljX2Rldl9yZWdpc3RlcihzdHJ1Y3Qgdm5pY19kZXYgKnZkZXYsDQo+ID4g
+IAl2b2lkICpwcml2LCBzdHJ1Y3QgcGNpX2RldiAqcGRldiwgc3RydWN0IHZuaWNfZGV2X2JhciAq
+YmFyLA0KPiA+ICAJdW5zaWduZWQgaW50IG51bV9iYXJzKTsNCj4gPiArc3RydWN0IHBjaV9kZXYg
+KnZuaWNfZGV2X2dldF9wZGV2KHN0cnVjdCB2bmljX2RldiAqdmRldik7DQo+ID4gIGludCB2bmlj
+X2Rldl9pbml0X3Byb3YyKHN0cnVjdCB2bmljX2RldiAqdmRldiwgdTggKmJ1ZiwgdTMyIGxlbik7
+DQo+ID4gaW50IHZuaWNfZGV2X2VuYWJsZTIoc3RydWN0IHZuaWNfZGV2ICp2ZGV2LCBpbnQgYWN0
+aXZlKTsgIGludA0KPiA+IHZuaWNfZGV2X2VuYWJsZTJfZG9uZShzdHJ1Y3Qgdm5pY19kZXYgKnZk
+ZXYsIGludCAqc3RhdHVzKTsNCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2lu
+ZWVyLCBTb2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7DQo+IHRoYXQncyB0
+aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
+aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+IA0KPiAtLQ0K
+PiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3Jp
+YmUgbmV0ZGV2IiBpbiB0aGUNCj4gYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIu
+a2VybmVsLm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0DQo+IGh0dHA6Ly92Z2VyLmtlcm5lbC5v
+cmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
