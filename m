@@ -1,54 +1,28 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 2/2] tuntap: orphan frags before trying to set tx timestamp
-Date: Wed,  4 Sep 2013 12:33:46 +0800
-Message-ID: <1378269226-5969-2-git-send-email-jasowang@redhat.com>
-References: <1378269226-5969-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378269226-5969-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] bonding: locking simplifications and
+ cleanup
+Date: Wed, 04 Sep 2013 00:52:28 -0400 (EDT)
+Message-ID: <20130904.005228.1470802886437069263.davem@davemloft.net>
+References: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: nikolay@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54631 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755930Ab3IDEwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 00:52:33 -0400
+In-Reply-To: <1378122702-28943-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sock_tx_timestamp() will clear all zerocopy flags of skb which may lead the
-frags never to be orphaned. This will break guest to guest traffic when zerocopy
-is enabled. Fix this by orphaning the frags before trying to set tx time stamp.
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Mon,  2 Sep 2013 13:51:37 +0200
 
-The issue were introduced by commit eda297729171fe16bf34fe5b0419dfb69060f623
-(tun: Support software transmit time stamping).
+> This small patchset aims to remove some use cases of bond->lock for mutual
+> exclusion which will help in the RCUfication of the function users. It also
+> does some small style cleanups and fixes.
 
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2dddb1b..af9a096 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -749,15 +749,16 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 			  >= dev->tx_queue_len / tun->numqueues)
- 		goto drop;
- 
-+	/* Orphan the skb - required as we might hang on to it
-+	 * for indefinite time. */
-+	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-+		goto drop;
-+
- 	if (skb->sk) {
- 		sock_tx_timestamp(skb->sk, &skb_shinfo(skb)->tx_flags);
- 		sw_tx_timestamp(skb);
- 	}
- 
--	/* Orphan the skb - required as we might hang on to it
--	 * for indefinite time. */
--	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
--		goto drop;
- 	skb_orphan(skb);
- 
- 	nf_reset(skb);
--- 
-1.7.1
+Series applied.
