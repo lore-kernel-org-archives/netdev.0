@@ -1,49 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: Fix data chunk fragmentation for MTU values
- which are not multiple of 4
-Date: Wed, 04 Sep 2013 13:20:58 -0400 (EDT)
-Message-ID: <20130904.132058.515642898688349547.davem@davemloft.net>
-References: <52249981.8040006@nsn.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH 5/7] ixgbe: use pcie_capability_read_word() to simplify
+ code
+Date: Wed, 4 Sep 2013 17:24:37 +0000
+Message-ID: <1378315477.8626.9.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
+	 <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
+	 <20130904162022.GE24733@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	matija.glavinic-pecotic.ext@nsn.com, netdev@vger.kernel.org
-To: alexander.sverdlin@nsn.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41072 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752922Ab3IDRVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 13:21:00 -0400
-In-Reply-To: <52249981.8040006@nsn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Yijing Wang <wangyijing@huawei.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Gavin Shan <shangw@linux.vnet.ibm.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Hanjun Guo <guohanjun@huawei.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130904162022.GE24733@google.com>
+Content-Language: en-US
+Content-ID: <55CE56081959964385C745B0FB3C7AF3@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-Date: Mon, 02 Sep 2013 15:58:25 +0200
-
-> From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-> 
-> net: sctp: Fix data chunk fragmentation for MTU values which are not multiple of 4
-> 
-> Initially the problem was observed with ipsec, but later it became clear that
-> SCTP data chunk fragmentation algorithm has problems with MTU values which are
-> not multiple of 4. Test program was used which just transmits 2000 bytes long
-> packets to other host. tcpdump was used to observe re-fragmentation in IP layer
-> after SCTP already fragmented data chunks.
- ...
-> Here problem in data portion limit calculation leads to re-fragmentation in IP,
-> which is sub-optimal. The problem is max_data initial value, which doesn't take
-> into account the fact, that data chunk must be padded to 4-bytes boundary.
-> It's enough to correct max_data, because all later adjustments are correctly
-> aligned to 4-bytes boundary.
-> 
-> After the fix is applied, everything is fragmented correctly for uneven MTUs:
- ...
-> The bug was there for years already, but
->  - is a performance issue, the packets are still transmitted
->  - doesn't show up with default MTU 1500, but possibly with ipsec (MTU 1438)
-> 
-> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-
-Applied, thanks.
+T24gV2VkLCAyMDEzLTA5LTA0IGF0IDEwOjIwIC0wNjAwLCBCam9ybiBIZWxnYWFzIHdyb3RlOg0K
+PiBbK2NjIEphY29iLCBKZWZmXQ0KPiANCj4gT24gVHVlLCBTZXAgMDMsIDIwMTMgYXQgMDM6MzU6
+MTNQTSArMDgwMCwgWWlqaW5nIFdhbmcgd3JvdGU6DQo+ID4gdXNlIHBjaWVfY2FwYWJpbGl0eV9y
+ZWFkX3dvcmQoKSB0byBzaW1wbGlmeSBjb2RlLg0KPiA+IA0KPiA+IFNpZ25lZC1vZmYtYnk6IFlp
+amluZyBXYW5nIDx3YW5neWlqaW5nQGh1YXdlaS5jb20+DQo+ID4gQ2M6IGUxMDAwLWRldmVsQGxp
+c3RzLnNvdXJjZWZvcmdlLm5ldA0KPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4g
+Q2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jIHwgICAgNiArKy0tLS0NCj4gPiAg
+MSBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pDQo+ID4gDQo+
+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21h
+aW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiA+
+IGluZGV4IGJhZDhmMTQuLmJmYTBiMDYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gQEAgLTE1Miw3ICsxNTIsNiBAQCBN
+T0RVTEVfVkVSU0lPTihEUlZfVkVSU0lPTik7DQo+ID4gIHN0YXRpYyBpbnQgaXhnYmVfcmVhZF9w
+Y2lfY2ZnX3dvcmRfcGFyZW50KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyLA0KPiA+ICAJ
+CQkJCSAgdTMyIHJlZywgdTE2ICp2YWx1ZSkNCj4gPiAgew0KPiA+IC0JaW50IHBvcyA9IDA7DQo+
+ID4gIAlzdHJ1Y3QgcGNpX2RldiAqcGFyZW50X2RldjsNCj4gPiAgCXN0cnVjdCBwY2lfYnVzICpw
+YXJlbnRfYnVzOw0KPiA+ICANCj4gPiBAQCAtMTY0LDExICsxNjMsMTAgQEAgc3RhdGljIGludCBp
+eGdiZV9yZWFkX3BjaV9jZmdfd29yZF9wYXJlbnQoc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0
+ZXIsDQo+ID4gIAlpZiAoIXBhcmVudF9kZXYpDQo+ID4gIAkJcmV0dXJuIC0xOw0KPiA+ICANCj4g
+PiAtCXBvcyA9IHBjaV9maW5kX2NhcGFiaWxpdHkocGFyZW50X2RldiwgUENJX0NBUF9JRF9FWFAp
+Ow0KPiA+IC0JaWYgKCFwb3MpDQo+ID4gKwlpZiAoIXBjaV9pc19wY2llKHBhcmVudF9kZXYpKQ0K
+PiA+ICAJCXJldHVybiAtMTsNCj4gPiAgDQo+ID4gLQlwY2lfcmVhZF9jb25maWdfd29yZChwYXJl
+bnRfZGV2LCBwb3MgKyByZWcsIHZhbHVlKTsNCj4gPiArCXBjaWVfY2FwYWJpbGl0eV9yZWFkX3dv
+cmQocGFyZW50X2RldiwgcmVnLCB2YWx1ZSk7DQo+ID4gIAlyZXR1cm4gMDsNCj4gPiAgfQ0KPiA+
+ICANCj4gDQo+IEhlcmUncyB0aGUgY2FsbGVyIG9mIGl4Z2JlX3JlYWRfcGNpX2NmZ193b3JkX3Bh
+cmVudCgpOg0KPiANCj4gICAgIC8qIEdldCB0aGUgbmVnb3RpYXRlZCBsaW5rIHdpZHRoIGFuZCBz
+cGVlZCBmcm9tIFBDSSBjb25maWcgc3BhY2Ugb2YgdGhlDQo+ICAgICAgKiBwYXJlbnQsIGFzIHRo
+aXMgZGV2aWNlIGlzIGJlaGluZCBhIHN3aXRjaA0KPiAgICAgICovDQo+ICAgICBlcnIgPSBpeGdi
+ZV9yZWFkX3BjaV9jZmdfd29yZF9wYXJlbnQoYWRhcHRlciwgMTgsICZsaW5rX3N0YXR1cyk7DQo+
+IA0KPiBUaGlzIHNob3VsZCBiZSB1c2luZyBQQ0lfRVhQX0xOS1NUQSBpbnN0ZWFkIG9mICIxOCIu
+DQoNCkFic29sdXRlbHkuLiBOb3Qgc3VyZSB3aHkgSSBkaWRuJ3QgZG8gdGhpcyBvcmlnaW5hbGx5
+Li4uLi4NCg0KPiANCj4gQnV0IGl0IHdvdWxkIGJlIGV2ZW4gYmV0dGVyIGlmIHdlIGNvdWxkIGRy
+b3AgaXhnYmVfZ2V0X3BhcmVudF9idXNfaW5mbygpDQo+IGNvbXBsZXRlbHkuICBJdCBzZWVtcyBy
+ZWR1bmRhbnQgYWZ0ZXIgbWVyZ2luZyBKYWNvYidzIG5ldw0KPiBwY2llX2dldF9taW5pbXVtX2xp
+bmsoKSBzdHVmZiBbMV0uDQoNCkkgZG9uJ3Qga25vdyBpZiB3ZSBjYW4gZnVsbHkgZHJvcCBpdC4g
+V2UgbmVlZCB0aGlzIGluIG9yZGVyIHRvIHJlYWQgdGhlDQpwYXJlbnQgZGV2aWNlIG9uIHNvbWUg
+cXVhZCBwb3J0IEV0aGVybmV0IGFkYXB0ZXJzIHdoaWNoIGhhdmUgYW4gaW50ZXJuYWwNClBDSWUg
+c3dpdGNoIHRvIGxpbmsgdHdvIHBhcnRzIHRvZ2V0aGVyLiBUaGVyZSBhcmUgYSBmZXcgcGxhY2Vz
+IHdlIHJlYWQNCnRoZSBwYXJlbnQgY2ZnIHdvcmQuIEF0IGxlYXN0IG9uZSBmb3Igc3VyZS4uIGJ1
+dCBtYXliZSBvdGhlcnMuLiBDYW4ndA0KcmVjYWxsLiBUaGUgcGFyZW50IGJ1cyBpbmZvIGlzIHN0
+aWxsIHVzZWQgdG8gcHJpbnQgb3V0IHRoZSBzbG90IHdpZHRoDQphbmQgc3BlZWQuIEkgZG9uJ3Qg
+a25vdyBpZiBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8ganVzdCBwcmludCB0aGUgcmVzcG9uc2UNCmZy
+b20gZ2V0X21pbmltdW1fbGluayBvciBzdGlsbCBwcmludCB0aGUgYWN0dWFsIHNsb3QuDQoNCj4g
+DQo+IGl4Z2JlX2Rpc2FibGVfcGNpZV9tYXN0ZXIoKSBsb29rcyBsaWtlIGl0IHNob3VsZCBiZSB1
+c2luZw0KPiBwY2llX2NhcGFiaWxpdHlfcmVhZF93b3JkKCkgd2l0aCBQQ0lfRVhQX0RFVlNUQSBp
+bnN0ZWFkIG9mIHVzaW5nDQo+IElYR0JFX1BDSV9ERVZJQ0VfU1RBVFVTLiAgSWYgZmFjdCwgaXQg
+bG9va3MgbGlrZSBpdCBjb3VsZCB1c2UgdGhlDQo+IG5ldyBwY2lfd2FpdF9mb3JfcGVuZGluZ190
+cmFuc2FjdGlvbigpIGludGVyZmFjZSBbMl0uDQo+IA0KDQpJIGNhbiBsb29rIGF0IGRvaW5nIHRo
+aXMuIEkga25vdyBpdCB3YXMgZG9uZSB0aGlzIHdheSBmb3IgaGlzdG9yaWMNCnJlYXNvbnMsIChh
+bmQgbGlrZWx5IGZvciBjb2RlIHNoYXJlIHdpdGggbm9uIExpbnV4IGRyaXZlcnMuLiBidXQgdGhh
+dCdzDQpub3QgcmVhbGx5IGFuIGV4Y3VzZSkNCg0KPiBJdCBsb29rcyBsaWtlIGFsbCB0aGUgI2Rl
+ZmluZXMgaW4gdGhlICJQQ0kgQnVzIEluZm8iIGJsb2NrDQo+IChJWEdCRV9QQ0lfREVWSUNFX1NU
+QVRVUywgSVhHQkVfUENJX0RFVklDRV9TVEFUVVNfVFJBTlNBQ1RJT05fUEVORElORywNCj4gSVhH
+QkVfUENJX0xJTktfU1RBVFVTLCBldGMuKSBbM10gYXJlIHJlYWxseSBmb3IgUENJZS1nZW5lcmlj
+IHRoaW5ncy4gIElmDQo+IHNvLCB0aGUgSVhHQkUtc3BlY2lmaWMgb25lcyBzaG91bGQgYmUgZHJv
+cHBlZCBpbiBmYXZvciBvZiB0aGUgZ2VuZXJpYw0KPiBvbmVzLg0KDQpBZ3JlZWQuDQoNClRoYW5r
+cywNCkpha2UNCg0KDQo=
