@@ -1,68 +1,63 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] xen-netback: count number required slots for an skb
- more carefully
-Date: Wed, 4 Sep 2013 08:38:57 +0100
-Message-ID: <20130904073857.GI14104@zion.uk.xensource.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com>
- <20130903215328.GA13465@zion.uk.xensource.com>
- <52269A37.7030600@oracle.com>
- <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
- <5226D994.9000401@oracle.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH v3 0/3] Send audit/procinfo/cgroup data in socket-level control message
+Date: Wed, 04 Sep 2013 00:42:26 -0700
+Message-ID: <878uzdf2xp.fsf@xmission.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1378275261-4553-1-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Matt Wilson <msw@linux.com>, Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xen.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <msw@amazon.com>
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:31420 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762090Ab3IDHi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 03:38:58 -0400
-Content-Disposition: inline
-In-Reply-To: <5226D994.9000401@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org
+To: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1378275261-4553-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Jan
+	Kaluza's message of "Wed, 4 Sep 2013 08:14:18 +0200")
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 04, 2013 at 02:56:20PM +0800, annie li wrote:
-> 
-> On 2013-9-4 14:04, Matt Wilson wrote:
-> >On Wed, Sep 04, 2013 at 10:25:59AM +0800, annie li wrote:
-> >>On 2013-9-4 5:53, Wei Liu wrote:
-> >[...]
-> >>>Matt, do you fancy sending the final version? IIRC the commit message
-> >>>needs to be re-written. I personally still prefer Matt's solution as
-> >>>it a) make efficient use of the ring, b) uses ring pointers to
-> >>>calculate slots which is most accurate, c) removes the dependence on
-> >>>MAX_SKB_FRAGS in guest RX path.
-> >>>
-> >>>Anyway, we should get this fixed ASAP.
-> >>Totally agree. This issue is easy to be reproduced with large MTU.
-> >>It is better to upstream the fix soon in case others hit it and
-> >>waste time to fix it.
-> >I'd like to go with Xi's proposed patch that I posed earlier. The main
-> >thing that's kept me from sending a final version is lack of time to
-> >retest against a newer kernel.
-> >
-> >Could someone help out with that? I probably can't get to it until the
-> >end of the week.
-> 
-> I can rebase it. Since wei's NAPI &1:1 model patch went into
-> net-next already, it should not be able to applied directly.
-> 
+Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-I think this one should go to net then queue up for stable, not
-net-next.
+> Hi,
+>
+> this patchset against net-next (applies also to linux-next) adds 3 new types
+> of "Socket"-level control message (SCM_AUDIT, SCM_PROCINFO and SCM_CGROUP).
+>
+> Server-like processes in many cases need credentials and other
+> metadata of the peer, to decide if the calling process is allowed to
+> request a specific action, or the server just wants to log away this
+> type of information for auditing tasks.
+>
+> The current practice to retrieve such process metadata is to look that
+> information up in procfs with the $PID received over SCM_CREDENTIALS.
+> This is sufficient for long-running tasks, but introduces a race which
+> cannot be worked around for short-living processes; the calling
+> process and all the information in /proc/$PID/ is gone before the
+> receiver of the socket message can look it up.
 
-Wei.
+> Changes introduced in this patchset can also increase performance
+> of such server-like processes, because current way of opening and
+> parsing /proc/$PID/* files is much more expensive than receiving these
+> metadata using SCM.
 
-> Thanks
-> Annie
-> >
-> >Sorry for the delay. :-(
-> >
-> >--msw
+Can I just say ick, blech, barf, gag.
+
+You don't require this information to be passed.  You are asking people
+to suport a lot of new code for the forseeable future.  The only advantage
+appears to be for short lived racy processes that don't even bother to
+make certain their message was acknowleged before exiting.
+
+You sent this during the merge window which is the time for code
+integration and testing not new code.
+
+By my count you have overflowed cb in struct sk_buff and are stomping on
+_skb_refdest.
+
+If you are going to go crazy and pass things is there a reason you do
+not add a patch to pass the bsd SCM_CREDS?  That information seems more
+relevant in a security context and for making security decisions than
+about half the information you are passing.
+
+Eric
