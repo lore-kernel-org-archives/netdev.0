@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 4/6] bonding: add rtnl lock for bonding_store_xmit_hash
-Date: Wed, 4 Sep 2013 17:43:58 +0800
-Message-ID: <522700DE.50403@huawei.com>
+Subject: [PATCH net-next v2 6/6] bonding: use RCU protection for alb xmit
+ path
+Date: Wed, 4 Sep 2013 17:44:23 +0800
+Message-ID: <522700F7.9090307@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,47 +11,118 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+	Netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:18744 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934370Ab3IDJpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 05:45:17 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:3646 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934370Ab3IDJqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 05:46:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the bonding_store_xmit_hash() could update bond's xmit_policy, and
-the xmit_policy is used in xmit path for xor mode, maybe it is hard
-to occur any problem, but just follow the logic "don't change anything
-slave-related without rtnl", so I think the rntl lock is fit here. :)
+The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+(bonding: initial RCU conversion) has convert the roundrobin, active-backup,
+broadcast and xor xmit path to rcu protection, the performance will be better
+for these mode, so this time, convert xmit path for alb mode.
 
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/bonding/bond_alb.c | 20 +++++++++-----------
+ drivers/net/bonding/bonding.h  |  2 +-
+ 2 files changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 0f539de..deb1d8e 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -382,6 +382,9 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
- 	int new_value, ret = count;
- 	struct bonding *bond = to_bond(d);
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index c75d383..c0bfd56 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -229,7 +229,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	max_gap = LLONG_MIN;
  
-+	if (!rtnl_trylock())
-+		return restart_syscall();
+ 	/* Find the slave with the largest gap */
+-	bond_for_each_slave(bond, slave) {
++	bond_for_each_slave_rcu(bond, slave) {
+ 		if (SLAVE_IS_OK(slave)) {
+ 			long long gap = compute_gap(slave);
+ 
+@@ -625,12 +625,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct arp_pkt *arp = arp_pkt(skb);
+-	struct slave *assigned_slave;
++	struct slave *assigned_slave, *curr_active_slave;
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index = 0;
+ 
+ 	_lock_rx_hashtbl(bond);
+ 
++	curr_active_slave = rcu_dereference(bond->curr_active_slave);
 +
- 	new_value = bond_parse_parm(buf, xmit_hashtype_tbl);
- 	if (new_value < 0)  {
- 		pr_err("%s: Ignoring invalid xmit hash policy value %.*s.\n",
-@@ -396,6 +399,7 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
- 			xmit_hashtype_tbl[new_value].modename, new_value);
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 
+@@ -654,9 +656,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			 * move the old client to primary (curr_active_slave) so
+ 			 * that the new client can be assigned to this entry.
+ 			 */
+-			if (bond->curr_active_slave &&
+-			    client_info->slave != bond->curr_active_slave) {
+-				client_info->slave = bond->curr_active_slave;
++			if (curr_active_slave &&
++			    client_info->slave != curr_active_slave) {
++				client_info->slave = curr_active_slave;
+ 				rlb_update_client(client_info);
+ 			}
+ 		}
+@@ -1338,8 +1340,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 
+ 	/* make sure that the curr_active_slave do not change during tx
+ 	 */
+-	read_lock(&bond->lock);
+-	read_lock(&bond->curr_slave_lock);
+ 
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP: {
+@@ -1422,12 +1422,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 
+ 	if (!tx_slave) {
+ 		/* unbalanced or unassigned, send through primary */
+-		tx_slave = bond->curr_active_slave;
++		tx_slave = rcu_dereference(bond->curr_active_slave);
+ 		bond_info->unbalanced_load += skb->len;
  	}
  
-+	rtnl_unlock();
- 	return ret;
- }
- static DEVICE_ATTR(xmit_hash_policy, S_IRUGO | S_IWUSR,
+ 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+-		if (tx_slave != bond->curr_active_slave) {
++		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+ 			memcpy(eth_data->h_source,
+ 			       tx_slave->dev->dev_addr,
+ 			       ETH_ALEN);
+@@ -1442,8 +1442,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		}
+ 	}
+ 
+-	read_unlock(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+ 		kfree_skb(skb);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 80b170a..4282e65 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -536,7 +536,7 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
+ {
+ 	struct slave *tmp;
+ 
+-	bond_for_each_slave(bond, tmp)
++	bond_for_each_slave_rcu(bond, tmp)
+ 		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
+ 			return tmp;
+ 
 -- 
 1.8.2.1
