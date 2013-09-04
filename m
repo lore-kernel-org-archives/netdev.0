@@ -1,157 +1,92 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
- adjust_link() works
-Date: Wed, 04 Sep 2013 18:08:59 +0200
-Message-ID: <52275B1B.8060405@free-electrons.com>
-References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH 5/7] ixgbe: use pcie_capability_read_word() to simplify
+ code
+Date: Wed, 4 Sep 2013 10:20:22 -0600
+Message-ID: <20130904162022.GE24733@google.com>
+References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
+ <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Lior Amsalem <alior@marvell.com>,
-	Jochen De Smet <jochen.armkernel@leahnim.org>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ryan Press <ryan@presslab.us>, vdonnefort@lacie.com,
-	Ethan Tuttle <ethan@ethantuttle.com>, stable@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	=?UTF-8?B?Q2jDqW55IFl2ZXMtR2FlbA==?= <yves@cheny.fr>,
-	Peter Sanford <psanford@nearbuy.io>, Willy Tarreau <w@1wt.eu>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Gavin Shan <shangw@linux.vnet.ibm.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	Hanjun Guo <guohanjun@huawei.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>
+To: Yijing Wang <wangyijing@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/09/2013 16:21, Thomas Petazzoni wrote:
-> This commit fixes a long-standing bug that has been reported by many
-> users: on some Armada 370 platforms, only the network interface that
-> has been used in U-Boot to tftp the kernel works properly in
-> Linux. The other network interfaces can see a 'link up', but are
-> unable to transmit data. The reports were generally made on the Armad=
-a
-> 370-based Mirabox, but have also been given on the Armada 370-RD
-> board.
->=20
-> The network MAC in the Armada 370/XP (supported by the mvneta driver
-> in Linux) has a functionality that allows it to continuously poll the
-> PHY and directly update the MAC configuration accordingly (speed,
-> duplex, etc.). The very first versions of the driver submitted for
-> review were using this hardware mechanism, but due to this, the drive=
-r
-> was not integrated with the kernel phylib. Following reviews, the
-> driver was changed to use the phylib, and therefore a software based
-> polling. In software based polling, Linux regularly talks to the PHY
-> over the MDIO bus, and sees if the link status has changed. If it's
-> the case then the adjust_link() callback of the driver is called to
-> update the MAC configuration accordingly.
->=20
-> However, it turns out that the adjust_link() callback was not
-> configuring the hardware in a completely correct way: while it was
-> setting the speed and duplex bits correctly, it wasn't telling the
-> hardware to actually take into account those bits rather than what th=
-e
-> hardware-based PHY polling mechanism has concluded. So, in fact the
-> adjust_link() callback was basically a no-op.
->=20
-> However, the network happened to be working because on the network
-> interfaces used by U-Boot for tftp on Armada 370 platforms because th=
-e
-> hardware PHY polling was enabled by the bootloader, and left enabled
-> by Linux. However, the second network interface not used for tftp (or
-> both network interfaces if the kernel is loaded from USB, NAND or SD
-> card) didn't had the hardware PHY polling enabled.
->=20
-> This patch fixes this situation by:
->=20
->  (1) Making sure that the hardware PHY polling is disabled by clearin=
-g
->      the MVNETA_PHY_POLLING_ENABLE bit in the MVNETA_UNIT_CONTROL
->      register in the driver ->probe() function.
->=20
->  (2) Making sure that the duplex and speed selections made by the
->      adjust_link() callback are taken into account by clearing the
->      MVNETA_GMAC_AN_SPEED_EN and MVNETA_GMAC_AN_DUPLEX_EN bits in the
->      MVNETA_GMAC_AUTONEG_CONFIG register.
->=20
-> This patch has been tested on Armada 370 Mirabox, and now both networ=
-k
-> interfaces are usable after boot.
->=20
+[+cc Jacob, Jeff]
 
-Well done Thomas!
-
-I have successfully tested it on Armada 370 Mirabox:
-
-Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-Thanks
-
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Cc: Willy Tarreau <w@1wt.eu>
-> Cc: Jochen De Smet <jochen.armkernel@leahnim.org>
-> Cc: Peter Sanford <psanford@nearbuy.io>
-> Cc: Ethan Tuttle <ethan@ethantuttle.com>
-> Cc: Ch=C3=A9ny Yves-Gael <yves@cheny.fr>
-> Cc: Ryan Press <ryan@presslab.us>
-> Cc: Simon Guinot <simon.guinot@sequanux.org>
-> Cc: vdonnefort@lacie.com
-> Cc: stable@vger.kernel.org
+On Tue, Sep 03, 2013 at 03:35:13PM +0800, Yijing Wang wrote:
+> use pcie_capability_read_word() to simplify code.
+> 
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
 > ---
-> David, this patch is a fix for a problem that has been here since 3.8
-> (when the mvneta driver was introduced), so I've Cc'ed stable@ and if
-> possible I'd like to patch to be included for 3.12.
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethe=
-rnet/marvell/mvneta.c
-> index b017818..90ab292 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -138,7 +138,9 @@
->  #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
->  #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
->  #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
-> +#define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
->  #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
-> +#define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
->  #define MVNETA_MIB_COUNTERS_BASE                 0x3080
->  #define      MVNETA_MIB_LATE_COLLISION           0x7c
->  #define MVNETA_DA_FILT_SPEC_MCAST                0x3400
-> @@ -915,6 +917,13 @@ static void mvneta_defaults_set(struct mvneta_po=
-rt *pp)
->  	/* Assign port SDMA configuration */
->  	mvreg_write(pp, MVNETA_SDMA_CONFIG, val);
-> =20
-> +	/* Disable PHY polling in hardware, since we're using the
-> +	 * kernel phylib to do this.
-> +	 */
-> +	val =3D mvreg_read(pp, MVNETA_UNIT_CONTROL);
-> +	val &=3D ~MVNETA_PHY_POLLING_ENABLE;
-> +	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
-> +
->  	mvneta_set_ucast_table(pp, -1);
->  	mvneta_set_special_mcast_table(pp, -1);
->  	mvneta_set_other_mcast_table(pp, -1);
-> @@ -2307,7 +2316,9 @@ static void mvneta_adjust_link(struct net_devic=
-e *ndev)
->  			val =3D mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
->  			val &=3D ~(MVNETA_GMAC_CONFIG_MII_SPEED |
->  				 MVNETA_GMAC_CONFIG_GMII_SPEED |
-> -				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
-> +				 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
-> +				 MVNETA_GMAC_AN_SPEED_EN |
-> +				 MVNETA_GMAC_AN_DUPLEX_EN);
-> =20
->  			if (phydev->duplex)
->  				val |=3D MVNETA_GMAC_CONFIG_FULL_DUPLEX;
->=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index bad8f14..bfa0b06 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -152,7 +152,6 @@ MODULE_VERSION(DRV_VERSION);
+>  static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
+>  					  u32 reg, u16 *value)
+>  {
+> -	int pos = 0;
+>  	struct pci_dev *parent_dev;
+>  	struct pci_bus *parent_bus;
+>  
+> @@ -164,11 +163,10 @@ static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
+>  	if (!parent_dev)
+>  		return -1;
+>  
+> -	pos = pci_find_capability(parent_dev, PCI_CAP_ID_EXP);
+> -	if (!pos)
+> +	if (!pci_is_pcie(parent_dev))
+>  		return -1;
+>  
+> -	pci_read_config_word(parent_dev, pos + reg, value);
+> +	pcie_capability_read_word(parent_dev, reg, value);
+>  	return 0;
+>  }
+>  
 
+Here's the caller of ixgbe_read_pci_cfg_word_parent():
 
---=20
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+    /* Get the negotiated link width and speed from PCI config space of the
+     * parent, as this device is behind a switch
+     */
+    err = ixgbe_read_pci_cfg_word_parent(adapter, 18, &link_status);
+
+This should be using PCI_EXP_LNKSTA instead of "18".
+
+But it would be even better if we could drop ixgbe_get_parent_bus_info()
+completely.  It seems redundant after merging Jacob's new
+pcie_get_minimum_link() stuff [1].
+
+ixgbe_disable_pcie_master() looks like it should be using
+pcie_capability_read_word() with PCI_EXP_DEVSTA instead of using
+IXGBE_PCI_DEVICE_STATUS.  If fact, it looks like it could use the
+new pci_wait_for_pending_transaction() interface [2].
+
+It looks like all the #defines in the "PCI Bus Info" block
+(IXGBE_PCI_DEVICE_STATUS, IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING,
+IXGBE_PCI_LINK_STATUS, etc.) [3] are really for PCIe-generic things.  If
+so, the IXGBE-specific ones should be dropped in favor of the generic
+ones.
+
+[1] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c?id=e027d1aec4bb49030646d2c186a721f94372d7f2
+[2] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/pci/pci.c?id=3775a209d38aa3a0c7ed89a7d0f529e0230f280e
+[3] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h#n1833
