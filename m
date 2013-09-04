@@ -1,92 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 RFC] ixgbe: Get and display the notifications from changes of the Rx vxlan UDP port
-Date: Wed,  4 Sep 2013 02:13:39 -0700
-Message-ID: <1378286019-8719-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1378286019-8719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52149 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934343Ab3IDJNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 05:13:50 -0400
-In-Reply-To: <1378286019-8719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH 5/7] ixgbe: use
+ pcie_capability_read_word() to simplify code
+Date: Wed, 04 Sep 2013 02:26:40 -0700
+Message-ID: <1378286800.2048.1.camel@jtkirshe-mobl>
+References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
+	<1378193715-25328-5-git-send-email-wangyijing@huawei.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4815684086418555300=="
+Cc: e1000-devel@lists.sourceforge.net,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Hanjun Guo <guohanjun@huawei.com>, linux-kernel@vger.kernel.org, "James
+	E.J. Bottomley" <JBottomley@parallels.com>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Yijing Wang <wangyijing@huawei.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 
-This RFC patch showcases how drivers can use the changes in
-"vxlan: Notify drivers for listening UDP port changes", and its
-sole purpose is to help people test the changes introduced there.
-This is not meant to be submitted for inclusion in the kernel.
+--===============4815684086418555300==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-FzsLmdWGu8vfr7ZgN+tn"
 
-CC: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7aba452..2d2c9b6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -47,6 +47,9 @@
- #include <linux/if_bridge.h>
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
-+#ifdef CONFIG_VXLAN_MODULE
-+#include <net/vxlan.h>
-+#endif
- 
- #include "ixgbe.h"
- #include "ixgbe_common.h"
-@@ -5178,6 +5181,9 @@ static int ixgbe_open(struct net_device *netdev)
- 
- 	ixgbe_up_complete(adapter);
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+	vxlan_get_rx_port(netdev);
-+#endif
- 	return 0;
- 
- err_set_queues:
-@@ -7290,6 +7296,21 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
- }
- 
-+#ifdef CONFIG_VXLAN_MODULE
-+static void ixgbe_add_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __u16 port)
-+{
-+	netdev_info(netdev, ">>>>> Adding VXLAN port %d / protocol IPv%d\n",
-+			     port, sa_family == AF_INET ? 4 : 6);
-+}
-+
-+static void ixgbe_del_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __u16 port)
-+{
-+	netdev_info(netdev, "<<<<< Removing VXLAN port %d / protocol IPv%d\n",
-+			     port, sa_family == AF_INET ? 4 : 6);
-+}
-+#endif
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7334,6 +7355,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
- 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
-+#ifdef CONFIG_VXLAN_MODULE
-+	.ndo_add_vxlan_port	= ixgbe_add_vxlan_port,
-+	.ndo_del_vxlan_port	= ixgbe_del_vxlan_port,
-+#endif
- };
- 
- /**
--- 
-1.8.3.1
+--=-FzsLmdWGu8vfr7ZgN+tn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2013-09-03 at 15:35 +0800, Yijing Wang wrote:
+> use pcie_capability_read_word() to simplify code.
+>=20
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
+
+Thanks Yijing, I will add it to my queue.
+
+--=-FzsLmdWGu8vfr7ZgN+tn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAABCgAGBQJSJvzQAAoJEOVv75VaS+3OG8IP/iHrGRDmPGoofrbCkgAIj+uL
+eCCvun9ymY0BSfGB9Uu9VNB+ryJAIk2H5apldYWeURyoVQxdJVlBJnPTqI3jN1Kw
+/DzP+FRUyiRVD9NCW2cRB9ZVzKSlkqOZ/UKtpOwbAh0+rWT/k8T/cvfK1/EMibyh
+71w05n1IlXJoDZqKi01M+w3JQJhK3yLwq/pcW4npwxXI864Mg21ExjQqxgd0ABVl
+2UJ3LNQ297vfTco4bOXXLtS6Wdtl316iYFG3Ix3YdBK+q5ly4qtHX6UEp1YtaZlv
+UMtlEIZu0TDiDzO1srxyroHFcEmB76OmZZnY30huVwx07zbOFP0JuzT4yyWGRIuk
++LBQWMhkJ2c5l74PmejzDfD/Ur4+1dFwi7qs++z2NZJE1IH6L1HZbdPHMm6yq5B8
+ZNzV9nsaS0JO6XVJYdtzB/r0jfHhbTuYqYN83eFtW2n6qGYqyj/K+mm1LVJ+WjmS
+HTsJxbElwVPbJbt8s7OUNt8EFNogezIiPGzqUAx6+CVHAidN5cxxsu7ueF6LLLNF
+MgjlZrWL9a/1mi7pco5JMSLUaQm4Ej3vAm0u2W+hiSfWuNKG9K/9eHHkFqiL7747
+A8xDvnxfpfZPKyK97miOeJAL+GXbndeVcjqdNAAc8AW0Q8OuBQcqYmsqyeqIHFWd
++s2B/j2TWlba8UnxQdRE
+=YYqR
+-----END PGP SIGNATURE-----
+
+--=-FzsLmdWGu8vfr7ZgN+tn--
+
+
+
+--===============4815684086418555300==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
+Discover the easy way to master current and previous Microsoft technologies
+and advance your career. Get an incredible 1,500+ hours of step-by-step
+tutorial videos with LearnDevNow. Subscribe today and save!
+http://pubads.g.doubleclick.net/gampad/clk?id=58040911&iu=/4140/ostg.clktrk
+--===============4815684086418555300==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4815684086418555300==--
