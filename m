@@ -1,201 +1,48 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v3 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Thu, 5 Sep 2013 15:42:58 +0200
-Message-ID: <20130905134258.GB26163@redhat.com>
-References: <5228375C.1050105@huawei.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch v2] sfc: check for allocation failure
+Date: Wed, 4 Sep 2013 16:51:07 +0100
+Message-ID: <1378309867.3133.10.camel@bwh-desktop.uk.level5networks.com>
+References: <20130904150727.GA32327@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17484 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751820Ab3IENok (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Sep 2013 09:44:40 -0400
-Content-Disposition: inline
-In-Reply-To: <5228375C.1050105@huawei.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:8086 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752719Ab3IENwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 09:52:49 -0400
+In-Reply-To: <20130904150727.GA32327@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 05, 2013 at 03:48:44PM +0800, Ding Tianhong wrote:
->The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
->(bonding: initial RCU conversion) has convert the roundrobin, active-backup,
->broadcast and xor xmit path to rcu protection, the performance will be better
->for these mode, so this time, convert xmit path for 3ad mode.
->
->Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
->Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->Signed-off-by: Wang Yufen <wangyufen@huawei.com>
->Cc: Nikolay Aleksandrov <nikolay@redhat.com>
->Cc: Veaceslav Falico <vfalico@redhat.com>
->---
-> drivers/net/bonding/bond_3ad.c | 32 ++++++++++++++------------------
-> drivers/net/bonding/bonding.h  | 32 +++++++++++++++++++++++++++++++-
-> 2 files changed, 45 insertions(+), 19 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 0d8f427..13f1deb 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -143,7 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
->  */
-> static inline struct port *__get_first_port(struct bonding *bond)
-> {
->-	struct slave *first_slave = bond_first_slave(bond);
->+	struct slave *first_slave = bond_first_slave_rcu(bond);
->
-> 	return first_slave ? &(SLAVE_AD_INFO(first_slave).port) : NULL;
-> }
->@@ -163,7 +163,7 @@ static inline struct port *__get_next_port(struct port *port)
-> 	// If there's no bond for this port, or this is the last slave
-> 	if (bond == NULL)
-> 		return NULL;
->-	slave_next = bond_next_slave(bond, slave);
->+	slave_next = bond_next_slave_rcu(bond, slave);
-> 	if (!slave_next || bond_is_first_slave(bond, slave_next))
-> 		return NULL;
->
->@@ -2417,16 +2417,14 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
->
-> int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
-> {
->-	struct slave *slave, *start_at;
-> 	struct bonding *bond = netdev_priv(dev);
->+	struct slave *slave;
-> 	int slave_agg_no;
-> 	int slaves_in_agg;
-> 	int agg_id;
->-	int i;
-> 	struct ad_info ad_info;
-> 	int res = 1;
->
->-	read_lock(&bond->lock);
-> 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
-> 		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
-> 			 dev->name);
->@@ -2444,13 +2442,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->
-> 	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
->
->-	bond_for_each_slave(bond, slave) {
->+	bond_for_each_slave_rcu(bond, slave) {
-> 		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
->
-> 		if (agg && (agg->aggregator_identifier == agg_id)) {
->-			slave_agg_no--;
->-			if (slave_agg_no < 0)
->-				break;
->+			if (--slave_agg_no < 0) {
->+				if (SLAVE_IS_OK(slave)) {
->+					res = bond_dev_queue_xmit(bond,
->+						skb, slave->dev);
->+					goto out;
->+				}
->+			}
-> 		}
-> 	}
->
->@@ -2460,23 +2462,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
-> 		goto out;
-> 	}
->
->-	start_at = slave;
->-
->-	bond_for_each_slave_from(bond, slave, i, start_at) {
->-		int slave_agg_id = 0;
->+	bond_for_each_slave_rcu(bond, slave) {
-> 		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
->
->-		if (agg)
->-			slave_agg_id = agg->aggregator_identifier;
->-
->-		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
->+		if (SLAVE_IS_OK(slave) && agg &&
->+			agg->aggregator_identifier == agg_id) {
-> 			res = bond_dev_queue_xmit(bond, skb, slave->dev);
-> 			break;
-> 		}
-> 	}
->
-> out:
->-	read_unlock(&bond->lock);
-> 	if (res) {
-> 		/* no suitable interface, frame not sent */
-> 		kfree_skb(skb);
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index f7ab161..f013b12 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -74,13 +74,34 @@
-> /* slave list primitives */
-> #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
->
->+/* slave list primitives, Caller must hold rcu_read_lock */
->+#define bond_to_slave_rcu(ptr) list_entry_rcu(ptr, struct slave, list)
->+
->+/* bond_is_empty return NULL if slave list is empty*/
->+#define bond_is_empty(bond) \
->+	(list_empty(&(bond)->slave_list))
->+
->+/* bond_is_empty_rcu return NULL if slave list is empty*/
->+#define bond_is_empty_rcu(bond) \
->+	(!list_first_or_null_rcu(&(bond)->slave_list, struct slave, list))
->+
-> /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
-> #define bond_first_slave(bond) \
-> 	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
-> #define bond_last_slave(bond) \
->-	(list_empty(&(bond)->slave_list) ? NULL : \
->+	(bond_is_empty(bond) ? NULL : \
-> 					   bond_to_slave((bond)->slave_list.prev))
->
->+/**
->+ * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an empty list
->+ * Caller must hold rcu_read_lock
->+ */
->+#define bond_first_slave_rcu(bond) \
->+	list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
->+#define bond_last_slave_rcu(bond) \
->+	(bond_is_empty_rcu(bond) ? NULL : \
->+					bond_to_slave_rcu((bond)->slave_list.prev))
+On Wed, 2013-09-04 at 18:07 +0300, Dan Carpenter wrote:
+> It upsets static analyzers when we don't check for allocation failure.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Really?
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-No. Again - take a look at list_first_or_null_rcu. And its comments.
+> ---
+> v2: rebased on latest linux-next
+> 
+> diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+> index 38d179c..75799f8 100644
+> --- a/drivers/net/ethernet/sfc/falcon.c
+> +++ b/drivers/net/ethernet/sfc/falcon.c
+> @@ -894,6 +894,8 @@ static int falcon_mtd_probe(struct efx_nic *efx)
+>  
+>  	/* Allocate space for maximum number of partitions */
+>  	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
+> +	if (!parts)
+> +		return -ENOMEM;
+>  	n_parts = 0;
+>  
+>  	spi = &nic_data->spi_flash;
 
-I'm sorry that I'm acting that negatively... But if that gets accepted -
-I'll have days of nightmares.
-
-Try to understand how RCU works, please, before sending patches using it.
-
->+
-> #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
-> #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
->
->@@ -93,6 +114,15 @@
-> 	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
-> 					  bond_to_slave((pos)->list.prev))
->
->+/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
->+#define bond_next_slave_rcu(bond, pos) \
->+	(bond_is_last_slave(bond, pos) ? bond_first_slave_rcu(bond) : \
->+					 bond_to_slave_rcu((pos)->list.next))
->+
->+#define bond_prev_slave_rcu(bond, pos) \
->+	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
->+					  bond_to_slave_rcu((pos)->list.prev))
->+
-> /**
->  * bond_for_each_slave_from - iterate the slaves list from a starting point
->  * @bond:	the bond holding this list.
->-- 
->1.8.2.1
->
->
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
