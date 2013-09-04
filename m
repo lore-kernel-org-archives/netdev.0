@@ -1,125 +1,69 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
-Date: Wed, 04 Sep 2013 13:59:27 +0200
-Message-ID: <5227209F.4060708@redhat.com>
-References: <1377816595.8277.54.camel@edumazet-glaptop>  <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>  <5226D39C.9070401@redhat.com> <1378290638.7360.85.camel@edumazet-glaptop> <1378294029.7360.92.camel@edumazet-glaptop>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v4] ipv6:introduce function to find route for redirect
+Date: Wed, 04 Sep 2013 20:06:11 +0800
+Message-ID: <52272233.20307@cn.fujitsu.com>
+References: <52242CE1.5050501@cn.fujitsu.com> <20130902195056.GA5451@order.stressinduktion.org> <5225758F.8080604@cn.fujitsu.com> <20130903191729.GA28889@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35039 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757249Ab3IDL7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 07:59:35 -0400
-In-Reply-To: <1378294029.7360.92.camel@edumazet-glaptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:20331 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S934622Ab3IDMGu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 08:06:50 -0400
+In-Reply-To: <20130903191729.GA28889@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2013 01:27 PM, Eric Dumazet wrote:
-> On Wed, 2013-09-04 at 03:30 -0700, Eric Dumazet wrote:
->> On Wed, 2013-09-04 at 14:30 +0800, Jason Wang wrote:
->>
->>>> And tcpdump would certainly help ;)
+=E4=BA=8E 2013=E5=B9=B409=E6=9C=8804=E6=97=A5 03:17, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Tue, Sep 03, 2013 at 01:37:19PM +0800, Duan Jiong wrote:
+>>> Btw. I still think it should be possible to eliminate
+>>> ip6_redirect_no_header:
 >>>
->>> See attachment.
+>>> We could always use ip6_redirect_no_header and use the data of the =
+redirected
+>>> header option just for finding the socket to be notified. We can do=
+ the whole
+>>> verification and route updating in ndisc layer and then just call i=
+nto icmpv6
+>>> layer if upper protocols need a notification of the redirect. But t=
+hat should
+>>> go into another patch. ;)
 >>>
 >>
->> Nothing obvious on tcpdump (only that lot of frames are missing)
+>> I think this is good, but i have a question below:
 >>
->> 1) Are you capturing part of the payload only (like tcpdump -s 128)
+>>   if the socket type is connection-based, the dst information is sto=
+red in related
+>> sock struct, so there is no need to look up the route for redirect i=
+n ip6_redirect
+>> or ip6_redirect_no_header, in this case, we do the verification and =
+route=20
+>> updating in the upper protocols' err_handler is better.=20
 >>
->> 2) What is the setup.
->>
->> 3) tc -s -d qdisc
->
-> If you use FQ in the guest, then it could be that high resolution timers
-> have high latency ?
+>> How do you think of this?
+>=20
+> This should not be a problem, because every cached dst should be vali=
+dated
+> with ip6_dst_check before it is used. It uses the fib6_node serial nu=
+mber
+> which is incremented for all fib6_nodes on the path to the new instal=
+led
+> node by fib6_add_1. So we are safe here.
+>=20
+> Btw. this is the same logic redirects get currently picked up, too.
+>=20
 
-Probably they internally switch to a lower resolution clock event source if
-there's no hardware support available:
+Thanks for you answer, but i still have some questions on dealing with =
+redirect
+in ip4ip6_err() and ipip6_err(), and i need some time to learn more abo=
+ut them.
+So i only send one patch to fix the bug.
 
-   The [source event] management layer provides interfaces for hrtimers to
-   implement high resolution timers [...] [and it] supports these more advanced
-   functions only when appropriate clock event sources have been registered,
-   otherwise the traditional periodic tick based behaviour is retained. [1]
+Please forgive me is a newbie.:)
 
-[1] https://www.kernel.org/doc/ols/2006/ols2006v1-pages-333-346.pdf
-
-> So FQ arms short timers, but effective duration could be much longer.
->
-> Here I get a smooth latency of up to ~3 us
->
-> lpq83:~# ./netperf -H lpq84 ; ./tc -s -d qd ; dmesg | tail -n1
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpq84.prod.google.com () port 0 AF_INET
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
->
->   87380  16384  16384    10.00    9410.82
-> qdisc fq 8005: dev eth0 root refcnt 32 limit 10000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140
->   Sent 50545633991 bytes 33385894 pkt (dropped 0, overlimits 0 requeues 19)
->   rate 9258Mbit 764335pps backlog 0b 0p requeues 19
->    117 flow, 115 inactive, 0 throttled
->    0 gc, 0 highprio, 0 retrans, 96861 throttled, 0 flows_plimit
-> [  572.551664] latency = 3035 ns
->
->
-> What do you get with this debugging patch ?
->
-> diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-> index 32ad015..c1312a0 100644
-> --- a/net/sched/sch_fq.c
-> +++ b/net/sched/sch_fq.c
-> @@ -103,6 +103,7 @@ struct fq_sched_data {
->   	u64		stat_internal_packets;
->   	u64		stat_tcp_retrans;
->   	u64		stat_throttled;
-> +	s64		slatency;
->   	u64		stat_flows_plimit;
->   	u64		stat_pkts_too_long;
->   	u64		stat_allocation_errors;
-> @@ -393,6 +394,7 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->   static void fq_check_throttled(struct fq_sched_data *q, u64 now)
->   {
->   	struct rb_node *p;
-> +	bool first = true;
->
->   	if (q->time_next_delayed_flow > now)
->   		return;
-> @@ -405,6 +407,13 @@ static void fq_check_throttled(struct fq_sched_data *q, u64 now)
->   			q->time_next_delayed_flow = f->time_next_packet;
->   			break;
->   		}
-> +		if (first) {
-> +			s64 delay = now - f->time_next_packet;
-> +
-> +			first = false;
-> +			delay -= q->slatency >> 3;
-> +			q->slatency += delay;
-> +		}
->   		rb_erase(p, &q->delayed);
->   		q->throttled_flows--;
->   		fq_flow_add_tail(&q->old_flows, f);
-> @@ -711,6 +720,7 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
->   	if (opts == NULL)
->   		goto nla_put_failure;
->
-> +	pr_err("latency = %lld ns\n", q->slatency >> 3);
->   	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
->   	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
->   	    nla_put_u32(skb, TCA_FQ_QUANTUM, q->quantum) ||
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Thanks,
+  Duan=20
