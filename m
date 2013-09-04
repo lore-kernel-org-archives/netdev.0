@@ -1,39 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GSO/GRO and UDP performance
-Date: Wed, 04 Sep 2013 04:53:51 -0700
-Message-ID: <1378295631.7360.98.camel@edumazet-glaptop>
-References: <52270659.1090208@openvpn.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V3 4/6] vhost_net: determine whether or not to use
+	zerocopy at one time
+Date: Wed, 4 Sep 2013 14:59:29 +0300
+Message-ID: <20130904115929.GA9393@redhat.com>
+References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
+	<1378111261-14826-5-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: James Yonan <james@openvpn.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:39964 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757410Ab3IDLxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 07:53:53 -0400
-Received: by mail-pb0-f45.google.com with SMTP id mc17so194955pbc.4
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 04:53:53 -0700 (PDT)
-In-Reply-To: <52270659.1090208@openvpn.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1378111261-14826-5-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-09-04 at 04:07 -0600, James Yonan wrote:
+On Mon, Sep 02, 2013 at 04:40:59PM +0800, Jason Wang wrote:
+> Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
+> upend_idx != done_idx we still set zcopy_used to true and rollback this choice
+> later. This could be avoided by determining zerocopy once by checking all
+> conditions at one time before.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c |   47 ++++++++++++++++++++---------------------------
+>  1 files changed, 20 insertions(+), 27 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 8a6dd0d..3f89dea 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -404,43 +404,36 @@ static void handle_tx(struct vhost_net *net)
+>  			       iov_length(nvq->hdr, s), hdr_size);
+>  			break;
+>  		}
+> -		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
+> -				       nvq->upend_idx != nvq->done_idx);
+> +
+> +		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+> +				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+> +				      nvq->done_idx
 
-> The bundle of UDP packets would traverse the stack as a unit until it 
-> reaches the socket layer, where recvmmsg could pass the whole bundle up 
-> to userspace in a single transaction (or recvmsg could disaggregate the 
-> bundle and pass each datagram individually).
+Thinking about this, this looks strange.
+The original idea was that once we start doing zcopy, we keep
+using the heads ring even for short packets until no zcopy is outstanding.
 
-That would require a lot of work, say in netfilter, but also in core
-network stack in forwarding, and all UDP users (L2TP, vxlan).
+What's the logic behind (nvq->upend_idx + 1) % UIO_MAXIOV != nvq->done_idx
+here?
 
-Very unlikely to happen IMHO.
 
-I suspect the performance is coming from aggregation done in user space,
-then re-injected into the kernel ?
 
-You could use a kernel module, using udp_encap_enable() and friends.
-
-Check vxlan_socket_create() for an example
+> +				   && vhost_net_tx_select_zcopy(net);
+>  
+>  		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+>  		if (zcopy_used) {
+> +			struct ubuf_info *ubuf;
+> +			ubuf = nvq->ubuf_info + nvq->upend_idx;
+> +
+>  			vq->heads[nvq->upend_idx].id = head;
+> -			if (!vhost_net_tx_select_zcopy(net) ||
+> -			    len < VHOST_GOODCOPY_LEN) {
+> -				/* copy don't need to wait for DMA done */
+> -				vq->heads[nvq->upend_idx].len =
+> -							VHOST_DMA_DONE_LEN;
+> -				msg.msg_control = NULL;
+> -				msg.msg_controllen = 0;
+> -				ubufs = NULL;
+> -			} else {
+> -				struct ubuf_info *ubuf;
+> -				ubuf = nvq->ubuf_info + nvq->upend_idx;
+> -
+> -				vq->heads[nvq->upend_idx].len =
+> -					VHOST_DMA_IN_PROGRESS;
+> -				ubuf->callback = vhost_zerocopy_callback;
+> -				ubuf->ctx = nvq->ubufs;
+> -				ubuf->desc = nvq->upend_idx;
+> -				msg.msg_control = ubuf;
+> -				msg.msg_controllen = sizeof(ubuf);
+> -				ubufs = nvq->ubufs;
+> -				kref_get(&ubufs->kref);
+> -			}
+> +			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
+> +			ubuf->callback = vhost_zerocopy_callback;
+> +			ubuf->ctx = nvq->ubufs;
+> +			ubuf->desc = nvq->upend_idx;
+> +			msg.msg_control = ubuf;
+> +			msg.msg_controllen = sizeof(ubuf);
+> +			ubufs = nvq->ubufs;
+> +			kref_get(&ubufs->kref);
+>  			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
+> -		} else
+> +		} else {
+>  			msg.msg_control = NULL;
+> +			ubufs = NULL;
+> +		}
+>  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+>  		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+>  		if (unlikely(err < 0)) {
+>  			if (zcopy_used) {
+> -				if (ubufs)
+> -					vhost_net_ubuf_put(ubufs);
+> +				vhost_net_ubuf_put(ubufs);
+>  				nvq->upend_idx = ((unsigned)nvq->upend_idx - 1)
+>  					% UIO_MAXIOV;
+>  			}
+> -- 
+> 1.7.1
