@@ -1,80 +1,77 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net] vxlan: Fix kernel panic on device delete.
-Date: Wed,  4 Sep 2013 14:12:21 -0700
-Message-ID: <1378329141-11868-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:42505 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1761314Ab3IDVMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 17:12:30 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fz6so972178pac.3
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 14:12:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] can: pcan_usb_core: fix memory leak on failure paths in peak_usb_start()
+Date: Thu,  5 Sep 2013 01:46:09 +0400
+Message-ID: <1378331169-26285-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On vxlan device create if socket create fails vxlan device is not
-added to hash table. Therefore we need to check if device
-is in hashtable before we delete it from hlist.
-Following patch avoid the crash. net-next already has this fix.
+Tx and rx urbs are not deallocated if something goes wrong in peak_usb_start().
+The patch fixes error handling to deallocate all the resources.
 
----8<---
-BUG: unable to handle kernel NULL pointer dereference at           (null)
-IP: [<ffffffffa05f9ca7>] vxlan_dellink+0x77/0xf0 [vxlan]
-PGD 42b2d9067 PUD 42e04c067 PMD 0
-Oops: 0002 [#1] SMP
-Modules linked in: vxlan(-)
-Hardware name: Dell Inc. PowerEdge R620/0KCKR5, BIOS 1.4.8 10/25/2012
-task: ffff88042ecf8760 ti: ffff88042f106000 task.ti: ffff88042f106000
-RIP: 0010:[<ffffffffa05f9ca7>]  [<ffffffffa05f9ca7>]
-vxlan_dellink+0x77/0xf0 [vxlan]
-RSP: 0018:ffff88042f107e28  EFLAGS: 00010246
-RAX: 0000000000000000 RBX: ffff88082af08000 RCX: ffff88083fd80000
-RDX: 0000000000000000 RSI: ffff88042f107e58 RDI: ffff88042e12f810
-RBP: ffff88042f107e48 R08: ffffffff8166eca0 R09: 0000000000000000
-R10: 0000000000000001 R11: 0000000000000000 R12: ffff88082af087c0
-R13: ffff88042e12f000 R14: ffff88042f107e58 R15: ffff88042f107e58
-FS:  00007f4ed2de7700(0000) GS:ffff88043fc80000(0000)
-knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000000000000 CR3: 000000042e076000 CR4: 00000000000407e0
-Stack:
- ffff88082af08000 ffffffff81654848 ffffffffa05fb4e0 ffffffff81654780
- ffff88042f107e98 ffffffff813b9c7a ffff88042f107e58 ffff88042f107e58
- ffff88042f107e88 ffffffffa05fb4e0 ffffffffa05fb780 ffff88042f107f18
-Call Trace:
- [<ffffffff813b9c7a>] __rtnl_link_unregister+0xca/0xd0
- [<ffffffff813bb0e9>] rtnl_link_unregister+0x19/0x30
- [<ffffffffa05faa4c>] vxlan_cleanup_module+0x10/0x2f [vxlan]
- [<ffffffff81099fef>] SyS_delete_module+0x1cf/0x2c0
- [<ffffffff8146c069>] ? do_page_fault+0x9/0x10
- [<ffffffff8146f012>] system_call_fastpath+0x16/0x1b
-Code: 4d 85 ed 0f 84 95 00 00 00 4c 8d a7 c0 07 00 00 49 8d bd 10 08 00
-00 e8 28 e8 e6 e0 48 8b 83 c0 07 00 00 49 8b 54 24 08 48 85 c0 <48> 89
-02 74 04 48 89 50 08 49 b8 00 02 20 00 00 00 ad de 4d 89
-RIP  [<ffffffffa05f9ca7>] vxlan_dellink+0x77/0xf0 [vxlan]
- RSP <ffff88042f107e28>
-CR2: 0000000000000000
+Found by Linux Driver Verification project (linuxtesting.org).
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
- drivers/net/vxlan.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 767f7af..2c15f6c 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1794,7 +1794,8 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+index a0f647f..0b7a4c3 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+@@ -463,7 +463,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (i < PCAN_USB_MAX_TX_URBS) {
+ 		if (i == 0) {
+ 			netdev_err(netdev, "couldn't setup any tx URB\n");
+-			return err;
++			goto err_tx;
+ 		}
  
- 	spin_lock(&vn->sock_lock);
--	hlist_del_rcu(&vxlan->hlist);
-+	if (!hlist_unhashed(&vxlan->hlist))
-+		hlist_del_rcu(&vxlan->hlist);
- 	spin_unlock(&vn->sock_lock);
+ 		netdev_warn(netdev, "tx performance may be slow\n");
+@@ -472,7 +472,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (dev->adapter->dev_start) {
+ 		err = dev->adapter->dev_start(dev);
+ 		if (err)
+-			goto failed;
++			goto err_adapter;
+ 	}
  
- 	list_del(&vxlan->next);
+ 	dev->state |= PCAN_USB_STATE_STARTED;
+@@ -481,19 +481,26 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (dev->adapter->dev_set_bus) {
+ 		err = dev->adapter->dev_set_bus(dev, 1);
+ 		if (err)
+-			goto failed;
++			goto err_adapter;
+ 	}
+ 
+ 	dev->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
+ 	return 0;
+ 
+-failed:
++err_adapter:
+ 	if (err == -ENODEV)
+ 		netif_device_detach(dev->netdev);
+ 
+ 	netdev_warn(netdev, "couldn't submit control: %d\n", err);
+ 
++	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++) {
++		usb_free_urb(dev->tx_contexts[i].urb);
++		dev->tx_contexts[i].urb = NULL;
++	}
++err_tx:
++	usb_kill_anchored_urbs(&dev->rx_submitted);
++
+ 	return err;
+ }
+ 
 -- 
-1.7.1
+1.8.1.2
+
