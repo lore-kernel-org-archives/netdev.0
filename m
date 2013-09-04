@@ -1,79 +1,80 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] net/core: Order-3 frag allocator causes SWIOTLB bouncing
- under Xen
-Date: Wed, 4 Sep 2013 17:11:10 -0400
-Message-ID: <20130904211110.GA17758@phenom.dumpdata.com>
-References: <1378327638-23956-1-git-send-email-zoltan.kiss@citrix.com>
- <1378328440.7360.124.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	malcolm.crossley@citrix.com, david.vrabel@citrix.com,
-	xen-devel@lists.xen.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1378328440.7360.124.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net] vxlan: Fix kernel panic on device delete.
+Date: Wed,  4 Sep 2013 14:12:21 -0700
+Message-ID: <1378329141-11868-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:42505 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1761314Ab3IDVMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 17:12:30 -0400
+Received: by mail-pa0-f44.google.com with SMTP id fz6so972178pac.3
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 14:12:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 04, 2013 at 02:00:40PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-09-04 at 21:47 +0100, Zoltan Kiss wrote:
-> > THIS PATCH IS NOT INTENDED TO BE UPSTREAMED, IT HAS ONLY INFORMING PURPOSES!
-> > 
-> > I've noticed a performance regression with upstream kernels when used as Dom0
-> > under Xen. The classic kernel can utilize the whole bandwidth of a 10G NIC
-> > (ca. 9.3 Gbps), but upstream can reach only ca. 7 Gbps. I found that it
-> > happens because SWIOTLB has to do double buffering. The per task frag
-> > allocator introduced in 5640f7 creates 32 kb frags, which are not contiguous
-> > in mfn space.
-> > This patch provides a workaround by going back to the old way. The possible
-> > ideas came up to solve this:
-> > 
-> > * make sure Dom0 memory is contiguous: it sounds trivial, but doesn't work with
-> > driver domains, and there are lots of situations where this is not possible.
-> > * use PVH Dom0: so we will have IOMMU. In the future sometime.
-> > * use IOMMU with PV Dom0: this seems to happen earlier.
-> > 
-> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> > ---
-> >  net/core/sock.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/net/core/sock.c b/net/core/sock.c
-> > index 2c097c5..854a0ea 100644
-> > --- a/net/core/sock.c
-> > +++ b/net/core/sock.c
-> > @@ -1812,7 +1812,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
-> >  EXPORT_SYMBOL(sock_alloc_send_skb);
-> >  
-> >  /* On 32bit arches, an skb frag is limited to 2^15 */
-> > -#define SKB_FRAG_PAGE_ORDER	get_order(32768)
-> > +#define SKB_FRAG_PAGE_ORDER	get_order(4096)
-> >  
-> 
-> Well, this hack is not new...
-> 
-> We have dev->gso_max_size and dev->gso_max_segs
-> 
-> We also have in net-next sk_pacing_rate and dynamic TSO sizing.
-> 
-> Maybe you could add proper infrastructure to deal with Xen limitations.
+On vxlan device create if socket create fails vxlan device is not
+added to hash table. Therefore we need to check if device
+is in hashtable before we delete it from hlist.
+Following patch avoid the crash. net-next already has this fix.
 
-I think Ian posted at some point an sysctl patch for that (more for
-debugging that anything else). And it kind
-of stalled: http://lists.xen.org/archives/html/xen-devel/2012-10/msg01832.html
+---8<---
+BUG: unable to handle kernel NULL pointer dereference at           (null)
+IP: [<ffffffffa05f9ca7>] vxlan_dellink+0x77/0xf0 [vxlan]
+PGD 42b2d9067 PUD 42e04c067 PMD 0
+Oops: 0002 [#1] SMP
+Modules linked in: vxlan(-)
+Hardware name: Dell Inc. PowerEdge R620/0KCKR5, BIOS 1.4.8 10/25/2012
+task: ffff88042ecf8760 ti: ffff88042f106000 task.ti: ffff88042f106000
+RIP: 0010:[<ffffffffa05f9ca7>]  [<ffffffffa05f9ca7>]
+vxlan_dellink+0x77/0xf0 [vxlan]
+RSP: 0018:ffff88042f107e28  EFLAGS: 00010246
+RAX: 0000000000000000 RBX: ffff88082af08000 RCX: ffff88083fd80000
+RDX: 0000000000000000 RSI: ffff88042f107e58 RDI: ffff88042e12f810
+RBP: ffff88042f107e48 R08: ffffffff8166eca0 R09: 0000000000000000
+R10: 0000000000000001 R11: 0000000000000000 R12: ffff88082af087c0
+R13: ffff88042e12f000 R14: ffff88042f107e58 R15: ffff88042f107e58
+FS:  00007f4ed2de7700(0000) GS:ffff88043fc80000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000000 CR3: 000000042e076000 CR4: 00000000000407e0
+Stack:
+ ffff88082af08000 ffffffff81654848 ffffffffa05fb4e0 ffffffff81654780
+ ffff88042f107e98 ffffffff813b9c7a ffff88042f107e58 ffff88042f107e58
+ ffff88042f107e88 ffffffffa05fb4e0 ffffffffa05fb780 ffff88042f107f18
+Call Trace:
+ [<ffffffff813b9c7a>] __rtnl_link_unregister+0xca/0xd0
+ [<ffffffff813bb0e9>] rtnl_link_unregister+0x19/0x30
+ [<ffffffffa05faa4c>] vxlan_cleanup_module+0x10/0x2f [vxlan]
+ [<ffffffff81099fef>] SyS_delete_module+0x1cf/0x2c0
+ [<ffffffff8146c069>] ? do_page_fault+0x9/0x10
+ [<ffffffff8146f012>] system_call_fastpath+0x16/0x1b
+Code: 4d 85 ed 0f 84 95 00 00 00 4c 8d a7 c0 07 00 00 49 8d bd 10 08 00
+00 e8 28 e8 e6 e0 48 8b 83 c0 07 00 00 49 8b 54 24 08 48 85 c0 <48> 89
+02 74 04 48 89 50 08 49 b8 00 02 20 00 00 00 ad de 4d 89
+RIP  [<ffffffffa05f9ca7>] vxlan_dellink+0x77/0xf0 [vxlan]
+ RSP <ffff88042f107e28>
+CR2: 0000000000000000
 
-Is that what you mean by proper infrastructure ?
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ drivers/net/vxlan.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Oh wait, did you mean via dev and not the whole system wide sysctl?
-
-> 
-> 
-> 
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 767f7af..2c15f6c 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1794,7 +1794,8 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 
+ 	spin_lock(&vn->sock_lock);
+-	hlist_del_rcu(&vxlan->hlist);
++	if (!hlist_unhashed(&vxlan->hlist))
++		hlist_del_rcu(&vxlan->hlist);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	list_del(&vxlan->next);
+-- 
+1.7.1
