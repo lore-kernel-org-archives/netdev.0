@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/9] set addr_assign_type when inheriting a
- dev_addr
-Date: Tue, 03 Sep 2013 21:41:20 -0400 (EDT)
-Message-ID: <20130903.214120.1732734371359101064.davem@davemloft.net>
-References: <1377878932-26881-1-git-send-email-bjorn@mork.no>
- <20130831.225057.1874268263797742541.davem@davemloft.net>
- <87mwnuqrrx.fsf@nemi.mork.no>
+Subject: Re: [PATCH net-next v2] net: neighbour: Remove CONFIG_ARPD
+Date: Tue, 03 Sep 2013 21:42:02 -0400 (EDT)
+Message-ID: <20130903.214202.2007386986702943063.davem@davemloft.net>
+References: <8761upbd6h.fsf@xmission.com>
+	<1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: devel@driverdev.osuosl.org, jiri@resnulli.us,
- libertas-dev@lists.infradead.org, j@w1.fi, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linville@tuxdriver.com,
- stephen@networkplumber.org, forest@alittletooquiet.net,
- gregkh@linuxfoundation.org, kaber@trash.net, dan.carpenter@oracle.com
-To: bjorn@mork.no
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <87mwnuqrrx.fsf@nemi.mork.no>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, ebiederm@xmission.com, gaofeng@cn.fujitsu.com,
+	joe@perches.com, vfalico@redhat.com
+To: tim.gardner@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bj=F8rn Mork <bjorn@mork.no>
-Date: Tue, 03 Sep 2013 09:38:10 +0200
+From: Tim Gardner <tim.gardner@canonical.com>
+Date: Thu, 29 Aug 2013 06:38:47 -0600
 
-> But it doesn't look like it ended up in net-next?  Or am I missing
-> something (again)?
+> This config option is superfluous in that it only guards a call
+> to neigh_app_ns(). Enabling CONFIG_ARPD by default has no
+> change in behavior. There will now be call to __neigh_notify()
+> for each ARP resolution, which has no impact unless there is a
+> user space daemon waiting to receive the notification, i.e.,
+> the case for which CONFIG_ARPD was designed anyways.
+> 
+> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
+ ...
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
 
-I forgot to push it out from my workstation before going away for the
-holiday weekend, this has now been fixed :-)
+Applied, thanks.
