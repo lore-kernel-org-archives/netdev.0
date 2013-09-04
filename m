@@ -1,90 +1,48 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH 5/7] ixgbe: use pcie_capability_read_word() to simplify
- code
-Date: Wed, 4 Sep 2013 17:24:37 +0000
-Message-ID: <1378315477.8626.9.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
-	 <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
-	 <20130904162022.GE24733@google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: merge window warning
+Date: Wed, 4 Sep 2013 10:40:45 -0700
+Message-ID: <CAL3LdT5s=8E123aR8rwCZjjGUjv3jTzyJxX3fzu56kge6PHh2g@mail.gmail.com>
+References: <20130904.131001.1189384206727310769.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Yijing Wang <wangyijing@huawei.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Gavin Shan <shangw@linux.vnet.ibm.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Hanjun Guo <guohanjun@huawei.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20130904162022.GE24733@google.com>
-Content-Language: en-US
-Content-ID: <55CE56081959964385C745B0FB3C7AF3@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:50207 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935174Ab3IDRks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 13:40:48 -0400
+In-Reply-To: <20130904.131001.1189384206727310769.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDEzLTA5LTA0IGF0IDEwOjIwIC0wNjAwLCBCam9ybiBIZWxnYWFzIHdyb3RlOg0K
-PiBbK2NjIEphY29iLCBKZWZmXQ0KPiANCj4gT24gVHVlLCBTZXAgMDMsIDIwMTMgYXQgMDM6MzU6
-MTNQTSArMDgwMCwgWWlqaW5nIFdhbmcgd3JvdGU6DQo+ID4gdXNlIHBjaWVfY2FwYWJpbGl0eV9y
-ZWFkX3dvcmQoKSB0byBzaW1wbGlmeSBjb2RlLg0KPiA+IA0KPiA+IFNpZ25lZC1vZmYtYnk6IFlp
-amluZyBXYW5nIDx3YW5neWlqaW5nQGh1YXdlaS5jb20+DQo+ID4gQ2M6IGUxMDAwLWRldmVsQGxp
-c3RzLnNvdXJjZWZvcmdlLm5ldA0KPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4g
-Q2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jIHwgICAgNiArKy0tLS0NCj4gPiAg
-MSBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pDQo+ID4gDQo+
-ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21h
-aW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiA+
-IGluZGV4IGJhZDhmMTQuLmJmYTBiMDYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gQEAgLTE1Miw3ICsxNTIsNiBAQCBN
-T0RVTEVfVkVSU0lPTihEUlZfVkVSU0lPTik7DQo+ID4gIHN0YXRpYyBpbnQgaXhnYmVfcmVhZF9w
-Y2lfY2ZnX3dvcmRfcGFyZW50KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyLA0KPiA+ICAJ
-CQkJCSAgdTMyIHJlZywgdTE2ICp2YWx1ZSkNCj4gPiAgew0KPiA+IC0JaW50IHBvcyA9IDA7DQo+
-ID4gIAlzdHJ1Y3QgcGNpX2RldiAqcGFyZW50X2RldjsNCj4gPiAgCXN0cnVjdCBwY2lfYnVzICpw
-YXJlbnRfYnVzOw0KPiA+ICANCj4gPiBAQCAtMTY0LDExICsxNjMsMTAgQEAgc3RhdGljIGludCBp
-eGdiZV9yZWFkX3BjaV9jZmdfd29yZF9wYXJlbnQoc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0
-ZXIsDQo+ID4gIAlpZiAoIXBhcmVudF9kZXYpDQo+ID4gIAkJcmV0dXJuIC0xOw0KPiA+ICANCj4g
-PiAtCXBvcyA9IHBjaV9maW5kX2NhcGFiaWxpdHkocGFyZW50X2RldiwgUENJX0NBUF9JRF9FWFAp
-Ow0KPiA+IC0JaWYgKCFwb3MpDQo+ID4gKwlpZiAoIXBjaV9pc19wY2llKHBhcmVudF9kZXYpKQ0K
-PiA+ICAJCXJldHVybiAtMTsNCj4gPiAgDQo+ID4gLQlwY2lfcmVhZF9jb25maWdfd29yZChwYXJl
-bnRfZGV2LCBwb3MgKyByZWcsIHZhbHVlKTsNCj4gPiArCXBjaWVfY2FwYWJpbGl0eV9yZWFkX3dv
-cmQocGFyZW50X2RldiwgcmVnLCB2YWx1ZSk7DQo+ID4gIAlyZXR1cm4gMDsNCj4gPiAgfQ0KPiA+
-ICANCj4gDQo+IEhlcmUncyB0aGUgY2FsbGVyIG9mIGl4Z2JlX3JlYWRfcGNpX2NmZ193b3JkX3Bh
-cmVudCgpOg0KPiANCj4gICAgIC8qIEdldCB0aGUgbmVnb3RpYXRlZCBsaW5rIHdpZHRoIGFuZCBz
-cGVlZCBmcm9tIFBDSSBjb25maWcgc3BhY2Ugb2YgdGhlDQo+ICAgICAgKiBwYXJlbnQsIGFzIHRo
-aXMgZGV2aWNlIGlzIGJlaGluZCBhIHN3aXRjaA0KPiAgICAgICovDQo+ICAgICBlcnIgPSBpeGdi
-ZV9yZWFkX3BjaV9jZmdfd29yZF9wYXJlbnQoYWRhcHRlciwgMTgsICZsaW5rX3N0YXR1cyk7DQo+
-IA0KPiBUaGlzIHNob3VsZCBiZSB1c2luZyBQQ0lfRVhQX0xOS1NUQSBpbnN0ZWFkIG9mICIxOCIu
-DQoNCkFic29sdXRlbHkuLiBOb3Qgc3VyZSB3aHkgSSBkaWRuJ3QgZG8gdGhpcyBvcmlnaW5hbGx5
-Li4uLi4NCg0KPiANCj4gQnV0IGl0IHdvdWxkIGJlIGV2ZW4gYmV0dGVyIGlmIHdlIGNvdWxkIGRy
-b3AgaXhnYmVfZ2V0X3BhcmVudF9idXNfaW5mbygpDQo+IGNvbXBsZXRlbHkuICBJdCBzZWVtcyBy
-ZWR1bmRhbnQgYWZ0ZXIgbWVyZ2luZyBKYWNvYidzIG5ldw0KPiBwY2llX2dldF9taW5pbXVtX2xp
-bmsoKSBzdHVmZiBbMV0uDQoNCkkgZG9uJ3Qga25vdyBpZiB3ZSBjYW4gZnVsbHkgZHJvcCBpdC4g
-V2UgbmVlZCB0aGlzIGluIG9yZGVyIHRvIHJlYWQgdGhlDQpwYXJlbnQgZGV2aWNlIG9uIHNvbWUg
-cXVhZCBwb3J0IEV0aGVybmV0IGFkYXB0ZXJzIHdoaWNoIGhhdmUgYW4gaW50ZXJuYWwNClBDSWUg
-c3dpdGNoIHRvIGxpbmsgdHdvIHBhcnRzIHRvZ2V0aGVyLiBUaGVyZSBhcmUgYSBmZXcgcGxhY2Vz
-IHdlIHJlYWQNCnRoZSBwYXJlbnQgY2ZnIHdvcmQuIEF0IGxlYXN0IG9uZSBmb3Igc3VyZS4uIGJ1
-dCBtYXliZSBvdGhlcnMuLiBDYW4ndA0KcmVjYWxsLiBUaGUgcGFyZW50IGJ1cyBpbmZvIGlzIHN0
-aWxsIHVzZWQgdG8gcHJpbnQgb3V0IHRoZSBzbG90IHdpZHRoDQphbmQgc3BlZWQuIEkgZG9uJ3Qg
-a25vdyBpZiBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8ganVzdCBwcmludCB0aGUgcmVzcG9uc2UNCmZy
-b20gZ2V0X21pbmltdW1fbGluayBvciBzdGlsbCBwcmludCB0aGUgYWN0dWFsIHNsb3QuDQoNCj4g
-DQo+IGl4Z2JlX2Rpc2FibGVfcGNpZV9tYXN0ZXIoKSBsb29rcyBsaWtlIGl0IHNob3VsZCBiZSB1
-c2luZw0KPiBwY2llX2NhcGFiaWxpdHlfcmVhZF93b3JkKCkgd2l0aCBQQ0lfRVhQX0RFVlNUQSBp
-bnN0ZWFkIG9mIHVzaW5nDQo+IElYR0JFX1BDSV9ERVZJQ0VfU1RBVFVTLiAgSWYgZmFjdCwgaXQg
-bG9va3MgbGlrZSBpdCBjb3VsZCB1c2UgdGhlDQo+IG5ldyBwY2lfd2FpdF9mb3JfcGVuZGluZ190
-cmFuc2FjdGlvbigpIGludGVyZmFjZSBbMl0uDQo+IA0KDQpJIGNhbiBsb29rIGF0IGRvaW5nIHRo
-aXMuIEkga25vdyBpdCB3YXMgZG9uZSB0aGlzIHdheSBmb3IgaGlzdG9yaWMNCnJlYXNvbnMsIChh
-bmQgbGlrZWx5IGZvciBjb2RlIHNoYXJlIHdpdGggbm9uIExpbnV4IGRyaXZlcnMuLiBidXQgdGhh
-dCdzDQpub3QgcmVhbGx5IGFuIGV4Y3VzZSkNCg0KPiBJdCBsb29rcyBsaWtlIGFsbCB0aGUgI2Rl
-ZmluZXMgaW4gdGhlICJQQ0kgQnVzIEluZm8iIGJsb2NrDQo+IChJWEdCRV9QQ0lfREVWSUNFX1NU
-QVRVUywgSVhHQkVfUENJX0RFVklDRV9TVEFUVVNfVFJBTlNBQ1RJT05fUEVORElORywNCj4gSVhH
-QkVfUENJX0xJTktfU1RBVFVTLCBldGMuKSBbM10gYXJlIHJlYWxseSBmb3IgUENJZS1nZW5lcmlj
-IHRoaW5ncy4gIElmDQo+IHNvLCB0aGUgSVhHQkUtc3BlY2lmaWMgb25lcyBzaG91bGQgYmUgZHJv
-cHBlZCBpbiBmYXZvciBvZiB0aGUgZ2VuZXJpYw0KPiBvbmVzLg0KDQpBZ3JlZWQuDQoNClRoYW5r
-cywNCkpha2UNCg0KDQo=
+Would Jesse's i40e series be acceptable if I push today, since 4
+versions have been sent previously for review?  I ask, because I was
+in the process of submitting v5 and want to make sure it is ok before
+submitting.
+
+On Wed, Sep 4, 2013 at 10:10 AM, David Miller <davem@davemloft.net> wrote:
+>
+> The merge window is now open.
+>
+> This means if a feature patch isn't in patchwork already, and
+> completely ready to apply, you should not submit it at this time.
+>
+> I will just automatically reject any inappropriate patches sent from
+> now until the net-next tree opens again after the merge window closes,
+> in order to assist with my ability to process the current backlog
+> efficiently.
+>
+> Thanks.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Cheers,
+Jeff
