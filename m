@@ -1,56 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/4] netfilter: synproxy_core: fix warning in __nf_ct_ext_add_length()
-Date: Wed,  4 Sep 2013 15:00:23 +0200
-Message-ID: <1378299625-4638-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/4] netfilter: xt_TCPMSS: correct return value in tcpmss_mangle_packet
+Date: Wed,  4 Sep 2013 15:00:25 +0200
+Message-ID: <1378299625-4638-5-git-send-email-pablo@netfilter.org>
 References: <1378299625-4638-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36051 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756922Ab3IDNAj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 09:00:39 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1378299625-4638-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+From: Phil Oester <kernel@linuxace.com>
 
-With CONFIG_NETFILTER_DEBUG we get the following warning during SYNPROXY init:
+In commit b396966c4 (netfilter: xt_TCPMSS: Fix missing fragmentation handling),
+I attempted to add safe fragment handling to xt_TCPMSS.  However, Andy Padavan
+of Project N56U correctly points out that returning XT_CONTINUE in this
+function does not work.  The callers (tcpmss_tg[46]) expect to receive a value
+of 0 in order to return XT_CONTINUE.
 
-[   80.558906] WARNING: CPU: 1 PID: 4833 at net/netfilter/nf_conntrack_extend.c:80 __nf_ct_ext_add_length+0x217/0x220 [nf_conntrack]()
-
-The reason is that the conntrack template is set to confirmed before adding
-the extension and it is invalid to add extensions to already confirmed
-conntracks. Fix by adding the extensions before setting the conntrack to
-confirmed.
-
-Reported-by: Jesper Dangaard Brouer <jesper.brouer@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Phil Oester <kernel@linuxace.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_synproxy_core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/xt_TCPMSS.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-index d23dc79..6fd967c 100644
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -356,12 +356,12 @@ static int __net_init synproxy_net_init(struct net *net)
- 		goto err1;
- 	}
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 6113cc7..cd24290 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -60,7 +60,7 @@ tcpmss_mangle_packet(struct sk_buff *skb,
  
--	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
--	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
- 	if (!nfct_seqadj_ext_add(ct))
- 		goto err2;
- 	if (!nfct_synproxy_ext_add(ct))
- 		goto err2;
-+	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
-+	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+ 	/* This is a fragment, no TCP header is available */
+ 	if (par->fragoff != 0)
+-		return XT_CONTINUE;
++		return 0;
  
- 	snet->tmpl = ct;
- 
+ 	if (!skb_make_writable(skb, skb->len))
+ 		return -1;
 -- 
 1.7.10.4
+
