@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: tcp_probe: adapt tbuf size for recent
- changes
-Date: Wed, 04 Sep 2013 00:55:03 -0400 (EDT)
-Message-ID: <20130904.005503.542805290897839216.davem@davemloft.net>
-References: <1378225442-6676-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next v2] tcp: Change return value of
+ tcp_rcv_established()
+Date: Wed, 04 Sep 2013 00:55:18 -0400 (EDT)
+Message-ID: <20130904.005518.141492547473955259.davem@davemloft.net>
+References: <1378236202-27486-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+To: subramanian.vijay@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54700 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54704 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761399Ab3IDEzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 00:55:04 -0400
-In-Reply-To: <1378225442-6676-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1761399Ab3IDEzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 00:55:19 -0400
+In-Reply-To: <1378236202-27486-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue,  3 Sep 2013 18:24:02 +0200
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Date: Tue,  3 Sep 2013 12:23:22 -0700
 
-> With recent changes in tcp_probe module (e.g. f925d0a62d ("net: tcp_probe:
-> add IPv6 support")) we also need to take into account that tbuf needs to
-> be updated as format string will be further expanded. tbuf sits on the stack
-> in tcpprobe_read() function that is invoked when user space reads procfs
-> file /proc/net/tcpprobe, hence not fast path as in jtcp_rcv_established().
-> Having a size similarly as in sctp_probe module of 256 bytes is fully
-> sufficient for that, we need theoretical maximum of 252 bytes otherwise we
-> could get truncated.
+> tcp_rcv_established() returns only one value namely 0. We change the return
+> value to void (as suggested by David Miller).
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> After commit 0c24604b (tcp: implement RFC 5961 4.2), we no longer send RSTs in
+> response to SYNs. We can remove the check and processing on the return value of
+> tcp_rcv_established().
+> 
+> We also fix jtcp_rcv_established() in tcp_probe.c to match that of
+> tcp_rcv_established().
+> 
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
 Applied.
