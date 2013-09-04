@@ -1,41 +1,93 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Sep 4 (netfilter: xt_TPROXY)
-Date: Wed, 04 Sep 2013 10:46:58 -0700
-Message-ID: <52277212.5020006@infradead.org>
-References: <20130904181300.06fbf0698863cfaacf9fad9a@canb.auug.org.au>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [-next] openvswitch BUILD_BUG_ON failed
+Date: Wed, 4 Sep 2013 10:53:29 -0700
+Message-ID: <CAEP_g=8Q6-i+wSfdcW4X1uYm2_8hqmE3R3_EC7PpHNbkpxK82A@mail.gmail.com>
+References: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
+ <CAEP_g=-XvRiHPzSAp2rgC9Hxdd+pGEHvSTEJ1A1SkWnk1-6xZA@mail.gmail.com>
+ <20130829.181001.145658561677052552.davem@davemloft.net> <CAEP_g=-XxgK9HVxvcaW3RS2zfa+77pB4cqfLFC0rcV7QJc+2BQ@mail.gmail.com>
+ <CAMuHMdU3M9uUFKd3EQ0HbcAvf5e62PA4NJG_mQHhpvZwFJnUWQ@mail.gmail.com>
+ <CAEP_g=-BWdWJ5WtNy0=Eq8GJp84i88QbGq-gQcANBhCKajcJsQ@mail.gmail.com> <CAMuHMdVvB+GMwMrP2mieXbqAM7mn3nF_1ezbiYVBLKdsL5aCJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130904181300.06fbf0698863cfaacf9fad9a@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Andy Zhou <azhou@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:39696 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965064Ab3IDRxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 13:53:50 -0400
+Received: by mail-la0-f52.google.com with SMTP id ev20so632872lab.11
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 10:53:49 -0700 (PDT)
+In-Reply-To: <CAMuHMdVvB+GMwMrP2mieXbqAM7mn3nF_1ezbiYVBLKdsL5aCJg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/04/13 01:13, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Please do not add any code for v3.13 to your linux-next included branches
-> until after v3.12-rc1 is released.
-> 
-> Changes since 20130902:
-> 
+On Tue, Sep 3, 2013 at 11:55 PM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> On Tue, Sep 3, 2013 at 11:44 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Sat, Aug 31, 2013 at 5:11 AM, Geert Uytterhoeven
+>> <geert@linux-m68k.org> wrote:
+>>> On Fri, Aug 30, 2013 at 3:11 AM, Jesse Gross <jesse@nicira.com> wrote:
+>>>> On Thu, Aug 29, 2013 at 3:10 PM, David Miller <davem@davemloft.net> wrote:
+>>>>> From: Jesse Gross <jesse@nicira.com>
+>>>>> Date: Thu, 29 Aug 2013 14:42:22 -0700
+>>>>>
+>>>>>> On Thu, Aug 29, 2013 at 2:21 PM, Geert Uytterhoeven
+>>>>>> <geert@linux-m68k.org> wrote:
+>>>>>>> However, I have some doubts about other alignment "enforcements":
+>>>>>>>
+>>>>>>> "__aligned(__alignof__(long))" makes the whole struct aligned to the
+>>>>>>> alignment rule for "long":
+>>>>>>>    1. This is only 2 bytes on m68k, i.e. != sizeof(long).
+>>>>>>>    2. This is 4 bytes on many 32-bit platforms, which may be less than the
+>>>>>>>       default alignment for "__be64" (cfr. some members of struct
+>>>>>>>       ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
+>>>>>>
+>>>>>> Do any of those 32-bit architectures actually care about alignment of
+>>>>>> 64 bit values? On 32-bit x86, a long is 32 bits but the alignment
+>>>>>> requirement of __be64 is also 32 bit.
+>>>>>
+>>>>> All except x86-32 do, it is in fact the odd man out with respect to this
+>>>>> issue.
+>>>>
+>>>> Thanks, good to know.
+>>>>
+>>>> Andy, do you want to modify your patch to just drop the alignment
+>>>> specification as Geert suggested (but definitely keep the new build
+>>>> assert that you added)? It's probably better to just send the patch to
+>>>> netdev (against net-next) as well since you'll likely get better
+>>>> comments there and we can fix this faster if you cut out the
+>>>> middleman.
+>>>
+>>> Why do you want to keep the build asserts?
+>>> Is this in-memory structure also transfered as-is over the network?
+>>> If yes, you definitely want the padding.
+>>
+>> Well they caught this bug and really don't cost anything.
+>>
+>>> Nevertheless, as the struct contains u32 and even __be64 members, the
+>>> size of the struct will always be a multiple of the alignment unit for
+>>> 64-bit quantities (and thus also for long), as per the C standard.
+>>> Hence the check
+>>>
+>>>     BUILD_BUG_ON(sizeof(struct sw_flow_key) % __alignof__(long));
+>>>
+>>> will only catch bad compiler bugs or people adding __packed to the struct.
+>>
+>> It's possible that we might want to pack the structure in the future.
+>> More generally though, the contents of the struct is really
+>> independent of the alignment requirements here because we're accessing
+>> it as an array of bytes in long-sized chunks so implicitly depending
+>> on the size of the members is not that great.
+>
+> So you're accessing it as an array of bytes in long-sized chunks.
+> What are you doing with this accessed data?
+> Transfering over the network?
+> Storing on disk?
+> Then it must be portable across machines and architectures, right?
 
-on x86_64:
-
-when CONFIG_IPV6=m
-and CONFIG_NETFILTER_XT_TARGET_TPROXY=y:
-
-net/built-in.o: In function `tproxy_tg6_v1':
-xt_TPROXY.c:(.text+0x5dc05): undefined reference to `udp6_lib_lookup'
-xt_TPROXY.c:(.text+0x5e32f): undefined reference to `udp6_lib_lookup'
-xt_TPROXY.c:(.text+0x5e432): undefined reference to `udp6_lib_lookup'
-net/built-in.o: In function `tproxy_tg_init':
-xt_TPROXY.c:(.init.text+0x1540): undefined reference to `nf_defrag_ipv6_enable'
-
-
--- 
-~Randy
+It's just an in-memory hash table lookup. No one else ever sees it.
