@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: neighbour: Remove CONFIG_ARPD
-Date: Tue, 03 Sep 2013 21:42:02 -0400 (EDT)
-Message-ID: <20130903.214202.2007386986702943063.davem@davemloft.net>
-References: <8761upbd6h.fsf@xmission.com>
-	<1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
+Subject: Re: [PATCH net-next] net: sctp: probe: allow more advanced ingress
+ filtering by mark
+Date: Tue, 03 Sep 2013 21:44:45 -0400 (EDT)
+Message-ID: <20130903.214445.2061960310257902954.davem@davemloft.net>
+References: <1377795289-1914-1-git-send-email-dborkman@redhat.com>
+	<20130830113630.GB1142@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, ebiederm@xmission.com, gaofeng@cn.fujitsu.com,
-	joe@perches.com, vfalico@redhat.com
-To: tim.gardner@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1377779927-28500-1-git-send-email-tim.gardner@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53596 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761603Ab3IDBoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 21:44:46 -0400
+In-Reply-To: <20130830113630.GB1142@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tim Gardner <tim.gardner@canonical.com>
-Date: Thu, 29 Aug 2013 06:38:47 -0600
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri, 30 Aug 2013 07:36:30 -0400
 
-> This config option is superfluous in that it only guards a call
-> to neigh_app_ns(). Enabling CONFIG_ARPD by default has no
-> change in behavior. There will now be call to __neigh_notify()
-> for each ARP resolution, which has no impact unless there is a
-> user space daemon waiting to receive the notification, i.e.,
-> the case for which CONFIG_ARPD was designed anyways.
-> 
-> Suggested-by: Eric W. Biederman <ebiederm@xmission.com>
- ...
-> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> On Thu, Aug 29, 2013 at 06:54:49PM +0200, Daniel Borkmann wrote:
+>> This is a follow-up commit for commit b1dcdc68b1f4 ("net: tcp_probe:
+>> allow more advanced ingress filtering by mark") that allows for
+>> advanced SCTP probe module filtering based on skb mark (for a more
+>> detailed description and advantages using mark, refer to b1dcdc68b1f4).
+>> The current option to filter by a given port is still being preserved.
+>> 
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Applied, thanks.
+Applied.
