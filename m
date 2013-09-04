@@ -1,45 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 4/8] net: ipv6: mld: implement RFC3810 MLDv2 mode only
-Date: Wed, 4 Sep 2013 01:01:27 +0200
-Message-ID: <20130903230127.GA32732@order.stressinduktion.org>
-References: <1378246784-21067-1-git-send-email-dborkman@redhat.com> <1378246784-21067-5-git-send-email-dborkman@redhat.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: bride: IPv6 multicast snooping enhancements
+Date: Wed,  4 Sep 2013 02:13:37 +0200
+Message-ID: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35732 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933127Ab3ICXB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 19:01:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1378246784-21067-5-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Adam Baker <linux@baker-net.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 04, 2013 at 12:19:40AM +0200, Daniel Borkmann wrote:
-> RFC3810, 10. Security Considerations says under subsection 10.1.
-> Query Message:
-> 
->   A forged Version 1 Query message will put MLDv2 listeners on that
->   link in MLDv1 Host Compatibility Mode. This scenario can be avoided
->   by providing MLDv2 hosts with a configuration option to ignore
->   Version 1 messages completely.
-> 
-> Hence, implement a MLDv2-only mode that will ignore MLDv1 traffic:
-> 
->   echo 2 > /proc/sys/net/ipv6/conf/ethX/force_mld_version  or
->   echo 2 > /proc/sys/net/ipv6/conf/all/force_mld_version
-> 
-> Note that <all> device has a higher precedence as it was previously
-> also the case in the macro MLD_V1_SEEN() that would "short-circuit"
-> if condition on <all> case.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Hi,
 
-Even better...
+Here are two, small feature changes I would like to submit to increase
+the usefulness of the multicast snooping of the bridge code.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+The first patch is an unaltered one I had submitted before, but since it
+got no feedback I'm resubmitting it here for net-next. With the recently
+added patch to disable snooping if there is no querier (b00589af + 248ba8=
+ec05
++ 8d50af4fb), it should be a safe choice now (without these, patch 1/2 wo=
+uld
+have introduced another potential for lost IPv6 multicast packets).
 
-Thanks!
+Both conceptually and also with some testing and fuzzing, I couldn't spot
+any more causes for potential packet loss. And since the multicast snoopi=
+ng
+code has now been tried by various people, I think it should be a safe
+choice to apply the multicast snooping not only for IPv6 multicast packet=
+s
+with a scope greater than link-local, but also for packets of exactly thi=
+s
+scope. The IPv6 standard mandates MLD reports for link-local multicast, t=
+oo,
+so we can safely snoop them as well (in contrast to IPv4 link-local).
+
+Cheers, Linus
