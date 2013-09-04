@@ -1,65 +1,56 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: Query about TX BD Reclaim in Napi poll path (was Re: [PATCH v3] ethernet/arc/arc_emac
- - Add new driver)
-Date: Wed, 4 Sep 2013 17:44:30 +0530
-Message-ID: <52272426.2040504@synopsys.com>
-References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com> <20130613221946.GA16632@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel 3.7+ tcp_metric cache system
+Date: Wed, 04 Sep 2013 05:34:36 -0700
+Message-ID: <1378298076.7360.103.camel@edumazet-glaptop>
+References: <CAJWKWvDrjnLpnRR2GmmRLv6EXQdPP9Gb4+-EhWXYhLQzoVrJag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	<netdev@vger.kernel.org>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130613221946.GA16632@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Simon Jouet <simon.jouet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:43781 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756210Ab3IDMei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 08:34:38 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so230244pbc.39
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 05:34:38 -0700 (PDT)
+In-Reply-To: <CAJWKWvDrjnLpnRR2GmmRLv6EXQdPP9Gb4+-EhWXYhLQzoVrJag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Francois,
+On Wed, 2013-09-04 at 13:09 +0100, Simon Jouet wrote:
+> Hi,
+> 
+> First of all apologies if this mailing list doesn't this kind of
+> discussions, if not could you please redirect me to a more suitable
+> one ?
+> 
+> So, for my current research I require to be able to specify for
+> specific hosts what cwnd and rto to use, after some investigation I
+> came accross the modifications that have been done in kernel 3.7 to
+> bring the tcp_metric cache and the get/del netlink commands.
+> 
+> I added a new command "tcp_metrics_nl_cmd_add" to be able to add
+> entries to the cache (the code is available here
+> http://pastebin.com/gSvhyjWU, this is very much work in progress).
+> This work well enough and calling "ip tcpm show" afterwards to list
+> the entries show the correct information.
+> 
+> The issue is that these values are never used or at least from what I
+> can see. So once an entry is added it is attempted to be read by the
+> function tcp_init_metrics(struct sock *sk) and it's read only if it's
+> locked (tcp_metric_locked) I'm not sure what the lock flag is used
+> for, f anybody has any pointer for that ...
+> 
+> Anyway the connection will go to the "reset" goto label, the cwnd will
+> be reinitialised by tcp_init_cwnd (defined in tcp_input.c), in what
+> I've tested  "__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) :
+> 0);" will always return 0 and the cwnd will be defaulted to 10.
+> 
+> I'm probably doing something wrong .... But in which condition is the
+> cached cwnd used ? I tried to find some documentation on tcp_metric
+> but I couldn't find much.
+> 
 
-Resurrecting an old thread.
-
-On 06/14/2013 03:49 AM, Francois Romieu wrote:
->> +static irqreturn_t arc_emac_intr(int irq, void *dev_instance)
->> > +{
->> > +	struct net_device *ndev = dev_instance;
->> > +	struct arc_emac_priv *priv = netdev_priv(ndev);
->> > +	struct net_device_stats *stats = &priv->stats;
->> > +	unsigned int status;
->> > +
->> > +	status = arc_reg_get(priv, R_STATUS);
->> > +	status &= ~MDIO_MASK;
->> > +
->> > +	/* Reset all flags except "MDIO complete"*/
->> > +	arc_reg_set(priv, R_STATUS, status);
->> > +
->> > +	if (status & RXINT_MASK) {
->> > +		if (likely(napi_schedule_prep(&priv->napi))) {
->> > +			arc_reg_clr(priv, R_ENABLE, RXINT_MASK);
->> > +			__napi_schedule(&priv->napi);
->> > +		}
->> > +	}
->> > +
->> > +	if (status & TXINT_MASK) {
-> You may consider moving everything into the napi poll handler.
-
-I has to revisit this now-mainlined driver recently for fixing a bug. Per your
-suggestion above, the TX BD reclaim was moved from interrupt context to NAPI
-context. I was wondering if that is the right thing to do (I'm not a networking
-expert but have worked on this driver heavily before it was mainlined by Alexey).
-
-In case of large burst transfers by networking stack (say a large file copy over
-NFS) will it not delay the TX BD reclaim possibly dropping more packets. Ofcourse
-doing this requires enabling Tx interrupts which adds to overall cost from a
-system perspective, but assuming the controller can coalesce the Tx interrupts,
-will it not be better.
-
-I did a quick hack to move the TX reclaim in intr path and it seems to be doing
-slightly better than the current code - so the advantages are not sky high, but I
-want to understand the implications nevertheless.
-
-TIA,
--Vineet
+ip ro add 192.168.7.7 via 10.1.10.1 initcwnd 30 rto_min 12
