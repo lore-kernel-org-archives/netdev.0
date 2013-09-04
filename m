@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
- tcp_v6_do_rcv
-Date: Wed, 04 Sep 2013 14:57:04 -0400 (EDT)
-Message-ID: <20130904.145704.1474150306960456668.davem@davemloft.net>
-References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] ipv6: fix null pointer dereference in __ip6addrlbl_add
+Date: Wed, 04 Sep 2013 14:58:16 -0400 (EDT)
+Message-ID: <20130904.145816.1990856496857762166.davem@davemloft.net>
+References: <20130903001331.GA8820@order.stressinduktion.org>
+	<20130904.141301.41040920905693536.davem@davemloft.net>
+	<20130904185145.GC13136@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: dborkman@redhat.com
+Cc: michele@acksyn.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, sasha.levin@oracle.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44982 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45001 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756448Ab3IDS5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:57:06 -0400
-In-Reply-To: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1753202Ab3IDS6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:58:18 -0400
+In-Reply-To: <20130904185145.GC13136@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue,  3 Sep 2013 19:29:12 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 4 Sep 2013 20:51:45 +0200
 
-> In tcp_v6_do_rcv() code, when processing pkt options, we soley work
-> on our skb clone opt_skb that we've created earlier before entering
-> tcp_rcv_established() on our way. However, only in condition ...
-> 
->   if (np->rxopt.bits.rxtclass)
->     np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
-> 
-> ... we work on skb itself. As we extract every other information out
-> of opt_skb in ipv6_pktoptions path, this seems wrong, since skb can
-> already be released by tcp_rcv_established() earlier on. When we try
-> to access it in ipv6_hdr(), we will dereference freed skb.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Sorry I forgot to mention that this patch is also applicable to solve
+> this issue in the longterm 3.10 kernel. Maybe this should go to stable?
 
-Applied.
+I did queue it up for -stable already.
