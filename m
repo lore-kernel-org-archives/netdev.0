@@ -1,105 +1,432 @@
-From: James Yonan <james@openvpn.net>
-Subject: GSO/GRO and UDP performance
-Date: Wed, 04 Sep 2013 04:07:21 -0600
-Message-ID: <52270659.1090208@openvpn.net>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: [PATCH net-next 2/2] bnx2x: VF RSS support - VF side
+Date: Wed, 4 Sep 2013 14:09:22 +0300
+Message-ID: <1378292962-5537-3-git-send-email-ariele@broadcom.com>
+References: <1378292962-5537-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from magnetar.openvpn.net ([74.52.27.18]:40570 "EHLO
-	magnetar.openvpn.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762244Ab3IDKum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 06:50:42 -0400
-Received: from moab.lan (c-24-9-78-222.hsd1.co.comcast.net [24.9.78.222])
-	(authenticated bits=0)
-	by magnetar.openvpn.net (8.13.1/8.13.1) with ESMTP id r84A7BaF023357
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 4 Sep 2013 04:07:12 -0600
+Received: from mms2.broadcom.com ([216.31.210.18]:1245 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753625Ab3IDLI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 07:08:27 -0400
+In-Reply-To: <1378292962-5537-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm looking at ways to improve UDP performance in the kernel. 
-Specifically I'd like to take some of the ideas in GSO/GRO for TCP and 
-apply them to UDP as well.  Our use case is OpenVPN, but these methods 
-should apply to any UDP-based app.
+In this patch capabilities are added to the Vf driver to request
+multiple queues over the VF PF channel, and the logic for requesting
+rss configuration for said queues.
 
-AS I understand GSO/GRO for TCP, there are essentially two central features:
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilong Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   85 ++++++++++----------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    7 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   27 ++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h  |    7 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c   |   75 +++++++++++++++++-
+ 6 files changed, 145 insertions(+), 60 deletions(-)
 
-(a) it's a way of batching packets with similar headers together so that 
-they can efficiently traverse the network stack as a single unit
-
-(b) it explicitly maps the batching of packets to the L4 segmenting 
-features of TCP, so that batched packets can be coalesced into TCP segments.
-
-This approach works great for TCP because of its built-in L4 segmenting 
-features, but it tends to break down for UDP because of (b) in 
-particular -- UDP doesn't have an L4 segmenting model, so the 
-gso_segment method for UDP resorts to segmenting the packets with L3 IP 
-fragmentation (i.e. UFO).  The problem is that IP fragmentation is 
-broken on so many different levels that it can't be relied on for apps 
-that need to communicate over the open internet (*).  Most UDP apps do 
-their own app-level fragmentation and wouldn't want to be forced to buy 
-into IP fragmentation in order to get the performance benefits of GSO/GRO.
-
-So I would like to propose a GSO/GRO implementation for UDP that works 
-by batching together separate UDP packets with similar headers into a 
-single skb.  There is no-tie in with L3 IP fragmentation -- the packets 
-are sent over the wire and received as individual UDP packets.
-
-Here is an example of how this might work in practice:
-
-When I call sendmmsg from userspace with a bunch of UDP packets having 
-the same header, the kernel would assemble these packets into a single 
-skb via shinfo(skb)->frag_list.  There would need to be a new gso_type 
-indicating that frag_list is simply a list of UDP packets having the 
-same header that should be transmitted separately.  No IP fragmentation 
-would be necessary as long as the app has correctly sized the packets 
-for the link MTU.
-
-Once this skb is about to reach the driver, dev_hard_start_xmit could do 
-the usual GSO thing and separate out the packets in 
-shinfo(skb)->frag_list and pass them individually to the driver's 
-ndo_start_xmit method, if the driver doesn't support batched UDP 
-packets.  There would need to be a new gso_type for this batching model, 
-e.g. "SKB_GSO_UDP_BUNDLE" that drivers could optionally support.
-
-On the receive side, we would define a gro_receive method for UDP (none 
-currently exists) that does the same batching in reverse:  UDP packets 
-with the same header would be collected into shinfo(skb)->frag_list and 
-gso_type would be set to SKB_GSO_UDP_BUNDLE.
-
-The bundle of UDP packets would traverse the stack as a unit until it 
-reaches the socket layer, where recvmmsg could pass the whole bundle up 
-to userspace in a single transaction (or recvmsg could disaggregate the 
-bundle and pass each datagram individually).
-
-This approach should also significantly speed up UDP apps running on VM 
-guests, because the skbs of bundled UDP packets could be passed across 
-the hypervisor/guest barrier in a single transaction.
-
-Because this technique bundles UDP packets without coalescing or 
-modifying them, the approach should be lossless with respect to 
-bridging, hypervisor/guest communication, routing, etc.  It also doesn't 
-interfere with existing hardware support for L4 checksum offloading 
-(unlike UFO).
-
-Could this work?  Are there problems with this that I'm not considering? 
-  Are there better or existing ways of doing this?
-
-Thanks,
-James
-
----------------------
-
-(*) Well-known issues of UDP/IP fragmentation:
-
-1. Relies on PMTU discovery, which often doesn't work in the real world 
-because of inconsistent ICMP forwarding policies.
-
-2. Breaks down on high-bandwidth links because the IPv4 16-bit packet ID 
-value can wrap around, causing data corruption.
-
-3. One fragment lost in transit means that the whole superpacket is lost.
-
-James
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index e7400d9..8d726f6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1942,7 +1942,7 @@ static void bnx2x_set_rx_buf_size(struct bnx2x *bp)
+ 	}
+ }
+ 
+-static int bnx2x_init_rss_pf(struct bnx2x *bp)
++static int bnx2x_init_rss(struct bnx2x *bp)
+ {
+ 	int i;
+ 	u8 num_eth_queues = BNX2X_NUM_ETH_QUEUES(bp);
+@@ -1966,8 +1966,8 @@ static int bnx2x_init_rss_pf(struct bnx2x *bp)
+ 	return bnx2x_config_rss_eth(bp, bp->port.pmf || !CHIP_IS_E1x(bp));
+ }
+ 
+-int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
+-			bool config_hash)
++int bnx2x_rss(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
++	      bool config_hash, bool enable)
+ {
+ 	struct bnx2x_config_rss_params params = {NULL};
+ 
+@@ -1982,17 +1982,21 @@ int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
+ 
+ 	__set_bit(RAMROD_COMP_WAIT, &params.ramrod_flags);
+ 
+-	__set_bit(BNX2X_RSS_MODE_REGULAR, &params.rss_flags);
+-
+-	/* RSS configuration */
+-	__set_bit(BNX2X_RSS_IPV4, &params.rss_flags);
+-	__set_bit(BNX2X_RSS_IPV4_TCP, &params.rss_flags);
+-	__set_bit(BNX2X_RSS_IPV6, &params.rss_flags);
+-	__set_bit(BNX2X_RSS_IPV6_TCP, &params.rss_flags);
+-	if (rss_obj->udp_rss_v4)
+-		__set_bit(BNX2X_RSS_IPV4_UDP, &params.rss_flags);
+-	if (rss_obj->udp_rss_v6)
+-		__set_bit(BNX2X_RSS_IPV6_UDP, &params.rss_flags);
++	if (enable) {
++		__set_bit(BNX2X_RSS_MODE_REGULAR, &params.rss_flags);
++
++		/* RSS configuration */
++		__set_bit(BNX2X_RSS_IPV4, &params.rss_flags);
++		__set_bit(BNX2X_RSS_IPV4_TCP, &params.rss_flags);
++		__set_bit(BNX2X_RSS_IPV6, &params.rss_flags);
++		__set_bit(BNX2X_RSS_IPV6_TCP, &params.rss_flags);
++		if (rss_obj->udp_rss_v4)
++			__set_bit(BNX2X_RSS_IPV4_UDP, &params.rss_flags);
++		if (rss_obj->udp_rss_v6)
++			__set_bit(BNX2X_RSS_IPV6_UDP, &params.rss_flags);
++	} else {
++		__set_bit(BNX2X_RSS_MODE_DISABLED, &params.rss_flags);
++	}
+ 
+ 	/* Hash bits */
+ 	params.rss_result_mask = MULTI_MASK;
+@@ -2001,11 +2005,14 @@ int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
+ 
+ 	if (config_hash) {
+ 		/* RSS keys */
+-		prandom_bytes(params.rss_key, sizeof(params.rss_key));
++		prandom_bytes(params.rss_key, T_ETH_RSS_KEY * 4);
+ 		__set_bit(BNX2X_RSS_SET_SRCH, &params.rss_flags);
+ 	}
+ 
+-	return bnx2x_config_rss(bp, &params);
++	if (IS_PF(bp))
++		return bnx2x_config_rss(bp, &params);
++	else
++		return bnx2x_vfpf_config_rss(bp, &params);
+ }
+ 
+ static int bnx2x_init_hw(struct bnx2x *bp, u32 load_code)
+@@ -2645,38 +2652,32 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 
+ 		/* initialize FW coalescing state machines in RAM */
+ 		bnx2x_update_coalesce(bp);
++	}
+ 
+-		/* setup the leading queue */
+-		rc = bnx2x_setup_leading(bp);
+-		if (rc) {
+-			BNX2X_ERR("Setup leading failed!\n");
+-			LOAD_ERROR_EXIT(bp, load_error3);
+-		}
+-
+-		/* set up the rest of the queues */
+-		for_each_nondefault_eth_queue(bp, i) {
+-			rc = bnx2x_setup_queue(bp, &bp->fp[i], 0);
+-			if (rc) {
+-				BNX2X_ERR("Queue setup failed\n");
+-				LOAD_ERROR_EXIT(bp, load_error3);
+-			}
+-		}
++	/* setup the leading queue */
++	rc = bnx2x_setup_leading(bp);
++	if (rc) {
++		BNX2X_ERR("Setup leading failed!\n");
++		LOAD_ERROR_EXIT(bp, load_error3);
++	}
+ 
+-		/* setup rss */
+-		rc = bnx2x_init_rss_pf(bp);
++	/* set up the rest of the queues */
++	for_each_nondefault_eth_queue(bp, i) {
++		if (IS_PF(bp))
++			rc = bnx2x_setup_queue(bp, &bp->fp[i], false);
++		else /* VF */
++			rc = bnx2x_vfpf_setup_q(bp, &bp->fp[i], false);
+ 		if (rc) {
+-			BNX2X_ERR("PF RSS init failed\n");
++			BNX2X_ERR("Queue %d setup failed\n", i);
+ 			LOAD_ERROR_EXIT(bp, load_error3);
+ 		}
++	}
+ 
+-	} else { /* vf */
+-		for_each_eth_queue(bp, i) {
+-			rc = bnx2x_vfpf_setup_q(bp, i);
+-			if (rc) {
+-				BNX2X_ERR("Queue setup failed\n");
+-				LOAD_ERROR_EXIT(bp, load_error3);
+-			}
+-		}
++	/* setup rss */
++	rc = bnx2x_init_rss(bp);
++	if (rc) {
++		BNX2X_ERR("PF RSS init failed\n");
++		LOAD_ERROR_EXIT(bp, load_error3);
+ 	}
+ 
+ 	/* Now when Clients are configured we are ready to work */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index affb764..da8fcaa 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -105,9 +105,10 @@ void bnx2x_send_unload_done(struct bnx2x *bp, bool keep_link);
+  * @rss_obj:		RSS object to use
+  * @ind_table:		indirection table to configure
+  * @config_hash:	re-configure RSS hash keys configuration
++ * @enable:		enabled or disabled configuration
+  */
+-int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
+-			bool config_hash);
++int bnx2x_rss(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
++	      bool config_hash, bool enable);
+ 
+ /**
+  * bnx2x__init_func_obj - init function object
+@@ -980,7 +981,7 @@ static inline int func_by_vn(struct bnx2x *bp, int vn)
+ 
+ static inline int bnx2x_config_rss_eth(struct bnx2x *bp, bool config_hash)
+ {
+-	return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, config_hash);
++	return bnx2x_rss(bp, &bp->rss_conf_obj, config_hash, true);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index c5f2251..2612e3c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -3281,14 +3281,14 @@ static int bnx2x_set_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
+ 			DP(BNX2X_MSG_ETHTOOL,
+ 			   "rss re-configured, UDP 4-tupple %s\n",
+ 			   udp_rss_requested ? "enabled" : "disabled");
+-			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
++			return bnx2x_rss(bp, &bp->rss_conf_obj, false, true);
+ 		} else if ((info->flow_type == UDP_V6_FLOW) &&
+ 			   (bp->rss_conf_obj.udp_rss_v6 != udp_rss_requested)) {
+ 			bp->rss_conf_obj.udp_rss_v6 = udp_rss_requested;
+ 			DP(BNX2X_MSG_ETHTOOL,
+ 			   "rss re-configured, UDP 4-tupple %s\n",
+ 			   udp_rss_requested ? "enabled" : "disabled");
+-			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
++			return bnx2x_rss(bp, &bp->rss_conf_obj, false, true);
+ 		}
+ 		return 0;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 5729aa7..c69990d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -8060,7 +8060,10 @@ int bnx2x_set_eth_mac(struct bnx2x *bp, bool set)
+ 
+ int bnx2x_setup_leading(struct bnx2x *bp)
+ {
+-	return bnx2x_setup_queue(bp, &bp->fp[0], 1);
++	if (IS_PF(bp))
++		return bnx2x_setup_queue(bp, &bp->fp[0], true);
++	else /* VF */
++		return bnx2x_vfpf_setup_q(bp, &bp->fp[0], true);
+ }
+ 
+ /**
+@@ -8074,8 +8077,10 @@ int bnx2x_set_int_mode(struct bnx2x *bp)
+ {
+ 	int rc = 0;
+ 
+-	if (IS_VF(bp) && int_mode != BNX2X_INT_MODE_MSIX)
++	if (IS_VF(bp) && int_mode != BNX2X_INT_MODE_MSIX) {
++		BNX2X_ERR("VF not loaded since interrupt mode not msix\n");
+ 		return -EINVAL;
++	}
+ 
+ 	switch (int_mode) {
+ 	case BNX2X_INT_MODE_MSIX:
+@@ -11658,9 +11663,11 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+ 	 * second status block for the L2 queue, and a third status block for
+ 	 * CNIC if supported.
+ 	 */
+-	if (CNIC_SUPPORT(bp))
++	if (IS_VF(bp))
++		bp->min_msix_vec_cnt = 1;
++	else if (CNIC_SUPPORT(bp))
+ 		bp->min_msix_vec_cnt = 3;
+-	else
++	else /* PF w/o cnic */
+ 		bp->min_msix_vec_cnt = 2;
+ 	BNX2X_DEV_INFO("bp->min_msix_vec_cnt %d", bp->min_msix_vec_cnt);
+ 
+@@ -12571,8 +12578,7 @@ static int bnx2x_set_qm_cid_count(struct bnx2x *bp)
+  * @dev:	pci device
+  *
+  */
+-static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
+-				     int cnic_cnt, bool is_vf)
++static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev, int cnic_cnt)
+ {
+ 	int index;
+ 	u16 control = 0;
+@@ -12598,7 +12604,7 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
+ 
+ 	index = control & PCI_MSIX_FLAGS_QSIZE;
+ 
+-	return is_vf ? index + 1 : index;
++	return index;
+ }
+ 
+ static int set_max_cos_est(int chip_id)
+@@ -12678,10 +12684,13 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	is_vf = set_is_vf(ent->driver_data);
+ 	cnic_cnt = is_vf ? 0 : 1;
+ 
+-	max_non_def_sbs = bnx2x_get_num_non_def_sbs(pdev, cnic_cnt, is_vf);
++	max_non_def_sbs = bnx2x_get_num_non_def_sbs(pdev, cnic_cnt);
++
++	/* add another SB for VF as it has no default SB */
++	max_non_def_sbs += is_vf ? 1 : 0;
+ 
+ 	/* Maximum number of RSS queues: one IGU SB goes to CNIC */
+-	rss_count = is_vf ? 1 : max_non_def_sbs - cnic_cnt;
++	rss_count = max_non_def_sbs - cnic_cnt;
+ 
+ 	if (rss_count < 1)
+ 		return -EINVAL;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index 8e9847f..2a8c1dc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -746,9 +746,12 @@ int bnx2x_vfpf_release(struct bnx2x *bp);
+ int bnx2x_vfpf_release(struct bnx2x *bp);
+ int bnx2x_vfpf_init(struct bnx2x *bp);
+ void bnx2x_vfpf_close_vf(struct bnx2x *bp);
+-int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx);
++int bnx2x_vfpf_setup_q(struct bnx2x *bp, struct bnx2x_fastpath *fp,
++		       bool is_leading);
+ int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx);
+ int bnx2x_vfpf_config_mac(struct bnx2x *bp, u8 *addr, u8 vf_qid, bool set);
++int bnx2x_vfpf_config_rss(struct bnx2x *bp,
++			  struct bnx2x_config_rss_params *params);
+ int bnx2x_vfpf_set_mcast(struct net_device *dev);
+ int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp);
+ 
+@@ -809,7 +812,7 @@ static inline int bnx2x_vfpf_acquire(struct bnx2x *bp,
+ static inline int bnx2x_vfpf_release(struct bnx2x *bp) {return 0; }
+ static inline int bnx2x_vfpf_init(struct bnx2x *bp) {return 0; }
+ static inline void bnx2x_vfpf_close_vf(struct bnx2x *bp) {}
+-static inline int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx) {return 0; }
++static inline int bnx2x_vfpf_setup_q(struct bnx2x *bp, struct bnx2x_fastpath *fp, bool is_leading) {return 0; }
+ static inline int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx) {return 0; }
+ static inline int bnx2x_vfpf_config_mac(struct bnx2x *bp, u8 *addr,
+ 					u8 vf_qid, bool set) {return 0; }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index a7e88a4..6cfb887 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -379,6 +379,8 @@ int bnx2x_vfpf_init(struct bnx2x *bp)
+ 	req->stats_addr = bp->fw_stats_data_mapping +
+ 			  offsetof(struct bnx2x_fw_stats_data, queue_stats);
+ 
++	req->stats_stride = sizeof(struct per_queue_stats);
++
+ 	/* add list termination tlv */
+ 	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
+ 		      sizeof(struct channel_list_end_tlv));
+@@ -506,11 +508,12 @@ static void bnx2x_leading_vfq_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ }
+ 
+ /* ask the pf to open a queue for the vf */
+-int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx)
++int bnx2x_vfpf_setup_q(struct bnx2x *bp, struct bnx2x_fastpath *fp,
++		       bool is_leading)
+ {
+ 	struct vfpf_setup_q_tlv *req = &bp->vf2pf_mbox->req.setup_q;
+ 	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
+-	struct bnx2x_fastpath *fp = &bp->fp[fp_idx];
++	u8 fp_idx = fp->index;
+ 	u16 tpa_agg_size = 0, flags = 0;
+ 	int rc;
+ 
+@@ -526,6 +529,9 @@ int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx)
+ 		tpa_agg_size = TPA_AGG_SIZE;
+ 	}
+ 
++	if (is_leading)
++		flags |= VFPF_QUEUE_FLG_LEADING_RSS;
++
+ 	/* calculate queue flags */
+ 	flags |= VFPF_QUEUE_FLG_STATS;
+ 	flags |= VFPF_QUEUE_FLG_CACHE_ALIGN;
+@@ -699,6 +705,71 @@ out:
+ 	return 0;
+ }
+ 
++/* request pf to config rss table for vf queues*/
++int bnx2x_vfpf_config_rss(struct bnx2x *bp,
++			  struct bnx2x_config_rss_params *params)
++{
++	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
++	struct vfpf_rss_tlv *req = &bp->vf2pf_mbox->req.update_rss;
++	int rc = 0;
++
++	/* clear mailbox and prep first tlv */
++	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_UPDATE_RSS,
++			sizeof(*req));
++
++	/* add list termination tlv */
++	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
++		      sizeof(struct channel_list_end_tlv));
++
++	memcpy(req->ind_table, params->ind_table, T_ETH_INDIRECTION_TABLE_SIZE);
++	memcpy(req->rss_key, params->rss_key, sizeof(params->rss_key));
++	req->ind_table_size = T_ETH_INDIRECTION_TABLE_SIZE;
++	req->rss_key_size = T_ETH_RSS_KEY;
++	req->rss_result_mask = params->rss_result_mask;
++
++	/* flags handled individually for backward/forward compatability */
++	if (params->rss_flags & (1 << BNX2X_RSS_MODE_DISABLED))
++		req->rss_flags |= VFPF_RSS_MODE_DISABLED;
++	if (params->rss_flags & (1 << BNX2X_RSS_MODE_REGULAR))
++		req->rss_flags |= VFPF_RSS_MODE_REGULAR;
++	if (params->rss_flags & (1 << BNX2X_RSS_SET_SRCH))
++		req->rss_flags |= VFPF_RSS_SET_SRCH;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV4))
++		req->rss_flags |= VFPF_RSS_IPV4;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV4_TCP))
++		req->rss_flags |= VFPF_RSS_IPV4_TCP;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV4_UDP))
++		req->rss_flags |= VFPF_RSS_IPV4_UDP;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV6))
++		req->rss_flags |= VFPF_RSS_IPV6;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV6_TCP))
++		req->rss_flags |= VFPF_RSS_IPV6_TCP;
++	if (params->rss_flags & (1 << BNX2X_RSS_IPV6_UDP))
++		req->rss_flags |= VFPF_RSS_IPV6_UDP;
++
++	DP(BNX2X_MSG_IOV, "rss flags %x\n", req->rss_flags);
++
++	/* output tlvs list */
++	bnx2x_dp_tlv_list(bp, req);
++
++	/* send message to pf */
++	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
++	if (rc) {
++		BNX2X_ERR("failed to send message to pf. rc was %d\n", rc);
++		goto out;
++	}
++
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		BNX2X_ERR("failed to send rss message to PF over Vf PF channel %d\n",
++			  resp->hdr.status);
++		rc = -EINVAL;
++	}
++out:
++	bnx2x_vfpf_finalize(bp, &req->first_tlv);
++
++	return 0;
++}
++
+ int bnx2x_vfpf_set_mcast(struct net_device *dev)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-- 
+1.7.1
