@@ -1,92 +1,62 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH 5/7] ixgbe: use pcie_capability_read_word() to simplify
- code
-Date: Wed, 4 Sep 2013 10:20:22 -0600
-Message-ID: <20130904162022.GE24733@google.com>
-References: <1378193715-25328-1-git-send-email-wangyijing@huawei.com>
- <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/6] bonding: simplify and use RCU
+ protection for 3ad xmit path
+Date: Wed, 04 Sep 2013 12:25:12 -0400 (EDT)
+Message-ID: <20130904.122512.1633906087065495330.davem@davemloft.net>
+References: <522700D1.5060805@huawei.com>
+	<20130904101823.GO1992@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Gavin Shan <shangw@linux.vnet.ibm.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-	Hanjun Guo <guohanjun@huawei.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jacob Keller <jacob.e.keller@intel.com>
-To: Yijing Wang <wangyijing@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1378193715-25328-5-git-send-email-wangyijing@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dingtianhong@huawei.com, fubar@us.ibm.com, andy@greyhouse.net,
+	nikolay@redhat.com, netdev@vger.kernel.org
+To: vfalico@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38142 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757086Ab3IDQZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 12:25:16 -0400
+In-Reply-To: <20130904101823.GO1992@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[+cc Jacob, Jeff]
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Wed, 4 Sep 2013 12:18:24 +0200
 
-On Tue, Sep 03, 2013 at 03:35:13PM +0800, Yijing Wang wrote:
-> use pcie_capability_read_word() to simplify code.
+> On Wed, Sep 04, 2013 at 05:43:45PM +0800, Ding Tianhong wrote:
+> ...snip...
+>>+/**
+>>+ * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an
+>>empty list
+>>+ * Caller must hold rcu_read_lock
+>>+ */
+>>+#define bond_first_slave_rcu(bond) \
+>>+	list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
+>>+#define bond_last_slave_rcu(bond) \
+>>+	(list_empty(&(bond)->slave_list) ? NULL : \
+>>+ bond_to_slave_rcu((bond)->slave_list.prev))
 > 
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-> Cc: e1000-devel@lists.sourceforge.net
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 ++----
->  1 files changed, 2 insertions(+), 4 deletions(-)
+> Here, bond_last_slave_rcu() is racy. The list can be non-empty when
+> list_empty() is verified, however afterwards it might become empty,
+> when
+> you call bond_to_slave_rcu(), and thus you'll get
+> bond_to_slave(bond->slave_list) in the result, which is not a slave.
 > 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index bad8f14..bfa0b06 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -152,7 +152,6 @@ MODULE_VERSION(DRV_VERSION);
->  static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
->  					  u32 reg, u16 *value)
->  {
-> -	int pos = 0;
->  	struct pci_dev *parent_dev;
->  	struct pci_bus *parent_bus;
->  
-> @@ -164,11 +163,10 @@ static int ixgbe_read_pci_cfg_word_parent(struct ixgbe_adapter *adapter,
->  	if (!parent_dev)
->  		return -1;
->  
-> -	pos = pci_find_capability(parent_dev, PCI_CAP_ID_EXP);
-> -	if (!pos)
-> +	if (!pci_is_pcie(parent_dev))
->  		return -1;
->  
-> -	pci_read_config_word(parent_dev, pos + reg, value);
-> +	pcie_capability_read_word(parent_dev, reg, value);
->  	return 0;
->  }
->  
+> Take a look at list_first_or_null_rcu() for a reference. The main idea
+> is
+> that it first gets the ->next pointer, with RCU protection, and then
+> verifies if it's the list head or not, and if not - it gets the
+> container
+> already. This way the ->next pointer won't get away.
+> 
+> These kind of bugs are really rare, but are *EXTREMELY* hard to debug.
 
-Here's the caller of ixgbe_read_pci_cfg_word_parent():
+I agree with this analysis.
 
-    /* Get the negotiated link width and speed from PCI config space of the
-     * parent, as this device is behind a switch
-     */
-    err = ixgbe_read_pci_cfg_word_parent(adapter, 18, &link_status);
+Ding, "rcu_read_lock()" doesn't "lock" anything.  It's just a memory
+barrier.
 
-This should be using PCI_EXP_LNKSTA instead of "18".
+All the list can still change on you asynchronously to your accesses.
 
-But it would be even better if we could drop ixgbe_get_parent_bus_info()
-completely.  It seems redundant after merging Jacob's new
-pcie_get_minimum_link() stuff [1].
-
-ixgbe_disable_pcie_master() looks like it should be using
-pcie_capability_read_word() with PCI_EXP_DEVSTA instead of using
-IXGBE_PCI_DEVICE_STATUS.  If fact, it looks like it could use the
-new pci_wait_for_pending_transaction() interface [2].
-
-It looks like all the #defines in the "PCI Bus Info" block
-(IXGBE_PCI_DEVICE_STATUS, IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING,
-IXGBE_PCI_LINK_STATUS, etc.) [3] are really for PCIe-generic things.  If
-so, the IXGBE-specific ones should be dropped in favor of the generic
-ones.
-
-[1] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c?id=e027d1aec4bb49030646d2c186a721f94372d7f2
-[2] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/pci/pci.c?id=3775a209d38aa3a0c7ed89a7d0f529e0230f280e
-[3] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h#n1833
+That's why list_first_or_null_rcu() is so carefully arranged.
+Therefore, you must make similar accomodations.
