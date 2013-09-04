@@ -1,37 +1,53 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ipv4: warnings on sk_wmem_queued
-Date: Wed, 4 Sep 2013 00:21:50 +0000
-Message-ID: <20130904002150.GA14033@dcvr.yhbt.net>
-References: <20130830195638.GA27393@dcvr.yhbt.net>
- <alpine.DEB.2.02.1308311229280.3532@dtop>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
+ tcp_v6_do_rcv
+Date: Tue, 3 Sep 2013 18:51:57 -0600
+Message-ID: <20130904005157.GG8262@mail.gmail.com>
+References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+ <1378230513.7360.37.camel@edumazet-glaptop>
+ <20130903194620.GE8262@mail.gmail.com>
+ <1378240517.7360.41.camel@edumazet-glaptop>
+ <20130903215915.GF8262@mail.gmail.com>
+ <1378247352.7360.50.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dormando <dormando@rydia.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:34011 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761445Ab3IDAyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 20:54:25 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so6764236pbb.28
+        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 17:54:25 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1308311229280.3532@dtop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1378247352.7360.50.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dormando <dormando@rydia.net> wrote:
-> > I noticed these warnings on stock 3.10.9 running stress tests on
-> > cmogstored.git (git://bogomips.org/cmogstored.git) doing standard
-> > HTTP server stuff between lo and tmpfs:
-> >
-> [...]
-> > I was going to reboot into 3.10.10 before I looked at dmesg.  These
-> > warnings happened after ~8 hours of stress tests, and those stress tests
-> > are still running.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 03 Sep 2013 15:29:12 -0700
+>
+> On Tue, 2013-09-03 at 15:59 -0600, Jean Sacren wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 03 Sep 2013 13:35:17 -0700
+> > >
+> > > How did you get your conclusion ?
+> > 
+> > If one changes one line of code, doesn't one own that line?
+> > 
 > 
-> I had a kernel panic this morning on a production machine, also running
-> 3.10.9. I only got a small part of the end of the trace, but it matches:
+> 'Owning' like he is the guy who can sell it ? OK I understand now
+> so many people send 'cleanups' ;)
 
-I haven't managed to hit any kernel panic nor my original warning again
-after all these days of constant 20+ GB/s lo traffic.  I'll finally
-reboot into 3.10.10 now.  dmesg has been completely quiet since the warning
-and the machine is still running well.
+'Owning' like he is the guy who is responsible for the change. Whether
+you understand it or not, that's your own business.
 
-> (also: hi Eric!)
+The idea was by taking one example to determine who is really to blame
+for: Is the one passing on the bug responsible? Thanks to Daniel
+Borkmann for the answer.
 
-Hi dormando!
+-- 
+Jean Sacren
