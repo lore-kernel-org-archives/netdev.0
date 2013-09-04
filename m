@@ -1,57 +1,78 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] xen-netback: count number required slots for an skb
- more carefully
-Date: Wed, 04 Sep 2013 14:56:20 +0800
-Message-ID: <5226D994.9000401@oracle.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com> <20130903215328.GA13465@zion.uk.xensource.com> <52269A37.7030600@oracle.com> <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] ppc: bpf_jit: support MOD operation
+Date: Wed, 04 Sep 2013 09:04:04 +0200
+Message-ID: <5226DB64.3020207@redhat.com>
+References: <1377643792-10327-1-git-send-email-murzin.v@gmail.com> <20130902174842.GA1866@hp530> <1378154750.3978.43.camel@pasglop> <20130903195819.GA1971@hp530> <52264C0D.3000409@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	xen-devel@lists.xen.org,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	msw@amazon.com
-To: Matt Wilson <msw@linux.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, paulus@samba.org,
+	davem@davemloft.net, Matt Evans <matt@ozlabs.org>,
+	netdev <netdev@vger.kernel.org>
+To: Vladimir Murzin <murzin.v@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43744 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761963Ab3IDG4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 02:56:39 -0400
-In-Reply-To: <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23232 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755775Ab3IDHET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 03:04:19 -0400
+In-Reply-To: <52264C0D.3000409@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2013-9-4 14:04, Matt Wilson wrote:
-> On Wed, Sep 04, 2013 at 10:25:59AM +0800, annie li wrote:
->> On 2013-9-4 5:53, Wei Liu wrote:
-> [...]
->>> Matt, do you fancy sending the final version? IIRC the commit message
->>> needs to be re-written. I personally still prefer Matt's solution as
->>> it a) make efficient use of the ring, b) uses ring pointers to
->>> calculate slots which is most accurate, c) removes the dependence on
->>> MAX_SKB_FRAGS in guest RX path.
+On 09/03/2013 10:52 PM, Daniel Borkmann wrote:
+> On 09/03/2013 09:58 PM, Vladimir Murzin wrote:
+[...]
+>>> Do you have a test case/suite by any chance ?
 >>>
->>> Anyway, we should get this fixed ASAP.
->> Totally agree. This issue is easy to be reproduced with large MTU.
->> It is better to upstream the fix soon in case others hit it and
->> waste time to fix it.
-> I'd like to go with Xi's proposed patch that I posed earlier. The main
-> thing that's kept me from sending a final version is lack of time to
-> retest against a newer kernel.
+>>> Ben.
+>>>
+>>
+>> Hi Ben!
+>>
+>> Thanks for your feedback.
+>>
+>> This patch is only compile tested. I have no real hardware, but I'll
+>> probably bring up qemu ppc64 till end of the week...
+>> Meanwhile, I've made simple how-to for testing. You can use it if you wish.
+>> It is mainly based on the [1] and rechecked on x86-64.
 >
-> Could someone help out with that? I probably can't get to it until the
-> end of the week.
+> Please also cc netdev on BPF related changes.
+>
+> Actually, your test plan can be further simplified ...
+>
+> For retrieving and disassembling the JIT image, we have bpf_jit_disasm [1].
+>
+>   1) echo 2 > /proc/sys/net/core/bpf_jit_enable
+>   2) ... attach filter ...
+>   3) bpf_jit_disasm -o
+>
+> For generating a simple stupid test filter, you can use bpfc [2] (also
+> see its man page). E.g. ...
+>
+>    # cat blub
+>    ldi #10
+>    mod #8
+>    ret a
+>    # bpfc blub
+>    { 0x0, 0, 0, 0x0000000a },
+>    { 0x94, 0, 0, 0x00000008 },
+>    { 0x16, 0, 0, 0x00000000 },
 
-I can rebase it. Since wei's NAPI &1:1 model patch went into net-next 
-already, it should not be able to applied directly.
+Plus something like ...
 
-Thanks
-Annie
+ldxi #0
+mod x
+ret a
+
+For longer-term testing, also trinity has BPF support. ;)
+
+> And load this array e.g. either into a small C program that attaches this
+> as BPF filter, or simply do bpfc blub > blub2 and run netsniff-ng -f blub2\
+> -s -i eth0, that should also do it.
 >
-> Sorry for the delay. :-(
+> Then, when attached, the kernel should truncate incoming frames for pf_packet
+> into max length of 2, just as an example.
 >
-> --msw
+>    [1] kernel tree, tools/net/bpf_jit_disasm.c
+>    [2] git clone git://github.com/borkmann/netsniff-ng.git
