@@ -1,95 +1,57 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [-next] openvswitch BUILD_BUG_ON failed
-Date: Wed, 4 Sep 2013 08:55:59 +0200
-Message-ID: <CAMuHMdVvB+GMwMrP2mieXbqAM7mn3nF_1ezbiYVBLKdsL5aCJg@mail.gmail.com>
-References: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
-	<CAEP_g=-XvRiHPzSAp2rgC9Hxdd+pGEHvSTEJ1A1SkWnk1-6xZA@mail.gmail.com>
-	<20130829.181001.145658561677052552.davem@davemloft.net>
-	<CAEP_g=-XxgK9HVxvcaW3RS2zfa+77pB4cqfLFC0rcV7QJc+2BQ@mail.gmail.com>
-	<CAMuHMdU3M9uUFKd3EQ0HbcAvf5e62PA4NJG_mQHhpvZwFJnUWQ@mail.gmail.com>
-	<CAEP_g=-BWdWJ5WtNy0=Eq8GJp84i88QbGq-gQcANBhCKajcJsQ@mail.gmail.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] xen-netback: count number required slots for an skb
+ more carefully
+Date: Wed, 04 Sep 2013 14:56:20 +0800
+Message-ID: <5226D994.9000401@oracle.com>
+References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com> <20130903215328.GA13465@zion.uk.xensource.com> <52269A37.7030600@oracle.com> <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Andy Zhou <azhou@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux-Next <linux-next@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=-BWdWJ5WtNy0=Eq8GJp84i88QbGq-gQcANBhCKajcJsQ@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	xen-devel@lists.xen.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	msw@amazon.com
+To: Matt Wilson <msw@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43744 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761963Ab3IDG4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 02:56:39 -0400
+In-Reply-To: <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 3, 2013 at 11:44 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Sat, Aug 31, 2013 at 5:11 AM, Geert Uytterhoeven
-> <geert@linux-m68k.org> wrote:
->> On Fri, Aug 30, 2013 at 3:11 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Thu, Aug 29, 2013 at 3:10 PM, David Miller <davem@davemloft.net> wrote:
->>>> From: Jesse Gross <jesse@nicira.com>
->>>> Date: Thu, 29 Aug 2013 14:42:22 -0700
->>>>
->>>>> On Thu, Aug 29, 2013 at 2:21 PM, Geert Uytterhoeven
->>>>> <geert@linux-m68k.org> wrote:
->>>>>> However, I have some doubts about other alignment "enforcements":
->>>>>>
->>>>>> "__aligned(__alignof__(long))" makes the whole struct aligned to the
->>>>>> alignment rule for "long":
->>>>>>    1. This is only 2 bytes on m68k, i.e. != sizeof(long).
->>>>>>    2. This is 4 bytes on many 32-bit platforms, which may be less than the
->>>>>>       default alignment for "__be64" (cfr. some members of struct
->>>>>>       ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
->>>>>
->>>>> Do any of those 32-bit architectures actually care about alignment of
->>>>> 64 bit values? On 32-bit x86, a long is 32 bits but the alignment
->>>>> requirement of __be64 is also 32 bit.
->>>>
->>>> All except x86-32 do, it is in fact the odd man out with respect to this
->>>> issue.
+
+On 2013-9-4 14:04, Matt Wilson wrote:
+> On Wed, Sep 04, 2013 at 10:25:59AM +0800, annie li wrote:
+>> On 2013-9-4 5:53, Wei Liu wrote:
+> [...]
+>>> Matt, do you fancy sending the final version? IIRC the commit message
+>>> needs to be re-written. I personally still prefer Matt's solution as
+>>> it a) make efficient use of the ring, b) uses ring pointers to
+>>> calculate slots which is most accurate, c) removes the dependence on
+>>> MAX_SKB_FRAGS in guest RX path.
 >>>
->>> Thanks, good to know.
->>>
->>> Andy, do you want to modify your patch to just drop the alignment
->>> specification as Geert suggested (but definitely keep the new build
->>> assert that you added)? It's probably better to just send the patch to
->>> netdev (against net-next) as well since you'll likely get better
->>> comments there and we can fix this faster if you cut out the
->>> middleman.
->>
->> Why do you want to keep the build asserts?
->> Is this in-memory structure also transfered as-is over the network?
->> If yes, you definitely want the padding.
+>>> Anyway, we should get this fixed ASAP.
+>> Totally agree. This issue is easy to be reproduced with large MTU.
+>> It is better to upstream the fix soon in case others hit it and
+>> waste time to fix it.
+> I'd like to go with Xi's proposed patch that I posed earlier. The main
+> thing that's kept me from sending a final version is lack of time to
+> retest against a newer kernel.
 >
-> Well they caught this bug and really don't cost anything.
+> Could someone help out with that? I probably can't get to it until the
+> end of the week.
+
+I can rebase it. Since wei's NAPI &1:1 model patch went into net-next 
+already, it should not be able to applied directly.
+
+Thanks
+Annie
 >
->> Nevertheless, as the struct contains u32 and even __be64 members, the
->> size of the struct will always be a multiple of the alignment unit for
->> 64-bit quantities (and thus also for long), as per the C standard.
->> Hence the check
->>
->>     BUILD_BUG_ON(sizeof(struct sw_flow_key) % __alignof__(long));
->>
->> will only catch bad compiler bugs or people adding __packed to the struct.
+> Sorry for the delay. :-(
 >
-> It's possible that we might want to pack the structure in the future.
-> More generally though, the contents of the struct is really
-> independent of the alignment requirements here because we're accessing
-> it as an array of bytes in long-sized chunks so implicitly depending
-> on the size of the members is not that great.
-
-So you're accessing it as an array of bytes in long-sized chunks.
-What are you doing with this accessed data?
-Transfering over the network?
-Storing on disk?
-Then it must be portable across machines and architectures, right?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> --msw
