@@ -1,69 +1,54 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH v4] ipv6:introduce function to find route for redirect
-Date: Wed, 04 Sep 2013 20:06:11 +0800
-Message-ID: <52272233.20307@cn.fujitsu.com>
-References: <52242CE1.5050501@cn.fujitsu.com> <20130902195056.GA5451@order.stressinduktion.org> <5225758F.8080604@cn.fujitsu.com> <20130903191729.GA28889@order.stressinduktion.org>
+From: Simon Jouet <simon.jouet@gmail.com>
+Subject: Kernel 3.7+ tcp_metric cache system
+Date: Wed, 4 Sep 2013 13:09:05 +0100
+Message-ID: <CAJWKWvDrjnLpnRR2GmmRLv6EXQdPP9Gb4+-EhWXYhLQzoVrJag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:20331 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S934622Ab3IDMGu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 08:06:50 -0400
-In-Reply-To: <20130903191729.GA28889@order.stressinduktion.org>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:42727 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932464Ab3IDMJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 08:09:06 -0400
+Received: by mail-la0-f47.google.com with SMTP id eo20so190316lab.34
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 05:09:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B409=E6=9C=8804=E6=97=A5 03:17, Hannes Frederic So=
-wa =E5=86=99=E9=81=93:
-> On Tue, Sep 03, 2013 at 01:37:19PM +0800, Duan Jiong wrote:
->>> Btw. I still think it should be possible to eliminate
->>> ip6_redirect_no_header:
->>>
->>> We could always use ip6_redirect_no_header and use the data of the =
-redirected
->>> header option just for finding the socket to be notified. We can do=
- the whole
->>> verification and route updating in ndisc layer and then just call i=
-nto icmpv6
->>> layer if upper protocols need a notification of the redirect. But t=
-hat should
->>> go into another patch. ;)
->>>
->>
->> I think this is good, but i have a question below:
->>
->>   if the socket type is connection-based, the dst information is sto=
-red in related
->> sock struct, so there is no need to look up the route for redirect i=
-n ip6_redirect
->> or ip6_redirect_no_header, in this case, we do the verification and =
-route=20
->> updating in the upper protocols' err_handler is better.=20
->>
->> How do you think of this?
->=20
-> This should not be a problem, because every cached dst should be vali=
-dated
-> with ip6_dst_check before it is used. It uses the fib6_node serial nu=
-mber
-> which is incremented for all fib6_nodes on the path to the new instal=
-led
-> node by fib6_add_1. So we are safe here.
->=20
-> Btw. this is the same logic redirects get currently picked up, too.
->=20
+Hi,
 
-Thanks for you answer, but i still have some questions on dealing with =
-redirect
-in ip4ip6_err() and ipip6_err(), and i need some time to learn more abo=
-ut them.
-So i only send one patch to fix the bug.
+First of all apologies if this mailing list doesn't this kind of
+discussions, if not could you please redirect me to a more suitable
+one ?
 
-Please forgive me is a newbie.:)
+So, for my current research I require to be able to specify for
+specific hosts what cwnd and rto to use, after some investigation I
+came accross the modifications that have been done in kernel 3.7 to
+bring the tcp_metric cache and the get/del netlink commands.
 
-Thanks,
-  Duan=20
+I added a new command "tcp_metrics_nl_cmd_add" to be able to add
+entries to the cache (the code is available here
+http://pastebin.com/gSvhyjWU, this is very much work in progress).
+This work well enough and calling "ip tcpm show" afterwards to list
+the entries show the correct information.
+
+The issue is that these values are never used or at least from what I
+can see. So once an entry is added it is attempted to be read by the
+function tcp_init_metrics(struct sock *sk) and it's read only if it's
+locked (tcp_metric_locked) I'm not sure what the lock flag is used
+for, f anybody has any pointer for that ...
+
+Anyway the connection will go to the "reset" goto label, the cwnd will
+be reinitialised by tcp_init_cwnd (defined in tcp_input.c), in what
+I've tested  "__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) :
+0);" will always return 0 and the cwnd will be defaulted to 10.
+
+I'm probably doing something wrong .... But in which condition is the
+cached cwnd used ? I tried to find some documentation on tcp_metric
+but I couldn't find much.
+
+Best regards,
+Simon
+
+P.S : If anything is unclear please let me know, so I can rephrase or
+provide more details
