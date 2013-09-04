@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Optimize vxlan rcv
-Date: Wed, 04 Sep 2013 14:42:43 -0400 (EDT)
-Message-ID: <20130904.144243.2243750034713846459.davem@davemloft.net>
-References: <1378226684-7751-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net-next] tcp: better comments for RTO initiallization
+Date: Wed, 04 Sep 2013 14:42:54 -0400 (EDT)
+Message-ID: <20130904.144254.1400556228778253031.davem@davemloft.net>
+References: <1378242875-5172-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: pshelar@nicira.com
+Cc: ncardwell@google.com, edumazet@google.com, netdev@vger.kernel.org
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44369 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44382 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932236Ab3IDSmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:42:44 -0400
-In-Reply-To: <1378226684-7751-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S932236Ab3IDSm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:42:58 -0400
+In-Reply-To: <1378242875-5172-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Tue,  3 Sep 2013 09:44:44 -0700
+From: Yuchung Cheng <ycheng@google.com>
+Date: Tue,  3 Sep 2013 14:14:35 -0700
 
-> vxlan-udp-recv function lookup vxlan_sock struct on every packet
-> recv by using udp-port number. we can use sk->sk_user_data to
-> store vxlan_sock and avoid lookup.
-> I have open coded rcu-api to store and read vxlan_sock from
-> sk_user_data to avoid sparse warning as sk_user_data is not
-> __rcu pointer.
+> Commit 1b7fdd2ab585("tcp: do not use cached RTT for RTT estimation")
+> removes important comments on how RTO is initialized and updated.
+> Hopefully this patch puts those information back.
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
 Applied.
