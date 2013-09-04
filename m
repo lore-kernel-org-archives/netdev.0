@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] net: emac: use platform_{get,set}_drvdata()
-Date: Tue, 03 Sep 2013 22:40:03 -0400 (EDT)
-Message-ID: <20130903.224003.792091851244921220.davem@davemloft.net>
-References: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
+Subject: Re: [PATCH V3 0/6] vhost code cleanup and minor enhancement
+Date: Tue, 03 Sep 2013 22:47:41 -0400 (EDT)
+Message-ID: <20130903.224741.300532243318088831.davem@davemloft.net>
+References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pgynther@google.com
-To: jg1.han@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53991 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761703Ab3IDCkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 22:40:07 -0400
-In-Reply-To: <000f01cea7b3$6226fd30$2674f790$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Mon, 02 Sep 2013 17:06:52 +0900
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon,  2 Sep 2013 16:40:55 +0800
 
-> Use the wrapper functions for getting and setting the driver data
-> using platform_device instead of using dev_{get,set}_drvdata()
-> with &pdev->dev, so we can directly pass a struct platform_device.
-> This is a purely cosmetic change.
+> This series tries to unify and simplify vhost codes especially for
+> zerocopy. With this series, 5% - 10% improvement for per cpu throughput were
+> seen during netperf guest sending test.
 > 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+> Plase review.
 
-All 5 patches applied.
-
-Please, in the future, provide an initial "[PATCH 00/nn] " posting for
-a series of patches, giving a top-level description of what is happening.
-
-This way I can include that commit message text in a merge commit and
-also I have an appropriate email to reply to if I just want to say
-that I applied everything in the series.
+Applied and patch #5 queued up for -stable, thanks.
