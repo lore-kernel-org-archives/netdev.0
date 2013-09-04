@@ -1,42 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch] sfc: check for allocation failure
-Date: Wed, 4 Sep 2013 15:41:18 +0100
-Message-ID: <1378305678.1556.2.camel@bwh-desktop.uk.level5networks.com>
-References: <20130902082828.GA30037@elgon.mountain>
-	 <20130903.224939.866623192858217581.davem@davemloft.net>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 0/3] Send audit/procinfo/cgroup data in socket-level
+	control message
+Date: Wed, 4 Sep 2013 10:45:07 -0400
+Message-ID: <20130904144507.GA25788@mtj.dyndns.org>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1378275261-4553-1-git-send-email-jkaluza@redhat.com>
+	<878uzdf2xp.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:38527 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934495Ab3IDOly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 10:41:54 -0400
-In-Reply-To: <20130903.224939.866623192858217581.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <878uzdf2xp.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-03 at 22:49 -0400, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Mon, 2 Sep 2013 12:04:42 +0300
+Hello, Eric.
+
+On Wed, Sep 04, 2013 at 12:42:26AM -0700, Eric W. Biederman wrote:
+> Can I just say ick, blech, barf, gag.
+
+Gees, an awesome way to start the conversation.  If your gag response
+is hyper-sensitive, go see a frigging doctor.  It's annoying because
+you tend to go over the top while getting things wrong often enough.
+Even if you don't agree, you don't have to start things this way.
+
+> You don't require this information to be passed.  You are asking people
+> to suport a lot of new code for the forseeable future.  The only advantage
+> appears to be for short lived racy processes that don't even bother to
+> make certain their message was acknowleged before exiting.
+
+While I'm not sure whether this is *the* right appraoch, how is "we
+have some pretty visible race conditions but it's probably okay" an
+answer?  This affects auditing and logging directly and you're saying
+"ah well, the program wasn't running long enough"?
+
+> You sent this during the merge window which is the time for code
+> integration and testing not new code.
+
+What are you talking about?  It is *okay* to send new patches during
+merge window even if it's headed for the next merge window.  Sending
+patches to maintainers doesn't mean "this should go in right now".
+Maintainers are of course free to delay response or ask for
+pinging/resending later but it's just stupid to accuse patch
+submitters for sending patches.  What the hell is that?
+
+> By my count you have overflowed cb in struct sk_buff and are stomping on
+> _skb_refdest.
 > 
-> > It upsets static analyzers when we don't check for allocation failure.
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> This applies cleanly neither to net nor net-next, please send me a
-> version that does.
+> If you are going to go crazy and pass things is there a reason you do
+> not add a patch to pass the bsd SCM_CREDS?  That information seems more
+> relevant in a security context and for making security decisions than
+> about half the information you are passing.
 
-Oh yes, I failed to spot the filename.  That function has since been
-moved to falcon.c.
+You could have lost all the other paragraphs and just responded with
+the above.  I don't think we can extend an existing struct but maybe
+how information is packed can be adjusted.  That said, the proposed
+split makes sense to me.
 
-Ben.
+Thanks.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+tejun
