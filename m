@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] drivers:net: delete premature free_irq
-Date: Wed, 04 Sep 2013 13:18:37 -0400 (EDT)
-Message-ID: <20130904.131837.936191711263259013.davem@davemloft.net>
-References: <1378115661-5371-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1378115661-5371-3-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH] net: sctp: Fix data chunk fragmentation for MTU values
+ which are not multiple of 4
+Date: Wed, 04 Sep 2013 13:20:58 -0400 (EDT)
+Message-ID: <20130904.132058.515642898688349547.davem@davemloft.net>
+References: <52249981.8040006@nsn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcuos.com@gmail.com, kernel-janitors@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378115661-5371-3-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	matija.glavinic-pecotic.ext@nsn.com, netdev@vger.kernel.org
+To: alexander.sverdlin@nsn.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41072 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752922Ab3IDRVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 13:21:00 -0400
+In-Reply-To: <52249981.8040006@nsn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Mon,  2 Sep 2013 11:54:21 +0200
+From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
+Date: Mon, 02 Sep 2013 15:58:25 +0200
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
 > 
-> Free_irq is not needed if there has been no request_irq.  Free_irq is
-> removed from both the probe and remove functions.  The correct request_irq
-> and free_irq are found in the open and close functions.
+> net: sctp: Fix data chunk fragmentation for MTU values which are not multiple of 4
 > 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
+> Initially the problem was observed with ipsec, but later it became clear that
+> SCTP data chunk fragmentation algorithm has problems with MTU values which are
+> not multiple of 4. Test program was used which just transmits 2000 bytes long
+> packets to other host. tcpdump was used to observe re-fragmentation in IP layer
+> after SCTP already fragmented data chunks.
  ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Here problem in data portion limit calculation leads to re-fragmentation in IP,
+> which is sub-optimal. The problem is max_data initial value, which doesn't take
+> into account the fact, that data chunk must be padded to 4-bytes boundary.
+> It's enough to correct max_data, because all later adjustments are correctly
+> aligned to 4-bytes boundary.
+> 
+> After the fix is applied, everything is fragmented correctly for uneven MTUs:
+ ...
+> The bug was there for years already, but
+>  - is a performance issue, the packets are still transmitted
+>  - doesn't show up with default MTU 1500, but possibly with ipsec (MTU 1438)
+> 
+> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nsn.com>
 
-Applied, thank you.
+Applied, thanks.
