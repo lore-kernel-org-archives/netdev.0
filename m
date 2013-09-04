@@ -1,57 +1,95 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/2] sh_eth: check platform data pointer
-Date: Wed, 4 Sep 2013 15:48:34 +0900
-Message-ID: <20130904064833.GB7233@verge.net.au>
-References: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [-next] openvswitch BUILD_BUG_ON failed
+Date: Wed, 4 Sep 2013 08:55:59 +0200
+Message-ID: <CAMuHMdVvB+GMwMrP2mieXbqAM7mn3nF_1ezbiYVBLKdsL5aCJg@mail.gmail.com>
+References: <CAMuHMdVG9FmZNayrf7HMz4kC4X5QELeXUFjjzpAM80ND_QOm8A@mail.gmail.com>
+	<CAEP_g=-XvRiHPzSAp2rgC9Hxdd+pGEHvSTEJ1A1SkWnk1-6xZA@mail.gmail.com>
+	<20130829.181001.145658561677052552.davem@davemloft.net>
+	<CAEP_g=-XxgK9HVxvcaW3RS2zfa+77pB4cqfLFC0rcV7QJc+2BQ@mail.gmail.com>
+	<CAMuHMdU3M9uUFKd3EQ0HbcAvf5e62PA4NJG_mQHhpvZwFJnUWQ@mail.gmail.com>
+	<CAEP_g=-BWdWJ5WtNy0=Eq8GJp84i88QbGq-gQcANBhCKajcJsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Andy Zhou <azhou@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CAEP_g=-BWdWJ5WtNy0=Eq8GJp84i88QbGq-gQcANBhCKajcJsQ@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 31, 2013 at 04:23:29AM +0400, Sergei Shtylyov wrote:
-> Check the platform data pointer before dereferencing it and error out of the
-> probe() method if it's NULL.
-> 
-> This has additional effect of preventing kernel oops with outdated platform data
-> containing zero PHY address instead (such as on SolutionEngine7710).
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On Tue, Sep 3, 2013 at 11:44 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Sat, Aug 31, 2013 at 5:11 AM, Geert Uytterhoeven
+> <geert@linux-m68k.org> wrote:
+>> On Fri, Aug 30, 2013 at 3:11 AM, Jesse Gross <jesse@nicira.com> wrote:
+>>> On Thu, Aug 29, 2013 at 3:10 PM, David Miller <davem@davemloft.net> wrote:
+>>>> From: Jesse Gross <jesse@nicira.com>
+>>>> Date: Thu, 29 Aug 2013 14:42:22 -0700
+>>>>
+>>>>> On Thu, Aug 29, 2013 at 2:21 PM, Geert Uytterhoeven
+>>>>> <geert@linux-m68k.org> wrote:
+>>>>>> However, I have some doubts about other alignment "enforcements":
+>>>>>>
+>>>>>> "__aligned(__alignof__(long))" makes the whole struct aligned to the
+>>>>>> alignment rule for "long":
+>>>>>>    1. This is only 2 bytes on m68k, i.e. != sizeof(long).
+>>>>>>    2. This is 4 bytes on many 32-bit platforms, which may be less than the
+>>>>>>       default alignment for "__be64" (cfr. some members of struct
+>>>>>>       ovs_key_ipv4_tunnel), so this may make those 64-bit members unaligned.
+>>>>>
+>>>>> Do any of those 32-bit architectures actually care about alignment of
+>>>>> 64 bit values? On 32-bit x86, a long is 32 bits but the alignment
+>>>>> requirement of __be64 is also 32 bit.
+>>>>
+>>>> All except x86-32 do, it is in fact the odd man out with respect to this
+>>>> issue.
+>>>
+>>> Thanks, good to know.
+>>>
+>>> Andy, do you want to modify your patch to just drop the alignment
+>>> specification as Geert suggested (but definitely keep the new build
+>>> assert that you added)? It's probably better to just send the patch to
+>>> netdev (against net-next) as well since you'll likely get better
+>>> comments there and we can fix this faster if you cut out the
+>>> middleman.
+>>
+>> Why do you want to keep the build asserts?
+>> Is this in-memory structure also transfered as-is over the network?
+>> If yes, you definitely want the padding.
+>
+> Well they caught this bug and really don't cost anything.
+>
+>> Nevertheless, as the struct contains u32 and even __be64 members, the
+>> size of the struct will always be a multiple of the alignment unit for
+>> 64-bit quantities (and thus also for long), as per the C standard.
+>> Hence the check
+>>
+>>     BUILD_BUG_ON(sizeof(struct sw_flow_key) % __alignof__(long));
+>>
+>> will only catch bad compiler bugs or people adding __packed to the struct.
+>
+> It's possible that we might want to pack the structure in the future.
+> More generally though, the contents of the struct is really
+> independent of the alignment requirements here because we're accessing
+> it as an array of bytes in long-sized chunks so implicitly depending
+> on the size of the members is not that great.
 
+So you're accessing it as an array of bytes in long-sized chunks.
+What are you doing with this accessed data?
+Transfering over the network?
+Storing on disk?
+Then it must be portable across machines and architectures, right?
 
-Reviewed-by: Simon Horman <horms@verge.net.au>
+Gr{oetje,eeting}s,
 
-> 
-> ---
-> This patch is against Dave's 'net-next.git' repo.
-> 
->  drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2653,6 +2653,12 @@ static int sh_eth_drv_probe(struct platf
->  	pm_runtime_enable(&pdev->dev);
->  	pm_runtime_resume(&pdev->dev);
->  
-> +	if (!pd) {
-> +		dev_err(&pdev->dev, "no platform data\n");
-> +		ret = -EINVAL;
-> +		goto out_release;
-> +	}
-> +
->  	/* get PHY ID */
->  	mdp->phy_id = pd->phy;
->  	mdp->phy_interface = pd->phy_interface;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
