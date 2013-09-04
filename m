@@ -1,142 +1,59 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 6/6] bonding: use RCU protection for alb xmit
- path
-Date: Wed, 4 Sep 2013 14:24:47 +0800
-Message-ID: <5226D22F.2060706@huawei.com>
-References: <52206E54.4040001@huawei.com> <5225B855.6080101@redhat.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] net: ipv6: tcp: fix potential use after free in
+ tcp_v6_do_rcv
+Date: Wed, 4 Sep 2013 08:26:39 +0200
+Message-ID: <20130904082639.5c5e3bb4@griffin>
+References: <1378229352-9779-1-git-send-email-dborkman@redhat.com>
+	<1378230513.7360.37.camel@edumazet-glaptop>
+	<20130903194620.GE8262@mail.gmail.com>
+	<1378240517.7360.41.camel@edumazet-glaptop>
+	<20130903215915.GF8262@mail.gmail.com>
+	<1378247352.7360.50.camel@edumazet-glaptop>
+	<20130904005157.GG8262@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:25518 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755945Ab3IDGZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 02:25:25 -0400
-In-Reply-To: <5225B855.6080101@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44623 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761946Ab3IDG0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 02:26:54 -0400
+In-Reply-To: <20130904005157.GG8262@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/9/3 18:22, Nikolay Aleksandrov wrote:
-> On 08/30/2013 12:05 PM, Ding Tianhong wrote:
->> The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
->> (bonding: initial RCU conversion) has convert the roundrobin, active-backup,
->> broadcast and xor xmit path to rcu protection, the performance will be better
->> for these mode, so this time, convert xmit path for alb mode.
->>
->> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
->> Cc: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>  drivers/net/bonding/bond_alb.c | 20 +++++++++-----------
->>  drivers/net/bonding/bonding.h  |  2 +-
->>  2 files changed, 10 insertions(+), 12 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->> index d266c56..e94a5d0 100644
->> --- a/drivers/net/bonding/bond_alb.c
->> +++ b/drivers/net/bonding/bond_alb.c
->> @@ -229,7 +229,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
->>  	max_gap = LLONG_MIN;
->>  
->>  	/* Find the slave with the largest gap */
->> -	bond_for_each_slave(bond, slave) {
->> +	bond_for_each_slave_rcu(bond, slave) {
->>  		if (SLAVE_IS_OK(slave)) {
->>  			long long gap = compute_gap(slave);
->>  
->> @@ -625,10 +625,12 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
->>  {
->>  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->>  	struct arp_pkt *arp = arp_pkt(skb);
->> -	struct slave *assigned_slave;
->> +	struct slave *assigned_slave, *curr_active_slave;
->>  	struct rlb_client_info *client_info;
->>  	u32 hash_index = 0;
->>  
->> +	curr_active_slave = rcu_dereference(bond->curr_active_slave);
->> +
-> I think this code is prone to a race condition with the slave removal, because
-> without the lock __bond_release_one() may think that it has done the LB release
-> (bond_alb_deinit_slave) and cleared the slave while you may set it after locking.
-> I guess you should move the dereference after the lock so to make sure that the
-> LB release hasn't passed (or it has and it'll be different).
+On Tue, 3 Sep 2013 18:51:57 -0600, Jean Sacren wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 03 Sep 2013 15:29:12 -0700
+> >
+> > On Tue, 2013-09-03 at 15:59 -0600, Jean Sacren wrote:
+> > > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > > Date: Tue, 03 Sep 2013 13:35:17 -0700
+> > > >
+> > > > How did you get your conclusion ?
+> > > 
+> > > If one changes one line of code, doesn't one own that line?
+> > > 
+> > 
+> > 'Owning' like he is the guy who can sell it ? OK I understand now
+> > so many people send 'cleanups' ;)
 > 
+> 'Owning' like he is the guy who is responsible for the change. Whether
+> you understand it or not, that's your own business.
+> 
+> The idea was by taking one example to determine who is really to blame
+> for: Is the one passing on the bug responsible? Thanks to Daniel
+> Borkmann for the answer.
 
-yes, I ignore it, fix it in next version.
+Eric is correct, the bug was introduced by me.
 
->>  	_lock_rx_hashtbl(bond);
->>  
->>  	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
->> @@ -654,9 +656,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
->>  			 * move the old client to primary (curr_active_slave) so
->>  			 * that the new client can be assigned to this entry.
->>  			 */
->> -			if (bond->curr_active_slave &&
->> -			    client_info->slave != bond->curr_active_slave) {
->> -				client_info->slave = bond->curr_active_slave;
->> +			if (curr_active_slave &&
->> +			    client_info->slave != curr_active_slave) {
->> +				client_info->slave = curr_active_slave;
->>  				rlb_update_client(client_info);
->>  			}
->>  		}
->> @@ -1336,8 +1338,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
->>  
->>  	/* make sure that the curr_active_slave do not change during tx
->>  	 */
->> -	read_lock(&bond->lock);
->> -	read_lock(&bond->curr_slave_lock);
->>  
->>  	switch (ntohs(skb->protocol)) {
->>  	case ETH_P_IP: {
->> @@ -1420,12 +1420,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
->>  
->>  	if (!tx_slave) {
->>  		/* unbalanced or unassigned, send through primary */
->> -		tx_slave = bond->curr_active_slave;
->> +		tx_slave = rcu_dereference(bond->curr_active_slave);
->>  		bond_info->unbalanced_load += skb->len;
->>  	}
->>  
->>  	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
->> -		if (tx_slave != bond->curr_active_slave) {
->> +		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
->>  			memcpy(eth_data->h_source,
->>  			       tx_slave->dev->dev_addr,
->>  			       ETH_ALEN);
->> @@ -1440,8 +1440,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
->>  		}
->>  	}
->>  
->> -	read_unlock(&bond->curr_slave_lock);
->> -	read_unlock(&bond->lock);
->>  	if (res) {
->>  		/* no suitable interface, frame not sent */
->>  		kfree_skb(skb);
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index a3ab47f..9bc3af0 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -536,7 +536,7 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
->>  {
->>  	struct slave *tmp;
->>  
->> -	bond_for_each_slave(bond, tmp)
->> +	bond_for_each_slave_rcu(bond, tmp)
->>  		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
->>  			return tmp;
->>  
->>
-> 
-> 
-> .
-> 
+Sorry for it. Daniel, thanks for fixing it.
+
+Acked-by: Jiri Benc <jbenc@redhat.com>
+
+-- 
+Jiri Benc
