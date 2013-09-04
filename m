@@ -1,118 +1,125 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V3 4/6] vhost_net: determine whether or not to use
-	zerocopy at one time
-Date: Wed, 4 Sep 2013 14:59:29 +0300
-Message-ID: <20130904115929.GA9393@redhat.com>
-References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
-	<1378111261-14826-5-git-send-email-jasowang@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
+Date: Wed, 04 Sep 2013 13:59:27 +0200
+Message-ID: <5227209F.4060708@redhat.com>
+References: <1377816595.8277.54.camel@edumazet-glaptop>  <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>  <5226D39C.9070401@redhat.com> <1378290638.7360.85.camel@edumazet-glaptop> <1378294029.7360.92.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1378111261-14826-5-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Jason Wang <jasowang@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35039 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757249Ab3IDL7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 07:59:35 -0400
+In-Reply-To: <1378294029.7360.92.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 02, 2013 at 04:40:59PM +0800, Jason Wang wrote:
-> Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
-> upend_idx != done_idx we still set zcopy_used to true and rollback this choice
-> later. This could be avoided by determining zerocopy once by checking all
-> conditions at one time before.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/net.c |   47 ++++++++++++++++++++---------------------------
->  1 files changed, 20 insertions(+), 27 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 8a6dd0d..3f89dea 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -404,43 +404,36 @@ static void handle_tx(struct vhost_net *net)
->  			       iov_length(nvq->hdr, s), hdr_size);
->  			break;
->  		}
-> -		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
-> -				       nvq->upend_idx != nvq->done_idx);
+On 09/04/2013 01:27 PM, Eric Dumazet wrote:
+> On Wed, 2013-09-04 at 03:30 -0700, Eric Dumazet wrote:
+>> On Wed, 2013-09-04 at 14:30 +0800, Jason Wang wrote:
+>>
+>>>> And tcpdump would certainly help ;)
+>>>
+>>> See attachment.
+>>>
+>>
+>> Nothing obvious on tcpdump (only that lot of frames are missing)
+>>
+>> 1) Are you capturing part of the payload only (like tcpdump -s 128)
+>>
+>> 2) What is the setup.
+>>
+>> 3) tc -s -d qdisc
+>
+> If you use FQ in the guest, then it could be that high resolution timers
+> have high latency ?
+
+Probably they internally switch to a lower resolution clock event source if
+there's no hardware support available:
+
+   The [source event] management layer provides interfaces for hrtimers to
+   implement high resolution timers [...] [and it] supports these more advanced
+   functions only when appropriate clock event sources have been registered,
+   otherwise the traditional periodic tick based behaviour is retained. [1]
+
+[1] https://www.kernel.org/doc/ols/2006/ols2006v1-pages-333-346.pdf
+
+> So FQ arms short timers, but effective duration could be much longer.
+>
+> Here I get a smooth latency of up to ~3 us
+>
+> lpq83:~# ./netperf -H lpq84 ; ./tc -s -d qd ; dmesg | tail -n1
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpq84.prod.google.com () port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+>
+>   87380  16384  16384    10.00    9410.82
+> qdisc fq 8005: dev eth0 root refcnt 32 limit 10000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140
+>   Sent 50545633991 bytes 33385894 pkt (dropped 0, overlimits 0 requeues 19)
+>   rate 9258Mbit 764335pps backlog 0b 0p requeues 19
+>    117 flow, 115 inactive, 0 throttled
+>    0 gc, 0 highprio, 0 retrans, 96861 throttled, 0 flows_plimit
+> [  572.551664] latency = 3035 ns
+>
+>
+> What do you get with this debugging patch ?
+>
+> diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+> index 32ad015..c1312a0 100644
+> --- a/net/sched/sch_fq.c
+> +++ b/net/sched/sch_fq.c
+> @@ -103,6 +103,7 @@ struct fq_sched_data {
+>   	u64		stat_internal_packets;
+>   	u64		stat_tcp_retrans;
+>   	u64		stat_throttled;
+> +	s64		slatency;
+>   	u64		stat_flows_plimit;
+>   	u64		stat_pkts_too_long;
+>   	u64		stat_allocation_errors;
+> @@ -393,6 +394,7 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>   static void fq_check_throttled(struct fq_sched_data *q, u64 now)
+>   {
+>   	struct rb_node *p;
+> +	bool first = true;
+>
+>   	if (q->time_next_delayed_flow > now)
+>   		return;
+> @@ -405,6 +407,13 @@ static void fq_check_throttled(struct fq_sched_data *q, u64 now)
+>   			q->time_next_delayed_flow = f->time_next_packet;
+>   			break;
+>   		}
+> +		if (first) {
+> +			s64 delay = now - f->time_next_packet;
 > +
-> +		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
-> +				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
-> +				      nvq->done_idx
-
-Thinking about this, this looks strange.
-The original idea was that once we start doing zcopy, we keep
-using the heads ring even for short packets until no zcopy is outstanding.
-
-What's the logic behind (nvq->upend_idx + 1) % UIO_MAXIOV != nvq->done_idx
-here?
-
-
-
-> +				   && vhost_net_tx_select_zcopy(net);
->  
->  		/* use msg_control to pass vhost zerocopy ubuf info to skb */
->  		if (zcopy_used) {
-> +			struct ubuf_info *ubuf;
-> +			ubuf = nvq->ubuf_info + nvq->upend_idx;
-> +
->  			vq->heads[nvq->upend_idx].id = head;
-> -			if (!vhost_net_tx_select_zcopy(net) ||
-> -			    len < VHOST_GOODCOPY_LEN) {
-> -				/* copy don't need to wait for DMA done */
-> -				vq->heads[nvq->upend_idx].len =
-> -							VHOST_DMA_DONE_LEN;
-> -				msg.msg_control = NULL;
-> -				msg.msg_controllen = 0;
-> -				ubufs = NULL;
-> -			} else {
-> -				struct ubuf_info *ubuf;
-> -				ubuf = nvq->ubuf_info + nvq->upend_idx;
-> -
-> -				vq->heads[nvq->upend_idx].len =
-> -					VHOST_DMA_IN_PROGRESS;
-> -				ubuf->callback = vhost_zerocopy_callback;
-> -				ubuf->ctx = nvq->ubufs;
-> -				ubuf->desc = nvq->upend_idx;
-> -				msg.msg_control = ubuf;
-> -				msg.msg_controllen = sizeof(ubuf);
-> -				ubufs = nvq->ubufs;
-> -				kref_get(&ubufs->kref);
-> -			}
-> +			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
-> +			ubuf->callback = vhost_zerocopy_callback;
-> +			ubuf->ctx = nvq->ubufs;
-> +			ubuf->desc = nvq->upend_idx;
-> +			msg.msg_control = ubuf;
-> +			msg.msg_controllen = sizeof(ubuf);
-> +			ubufs = nvq->ubufs;
-> +			kref_get(&ubufs->kref);
->  			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
-> -		} else
-> +		} else {
->  			msg.msg_control = NULL;
-> +			ubufs = NULL;
+> +			first = false;
+> +			delay -= q->slatency >> 3;
+> +			q->slatency += delay;
 > +		}
->  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
->  		err = sock->ops->sendmsg(NULL, sock, &msg, len);
->  		if (unlikely(err < 0)) {
->  			if (zcopy_used) {
-> -				if (ubufs)
-> -					vhost_net_ubuf_put(ubufs);
-> +				vhost_net_ubuf_put(ubufs);
->  				nvq->upend_idx = ((unsigned)nvq->upend_idx - 1)
->  					% UIO_MAXIOV;
->  			}
-> -- 
-> 1.7.1
+>   		rb_erase(p, &q->delayed);
+>   		q->throttled_flows--;
+>   		fq_flow_add_tail(&q->old_flows, f);
+> @@ -711,6 +720,7 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
+>   	if (opts == NULL)
+>   		goto nla_put_failure;
+>
+> +	pr_err("latency = %lld ns\n", q->slatency >> 3);
+>   	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
+>   	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
+>   	    nla_put_u32(skb, TCA_FQ_QUANTUM, q->quantum) ||
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
