@@ -1,69 +1,41 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v2 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Wed, 4 Sep 2013 12:18:24 +0200
-Message-ID: <20130904101823.GO1992@redhat.com>
-References: <522700D1.5060805@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
+Date: Wed, 04 Sep 2013 03:30:38 -0700
+Message-ID: <1378290638.7360.85.camel@edumazet-glaptop>
+References: <1377816595.8277.54.camel@edumazet-glaptop>
+	  <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>
+	 <5226D39C.9070401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8496 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762286Ab3IDKTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 06:19:54 -0400
-Content-Disposition: inline
-In-Reply-To: <522700D1.5060805@huawei.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:52247 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762331Ab3IDKal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 06:30:41 -0400
+Received: by mail-pb0-f51.google.com with SMTP id jt11so110795pbb.38
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 03:30:41 -0700 (PDT)
+In-Reply-To: <5226D39C.9070401@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 04, 2013 at 05:43:45PM +0800, Ding Tianhong wrote:
-...snip...
->+/**
->+ * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an empty list
->+ * Caller must hold rcu_read_lock
->+ */
->+#define bond_first_slave_rcu(bond) \
->+	list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
->+#define bond_last_slave_rcu(bond) \
->+	(list_empty(&(bond)->slave_list) ? NULL : \
->+						bond_to_slave_rcu((bond)->slave_list.prev))
+On Wed, 2013-09-04 at 14:30 +0800, Jason Wang wrote:
 
-Here, bond_last_slave_rcu() is racy. The list can be non-empty when
-list_empty() is verified, however afterwards it might become empty, when
-you call bond_to_slave_rcu(), and thus you'll get
-bond_to_slave(bond->slave_list) in the result, which is not a slave.
+> > And tcpdump would certainly help ;)
+> 
+> See attachment.
+> 
 
-Take a look at list_first_or_null_rcu() for a reference. The main idea is
-that it first gets the ->next pointer, with RCU protection, and then
-verifies if it's the list head or not, and if not - it gets the container
-already. This way the ->next pointer won't get away.
+Nothing obvious on tcpdump (only that lot of frames are missing)
 
-These kind of bugs are really rare, but are *EXTREMELY* hard to debug.
+1) Are you capturing part of the payload only (like tcpdump -s 128)
 
->+
-> #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
-> #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
->
->@@ -93,6 +106,15 @@
-> 	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
-> 					  bond_to_slave((pos)->list.prev))
->
->+/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
->+#define bond_next_slave_rcu(bond, pos) \
->+	(bond_is_last_slave(bond, pos) ? bond_first_slave_rcu(bond) : \
->+					 bond_to_slave_rcu((pos)->list.next))
->+
->+#define bond_prev_slave_rcu(bond, pos) \
->+	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
->+					  bond_to_slave_rcu((pos)->list.prev))
->+
+2) What is the setup.
 
-These two are also racy. bond_is_last/first_slave() is not rcu-ified, and
-thus you can't rely on it without proper locking. Same ideas apply as per
-bond_first_slave_rcu().
+3) tc -s -d qdisc
