@@ -1,55 +1,70 @@
-From: Matt Wilson <msw@linux.com>
-Subject: Re: xen-netback: count number required slots for an skb more
- carefully
-Date: Tue, 3 Sep 2013 23:04:55 -0700
-Message-ID: <20130904060446.GA25227@u109add4315675089e695.ant.amazon.com>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com>
- <20130903215328.GA13465@zion.uk.xensource.com>
- <52269A37.7030600@oracle.com>
+From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3 0/3] Send audit/procinfo/cgroup data in socket-level
+	control message
+Date: Wed,  4 Sep 2013 08:14:18 +0200
+Message-ID: <1378275261-4553-1-git-send-email-jkaluza@redhat.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	xen-devel@lists.xen.org,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	msw@amazon.com
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:61612 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761388Ab3IDGFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 02:05:03 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so6956040pdj.8
-        for <netdev@vger.kernel.org>; Tue, 03 Sep 2013 23:05:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <52269A37.7030600@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1377614400-27122-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 04, 2013 at 10:25:59AM +0800, annie li wrote:
-> On 2013-9-4 5:53, Wei Liu wrote:
-[...]
-> >Matt, do you fancy sending the final version? IIRC the commit message
-> >needs to be re-written. I personally still prefer Matt's solution as
-> >it a) make efficient use of the ring, b) uses ring pointers to
-> >calculate slots which is most accurate, c) removes the dependence on
-> >MAX_SKB_FRAGS in guest RX path.
-> >
-> >Anyway, we should get this fixed ASAP.
-> 
-> Totally agree. This issue is easy to be reproduced with large MTU.
-> It is better to upstream the fix soon in case others hit it and
-> waste time to fix it.
+Hi,
 
-I'd like to go with Xi's proposed patch that I posed earlier. The main
-thing that's kept me from sending a final version is lack of time to
-retest against a newer kernel.
+this patchset against net-next (applies also to linux-next) adds 3 new types
+of "Socket"-level control message (SCM_AUDIT, SCM_PROCINFO and SCM_CGROUP).
 
-Could someone help out with that? I probably can't get to it until the
-end of the week.
+Server-like processes in many cases need credentials and other
+metadata of the peer, to decide if the calling process is allowed to
+request a specific action, or the server just wants to log away this
+type of information for auditing tasks.
 
-Sorry for the delay. :-(
+The current practice to retrieve such process metadata is to look that
+information up in procfs with the $PID received over SCM_CREDENTIALS.
+This is sufficient for long-running tasks, but introduces a race which
+cannot be worked around for short-living processes; the calling
+process and all the information in /proc/$PID/ is gone before the
+receiver of the socket message can look it up.
 
---msw
+Changes introduced in this patchset can also increase performance
+of such server-like processes, because current way of opening and
+parsing /proc/$PID/* files is much more expensive than receiving these
+metadata using SCM.
+
+Changes in v3:
+- Better description of patches (Thanks to Kay Sievers)
+
+Changes in v2:
+- use PATH_MAX instead of PAGE_SIZE in SCM_CGROUP patch
+- describe each patch individually
+
+Jan Kaluza (3):
+  Send loginuid and sessionid in SCM_AUDIT
+  Send comm and cmdline in SCM_PROCINFO
+  Send cgroup_path in SCM_CGROUP
+
+ include/linux/socket.h |  9 ++++++
+ include/net/af_unix.h  | 10 ++++++
+ include/net/scm.h      | 67 ++++++++++++++++++++++++++++++++++++++--
+ net/core/scm.c         | 83 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/unix/af_unix.c     | 70 ++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 237 insertions(+), 2 deletions(-)
+
+-- 
+1.8.3.1
