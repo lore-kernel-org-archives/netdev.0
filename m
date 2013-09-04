@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: correctly interlink lower/upper devices
-Date: Wed, 04 Sep 2013 00:53:40 -0400 (EDT)
-Message-ID: <20130904.005340.2168000201572856365.davem@davemloft.net>
-References: <1378132011-2910-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH V2] net: netx-eth: remove unnecessary casting
+Date: Wed, 04 Sep 2013 00:53:51 -0400 (EDT)
+Message-ID: <20130904.005351.2261364821750378506.davem@davemloft.net>
+References: <004b01cea774$975b48b0$c611da10$%han@samsung.com>
+	<001101cea837$b49bf370$1dd3da50$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jiri@resnulli.us,
-	alexander.h.duyck@intel.com, amwang@redhat.com
-To: vfalico@redhat.com
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: jg1.han@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54654 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54662 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756320Ab3IDExl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 00:53:41 -0400
-In-Reply-To: <1378132011-2910-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1756021Ab3IDExw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 00:53:52 -0400
+In-Reply-To: <001101cea837$b49bf370$1dd3da50$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Mon,  2 Sep 2013 16:26:51 +0200
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Tue, 03 Sep 2013 08:54:04 +0900
 
-> Currently we're linking upper devices to lower ones, which results in
-> upside-down relationship: upper devices seeing lower devices via its upper
-> lists.
+> Casting from 'void *' is unnecessary, because casting from 'void *'
+> to any pointer type is automatic.
 > 
-> Fix this by correctly linking lower devices to the upper ones.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
 Applied.
