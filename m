@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  4/9] igb: M88E1543 PHY downshift implementation
-Date: Wed,  4 Sep 2013 06:08:51 -0700
-Message-ID: <1378300136-26003-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  2/9] igb: Implementation of 1-sec delay for i210 devices
+Date: Wed,  4 Sep 2013 06:08:49 -0700
+Message-ID: <1378300136-26003-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,89 +10,109 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:8588 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757142Ab3IDNJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 09:09:01 -0400
+	id S1760279Ab3IDNJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Sep 2013 09:09:00 -0400
 In-Reply-To: <1378300136-26003-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-This patch implements downshift mechanism for M88E1543 PHY, so that
-downshift is disabled first during link setup process, and later enabled
-if we are master and downshift link is negotiated. Also cleaned up
-return code implementation.
+This patch adds 1 sec delay mechanism to i210 device family, in order
+to avoid erroneous link issue with the link partner.
 
 Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_phy.c | 29 ++++++++++++++++++++---------
- 1 file changed, 20 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |  3 +++
+ drivers/net/ethernet/intel/igb/igb_main.c | 32 ++++++++++++++++++++++++++++---
+ 2 files changed, 32 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 5adccbc..e726675 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -731,15 +731,13 @@ s32 igb_copper_link_setup_m88_gen2(struct e1000_hw *hw)
- 	s32 ret_val;
- 	u16 phy_data;
- 
--	if (phy->reset_disable) {
--		ret_val = 0;
--		goto out;
--	}
-+	if (phy->reset_disable)
-+		return 0;
- 
- 	/* Enable CRS on Tx. This must be set for half-duplex operation. */
- 	ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL, &phy_data);
- 	if (ret_val)
--		goto out;
-+		return ret_val;
- 
- 	/* Options:
- 	 *   MDI/MDI-X = 0 (default)
-@@ -780,23 +778,36 @@ s32 igb_copper_link_setup_m88_gen2(struct e1000_hw *hw)
- 		phy_data |= M88E1000_PSCR_POLARITY_REVERSAL;
- 
- 	/* Enable downshift and setting it to X6 */
-+	if (phy->id == M88E1543_E_PHY_ID) {
-+		phy_data &= ~I347AT4_PSCR_DOWNSHIFT_ENABLE;
-+		ret_val =
-+		    phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
-+		if (ret_val)
-+			return ret_val;
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index c1fae7a..6807b09 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -448,6 +448,8 @@ struct igb_adapter {
+ 	struct i2c_client *i2c_client;
+ 	u32 rss_indir_tbl_init;
+ 	u8 rss_indir_tbl[IGB_RETA_SIZE];
 +
-+		ret_val = igb_phy_sw_reset(hw);
-+		if (ret_val) {
-+			hw_dbg("Error committing the PHY changes\n");
-+			return ret_val;
++	unsigned long link_check_timeout;
+ };
+ 
+ #define IGB_FLAG_HAS_MSI		(1 << 0)
+@@ -459,6 +461,7 @@ struct igb_adapter {
+ #define IGB_FLAG_RSS_FIELD_IPV4_UDP	(1 << 6)
+ #define IGB_FLAG_RSS_FIELD_IPV6_UDP	(1 << 7)
+ #define IGB_FLAG_WOL_SUPPORTED		(1 << 8)
++#define IGB_FLAG_NEED_LINK_UPDATE	(1 << 9)
+ 
+ /* DMA Coalescing defines */
+ #define IGB_MIN_TXPBSIZE	20408
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 78f49cf..b209ca5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1671,6 +1671,8 @@ void igb_down(struct igb_adapter *adapter)
+ 
+ 	igb_irq_disable(adapter);
+ 
++	adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
++
+ 	for (i = 0; i < adapter->num_q_vectors; i++) {
+ 		napi_synchronize(&(adapter->q_vector[i]->napi));
+ 		napi_disable(&(adapter->q_vector[i]->napi));
+@@ -3886,6 +3888,17 @@ bool igb_has_link(struct igb_adapter *adapter)
+ 		break;
+ 	}
+ 
++	if (((hw->mac.type == e1000_i210) ||
++	     (hw->mac.type == e1000_i211)) &&
++	     (hw->phy.id == I210_I_PHY_ID)) {
++		if (!netif_carrier_ok(adapter->netdev)) {
++			adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
++		} else if (!(adapter->flags & IGB_FLAG_NEED_LINK_UPDATE)) {
++			adapter->flags |= IGB_FLAG_NEED_LINK_UPDATE;
++			adapter->link_check_timeout = jiffies;
 +		}
 +	}
 +
- 	phy_data &= ~I347AT4_PSCR_DOWNSHIFT_MASK;
- 	phy_data |= I347AT4_PSCR_DOWNSHIFT_6X;
- 	phy_data |= I347AT4_PSCR_DOWNSHIFT_ENABLE;
- 
- 	ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
- 	if (ret_val)
--		goto out;
-+		return ret_val;
- 
- 	/* Commit the changes. */
- 	ret_val = igb_phy_sw_reset(hw);
- 	if (ret_val) {
- 		hw_dbg("Error committing the PHY changes\n");
--		goto out;
-+		return ret_val;
- 	}
- 
--out:
--	return ret_val;
-+	return 0;
+ 	return link_active;
  }
  
- /**
+@@ -3930,6 +3943,14 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	int i;
+ 
+ 	link = igb_has_link(adapter);
++
++	if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE) {
++		if (time_after(jiffies, (adapter->link_check_timeout + HZ)))
++			adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
++		else
++			link = false;
++	}
++
+ 	if (link) {
+ 		/* Cancel scheduled suspend requests. */
+ 		pm_runtime_resume(netdev->dev.parent);
+@@ -4054,9 +4075,14 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	igb_ptp_rx_hang(adapter);
+ 
+ 	/* Reset the timer */
+-	if (!test_bit(__IGB_DOWN, &adapter->state))
+-		mod_timer(&adapter->watchdog_timer,
+-			  round_jiffies(jiffies + 2 * HZ));
++	if (!test_bit(__IGB_DOWN, &adapter->state)) {
++		if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE)
++			mod_timer(&adapter->watchdog_timer,
++				  round_jiffies(jiffies +  HZ));
++		else
++			mod_timer(&adapter->watchdog_timer,
++				  round_jiffies(jiffies + 2 * HZ));
++	}
+ }
+ 
+ enum latency_range {
 -- 
 1.8.3.1
