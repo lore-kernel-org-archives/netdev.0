@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 0/6] vhost code cleanup and minor enhancement
-Date: Tue, 03 Sep 2013 22:47:41 -0400 (EDT)
-Message-ID: <20130903.224741.300532243318088831.davem@davemloft.net>
-References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [patch] sfc: check for allocation failure
+Date: Tue, 03 Sep 2013 22:49:39 -0400 (EDT)
+Message-ID: <20130903.224939.866623192858217581.davem@davemloft.net>
+References: <20130902082828.GA30037@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54047 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754936Ab3IDCtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Sep 2013 22:49:41 -0400
+In-Reply-To: <20130902082828.GA30037@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon,  2 Sep 2013 16:40:55 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 2 Sep 2013 12:04:42 +0300
 
-> This series tries to unify and simplify vhost codes especially for
-> zerocopy. With this series, 5% - 10% improvement for per cpu throughput were
-> seen during netperf guest sending test.
+> It upsets static analyzers when we don't check for allocation failure.
 > 
-> Plase review.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied and patch #5 queued up for -stable, thanks.
+This applies cleanly neither to net nor net-next, please send me a
+version that does.
+
+Thanks.
