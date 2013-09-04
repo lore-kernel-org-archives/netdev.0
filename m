@@ -1,77 +1,53 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] can: pcan_usb_core: fix memory leak on failure paths in peak_usb_start()
-Date: Thu,  5 Sep 2013 01:46:09 +0400
-Message-ID: <1378331169-26285-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] solos-pci: Fix BUG() with shared skb
+Date: Wed, 04 Sep 2013 17:51:47 -0400 (EDT)
+Message-ID: <20130904.175147.516807555661755710.davem@davemloft.net>
+References: <1378223125.4210.11.camel@i7.infradead.org>
+	<20130904.143056.1558570610941220565.davem@davemloft.net>
+	<1378327275.2627.28.camel@shinybook.infradead.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, simon@fire.lp0.eu,
+	linux-atm-general@lists.sourceforge.net, nathan@traverse.com.au
+To: dwmw2@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50814 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932400Ab3IDVvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 17:51:51 -0400
+In-Reply-To: <1378327275.2627.28.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tx and rx urbs are not deallocated if something goes wrong in peak_usb_start().
-The patch fixes error handling to deallocate all the resources.
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Wed, 04 Sep 2013 21:41:15 +0100
 
-Found by Linux Driver Verification project (linuxtesting.org).
+> On Wed, 2013-09-04 at 14:30 -0400, David Miller wrote:
+>> skb_realloc_headroom() should do everything you need.
+> 
+> Great, thanks! Something like this then... ? 
+> 
+> Do I really need the truesize check? And if so, is there a better way to
+> handle the ATM accounting? It just *happens* to be the case that the the
+> br2684_pop() and pppoatm_pop() functions don't mind being bypassed in
+> this fashion, and we should probably get away with tweaking the core ATM
+> accounting directly like this. Doesn't make me happy though...
+ ...
+> +		nskb = skb_realloc_headroom(skb, sizeof(*header));
+> +		if (!nskb) {
+> +			solos_pop(vcc, skb);
+> +			return -ENOMEM;
+> +		}
+> +		if (skb->truesize != nskb->truesize)
+> +			atm_force_charge(vcc, nskb->truesize - skb->truesize);
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/can/usb/peak_usb/pcan_usb_core.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+My understanding is that truesize will not be changed by calls to
+skb_realloc_headroom(), because if it did then every ethernet driver
+would be screwed as the skb->truesize adjustment would corrupt socket
+memory accounting.
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-index a0f647f..0b7a4c3 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-@@ -463,7 +463,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
- 	if (i < PCAN_USB_MAX_TX_URBS) {
- 		if (i == 0) {
- 			netdev_err(netdev, "couldn't setup any tx URB\n");
--			return err;
-+			goto err_tx;
- 		}
- 
- 		netdev_warn(netdev, "tx performance may be slow\n");
-@@ -472,7 +472,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
- 	if (dev->adapter->dev_start) {
- 		err = dev->adapter->dev_start(dev);
- 		if (err)
--			goto failed;
-+			goto err_adapter;
- 	}
- 
- 	dev->state |= PCAN_USB_STATE_STARTED;
-@@ -481,19 +481,26 @@ static int peak_usb_start(struct peak_usb_device *dev)
- 	if (dev->adapter->dev_set_bus) {
- 		err = dev->adapter->dev_set_bus(dev, 1);
- 		if (err)
--			goto failed;
-+			goto err_adapter;
- 	}
- 
- 	dev->can.state = CAN_STATE_ERROR_ACTIVE;
- 
- 	return 0;
- 
--failed:
-+err_adapter:
- 	if (err == -ENODEV)
- 		netif_device_detach(dev->netdev);
- 
- 	netdev_warn(netdev, "couldn't submit control: %d\n", err);
- 
-+	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++) {
-+		usb_free_urb(dev->tx_contexts[i].urb);
-+		dev->tx_contexts[i].urb = NULL;
-+	}
-+err_tx:
-+	usb_kill_anchored_urbs(&dev->rx_submitted);
-+
- 	return err;
- }
- 
--- 
-1.8.1.2
-
+The only thing you need to be mindful is that after the
+skb_realloc_headroom() call all skb data pointers change, and
+therefore things like packet pointers are now stale and need to be
+recalculated.
