@@ -1,49 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] solos-pci: Fix BUG() with shared skb
-Date: Wed, 04 Sep 2013 14:30:56 -0400 (EDT)
-Message-ID: <20130904.143056.1558570610941220565.davem@davemloft.net>
-References: <1378223125.4210.11.camel@i7.infradead.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v5] ipv6:introduce function to find route for redirect
+Date: Wed, 4 Sep 2013 20:36:02 +0200
+Message-ID: <20130904183602.GA13136@order.stressinduktion.org>
+References: <52271D15.1000806@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon@fire.lp0.eu,
-	linux-atm-general@lists.sourceforge.net, nathan@traverse.com.au
-To: dwmw2@infradead.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43918 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276Ab3IDSa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:30:59 -0400
-In-Reply-To: <1378223125.4210.11.camel@i7.infradead.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:37649 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755519Ab3IDSgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 14:36:04 -0400
+Content-Disposition: inline
+In-Reply-To: <52271D15.1000806@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Tue, 03 Sep 2013 16:45:25 +0100
-
-> Simon reported this BUG():
+On Wed, Sep 04, 2013 at 07:44:21PM +0800, Duan Jiong wrote:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 > 
->  kernel BUG at net/core/skbuff.c:1065!
->  Call Trace:
->   [<f9b7c12c>] ? pppoatm_send+0x3f/0x1a0 [pppoatm]
->   [<f8751797>] psend+0xa9/0x14a [solos_pci]
->   [<f9b7c248>] pppoatm_send+0x15b/0x1a0 [pppoatm]
->   [<f8a2f77d>] ppp_push+0x76/0x533 [ppp_generic]
+> RFC 4861 says that the IP source address of the Redirect is the
+> same as the current first-hop router for the specified ICMP
+> Destination Address, so the gateway should be taken into
+> consideration when we find the route for redirect.
 > 
-> (Rest of backtrace at http://s85.org/mn0aOxMN ― the skb appears to be
-> IPv6, forwarded from another interface over PPPoATM.)
+> There was once a check in commit
+> a6279458c534d01ccc39498aba61c93083ee0372 ("NDISC: Search over
+> all possible rules on receipt of redirect.") and the check
+> went away in commit b94f1c0904da9b8bf031667afc48080ba7c3e8c9
+> ("ipv6: Use icmpv6_notify() to propagate redirect, instead of
+> rt6_redirect()").
 > 
-> I wasn't expecting to see shared skbs in the ATM driver's ->send()
-> function. Is this the right fix?
+> The bug is only "exploitable" on layer-2 because the source
+> address of the redirect is checked to be a valid link-local
+> address but it makes spoofing a lot easier in the same L2
+> domain nonetheless.
+> 
+> Thanks very much for Hannes's help.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-skb_realloc_headroom() should do everything you need.
+Tested and looks good!
 
-This is what ethernet drivers do to prepend custom headers
-when skb_headroom() is not large enough.
+Thanks!
 
-For example, see drivers/net/ethernet/sun/niu.c:niu_start_xmit().
-There, the driver is attempting to prepend a TX descriptor to the
-SKB.
-
-If the SKB is shared, skb_realloc_headroom() will do the clone
-for you if necessary.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
