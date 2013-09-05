@@ -1,55 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
-Date: Thu, 05 Sep 2013 11:07:41 +0800
-Message-ID: <5227F57D.7030709@redhat.com>
-References: <1377816595.8277.54.camel@edumazet-glaptop>   <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>  <5226D39C.9070401@redhat.com> <1378290638.7360.85.camel@edumazet-glaptop>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: rtl8188eu array/null comparison.
+Date: Wed, 04 Sep 2013 22:14:24 -0500
+Message-ID: <5227F710.1080602@lwfinger.net>
+References: <20130904233018.GB5727@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36113 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935524Ab3IEDHx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 23:07:53 -0400
-In-Reply-To: <1378290638.7360.85.camel@edumazet-glaptop>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:49690 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305Ab3IEDO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 23:14:26 -0400
+Received: by mail-ob0-f180.google.com with SMTP id v19so1349174obq.39
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 20:14:25 -0700 (PDT)
+In-Reply-To: <20130904233018.GB5727@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2013 06:30 PM, Eric Dumazet wrote:
-> On Wed, 2013-09-04 at 14:30 +0800, Jason Wang wrote:
+On 09/04/2013 06:30 PM, Dave Jones wrote:
+> Hi Larry,
 >
->>> And tcpdump would certainly help ;)
->> See attachment.
->>
-> Nothing obvious on tcpdump (only that lot of frames are missing)
+> in drivers/staging/rtl8188eu/core/rtw_mlme.c:rtw_check_join_candidate there's this code..
 >
-> 1) Are you capturing part of the payload only (like tcpdump -s 128)
+> 1721         /* check ssid, if needed */
+> 1722         if (pmlmepriv->assoc_ssid.Ssid && pmlmepriv->assoc_ssid.SsidLength) {
+> 1723                 if (competitor->network.Ssid.SsidLength != pmlmepriv->assoc_ssid.SsidLength ||
+> 1724                     _rtw_memcmp(competitor->network.Ssid.Ssid, pmlmepriv->assoc_ssid.Ssid, pmlmepriv->assoc_ssid.SsidLength) == false)
+> 1725                         goto exit;
+> 1726         }
+> 1727
+>
+> assoc_ssid.Ssid being an array, this comparison against null probably isn't what was intended ?
 
-No, I use something like tcpdump -i eth0 -w fq -c 300 after the netperf
-start.
->
-> 2) What is the setup.
+I think that a non-zero SsidLength should be enough of a test, but I need to 
+think about a bit more.
 
-Tow kvm guest with virtio-net and vhost enabled. Only one queue is
-enabled and the guest were connected with bridge. Both host and guest
-were net-next.git
->
-> 3) tc -s -d qdisc
+Thanks,
 
-tc -s -d qdisc
-qdisc fq 8001: dev eth0 root refcnt 2 [Unknown qdisc, optlen=64]
- Sent 6680760347 bytes 4431855 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-
-btw, is the fq support for tc merged into iproute2? Looks like I can't
-find them.
->
->
->
->
+Larry
