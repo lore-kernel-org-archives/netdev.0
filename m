@@ -1,49 +1,82 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] openvswitch: Fix alignment of struct sw_flow_key.
-Date: Thu, 5 Sep 2013 11:36:19 -0700
-Message-ID: <CAEP_g=8gcCtkv=no=HkVmS+NDWPM-Uu-SVyR+vb-YQ=7TWJsXA@mail.gmail.com>
-References: <1378402887-17331-1-git-send-email-jesse@nicira.com> <20130905.141751.945639989861997124.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Sep 5 (netfilter: xt_socket.c)
+Date: Thu, 05 Sep 2013 14:38:30 -0400 (EDT)
+Message-ID: <20130905.143830.660252697193033003.davem@davemloft.net>
+References: <20130905193249.8b7c57afd5e39349ff5508bb@canb.auug.org.au>
+	<5228C140.1010504@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Andy Zhou <azhou@nicira.com>, fengguan.wu@intel.com,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:41523 "HELO
-	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752458Ab3IESgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 14:36:41 -0400
-Received: by mail-lb0-f173.google.com with SMTP id o14so2000927lbi.4
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 11:36:40 -0700 (PDT)
-In-Reply-To: <20130905.141751.945639989861997124.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <5228C140.1010504@infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 5, 2013 at 11:17 AM, David Miller <davem@davemloft.net> wrote:
-> From: Jesse Gross <jesse@nicira.com>
-> Date: Thu,  5 Sep 2013 10:41:27 -0700
->
->> -} __aligned(__alignof__(long));
->> +} __aligned(8); /* 8 byte alignment ensures this can be accessed as a long */
->
-> This kind of stuff drives me crazy.
->
-> If the issue is the type, therefore at least use an expression that
-> mentions the type explicitly.  And mention the actual type that
-> matters.  "long" isn't it.
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Thu, 05 Sep 2013 10:37:04 -0700
 
-'long' actually is the real type here.
+> On 09/05/13 02:32, Stephen Rothwell wrote:
+>> Hi all,
+>> 
+>> Please do not add any code for v3.13 to your linux-next included branches
+>> until after v3.12-rc1 is released.
+>> 
+>> Changes since 20130904:
+>> 
+> 
+> on x86_64:
+> 
+> when CONFIG_IPV6=m
+> and CONFIG_NETFILTER_XT_MATCH_SOCKET=y:
+> 
+> net/built-in.o: In function `socket_mt6_v1_v2':
+> xt_socket.c:(.text+0x51b55): undefined reference to `udp6_lib_lookup'
+> net/built-in.o: In function `socket_mt_init':
+> xt_socket.c:(.init.text+0x1ef8): undefined reference to `nf_defrag_ipv6_enable'
 
-When doing comparisons, this structure is being accessed as a byte
-array in 'long' sized chunks, not by its members. Therefore, the
-compiler's alignment does not necessarily correspond to anything for
-this purpose. It could be a struct full of u16's and we would still
-want to access it in chunks of 'long'.
+I just commited the following to fix this:
 
-To completely honest, I think the correct alignment should be
-sizeof(long) because I know that 'long' is not always 8 bytes on all
-architectures. However, you made the point before that this could
-break the alignment of the 64-bit values on architectures where 'long'
-is 32 bits wide, so 8 bytes is the generic solution.
+--------------------
+[PATCH] netfilter: Fix build errors with xt_socket.c
+
+As reported by Randy Dunlap:
+
+====================
+when CONFIG_IPV6=m
+and CONFIG_NETFILTER_XT_MATCH_SOCKET=y:
+
+net/built-in.o: In function `socket_mt6_v1_v2':
+xt_socket.c:(.text+0x51b55): undefined reference to `udp6_lib_lookup'
+net/built-in.o: In function `socket_mt_init':
+xt_socket.c:(.init.text+0x1ef8): undefined reference to `nf_defrag_ipv6_enable'
+====================
+
+Like several other modules under net/netfilter/ we have to
+have a dependency "IPV6 disabled or set compatibly with this
+module" clause.
+
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/netfilter/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 62a171a..6e839b6 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -1175,6 +1175,7 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	depends on NETFILTER_XTABLES
+ 	depends on NETFILTER_ADVANCED
+ 	depends on !NF_CONNTRACK || NF_CONNTRACK
++	depends on (IPV6 || IPV6=n)
+ 	select NF_DEFRAG_IPV4
+ 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+ 	help
+-- 
+1.7.11.7
+
