@@ -1,30 +1,50 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen-netback: count number required slots for an skb
- more carefully
-Date: Thu, 5 Sep 2013 08:35:20 +0100
-Message-ID: <1378366520.6935.32.camel@dagon.hellion.org.uk>
-References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com>
-	 <20130904.144845.418858994067427938.davem@davemloft.net>
+Subject: Re: [Xen-devel] [PATCH] net/core: Order-3 frag allocator causes
+ SWIOTLB bouncing under Xen
+Date: Thu, 5 Sep 2013 08:39:06 +0100
+Message-ID: <1378366746.6935.35.camel@dagon.hellion.org.uk>
+References: <1378327638-23956-1-git-send-email-zoltan.kiss@citrix.com>
+	 <1378328440.7360.124.camel@edumazet-glaptop>
+	 <20130904211110.GA17758@phenom.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: david.vrabel@citrix.com, xen-devel@lists.xen.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:53362 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756452Ab3IEHfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 03:35:22 -0400
-In-Reply-To: <20130904.144845.418858994067427938.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org,
+	Eric Dumazet <edumazet@google.com>,
+	Li Zefan <lizefan@huawei.com>, david.vrabel@citrix.com,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	malcolm.crossley@citrix.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130904211110.GA17758@phenom.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-09-04 at 14:48 -0400, David Miller wrote:
-> Can you guys just post the patch you want applied once this thread
-> moves closer to a consensus?  Thanks.
+On Wed, 2013-09-04 at 17:11 -0400, Konrad Rzeszutek Wilk wrote:
+> On Wed, Sep 04, 2013 at 02:00:40PM -0700, Eric Dumazet wrote:
 
-Of course.
+> > Maybe you could add proper infrastructure to deal with Xen limitations.
+> 
+> I think Ian posted at some point an sysctl patch for that (more for
+> debugging that anything else). And it kind
+> of stalled: http://lists.xen.org/archives/html/xen-devel/2012-10/msg01832.html
+
+I think I though you were looking into it from the swiotlb angle?
+
+In any case I don't have time to look into this further.
+
+> Is that what you mean by proper infrastructure ?
+> 
+> Oh wait, did you mean via dev and not the whole system wide sysctl?
+
+The system wide sysctl was not acceptable AFAIR, which seems reasonable.
+
+Per-dev is hard because it affects the native drivers for each physical
+NIC when running under Xen, not the Xen PV NIC which we fixed by
+splitting compound frags into separate slots on the PV ring.
 
 Ian.
