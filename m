@@ -1,64 +1,78 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 net-next 2/2] tuntap: orphan frags before trying to set tx timestamp
-Date: Thu,  5 Sep 2013 17:54:00 +0800
-Message-ID: <1378374840-39130-2-git-send-email-jasowang@redhat.com>
-References: <1378374840-39130-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH] xen-netback: count number required slots for an skb more
+ carefully
+Date: Thu, 5 Sep 2013 11:12:11 +0100
+Message-ID: <522858FB.807@citrix.com>
+References: <1378229390-12919-1-git-send-email-david.vrabel@citrix.com> <20130903215328.GA13465@zion.uk.xensource.com> <52271DFF.3070008@citrix.com> <20130904131459.GO14104@zion.uk.xensource.com> <52273D59.2020205@citrix.com> <20130904154400.GS14104@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <msw@amazon.com>, <annie.li@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38584 "EHLO mx1.redhat.com"
+Received: from smtp.citrix.com ([66.165.176.89]:51741 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935623Ab3IEKFt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Sep 2013 06:05:49 -0400
-In-Reply-To: <1378374840-39130-1-git-send-email-jasowang@redhat.com>
+	id S935569Ab3IEKMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 06:12:14 -0400
+In-Reply-To: <20130904154400.GS14104@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sock_tx_timestamp() will clear all zerocopy flags of skb which may lead the
-frags never to be orphaned. This will break guest to guest traffic when zerocopy
-is enabled. Fix this by orphaning the frags before trying to set tx time stamp.
+On 04/09/13 16:44, Wei Liu wrote:
+> On Wed, Sep 04, 2013 at 03:02:01PM +0100, David Vrabel wrote:
+> [...]
+>>>>
+>>>> I think I prefer fixing the counting for backporting to stable kernels.
+>>>
+>>> The original patch has coding style change. Sans that contextual change
+>>> it's not a very long patch.
+>>
+>> The size of the patch isn't the main concern for backport-ability.  It's
+>> the frontend visible changes and thus any (unexpected) impacts on
+>> frontends -- this is especially important as only a small fraction of
+>> frontends in use will be tested with these changes.
+>>
+>>>>  Xi's approach of packing the ring differently is a change in frontend
+>>>> visible behaviour and seems more risky. e.g., possible performance
+>>>> impact so I would like to see some performance analysis of that approach.
+>>>>
+>>>
+>>> With Xi's approach it is more efficient for backend to process. As we
+>>> now use one less grant copy operation which means we copy the same
+>>> amount of data with less grant ops.
+>>
+>> It think it uses more grant ops because the copies of the linear
+>> portion are in chunks that do not cross source page boundaries.
+>>
+>> i.e., in netbk_gop_skb():
+>>
+>> 	data = skb->data;
+>> 	while (data < skb_tail_pointer(skb)) {
+>> 		unsigned int offset = offset_in_page(data);
+>> 		unsigned int len = PAGE_SIZE - offset;
+>>                 [...]
+>>
+>> It wasn't clear from the patch that this had been considered and that
+>> any extra space needed in the grant op array was made available.
+>>
+> 
+> If I'm not mistaken the grant op array is already enormous. See the
+> comment in struct xen_netbk for grant_copy_op. The case that a buffer
+> straddles two slots was taken into consideration long ago -- that's
+> why you don't see any comment or code change WRT that..
 
-The issue were introduced by commit eda297729171fe16bf34fe5b0419dfb69060f623
-(tun: Support software transmit time stamping).
+I'm not convinced that even that is enough for the current
+implementation in the (very) worse case.
 
-Cc: Richard Cochran <richardcochran@gmail.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from v1:
-- correct the comment location and style
----
- drivers/net/tun.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Consider a skb with 8 frags all 512 in length.  The linear data will be
+placed into 1 slot, and the frags will be packed into 1 slot so 9 grant
+ops and 2 slots.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2dddb1b..a639de8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -749,15 +749,17 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 			  >= dev->tx_queue_len / tun->numqueues)
- 		goto drop;
- 
-+	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-+		goto drop;
-+
- 	if (skb->sk) {
- 		sock_tx_timestamp(skb->sk, &skb_shinfo(skb)->tx_flags);
- 		sw_tx_timestamp(skb);
- 	}
- 
- 	/* Orphan the skb - required as we might hang on to it
--	 * for indefinite time. */
--	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
--		goto drop;
-+	 * for indefinite time.
-+	 */
- 	skb_orphan(skb);
- 
- 	nf_reset(skb);
--- 
-1.7.1
+I definitely think we do not want to potentially regress any further in
+this area.
+
+David
