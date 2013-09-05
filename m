@@ -1,66 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Fix alignment of struct
-	sw_flow_key.
-Date: Thu, 05 Sep 2013 14:40:44 -0400 (EDT)
-Message-ID: <20130905.144044.1053960608071929025.davem@davemloft.net>
-References: <1378402887-17331-1-git-send-email-jesse@nicira.com>
-	<20130905.141751.945639989861997124.davem@davemloft.net>
-	<CAEP_g=8gcCtkv=no=HkVmS+NDWPM-Uu-SVyR+vb-YQ=7TWJsXA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: netlink: filter particular protocols from
+ analyzers
+Date: Thu, 05 Sep 2013 14:44:42 -0400 (EDT)
+Message-ID: <20130905.144442.2085221662776542385.davem@davemloft.net>
+References: <1378396127-8342-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fengguan.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=8gcCtkv=no=HkVmS+NDWPM-Uu-SVyR+vb-YQ=7TWJsXA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dborkmann@redhat.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38542 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756868Ab3IESoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 14:44:44 -0400
+In-Reply-To: <1378396127-8342-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 5 Sep 2013 11:36:19 -0700
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu,  5 Sep 2013 17:48:47 +0200
 
-> On Thu, Sep 5, 2013 at 11:17 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
->> Date: Thu,  5 Sep 2013 10:41:27 -0700
->>
->>> -} __aligned(__alignof__(long));
->>> +} __aligned(8); /* 8 byte alignment ensures this can be accessed as a long */
->>
->> This kind of stuff drives me crazy.
->>
->> If the issue is the type, therefore at least use an expression that
->> mentions the type explicitly.  And mention the actual type that
->> matters.  "long" isn't it.
+> From: Daniel Borkmann <dborkmann@redhat.com>
 > 
-> 'long' actually is the real type here.
+> Fix finer-grained control and let only a whitelist of allowed netlink
+> protocols pass, in our case related to networking. If later on, other
+> subsystems decide they want to add their protocol as well to the list
+> of allowed protocols they shall simply add it. While at it, we also
+> need to tell what protocol is in use otherwise BPF_S_ANC_PROTOCOL can
+> not pick it up (as it's not filled out).
 > 
-> When doing comparisons, this structure is being accessed as a byte
-> array in 'long' sized chunks, not by its members. Therefore, the
-> compiler's alignment does not necessarily correspond to anything for
-> this purpose. It could be a struct full of u16's and we would still
-> want to access it in chunks of 'long'.
-> 
-> To completely honest, I think the correct alignment should be
-> sizeof(long) because I know that 'long' is not always 8 bytes on all
-> architectures. However, you made the point before that this could
-> break the alignment of the 64-bit values on architectures where 'long'
-> is 32 bits wide, so 8 bytes is the generic solution.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Look at net/core/flow.c:flow_key_compare().
+This takes away functionality that I'd be more interesting in using,
+namely being able to listen to all netlink protocols using one tap.
 
-And then we annotate struct flowi with
+Seriously, when I first saw this feature, that was the first way I'd
+imagine myself using it, as a tcpdump for netlink traffic, all of
+it.
 
-} __attribute__((__aligned__(BITS_PER_LONG/8)));
+If I just want to hear all netlink traffic, don't make me be forced to
+know every single NETLINK_* protocol value and have to open that many
+sockets just to do so.
 
-Don't reinvent the wheel, either mimick how existing code does
-this kind of thing or provide a justification for doing it differently
-and update the existing cases to match and be consistent.
+It also makes it so that I can't listen to userlevel custom netlink
+protocols, another minus of filtering.
+
+At the very least, allow an sk_protocol of zero or similar to have this
+meaning of "everything".
+
+I'm not applying this patch, sorry.
