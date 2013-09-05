@@ -1,48 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch v2] sfc: check for allocation failure
-Date: Wed, 4 Sep 2013 16:51:07 +0100
-Message-ID: <1378309867.3133.10.camel@bwh-desktop.uk.level5networks.com>
-References: <20130904150727.GA32327@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 1/6] bonding: simplify and use RCU
+ protection for 3ad xmit path
+Date: Thu, 05 Sep 2013 07:26:53 -0700
+Message-ID: <1378391213.11205.22.camel@edumazet-glaptop>
+References: <5228375C.1050105@huawei.com>
+	 <20130905134258.GB26163@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8086 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752719Ab3IENwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 09:52:49 -0400
-In-Reply-To: <20130904150727.GA32327@elgon.mountain>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:40168 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078Ab3IEO0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 10:26:55 -0400
+Received: by mail-pb0-f50.google.com with SMTP id uo5so1864586pbc.37
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 07:26:54 -0700 (PDT)
+In-Reply-To: <20130905134258.GB26163@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-04 at 18:07 +0300, Dan Carpenter wrote:
-> It upsets static analyzers when we don't check for allocation failure.
+On Thu, 2013-09-05 at 15:42 +0200, Veaceslav Falico wrote:
+
+> Really?
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-
-> ---
-> v2: rebased on latest linux-next
+> No. Again - take a look at list_first_or_null_rcu. And its comments.
 > 
-> diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-> index 38d179c..75799f8 100644
-> --- a/drivers/net/ethernet/sfc/falcon.c
-> +++ b/drivers/net/ethernet/sfc/falcon.c
-> @@ -894,6 +894,8 @@ static int falcon_mtd_probe(struct efx_nic *efx)
->  
->  	/* Allocate space for maximum number of partitions */
->  	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
-> +	if (!parts)
-> +		return -ENOMEM;
->  	n_parts = 0;
->  
->  	spi = &nic_data->spi_flash;
+> I'm sorry that I'm acting that negatively... But if that gets accepted -
+> I'll have days of nightmares.
+> 
+> Try to understand how RCU works, please, before sending patches using it.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+BTW, RCU is really hard, even for experimented kernel developers.
