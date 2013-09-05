@@ -1,54 +1,40 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next] tcp: fix no cwnd growth after timeout
-Date: Thu,  5 Sep 2013 15:36:09 -0700
-Message-ID: <1378420569-12370-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 OOPSen in rtl_rx
+Date: Fri, 6 Sep 2013 01:09:30 +0200
+Message-ID: <20130905230930.GA25360@electric-eye.fr.zoreil.com>
+References: <20130813094314.GW3008@twins.programming.kicks-ass.net>
+ <20130813211534.GA5635@electric-eye.fr.zoreil.com>
+ <20130814092915.GF24092@twins.programming.kicks-ass.net>
+ <20130814095233.GH24092@twins.programming.kicks-ass.net>
+ <20130905152026.GB31370@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:52668 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721Ab3IEWgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 18:36:33 -0400
-Received: by mail-qa0-f73.google.com with SMTP id bv4so29383qab.0
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 15:36:33 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48167 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757562Ab3IEXKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 19:10:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20130905152026.GB31370@twins.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 0f7cc9a3 "tcp: increase throughput when reordering is high",
-it only allows cwnd to increase in Open state. This mistakenly disables
-slow start after timeout (CA_Loss). Moreover cwnd won't grow if the
-state moves from Disorder to Open later in tcp_fastretrans_alert().
+Peter Zijlstra <peterz@infradead.org> :
+[...]
+> Yay, it triggered..
 
-Therefore the correct logic should be to allow cwnd to grow as long
-as the data is received in order in Open, Loss, or even Disorder state.
+Bingo.
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Can you display the whole descriptor entry (opts1 and opts2) and its
+index (cur_rx) when abnormal packets are detected ?
+We can always check the packet size but I'd welcome some more specific
+pattern in the remaining bits of the descriptor.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1969e16..894bc17 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3162,16 +3162,14 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
- 
- 	/* If reordering is high then always grow cwnd whenever data is
- 	 * delivered regardless of its ordering. Otherwise stay conservative
--	 * and only grow cwnd on in-order delivery in Open state, and retain
--	 * cwnd in Disordered state (RFC5681). A stretched ACK with
-+	 * and only grow cwnd on in-order delivery (RFC5681). A stretched ACK w/
- 	 * new SACK or ECE mark may first advance cwnd here and later reduce
- 	 * cwnd in tcp_fastretrans_alert() based on more states.
- 	 */
- 	if (tcp_sk(sk)->reordering > sysctl_tcp_reordering)
- 		return flag & FLAG_FORWARD_PROGRESS;
- 
--	return inet_csk(sk)->icsk_ca_state == TCP_CA_Open &&
--	       flag & FLAG_DATA_ACKED;
-+	return flag & FLAG_DATA_ACKED;
- }
- 
- /* Check that window update is acceptable.
+Btw, you may try to revert aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
+("r8169: use unlimited DMA burst for TX") and see if it changes the
+Rx / Tx balance. It would only be a bandaid though.
+
 -- 
-1.8.4
+Ueimor
