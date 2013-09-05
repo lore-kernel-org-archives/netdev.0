@@ -1,19 +1,20 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 60853] New: OOPS at find_appropriate_src+0xdb/0x1a0
- [nf_nat]
-Date: Thu, 5 Sep 2013 08:04:54 -0700
-Message-ID: <20130905080454.485fedae@nehalam.linuxnetplumber.net>
+Subject: Fw: [Bug 60856] New: Enabling PCI pass-through triggers circular
+ locking complaint
+Date: Thu, 5 Sep 2013 08:06:12 -0700
+Message-ID: <20130905080612.7a2bef58@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:61004 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753734Ab3IEPE5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 11:04:57 -0400
-Received: by mail-pa0-f54.google.com with SMTP id kx10so2017218pab.41
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 08:04:57 -0700 (PDT)
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:42359 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab3IEPGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 11:06:16 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so1921362pbb.0
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 08:06:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,153 +22,185 @@ List-ID: <netdev.vger.kernel.org>
 
 Begin forwarded message:
 
-Date: Wed, 4 Sep 2013 20:02:15 -0700
-=46rom: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla=
-=2Ekernel.org>
+Date: Thu, 5 Sep 2013 02:54:21 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
 To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 60853] New: OOPS at find_appropriate_src+0xdb/0x1a0 [nf_n=
-at]
+Subject: [Bug 60856] New: Enabling PCI pass-through triggers circular locking complaint
 
 
-https://bugzilla.kernel.org/show_bug.cgi?id=3D60853
+https://bugzilla.kernel.org/show_bug.cgi?id=60856
 
-            Bug ID: 60853
-           Summary: OOPS at find_appropriate_src+0xdb/0x1a0 [nf_nat]
+            Bug ID: 60856
+           Summary: Enabling PCI pass-through triggers circular locking
+                    complaint
            Product: Networking
            Version: 2.5
-    Kernel Version: 2.6.32.43-0.4-default
+    Kernel Version: 3.11
           Hardware: All
                 OS: Linux
               Tree: Mainline
             Status: NEW
           Severity: normal
           Priority: P1
-         Component: IPV4
+         Component: Other
           Assignee: shemminger@linux-foundation.org
-          Reporter: lizhao09@huawei.com
-        Regression: No
+          Reporter: bvanassche@acm.org
+        Regression: Yes
 
-[10542399.515396] BUG: unable to handle kernel NULL pointer dereference=
- at
-000000000000003e
-[10542399.523469] IP: [<ffffffffa1491a4b>] find_appropriate_src+0xdb/0x=
-1a0
-[nf_nat]
-[10542399.530843] PGD 17f55ec067 PUD 17fba37067 PMD 0
-[10542399.535727] Oops: 0000 [#1] SMP
-[10542399.539220] last sysfs file:
-/sys/devices/system/cpu/cpu23/cache/index2/shared_cpu_map
-[10542399.547355] CPU 8
-[10542399.647544] Supported: Yes, External
-[10542399.651361] Pid: 0, comm: swapper Tainted: P          NX
-2.6.32.43-0.4-default #1 Thurley
-[10542399.659755] RIP: 0010:[<ffffffffa1491a4b>]  [<ffffffffa1491a4b>]
-find_appropriate_src+0xdb/0x1a0 [nf_nat]
-[10542399.669552] RSP: 0018:ffff88002c3039f0  EFLAGS: 00010286
-[10542399.675095] RAX: 0000000000000000 RBX: ffff8817814beb90 RCX:
-0000000024852261
-[10542399.682454] RDX: 0000000000000000 RSI: 00000000327c4d71 RDI:
-ffffffff81cd4dc0
-[10542399.689812] RBP: ffff88002c303ad0 R08: 0000000000000011 R09:
-0000000000000002
-[10542399.697170] R10: 0000000000004000 R11: ffffffffa14726e0 R12:
-ffff88002c303aa0
-[10542399.704529] R13: ffff88002c303b40 R14: ffff88002c303b4c R15:
-ffff88002c303b4e
-[10542399.711888] FS:  0000000000000000(0000) GS:ffff88002c300000(0000)
-knlGS:0000000000000000
-[10542399.720199] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-[10542399.726175] CR2: 000000000000003e CR3: 00000017f67f1000 CR4:
-00000000000006e0
-[10542399.733534] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-[10542399.740893] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-[10542399.748254] Process swapper (pid: 0, threadinfo ffff881810db2000,=
- task
-ffff881810db0080)
-[10542399.756560] Stack:
-[10542399.758821]  00000000ffffffff ffff88002c303aa0 ffff88002c303ad0
-ffff88002c303b40
-[10542399.766301] <0> 0000000000000000 ffff8817f7d639e8 000000000000010=
-0
-ffffffffa1491beb
-[10542399.774237] <0> ffff88002c303ad0 ffff8817f7d639e8 ffff88002c303b4=
-0
-ffff88002c303aa0
-[10542399.782365] Call Trace:
-[10542399.785085]  [<ffffffffa1491beb>] get_unique_tuple+0xdb/0x240 [nf=
-_nat]
-[10542399.791847]  [<ffffffffa1491de9>] nf_nat_setup_info+0x99/0x350 [n=
-f_nat]
-[10542399.798697]  [<ffffffffa149e162>] alloc_null_binding+0x52/0x90
-[iptable_nat]
-[10542399.805977]  [<ffffffffa149e519>] nf_nat_fn+0x1e9/0x280 [iptable_=
-nat]
-[10542399.812654]  [<ffffffff81318d18>] nf_iterate+0x68/0xa0
-[10542399.818031]  [<ffffffff81318db2>] nf_hook_slow+0x62/0xf0
-[10542399.823582]  [<ffffffff813214a1>] ip_local_deliver+0x51/0x80
-[10542399.829477]  [<ffffffff81320a59>] ip_rcv_finish+0x1b9/0x440
-[10542399.835288]  [<ffffffff812f5f89>] netif_receive_skb+0x599/0x6a0
-[10542399.841454]  [<ffffffffa0ea4837>] ixgbe_clean_rx_irq+0x3d7/0xe50 =
-[ixgbe]
-[10542399.848397]  [<ffffffffa0ea53e4>] ixgbe_clean_rxtx_many+0x134/0x2=
-70
-[ixgbe]
-[10542399.855595]  [<ffffffff812f6863>] net_rx_action+0xe3/0x1a0
-[10542399.861318]  [<ffffffff810533ef>] __do_softirq+0xbf/0x170
-[10542399.866956]  [<ffffffff810040bc>] call_softirq+0x1c/0x30
-[10542399.872506]  [<ffffffff81005cfd>] do_softirq+0x4d/0x80
-[10542399.877883]  [<ffffffff81053275>] irq_exit+0x85/0x90
-[10542399.883087]  [<ffffffff8100525e>] do_IRQ+0x6e/0xe0
-[10542399.888120]  [<ffffffff81003913>] ret_from_intr+0x0/0xa
-[10542399.893582]  [<ffffffff8100ae42>] mwait_idle+0x62/0x70
-[10542399.898957]  [<ffffffff8100204a>] cpu_idle+0x5a/0xb0
-[10542399.904159] Code: 00 00 00 4d 8d 7d 0e 4d 8d 75 0c 48 89 c3 eb 14=
- 48 8b
-03 48 85 c0 0f 84 84 00 00 00 44 0f b6 45 26 48 89 c3 48 8b 53 20 48 8b=
- 03 <44>
-38 42 3e 0f 18 08 75 dc 8b 42 18 3b 45 00 75 d4 0f b7 42 28
+When I enable PCI pass-through for an mlx4 HCA, a circular locking complaint is
+reported.
 
-=46rom the vmcore,we found that:=20
+PCI pass-through was enabled with the following script:
 
-1 OOPS occured at the statement 't->dst.protonum =3D=3D tuple->dst.prot=
-onum' in
-inline function same_src.=20
+#!/bin/bash
+vendor_id="15b3" # Mellanox
+device_id="1003" # MT27500 Family [ConnectX-3]
 
-2 The first parameter of same_src "ct" is NULL,The value of 'ct' came f=
-rom 'ct
-=3D nat->ct'.
+modprobe pci_stub &&
+echo "$vendor_id $device_id" >/sys/bus/pci/drivers/pci-stub/new_id &&
+lspci -n -mm |
+while read slot class vendor device rest; do
+    slot="0000:${slot}"
+    vendor="${vendor#\"}"
+    vendor="${vendor%\"}"
+    device="${device#\"}"
+    device="${device%\"}"
+    if [ "$vendor" = "$vendor_id" -a "$device" = "$device_id" ]; then
+    echo "$slot" >/sys/bus/pci/devices/$slot/driver/unbind
+    echo "$slot" >/sys/bus/pci/drivers/pci-stub/bind
+    fi
+done
 
-3 Read the content of the 'nat', all member's value are zero.
+Running the above script triggered the following lockdep complaint:
+
+======================================================
+[ INFO: possible circular locking dependency detected ]
+3.11.0-debug+ #1 Not tainted
+-------------------------------------------------------
+assign-pci-dev-/3065 is trying to acquire lock:
+ (s_active#79){++++.+}, at: [<ffffffff811d816b>] sysfs_addrm_finish+0x3b/0x70
+
+but task is already holding lock:
+ (rtnl_mutex){+.+.+.}, at: [<ffffffff81384117>] rtnl_lock+0x17/0x20
+
+which lock already depends on the new lock.
 
 
-static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
-{
-    struct nf_conn_nat *nat =3D nf_ct_ext_find(ct, NF_CT_EXT_NAT);
+the existing dependency chain (in reverse order) is:
 
-    if (nat =3D=3D NULL || nat->ct =3D=3D NULL)
-        return;
+-> #1 (rtnl_mutex){+.+.+.}:
+       [<ffffffff810a5eca>] lock_acquire+0x8a/0x120
+       [<ffffffff8144c16d>] mutex_lock_nested+0x7d/0x380
+       [<ffffffff81384117>] rtnl_lock+0x17/0x20
+       [<ffffffffa048fb7e>] ipoib_set_mode+0xde/0xf0 [ib_ipoib]
+       [<ffffffffa049686a>] set_mode+0x3a/0x90 [ib_ipoib]
+       [<ffffffff812eec88>] dev_attr_store+0x18/0x30
+       [<ffffffff811d6654>] sysfs_write_file+0xe4/0x150
+       [<ffffffff81167f24>] vfs_write+0xc4/0x1e0
+       [<ffffffff811683e5>] SyS_write+0x55/0xa0
+       [<ffffffff81459fc2>] system_call_fastpath+0x16/0x1b
 
-    NF_CT_ASSERT(nat->ct->status & IPS_NAT_DONE_MASK);
+-> #0 (s_active#79){++++.+}:
+       [<ffffffff810a57a6>] __lock_acquire+0x1d36/0x1e40
+       [<ffffffff810a5eca>] lock_acquire+0x8a/0x120
+       [<ffffffff811d75b6>] sysfs_deactivate+0x126/0x180
+       [<ffffffff811d816b>] sysfs_addrm_finish+0x3b/0x70
+       [<ffffffff811d86af>] sysfs_remove_dir+0x9f/0xd0
+       [<ffffffff81228666>] kobject_del+0x16/0x40
+       [<ffffffff812f037a>] device_del+0x18a/0x1d0
+       [<ffffffff8138daf1>] netdev_unregister_kobject+0x71/0x80
+       [<ffffffff8137339c>] rollback_registered_many+0x16c/0x220
+       [<ffffffff81373661>] rollback_registered+0x31/0x40
+       [<ffffffff81373ce8>] unregister_netdevice_queue+0x58/0xa0
+       [<ffffffff81373e20>] unregister_netdev+0x20/0x30
+       [<ffffffffa048dc01>] ipoib_remove_one+0xb1/0xf0 [ib_ipoib]
+       [<ffffffffa035e57e>] ib_unregister_device+0x4e/0x110 [ib_core]
+       [<ffffffffa044ebde>] mlx4_ib_remove+0x2e/0x1a0 [mlx4_ib]
+       [<ffffffffa037e24b>] mlx4_remove_device+0x7b/0x90 [mlx4_core]
+       [<ffffffffa037e5ab>] mlx4_unregister_device+0x4b/0x90 [mlx4_core]
+       [<ffffffffa037fca4>] mlx4_remove_one+0x54/0x330 [mlx4_core]
+       [<ffffffff812542a6>] pci_device_remove+0x46/0xc0
+       [<ffffffff812f39ef>] __device_release_driver+0x7f/0xf0
+       [<ffffffff812f3d4e>] device_release_driver+0x2e/0x40
+       [<ffffffff812f28e3>] driver_unbind+0xa3/0xc0
+       [<ffffffff812f1c24>] drv_attr_store+0x24/0x40
+       [<ffffffff811d6654>] sysfs_write_file+0xe4/0x150
+       [<ffffffff81167f24>] vfs_write+0xc4/0x1e0
+       [<ffffffff811683e5>] SyS_write+0x55/0xa0
+       [<ffffffff81459fc2>] system_call_fastpath+0x16/0x1b
 
-    spin_lock_bh(&nf_nat_lock);
-    hlist_del_rcu(&nat->bysource);=20
-    spin_unlock_bh(&nf_nat_lock);
-}
+other info that might help us debug this:
 
-void nf_conntrack_free(struct nf_conn *ct)
-{
-  struct net *net =3D nf_ct_net(ct);
-  nf_ct_ext_destroy(ct); //For NAT=EF=BC=8Cit will call nf_nat_cleanup_=
-conntrack
-  atomic_dec(&net->ct.count);   =20
-  nf_ct_ext_free(ct);  // Free nat-extention memory by kfree; is it pos=
-sible
-that the extention was still used in a RCU read side ?
-  kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-}
+ Possible unsafe locking scenario:
 
---=20
+       CPU0                    CPU1
+       ----                    ----
+  lock(rtnl_mutex);
+                               lock(s_active#79);
+                               lock(rtnl_mutex);
+  lock(s_active#79);
+
+ *** DEADLOCK ***
+
+8 locks held by assign-pci-dev-/3065:
+ #0:  (sb_writers#6){.+.+.+}, at: [<ffffffff81168003>] vfs_write+0x1a3/0x1e0
+ #1:  (&buffer->mutex){+.+.+.}, at: [<ffffffff811d65b8>]
+sysfs_write_file+0x48/0x150
+ #2:  (s_active#185){.+.+.+}, at: [<ffffffff811d663c>]
+sysfs_write_file+0xcc/0x150
+ #3:  (&__lockdep_no_validate__){......}, at: [<ffffffff812f28db>]
+driver_unbind+0x9b/0xc0
+ #4:  (&__lockdep_no_validate__){......}, at: [<ffffffff812f3d46>]
+device_release_driver+0x26/0x40
+ #5:  (intf_mutex){+.+.+.}, at: [<ffffffffa037e583>]
+mlx4_unregister_device+0x23/0x90 [mlx4_core]
+ #6:  (device_mutex){+.+.+.}, at: [<ffffffffa035e557>]
+ib_unregister_device+0x27/0x110 [ib_core]
+ #7:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81384117>] rtnl_lock+0x17/0x20
+
+stack backtrace:
+CPU: 1 PID: 3065 Comm: assign-pci-dev- Not tainted 3.11.0-debug+ #1
+Hardware name: System manufacturer P5Q DELUXE/P5Q DELUXE, BIOS 2301
+07/10/2009
+ ffffffff81d67910 ffff8801b265d848 ffffffff8144973f 0000000000000007
+ ffffffff81d67910 ffff8801b265d898 ffffffff814467da 0000000000000086
+ ffff8801b265d928 ffff8801b37f5278 ffff8801b37f52b0 ffff8801b37f5278
+Call Trace:
+ [<ffffffff8144973f>] dump_stack+0x55/0x76
+ [<ffffffff814467da>] print_circular_bug+0x1fb/0x20c
+ [<ffffffff810a57a6>] __lock_acquire+0x1d36/0x1e40
+ [<ffffffff8107c9e5>] ? sched_clock_local+0x25/0xa0
+ [<ffffffff810a5eca>] lock_acquire+0x8a/0x120
+ [<ffffffff811d816b>] ? sysfs_addrm_finish+0x3b/0x70
+ [<ffffffff811d75b6>] sysfs_deactivate+0x126/0x180
+ [<ffffffff811d816b>] ? sysfs_addrm_finish+0x3b/0x70
+ [<ffffffff810a6829>] ? mark_held_locks+0xb9/0x140
+ [<ffffffff811d816b>] sysfs_addrm_finish+0x3b/0x70
+ [<ffffffff811d86af>] sysfs_remove_dir+0x9f/0xd0
+ [<ffffffff81228666>] kobject_del+0x16/0x40
+ [<ffffffff812f037a>] device_del+0x18a/0x1d0
+ [<ffffffff8138daf1>] netdev_unregister_kobject+0x71/0x80
+ [<ffffffff8137339c>] rollback_registered_many+0x16c/0x220
+ [<ffffffff81384117>] ? rtnl_lock+0x17/0x20
+ [<ffffffff81373661>] rollback_registered+0x31/0x40
+ [<ffffffff81373ce8>] unregister_netdevice_queue+0x58/0xa0
+ [<ffffffff81373e20>] unregister_netdev+0x20/0x30
+ [<ffffffffa048dc01>] ipoib_remove_one+0xb1/0xf0 [ib_ipoib]
+ [<ffffffffa035e57e>] ib_unregister_device+0x4e/0x110 [ib_core]
+ [<ffffffffa044ebde>] mlx4_ib_remove+0x2e/0x1a0 [mlx4_ib]
+ [<ffffffffa037e24b>] mlx4_remove_device+0x7b/0x90 [mlx4_core]
+ [<ffffffffa037e5ab>] mlx4_unregister_device+0x4b/0x90 [mlx4_core]
+ [<ffffffffa037fca4>] mlx4_remove_one+0x54/0x330 [mlx4_core]
+ [<ffffffff812542a6>] pci_device_remove+0x46/0xc0
+ [<ffffffff812f39ef>] __device_release_driver+0x7f/0xf0
+ [<ffffffff812f3d4e>] device_release_driver+0x2e/0x40
+ [<ffffffff812f28e3>] driver_unbind+0xa3/0xc0
+ [<ffffffff812f1c24>] drv_attr_store+0x24/0x40
+ [<ffffffff811d6654>] sysfs_write_file+0xe4/0x150
+ [<ffffffff81167f24>] vfs_write+0xc4/0x1e0
+ [<ffffffff811683e5>] SyS_write+0x55/0xa0
+ [<ffffffff81459fc2>] system_call_fastpath+0x16/0x1b
+
+--
 You are receiving this mail because:
 You are the assignee for the bug.
