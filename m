@@ -1,259 +1,173 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next v3 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Thu, 05 Sep 2013 22:42:08 +0800
-Message-ID: <52289840.8000207@gmail.com>
-References: <5228375C.1050105@huawei.com> <20130905134258.GB26163@redhat.com> <52289289.2030606@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 60853] New: OOPS at find_appropriate_src+0xdb/0x1a0
+ [nf_nat]
+Date: Thu, 5 Sep 2013 08:04:54 -0700
+Message-ID: <20130905080454.485fedae@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:36042 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422Ab3IEOva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 10:51:30 -0400
-Received: by mail-pd0-f169.google.com with SMTP id r10so1912705pdi.14
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 07:51:29 -0700 (PDT)
-In-Reply-To: <52289289.2030606@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:61004 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753734Ab3IEPE5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 11:04:57 -0400
+Received: by mail-pa0-f54.google.com with SMTP id kx10so2017218pab.41
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 08:04:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013/9/5 22:17, Ding Tianhong =E5=86=99=E9=81=93:
-> =E4=BA=8E 2013/9/5 21:42, Veaceslav Falico =E5=86=99=E9=81=93:
->> On Thu, Sep 05, 2013 at 03:48:44PM +0800, Ding Tianhong wrote:
->>> The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
->>> (bonding: initial RCU conversion) has convert the roundrobin,=20
->>> active-backup,
->>> broadcast and xor xmit path to rcu protection, the performance will=
-=20
->>> be better
->>> for these mode, so this time, convert xmit path for 3ad mode.
->>>
->>> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
->>> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
->>> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
->>> Cc: Veaceslav Falico <vfalico@redhat.com>
->>> ---
->>> drivers/net/bonding/bond_3ad.c | 32 ++++++++++++++-----------------=
--
->>> drivers/net/bonding/bonding.h | 32 +++++++++++++++++++++++++++++++-
->>> 2 files changed, 45 insertions(+), 19 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_3ad.c=20
->>> b/drivers/net/bonding/bond_3ad.c
->>> index 0d8f427..13f1deb 100644
->>> --- a/drivers/net/bonding/bond_3ad.c
->>> +++ b/drivers/net/bonding/bond_3ad.c
->>> @@ -143,7 +143,7 @@ static inline struct bonding=20
->>> *__get_bond_by_port(struct port *port)
->>> */
->>> static inline struct port *__get_first_port(struct bonding *bond)
->>> {
->>> - struct slave *first_slave =3D bond_first_slave(bond);
->>> + struct slave *first_slave =3D bond_first_slave_rcu(bond);
->>>
->>> return first_slave ? &(SLAVE_AD_INFO(first_slave).port) : NULL;
->>> }
->>> @@ -163,7 +163,7 @@ static inline struct port=20
->>> *__get_next_port(struct port *port)
->>> // If there's no bond for this port, or this is the last slave
->>> if (bond =3D=3D NULL)
->>> return NULL;
->>> - slave_next =3D bond_next_slave(bond, slave);
->>> + slave_next =3D bond_next_slave_rcu(bond, slave);
->>> if (!slave_next || bond_is_first_slave(bond, slave_next))
->>> return NULL;
->>>
->>> @@ -2417,16 +2417,14 @@ int bond_3ad_get_active_agg_info(struct=20
->>> bonding *bond, struct ad_info *ad_info)
->>>
->>> int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->>> {
->>> - struct slave *slave, *start_at;
->>> struct bonding *bond =3D netdev_priv(dev);
->>> + struct slave *slave;
->>> int slave_agg_no;
->>> int slaves_in_agg;
->>> int agg_id;
->>> - int i;
->>> struct ad_info ad_info;
->>> int res =3D 1;
->>>
->>> - read_lock(&bond->lock);
->>> if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
->>> pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
->>> dev->name);
->>> @@ -2444,13 +2442,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb,=20
->>> struct net_device *dev)
->>>
->>> slave_agg_no =3D bond->xmit_hash_policy(skb, slaves_in_agg);
->>>
->>> - bond_for_each_slave(bond, slave) {
->>> + bond_for_each_slave_rcu(bond, slave) {
->>> struct aggregator *agg =3D SLAVE_AD_INFO(slave).port.aggregator;
->>>
->>> if (agg && (agg->aggregator_identifier =3D=3D agg_id)) {
->>> - slave_agg_no--;
->>> - if (slave_agg_no < 0)
->>> - break;
->>> + if (--slave_agg_no < 0) {
->>> + if (SLAVE_IS_OK(slave)) {
->>> + res =3D bond_dev_queue_xmit(bond,
->>> + skb, slave->dev);
->>> + goto out;
->>> + }
->>> + }
->>> }
->>> }
->>>
->>> @@ -2460,23 +2462,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb,=20
->>> struct net_device *dev)
->>> goto out;
->>> }
->>>
->>> - start_at =3D slave;
->>> -
->>> - bond_for_each_slave_from(bond, slave, i, start_at) {
->>> - int slave_agg_id =3D 0;
->>> + bond_for_each_slave_rcu(bond, slave) {
->>> struct aggregator *agg =3D SLAVE_AD_INFO(slave).port.aggregator;
->>>
->>> - if (agg)
->>> - slave_agg_id =3D agg->aggregator_identifier;
->>> -
->>> - if (SLAVE_IS_OK(slave) && agg && (slave_agg_id =3D=3D agg_id)) {
->>> + if (SLAVE_IS_OK(slave) && agg &&
->>> + agg->aggregator_identifier =3D=3D agg_id) {
->>> res =3D bond_dev_queue_xmit(bond, skb, slave->dev);
->>> break;
->>> }
->>> }
->>>
->>> out:
->>> - read_unlock(&bond->lock);
->>> if (res) {
->>> /* no suitable interface, frame not sent */
->>> kfree_skb(skb);
->>> diff --git a/drivers/net/bonding/bonding.h=20
->>> b/drivers/net/bonding/bonding.h
->>> index f7ab161..f013b12 100644
->>> --- a/drivers/net/bonding/bonding.h
->>> +++ b/drivers/net/bonding/bonding.h
->>> @@ -74,13 +74,34 @@
->>> /* slave list primitives */
->>> #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
->>>
->>> +/* slave list primitives, Caller must hold rcu_read_lock */
->>> +#define bond_to_slave_rcu(ptr) list_entry_rcu(ptr, struct slave, l=
-ist)
->>> +
->>> +/* bond_is_empty return NULL if slave list is empty*/
->>> +#define bond_is_empty(bond) \
->>> + (list_empty(&(bond)->slave_list))
->>> +
->>> +/* bond_is_empty_rcu return NULL if slave list is empty*/
->>> +#define bond_is_empty_rcu(bond) \
->>> + (!list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)=
-)
->>> +
->>> /* IMPORTANT: bond_first/last_slave can return NULL in case of an=20
->>> empty list */
->>> #define bond_first_slave(bond) \
->>> list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
->>> #define bond_last_slave(bond) \
->>> - (list_empty(&(bond)->slave_list) ? NULL : \
->>> + (bond_is_empty(bond) ? NULL : \
->>> bond_to_slave((bond)->slave_list.prev))
->>>
->>> +/**
->>> + * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of=
-=20
->>> an empty list
->>> + * Caller must hold rcu_read_lock
->>> + */
->>> +#define bond_first_slave_rcu(bond) \
->>> + list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
->>> +#define bond_last_slave_rcu(bond) \
->>> + (bond_is_empty_rcu(bond) ? NULL : \
->>> + bond_to_slave_rcu((bond)->slave_list.prev))
->>
->> Really?
->>
->> No. Again - take a look at list_first_or_null_rcu. And its comments.
->>
->> I'm sorry that I'm acting that negatively... But if that gets accept=
-ed -
->> I'll have days of nightmares.
->>
->> Try to understand how RCU works, please, before sending patches usin=
-g=20
->> it.
->>
-> I am sad to here that, I think I had good understand of rcu, but mayb=
-e=20
-> miss something.
-> #define bond_first_slave_rcu(bond) \
-> (bond_is_empty_rcu(bond) ? NULL : \
-> bond_to_slave_rcu((bond)->slave_list.next))
->
-> vs
-> list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
->
-> maybe the first one is confort you, but I think the second is racy an=
-d=20
-> simple, maybe I still
-> miss something, I need a coffee to clear up.
->
 
-fprgot it
 
-best regards
-Ding Tianhong
+Begin forwarded message:
 
->
->>> +
->>> #define bond_is_first_slave(bond, pos) ((pos)->list.prev =3D=3D=20
->>> &(bond)->slave_list)
->>> #define bond_is_last_slave(bond, pos) ((pos)->list.next =3D=3D=20
->>> &(bond)->slave_list)
->>>
->>> @@ -93,6 +114,15 @@
->>> (bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
->>> bond_to_slave((pos)->list.prev))
->>>
->>> +/* Since bond_first/last_slave_rcu can return NULL, these can=20
->>> return NULL too */
->>> +#define bond_next_slave_rcu(bond, pos) \
->>> + (bond_is_last_slave(bond, pos) ? bond_first_slave_rcu(bond) : \
->>> + bond_to_slave_rcu((pos)->list.next))
->>> +
->>> +#define bond_prev_slave_rcu(bond, pos) \
->>> + (bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
->>> + bond_to_slave_rcu((pos)->list.prev))
->>> +
->>> /**
->>> * bond_for_each_slave_from - iterate the slaves list from a startin=
-g=20
->>> point
->>> * @bond: the bond holding this list.
->>> --=20
->>> 1.8.2.1
->>>
->>>
->>>
->> --=20
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at http://vger.kernel.org/majordomo-info.html
->>
->
+Date: Wed, 4 Sep 2013 20:02:15 -0700
+=46rom: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla=
+=2Ekernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 60853] New: OOPS at find_appropriate_src+0xdb/0x1a0 [nf_n=
+at]
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=3D60853
+
+            Bug ID: 60853
+           Summary: OOPS at find_appropriate_src+0xdb/0x1a0 [nf_nat]
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.32.43-0.4-default
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: lizhao09@huawei.com
+        Regression: No
+
+[10542399.515396] BUG: unable to handle kernel NULL pointer dereference=
+ at
+000000000000003e
+[10542399.523469] IP: [<ffffffffa1491a4b>] find_appropriate_src+0xdb/0x=
+1a0
+[nf_nat]
+[10542399.530843] PGD 17f55ec067 PUD 17fba37067 PMD 0
+[10542399.535727] Oops: 0000 [#1] SMP
+[10542399.539220] last sysfs file:
+/sys/devices/system/cpu/cpu23/cache/index2/shared_cpu_map
+[10542399.547355] CPU 8
+[10542399.647544] Supported: Yes, External
+[10542399.651361] Pid: 0, comm: swapper Tainted: P          NX
+2.6.32.43-0.4-default #1 Thurley
+[10542399.659755] RIP: 0010:[<ffffffffa1491a4b>]  [<ffffffffa1491a4b>]
+find_appropriate_src+0xdb/0x1a0 [nf_nat]
+[10542399.669552] RSP: 0018:ffff88002c3039f0  EFLAGS: 00010286
+[10542399.675095] RAX: 0000000000000000 RBX: ffff8817814beb90 RCX:
+0000000024852261
+[10542399.682454] RDX: 0000000000000000 RSI: 00000000327c4d71 RDI:
+ffffffff81cd4dc0
+[10542399.689812] RBP: ffff88002c303ad0 R08: 0000000000000011 R09:
+0000000000000002
+[10542399.697170] R10: 0000000000004000 R11: ffffffffa14726e0 R12:
+ffff88002c303aa0
+[10542399.704529] R13: ffff88002c303b40 R14: ffff88002c303b4c R15:
+ffff88002c303b4e
+[10542399.711888] FS:  0000000000000000(0000) GS:ffff88002c300000(0000)
+knlGS:0000000000000000
+[10542399.720199] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+[10542399.726175] CR2: 000000000000003e CR3: 00000017f67f1000 CR4:
+00000000000006e0
+[10542399.733534] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+0000000000000000
+[10542399.740893] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+0000000000000400
+[10542399.748254] Process swapper (pid: 0, threadinfo ffff881810db2000,=
+ task
+ffff881810db0080)
+[10542399.756560] Stack:
+[10542399.758821]  00000000ffffffff ffff88002c303aa0 ffff88002c303ad0
+ffff88002c303b40
+[10542399.766301] <0> 0000000000000000 ffff8817f7d639e8 000000000000010=
+0
+ffffffffa1491beb
+[10542399.774237] <0> ffff88002c303ad0 ffff8817f7d639e8 ffff88002c303b4=
+0
+ffff88002c303aa0
+[10542399.782365] Call Trace:
+[10542399.785085]  [<ffffffffa1491beb>] get_unique_tuple+0xdb/0x240 [nf=
+_nat]
+[10542399.791847]  [<ffffffffa1491de9>] nf_nat_setup_info+0x99/0x350 [n=
+f_nat]
+[10542399.798697]  [<ffffffffa149e162>] alloc_null_binding+0x52/0x90
+[iptable_nat]
+[10542399.805977]  [<ffffffffa149e519>] nf_nat_fn+0x1e9/0x280 [iptable_=
+nat]
+[10542399.812654]  [<ffffffff81318d18>] nf_iterate+0x68/0xa0
+[10542399.818031]  [<ffffffff81318db2>] nf_hook_slow+0x62/0xf0
+[10542399.823582]  [<ffffffff813214a1>] ip_local_deliver+0x51/0x80
+[10542399.829477]  [<ffffffff81320a59>] ip_rcv_finish+0x1b9/0x440
+[10542399.835288]  [<ffffffff812f5f89>] netif_receive_skb+0x599/0x6a0
+[10542399.841454]  [<ffffffffa0ea4837>] ixgbe_clean_rx_irq+0x3d7/0xe50 =
+[ixgbe]
+[10542399.848397]  [<ffffffffa0ea53e4>] ixgbe_clean_rxtx_many+0x134/0x2=
+70
+[ixgbe]
+[10542399.855595]  [<ffffffff812f6863>] net_rx_action+0xe3/0x1a0
+[10542399.861318]  [<ffffffff810533ef>] __do_softirq+0xbf/0x170
+[10542399.866956]  [<ffffffff810040bc>] call_softirq+0x1c/0x30
+[10542399.872506]  [<ffffffff81005cfd>] do_softirq+0x4d/0x80
+[10542399.877883]  [<ffffffff81053275>] irq_exit+0x85/0x90
+[10542399.883087]  [<ffffffff8100525e>] do_IRQ+0x6e/0xe0
+[10542399.888120]  [<ffffffff81003913>] ret_from_intr+0x0/0xa
+[10542399.893582]  [<ffffffff8100ae42>] mwait_idle+0x62/0x70
+[10542399.898957]  [<ffffffff8100204a>] cpu_idle+0x5a/0xb0
+[10542399.904159] Code: 00 00 00 4d 8d 7d 0e 4d 8d 75 0c 48 89 c3 eb 14=
+ 48 8b
+03 48 85 c0 0f 84 84 00 00 00 44 0f b6 45 26 48 89 c3 48 8b 53 20 48 8b=
+ 03 <44>
+38 42 3e 0f 18 08 75 dc 8b 42 18 3b 45 00 75 d4 0f b7 42 28
+
+=46rom the vmcore,we found that:=20
+
+1 OOPS occured at the statement 't->dst.protonum =3D=3D tuple->dst.prot=
+onum' in
+inline function same_src.=20
+
+2 The first parameter of same_src "ct" is NULL,The value of 'ct' came f=
+rom 'ct
+=3D nat->ct'.
+
+3 Read the content of the 'nat', all member's value are zero.
+
+
+static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
+{
+    struct nf_conn_nat *nat =3D nf_ct_ext_find(ct, NF_CT_EXT_NAT);
+
+    if (nat =3D=3D NULL || nat->ct =3D=3D NULL)
+        return;
+
+    NF_CT_ASSERT(nat->ct->status & IPS_NAT_DONE_MASK);
+
+    spin_lock_bh(&nf_nat_lock);
+    hlist_del_rcu(&nat->bysource);=20
+    spin_unlock_bh(&nf_nat_lock);
+}
+
+void nf_conntrack_free(struct nf_conn *ct)
+{
+  struct net *net =3D nf_ct_net(ct);
+  nf_ct_ext_destroy(ct); //For NAT=EF=BC=8Cit will call nf_nat_cleanup_=
+conntrack
+  atomic_dec(&net->ct.count);   =20
+  nf_ct_ext_free(ct);  // Free nat-extention memory by kfree; is it pos=
+sible
+that the extention was still used in a RCU read side ?
+  kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+}
+
+--=20
+You are receiving this mail because:
+You are the assignee for the bug.
