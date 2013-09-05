@@ -1,43 +1,38 @@
-From: Dave Jones <davej@redhat.com>
-Subject: [PATCH] Add missing braces to ath10k_pci_tx_pipe_cleanup
-Date: Wed, 4 Sep 2013 23:51:28 -0400
-Message-ID: <20130905035128.GA15824@redhat.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
+ interfaces
+Date: Thu, 5 Sep 2013 04:08:39 +0000
+Message-ID: <1378354121.26131.4.camel@jbrandeb-mobl2>
+References: <1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
+	 <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+	 <20130904.231950.956676623509287249.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo@qca.qualcomm.com, linville@tuxdriver.com,
-	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Nelson, Shannon" <shannon.nelson@intel.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63954 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([143.182.124.21]:10800 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752504Ab3IEDwM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 23:52:12 -0400
-Content-Disposition: inline
+	id S1750708Ab3IEEIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 00:08:52 -0400
+In-Reply-To: <20130904.231950.956676623509287249.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <D177A0BBC0BA4840AD7C5A181ECF8DFD@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The indentation here implies this was meant to be a multi-statement if, but it lacks the braces.
-
-Signed-off-by: Dave Jones <davej@fedoraproject.org>
-
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index 33af467..31b69d3 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -1200,7 +1200,7 @@ static void ath10k_pci_tx_pipe_cleanup(struct hif_ce_pipe_info *pipe_info)
- 
- 	while (ath10k_ce_cancel_send_next(ce_hdl, (void **)&netbuf,
- 					  &ce_data, &nbytes, &id) == 0) {
--		if (netbuf != CE_SENDLIST_ITEM_CTXT)
-+		if (netbuf != CE_SENDLIST_ITEM_CTXT) {
- 			/*
- 			 * Indicate the completion to higer layer to free
- 			 * the buffer
-@@ -1209,6 +1209,7 @@ static void ath10k_pci_tx_pipe_cleanup(struct hif_ce_pipe_info *pipe_info)
- 			ar_pci->msg_callbacks_current.tx_completion(ar,
- 								    netbuf,
- 								    id);
-+		}
- 	}
- }
- 
+T24gV2VkLCAyMDEzLTA5LTA0IGF0IDIzOjE5IC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
+IFlvdSB3aWxsIGZpeCB0aGUgcHJvYmxlbXMgcGVvcGxlIGFyZSByZXBvcnRpbmcgd2l0aCB0aGlz
+IHBhdGNoIHNlcmllcw0KPiBiZWZvcmUgSSBhcHBseSBpdC4NCg0KT2theSwgdGhlIHF1aWNrZXN0
+IHBhdGggdG8gdGhhdCBtaWdodCBiZSB0byBkcm9wIHRoZSBzeXNmcyBwYXRjaCBmb3INCm5vdy4g
+IElmIHRoYXQgaXMgYWNjZXB0YWJsZSBJIHdpbGwgcmUtc3BpbiB0aGUgcGF0Y2hlcyB0b25pZ2h0
+Lg0KDQo=
