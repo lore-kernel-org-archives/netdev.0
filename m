@@ -1,88 +1,84 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: netlink: filter particular protocols from analyzers
-Date: Thu,  5 Sep 2013 17:48:47 +0200
-Message-ID: <1378396127-8342-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkmann@redhat.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [net-next v4 1/7] i40e: main driver core
+Date: Thu, 5 Sep 2013 09:26:33 -0700
+Message-ID: <20130905092633.253896e3@nehalam.linuxnetplumber.net>
+References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378336629-24224-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63193 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753421Ab3IEPst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Sep 2013 11:48:49 -0400
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:43361 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752397Ab3IEQ0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 12:26:37 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so2007263pbb.27
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 09:26:37 -0700 (PDT)
+In-Reply-To: <1378336629-24224-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkmann@redhat.com>
+More review comments, these are non-blocking, and can be fixed later.
 
-Fix finer-grained control and let only a whitelist of allowed netlink
-protocols pass, in our case related to networking. If later on, other
-subsystems decide they want to add their protocol as well to the list
-of allowed protocols they shall simply add it. While at it, we also
-need to tell what protocol is in use otherwise BPF_S_ANC_PROTOCOL can
-not pick it up (as it's not filled out).
+Minor
+-----
+* style
+    not a fan of doing own error codes and handling (ie. I40E_SUCCESS)
+    which probably is side effect of OS abstraction.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/netlink/af_netlink.c | 30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+* extra parens aren't needed on return
+     return (budget > 0);
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 0c61b59..350187e 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -168,16 +168,43 @@ int netlink_remove_tap(struct netlink_tap *nt)
- }
- EXPORT_SYMBOL_GPL(netlink_remove_tap);
- 
-+static bool netlink_filter_tap(const struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+	bool pass = false;
-+
-+	/* We take the more conservative approach and
-+	 * whitelist socket protocols that may pass.
-+	 */
-+	switch (sk->sk_protocol) {
-+	case NETLINK_ROUTE:
-+	case NETLINK_USERSOCK:
-+	case NETLINK_SOCK_DIAG:
-+	case NETLINK_NFLOG:
-+	case NETLINK_XFRM:
-+	case NETLINK_FIB_LOOKUP:
-+	case NETLINK_NETFILTER:
-+	case NETLINK_GENERIC:
-+		pass = true;
-+		break;
-+	}
-+
-+	return pass;
-+}
-+
- static int __netlink_deliver_tap_skb(struct sk_buff *skb,
- 				     struct net_device *dev)
- {
- 	struct sk_buff *nskb;
-+	struct sock *sk = skb->sk;
- 	int ret = -ENOMEM;
- 
- 	dev_hold(dev);
- 	nskb = skb_clone(skb, GFP_ATOMIC);
- 	if (nskb) {
- 		nskb->dev = dev;
-+		nskb->protocol = htons((u16) sk->sk_protocol);
-+
- 		ret = dev_queue_xmit(nskb);
- 		if (unlikely(ret > 0))
- 			ret = net_xmit_errno(ret);
-@@ -192,6 +219,9 @@ static void __netlink_deliver_tap(struct sk_buff *skb)
- 	int ret;
- 	struct netlink_tap *tmp;
- 
-+	if (!netlink_filter_tap(skb))
-+		return;
-+
- 	list_for_each_entry_rcu(tmp, &netlink_tap_all, list) {
- 		ret = __netlink_deliver_tap_skb(skb, tmp->dev);
- 		if (unlikely(ret))
--- 
-1.8.3.1
+* i40e_config_netdev
+    etherdev_size = (sizeof(struct i40e_netdev_priv));
+	 Extra paren, only used once, unsigned vs signed, just
+	 use sizeof()
+    strlcpy(netdev->name, "eth%d", IFNAMSIZ-1);
+        That is already done by alloc_etherdev
+    memcpy(netdev->dev_addr, mac_addr, netdev->addr_len);
+       netdev->addr_len is ETH_ALEN, mac_addr is ETH_ALEN
+       just use constant size copy.
+* i40e_init_module
+    ret = pci_register_driver(&i40e_driver);
+    return ret;
+       assignment is unneeded, just do return pci_register_driver
+
+* service timer
+     since it is 1 HZ, you should use round_jiffies to align
+     on clock boundary to save power.
+
+* Why is Kbuild file used instead of Makefile like other drivers?
+
+* Ethtool
+  Need to use ethtool_cmd_speed_set othewise only lower bit set.
+
+* Extension I40E_DEBUG_USER is non-standard
+
+* What is is point of using snprintf() in i40e_get_drvinfo
+	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
+		 "%s", i40e_fw_version_str(&pf->hw));
+  Already using strlcpy() for other fields.
+
+* Ethtool ops can be const
+
+* isn't vsi->netdev = NULL needed here.
+s32 i40e_vsi_release(struct i40e_vsi *vsi)
+	if (vsi->netdev_registered) {
+			vsi->netdev_registered = false;
+			if (vsi->netdev) {
+				/* results in a call to i40e_close() */
+				unregister_netdev(vsi->netdev);
+				free_netdev(vsi->netdev);
+			>>>>	vsi->netdev = NULL;
+
+
+Enhancement
+-----------
+* Support Byte Queue Limits
+  - might be tougher with VBE
