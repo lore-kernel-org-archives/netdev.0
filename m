@@ -1,31 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: netlink: filter particular protocols from
- analyzers
-Date: Thu, 05 Sep 2013 15:03:41 -0400 (EDT)
-Message-ID: <20130905.150341.1090416835512463609.davem@davemloft.net>
-References: <1378396127-8342-1-git-send-email-dborkman@redhat.com>
-	<20130905.144442.2085221662776542385.davem@davemloft.net>
-	<20130905115755.7aec533c@nehalam.linuxnetplumber.net>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Fix alignment of struct
+	sw_flow_key.
+Date: Thu, 5 Sep 2013 12:14:08 -0700
+Message-ID: <CAEP_g=-pWd5XnnhWeEbCn8Z4s9kbicRU2doovt+XOWfr0UL8ow@mail.gmail.com>
+References: <1378402887-17331-1-git-send-email-jesse@nicira.com>
+	<20130905.141751.945639989861997124.davem@davemloft.net>
+	<CAEP_g=8gcCtkv=no=HkVmS+NDWPM-Uu-SVyR+vb-YQ=7TWJsXA@mail.gmail.com>
+	<20130905.144044.1053960608071929025.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org, dborkmann@redhat.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39323 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756952Ab3IETDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 15:03:44 -0400
-In-Reply-To: <20130905115755.7aec533c@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20130905.144044.1053960608071929025.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 5 Sep 2013 11:57:55 -0700
+On Thu, Sep 5, 2013 at 11:40 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> Date: Thu, 5 Sep 2013 11:36:19 -0700
+>
+>> On Thu, Sep 5, 2013 at 11:17 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>>> Date: Thu,  5 Sep 2013 10:41:27 -0700
+>>>
+>>>> -} __aligned(__alignof__(long));
+>>>> +} __aligned(8); /* 8 byte alignment ensures this can be accessed as a long */
+>>>
+>>> This kind of stuff drives me crazy.
+>>>
+>>> If the issue is the type, therefore at least use an expression that
+>>> mentions the type explicitly.  And mention the actual type that
+>>> matters.  "long" isn't it.
+>>
+>> 'long' actually is the real type here.
+>>
+>> When doing comparisons, this structure is being accessed as a byte
+>> array in 'long' sized chunks, not by its members. Therefore, the
+>> compiler's alignment does not necessarily correspond to anything for
+>> this purpose. It could be a struct full of u16's and we would still
+>> want to access it in chunks of 'long'.
+>>
+>> To completely honest, I think the correct alignment should be
+>> sizeof(long) because I know that 'long' is not always 8 bytes on all
+>> architectures. However, you made the point before that this could
+>> break the alignment of the 64-bit values on architectures where 'long'
+>> is 32 bits wide, so 8 bytes is the generic solution.
+>
+> Look at net/core/flow.c:flow_key_compare().
+>
+> And then we annotate struct flowi with
+>
+> } __attribute__((__aligned__(BITS_PER_LONG/8)));
+>
+> Don't reinvent the wheel, either mimick how existing code does
+> this kind of thing or provide a justification for doing it differently
+> and update the existing cases to match and be consistent.
 
-> If you want filtering, why not add BPF (sk_filter) support to this?
-
-That's one idea.
-
-But using sk_protocol is at least consistent with how AF_PACKET does
-things.
+Sure, I'll send a new patch to use BITS_PER_LONG.
