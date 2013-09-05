@@ -1,46 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] ipv6:introduce function to find route for redirect
-Date: Thu, 05 Sep 2013 12:45:51 -0400 (EDT)
-Message-ID: <20130905.124551.1242334240830454476.davem@davemloft.net>
-References: <52271D15.1000806@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v2] qlcnic: use standard NAPI weights
+Date: Thu, 05 Sep 2013 12:46:06 -0400 (EDT)
+Message-ID: <20130905.124606.910539581016843593.davem@davemloft.net>
+References: <5217676D.6000608@redhat.com>
+	<ADFE82A996F10145934E45547759F763311D183F@avmb3.qlogic.org>
+	<52272F89.60505@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: himanshu.madhani@qlogic.com, netdev@vger.kernel.org,
+	edumazet@google.com, rajesh.borundia@qlogic.com,
+	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
+	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com,
+	Linux-Driver@qlogic.com
+To: mschmidt@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33960 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33979 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752668Ab3IEQpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 12:45:53 -0400
-In-Reply-To: <52271D15.1000806@cn.fujitsu.com>
+	with ESMTP id S1752124Ab3IEQqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 12:46:09 -0400
+In-Reply-To: <52272F89.60505@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 04 Sep 2013 19:44:21 +0800
+From: Michal Schmidt <mschmidt@redhat.com>
+Date: Wed, 04 Sep 2013 15:03:05 +0200
 
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Since commit 82dc3c63 ("net: introduce NAPI_POLL_WEIGHT")
+> netif_napi_add() produces an error message if a NAPI poll weight
+> greater than 64 is requested.
 > 
-> RFC 4861 says that the IP source address of the Redirect is the
-> same as the current first-hop router for the specified ICMP
-> Destination Address, so the gateway should be taken into
-> consideration when we find the route for redirect.
+> qlcnic requests the weight as large as 256 for some of its rings, and
+> smaller values for other rings. For instance in qlcnic_82xx_napi_add()
+> I think the intention was to give the tx+rx ring a bigger weight than
+> to rx-only rings, but it's actually doing the opposite. So I'm assuming
+> the weights do not really matter much.
 > 
-> There was once a check in commit
-> a6279458c534d01ccc39498aba61c93083ee0372 ("NDISC: Search over
-> all possible rules on receipt of redirect.") and the check
-> went away in commit b94f1c0904da9b8bf031667afc48080ba7c3e8c9
-> ("ipv6: Use icmpv6_notify() to propagate redirect, instead of
-> rt6_redirect()").
+> Just use the standard NAPI weights for all rings.
 > 
-> The bug is only "exploitable" on layer-2 because the source
-> address of the redirect is checked to be a valid link-local
-> address but it makes spoofing a lot easier in the same L2
-> domain nonetheless.
-> 
-> Thanks very much for Hannes's help.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> Acked-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
 Applied.
