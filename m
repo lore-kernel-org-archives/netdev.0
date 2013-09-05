@@ -1,66 +1,78 @@
-From: Ethan Tuttle <ethan@ethantuttle.com>
-Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
- adjust_link() works
-Date: Wed, 4 Sep 2013 21:14:23 -0700
-Message-ID: <CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
-References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20130904163245.GI20552@1wt.eu>
+From: Dave Jones <davej@redhat.com>
+Subject: [rfc] suspicious indentation in do_tcp_setsockopt
+Date: Thu, 5 Sep 2013 00:20:45 -0400
+Message-ID: <20130905042045.GD15824@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Jochen De Smet <jochen.armkernel@leahnim.org>,
-	Peter Sanford <psanford@nearbuy.io>,
-	=?ISO-8859-1?Q?Ch=E9ny_Yves=2DGael?= <yves@cheny.fr>,
-	Ryan Press <ryan@presslab.us>,
-	Simon Guinot <simon.guinot@sequanux.org>, vdonnefort@lacie.com,
-	stable@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130904163245.GI20552@1wt.eu>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26012 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756464Ab3IEEUx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 00:20:53 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r854KrYq011223
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 5 Sep 2013 00:20:53 -0400
+Received: from gelk.kernelslacker.org (ovpn-113-166.phx2.redhat.com [10.3.113.166])
+	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id r854KluZ010962
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 5 Sep 2013 00:20:53 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.7/8.14.7) with ESMTP id r854KkPB021876
+	for <netdev@vger.kernel.org>; Thu, 5 Sep 2013 00:20:46 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.7/8.14.7/Submit) id r854Kj5B021875
+	for netdev@vger.kernel.org; Thu, 5 Sep 2013 00:20:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just booted with the patch on my Mirabox.  Both interfaces work!
-Thank you Thomas.
+What's the intent here ?
 
-One remaining issue is that the interface which uBoot didn't configure
-is still getting a random mac address:
+This ?
 
-mvneta d0070000.ethernet eth0: Using hardware mac address f0:ad:4e:01:dc:97
-mvneta d0074000.ethernet eth1: Using random mac address d2:35:dd:c8:99:48
 
-This is on 3.11 plus Thomas' patch, which includes the previous fix to
-"read MAC address from hardware when available".  Perhaps that fix
-isn't working with the phylib?
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b2f6c74..95544e4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2454,10 +2454,11 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_THIN_DUPACK:
+ 		if (val < 0 || val > 1)
+ 			err = -EINVAL;
+-		else
++		else {
+ 			tp->thin_dupack = val;
+ 			if (tp->thin_dupack)
+ 				tcp_disable_early_retrans(tp);
++		}
+ 		break;
+ 
+ 	case TCP_REPAIR:
 
-Thanks again,
+Or this ...
 
-Ethan
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b2f6c74..187c5a4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2456,8 +2456,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 			err = -EINVAL;
+ 		else
+ 			tp->thin_dupack = val;
+-			if (tp->thin_dupack)
+-				tcp_disable_early_retrans(tp);
++
++		if (tp->thin_dupack)
++			tcp_disable_early_retrans(tp);
+ 		break;
+ 
+ 	case TCP_REPAIR:
 
-On Wed, Sep 4, 2013 at 9:32 AM, Willy Tarreau <w@1wt.eu> wrote:
->
-> Hi Thomas!
->
-> On Wed, Sep 04, 2013 at 04:21:18PM +0200, Thomas Petazzoni wrote:
-> > This commit fixes a long-standing bug that has been reported by many
-> > users: on some Armada 370 platforms, only the network interface that
-> > has been used in U-Boot to tftp the kernel works properly in
-> > Linux. The other network interfaces can see a 'link up', but are
-> > unable to transmit data. The reports were generally made on the Armada
-> > 370-based Mirabox, but have also been given on the Armada 370-RD
-> > board.
-> (...)
-> > This patch has been tested on Armada 370 Mirabox, and now both network
-> > interfaces are usable after boot.
->
-> Just as a complementary check, I can also confirm that the OpenBlocks
-> AX3 continues to work fine after this change.
->
-> Best regards!
-> Willy
->
+
+I'll submit the right patch in the right form once I know what was intended.
+
+The former seems more 'correct' to me, but I'm unsure if that could break something.
+
+	Dave
