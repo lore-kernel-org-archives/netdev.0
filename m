@@ -1,54 +1,70 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 2/2] ipv4 igmp: use del_timer_sync instead of del_timer in ip_mc_down
-Date: Wed,  4 Sep 2013 23:43:24 -0700
-Message-ID: <1378363404-37749-1-git-send-email-noureddine@aristanetworks.com>
-To: Salam Noureddine <noureddine@aristanetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Ethan Tuttle <ethan@ethantuttle.com>
+Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
+ adjust_link() works
+Date: Wed, 4 Sep 2013 23:52:48 -0700
+Message-ID: <CACzLR4s_aR--g-wGWHvJnoOdkLvjLm6fdcpMT6ARxS8D4-g6wQ@mail.gmail.com>
+References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20130904163245.GI20552@1wt.eu>
+	<CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
+	<20130905051223.GB26000@1wt.eu>
+	<CACzLR4uCQhGzgABV2nMG45EQBNsrW8=j5X7x-=eTSUmSvthLxg@mail.gmail.com>
+	<ca521df880b08225cb34214e3ef0fc2c@cheny.fr>
+	<20130905064036.GC26000@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Ch=E9ny_Yves=2DGael?= <yves@cheny.fr>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Jochen De Smet <jochen.armkernel@leahnim.org>,
+	Peter Sanford <psanford@nearbuy.io>,
+	Ryan Press <ryan@presslab.us>,
+	Simon Guinot <simon.guinot@sequanux.org>, vdonnefort@lacie.com,
+	stable@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:64048 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833Ab3IEGo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 02:44:59 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so1376539pbc.36
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 23:44:58 -0700 (PDT)
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:60073 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757483Ab3IEGwt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 02:52:49 -0400
+Received: by mail-ob0-f170.google.com with SMTP id eh20so1558350obb.29
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 23:52:48 -0700 (PDT)
+In-Reply-To: <20130905064036.GC26000@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Delete timers using del_timer_sync in ip_mc_down. Otherwise, it is
-possible for the timer to be the last to release its reference to the
-in_device and since __in_dev_put doesn't destroy the in_device we
-would end up leaking a reference to the net_device and see messages
-like the following,
+Works like a charm!  Thanks for sharing these.
 
-unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+It may be a while until an alternative to Marvell's uboot is available
+for the Mirabox, so it's a shame these patches won't be making it into
+the mainline kernel.
 
-Tested on linux-3.4.43.
+Regards,
 
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
----
- net/ipv4/igmp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Ethan
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index cd71190..f8c3bbb 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1420,10 +1420,10 @@ void ip_mc_down(struct in_device *in_dev)
- 
- #ifdef CONFIG_IP_MULTICAST
- 	in_dev->mr_ifc_count = 0;
--	if (del_timer(&in_dev->mr_ifc_timer))
-+	if (del_timer_sync(&in_dev->mr_ifc_timer))
- 		__in_dev_put(in_dev);
- 	in_dev->mr_gq_running = 0;
--	if (del_timer(&in_dev->mr_gq_timer))
-+	if (del_timer_sync(&in_dev->mr_gq_timer))
- 		__in_dev_put(in_dev);
- 	igmpv3_clear_delrec(in_dev);
- #endif
--- 
-1.7.4.4
+On Wed, Sep 4, 2013 at 11:40 PM, Willy Tarreau <w@1wt.eu> wrote:
+> On Thu, Sep 05, 2013 at 08:23:12AM +0200, yves@cheny.fr wrote:
+>> Hi Willy,
+>> i would be interested too !
+>>
+>> thx
+>> Yves
+>>
+>> Le 2013-09-05 07:22, Ethan Tuttle a =E9crit :
+>> >Understood.  Ultimately, I'll use this board as a router, and stabl=
+e
+>> >mac addresses would be better than random.  So I would be intereste=
+d
+>> >to try your atag -> device tree patches.  Have they been posted
+>> >somewhere I can find them?
+>
+> OK guys, here they come. Note that they're now simplified since the
+> eth* aliases have been added to the dts.
+>
+> Willy
+>
