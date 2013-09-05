@@ -1,58 +1,59 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs interfaces
-Date: Thu, 05 Sep 2013 13:10:19 +0200
-Message-ID: <8761uf5xt0.fsf@nemi.mork.no>
-References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
-	<FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
-	<CAOaVG17stH4K=MOfB0-OfqerVOmXpGQtERD7kgCF97AOtpn18A@mail.gmail.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and
+ ensure adjust_link() works
+Date: Thu, 5 Sep 2013 07:36:14 -0400
+Message-ID: <20130905113614.GQ19598@titan.lakedaemon.net>
+References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20130904163245.GI20552@1wt.eu>
+ <CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
+ <20130905051223.GB26000@1wt.eu> <20130905092808.617da416@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Nelson\, Shannon" <shannon.nelson@intel.com>,
-	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel\@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg\, Jesse" <jesse.brandeburg@intel.com>,
-	"gospo\@redhat.com" <gospo@redhat.com>,
-	"davem\@davemloft.net" <davem@davemloft.net>,
-	"sassmann\@redhat.com" <sassmann@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:56276 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759608Ab3IELLH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 07:11:07 -0400
-In-Reply-To: <CAOaVG17stH4K=MOfB0-OfqerVOmXpGQtERD7kgCF97AOtpn18A@mail.gmail.com>
-	(Stephen Hemminger's message of "Wed, 4 Sep 2013 21:55:39 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Lior Amsalem <alior@marvell.com>,
+ Jochen De Smet <jochen.armkernel@leahnim.org>,
+ Simon Guinot <simon.guinot@sequanux.org>, Ryan Press <ryan@presslab.us>,
+ netdev@vger.kernel.org, vdonnefort@lacie.com,
+ "David S. Miller" <davem@davemloft.net>, Ethan Tuttle <ethan@ethantuttle.com>,
+ stable@vger.kernel.org, Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+ =?iso-8859-1?Q?Ch=E9ny?= Yves-Gael <yves@cheny.fr>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Peter Sanford <psanford@nearbuy.io>, Willy Tarreau <w@1wt.eu>,
+ linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20130905092808.617da416@skate>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+On Thu, Sep 05, 2013 at 09:28:08AM +0200, Thomas Petazzoni wrote:
+>  (2) Use the "impedance matcher" code written by Daniel Mack and
+>      extended by Jason Cooper, available at
+>      https://github.com/zonque/pxa-impedance-matcher. Essentially, it
+>      inserts a small binary between the installed bootloader and the
+>      kernel, that for example allows to choose a particular DTB amongst
+>      several, depending on the board that is detected. I believe it
+>      could probably be extended to cover other use cases such as
+>      modifying the DTB to add the MAC addresses where appropriate. I've
+>      added Jason Cooper in the Cc list if he wants to comment on that.
 
-> More surprising is that others did not see the same things.
+Yes, I'm hoping to add the dtb editing support sometime over the next
+few weeks.  That way, we can use Willy's atags patch in there, and the
+kernel never knows the difference.
 
-If I were to guess the 3 primary reasons for that:
-  1) the series is too large for anyone to actually read it all without
-     being paid to do so
-  2) the sysfs code is at the end of a huge debugfs patch, which
-     probably noone cares about whether they are paid or not
-  3) the small sysfs patch is so full of minor issues to nit about that
-     it seems pointless to even start
+It isn't high on my priority list atm, so if someone else is motivated,
+I've been borrowing code from barebox to flesh out impedance-matcher.
+Patches are welcomed ;-)
 
-But since I looked at it, I can name a few other obvious issues with th=
-e
-sysfs patch:
- - mix of macro and octal mode values
- - no documentation (required for all new sysfs attributes according to
-    Documentation/filesystems/sysfs.txt)
- - extremely dubious kboject usage and attribute creation/deletion (How
-    does this fit into the driver model?  How will userspace race with
-    these attributes being added and removed?)
+thx,
 
-I am sure there are plenty more.
-
-
-Bj=C3=B8rn
+Jason.
