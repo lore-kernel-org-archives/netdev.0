@@ -1,47 +1,70 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
- interfaces
-Date: Thu, 5 Sep 2013 01:25:47 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
-References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
- <20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 1/6] bonding: simplify and use RCU protection
+ for 3ad xmit path
+Date: Thu, 5 Sep 2013 10:06:03 +0800
+Message-ID: <5227E70B.5040407@huawei.com>
+References: <522700D1.5060805@huawei.com> <20130904101823.GO1992@redhat.com> <20130904.122512.1633906087065495330.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <vfalico@redhat.com>, <fubar@us.ibm.com>, <andy@greyhouse.net>,
+	<nikolay@redhat.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46877 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762784Ab3IEBZt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 21:25:49 -0400
-In-Reply-To: <20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:20525 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753457Ab3IECGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 22:06:25 -0400
+In-Reply-To: <20130904.122512.1633906087065495330.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Wednesday, September 04, 2013 5:38 PM
+On 2013/9/5 0:25, David Miller wrote:
+> From: Veaceslav Falico <vfalico@redhat.com>
+> Date: Wed, 4 Sep 2013 12:18:24 +0200
+> 
+>> On Wed, Sep 04, 2013 at 05:43:45PM +0800, Ding Tianhong wrote:
+>> ...snip...
+>>> +/**
+>>> + * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an
+>>> empty list
+>>> + * Caller must hold rcu_read_lock
+>>> + */
+>>> +#define bond_first_slave_rcu(bond) \
+>>> +	list_first_or_null_rcu(&(bond)->slave_list, struct slave, list)
+>>> +#define bond_last_slave_rcu(bond) \
+>>> +	(list_empty(&(bond)->slave_list) ? NULL : \
+>>> + bond_to_slave_rcu((bond)->slave_list.prev))
+>>
+>> Here, bond_last_slave_rcu() is racy. The list can be non-empty when
+>> list_empty() is verified, however afterwards it might become empty,
+>> when
+>> you call bond_to_slave_rcu(), and thus you'll get
+>> bond_to_slave(bond->slave_list) in the result, which is not a slave.
+>>
+>> Take a look at list_first_or_null_rcu() for a reference. The main idea
+>> is
+>> that it first gets the ->next pointer, with RCU protection, and then
+>> verifies if it's the list head or not, and if not - it gets the
+>> container
+>> already. This way the ->next pointer won't get away.
+>>
+>> These kind of bugs are really rare, but are *EXTREMELY* hard to debug.
+> 
+> I agree with this analysis.
+> 
+> Ding, "rcu_read_lock()" doesn't "lock" anything.  It's just a memory
+> barrier.
+> 
+> All the list can still change on you asynchronously to your accesses.
+> 
+> That's why list_first_or_null_rcu() is so carefully arranged.
+> Therefore, you must make similar accomodations.
+> 
+> 
 > 
 
-[ ... many good comments on i40e_sysfs.c ... ]
+yes, after a long time thinking, I found the problem and know how to do next, repair and resend it later.
 
-Hi Stephen,
-
-Thanks for your comments.  Frankly, we were hoping for this kind of feedback when we posted the first version of this driver a couple of months ago, with the intent of clearing up any issues in time to get settled and accepted about now.  Yes, this is driven by business reasons that this list doesn't need to hear me whine about, but that is our reality.
-
-We'll be happy to work with you on- or off-list over the next few days to come up with a good resolution to your concerns, and from that we can publish follow-on patches to this current submission.  We should be able to get it settled and done quickly and without too much fuss.  I won't be at Plumber's this year, but perhaps Jesse or John can get together with you and other concerned sysfs folks if needed to finalize any issues.
-
-Will this work for you?
-
-Thanks,
-sln
+> .
+> 
