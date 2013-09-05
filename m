@@ -1,72 +1,89 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCHv2] am33xx: cpsw: default to ethernet hwaddr from efuse if
- not defined in dt
-Date: Thu, 5 Sep 2013 13:22:34 -0700
-Message-ID: <CAOesGMj7t4WAGtcE+PUau0OhANoGNdokCHpUoNF2t+hs+83iCg@mail.gmail.com>
-References: <871u70bd95.fsf@dell.be.48ers.dk>
-	<20130905201637.GB10973@ohporter.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Sep 5 (netfilter: xt_socket.c)
+Date: Thu, 05 Sep 2013 13:23:16 -0700
+Message-ID: <5228E834.8060604@infradead.org>
+References: <20130905193249.8b7c57afd5e39349ff5508bb@canb.auug.org.au> <5228C140.1010504@infradead.org> <20130905.143830.660252697193033003.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Peter Korsgaard <jacmet@sunsite.dk>,
-	Mark Jackson <mpfj-list@newflow.co.uk>,
-	Tony Lindgren <tony@atomide.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-omap <linux-omap@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>, hvaibhav@ti.com,
-	Richard Cochran <richardcochran@gmail.com>,
-	Kevin Hilman <khilman@linaro.org>, michal.bachraty@gmail.com,
-	michal.bachraty@streamunlimited.com
-To: Matt Porter <matt.porter@linaro.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20130905201637.GB10973@ohporter.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130905.143830.660252697193033003.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 5, 2013 at 1:16 PM, Matt Porter <matt.porter@linaro.org> wrote:
-> On Mon, Jul 15, 2013 at 07:31:18AM +0200, Peter Korsgaard wrote:
->> >>>>> "Mark" == Mark Jackson <mpfj-list@newflow.co.uk> writes:
+On 09/05/13 11:38, David Miller wrote:
+> From: Randy Dunlap <rdunlap@infradead.org>
+> Date: Thu, 05 Sep 2013 10:37:04 -0700
+> 
+>> On 09/05/13 02:32, Stephen Rothwell wrote:
+>>> Hi all,
+>>>
+>>> Please do not add any code for v3.13 to your linux-next included branches
+>>> until after v3.12-rc1 is released.
+>>>
+>>> Changes since 20130904:
+>>>
 >>
->> Hi,
+>> on x86_64:
 >>
->>  Mark> On 08/07/13 13:42, Mark Jackson wrote:
->>  >> On 18/01/13 05:14, Mugunthan V N wrote:
->>  >>> On 1/18/2013 3:48 AM, Peter Korsgaard wrote:
->>  >>>> When booting with CONFIG_ARM_APPENDED_DTB (either because of using an old
->>  >>>> U-Boot, not wanting the hassle of 2 files or when using Falcon fast boot
->>  >>>> mode in U-Boot), nothing updates the ethernet hwaddr specified for the
->>  >>>> CPSW slaves, causing the driver to use a random hwaddr, which is some times
->>  >>>> troublesome.
->>  >>>>
->>  >>>> The am33xx has unique ethernet hwaddrs programmed in the efuse, so it makes
->>  >>>> more sense to default to these rather than random ones. Add a fixup step
->>  >>>> which adds mac-address dt properties using the efuse addresses if the DTB
->>  >>>> didn't contain valid ones.
->>  >>>>
->>  >>>> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
->>  >>>
->>  >>> This implementation looks fine.
->>  >>> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
->>  >>
->>  >> Tested-by: Mark Jackson <mpfj-list@newflow.co.uk>
+>> when CONFIG_IPV6=m
+>> and CONFIG_NETFILTER_XT_MATCH_SOCKET=y:
 >>
->>  Mark> Is this ever going to be put into the mainline code ?
->>
->> Good question. Tony, could you please pick this up? It has been pending
->> since January and has a number of acks.
->>
->> Do you want me to resend?
->
-> Also working nicely here on 3.11.
->
-> Tested-by: Matt Porter <matt.porter@linaro.org>
->
-> Kevin or Olof: can you apply? Seems to be continuing no response after
-> Ack back in January.
+>> net/built-in.o: In function `socket_mt6_v1_v2':
+>> xt_socket.c:(.text+0x51b55): undefined reference to `udp6_lib_lookup'
+>> net/built-in.o: In function `socket_mt_init':
+>> xt_socket.c:(.init.text+0x1ef8): undefined reference to `nf_defrag_ipv6_enable'
+> 
+> I just commited the following to fix this:
+> 
+> --------------------
+> [PATCH] netfilter: Fix build errors with xt_socket.c
+> 
+> As reported by Randy Dunlap:
+> 
+> ====================
+> when CONFIG_IPV6=m
+> and CONFIG_NETFILTER_XT_MATCH_SOCKET=y:
+> 
+> net/built-in.o: In function `socket_mt6_v1_v2':
+> xt_socket.c:(.text+0x51b55): undefined reference to `udp6_lib_lookup'
+> net/built-in.o: In function `socket_mt_init':
+> xt_socket.c:(.init.text+0x1ef8): undefined reference to `nf_defrag_ipv6_enable'
+> ====================
+> 
+> Like several other modules under net/netfilter/ we have to
+> have a dependency "IPV6 disabled or set compatibly with this
+> module" clause.
+> 
+> Reported-by: Randy Dunlap <rdunlap@infradead.org>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-I have no idea what the patch is, it's no longer in the email. Can you
-resend it, please?
+Acked-by: Randy Dunlap <rdunlap@infradead.org>
+
+Thanks.
+
+> ---
+>  net/netfilter/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> index 62a171a..6e839b6 100644
+> --- a/net/netfilter/Kconfig
+> +++ b/net/netfilter/Kconfig
+> @@ -1175,6 +1175,7 @@ config NETFILTER_XT_MATCH_SOCKET
+>  	depends on NETFILTER_XTABLES
+>  	depends on NETFILTER_ADVANCED
+>  	depends on !NF_CONNTRACK || NF_CONNTRACK
+> +	depends on (IPV6 || IPV6=n)
+>  	select NF_DEFRAG_IPV4
+>  	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+>  	help
+> 
 
 
--Olof
+-- 
+~Randy
