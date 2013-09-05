@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
- interfaces
-Date: Wed, 04 Sep 2013 23:19:50 -0400 (EDT)
-Message-ID: <20130904.231950.956676623509287249.davem@davemloft.net>
-References: <1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
-	<FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+Subject: Re: question about __udp6_lib_err usage of __udp6_lib_lookup
+Date: Wed, 04 Sep 2013 23:21:20 -0400 (EDT)
+Message-ID: <20130904.232120.2047234060467188366.davem@davemloft.net>
+References: <20130905024434.GA8219@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, gospo@redhat.com, sassmann@redhat.com
-To: shannon.nelson@intel.com
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33543 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33612 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752817Ab3IEDTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 23:19:55 -0400
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+	with ESMTP id S1751905Ab3IEDVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 23:21:21 -0400
+In-Reply-To: <20130905024434.GA8219@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Date: Thu, 5 Sep 2013 01:25:47 +0000
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 4 Sep 2013 22:44:34 -0400
 
-> Will this work for you?
+> __udp6_lib_lookup's prototype is ...
+> 
+> struct sock *__udp6_lib_lookup(struct net *net,
+>                                       const struct in6_addr *saddr, __be16 sport,
+>                                       const struct in6_addr *daddr, __be16 dport,
+>                                       int dif, struct udp_table *udptable)
+> 
+> But the usage in __udp6_lib_err is...
+> 
+>  521         sk = __udp6_lib_lookup(dev_net(skb->dev), daddr, uh->dest,
+>  522                                saddr, uh->source, inet6_iif(skb), udptable);
+> 
+> With the source/dest addr/port arguments swapped. Is this intentional ?
 
-You will fix the problems people are reporting with this patch series
-before I apply it.
+Yes, because we are looking at the headers of a packet we transmitted,
+quoted in an ICMP response.
