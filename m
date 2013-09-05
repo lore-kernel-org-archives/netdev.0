@@ -1,52 +1,40 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Jesse Gross <jesse@nicira.com>
 Subject: Re: [PATCH] openvswitch: Fix alignment of struct sw_flow_key.
-Date: Thu, 5 Sep 2013 21:25:20 +0200
-Message-ID: <CAMuHMdVoESdkxazxtXquyw3Ph0JN896fGfjwDzt+mKopiuZwjw@mail.gmail.com>
-References: <1378408625-18415-1-git-send-email-jesse@nicira.com>
+Date: Thu, 5 Sep 2013 12:25:00 -0700
+Message-ID: <CAEP_g=8Phux4eMz_b45XvEddkJKkTkkGzg+jvVKLBx4Ztiu=5w@mail.gmail.com>
+References: <1378402887-17331-1-git-send-email-jesse@nicira.com>
+ <20130905.141751.945639989861997124.davem@davemloft.net> <CAEP_g=8gcCtkv=no=HkVmS+NDWPM-Uu-SVyR+vb-YQ=7TWJsXA@mail.gmail.com>
+ <20130905.144044.1053960608071929025.davem@davemloft.net> <CAMuHMdVgd499_oAU0oodE8ie+h+Oc6M-dRcyC4tT6QDB=01GSg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Andy Zhou <azhou@nicira.com>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: Jesse Gross <jesse@nicira.com>
+	Andy Zhou <azhou@nicira.com>, fengguan.wu@intel.com
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35398 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752843Ab3IETZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 15:25:21 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so2343959pab.1
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:40772 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752843Ab3IETZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 15:25:23 -0400
+Received: by mail-lb0-f174.google.com with SMTP id w6so2060291lbh.19
         for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 12:25:20 -0700 (PDT)
-In-Reply-To: <1378408625-18415-1-git-send-email-jesse@nicira.com>
+In-Reply-To: <CAMuHMdVgd499_oAU0oodE8ie+h+Oc6M-dRcyC4tT6QDB=01GSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 5, 2013 at 9:17 PM, Jesse Gross <jesse@nicira.com> wrote:
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -1981,6 +1981,7 @@ nla_put_failure:
->   * Returns zero if successful or a negative error code. */
->  int ovs_flow_init(void)
->  {
-> +       BUILD_BUG_ON(__alignof__(struct sw_flow_key) % __alignof__(long));
+On Thu, Sep 5, 2013 at 12:20 PM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> Why don't you abort the loop if a difference is found?
+> Or is this a security-related struct where you want to protect against
+> timing attacks?
 
-> -} __aligned(__alignof__(long));
-> +} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
+It's more expensive to test for a difference on every iteration in the
+common case where the comparison succeeds.
 
-These don't match: the struct definition says aligned to 4 or 8 bytes, the check
-checks for a multiple of the alignment of "long", which is 2, 4 or 8.
+> Furthermore, as you compare the raw bytes, I hope you always
+> initialize all gaps in the struct to zero.
+> E.g. there's a 2-byte gap immediately after "ip", as the next member
+> is 32-bit (except op m68k, where the 32-bit member will be 2-byte aligned).
 
-Anyway, BITS_PER_LONG/8 is always a multiple of __alignof__(long), so your
-check will never fail.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+It's initialized to zero.
