@@ -1,43 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [rfc] suspicious indentation in do_tcp_setsockopt
-Date: Wed, 04 Sep 2013 21:53:37 -0700
-Message-ID: <1378356817.1787.77.camel@joe-AO722>
-References: <20130905042045.GD15824@redhat.com>
-	 <20130905.003907.664285605568829856.davem@davemloft.net>
-	 <20130905044318.GA22806@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs interfaces
+Date: Wed, 4 Sep 2013 21:55:39 -0700
+Message-ID: <CAOaVG17stH4K=MOfB0-OfqerVOmXpGQtERD7kgCF97AOtpn18A@mail.gmail.com>
+References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
+	<FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:36670 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753224Ab3IEExk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Sep 2013 00:53:40 -0400
-In-Reply-To: <20130905044318.GA22806@redhat.com>
+Received: from mail-ve0-f176.google.com ([209.85.128.176]:41499 "EHLO
+	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754844Ab3IEEzl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 00:55:41 -0400
+Received: by mail-ve0-f176.google.com with SMTP id jx11so151885veb.35
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 21:55:40 -0700 (PDT)
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-05 at 00:43 -0400, Dave Jones wrote:
-> On Thu, Sep 05, 2013 at 12:39:07AM -0400, David Miller wrote:
->  > From: Dave Jones <davej@redhat.com>
->  > Date: Thu, 5 Sep 2013 00:20:45 -0400
->  > 
->  > > What's the intent here ?
->  > 
->  > This stuff is great, do you have a script that looks for this false
->  > indentation pattern?
-> 
-> Coverity.
+I am very busy with work and personal issues. Don't depend on my time.
+More surprising is that others did not see the same things.
+Your business is your problem.
 
-Good stuff.
-
-> I'm doing daily builds with it now, in the hope of trying
-> to catch things faster, but there's a *ton* of old stuff in there
-> like this that needs sorting through, because it seems to have strange
-> of notions of what a 'new' bug is.
-
-I think scripts/coccinelle/misc/ifcol.cocci
-does something similar.
+On Wed, Sep 4, 2013 at 6:25 PM, Nelson, Shannon
+<shannon.nelson@intel.com> wrote:
+>> -----Original Message-----
+>> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+>> Sent: Wednesday, September 04, 2013 5:38 PM
+>>
+>
+> [ ... many good comments on i40e_sysfs.c ... ]
+>
+> Hi Stephen,
+>
+> Thanks for your comments.  Frankly, we were hoping for this kind of feedback when we posted the first version of this driver a couple of months ago, with the intent of clearing up any issues in time to get settled and accepted about now.  Yes, this is driven by business reasons that this list doesn't need to hear me whine about, but that is our reality.
+>
+> We'll be happy to work with you on- or off-list over the next few days to come up with a good resolution to your concerns, and from that we can publish follow-on patches to this current submission.  We should be able to get it settled and done quickly and without too much fuss.  I won't be at Plumber's this year, but perhaps Jesse or John can get together with you and other concerned sysfs folks if needed to finalize any issues.
+>
+> Will this work for you?
+>
+> Thanks,
+> sln
+>
