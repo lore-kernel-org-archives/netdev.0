@@ -1,71 +1,126 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
- adjust_link() works
-Date: Thu, 5 Sep 2013 11:24:32 +0200
-Message-ID: <20130905112432.5854119e@skate>
-References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20130904163245.GI20552@1wt.eu>
-	<CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
-	<20130905051223.GB26000@1wt.eu>
-	<20130905092808.617da416@skate>
-	<20130905074426.GD26000@1wt.eu>
-	<20130905102659.25a0f064@skate>
-	<20130905091147.GA28658@1wt.eu>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: pcan_usb_core: fix memory leak on failure paths
+ in peak_usb_start()
+Date: Thu, 05 Sep 2013 11:33:58 +0200
+Message-ID: <52285006.3080303@pengutronix.de>
+References: <1378331169-26285-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ethan Tuttle <ethan@ethantuttle.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Jochen De Smet <jochen.armkernel@leahnim.org>,
-	Peter Sanford <psanford@nearbuy.io>,
-	=?UTF-8?B?Q2jDqW55?= Yves-Gael <yves@cheny.fr>,
-	Ryan Press <ryan@presslab.us>,
-	Simon Guinot <simon.guinot@sequanux.org>, vdonnefort@lacie.com,
-	stable@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130905091147.GA28658@1wt.eu>
-Sender: stable-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="WXUl34DclNoQVdp7j29jCx9eeFBpUAvMI"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org,
+	"s.grosjean@peak-system.com" <s.grosjean@peak-system.com>
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1378331169-26285-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Willy Tarreau,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--WXUl34DclNoQVdp7j29jCx9eeFBpUAvMI
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, 5 Sep 2013 11:11:47 +0200, Willy Tarreau wrote:
+Added Stephane to Cc.
 
-> 
-> > Note that this can be done without doing any change in the bootloader.
-> > For example, on a Mirabox, you can do:
-> > 
-> >    mw.l 0xD0072414 0x5C93; mw.l 0xD0072418 0xF0AD4E01; mw.l 0xD0076414 0x5C94; mw.l 0xD0076418 0xF0AD4E01; bootm
-> > 
-> > to boot your kernel. This will program the MAC addresses for both
-> > network interfaces in the network controllers, so that when booting
-> > Linux, you get:
-> > 
-> > [   42.122881] mvneta d0070000.ethernet eth0: Using hardware mac address f0:ad:4e:01:5c:93
-> > [   42.385398] mvneta d0074000.ethernet eth1: Using hardware mac address f0:ad:4e:01:5c:94
-> > 
-> > You add that to your default U-Boot boot script, and that's it, you
-> > have stable MAC addresses.
-> 
-> Hmmm that's quite interesting. Unfortunately I don't see an easy way to
-> make this directly rely on the ethaddr/eth1addr so that end users can
-> simply cut-n-paste a few lines into the u-boot config. But anyway that
-> can be useful.
+On 09/04/2013 11:46 PM, Alexey Khoroshilov wrote:
+> Tx and rx urbs are not deallocated if something goes wrong in peak_usb_=
+start().
+> The patch fixes error handling to deallocate all the resources.
+>=20
+> Found by Linux Driver Verification project (linuxtesting.org).
+>=20
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-I thought about this as well, but I don't think that's possible, the
-U-Boot scripting/parsing capabilities seems to be too limited to
-achieve that, unfortunately.
+Stephane, can you have a look at the patch and give your Acked-by.
 
-Best regards,
+Looks good to me.
 
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+tnx,
+Marc
+> ---
+>  drivers/net/can/usb/peak_usb/pcan_usb_core.c | 15 +++++++++++----
+>  1 file changed, 11 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net=
+/can/usb/peak_usb/pcan_usb_core.c
+> index a0f647f..0b7a4c3 100644
+> --- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> @@ -463,7 +463,7 @@ static int peak_usb_start(struct peak_usb_device *d=
+ev)
+>  	if (i < PCAN_USB_MAX_TX_URBS) {
+>  		if (i =3D=3D 0) {
+>  			netdev_err(netdev, "couldn't setup any tx URB\n");
+> -			return err;
+> +			goto err_tx;
+>  		}
+> =20
+>  		netdev_warn(netdev, "tx performance may be slow\n");
+> @@ -472,7 +472,7 @@ static int peak_usb_start(struct peak_usb_device *d=
+ev)
+>  	if (dev->adapter->dev_start) {
+>  		err =3D dev->adapter->dev_start(dev);
+>  		if (err)
+> -			goto failed;
+> +			goto err_adapter;
+>  	}
+> =20
+>  	dev->state |=3D PCAN_USB_STATE_STARTED;
+> @@ -481,19 +481,26 @@ static int peak_usb_start(struct peak_usb_device =
+*dev)
+>  	if (dev->adapter->dev_set_bus) {
+>  		err =3D dev->adapter->dev_set_bus(dev, 1);
+>  		if (err)
+> -			goto failed;
+> +			goto err_adapter;
+>  	}
+> =20
+>  	dev->can.state =3D CAN_STATE_ERROR_ACTIVE;
+> =20
+>  	return 0;
+> =20
+> -failed:
+> +err_adapter:
+>  	if (err =3D=3D -ENODEV)
+>  		netif_device_detach(dev->netdev);
+> =20
+>  	netdev_warn(netdev, "couldn't submit control: %d\n", err);
+> =20
+> +	for (i =3D 0; i < PCAN_USB_MAX_TX_URBS; i++) {
+> +		usb_free_urb(dev->tx_contexts[i].urb);
+> +		dev->tx_contexts[i].urb =3D NULL;
+> +	}
+> +err_tx:
+> +	usb_kill_anchored_urbs(&dev->rx_submitted);
+> +
+>  	return err;
+>  }
+> =20
+>=20
+
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--WXUl34DclNoQVdp7j29jCx9eeFBpUAvMI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlIoUAYACgkQjTAFq1RaXHPNCQCfQtq3tJfXCkEB9ViuWDiTibpw
+SZoAoIBOnhJ8MOMKEPHXq+N9+rhLNt5f
+=BFF+
+-----END PGP SIGNATURE-----
+
+--WXUl34DclNoQVdp7j29jCx9eeFBpUAvMI--
