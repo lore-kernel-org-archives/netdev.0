@@ -1,167 +1,61 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 2/2] sh_eth: add device tree support
-Date: Mon, 2 Sep 2013 09:52:25 +0100
-Message-ID: <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
-References: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and ensure
+ adjust_link() works
+Date: Thu, 5 Sep 2013 07:12:23 +0200
+Message-ID: <20130905051223.GB26000@1wt.eu>
+References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20130904163245.GI20552@1wt.eu>
+ <CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
-	Pawel Moll <Pawel.Moll@arm.com>,
-	"swarren@wwwdotorg.org" <swarren@wwwdotorg.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"nobuhiro.iwamatsu.yj@renesas.com" <nobuhiro.iwamatsu.yj@renesas.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"rob@landley.net" <rob@landley.net>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Lior Amsalem <alior@marvell.com>,
+ Jochen De Smet <jochen.armkernel@leahnim.org>,
+ Simon Guinot <simon.guinot@sequanux.org>, Ryan Press <ryan@presslab.us>,
+ netdev@vger.kernel.org, vdonnefort@lacie.com, stable@vger.kernel.org,
+ Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+ =?iso-8859-1?Q?Ch=E9ny?= Yves-Gael <yves@cheny.fr>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Peter Sanford <psanford@nearbuy.io>, "David S. Miller" <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: Ethan Tuttle <ethan@ethantuttle.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <201308310429.34856.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+In-Reply-To: <CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 31, 2013 at 01:29:33AM +0100, Sergei Shtylyov wrote:
-> Add support of the device tree probing for the Renesas SH-Mobile SoCs.
+Hi,
+
+On Wed, Sep 04, 2013 at 09:14:23PM -0700, Ethan Tuttle wrote:
+> Just booted with the patch on my Mirabox.  Both interfaces work!
+> Thank you Thomas.
 > 
-> This work is loosely based on an original patch by Nobuhiro Iwamatsu
-> <nobuhiro.iwamatsu.yj@renesas.com>.
+> One remaining issue is that the interface which uBoot didn't configure
+> is still getting a random mac address:
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> mvneta d0070000.ethernet eth0: Using hardware mac address f0:ad:4e:01:dc:97
+> mvneta d0074000.ethernet eth1: Using random mac address d2:35:dd:c8:99:48
 > 
-> ---
-> This patch is against Dave's 'net-next.git' repo.
-> 
->  Documentation/devicetree/bindings/net/sh_eth.txt |   40 +++++++++++++
->  drivers/net/ethernet/renesas/sh_eth.c            |   66 ++++++++++++++++++++++-
->  2 files changed, 105 insertions(+), 1 deletion(-)
-> 
-> Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
-> ===================================================================
-> --- /dev/null
-> +++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
-> @@ -0,0 +1,40 @@
-> +* Renesas Electronics SH EtherMAC
-> +
-> +This file provides information on what the device node for the SH EtherMAC
-> +interface contains.
-> +
-> +Required properties:
-> +- compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
-> +	      "renesas,ether-r8a7779" if the device is a part of R8A7778/9 SoCs.
-> +	      "renesas,ether-r8a7790" if the device is a part of R8A7790/1 SoCs.
+> This is on 3.11 plus Thomas' patch, which includes the previous fix to
+> "read MAC address from hardware when available".  Perhaps that fix
+> isn't working with the phylib?
 
-What are the functional differences between the blocks in these devices
-that mean they have different compatible strings?
+No this is unrelated. The MAC isn't configured by the boot loader when
+the NIC is not used. U-boot only passes it as a non-standard ATAG. I
+have some patches to reinject the non-standard atags into the device
+tree if you absolutely need this, but they're not suited for mainline
+inclusion from what I understood last time I proposed them (they use
+a marvell-specific atag header).
 
-> +- reg: offset and length of the register set for the device; if the device has
-> +       TSU registers, you need to specify two register sets here.
-
-This doesn't explicitly state ordering, and doesn't describe what the
-first register set is (control registers?). If possible, it would be
-nice to refer to the set of registers by the name given in
-documentation; is there any available?
-
-I think we should have something like the below to ensure it's explicit.
-In general we need more consistency in the the way bindings describe reg
-properties.
-
-	- reg: offset and length of:
-	     [1] the control registers of the device (required)
-	     [2] the TSU registers for the device (optional)
-
-> +- interrupt-parent: the phandle for the interrupt controller that services
-> +		    interrupts for this device.
-
-Why is that required?
-
-> +- interrupts: interrupt mapping for the interrupt source.
-
-Interrupts are defined in terms of interrupt-specifiers. How about:
-
-	- interrupts: an interrupt-specifier for the sole interrupt
-	              generated by the device.
-
-> +- phy-mode: string, operation mode of the PHY interface (a string that
-> +	    of_get_phy_mode() can understand).
-
-That looks suspicious. Bindings should *not* refer to Linux internals.
-Instead, we should document the phy-handle and phy-mode properties and
-how they are meant to be used in a generic binding document (I couldn't
-see a generic document doing this so far...).
-
-> +- phy-handle: phandle of the PHY device.
-> +
-> +Optional properties:
-> +- local-mac-address: 6 bytes, MAC address.
-> +- renesas,no-ether-link: specify when a board does not provide a proper LINK
-> +			 signal.
-> +- renesas,ether-link-active-low: specify when the LINK signal is active-low.
-
-What types are these? I know local-mac-address is a byte-string by
-ePAPR, presumably the last two are empty (boolean)?
-
-> +
-> +Example (Armadillo800EVA board):
-> +
-> +	ethernet@e9a00000 {
-> +		compatible = "renesas,gether-r8a7740";
-> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
-> +		interrupt-parent = <&gic>;
-> +		interrupts = <0 142 0x4>;
-> +		phy-mode = "mii";
-> +		phy-handle = <&phy0>;
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		phy0: ethernet-phy@0 {
-> +			reg = <0>;
-> +		};
-
-The binding didn't state anything about sub-nodes. Is it a general
-property of phy bindings that they may be embedded within a consumer's
-node?
-
-> +	};
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -32,6 +32,9 @@
->  #include <linux/platform_device.h>
->  #include <linux/mdio-bitbang.h>
->  #include <linux/netdevice.h>
-> +#include <linux/of.h>
-> +#include <linux/of_device.h>
-> +#include <linux/of_net.h>
->  #include <linux/phy.h>
->  #include <linux/cache.h>
->  #include <linux/io.h>
-> @@ -2600,6 +2603,52 @@ static const struct net_device_ops sh_et
->  	.ndo_change_mtu		= eth_change_mtu,
->  };
->  
-> +#ifdef CONFIG_OF
-> +static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
-> +{
-> +	struct device_node *np = dev->of_node;
-> +	struct sh_eth_plat_data *pdata;
-> +	struct device_node *phy;
-> +	const char *mac_addr;
-> +
-> +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-> +	if (!pdata)
-> +		return NULL;
-> +
-> +	pdata->phy_interface = of_get_phy_mode(np);
-> +
-> +	phy = of_parse_phandle(np, "phy-handle", 0);
-> +	if (!phy || of_property_read_u32(phy, "reg", &pdata->phy)) {
-
-NAK. You didn't describe the format of the phy node, yet you are reading
-values from it from a logically separate driver.
-
-Thanks,
-Mark.
+Regards,
+Willy
