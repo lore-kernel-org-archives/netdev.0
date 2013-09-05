@@ -1,50 +1,38 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] net/core: Order-3 frag allocator causes
- SWIOTLB bouncing under Xen
-Date: Thu, 5 Sep 2013 08:39:06 +0100
-Message-ID: <1378366746.6935.35.camel@dagon.hellion.org.uk>
-References: <1378327638-23956-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1378328440.7360.124.camel@edumazet-glaptop>
-	 <20130904211110.GA17758@phenom.dumpdata.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [rfc] suspicious indentation in do_tcp_setsockopt
+Date: Thu, 05 Sep 2013 09:42:44 +0200
+Message-ID: <522835F4.1040205@redhat.com>
+References: <20130905042045.GD15824@redhat.com> <20130905.003907.664285605568829856.davem@davemloft.net> <20130905044318.GA22806@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org,
-	Eric Dumazet <edumazet@google.com>,
-	Li Zefan <lizefan@huawei.com>, david.vrabel@citrix.com,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	malcolm.crossley@citrix.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130904211110.GA17758@phenom.dumpdata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44847 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757607Ab3IEHms (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 03:42:48 -0400
+In-Reply-To: <20130905044318.GA22806@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-04 at 17:11 -0400, Konrad Rzeszutek Wilk wrote:
-> On Wed, Sep 04, 2013 at 02:00:40PM -0700, Eric Dumazet wrote:
+On 09/05/2013 06:43 AM, Dave Jones wrote:
+> On Thu, Sep 05, 2013 at 12:39:07AM -0400, David Miller wrote:
+>   > From: Dave Jones <davej@redhat.com>
+>   > Date: Thu, 5 Sep 2013 00:20:45 -0400
+>   >
+>   > > What's the intent here ?
+>   >
+>   > This stuff is great, do you have a script that looks for this false
+>   > indentation pattern?
+>
+> Coverity. I'm doing daily builds with it now, in the hope of trying
+> to catch things faster, but there's a *ton* of old stuff in there
+> like this that needs sorting through, because it seems to have strange
+> of notions of what a 'new' bug is.
 
-> > Maybe you could add proper infrastructure to deal with Xen limitations.
-> 
-> I think Ian posted at some point an sysctl patch for that (more for
-> debugging that anything else). And it kind
-> of stalled: http://lists.xen.org/archives/html/xen-devel/2012-10/msg01832.html
+Right, it seems 'new' is just newly *detected*, not necessarily newly
+introduced in recent code.
 
-I think I though you were looking into it from the swiotlb angle?
-
-In any case I don't have time to look into this further.
-
-> Is that what you mean by proper infrastructure ?
-> 
-> Oh wait, did you mean via dev and not the whole system wide sysctl?
-
-The system wide sysctl was not acceptable AFAIR, which seems reasonable.
-
-Per-dev is hard because it affects the native drivers for each physical
-NIC when running under Xen, not the Xen PV NIC which we fixed by
-splitting compound frags into separate slots on the PV ring.
-
-Ian.
+> 	Dave
