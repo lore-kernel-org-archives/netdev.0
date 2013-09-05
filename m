@@ -1,29 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] icplus: Use netif_running to determine device state
-Date: Thu, 05 Sep 2013 14:27:52 -0400 (EDT)
-Message-ID: <20130905.142752.890397668917511619.davem@davemloft.net>
-References: <1378319161-18850-1-git-send-email-jdmason@kudzu.us>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: Add missing braces in bnx2x:bnx2x_link_initialize
+Date: Thu, 5 Sep 2013 14:27:50 -0400
+Message-ID: <20130905182750.GB7309@redhat.com>
+References: <20130905034658.GA12717@redhat.com>
+ <20130905.142117.1916319107625842387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, sorbica@icplus.com.tw
-To: jdmason@kudzu.us
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37915 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855Ab3IES1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 14:27:54 -0400
-In-Reply-To: <1378319161-18850-1-git-send-email-jdmason@kudzu.us>
+Received: from mx1.redhat.com ([209.132.183.28]:22008 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753922Ab3IES2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 14:28:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20130905.142117.1916319107625842387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jdmason@kudzu.us>
-Date: Wed,  4 Sep 2013 11:26:01 -0700
+On Thu, Sep 05, 2013 at 02:21:17PM -0400, David Miller wrote:
+ > 
+ > David, I'm going to apply your missing braces patches, but I'm really irritated
+ > that I've told you at least 5 times to put proper subsystem prefixes into
+ > your subject lines.
+ > 
+ > For this I'd use "bnx2x: ", for the TCP patch I'd use "tcp: " and for the
+ > CAIF change I'd use "caif: "
 
-> Remove the __LINK_STATE_START check to verify the device is running, in
-> favor of netif_running().  netif_running() performs the same check of
-> __LINK_STATE_START, so the code should behave the same.
-> 
-> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+I knew I'd forget something..
 
-Applied, thanks.
+ > Please get into the habit of doing this, or I'm going to push back on you
+ > to correct this instead of fixing it up automatically for you every time,
+ > since the latter really is not scalable.
+
+Sure thing.
+
+thanks,
+
+	Dave
