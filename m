@@ -1,68 +1,48 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: r8169 OOPSen in rtl_rx
-Date: Thu, 5 Sep 2013 17:20:26 +0200
-Message-ID: <20130905152026.GB31370@twins.programming.kicks-ass.net>
-References: <20130813094314.GW3008@twins.programming.kicks-ass.net>
- <20130813211534.GA5635@electric-eye.fr.zoreil.com>
- <20130814092915.GF24092@twins.programming.kicks-ass.net>
- <20130814095233.GH24092@twins.programming.kicks-ass.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
+ interfaces
+Date: Thu, 5 Sep 2013 08:21:10 -0700
+Message-ID: <20130905082110.68772c69@nehalam.linuxnetplumber.net>
+References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
+	<FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+	<CAOaVG17stH4K=MOfB0-OfqerVOmXpGQtERD7kgCF97AOtpn18A@mail.gmail.com>
+	<8761uf5xt0.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Nelson\, Shannon" <shannon.nelson@intel.com>,
+	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel\@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg\, Jesse" <jesse.brandeburg@intel.com>,
+	"gospo\@redhat.com" <gospo@redhat.com>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	"sassmann\@redhat.com" <sassmann@redhat.com>
+To: =?ISO-8859-1?B?Qmr4cm4=?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54766 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753931Ab3IEPUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 11:20:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20130814095233.GH24092@twins.programming.kicks-ass.net>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:45925 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931Ab3IEPVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 11:21:14 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so1928314pbb.41
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 08:21:14 -0700 (PDT)
+In-Reply-To: <8761uf5xt0.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 14, 2013 at 11:52:33AM +0200, Peter Zijlstra wrote:
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 393f961..81e0bf4 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -6185,6 +6185,12 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
->  			else
->  				pkt_size = status & 0x00003fff;
->  
-> +			if (!(pkt_size > 0 && pkt_size <= ETH_FRAME_LEN)) {
-> +				dev->stats.rx_dropped++;
-> +				printk("%s Funny sized packet: %d\n", dev->name, pkt_size);
-> +				goto release_descriptor;
-> +			}
-> +
->  			/*
->  			 * The driver does not support incoming fragmented
->  			 * frames. They are seen as a symptom of over-mtu
+Has anyone else noticed how big the drivers are getting.
 
-Yay, it triggered..
+Intel
+	e100	2275
+	e1000	11971
+	e1000e	17502
+	igb	15720
+	ixgbe	22451
+	i40e	22603
 
-$ dmesg | awk '/Funny sized packet/ { t[$6]++ } END { for (i in t) {
-printf "%d %d\n", t[i], i; } }' | sort -n
-1 4237
-1 4983
-1 5811
-1 6062
-1 6594
-2 10709
-2 12073
-2 9197
-4 14624
-4 14870
-266 16364
 
-dev->name is always the same and the internal NIC (eth0, RTL8110s).
 
-When it happens the NIC stops working as every packet is mal-sized,
-however an ifconfig down; ifconfig up will restore it to working order.
-
-It appears to happen when I saturate my outside link such that all
-packets are fwd to the internal network -- I've got a 30Mbit/s down link
-which isn't all that much given its a GBE capable card.
-
-When I try and saturate the internal nic, with traffic from the firewall
-to an internal machine we reach GBE speeds but nothing falls over.
+	
