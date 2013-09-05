@@ -1,44 +1,59 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
-Date: Thu, 05 Sep 2013 13:16:16 +0800
-Message-ID: <522813A0.1010507@redhat.com>
-References: <1377816595.8277.54.camel@edumazet-glaptop>    <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>   <5226D39C.9070401@redhat.com> <1378290638.7360.85.camel@edumazet-glaptop>  <5227F57D.7030709@redhat.com> <1378352479.11205.5.camel@edumazet-glaptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Thu, 5 Sep 2013 15:19:33 +1000
+Message-ID: <20130905151933.10e0558611271fdd2133a790@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40824 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754329Ab3IEFQb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Sep 2013 01:16:31 -0400
-In-Reply-To: <1378352479.11205.5.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__5_Sep_2013_15_19_33_+1000_0aXG4jR=Ax4=t2Fl"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/05/2013 11:41 AM, Eric Dumazet wrote:
-> On Thu, 2013-09-05 at 11:07 +0800, Jason Wang wrote:
->
->> > tc -s -d qdisc
->> > qdisc fq 8001: dev eth0 root refcnt 2 [Unknown qdisc, optlen=64]
->> >  Sent 6680760347 bytes 4431855 pkt (dropped 0, overlimits 0 requeues 0)
->> >  backlog 0b 0p requeues 0
->> > 
->> > btw, is the fq support for tc merged into iproute2? Looks like I can't
->> > find them.
-> Yep its there on net-next-3.11 branch
+--Signature=_Thu__5_Sep_2013_15_19_33_+1000_0aXG4jR=Ax4=t2Fl
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks. With the tc in this branch, after test I get:
+Hi all,
 
-./tc -s -d qdisc
-qdisc fq 8001: dev eth0 root refcnt 2 limit 10000p flow_limit 100p
-buckets 1024 quantum 3028 initial_quantum 15140
- Sent 3545374119 bytes 2341785 pkt (dropped 0, overlimits 0 requeues 0)
- backlog 0b 0p requeues 0
-  5 flows (0 inactive, 0 throttled)
-  0 gc, 37 highprio, 51805 throttled
+Today's linux-next merge of the net-next tree got a conflict in
+net/bridge/br_multicast.c between commit 2d98c29b6fb3 ("net: bridge:
+convert MLDv2 Query MRC into msecs_to_jiffies for max_delay") from Linus'
+tree and commit e3f5b17047de ("net: ipv6: mld: get rid of MLDV2_MRC and
+simplify calculation") from the net-next tree.
+
+I just used the net-next tree version and can carry the fix as necessary
+(no action is required).
+
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__5_Sep_2013_15_19_33_+1000_0aXG4jR=Ax4=t2Fl
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSKBRpAAoJEECxmPOUX5FEihEQAImLN7KDS6lMlkHq63OURAxh
+5U7rO0xdhRavO95aVyYb/tWnLfxTqtpahz/eeC4tXT6k+2ob2n+4bqw3gOsRRcef
+l0LzhuR8SQiOtJrGB1q4rW3aqPknpqUExsDIykqSzGULL6WlgNj1gVZ2vy9WBJZq
+wXTLFadqtlGvtv7MG+g39SvGRSfKuM1Cemg9WXmPKUxf7Kc2IB823LP9Wz9QSQKo
+qdhUE1E4RrJlhmLICIXtFKoDwsSa0EdQk8VTRp6Nkz73GJjskO0DIrMYBdQkupFK
+OHPBnq/NLDQ7+9qgJbPYFHT82q59xvKD5Y9ywQLmp8OsrsC5Myc7FB+Jkz3LITu8
+uYG7hX/8WPpFip3J67Q7gX4wCSdSQBvCGbxfTPYoepO1cJA5h9OjzeLOQTSvJAVj
++a/Htw8CX8S6LdYuTAsVNt4lfDleK68M+sl6X8Ym6KM/M3dX66P4g489mcYRbPuL
+nolKuQRwIg9GjzRDYfLALxp9qXPBhyTO4unLveh5pjoi6uw40vCloPp+wlY1xBc6
+81zfN4wLvShIqs2WzBK72bqsQgnrYacAmj3hzaBKHNIo9Uz+4Mf5vN/ysvhcOkrt
+4jTcz7v7JrrCIj7kBo/BXb1XrNrstRBHRK1wALSx1AuUOJGoeqXNcUpH4LEI1kqN
+d7QNpmAcILJSzdGRnMqv
+=JPi8
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__5_Sep_2013_15_19_33_+1000_0aXG4jR=Ax4=t2Fl--
