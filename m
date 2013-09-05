@@ -1,42 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: netlink: filter particular protocols from
- analyzers
-Date: Thu, 05 Sep 2013 16:07:02 -0400 (EDT)
-Message-ID: <20130905.160702.669092815001539896.davem@davemloft.net>
-References: <5228DFF0.7070106@redhat.com>
-	<20130905.155417.2121308426258876038.davem@davemloft.net>
-	<5228E2A0.4010607@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41751 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804Ab3IEUHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 16:07:04 -0400
-In-Reply-To: <5228E2A0.4010607@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Koen Kooi <koen@dominion.thruhere.net>
+Subject: Re: [PATCHv2] am33xx: cpsw: default to ethernet hwaddr from efuse if not defined in dt
+Date: Thu, 5 Sep 2013 22:11:22 +0200
+Message-ID: <62E39EC3-A2D5-4631-A21F-4F29D18A74D9@dominion.thruhere.net>
+References: <1358461134-13452-1-git-send-email-jacmet@sunsite.dk> <50F8DA3A.3090406@ti.com> <51DAB39C.7090106@newflow.co.uk>
+Mime-Version: 1.0 (Mac OS X Mail 6.5 \(1508\))
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Mugunthan V N <mugunthanvnm@ti.com>,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, hvaibhav@ti.com,
+	richardcochran@gmail.com, tony@atomide.com,
+	michal.bachraty@gmail.com, michal.bachraty@streamunlimited.com
+To: Mark Jackson <mpfj-list@newflow.co.uk>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <51DAB39C.7090106@newflow.co.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 05 Sep 2013 21:59:28 +0200
 
-> On 09/05/2013 09:54 PM, David Miller wrote:
->> From: Daniel Borkmann <dborkman@redhat.com>
->> Date: Thu, 05 Sep 2013 21:48:00 +0200
->>
->>> With socket(PF_PACKET, ..., htons(ETH_P_ALL)) you will already get
->>> all users from the suggested white-list of the patch, which is the
->>> majority of netlink users I believe. Hence, you do not need to have
->>> one socket per protocol. skbs from there should get dragged into
->>> pf_packet via dev_queue_xmit_nit() which works on ptype_all list.
->>
->> What about user level netlink protocols?
+Op 8 jul. 2013, om 14:42 heeft Mark Jackson <mpfj-list@newflow.co.uk> het volgende geschreven:
+
+> On 18/01/13 05:14, Mugunthan V N wrote:
+>> On 1/18/2013 3:48 AM, Peter Korsgaard wrote:
+>>> When booting with CONFIG_ARM_APPENDED_DTB (either because of using an old
+>>> U-Boot, not wanting the hassle of 2 files or when using Falcon fast boot
+>>> mode in U-Boot), nothing updates the ethernet hwaddr specified for the
+>>> CPSW slaves, causing the driver to use a random hwaddr, which is some times
+>>> troublesome.
+>>> 
+>>> The am33xx has unique ethernet hwaddrs programmed in the efuse, so it makes
+>>> more sense to default to these rather than random ones. Add a fixup step
+>>> which adds mac-address dt properties using the efuse addresses if the DTB
+>>> didn't contain valid ones.
+>>> 
+>>> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+>>> 
+>> 
+>> This implementation looks fine.
+>> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 > 
-> If you are referring to NETLINK_USERSOCK, then we let this pass here,
-> so nothing changes.
+> Tested-by: Mark Jackson <mpfj-list@newflow.co.uk>
 
-Ok I need to think about this some more, I moved your patch back into under review
-state.
+Tested-by: Koen Kooi <koen@dominion.thruhere.net>
+
+
+
