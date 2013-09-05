@@ -1,49 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file
- copies
-Date: Thu, 05 Sep 2013 14:25:30 -0400 (EDT)
-Message-ID: <20130905.142530.732425484460470485.davem@davemloft.net>
-References: <1378295235-18928-1-git-send-email-vgupta@synopsys.com>
+Subject: Re: [PATCH] icplus: Use netif_running to determine device state
+Date: Thu, 05 Sep 2013 14:27:52 -0400 (EDT)
+Message-ID: <20130905.142752.890397668917511619.davem@davemloft.net>
+References: <1378319161-18850-1-git-send-email-jdmason@kudzu.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexey.Brodkin@synopsys.com,
-	linux-kernel@vger.kernel.org, arc-linux-dev@synopsys.com
-To: Vineet.Gupta1@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378295235-18928-1-git-send-email-vgupta@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, sorbica@icplus.com.tw
+To: jdmason@kudzu.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855Ab3IES1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 14:27:54 -0400
+In-Reply-To: <1378319161-18850-1-git-send-email-jdmason@kudzu.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Date: Wed, 4 Sep 2013 17:17:15 +0530
+From: Jon Mason <jdmason@kudzu.us>
+Date: Wed,  4 Sep 2013 11:26:01 -0700
 
-> copying large files to a NFS mounted host was taking absurdly large
-> time.
+> Remove the __LINK_STATE_START check to verify the device is running, in
+> favor of netif_running().  netif_running() performs the same check of
+> __LINK_STATE_START, so the code should behave the same.
 > 
-> Turns out that TX BD reclaim had a sublte bug.
-> 
-> Loop starts off from @txbd_dirty cursor and stops when it hits a BD
-> still in use by controller. However when it stops it needs to keep the
-> cursor at that very BD to resume scanning in next iteration. However it
-> was erroneously incrementing the cursor, causing the next scan(s) to
-> fail too, unless the BD chain was completely drained out.
-> 
-> [ARCLinux]$ ls -l -sh /disk/log.txt
->  17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
-> 
-> ========== Before =====================
-> [ARCLinux]$ time cp /disk/log.txt /mnt/.
-> real    31m 7.95s
-> user    0m 0.00s
-> sys     0m 0.10s
-> 
-> ========== After =====================
-> [ARCLinux]$ time cp /disk/log.txt /mnt/.
-> real    0m 24.33s
-> user    0m 0.00s
-> sys     0m 0.19s
-> 
-> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+> Signed-off-by: Jon Mason <jdmason@kudzu.us>
 
-Applied.
+Applied, thanks.
