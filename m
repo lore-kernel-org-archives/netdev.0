@@ -1,54 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] pkt_sched: fq: Fair Queue packet scheduler
-Date: Wed, 04 Sep 2013 18:23:05 -0700
-Message-ID: <1378344185.11205.3.camel@edumazet-glaptop>
-References: <1377816595.8277.54.camel@edumazet-glaptop>
-	 <5226C4A0.6040709@redhat.com> <1378274376.7360.82.camel@edumazet-glaptop>
-	 <5226D39C.9070401@redhat.com> <1378290638.7360.85.camel@edumazet-glaptop>
-	 <1378294029.7360.92.camel@edumazet-glaptop>
-	 <1378342226.11205.1.camel@edumazet-glaptop>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
+ interfaces
+Date: Thu, 5 Sep 2013 01:25:47 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
+References: <1378336629-24224-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378336629-24224-8-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:46535 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762674Ab3IEBXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 21:23:10 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kq13so1196858pab.11
-        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 18:23:09 -0700 (PDT)
-In-Reply-To: <1378342226.11205.1.camel@edumazet-glaptop>
+Received: from mga03.intel.com ([143.182.124.21]:46877 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762784Ab3IEBZt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 21:25:49 -0400
+In-Reply-To: <20130904173759.7c2eec52@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-04 at 17:50 -0700, Eric Dumazet wrote:
-
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Wednesday, September 04, 2013 5:38 PM
 > 
-> BTW what is your HZ value ?
-> 
-> We have a problem in TCP stack, because srtt is in HZ units.
-> 
-> Before we change to us units, I guess tcp_update_pacing_rate() should be
-> changed a bit if HZ=250
 
-Oh well, I feel dumb, please try this fix (If you have HZ != 1000) :
+[ ... many good comments on i40e_sysfs.c ... ]
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 93d7e9d..fd96d8e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -700,7 +700,7 @@ static void tcp_update_pacing_rate(struct sock *sk)
- 	u64 rate;
- 
- 	/* set sk_pacing_rate to 200 % of current rate (mss * cwnd / srtt) */
--	rate = (u64)tp->mss_cache * 2 * (HZ << 3);
-+	rate = (u64)tp->mss_cache * 2 * ((USEC_PER_SEC/HZ) << 3);
- 
- 	rate *= max(tp->snd_cwnd, tp->packets_out);
- 
+Hi Stephen,
+
+Thanks for your comments.  Frankly, we were hoping for this kind of feedback when we posted the first version of this driver a couple of months ago, with the intent of clearing up any issues in time to get settled and accepted about now.  Yes, this is driven by business reasons that this list doesn't need to hear me whine about, but that is our reality.
+
+We'll be happy to work with you on- or off-list over the next few days to come up with a good resolution to your concerns, and from that we can publish follow-on patches to this current submission.  We should be able to get it settled and done quickly and without too much fuss.  I won't be at Plumber's this year, but perhaps Jesse or John can get together with you and other concerned sysfs folks if needed to finalize any issues.
+
+Will this work for you?
+
+Thanks,
+sln
