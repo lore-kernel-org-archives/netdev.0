@@ -1,45 +1,33 @@
-From: Dave Jones <davej@redhat.com>
-Subject: question about __udp6_lib_err usage of __udp6_lib_lookup
-Date: Wed, 4 Sep 2013 22:44:34 -0400
-Message-ID: <20130905024434.GA8219@redhat.com>
+From: Andrew Davidoff <davidoff@qedmf.net>
+Subject: Intel igb module command line configuration in kernel sources
+Date: Wed, 4 Sep 2013 22:51:50 -0400
+Message-ID: <CAJLXCZRKdz-w8uR3ejzHrBot7OAyVJOWwzA0NszkZL16eFPTbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59806 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756565Ab3IECom (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Sep 2013 22:44:42 -0400
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r852ifjn010919
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 4 Sep 2013 22:44:41 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-166.phx2.redhat.com [10.3.113.166])
-	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r852iZ7A012976
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 4 Sep 2013 22:44:41 -0400
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.7/8.14.7) with ESMTP id r852iYn3011543
-	for <netdev@vger.kernel.org>; Wed, 4 Sep 2013 22:44:34 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.7/8.14.7/Submit) id r852iYQp011540
-	for netdev@vger.kernel.org; Wed, 4 Sep 2013 22:44:34 -0400
-Content-Disposition: inline
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:49941 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762415Ab3IECvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Sep 2013 22:51:50 -0400
+Received: by mail-pd0-f169.google.com with SMTP id r10so1182694pdi.28
+        for <netdev@vger.kernel.org>; Wed, 04 Sep 2013 19:51:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__udp6_lib_lookup's prototype is ...
+Hi,
 
-struct sock *__udp6_lib_lookup(struct net *net,
-                                      const struct in6_addr *saddr, __be16 sport,
-                                      const struct in6_addr *daddr, __be16 dport,
-                                      int dif, struct udp_table *udptable)
+I apologize that this is a user-type question but linux-net seems to
+have gone away, and I cannot find a more appropriate networking
+related mailing list.
 
-But the usage in __udp6_lib_err is...
+Why are the Intel igb module configuration parameters, usually found
+in igb_param.c and part of the source from Intel, not included in the
+igb sources distributed with the linux kernel? I cannot find them in
+the kernel's igb source, modinfo doesn't list them, and if I try to
+use them as documented in the igb readme, I get errors because they
+are unrecognized (ex: RSS). Am I overlooking an alternate
+configuration method?
 
- 521         sk = __udp6_lib_lookup(dev_net(skb->dev), daddr, uh->dest,
- 522                                saddr, uh->source, inet6_iif(skb), udptable);
-
-With the source/dest addr/port arguments swapped. Is this intentional ?
-
-	Dave
+Thanks.
+Andy
