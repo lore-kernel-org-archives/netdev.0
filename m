@@ -1,55 +1,155 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH] net: mvneta: properly disable HW PHY polling and
- ensure adjust_link() works
-Date: Thu, 5 Sep 2013 07:38:44 -0400
-Message-ID: <20130905113844.GR19598@titan.lakedaemon.net>
-References: <1378304478-21237-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20130904163245.GI20552@1wt.eu>
- <CACzLR4uDQK2bkcEJQXLe805EfSA8=eF+YH-FTYovHA0q+8Y9NA@mail.gmail.com>
- <20130905051223.GB26000@1wt.eu>
- <20130905092808.617da416@skate>
- <20130905074426.GD26000@1wt.eu>
- <20130905102659.25a0f064@skate>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v3 5/6] bonding: restructure and add rcu for
+ bond_for_each_slave_next()
+Date: Thu, 5 Sep 2013 15:30:27 +0200
+Message-ID: <20130905133027.GA26163@redhat.com>
+References: <5228376D.2040608@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, Lior Amsalem <alior@marvell.com>,
-	Jochen De Smet <jochen.armkernel@leahnim.org>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ryan Press <ryan@presslab.us>, netdev@vger.kernel.org,
-	vdonnefort@lacie.com, Ethan Tuttle <ethan@ethantuttle.com>,
-	stable@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	=?iso-8859-1?Q?Ch=E9ny?= Yves-Gael <yves@cheny.fr>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Peter Sanford <psanford@nearbuy.io>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <stable-owner@vger.kernel.org>
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53498 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750708Ab3IENcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 09:32:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20130905102659.25a0f064@skate>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5228376D.2040608@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 05, 2013 at 10:26:59AM +0200, Thomas Petazzoni wrote:
-> On Thu, 5 Sep 2013 09:44:26 +0200, Willy Tarreau wrote:
-> > One simpler solution for them could be to slightly modify the boot loader
-> > so that it sets the MAC address on the two ethernet controllers prior to
-> > boot. Then your code which checks if a MAC is already set will simply
-> > work.
-> 
-> This works when the network driver is compiled 'statically' inside the
-> kernel. When compiled as a module, then the gatable clock of the
-> network interface will be gated at the end of the kernel boot, before
-> the mvneta module is probe. And gating the network interface clocks
-> means that it will loose its state, including its MAC address. So it's
-> not an entirely perfect solution either, but I admit that on such
-> platforms, the network driver is most likely compiled statically, so it
-> would probably suit the needs of most people.
+On Thu, Sep 05, 2013 at 03:49:01PM +0800, Ding Tianhong wrote:
+>Remove the wordy int and add bond_for_each_slave_next_rcu() for future use.
+>
+>Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>---
+> drivers/net/bonding/bond_alb.c  |  3 +--
+> drivers/net/bonding/bond_main.c |  6 ++----
+> drivers/net/bonding/bonding.h   | 23 +++++++++++++++++++----
+> 3 files changed, 22 insertions(+), 10 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index 91f179d..c75d383 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> 	struct slave *rx_slave, *slave, *start_at;
+>-	int i = 0;
+>
+> 	if (bond_info->next_rx_slave)
+> 		start_at = bond_info->next_rx_slave;
+>@@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+>
+> 	rx_slave = NULL;
+>
+>-	bond_for_each_slave_from(bond, slave, i, start_at) {
+>+	bond_for_each_slave_from(bond, slave, start_at) {
+> 		if (SLAVE_IS_OK(slave)) {
+> 			if (!rx_slave) {
+> 				rx_slave = slave;
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 39e5b1c..4190389 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+> 	struct slave *new_active, *old_active;
+> 	struct slave *bestslave = NULL;
+> 	int mintime = bond->params.updelay;
+>-	int i;
+>
+> 	new_active = bond->curr_active_slave;
+>
+>@@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+> 	/* remember where to stop iterating over the slaves */
+> 	old_active = new_active;
+>
+>-	bond_for_each_slave_from(bond, new_active, i, old_active) {
+>+	bond_for_each_slave_from(bond, new_active, old_active) {
+> 		if (new_active->link == BOND_LINK_UP) {
+> 			return new_active;
+> 		} else if (new_active->link == BOND_LINK_BACK &&
+>@@ -2756,7 +2755,6 @@ do_failover:
+> static void bond_ab_arp_probe(struct bonding *bond)
+> {
+> 	struct slave *slave, *next_slave;
+>-	int i;
+>
+> 	read_lock(&bond->curr_slave_lock);
+>
+>@@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+>
+> 	/* search for next candidate */
+> 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+>-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+>+	bond_for_each_slave_from(bond, slave, next_slave) {
+> 		if (IS_UP(slave->dev)) {
+> 			slave->link = BOND_LINK_BACK;
+> 			bond_set_slave_active_flags(slave);
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index f013b12..48fd41a 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -123,18 +123,33 @@
+> 	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
+> 					  bond_to_slave_rcu((pos)->list.prev))
+>
+>+/* Check whether the slave is the only one in bond */
+>+
+> /**
+>  * bond_for_each_slave_from - iterate the slaves list from a starting point
+>  * @bond:	the bond holding this list.
+>  * @pos:	current slave.
+>- * @cnt:	counter for max number of moves
+>  * @start:	starting point.
+>  *
+>  * Caller must hold bond->lock
+>  */
+>-#define bond_for_each_slave_from(bond, pos, cnt, start) \
+>-	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+>-	     cnt++, pos = bond_next_slave(bond, pos))
+>+#define bond_for_each_slave_from(bond, pos, start) \
+>+	for (pos = start; pos && &pos->list != &bond->slave_list; \
+>+	    (pos = bond_next_slave(bond, pos)) != start ? pos : \
+>+	    (pos = list_entry(&bond->slave_list, typeof(*pos), list)))
 
-Up until sleep and standby modes are supported.  Proper power savings
-would include gating the clock...
+Do you understand the differences of these two implementations?
 
-thx,
+pos && cnt < (bond)->slave_cnt
 
-Jason.
+vs
+
+pos && &pos->list != &bond->slave_list
+
+I'm sorry, but you should listen to comments.
+
+>+
+>+/**
+>+ * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
+>+ * @bond:	the bond holding this list.
+>+ * @pos:	current slave.
+>+ * @start:	starting point.
+>+ *
+>+ * Caller must hold rcu_read_lock
+>+ */
+>+#define bond_for_each_slave_from_rcu(bond, pos, start) \
+>+	for (pos = start; pos && &pos->list != &bond->slave_list; \
+>+	    (pos = bond_next_slave_rcu(bond, pos)) != start ? pos : \
+>+	    (pos = list_entry_rcu(&bond->slave_list, typeof(*pos), list)))
+>
+> /**
+>  * bond_for_each_slave - iterate over all slaves
+>-- 
+>1.8.2.1
+>
+>
+>
