@@ -1,77 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 06 Sep 2013 15:40:08 -0400 (EDT)
-Message-ID: <20130906.154008.785108838030163101.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH -net 1/2] bonding: fix store_arp_validate race with mode change
+Date: Fri,  6 Sep 2013 21:41:57 +0200
+Message-ID: <1378496518-16104-2-git-send-email-nikolay@redhat.com>
+References: <1378496518-16104-1-git-send-email-nikolay@redhat.com>
+Cc: fubar@us.ibm.com, davem@davemloft.net, andy@greyhouse.net,
+	mleitner@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:20654 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750810Ab3IFTpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 15:45:42 -0400
+In-Reply-To: <1378496518-16104-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We need to protect store_arp_validate via rtnl because it can race with
+mode changing and we can end up having arp_validate set in a mode
+different from active-backup.
 
-A quick set of fixes, some to deal with fallout from yesterday's
-net-next merge.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_sysfs.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-1) Fix compilation of bnx2x driver with CONFIG_BNX2X_SRIOV disabled, from
-   Dmitry Kravkov.
-
-2) Fix a bnx2x regression caused by one of Dave Jones's mistaken braces
-   changes, from Eilon Greenstein.
-
-3) Add some protective filtering in the netlink tap code, from Daniel
-   Borkmann.
-
-4) Fix TCP congestion window growth regression after timeouts, from
-   Yuchung Cheng.
-
-5) Correctly adjust TCP's rcv_ssthresh for out of order packets, from
-   Eric Dumazet.
-
-Please pull, thanks a lot!
-
-The following changes since commit 2e032852245b3dcfe5461d7353e34eb6da095ccf:
-
-  Merge branch 'for-linus' of git://git.linaro.org/people/rmk/linux-arm (2013-09-05 18:07:32 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to 4e4f1fc226816905c937f9b29dabe351075dfe0f:
-
-  tcp: properly increase rcv_ssthresh for ofo packets (2013-09-06 14:43:49 -0400)
-
-----------------------------------------------------------------
-Daniel Borkmann (1):
-      net: netlink: filter particular protocols from analyzers
-
-Dmitry Kravkov (1):
-      bnx2x: fix broken compilation with CONFIG_BNX2X_SRIOV is not set
-
-Eilon Greenstein (1):
-      bnx2x: Restore a call to config_init
-
-Eric Dumazet (1):
-      tcp: properly increase rcv_ssthresh for ofo packets
-
-Florian Fainelli (1):
-      net: add documentation for BQL helpers
-
-Michael Opdenacker (1):
-      mlx5: remove unused MLX5_DEBUG param in Kconfig
-
-Yuchung Cheng (1):
-      tcp: fix no cwnd growth after timeout
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c  |  9 +++------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  2 ++
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig   | 10 ----------
- include/linux/netdevice.h                         | 26 ++++++++++++++++++++++++++
- net/ipv4/tcp_input.c                              | 11 ++++++-----
- net/netlink/af_netlink.c                          | 30 ++++++++++++++++++++++++++++++
- 6 files changed, 67 insertions(+), 21 deletions(-)
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index ce46776..4e38683 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -419,27 +419,33 @@ static ssize_t bonding_store_arp_validate(struct device *d,
+ 					  struct device_attribute *attr,
+ 					  const char *buf, size_t count)
+ {
+-	int new_value;
++	int new_value, ret = count;
+ 	struct bonding *bond = to_bond(d);
+ 
++	if (!rtnl_trylock())
++		return restart_syscall();
+ 	new_value = bond_parse_parm(buf, arp_validate_tbl);
+ 	if (new_value < 0) {
+ 		pr_err("%s: Ignoring invalid arp_validate value %s\n",
+ 		       bond->dev->name, buf);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 	if (new_value && (bond->params.mode != BOND_MODE_ACTIVEBACKUP)) {
+ 		pr_err("%s: arp_validate only supported in active-backup mode.\n",
+ 		       bond->dev->name);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 	pr_info("%s: setting arp_validate to %s (%d).\n",
+ 		bond->dev->name, arp_validate_tbl[new_value].modename,
+ 		new_value);
+ 
+ 	bond->params.arp_validate = new_value;
++out:
++	rtnl_unlock();
+ 
+-	return count;
++	return ret;
+ }
+ 
+ static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
+-- 
+1.8.1.4
