@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: fix broken compilation with
- CONFIG_BNX2X_SRIOV is not set
-Date: Fri, 06 Sep 2013 14:47:25 -0400 (EDT)
-Message-ID: <20130906.144725.2171542799694168955.davem@davemloft.net>
-References: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH net] bnx2x: Restore a call to config_init
+Date: Fri, 06 Sep 2013 14:47:33 -0400 (EDT)
+Message-ID: <20130906.144733.708978789363351557.davem@davemloft.net>
+References: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ariele@broadcom.com
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org, davej@redhat.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33585 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33593 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857Ab3IFSr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:47:28 -0400
-In-Reply-To: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S1751165Ab3IFSrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:47:36 -0400
+In-Reply-To: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Fri, 6 Sep 2013 10:35:28 +0300
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Fri, 6 Sep 2013 12:55:02 +0300
 
-> Since commit 60cad4e67bd6ff400e7ea61fe762b3042b12ae9d
-> "bnx2x: VF RSS support - VF side" fails to compile w/o
-> CONFIG_BNX2X_SRIOV option.
->  
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> ---
-> Done with same formatting used in the file. 
+> Commit c0a77ec74f295013d7ba3204dd3ed25fccf83cb4 'bnx2x: Add missing braces in
+> bnx2x:bnx2x_link_initialize' identified indentation problem, but resolved it
+> by adding braces instead of fixing the indentation. The braces now prevents a
+> config_init call in some cases, though it should be called regardless of that
+> condition. This patch removes the braces and fix the confusing indentation
+> that caused this mess.
+> 
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
