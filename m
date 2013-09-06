@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Restore a call to config_init
-Date: Fri, 06 Sep 2013 14:47:33 -0400 (EDT)
-Message-ID: <20130906.144733.708978789363351557.davem@davemloft.net>
-References: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx5: remove unused MLX5_DEBUG param in Kconfig
+Date: Fri, 06 Sep 2013 14:47:42 -0400 (EDT)
+Message-ID: <20130906.144742.21205817877936193.davem@davemloft.net>
+References: <1378468162-3109-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33593 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165Ab3IFSrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:47:36 -0400
-In-Reply-To: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: michael.opdenacker-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1378468162-3109-1-git-send-email-michael.opdenacker-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Fri, 6 Sep 2013 12:55:02 +0300
+From: Michael Opdenacker <michael.opdenacker-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Date: Fri,  6 Sep 2013 13:49:22 +0200
 
-> Commit c0a77ec74f295013d7ba3204dd3ed25fccf83cb4 'bnx2x: Add missing braces in
-> bnx2x:bnx2x_link_initialize' identified indentation problem, but resolved it
-> by adding braces instead of fixing the indentation. The braces now prevents a
-> config_init call in some cases, though it should be called regardless of that
-> condition. This patch removes the braces and fix the confusing indentation
-> that caused this mess.
+> This patch proposes to remove the MLX5_DEBUG kernel configuration
+> parameter defined in drivers/net/ethernet/mellanox/mlx5/core/Kconfig,
+> but used nowhere in the makefiles and source code.
 > 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> This could also be fixed by using this parameter,
+> but this may be a leftover from driver development...
+> 
+> Signed-off-by: Michael Opdenacker <michael.opdenacker-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
