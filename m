@@ -1,47 +1,127 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net] bnx2x: fix broken compilation with
- CONFIG_BNX2X_SRIOV is not set
-Date: Fri, 6 Sep 2013 10:35:28 +0300
-Message-ID: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [ANNOUNCE] ipvsadm release v1.27
+Date: Fri, 6 Sep 2013 10:58:56 +0200
+Message-ID: <20130906105856.466aa103@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3992 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750717Ab3IFHgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 03:36:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/RxodrJFzld1_TaruaWOsSkE"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	"Ryan O'Hara" <rohara@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexander Frolkin <avf@eldamar.org.uk>
+To: lvs-devel@vger.kernel.org, lvs-users@linuxvirtualserver.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 60cad4e67bd6ff400e7ea61fe762b3042b12ae9d
-"bnx2x: VF RSS support - VF side" fails to compile w/o
-CONFIG_BNX2X_SRIOV option.
- 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
-Done with same formatting used in the file. 
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h | 2 ++
- 1 file changed, 2 insertions(+)
+--Sig_/RxodrJFzld1_TaruaWOsSkE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 2a8c1dc..059f0d4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -816,6 +816,8 @@ static inline int bnx2x_vfpf_setup_q(struct bnx2x *bp, struct bnx2x_fastpath *fp
- static inline int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx) {return 0; }
- static inline int bnx2x_vfpf_config_mac(struct bnx2x *bp, u8 *addr,
- 					u8 vf_qid, bool set) {return 0; }
-+static inline int bnx2x_vfpf_config_rss(struct bnx2x *bp,
-+					struct bnx2x_config_rss_params *params) {return 0; }
- static inline int bnx2x_vfpf_set_mcast(struct net_device *dev) {return 0; }
- static inline int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp) {return 0; }
- static inline int bnx2x_iov_nic_init(struct bnx2x *bp) {return 0; }
--- 
-1.8.3.1
+
+We are happy to announce the release of ipvsadm v1.27.
+
+ ipvsadm is a utility to administer the kernels IPVS/LVS load-balancer serv=
+ice
+
+It have been quite a while since the last release of ipvsadm, as v1.26
+were released on February 8, 2011.  Since then, the source code
+repository have been converted into git.
+
+This is the first released based on the kernel.org git tree:
+  https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/
+
+You can download the tarballs from:
+ https://kernel.org/pub/linux/utils/kernel/ipvsadm/
+
+The older releases are also available via:
+ http://www.linuxvirtualserver.org/software/ipvs.html#kernel-2.6
+ http://www.linuxvirtualserver.org/software/kernel-2.6/
+
+Maintainers:
+ Simon Horman <horms@verge.net.au>
+ Jesper Dangaard Brouer <brouer@redhat.com>
+ Wensong Zhang <wensong@linux-vs.org>
+
+The development have slowed down over the past years, as the tool and
+kernel in this area have stabilized.  As can be seen by the shortlog
+below, this release mostly contains bug fixes for existing features.
+
+With one exception commit 3141694c (ipvsadm: support for scheduler flags)
+by Alexander Frolkin, adds support for a new feature in kernel v3.11
+introduced in kernel commit eba3b5a787 (ipvs: SH fallback and L4 hashing).
+
+Shortlog:
+---------
+Alexander Frolkin (1):
+      ipvsadm: support for scheduler flags
+
+Alexander Holler (1):
+      libipvs: Fix initialization of netlink (needed for IPv6) when the mod=
+ule ip_vs wasn't loaded.
+
+Daniel Borkmann (1):
+      libipvs: libnl3: fix compilation error
+
+Henrique Mecking (1):
+      libipvs: Fix memory leak
+
+Jesper Dangaard Brouer (6):
+      ipvsadm: fix compiling tool on distros with only libnl-1
+      ipvsadm: detect LIBS and CFLAGS for libnl versions
+      Make README more generic and reference new kernel.org location
+      Add MAINTAINERS style file
+      Maintainer script for releasing tarballs
+      Release: Version 1.27
+
+Julian Anastasov (4):
+      Fix the --pe option checks
+      Fallback to libpopt on shared object
+      ipvsadm: Fix wrong format of --pe option in FMT_RULE listing
+      ipvsadm: init svc in ipvs_get_service
+
+Krzysztof Gajdemski (2):
+      ipvsadm: Fix wrong format of -o option in FMT_RULE listing
+      ipvsadm: Show 'ops' flag regardless of service persistence
+
+Ryan O'Hara (4):
+      ipvsadm: fix list_daemon to handle master/backup status in either pos=
+ition
+      ipvsadm: Fix svc->pe_name conditional
+      libipvs: Remove redundant CHECK_PE
+      libipvs: CHECK_IPV4 and CHECK_PE macros should not call return
+
+Simon Horman (1):
+      Linking against libpopt is always requited
+
+Tim Serong (1):
+      ipvsadm: Fix buffer overrun in ipvs_dests_parse_cb()
+
+wensong (1):
+      exclude the .svn directory and the TAGS file while making distribution
+
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--Sig_/RxodrJFzld1_TaruaWOsSkE
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iF4EAREIAAYFAlIpmV4ACgkQOlVNAzs3vO1V7gEAmY5deaZT5PCJXR9upWaDzWKR
+Aqfe98PbAahW8Xj2btUBAIHz6gGTvk9+OsO7JowthYwBMMDAGyaea8X5hlnBUXPM
+=xkmC
+-----END PGP SIGNATURE-----
+
+--Sig_/RxodrJFzld1_TaruaWOsSkE--
