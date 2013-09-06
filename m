@@ -1,155 +1,91 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [RFC PATCHv2 3/4] of: provide a binding for fixed link PHYs
-Date: Fri,  6 Sep 2013 17:18:20 +0200
-Message-ID: <1378480701-12908-4-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2] net: add documentation for BQL helpers
+Date: Fri, 6 Sep 2013 16:58:00 +0100
+Message-ID: <1378483080-31632-1-git-send-email-f.fainelli@gmail.com>
+References: <1378465119-1894-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, davem@davemloft.net,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:41912 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753484Ab3IFPS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 11:18:26 -0400
-In-Reply-To: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:2771 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753005Ab3IFP6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 11:58:13 -0400
+In-Reply-To: <1378465119-1894-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Ethernet MACs have a "fixed link", and are not connected to a
-normal MDIO-managed PHY device. For those situations, a Device Tree
-binding allows to describe a "fixed link" using a special PHY node.
+Provide a kernel-doc comment documentation for the BQL helpers:
+- netdev_sent_queue
+- netdev_completed_queue
+- netdev_reset_queue
 
-This patch adds:
+Similarly to how it is done for the other functions, the documentation
+only covers the function operating on struct net_device and not struct
+netdev_queue.
 
- * A documentation for the fixed PHY Device Tree binding.
-
- * An of_phy_is_fixed_link() function that an Ethernet driver can call
-   on its PHY phandle to find out whether it's a fixed link PHY or
-   not. It should typically be used to know if
-   of_phy_register_fixed_link() should be called.
-
- * An of_phy_register_fixed_link() function that instantiates the
-   fixed PHY into the PHY subsystem, so that when the driver calls
-   of_phy_connect(), the PHY device associated to the OF node will be
-   found.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- .../devicetree/bindings/net/fixed-link.txt         | 34 ++++++++++++++++++++++
- drivers/of/of_mdio.c                               | 24 +++++++++++++++
- include/linux/of_mdio.h                            | 15 ++++++++++
- 3 files changed, 73 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+Change since v1:
+- incorporate suggestsions from Eric Dumazet and just specify the exact
+  match for netdev_sent_queue/netdev_completed_queue
 
-diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
-new file mode 100644
-index 0000000..9f2a1a50
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/fixed-link.txt
-@@ -0,0 +1,34 @@
-+Fixed link Device Tree binding
-+------------------------------
-+
-+Some Ethernet MACs have a "fixed link", and are not connected to a
-+normal MDIO-managed PHY device. For those situations, a Device Tree
-+binding allows to describe a "fixed link".
-+
-+Such a fixed link situation is described by creating a PHY node as a
-+sub-node of an Ethernet device, with the following properties:
-+
-+* 'fixed-link' (boolean, mandatory), to indicate that this PHY is a
-+  fixed link PHY.
-+* 'speed' (integer, mandatory), to indicate the link speed. Accepted
-+  values are 10, 100 and 1000
-+* 'full-duplex' (boolean, optional), to indicate that full duplex is
-+  used. When absent, half duplex is assumed.
-+* 'pause' (boolean, optional), to indicate that pause should be
-+  enabled.
-+* 'asym-pause' (boolean, optional), to indicate that asym_pause should
-+  be enabled.
-+
-+Example:
-+
-+ethernet@0 {
-+	...
-+	phy = <&phy0>;
-+	phy0: phy@0 {
-+	      fixed-link;
-+	      speed = <1000>;
-+	      full-duplex;
-+	};
-+	...
-+};
-+
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d5a57a9..0507f8f 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -14,6 +14,7 @@
- #include <linux/netdevice.h>
- #include <linux/err.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
- #include <linux/of.h>
- #include <linux/of_irq.h>
- #include <linux/of_mdio.h>
-@@ -247,3 +248,26 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 	return IS_ERR(phy) ? NULL : phy;
+ include/linux/netdevice.h | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8ed4ae9..041b42a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2101,6 +2101,15 @@ static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
+ #endif
  }
- EXPORT_SYMBOL(of_phy_connect_fixed_link);
-+
-+#if defined(CONFIG_FIXED_PHY)
-+bool of_phy_is_fixed_link(struct device_node *np)
-+{
-+	return of_property_read_bool(np, "fixed-link");
-+}
-+EXPORT_SYMBOL(of_phy_is_fixed_link);
-+
-+int of_phy_register_fixed_link(struct device_node *np)
-+{
-+	struct fixed_phy_status status = {};
-+
-+	status.link = 1;
-+	status.duplex = of_property_read_bool(np, "full-duplex");
-+	if (of_property_read_u32(np, "speed", &status.speed))
-+		return -EINVAL;
-+	status.pause = of_property_read_bool(np, "pause");
-+	status.asym_pause = of_property_read_bool(np, "asym-pause");
-+
-+	return fixed_phy_register(PHY_POLL, &status, np);
-+}
-+EXPORT_SYMBOL(of_phy_register_fixed_link);
-+#endif
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 8163107..2f535ee 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -57,4 +57,19 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
- }
- #endif /* CONFIG_OF */
  
-+#if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
-+extern int of_phy_register_fixed_link(struct device_node *np);
-+extern bool of_phy_is_fixed_link(struct device_node *np);
-+#else
-+static inline int of_phy_register_fixed_link(struct device_node *np)
-+{
-+	return -ENOSYS;
-+}
-+static inline bool of_phy_is_fixed_link(struct device_node *np)
-+{
-+	return false;
-+}
-+#endif
-+
-+
- #endif /* __LINUX_OF_MDIO_H */
++/**
++ * 	netdev_sent_queue - report the number of bytes queued to hardware
++ * 	@dev: network device
++ * 	@bytes: number of bytes queued to the hardware device queue
++ *
++ * 	Report the number of bytes queued for sending/completion to the network
++ * 	device hardware queue. @bytes should be a good approximation and should
++ * 	exactly match netdev_completed_queue() @bytes
++ */
+ static inline void netdev_sent_queue(struct net_device *dev, unsigned int bytes)
+ {
+ 	netdev_tx_sent_queue(netdev_get_tx_queue(dev, 0), bytes);
+@@ -2130,6 +2139,16 @@ static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
+ #endif
+ }
+ 
++/**
++ * 	netdev_completed_queue - report bytes and packets completed by device
++ * 	@dev: network device
++ * 	@pkts: actual number of packets sent over the medium
++ * 	@bytes: actual number of bytes sent over the medium
++ *
++ * 	Report the number of bytes and packets transmitted by the network device
++ * 	hardware queue over the physical medium, @bytes must exactly match the
++ * 	@bytes amount passed to netdev_sent_queue()
++ */
+ static inline void netdev_completed_queue(struct net_device *dev,
+ 					  unsigned int pkts, unsigned int bytes)
+ {
+@@ -2144,6 +2163,13 @@ static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+ #endif
+ }
+ 
++/**
++ * 	netdev_reset_queue - reset the packets and bytes count of a network device
++ * 	@dev_queue: network device
++ *
++ * 	Reset the bytes and packet count of a network device and clear the
++ * 	software flow control OFF bit for this network device
++ */
+ static inline void netdev_reset_queue(struct net_device *dev_queue)
+ {
+ 	netdev_tx_reset_queue(netdev_get_tx_queue(dev_queue, 0));
 -- 
 1.8.1.2
