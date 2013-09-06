@@ -1,9 +1,9 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v4 5/6] bonding: restructure and add rcu for
- bond_for_each_slave_next()
-Date: Fri, 06 Sep 2013 13:59:19 +0200
-Message-ID: <5229C397.3080703@redhat.com>
-References: <5229841E.4020008@huawei.com>
+Subject: Re: [PATCH net-next v4 1/6] bonding: simplify and use RCU protection
+ for 3ad xmit path
+Date: Fri, 06 Sep 2013 13:59:21 +0200
+Message-ID: <5229C399.7090604@redhat.com>
+References: <52298407.9040103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -14,131 +14,195 @@ Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Netdev <netdev@vger.kernel.org>
 To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14903 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26645 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751164Ab3IFMC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 08:02:58 -0400
-In-Reply-To: <5229841E.4020008@huawei.com>
+	id S1751164Ab3IFMDM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 08:03:12 -0400
+In-Reply-To: <52298407.9040103@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 09/06/2013 09:28 AM, Ding Tianhong wrote:
-> Restructure the bond_for_each_slave(), remove the checking for bond->slave_cnt,
-> make the new loop be more simple and racy.
-> 
-> Add bond_for_each_slave_next_rcu() for next patch use.
+> The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+> (bonding: initial RCU conversion) has convert the roundrobin, active-backup,
+> broadcast and xor xmit path to rcu protection, the performance will be better
+> for these mode, so this time, convert xmit path for 3ad mode.
 > 
 > Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
 > Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 > Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 > Cc: Veaceslav Falico <vfalico@redhat.com>
 > ---
->  drivers/net/bonding/bond_alb.c  |  3 +--
->  drivers/net/bonding/bond_main.c |  6 ++----
->  drivers/net/bonding/bonding.h   | 21 +++++++++++++++++----
->  3 files changed, 20 insertions(+), 10 deletions(-)
+>  drivers/net/bonding/bond_3ad.c | 32 ++++++++++++++------------------
+>  drivers/net/bonding/bonding.h  | 33 ++++++++++++++++++++++++++++++++-
+>  2 files changed, 46 insertions(+), 19 deletions(-)
 > 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index 91f179d..c75d383 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index 0d8f427..13f1deb 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -143,7 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
+>   */
+>  static inline struct port *__get_first_port(struct bonding *bond)
 >  {
->  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->  	struct slave *rx_slave, *slave, *start_at;
-> -	int i = 0;
+> -	struct slave *first_slave = bond_first_slave(bond);
+> +	struct slave *first_slave = bond_first_slave_rcu(bond);
 >  
->  	if (bond_info->next_rx_slave)
->  		start_at = bond_info->next_rx_slave;
-> @@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+>  	return first_slave ? &(SLAVE_AD_INFO(first_slave).port) : NULL;
+>  }
+> @@ -163,7 +163,7 @@ static inline struct port *__get_next_port(struct port *port)
+>  	// If there's no bond for this port, or this is the last slave
+>  	if (bond == NULL)
+>  		return NULL;
+> -	slave_next = bond_next_slave(bond, slave);
+> +	slave_next = bond_next_slave_rcu(bond, slave);
+>  	if (!slave_next || bond_is_first_slave(bond, slave_next))
+>  		return NULL;
 >  
->  	rx_slave = NULL;
+> @@ -2417,16 +2417,14 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
 >  
+>  int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  {
+> -	struct slave *slave, *start_at;
+>  	struct bonding *bond = netdev_priv(dev);
+> +	struct slave *slave;
+>  	int slave_agg_no;
+>  	int slaves_in_agg;
+>  	int agg_id;
+> -	int i;
+>  	struct ad_info ad_info;
+>  	int res = 1;
+>  
+> -	read_lock(&bond->lock);
+>  	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+>  		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
+>  			 dev->name);
+> @@ -2444,13 +2442,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
+>  
+> -	bond_for_each_slave(bond, slave) {
+> +	bond_for_each_slave_rcu(bond, slave) {
+>  		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+>  
+>  		if (agg && (agg->aggregator_identifier == agg_id)) {
+> -			slave_agg_no--;
+> -			if (slave_agg_no < 0)
+> -				break;
+> +			if (--slave_agg_no < 0) {
+> +				if (SLAVE_IS_OK(slave)) {
+> +					res = bond_dev_queue_xmit(bond,
+> +						skb, slave->dev);
+> +					goto out;
+> +				}
+> +			}
+>  		}
+>  	}
+>  
+> @@ -2460,23 +2462,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  		goto out;
+>  	}
+>  
+> -	start_at = slave;
+> -
 > -	bond_for_each_slave_from(bond, slave, i, start_at) {
-> +	bond_for_each_slave_from(bond, slave, start_at) {
->  		if (SLAVE_IS_OK(slave)) {
->  			if (!rx_slave) {
->  				rx_slave = slave;
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 39e5b1c..4190389 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->  	struct slave *new_active, *old_active;
->  	struct slave *bestslave = NULL;
->  	int mintime = bond->params.updelay;
-> -	int i;
+> -		int slave_agg_id = 0;
+> +	bond_for_each_slave_rcu(bond, slave) {
+>  		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
 >  
->  	new_active = bond->curr_active_slave;
+> -		if (agg)
+> -			slave_agg_id = agg->aggregator_identifier;
+> -
+> -		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
+> +		if (SLAVE_IS_OK(slave) && agg &&
+> +			agg->aggregator_identifier == agg_id) {
+>  			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>  			break;
+>  		}
+>  	}
 >  
-> @@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
->  	/* remember where to stop iterating over the slaves */
->  	old_active = new_active;
->  
-> -	bond_for_each_slave_from(bond, new_active, i, old_active) {
-> +	bond_for_each_slave_from(bond, new_active, old_active) {
->  		if (new_active->link == BOND_LINK_UP) {
->  			return new_active;
->  		} else if (new_active->link == BOND_LINK_BACK &&
-> @@ -2756,7 +2755,6 @@ do_failover:
->  static void bond_ab_arp_probe(struct bonding *bond)
->  {
->  	struct slave *slave, *next_slave;
-> -	int i;
->  
->  	read_lock(&bond->curr_slave_lock);
->  
-> @@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
->  
->  	/* search for next candidate */
->  	next_slave = bond_next_slave(bond, bond->current_arp_slave);
-> -	bond_for_each_slave_from(bond, slave, i, next_slave) {
-> +	bond_for_each_slave_from(bond, slave, next_slave) {
->  		if (IS_UP(slave->dev)) {
->  			slave->link = BOND_LINK_BACK;
->  			bond_set_slave_active_flags(slave);
+>  out:
+> -	read_unlock(&bond->lock);
+>  	if (res) {
+>  		/* no suitable interface, frame not sent */
+>  		kfree_skb(skb);
 > diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index 419161d..d80e146 100644
+> index f7ab161..419161d 100644
 > --- a/drivers/net/bonding/bonding.h
 > +++ b/drivers/net/bonding/bonding.h
-> @@ -124,18 +124,31 @@
->  	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
->  					  bond_to_slave_rcu((pos)->list.prev))
+> @@ -74,13 +74,35 @@
+>  /* slave list primitives */
+>  #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
 >  
-> +/* Check whether the slave is the only one in bond */
+> +/* slave list primitives, Caller must hold rcu_read_lock */
+> +#define bond_to_slave_rcu(ptr) list_entry_rcu(ptr, struct slave, list)
+> +
+> +/* bond_is_empty return NULL if slave list is empty*/
+> +#define bond_is_empty(bond) \
+> +	(list_empty(&(bond)->slave_list))
+> +
+> +/* bond_is_empty_rcu return NULL if slave list is empty*/
+> +#define bond_is_empty_rcu(bond) \
+> +	(!list_first_or_null_rcu(&(bond)->slave_list, struct slave, list))
+> +
+>  /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
+>  #define bond_first_slave(bond) \
+>  	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
+>  #define bond_last_slave(bond) \
+> -	(list_empty(&(bond)->slave_list) ? NULL : \
+> +	(bond_is_empty(bond) ? NULL : \
+>  					   bond_to_slave((bond)->slave_list.prev))
+>  
+> +/**
+> + * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an empty list
+> + * Caller must hold rcu_read_lock
+> + */
+> +#define bond_first_slave_rcu(bond) \
+> +	(bond_is_empty_rcu(bond) ? NULL : \
+> +					bond_to_slave_rcu((bond)->slave_list.next))
+> +#define bond_last_slave_rcu(bond) \
+> +	(bond_is_empty_rcu(bond) ? NULL : \
+> +					bond_to_slave_rcu((bond)->slave_list.prev))
+> +
+This still has the bug that you and Veaceslav were discussing earlier.
+To be honest, I'm getting tired of these fast re-posts without any actual
+changes, it really is really starting to get on my nerves. Please before posting
+the next version take some time (more time) re-think it, go over it more times,
+don't go with the first thing that comes to mind without thinking it through well.
+
+Now to be specific here for the Nth time:
+ You _can't_ do this sequence:
+  if (list_first_or_null_rcu()) -> rcu_dereference(first/last element) because
+between the check which actually dereferences it and the second dereference the
+first/last element might be long gone. You should use the result of
+list_first_or_null_rcu.
+
+Cheers,
+ Nik
+
+>  #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
+>  #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
+>  
+> @@ -93,6 +115,15 @@
+>  	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
+>  					  bond_to_slave((pos)->list.prev))
+>  
+> +/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
+> +#define bond_next_slave_rcu(bond, pos) \
+> +	(bond_is_last_slave(bond, pos) ? bond_first_slave_rcu(bond) : \
+> +					 bond_to_slave_rcu((pos)->list.next))
+> +
+P.S. Either I'm getting paranoid or I think there's the same bug here, namely:
+say list.next != slave_list, but at the time of dereferencing list.next
+bond_to_slave_rcu() can get slave_list if it was changed.
+
+> +#define bond_prev_slave_rcu(bond, pos) \
+> +	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
+> +					  bond_to_slave_rcu((pos)->list.prev))
 > +
 >  /**
 >   * bond_for_each_slave_from - iterate the slaves list from a starting point
 >   * @bond:	the bond holding this list.
->   * @pos:	current slave.
-> - * @cnt:	counter for max number of moves
->   * @start:	starting point.
->   *
->   * Caller must hold bond->lock
->   */
-> -#define bond_for_each_slave_from(bond, pos, cnt, start) \
-> -	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
-> -	     cnt++, pos = bond_next_slave(bond, pos))
-> +#define bond_for_each_slave_from(bond, pos, start) \
-> +	for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
-> +		(pos) : (pos = NULL))
-> +
-> +/**
-> + * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
-> + * @bond:	the bond holding this list.
-> + * @pos:	current slave.
-> + * @start:	starting point.
-> + *
-> + * Caller must hold rcu_read_lock
-> + */
-> +#define bond_for_each_slave_from_rcu(bond, pos, start) \
-> +	for (pos = start; pos; (pos = bond_next_slave_rcu(bond, pos)) != start ? \
-> +		(pos) : (pos = NULL))
->  
-The same bug here as before... What happens if start disappears ? - Infinite
-loop, pos will never be equal to start again.
-
->  /**
->   * bond_for_each_slave - iterate over all slaves
 > 
