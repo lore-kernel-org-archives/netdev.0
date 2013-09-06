@@ -1,33 +1,56 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH] Add missing braces to ath10k_pci_tx_pipe_cleanup
-Date: Fri, 6 Sep 2013 12:32:43 +0300
-Message-ID: <87mwnqi9c4.fsf@kamboji.qca.qualcomm.com>
-References: <20130905035128.GA15824@redhat.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH net] bnx2x: Restore a call to config_init
+Date: Fri, 6 Sep 2013 12:55:02 +0300
+Message-ID: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130905035128.GA15824-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Dave Jones's message of
-	"Wed, 4 Sep 2013 23:51:28 -0400")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	netdev <netdev@vger.kernel.org>, "Dave Jones" <davej@redhat.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3644 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750895Ab3IFJzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 05:55:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
+Commit c0a77ec74f295013d7ba3204dd3ed25fccf83cb4 'bnx2x: Add missing braces in
+bnx2x:bnx2x_link_initialize' identified indentation problem, but resolved it
+by adding braces instead of fixing the indentation. The braces now prevents a
+config_init call in some cases, though it should be called regardless of that
+condition. This patch removes the braces and fix the confusing indentation
+that caused this mess.
 
-> The indentation here implies this was meant to be a multi-statement
-> if, but it lacks the braces.
->
-> Signed-off-by: Dave Jones <davej-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+CC: Dave Jones <davej@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-Thanks, applied.
-
-I added "ath10k:" to the patch title.
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 6645684..d60a2ea 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -6501,13 +6501,10 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 		struct bnx2x_phy *phy = &params->phy[INT_PHY];
+ 		if (vars->line_speed == SPEED_AUTO_NEG &&
+ 		    (CHIP_IS_E1x(bp) ||
+-		     CHIP_IS_E2(bp))) {
++		     CHIP_IS_E2(bp)))
+ 			bnx2x_set_parallel_detection(phy, params);
+-			if (params->phy[INT_PHY].config_init)
+-				params->phy[INT_PHY].config_init(phy,
+-								 params,
+-								 vars);
+-		}
++		if (params->phy[INT_PHY].config_init)
++			params->phy[INT_PHY].config_init(phy, params, vars);
+ 	}
+ 
+ 	/* Init external phy*/
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.3.1
