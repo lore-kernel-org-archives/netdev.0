@@ -1,47 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next v5 8/8] i40e: include i40e in kernel
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
  proper
-Date: Thu, 5 Sep 2013 23:14:36 -0700
-Message-ID: <20130905231436.761d03c3@nehalam.linuxnetplumber.net>
+Date: Fri, 6 Sep 2013 06:28:01 +0000
+Message-ID: <C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
 References: <1378447278-13998-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>,<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>, gospo@redhat.com,
-	davem@davemloft.net, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:23266 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750738Ab3IFG2D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 02:28:03 -0400
+In-Reply-To: <20130905231436.761d03c3@nehalam.linuxnetplumber.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu,  5 Sep 2013 23:01:18 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-
-> diff --git a/drivers/net/ethernet/intel/i40e/Kbuild b/drivers/net/ethernet/intel/i40e/Kbuild
-> new file mode 100644
-> index 0000000..479b2c4
+On Sep 5, 2013, at 11:15 PM, "Stephen Hemminger" <stephen@networkplumber.org<mailto:stephen@networkplumber.org>> wrote:
 
 Dumb question why is this named Kbuild instead of Makefile like almost
 every other network driver?
 
-------------------------------------------------------------------------------
-Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
-Discover the easy way to master current and previous Microsoft technologies
-and advance your career. Get an incredible 1,500+ hours of step-by-step
-tutorial videos with LearnDevNow. Subscribe today and save!
-http://pubads.g.doubleclick.net/gampad/clk?id=58041391&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+All the new kids are doing it, we'll at least that is what I thought when I made it.
+
+Re-reading https://www.kernel.org/doc/Documentation/kbuild/makefiles.txt
+
+I see that Makefile is preferred but Kbuild overrides Makefile.
+
+Either way works, but I would prefer not to rename it at this point but would gladly do so in a follow up patch
