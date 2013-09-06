@@ -1,88 +1,81 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: IPsec+SCTP+IPv6 bug (was: Re:
- https://bugzilla.kernel.org/show_bug.cgi?id=24412)
-Date: Fri, 6 Sep 2013 19:56:10 +0300
-Message-ID: <20130906165609.GA2795@p183.telecom.by>
-References: <5229B37A.2070900@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TSQ accounting skb->truesize degrades throughput for large
+ packets
+Date: Fri, 06 Sep 2013 09:56:44 -0700
+Message-ID: <1378486604.31445.34.camel@edumazet-glaptop>
+References: <20130906101635.GI14104@zion.uk.xensource.com>
+	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:65176 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab3IFQ4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 12:56:14 -0400
-Received: by mail-ea0-f178.google.com with SMTP id a15so1747923eae.9
-        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 09:56:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5229B37A.2070900@redhat.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:43426 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752158Ab3IFQ4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 12:56:46 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so3467691pbb.33
+        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 09:56:45 -0700 (PDT)
+In-Reply-To: <522A049A.7000105@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	[add netdev@ to CC]
+On Fri, 2013-09-06 at 17:36 +0100, Zoltan Kiss wrote:
+> On 06/09/13 13:57, Eric Dumazet wrote:
+> > Well, I have no problem to get line rate on 20Gb with a single flow, so
+> > other drivers have no problem.
+> I've made some tests on bare metal:
+> Dell PE R815, Intel 82599EB 10Gb, 3.11-rc4 32 bit kernel with 3.17.3 
+> ixgbe (TSO, GSO on), iperf 2.0.5
+> Transmitting packets toward the remote end (so running iperf -c on this 
+> host) can make 8.3 Gbps with the default 128k tcp_limit_output_bytes. 
+> When I increased this to 131.506 (128k + 434 bytes) suddenly it jumped 
+> to 9.4 Gbps. Iperf CPU usage also jumped a few percent from ~36 to ~40% 
+> (softint percentage in top also increased from ~3 to ~5%)
 
+Typical tradeoff between latency and throughput
 
+If you favor throughput, then you can increase tcp_limit_output_bytes
 
+The default is quite reasonable IMHO.
 
+> So I guess it would be good to revisit the default value of this 
+> setting. What hw you used Eric for your 20Gb results?
 
-My notes and recollections are below.
+Mellanox CX-3
 
-Bug reporter says traffic is unecnrypted which is technically a different thing,
-but when I tried to reproduce absense of encryption, I couldn't even get past
-established TCP connection.
+Make sure your NIC doesn't hold TX packets in TX ring too long before
+signaling an interrupt for TX completion.
 
-IPv6 case works (worked) without IPsec (setkey -F; setkey -FP).
-IPv4 case worked with IPsec.
-IPv6 didn't work with IPsec.
+For example I had to patch mellanox :
 
-setkey(8) setup:
+commit ecfd2ce1a9d5e6376ff5c00b366345160abdbbb7
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Mon Nov 5 16:20:42 2012 +0000
 
-	#!/usr/sbin/setkey -f
-	flush;
-	spdflush;
-	add A B ah 0x42 -A hmac-sha256 0xKEY1;
-	add B A ah 0x43 -A hmac-sha256 0xKEY2;
-	add A B esp 0x44 -E blowfish-cbc 0xKEY3;
-	add B A esp 0x45 -E blowfish-cbc 0xKEY4;
-	spdadd A B any -P in ipsec esp/transport//require ah/transport//require;
-	spdadd B A any -P in ipsec esp/transport//require ah/transport//require;
-
-A, B -- IPv4 or IPv6 client/server addresses.
-Client and server copy of the file should have matching keys and SPI numbers,
-but "opposite" addresses (A <=> B).
-
-Keys are written in hex.
-IIRC setkey is picky about key lengths (they have to match exactly those of crypto algorithms).
-
---------------------------------------------------------------------
-
-IPv4 reproducer:
-	socat sctp-listen:3333 -
-	echo plaintext | socat - sctp-connect:IP4IP4IP4IP4:3333
-
-IPv6 reproducer:
-	socat sctp6-listen:3333 -
-
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <string.h>
-
-int main(void)
-{
-        struct sockaddr_in6 sa6 = {};
-        int fd;
-
-        fd = socket(PF_INET6, SOCK_STREAM, 0x84);
-        sa6.sin6_family = AF_INET6;
-        sa6.sin6_port = htons(3333);
-        inet_pton(AF_INET6, "IP6IP6IP6IP6IP6IP6", &sa6.sin6_addr);
-        sa6.sin6_scope_id = 2;	/* it depends */
-        connect(fd, (struct sockaddr *)&sa6, sizeof(struct sockaddr_in6));
-        write(fd, "plaintext\n", strlen("plaintext\n"));
-        close(fd);
-        return 0;
-}
+    mlx4: change TX coalescing defaults
+    
+    mlx4 currently uses a too high tx coalescing setting, deferring
+    TX completion interrupts by up to 128 us.
+    
+    With the recent skb_orphan() removal in commit 8112ec3b872,
+    performance of a single TCP flow is capped to ~4 Gbps, unless
+    we increase tcp_limit_output_bytes.
+    
+    I suggest using 16 us instead of 128 us, allowing a finer control.
+    
+    Performance of a single TCP flow is restored to previous levels,
+    while keeping TCP small queues fully enabled with default sysctl.
+    
+    This patch is also a BQL prereq.
+    
+    Reported-by: Vimalkumar <j.vimal@gmail.com>
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>
+    Cc: Or Gerlitz <ogerlitz@mellanox.com>
+    Acked-by: Amir Vadai <amirv@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
