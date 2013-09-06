@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 5/6] bonding: restructure and add rcu for bond_for_each_slave_next()
-Date: Fri, 6 Sep 2013 15:28:30 +0800
-Message-ID: <5229841E.4020008@huawei.com>
+Subject: [PATCH net-next v4 6/6] bonding: use RCU protection for alb xmit
+ path
+Date: Fri, 6 Sep 2013 15:28:37 +0800
+Message-ID: <52298425.4060309@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,129 +11,118 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+	Netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:4344 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756Ab3IFH24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:28:56 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:25288 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946Ab3IFH3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:29:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restructure the bond_for_each_slave(), remove the checking for bond->slave_cnt,
-make the new loop be more simple and racy.
-
-Add bond_for_each_slave_next_rcu() for next patch use.
+The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+(bonding: initial RCU conversion) has convert the roundrobin, active-backup,
+broadcast and xor xmit path to rcu protection, the performance will be better
+for these mode, so this time, convert xmit path for alb mode.
 
 Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c  |  3 +--
- drivers/net/bonding/bond_main.c |  6 ++----
- drivers/net/bonding/bonding.h   | 21 +++++++++++++++++----
- 3 files changed, 20 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bond_alb.c | 20 +++++++++-----------
+ drivers/net/bonding/bonding.h  |  2 +-
+ 2 files changed, 10 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 91f179d..c75d383 100644
+index c75d383..c0bfd56 100644
 --- a/drivers/net/bonding/bond_alb.c
 +++ b/drivers/net/bonding/bond_alb.c
-@@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+@@ -229,7 +229,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	max_gap = LLONG_MIN;
+ 
+ 	/* Find the slave with the largest gap */
+-	bond_for_each_slave(bond, slave) {
++	bond_for_each_slave_rcu(bond, slave) {
+ 		if (SLAVE_IS_OK(slave)) {
+ 			long long gap = compute_gap(slave);
+ 
+@@ -625,12 +625,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
  {
  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct slave *rx_slave, *slave, *start_at;
--	int i = 0;
+ 	struct arp_pkt *arp = arp_pkt(skb);
+-	struct slave *assigned_slave;
++	struct slave *assigned_slave, *curr_active_slave;
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index = 0;
  
- 	if (bond_info->next_rx_slave)
- 		start_at = bond_info->next_rx_slave;
-@@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+ 	_lock_rx_hashtbl(bond);
  
- 	rx_slave = NULL;
++	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
  
--	bond_for_each_slave_from(bond, slave, i, start_at) {
-+	bond_for_each_slave_from(bond, slave, start_at) {
- 		if (SLAVE_IS_OK(slave)) {
- 			if (!rx_slave) {
- 				rx_slave = slave;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 39e5b1c..4190389 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	struct slave *new_active, *old_active;
- 	struct slave *bestslave = NULL;
- 	int mintime = bond->params.updelay;
--	int i;
+@@ -654,9 +656,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			 * move the old client to primary (curr_active_slave) so
+ 			 * that the new client can be assigned to this entry.
+ 			 */
+-			if (bond->curr_active_slave &&
+-			    client_info->slave != bond->curr_active_slave) {
+-				client_info->slave = bond->curr_active_slave;
++			if (curr_active_slave &&
++			    client_info->slave != curr_active_slave) {
++				client_info->slave = curr_active_slave;
+ 				rlb_update_client(client_info);
+ 			}
+ 		}
+@@ -1338,8 +1340,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
  
- 	new_active = bond->curr_active_slave;
+ 	/* make sure that the curr_active_slave do not change during tx
+ 	 */
+-	read_lock(&bond->lock);
+-	read_lock(&bond->curr_slave_lock);
  
-@@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	/* remember where to stop iterating over the slaves */
- 	old_active = new_active;
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP: {
+@@ -1422,12 +1422,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
  
--	bond_for_each_slave_from(bond, new_active, i, old_active) {
-+	bond_for_each_slave_from(bond, new_active, old_active) {
- 		if (new_active->link == BOND_LINK_UP) {
- 			return new_active;
- 		} else if (new_active->link == BOND_LINK_BACK &&
-@@ -2756,7 +2755,6 @@ do_failover:
- static void bond_ab_arp_probe(struct bonding *bond)
- {
- 	struct slave *slave, *next_slave;
--	int i;
+ 	if (!tx_slave) {
+ 		/* unbalanced or unassigned, send through primary */
+-		tx_slave = bond->curr_active_slave;
++		tx_slave = rcu_dereference(bond->curr_active_slave);
+ 		bond_info->unbalanced_load += skb->len;
+ 	}
  
- 	read_lock(&bond->curr_slave_lock);
+ 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+-		if (tx_slave != bond->curr_active_slave) {
++		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+ 			memcpy(eth_data->h_source,
+ 			       tx_slave->dev->dev_addr,
+ 			       ETH_ALEN);
+@@ -1442,8 +1442,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		}
+ 	}
  
-@@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 
- 	/* search for next candidate */
- 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
--	bond_for_each_slave_from(bond, slave, i, next_slave) {
-+	bond_for_each_slave_from(bond, slave, next_slave) {
- 		if (IS_UP(slave->dev)) {
- 			slave->link = BOND_LINK_BACK;
- 			bond_set_slave_active_flags(slave);
+-	read_unlock(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+ 		kfree_skb(skb);
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 419161d..d80e146 100644
+index 80b170a..4282e65 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -124,18 +124,31 @@
- 	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
- 					  bond_to_slave_rcu((pos)->list.prev))
+@@ -536,7 +536,7 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
+ {
+ 	struct slave *tmp;
  
-+/* Check whether the slave is the only one in bond */
-+
- /**
-  * bond_for_each_slave_from - iterate the slaves list from a starting point
-  * @bond:	the bond holding this list.
-  * @pos:	current slave.
-- * @cnt:	counter for max number of moves
-  * @start:	starting point.
-  *
-  * Caller must hold bond->lock
-  */
--#define bond_for_each_slave_from(bond, pos, cnt, start) \
--	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
--	     cnt++, pos = bond_next_slave(bond, pos))
-+#define bond_for_each_slave_from(bond, pos, start) \
-+	for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
-+		(pos) : (pos = NULL))
-+
-+/**
-+ * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
-+ * @bond:	the bond holding this list.
-+ * @pos:	current slave.
-+ * @start:	starting point.
-+ *
-+ * Caller must hold rcu_read_lock
-+ */
-+#define bond_for_each_slave_from_rcu(bond, pos, start) \
-+	for (pos = start; pos; (pos = bond_next_slave_rcu(bond, pos)) != start ? \
-+		(pos) : (pos = NULL))
+-	bond_for_each_slave(bond, tmp)
++	bond_for_each_slave_rcu(bond, tmp)
+ 		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
+ 			return tmp;
  
- /**
-  * bond_for_each_slave - iterate over all slaves
 -- 
 1.8.2.1
