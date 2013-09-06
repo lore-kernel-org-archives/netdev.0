@@ -1,35 +1,86 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] openvswitch: Fix alignment of struct sw_flow_key.
-Date: Fri, 6 Sep 2013 11:18:21 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B731F@saturn3.aculab.com>
-References: <1378402887-17331-1-git-send-email-jesse@nicira.com>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: add documentation for BQL helpers
+Date: Fri, 6 Sep 2013 11:58:39 +0100
+Message-ID: <1378465119-1894-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <dev@openvswitch.org>,
-	"Andy Zhou" <azhou@nicira.com>,
-	"Fengguang Wu" <fengguan.wu@intel.com>,
-	"Geert Uytterhoeven" <geert@linux-m68k.org>
-To: "Jesse Gross" <jesse@nicira.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, davem@davemloft.net,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53407 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750882Ab3IFKUw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 06:20:52 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10487-03 for <netdev@vger.kernel.org>;
- Fri,  6 Sep 2013 11:20:51 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1378402887-17331-1-git-send-email-jesse@nicira.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4412 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750847Ab3IFK67 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 06:58:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -} __aligned(__alignof__(long));
-> +} __aligned(8); /* 8 byte alignment ensures this can be accessed as a long */
+Provide a kernel-doc comment documentation for the BQL helpers:
+- netdev_sent_queue
+- netdev_completed_queue
+- netdev_reset_queue
 
-Don't you really want __aligned(MAX(__alignof__(__be64), sizeof (long))) ?
+Similarly to how it is done for the other functions, the documentation
+only covers the function operating on struct net_device and not struct
+netdev_queue.
 
-	David
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/linux/netdevice.h | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8ed4ae9..ac36629 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2101,6 +2101,16 @@ static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
+ #endif
+ }
+ 
++/**
++ * 	netdev_sent_queue - report the number of bytes queued to hardware
++ * 	@dev: network device
++ * 	@bytes: number of bytes queued to the hardware device queue
++ *
++ * 	Report the number of bytes queued for sending/completion to the network
++ * 	device hardware queue. @bytes should specify the number of bytes which
++ * 	will be sent over the physical medium (without prepended/appended
++ * 	control blocks, FCS...)
++ */
+ static inline void netdev_sent_queue(struct net_device *dev, unsigned int bytes)
+ {
+ 	netdev_tx_sent_queue(netdev_get_tx_queue(dev, 0), bytes);
+@@ -2130,6 +2140,16 @@ static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
+ #endif
+ }
+ 
++/**
++ * 	netdev_completed_queue - report bytes and packets completed by device
++ * 	@dev: network device
++ * 	@pkts: actual number of packets sent over the medium
++ * 	@bytes: actual number of bytes sent over the medium
++ *
++ * 	Report the number of bytes and packets transmitted by the network device
++ * 	hardware queue over the physical medium (without prepended/appended
++ * 	control blocks, FCS...)
++ */
+ static inline void netdev_completed_queue(struct net_device *dev,
+ 					  unsigned int pkts, unsigned int bytes)
+ {
+@@ -2144,6 +2164,13 @@ static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+ #endif
+ }
+ 
++/**
++ * 	netdev_reset_queue - reset the packets and bytes count of a network device
++ * 	@dev_queue: network device
++ *
++ * 	Reset the bytes and packet count of a network device and clear the
++ * 	software flow control OFF bit for this network device
++ */
+ static inline void netdev_reset_queue(struct net_device *dev_queue)
+ {
+ 	netdev_tx_reset_queue(netdev_get_tx_queue(dev_queue, 0));
+-- 
+1.8.1.2
