@@ -1,71 +1,42 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH -net v2 1/2] bonding: fix store_arp_validate race with mode change
-Date: Sat,  7 Sep 2013 00:00:25 +0200
-Message-ID: <1378504826-18855-2-git-send-email-nikolay@redhat.com>
-References: <1378504826-18855-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH -net v2 0/2] bonding: fix arp_validate desync state & race
+Date: Sat,  7 Sep 2013 00:00:24 +0200
+Message-ID: <1378504826-18855-1-git-send-email-nikolay@redhat.com>
 Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16705 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3050 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016Ab3IFWEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 18:04:09 -0400
-In-Reply-To: <1378504826-18855-1-git-send-email-nikolay@redhat.com>
+	id S1750805Ab3IFWEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 18:04:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to protect store_arp_validate via rtnl because it can race with
-mode changing and we can end up having arp_validate set in a mode
-different from active-backup.
+Hello all,
+These two patches aim to fix the possible de-sync state which the bond
+can enter if we have arp_validate without arp_interval or the other way
+around. They also fix a race condition between arp_validate setting and
+mode changing.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-v2: no change
+Patch 01 - fixes the race condition between store_arp_validate and bond
+mode change by using rtnl for sync
+Patch 02 - fixes the possible de-sync state by setting/unsetting recv_probe
+if arp_interval is set/unset and also if arp_validate is set/unset
 
- drivers/net/bonding/bond_sysfs.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+v2: Fix the mode check in store_arp_validate
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index ce46776..4e38683 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -419,27 +419,33 @@ static ssize_t bonding_store_arp_validate(struct device *d,
- 					  struct device_attribute *attr,
- 					  const char *buf, size_t count)
- {
--	int new_value;
-+	int new_value, ret = count;
- 	struct bonding *bond = to_bond(d);
- 
-+	if (!rtnl_trylock())
-+		return restart_syscall();
- 	new_value = bond_parse_parm(buf, arp_validate_tbl);
- 	if (new_value < 0) {
- 		pr_err("%s: Ignoring invalid arp_validate value %s\n",
- 		       bond->dev->name, buf);
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 	if (new_value && (bond->params.mode != BOND_MODE_ACTIVEBACKUP)) {
- 		pr_err("%s: arp_validate only supported in active-backup mode.\n",
- 		       bond->dev->name);
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto out;
- 	}
- 	pr_info("%s: setting arp_validate to %s (%d).\n",
- 		bond->dev->name, arp_validate_tbl[new_value].modename,
- 		new_value);
- 
- 	bond->params.arp_validate = new_value;
-+out:
-+	rtnl_unlock();
- 
--	return count;
-+	return ret;
- }
- 
- static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
+Best regards,
+ Nikolay Aleksandrov
+
+
+Nikolay Aleksandrov (2):
+  bonding: fix store_arp_validate race with mode change
+  bonding: fix bond_arp_rcv setting and arp validate desync state
+
+ drivers/net/bonding/bond_main.c  |  4 ++--
+ drivers/net/bonding/bond_sysfs.c | 31 +++++++++++++++++++++++++------
+ drivers/net/bonding/bonding.h    |  1 +
+ 3 files changed, 28 insertions(+), 8 deletions(-)
+
 -- 
 1.8.1.4
