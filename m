@@ -1,49 +1,35 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: TSQ accounting skb->truesize degrades throughput for large packets
-Date: Fri, 6 Sep 2013 11:16:35 +0100
-Message-ID: <20130906101635.GI14104@zion.uk.xensource.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] openvswitch: Fix alignment of struct sw_flow_key.
+Date: Fri, 6 Sep 2013 11:18:21 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B731F@saturn3.aculab.com>
+References: <1378402887-17331-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <dev@openvswitch.org>,
+	"Andy Zhou" <azhou@nicira.com>,
+	"Fengguang Wu" <fengguan.wu@intel.com>,
+	"Geert Uytterhoeven" <geert@linux-m68k.org>
+To: "Jesse Gross" <jesse@nicira.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:20668 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750882Ab3IFKQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 06:16:36 -0400
-Content-Disposition: inline
+Received: from mx0.aculab.com ([213.249.233.131]:53407 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750882Ab3IFKUw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 06:20:52 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10487-03 for <netdev@vger.kernel.org>;
+ Fri,  6 Sep 2013 11:20:51 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1378402887-17331-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric
+> -} __aligned(__alignof__(long));
+> +} __aligned(8); /* 8 byte alignment ensures this can be accessed as a long */
 
-I have some questions regarding TSQ and I hope you can shed some light
-on this.
+Don't you really want __aligned(MAX(__alignof__(__be64), sizeof (long))) ?
 
-Our observation is that with the default TSQ limit (128K), throughput
-for Xen network driver for large packets degrades. That's because we now
-only have 1 packet in queue.
-
-I double-checked that skb->len is indeed <64K. Then I discovered that
-TSQ actually accounts for skb->truesize and the packets generated had
-skb->truesize > 64K which effectively prevented us from putting 2
-packets in queue.
-
-There seems to be no way to limit skb->truesize inside driver -- the skb
-is already constructed when it comes to xen-netfront.
-
-My questions are:
-  1) I see the comment in tcp_output.c saying: "TSQ : sk_wmem_alloc
-     accounts skb truesize, including skb overhead. But thats OK", I
-     don't quite understand why it is OK.
-  2) presumably other drivers will suffer from this as well, is it
-     possible to account for skb->len instead of skb->truesize?
-  3) if accounting skb->truesize is on purpose, does that mean we only
-     need to tune that value instead of trying to fix our driver (if
-     there is a way to)?
-
-Thanks
-Wei.
+	David
