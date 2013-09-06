@@ -1,99 +1,44 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH net] bonding: Avoid possible de-sync with arp_validate
-Date: Fri, 06 Sep 2013 15:13:06 -0300
-Message-ID: <522A1B32.3060207@redhat.com>
-References: <994d2dc994a801fc3aae7aa912266b09ea45d95c.1378489255.git.mleitner@redhat.com> <7249.1378490193@death.nxdomain>
-Reply-To: mleitner@redhat.com
+From: Joe Perches <joe@perches.com>
+Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
+ proper
+Date: Fri, 06 Sep 2013 11:20:15 -0700
+Message-ID: <1378491615.19204.10.camel@joe-AO722>
+References: <1378447278-13998-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 ,<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
+	 <C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
+	 <1378450038.19204.6.camel@joe-AO722>
+	 <AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, naleksan@redhat.com, andy@greyhouse.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59424 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750833Ab3IFSNM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 14:13:12 -0400
-In-Reply-To: <7249.1378490193@death.nxdomain>
+Received: from perches-mx.perches.com ([206.117.179.246]:40053 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750833Ab3IFSUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 14:20:16 -0400
+In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 06-09-2013 14:56, Jay Vosburgh escreveu:
-> Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
->
->> Hi Dave,
->>
->> Please queue this one for -stable trees too.
->>
->> Thanks.
->>
->> ---8<---
->>
->> As bond_store_arp_validation and bond_store_arp_interval doesn't
->> deal with each other, we can't chain both at bond_open, otherwise
->> we are open to this de-sync state, steps in sequence:
->> - bond is down
->> - arp_interval = 0
->> - arp_validate = 1 or 2
->> - bond is up
->> - arp_interval = 1
->>
->> This would lead to bond issuing ARP requests but never listening
->> to the replies, because the tap wasn't attached. After reaching
->> this state, while bond is up, setting arp_validate won't help
->> as it only acts if needed.
->
-> 	You need to sign off you patch.
+On Fri, 2013-09-06 at 17:28 +0000, Williams, Mitch A wrote:
+> My goal was to make our out-of-tree driver as close as possible -
+> including the makefiles - to the upstream driver. Doing this makes it
+> simpler for us to backport and forward-port patches. It makes it less
+> confusing for us when we're moving from one environment to the other.
 
-My bad, sorry
+I think using things like
 
->> drivers/net/bonding/bond_main.c | 7 +++----
->> 1 file changed, 3 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 39e5b1c..805d098 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -3180,11 +3180,10 @@ static int bond_open(struct net_device *bond_dev)
->> 	if (bond->params.miimon)  /* link check interval, in milliseconds. */
->> 		queue_delayed_work(bond->wq, &bond->mii_work, 0);
->>
->> -	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
->> +	if (bond->params.arp_interval)    /* arp interval, in milliseconds. */
->> 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
->> -		if (bond->params.arp_validate)
->> -			bond->recv_probe = bond_arp_rcv;
->> -	}
->> +	if (bond->params.arp_validate)
->> +		bond->recv_probe = bond_arp_rcv;
->
-> 	Won't this set the recv_probe when arp_interval is 0 (disabled)?
-> That's going to make bonding look at a bunch of traffic it's not going
-> to do anything with.
+#define i40e_memset memset
 
-Yes.
-
-> 	Why is this better than having bonding_store_arp_interval set
-> recv_probe if arp_validate is set when it queues the arp_work?  And,
-> presumably, clear the recv_probe if arp_interval is being cleared.
->
-> 	-J
-
-Yeah, no good. You're right.
-
-Self-NACK here. Nikolay will submit a better patch later.
-
-Thanks,
-Marcelo
-
->> 	if (bond->params.mode == BOND_MODE_8023AD) {
->> 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
->> --
->> 1.8.3.1
->>
->
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->
->
+is just odd.
