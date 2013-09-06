@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
- proper
-Date: Fri, 06 Sep 2013 14:23:02 -0400 (EDT)
-Message-ID: <20130906.142302.514119919125432228.davem@davemloft.net>
-References: <1378450038.19204.6.camel@joe-AO722>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
-	<1378491615.19204.10.camel@joe-AO722>
+Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
+Date: Fri, 06 Sep 2013 14:27:35 -0400 (EDT)
+Message-ID: <20130906.142735.458916282873797040.davem@davemloft.net>
+References: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, jesse.brandeburg@intel.com,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: mschmidt@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60943 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32858 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811Ab3IFSXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:23:05 -0400
-In-Reply-To: <1378491615.19204.10.camel@joe-AO722>
+	with ESMTP id S1750811Ab3IFS1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:27:38 -0400
+In-Reply-To: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 06 Sep 2013 11:20:15 -0700
+From: Michal Schmidt <mschmidt@redhat.com>
+Date: Thu,  5 Sep 2013 22:13:09 +0200
 
-> On Fri, 2013-09-06 at 17:28 +0000, Williams, Mitch A wrote:
->> My goal was to make our out-of-tree driver as close as possible -
->> including the makefiles - to the upstream driver. Doing this makes it
->> simpler for us to backport and forward-port patches. It makes it less
->> confusing for us when we're moving from one environment to the other.
+> During initialization bnx2x allocates significant amounts of memory
+> (for rx data, rx SGEs, TPA pool) using atomic allocations.
 > 
-> I think using things like
+> I received a report where bnx2x failed to allocate SGEs and it had
+> to fall back to TPA-less operation.
 > 
-> #define i40e_memset memset
+> Let's use GFP_KERNEL allocations during initialization, which runs
+> in process context. Add gfp_t parameters to functions that are used
+> both in initialization and in the receive path.
 > 
-> is just odd.
+> Use an unlikely branch in bnx2x_frag_alloc() to avoid atomic allocation
+> by netdev_alloc_frag(). The branch is taken several thousands of times
+> during initialization, but then never more. Note that fp->rx_frag_size
+> is never greater than PAGE_SIZE, so __get_free_page() can be used here.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-Agreed, this is rediculous.
+This change looks good to me, if some Broadcom folks could take a look
+and ACK/NACK that would be great.
+
+Thanks.
