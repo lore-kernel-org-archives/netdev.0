@@ -1,95 +1,60 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
- proper
-Date: Fri, 6 Sep 2013 10:39:05 -0700
-Message-ID: <20130906103905.125c2fa8@nehalam.linuxnetplumber.net>
-References: <1378447278-13998-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
-	<C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
-	<1378450038.19204.6.camel@joe-AO722>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH net] bonding: Avoid possible de-sync with arp_validate
+Date: Fri,  6 Sep 2013 14:41:53 -0300
+Message-ID: <994d2dc994a801fc3aae7aa912266b09ea45d95c.1378489255.git.mleitner@redhat.com>
+Cc: naleksan@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:54144 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711Ab3IFRjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 13:39:09 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so3514899pde.38
-        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 10:39:09 -0700 (PDT)
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23886 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750771Ab3IFRmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 13:42:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 6 Sep 2013 17:28:09 +0000
-"Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
+Hi Dave,
 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> > Behalf Of Joe Perches
-> > Sent: Thursday, September 05, 2013 11:47 PM
-> > To: Brandeburg, Jesse
-> > Cc: Stephen Hemminger; Kirsher, Jeffrey T; davem@davemloft.net; e1000-
-> > devel@lists.sourceforge.net; netdev@vger.kernel.org; gospo@redhat.com;
-> > sassmann@redhat.com
-> > Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
-> > proper
-> > 
-> > On Fri, 2013-09-06 at 06:28 +0000, Brandeburg, Jesse wrote:
-> > > On Sep 5, 2013, at 11:15 PM, "Stephen Hemminger"
-> > <stephen@networkplumber.org<mailto:stephen@networkplumber.org>> wrote:
-> > >
-> > > Dumb question why is this named Kbuild instead of Makefile like almost
-> > > every other network driver?
-> > >
-> > > All the new kids are doing it, we'll at least that is what I thought when
-> > I made it.
-> > >
-> > > Re-reading https://www.kernel.org/doc/Documentation/kbuild/makefiles.txt
-> > >
-> > > I see that Makefile is preferred but Kbuild overrides Makefile.
-> > >
-> > > Either way works, but I would prefer not to rename it at this point but
-> > would gladly do so in a follow up patch
-> > 
-> > Please do.
-> > 
-> > I suppose it makes _some_ sense to use Kbuild in the
-> > include paths but I think Makefile in places where
-> > compilations are done is better.
-> > 
-> 
-> That was me. I did it to make things less confusing for our customers and for us as engineers.
-> 
-> My goal was to make our out-of-tree driver as close as possible - including the makefiles - to the upstream driver. Doing this makes it simpler for us to backport and forward-port patches. It makes it less confusing for us when we're moving from one environment to the other.
-> 
-> The Kbuild file submitted here is exactly the same file that will be included in our out-of-tree tarball. To avoid confusion, I named it Kbuild, so nobody would just run make in the source directory. The toplevel makefile in our tarball is named Makefile, and I wanted that to be the only Makefile around so nobody would be confused (including me).
-> 
-> The kernel documentation specifically states that this is acceptable (Documentation/kbuild/modules.txt). Furthermore, Documentation/kbuild/makefiles.txt states that using Kbuild as a filename is acceptable.
-> 
-> Personally, I'd prefer to keep these named Kbuild. Doing so makes it simpler to keep our in-tree and out-of-tree drivers in sync. But if you're really passionate about having them named Makefile, we can deal with it. It's just one more detail for us to keep track of (and potentially screw up).
-> 
-> If there is a hard requirement that these files be named Makefile, then I would request that the kernel documentation be updated to reflect this.
-> 
-> -Mitch
+Please queue this one for -stable trees too.
 
-First, upstream kernel does not care how or why you do something for out-of-tree driver.
-As far as network developers are concerned, it is your own process (mistake) and you can
-live with the consequences of that decision.
+Thanks.
 
-Second, why introduce something different to upstream with no apparent benefit
+---8<---
 
-$ find drivers/net -name Kbuild | wc -l
-0
+As bond_store_arp_validation and bond_store_arp_interval doesn't
+deal with each other, we can't chain both at bond_open, otherwise
+we are open to this de-sync state, steps in sequence:
+- bond is down
+- arp_interval = 0
+- arp_validate = 1 or 2
+- bond is up
+- arp_interval = 1
+
+This would lead to bond issuing ARP requests but never listening
+to the replies, because the tap wasn't attached. After reaching
+this state, while bond is up, setting arp_validate won't help
+as it only acts if needed.
+---
+ drivers/net/bonding/bond_main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 39e5b1c..805d098 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3180,11 +3180,10 @@ static int bond_open(struct net_device *bond_dev)
+ 	if (bond->params.miimon)  /* link check interval, in milliseconds. */
+ 		queue_delayed_work(bond->wq, &bond->mii_work, 0);
+ 
+-	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
++	if (bond->params.arp_interval)    /* arp interval, in milliseconds. */
+ 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
+-		if (bond->params.arp_validate)
+-			bond->recv_probe = bond_arp_rcv;
+-	}
++	if (bond->params.arp_validate)
++		bond->recv_probe = bond_arp_rcv;
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
+-- 
+1.8.3.1
