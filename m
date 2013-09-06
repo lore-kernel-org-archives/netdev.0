@@ -1,8 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 3/6] bonding: replace read_lock to rcu_read_lock
- for bond_3ad_get_active_agg_info()
-Date: Fri, 6 Sep 2013 15:28:16 +0800
-Message-ID: <52298410.4000202@huawei.com>
+Subject: [PATCH net-next v4 5/6] bonding: restructure and add rcu for bond_for_each_slave_next()
+Date: Fri, 6 Sep 2013 15:28:30 +0800
+Message-ID: <5229841E.4020008@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,37 +12,127 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:24823 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750867Ab3IFH2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:28:37 -0400
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4344 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756Ab3IFH24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:28:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the bond slave list will protected by rcu, so the read lock should replace by
-rcu read lock.
+Restructure the bond_for_each_slave(), remove the checking for bond->slave_cnt,
+make the new loop be more simple and racy.
 
+Add bond_for_each_slave_next_rcu() for next patch use.
+
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_alb.c  |  3 +--
+ drivers/net/bonding/bond_main.c |  6 ++----
+ drivers/net/bonding/bonding.h   | 21 +++++++++++++++++----
+ 3 files changed, 20 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index c134f43..b678502 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2408,9 +2408,9 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 91f179d..c75d383 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
  {
- 	int ret;
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct slave *rx_slave, *slave, *start_at;
+-	int i = 0;
  
--	read_lock(&bond->lock);
-+	rcu_read_lock();
- 	ret = __bond_3ad_get_active_agg_info(bond, ad_info);
--	read_unlock(&bond->lock);
-+	rcu_read_unlock();
+ 	if (bond_info->next_rx_slave)
+ 		start_at = bond_info->next_rx_slave;
+@@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
  
- 	return ret;
- }
+ 	rx_slave = NULL;
+ 
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
++	bond_for_each_slave_from(bond, slave, start_at) {
+ 		if (SLAVE_IS_OK(slave)) {
+ 			if (!rx_slave) {
+ 				rx_slave = slave;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 39e5b1c..4190389 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	struct slave *new_active, *old_active;
+ 	struct slave *bestslave = NULL;
+ 	int mintime = bond->params.updelay;
+-	int i;
+ 
+ 	new_active = bond->curr_active_slave;
+ 
+@@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	/* remember where to stop iterating over the slaves */
+ 	old_active = new_active;
+ 
+-	bond_for_each_slave_from(bond, new_active, i, old_active) {
++	bond_for_each_slave_from(bond, new_active, old_active) {
+ 		if (new_active->link == BOND_LINK_UP) {
+ 			return new_active;
+ 		} else if (new_active->link == BOND_LINK_BACK &&
+@@ -2756,7 +2755,6 @@ do_failover:
+ static void bond_ab_arp_probe(struct bonding *bond)
+ {
+ 	struct slave *slave, *next_slave;
+-	int i;
+ 
+ 	read_lock(&bond->curr_slave_lock);
+ 
+@@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	/* search for next candidate */
+ 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
++	bond_for_each_slave_from(bond, slave, next_slave) {
+ 		if (IS_UP(slave->dev)) {
+ 			slave->link = BOND_LINK_BACK;
+ 			bond_set_slave_active_flags(slave);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 419161d..d80e146 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -124,18 +124,31 @@
+ 	(bond_is_first_slave(bond, pos) ? bond_last_slave_rcu(bond) : \
+ 					  bond_to_slave_rcu((pos)->list.prev))
+ 
++/* Check whether the slave is the only one in bond */
++
+ /**
+  * bond_for_each_slave_from - iterate the slaves list from a starting point
+  * @bond:	the bond holding this list.
+  * @pos:	current slave.
+- * @cnt:	counter for max number of moves
+  * @start:	starting point.
+  *
+  * Caller must hold bond->lock
+  */
+-#define bond_for_each_slave_from(bond, pos, cnt, start) \
+-	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+-	     cnt++, pos = bond_next_slave(bond, pos))
++#define bond_for_each_slave_from(bond, pos, start) \
++	for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
++		(pos) : (pos = NULL))
++
++/**
++ * bond_for_each_slave_from_rcu - iterate the slaves list from a starting point
++ * @bond:	the bond holding this list.
++ * @pos:	current slave.
++ * @start:	starting point.
++ *
++ * Caller must hold rcu_read_lock
++ */
++#define bond_for_each_slave_from_rcu(bond, pos, start) \
++	for (pos = start; pos; (pos = bond_next_slave_rcu(bond, pos)) != start ? \
++		(pos) : (pos = NULL))
+ 
+ /**
+  * bond_for_each_slave - iterate over all slaves
 -- 
 1.8.2.1
