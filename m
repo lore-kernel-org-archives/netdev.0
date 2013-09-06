@@ -1,197 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] sh_eth: add device tree support
-Date: Fri, 06 Sep 2013 23:10:07 +0400
-Message-ID: <522A288F.1040000@cogentembedded.com>
-References: <201308310429.34856.sergei.shtylyov@cogentembedded.com> <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
+From: James Yonan <james@openvpn.net>
+Subject: Re: GSO/GRO and UDP performance
+Date: Fri, 06 Sep 2013 13:26:46 -0600
+Message-ID: <522A2C76.10203@openvpn.net>
+References: <52270659.1090208@openvpn.net> <1378295631.7360.98.camel@edumazet-glaptop> <52299EDD.1030208@openvpn.net> <1378472829.31445.21.camel@edumazet-glaptop> <522A05E9.3090206@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
-	Pawel Moll <Pawel.Moll@arm.com>,
-	"swarren@wwwdotorg.org" <swarren@wwwdotorg.org>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"nobuhiro.iwamatsu.yj@renesas.com" <nobuhiro.iwamatsu.yj@renesas.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"rob@landley.net" <rob@landley.net>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from magnetar.openvpn.net ([74.52.27.18]:42129 "EHLO
+	magnetar.openvpn.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709Ab3IFT04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 15:26:56 -0400
+In-Reply-To: <522A05E9.3090206@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 09/02/2013 12:52 PM, Mark Rutland wrote:
-
-    Don't know why I haven't noticed your mail before...
-
->> Add support of the device tree probing for the Renesas SH-Mobile SoCs.
-
->> This work is loosely based on an original patch by Nobuhiro Iwamatsu
->> <nobuhiro.iwamatsu.yj@renesas.com>.
-
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
->> ---
->> This patch is against Dave's 'net-next.git' repo.
-
->>   Documentation/devicetree/bindings/net/sh_eth.txt |   40 +++++++++++++
->>   drivers/net/ethernet/renesas/sh_eth.c            |   66 ++++++++++++++++++++++-
->>   2 files changed, 105 insertions(+), 1 deletion(-)
-
->> Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
->> ===================================================================
->> --- /dev/null
->> +++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
->> @@ -0,0 +1,40 @@
->> +* Renesas Electronics SH EtherMAC
->> +
->> +This file provides information on what the device node for the SH EtherMAC
->> +interface contains.
->> +
->> +Required properties:
->> +- compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
->> +	      "renesas,ether-r8a7779" if the device is a part of R8A7778/9 SoCs.
->> +	      "renesas,ether-r8a7790" if the device is a part of R8A7790/1 SoCs.
-
-> What are the functional differences between the blocks in these devices
-> that mean they have different compatible strings?
-
-     RA87740 has Gigabit Ether (GEther) with TSU block (I don't know what TSU 
-stands for) and the register layout completely different from the other SoCs. 
-R8A777x and R8A7790 are 100 Mbit/s Ether without TSU block differing in some 
-minor but vital register details between them; they use so called "R-Car" 
-register layout contrasted to the "Gigabit" layout of R8A7740.
-
->> +- reg: offset and length of the register set for the device; if the device has
->> +       TSU registers, you need to specify two register sets here.
-
-> This doesn't explicitly state ordering, and doesn't describe what the
-> first register set is (control registers?). If possible, it would be
-> nice to refer to the set of registers by the name given in
-> documentation; is there any available?
-
-    No, there's not common name (and I only have R8A777x and R8A7790 docs).
-There are two subranges for those SoCs: HDMAC and feLic registers at offsets 
-0x200 and 0x300 from the "reg" prop start.
-
-> I think we should have something like the below to ensure it's explicit.
-> In general we need more consistency in the the way bindings describe reg
-> properties.
-
-> 	- reg: offset and length of:
-> 	     [1] the control registers of the device (required)
-> 	     [2] the TSU registers for the device (optional)
-
-    OK.
-
->> +- interrupt-parent: the phandle for the interrupt controller that services
->> +		    interrupts for this device.
-
-> Why is that required?
-
-    I'm not sure, maybe it's not.
-
->> +- interrupts: interrupt mapping for the interrupt source.
-
-> Interrupts are defined in terms of interrupt-specifiers. How about:
-
-> 	- interrupts: an interrupt-specifier for the sole interrupt
-> 	              generated by the device.
-
-    OK.
-
->> +- phy-mode: string, operation mode of the PHY interface (a string that
->> +	    of_get_phy_mode() can understand).
-
-> That looks suspicious. Bindings should *not* refer to Linux internals.
-> Instead, we should document the phy-handle and phy-mode properties and
-
-    There's also "phy" variant in use now in addition to the older 
-"phy-handle". Sigh...
-
-> how they are meant to be used in a generic binding document (I couldn't
-> see a generic document doing this so far...).
-
-    So you want me to create one?
-
->> +- phy-handle: phandle of the PHY device.
->> +
->> +Optional properties:
->> +- local-mac-address: 6 bytes, MAC address.
->> +- renesas,no-ether-link: specify when a board does not provide a proper LINK
->> +			 signal.
->> +- renesas,ether-link-active-low: specify when the LINK signal is active-low.
-
-> What types are these? I know local-mac-address is a byte-string by
-> ePAPR, presumably the last two are empty (boolean)?
-
-    Exactly.
-
->> +
->> +Example (Armadillo800EVA board):
->> +
->> +	ethernet@e9a00000 {
->> +		compatible = "renesas,gether-r8a7740";
->> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
->> +		interrupt-parent = <&gic>;
->> +		interrupts = <0 142 0x4>;
->> +		phy-mode = "mii";
->> +		phy-handle = <&phy0>;
->> +		#address-cells = <1>;
->> +		#size-cells = <0>;
->> +
->> +		phy0: ethernet-phy@0 {
->> +			reg = <0>;
->> +		};
-
-> The binding didn't state anything about sub-nodes. Is it a general
-> property of phy bindings that they may be embedded within a consumer's
-> node?
-
-    Considering Ethernet PHY subnodes, yes. They hang off MDIO bus controlled 
-by the Ethernet MAC registers.
-
->> +	};
->> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
->> ===================================================================
->> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
->> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-[...]
->> @@ -2600,6 +2603,52 @@ static const struct net_device_ops sh_et
->>   	.ndo_change_mtu		= eth_change_mtu,
->>   };
+On 06/09/2013 10:42, Rick Jones wrote:
+> On 09/06/2013 06:07 AM, Eric Dumazet wrote:
+>> On Fri, 2013-09-06 at 03:22 -0600, James Yonan wrote:
 >>
->> +#ifdef CONFIG_OF
->> +static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
->> +{
->> +	struct device_node *np = dev->of_node;
->> +	struct sh_eth_plat_data *pdata;
->> +	struct device_node *phy;
->> +	const char *mac_addr;
->> +
->> +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
->> +	if (!pdata)
->> +		return NULL;
->> +
->> +	pdata->phy_interface = of_get_phy_mode(np);
->> +
->> +	phy = of_parse_phandle(np, "phy-handle", 0);
->> +	if (!phy || of_property_read_u32(phy, "reg", &pdata->phy)) {
+>>> So I think that playing well with GSO/GRO is essential to get speedup in
+>>> UDP apps because of this 43x multiplier.
+>>>
+>>
+>> Thats not true. GRO cannot aggregate more than 16+1 packets.
 
-> NAK. You didn't describe the format of the phy node, yet you are reading
-> values from it from a logically separate driver.
+Where does the 16+1 come from?  I'm getting my 43x from the ratio of max 
+legal IP packet size (64KB) / internet MTU (1500).  Are you saying that 
+GRO cannot aggregate up to 64 KB?
 
-    See Documentation/devicetree/bindings/net/phy.txt. Although I really 
-didn't follow it closely (and it looks pretty obsolete, requiring 
-"device_type" and "linux,phandle" props).
+>> I think we cannot aggregate UDP packets, because UDP lacks sequence
+>> numbers, so reorders would be a problem.
 
-> Thanks,
-> Mark.
+>> You really need something that is not UDP generic.
 
-WBR, Sergei
+Right -- that's why I'm proposing a hook for UDP GSO/GRO providers that 
+know about specific app-layer protocols and can provide segmentation and 
+aggregation methods for them.  Such a provider would be implemented in a 
+kernel module and would know about the specific app-layer protocol, so 
+it would be able to losslessly segment and aggregate it (i.e. it could 
+use a sequence number from the app-layer protocol).
 
+> It may  not be as sexy, and it cannot get the 43x multiplier (just what
+> *is* the service demand change on a netperf TCP_STREAM test these days
+> between GSO/GRO on and off anyway?)
+
+That's something I haven't really looked too closely at yet.  With 
+MAX_GRO_SKBS set to only 8, how well would this really scale?
+
+> but looking for basic path-length reductions would be goodness.
+
+Path is fairly optimized as-is.
+
+Direction 1: udp_encap_recv -> tunnel decapsulation -> netif_rx
+
+Direction 2: ndo_start_xmit -> tunnel encapsulation -> ip_local_out
+
+I've also looked into getting closer to driver TX by using 
+dev_queue_xmit instead of ip_local_out.
+
+Even though this is a virtual driver without interrupts, I'm also 
+looking at NAPI as a way of getting packet flows into GRO on the RX side.
+
+Bottom line is that I want to saturate 10 GigE with UDP packets without 
+breaking a sweat.  ixgbe or other drivers in that class can handle it if 
+the per-packet overhead in the network stack can be reduced enough.
+
+James
