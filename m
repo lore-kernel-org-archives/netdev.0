@@ -1,56 +1,197 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: properly increase rcv_ssthresh for ofo packets
-Date: Fri, 06 Sep 2013 14:48:04 -0400 (EDT)
-Message-ID: <20130906.144804.670121103659369611.davem@davemloft.net>
-References: <1378488958.31445.47.camel@edumazet-glaptop>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: add device tree support
+Date: Fri, 06 Sep 2013 23:10:07 +0400
+Message-ID: <522A288F.1040000@cogentembedded.com>
+References: <201308310429.34856.sergei.shtylyov@cogentembedded.com> <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33617 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752668Ab3IFSsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:48:06 -0400
-In-Reply-To: <1378488958.31445.47.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rob.herring@calxeda.com" <rob.herring@calxeda.com>,
+	Pawel Moll <Pawel.Moll@arm.com>,
+	"swarren@wwwdotorg.org" <swarren@wwwdotorg.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"nobuhiro.iwamatsu.yj@renesas.com" <nobuhiro.iwamatsu.yj@renesas.com>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"rob@landley.net" <rob@landley.net>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130902085225.GF27891@e106331-lin.cambridge.arm.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 Sep 2013 10:35:58 -0700
+Hello.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> TCP receive window handling is multi staged.
-> 
-> A socket has a memory budget, static or dynamic, in sk_rcvbuf.
-> 
-> Because we do not really know how this memory budget translates to
-> a TCP window (payload), TCP announces a small initial window
-> (about 20 MSS).
-> 
-> When a packet is received, we increase TCP rcv_win depending
-> on the payload/truesize ratio of this packet. Good citizen
-> packets give a hint that it's reasonable to have rcv_win = sk_rcvbuf/2
-> 
-> This heuristic takes place in tcp_grow_window()
-> 
-> Problem is : We currently call tcp_grow_window() only for in-order
-> packets.
-> 
-> This means that reorders or packet losses stop proper grow of
-> rcv_win, and senders are unable to benefit from fast recovery,
-> or proper reordering level detection.
-> 
-> Really, a packet being stored in OFO queue is not a bad citizen.
-> It should be part of the game as in-order packets.
-> 
-> In our traces, we very often see sender is limited by linux small
-> receive windows, even if linux hosts use autotuning (DRS) and should
-> allow rcv_win to grow to ~3MB.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Neal Cardwell <ncardwell@google.com>
+On 09/02/2013 12:52 PM, Mark Rutland wrote:
 
-Applied.
+    Don't know why I haven't noticed your mail before...
+
+>> Add support of the device tree probing for the Renesas SH-Mobile SoCs.
+
+>> This work is loosely based on an original patch by Nobuhiro Iwamatsu
+>> <nobuhiro.iwamatsu.yj@renesas.com>.
+
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+>> ---
+>> This patch is against Dave's 'net-next.git' repo.
+
+>>   Documentation/devicetree/bindings/net/sh_eth.txt |   40 +++++++++++++
+>>   drivers/net/ethernet/renesas/sh_eth.c            |   66 ++++++++++++++++++++++-
+>>   2 files changed, 105 insertions(+), 1 deletion(-)
+
+>> Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+>> ===================================================================
+>> --- /dev/null
+>> +++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+>> @@ -0,0 +1,40 @@
+>> +* Renesas Electronics SH EtherMAC
+>> +
+>> +This file provides information on what the device node for the SH EtherMAC
+>> +interface contains.
+>> +
+>> +Required properties:
+>> +- compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
+>> +	      "renesas,ether-r8a7779" if the device is a part of R8A7778/9 SoCs.
+>> +	      "renesas,ether-r8a7790" if the device is a part of R8A7790/1 SoCs.
+
+> What are the functional differences between the blocks in these devices
+> that mean they have different compatible strings?
+
+     RA87740 has Gigabit Ether (GEther) with TSU block (I don't know what TSU 
+stands for) and the register layout completely different from the other SoCs. 
+R8A777x and R8A7790 are 100 Mbit/s Ether without TSU block differing in some 
+minor but vital register details between them; they use so called "R-Car" 
+register layout contrasted to the "Gigabit" layout of R8A7740.
+
+>> +- reg: offset and length of the register set for the device; if the device has
+>> +       TSU registers, you need to specify two register sets here.
+
+> This doesn't explicitly state ordering, and doesn't describe what the
+> first register set is (control registers?). If possible, it would be
+> nice to refer to the set of registers by the name given in
+> documentation; is there any available?
+
+    No, there's not common name (and I only have R8A777x and R8A7790 docs).
+There are two subranges for those SoCs: HDMAC and feLic registers at offsets 
+0x200 and 0x300 from the "reg" prop start.
+
+> I think we should have something like the below to ensure it's explicit.
+> In general we need more consistency in the the way bindings describe reg
+> properties.
+
+> 	- reg: offset and length of:
+> 	     [1] the control registers of the device (required)
+> 	     [2] the TSU registers for the device (optional)
+
+    OK.
+
+>> +- interrupt-parent: the phandle for the interrupt controller that services
+>> +		    interrupts for this device.
+
+> Why is that required?
+
+    I'm not sure, maybe it's not.
+
+>> +- interrupts: interrupt mapping for the interrupt source.
+
+> Interrupts are defined in terms of interrupt-specifiers. How about:
+
+> 	- interrupts: an interrupt-specifier for the sole interrupt
+> 	              generated by the device.
+
+    OK.
+
+>> +- phy-mode: string, operation mode of the PHY interface (a string that
+>> +	    of_get_phy_mode() can understand).
+
+> That looks suspicious. Bindings should *not* refer to Linux internals.
+> Instead, we should document the phy-handle and phy-mode properties and
+
+    There's also "phy" variant in use now in addition to the older 
+"phy-handle". Sigh...
+
+> how they are meant to be used in a generic binding document (I couldn't
+> see a generic document doing this so far...).
+
+    So you want me to create one?
+
+>> +- phy-handle: phandle of the PHY device.
+>> +
+>> +Optional properties:
+>> +- local-mac-address: 6 bytes, MAC address.
+>> +- renesas,no-ether-link: specify when a board does not provide a proper LINK
+>> +			 signal.
+>> +- renesas,ether-link-active-low: specify when the LINK signal is active-low.
+
+> What types are these? I know local-mac-address is a byte-string by
+> ePAPR, presumably the last two are empty (boolean)?
+
+    Exactly.
+
+>> +
+>> +Example (Armadillo800EVA board):
+>> +
+>> +	ethernet@e9a00000 {
+>> +		compatible = "renesas,gether-r8a7740";
+>> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
+>> +		interrupt-parent = <&gic>;
+>> +		interrupts = <0 142 0x4>;
+>> +		phy-mode = "mii";
+>> +		phy-handle = <&phy0>;
+>> +		#address-cells = <1>;
+>> +		#size-cells = <0>;
+>> +
+>> +		phy0: ethernet-phy@0 {
+>> +			reg = <0>;
+>> +		};
+
+> The binding didn't state anything about sub-nodes. Is it a general
+> property of phy bindings that they may be embedded within a consumer's
+> node?
+
+    Considering Ethernet PHY subnodes, yes. They hang off MDIO bus controlled 
+by the Ethernet MAC registers.
+
+>> +	};
+>> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+>> ===================================================================
+>> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+>> @@ -2600,6 +2603,52 @@ static const struct net_device_ops sh_et
+>>   	.ndo_change_mtu		= eth_change_mtu,
+>>   };
+>>
+>> +#ifdef CONFIG_OF
+>> +static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
+>> +{
+>> +	struct device_node *np = dev->of_node;
+>> +	struct sh_eth_plat_data *pdata;
+>> +	struct device_node *phy;
+>> +	const char *mac_addr;
+>> +
+>> +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+>> +	if (!pdata)
+>> +		return NULL;
+>> +
+>> +	pdata->phy_interface = of_get_phy_mode(np);
+>> +
+>> +	phy = of_parse_phandle(np, "phy-handle", 0);
+>> +	if (!phy || of_property_read_u32(phy, "reg", &pdata->phy)) {
+
+> NAK. You didn't describe the format of the phy node, yet you are reading
+> values from it from a logically separate driver.
+
+    See Documentation/devicetree/bindings/net/phy.txt. Although I really 
+didn't follow it closely (and it looks pretty obsolete, requiring 
+"device_type" and "linux,phandle" props).
+
+> Thanks,
+> Mark.
+
+WBR, Sergei
+
