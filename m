@@ -1,36 +1,43 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: fix no cwnd growth after timeout
-Date: Thu, 5 Sep 2013 19:56:59 -0400
-Message-ID: <CADVnQynvfPtsJN-XqpTkbu4Y+=uzYcmv22GpaV=tRYL8w90TUw@mail.gmail.com>
-References: <1378420569-12370-1-git-send-email-ycheng@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:55429 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752582Ab3IEX5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 19:57:00 -0400
-Received: by mail-ea0-f182.google.com with SMTP id o10so1245614eaj.13
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 16:56:59 -0700 (PDT)
-In-Reply-To: <1378420569-12370-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] net: stmmac: fix bad merge conflict resolution
+Date: Thu,  5 Sep 2013 18:01:41 -0700
+Message-ID: <1378429301-19964-1-git-send-email-olof@lixom.net>
+References: <20130905.163725.106795517693348522.davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	akpm@linux-foundation.org, Olof Johansson <olof@lixom.net>
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130905.163725.106795517693348522.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 5, 2013 at 6:36 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> In commit 0f7cc9a3 "tcp: increase throughput when reordering is high",
-> it only allows cwnd to increase in Open state. This mistakenly disables
-> slow start after timeout (CA_Loss). Moreover cwnd won't grow if the
-> state moves from Disorder to Open later in tcp_fastretrans_alert().
->
-> Therefore the correct logic should be to allow cwnd to grow as long
-> as the data is received in order in Open, Loss, or even Disorder state.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Merge commit 06c54055bebf919249aa1eb68312887c3cfe77b4 did a bad conflict
+resolution accidentally leaving out a closing brace. Add it back.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Olof Johansson <olof@lixom.net>
+---
 
-neal
+This breaks a handful of defconfigs on ARM, so it'd be good to see it
+applied pretty quickly. Thanks!
+
+
+-Olof
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 7a00720..51c9069 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -87,6 +87,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 	if (plat->force_thresh_dma_mode) {
+ 		plat->force_sf_dma_mode = 0;
+ 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
++	}
+ 
+ 	return 0;
+ }
+-- 
+1.7.10.4
