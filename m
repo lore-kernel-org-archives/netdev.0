@@ -1,39 +1,40 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: TSQ accounting skb->truesize degrades throughput for large packets
-Date: Fri, 6 Sep 2013 17:36:42 +0100
-Message-ID: <522A049A.7000105@citrix.com>
-References: <20130906101635.GI14104@zion.uk.xensource.com> <1378472268.31445.15.camel@edumazet-glaptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: GSO/GRO and UDP performance
+Date: Fri, 06 Sep 2013 09:42:17 -0700
+Message-ID: <522A05E9.3090206@hp.com>
+References: <52270659.1090208@openvpn.net> <1378295631.7360.98.camel@edumazet-glaptop> <52299EDD.1030208@openvpn.net> <1378472829.31445.21.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: James Yonan <james@openvpn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:1834 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755492Ab3IFQgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 12:36:47 -0400
-In-Reply-To: <1378472268.31445.15.camel@edumazet-glaptop>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:11976 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753710Ab3IFQmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 12:42:19 -0400
+In-Reply-To: <1378472829.31445.21.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/13 13:57, Eric Dumazet wrote:
-> Well, I have no problem to get line rate on 20Gb with a single flow, so
-> other drivers have no problem.
-I've made some tests on bare metal:
-Dell PE R815, Intel 82599EB 10Gb, 3.11-rc4 32 bit kernel with 3.17.3 
-ixgbe (TSO, GSO on), iperf 2.0.5
-Transmitting packets toward the remote end (so running iperf -c on this 
-host) can make 8.3 Gbps with the default 128k tcp_limit_output_bytes. 
-When I increased this to 131.506 (128k + 434 bytes) suddenly it jumped 
-to 9.4 Gbps. Iperf CPU usage also jumped a few percent from ~36 to ~40% 
-(softint percentage in top also increased from ~3 to ~5%)
-So I guess it would be good to revisit the default value of this 
-setting. What hw you used Eric for your 20Gb results?
+On 09/06/2013 06:07 AM, Eric Dumazet wrote:
+> On Fri, 2013-09-06 at 03:22 -0600, James Yonan wrote:
+>
+>> So I think that playing well with GSO/GRO is essential to get speedup in
+>> UDP apps because of this 43x multiplier.
+>>
+>
+> Thats not true. GRO cannot aggregate more than 16+1 packets.
+>
+> I think we cannot aggregate UDP packets, because UDP lacks sequence
+> numbers, so reorders would be a problem.
+>
+> You really need something that is not UDP generic.
 
-Regards,
+It may  not be as sexy, and it cannot get the 43x multiplier (just what 
+*is* the service demand change on a netperf TCP_STREAM test these days 
+between GSO/GRO on and off anyway?), but looking for basic path-length 
+reductions would be goodness.
 
-Zoli
+rick jones
