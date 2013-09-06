@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 2/6] bonding: remove the no effect lock for bond_3ad_lacpdu_recv()
-Date: Fri, 6 Sep 2013 15:28:11 +0800
-Message-ID: <5229840B.2060707@huawei.com>
+Subject: [PATCH net-next v4 4/6] bonding: add rtnl lock for bonding_store_xmit_hash
+Date: Fri, 6 Sep 2013 15:28:19 +0800
+Message-ID: <52298413.70607@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,35 +12,45 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:24803 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:24856 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866Ab3IFH2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:28:35 -0400
+	with ESMTP id S1750884Ab3IFH2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:28:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no pointer needed read lock protection, remove the unnecessary lock
-and improve performance for the 3ad recv path.
+the bonding_store_xmit_hash() could update bond's xmit_policy, and
+the xmit_policy is used in xmit path for xor mode, maybe it is hard
+to occur any problem, but just follow the logic "don't change anything
+slave-related without rtnl", so I think the rntl lock is fit here. :)
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/bonding/bond_sysfs.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 7a3860f..c134f43 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2494,9 +2494,7 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 	if (!lacpdu)
- 		return ret;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 0f539de..deb1d8e 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -382,6 +382,9 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 	int new_value, ret = count;
+ 	struct bonding *bond = to_bond(d);
  
--	read_lock(&bond->lock);
- 	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
--	read_unlock(&bond->lock);
++	if (!rtnl_trylock())
++		return restart_syscall();
++
+ 	new_value = bond_parse_parm(buf, xmit_hashtype_tbl);
+ 	if (new_value < 0)  {
+ 		pr_err("%s: Ignoring invalid xmit hash policy value %.*s.\n",
+@@ -396,6 +399,7 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 			xmit_hashtype_tbl[new_value].modename, new_value);
+ 	}
+ 
++	rtnl_unlock();
  	return ret;
  }
- 
+ static DEVICE_ATTR(xmit_hash_policy, S_IRUGO | S_IWUSR,
 -- 
 1.8.2.1
