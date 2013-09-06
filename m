@@ -1,67 +1,97 @@
-From: Shawn Bohrer <shawn.bohrer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: rtnl_lock deadlock on 3.10
-Date: Fri, 6 Sep 2013 18:19:01 -0500
-Message-ID: <20130906231901.GB10419@sbohrermbp13-local.rgmadvisors.com>
-References: <kqul4h$ib8$1@ger.gmane.org>
- <20130703051152.GA12615@order.stressinduktion.org>
- <20130703053307.GB12615@order.stressinduktion.org>
- <20130703172239.GA3439@sbohrermbp13-local.rgmadvisors.com>
- <51D45EB3.7030404@mellanox.com>
- <20130715143819.GA3084@sbohrermbp13-local.rgmadvisors.com>
- <20130729230216.GB4396@sbohrermbp13-local.rgmadvisors.com>
- <51F7B792.7030803@opengridcomputing.com>
- <522856A4.8040800@acm.org>
- <52289FEB.7060606@opengridcomputing.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [net-next v4] vxlan: Notify drivers for listening UDP port
+ changes
+Date: Fri, 6 Sep 2013 16:42:26 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1309061629420.21291@intel.com>
+References: <1378286019-8719-1-git-send-email-jeffrey.t.kirsher@intel.com> <522A5FA9.7000001@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Shawn Bohrer <sbohrer-EgGFQ3RFNTIP7C3xziwOQw@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <52289FEB.7060606-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:9404 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750777Ab3IFX1V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 19:27:21 -0400
+In-Reply-To: <522A5FA9.7000001@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 05, 2013 at 10:14:51AM -0500, Steve Wise wrote:
-> Roland, what do you think?
+
+
+On Fri, 6 Sep 2013, Daniel Borkmann wrote:
+
+> On 09/04/2013 11:13 AM, Jeff Kirsher wrote:
+> > From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> > 
+> > This patch adds two more ndo ops: ndo_add_rx_vxlan_port() and
+> > ndo_del_rx_vxlan_port().
+> > 
+> > Drivers can get notifications through the above functions about changes
+> > of the UDP listening port of VXLAN. Also, when physical ports come up,
+> > now they can call vxlan_get_rx_port() in order to obtain the port number(s)
+> > of the existing VXLAN interface in case they already up before them.
+> > 
+> > This information about the listening UDP port would be used for VXLAN
+> > related offloads.
+> > 
+> > A big thank you to John Fastabend (john.r.fastabend@intel.com) for his
+> > input and his suggestions on this patch set.
+> > 
+> > CC: John Fastabend <john.r.fastabend@intel.com>
+> > CC: Stephen Hemminger <stephen@networkplumber.org>
+> > Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >   drivers/net/vxlan.c       | 68
+> > ++++++++++++++++++++++++++++++++++++++++++++++-
+> >   include/linux/netdevice.h | 19 +++++++++++++
+> >   include/net/vxlan.h       |  1 +
+> >   3 files changed, 87 insertions(+), 1 deletion(-)
+> [...]
+> > +/* Calls the ndo_add_vxlan_port of the caller in order to
+> > + * supply the listening VXLAN udp ports.
+> > + */
+> > +void vxlan_get_rx_port(struct net_device *dev)
+> > +{
+> > +	struct vxlan_sock *vs;
+> > +	struct net *net = dev_net(dev);
+> > +	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+> > +	sa_family_t sa_family;
+> > +	u16 port;
+> > +	int i;
+> > +
+> > +	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
+> > +		return;
 > 
-> As I've said, I think we should go ahead with using the rtnl lock in
-> the core.  Is there a complete patch available for review?  looks
-> like the original was a partial fix.
+> Here, either parts of this if statement are unnecessary, or in case they are
+> necessary then vars 'net' and 'vn' should have been assigned after that I
+> think
+> as we would first get an offset and then dereference it before actually
+> checking
+> if dev is NULL.
 
-I guess I should realize that when no one jumps at fixing my issues
-for me that they probably aren't simple to fix.  The solution that
-Cong proposed was to acquire rtnl_lock() before acquiring the
-infiniband device_mutex, and his partial patch did that in
-ib_register_client().  The problem is that you would also need to do
-that in ib_unregister_client(), ib_register_device(), and
-ib_unregister_device(), and that brings us back to the original
-problem which was that cxgb3 was holding the rtnl_lock() when it
-called ib_register_device().  Thus with the proposed fix I believe
-cxgb3 would already be holding the rtnl_lock() and then call
-ib_register_device() which would try to acquire the rtnl_lock() again
-and deadlock for a different reason.
+That is correct, I started assuming dev will be a valid pointer, but then 
+I thought I shouldn't trust the caller, so I ended up with this. In fact I 
+have some upcoming sparse fixes too, so I will incorporate all this in one 
+patch. For this particular comment I will be checking dev first and 
+assigning net and vn after that.
 
-Actually how does this currently work?  ib_register_device() calls
-client->add() for each client in the list which should call
-ipoib_add_one() which calls register_netdev().  Shouldn't that also
-deadlock in the cxgb3 case?
-
-Also while digging through this I think I see another bug which is
-that ipoib_dev_cleanup() can be called from ipoib_add_port() but in
-the current code ipoib_add_port() is not holding the rtnl_lock() which
-appears to be a requirement of ipoib_dev_cleanup().
-
-Sigh...  I'm going to stop looking at this for now and hopefully
-someone can propose a better solution to this issue.
-
-Thanks,
-Shawn
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> > +	spin_lock(&vn->sock_lock);
+> > +	for (i = 0; i < PORT_HASH_SIZE; ++i) {
+> > +		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
+> > +			port = htons(inet_sk(vs->sock->sk)->inet_sport);
+> > +			sa_family = vs->sock->sk->sk_family;
+> > +			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
+> > +							    port);
+> > +		}
+> > +	}
+> > +	spin_unlock(&vn->sock_lock);
+> > +}
+> > +EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
+> 
