@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [RFC PATCHv2 1/4] net: phy: decouple PHY id and PHY address in fixed PHY driver
-Date: Fri,  6 Sep 2013 17:18:18 +0200
-Message-ID: <1378480701-12908-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [RFC PATCHv2 4/4] net: mvneta: add support for fixed links
+Date: Fri,  6 Sep 2013 17:18:21 +0200
+Message-ID: <1378480701-12908-5-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Florian Fainelli <florian@openwrt.org>,
 	Lior Amsalem <alior@marvell.com>,
@@ -14,112 +14,59 @@ Cc: Florian Fainelli <florian@openwrt.org>,
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:41893 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:41904 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752749Ab3IFPSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 11:18:24 -0400
+	with ESMTP id S1753581Ab3IFPS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 11:18:27 -0400
 In-Reply-To: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Until now, the fixed_phy_add() function was taking as argument
-'phy_id', which was used both as the PHY address on the fake fixed
-MDIO bus, and as the PHY id, as available in the MII_PHYSID1 and
-MII_PHYSID2 registers. However, those two informations are completely
-unrelated.
-
-This patch decouples them. The PHY id of fixed PHYs is hardcoded to be
-0xdeadbeef. Ideally, a really reserved value would be nicer, but there
-doesn't seem to be an easy of making sure a dummy value can be
-assigned to the Linux kernel for such usage.
-
-The PHY address remains passed by the caller of phy_fixed_add().
+Following the introduction of of_phy_register_fixed_link(), this patch
+introduces fixed link support in the mvneta driver, for Marvell Armada
+370/XP SOCs.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/phy/fixed.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ .../devicetree/bindings/net/marvell-armada-370-neta.txt        |  4 ++--
+ drivers/net/ethernet/marvell/mvneta.c                          | 10 ++++++----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-index ba55adf..0f02403 100644
---- a/drivers/net/phy/fixed.c
-+++ b/drivers/net/phy/fixed.c
-@@ -31,7 +31,7 @@ struct fixed_mdio_bus {
- };
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index 859a6fa..4d07d4e 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -4,8 +4,8 @@ Required properties:
+ - compatible: should be "marvell,armada-370-neta".
+ - reg: address and length of the register set for the device.
+ - interrupts: interrupt for the device
+-- phy: A phandle to a phy node defining the PHY address (as the reg
+-  property, a single integer).
++- phy: A phandle to the PHY node describing the PHY to which this
++  Ethernet controller is connected to.
+ - phy-mode: The interface between the SoC and the PHY (a string that
+   of_get_phy_mode() can understand)
+ - clocks: a pointer to the reference clock for this device.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b017818..6da1516 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2711,10 +2711,12 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	}
  
- struct fixed_phy {
--	int id;
-+	int addr;
- 	u16 regs[MII_REGS_NUM];
- 	struct phy_device *phydev;
- 	struct fixed_phy_status status;
-@@ -104,8 +104,8 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	if (fp->status.asym_pause)
- 		lpa |= LPA_PAUSE_ASYM;
+ 	phy_node = of_parse_phandle(dn, "phy", 0);
+-	if (!phy_node) {
+-		dev_err(&pdev->dev, "no associated PHY\n");
+-		err = -ENODEV;
+-		goto err_free_irq;
++	if (of_phy_is_fixed_link(phy_node)) {
++		err = of_phy_register_fixed_link(phy_node);
++		if (err < 0) {
++			dev_err(&pdev->dev, "cannot register fixed PHY\n");
++			goto err_free_irq;
++		}
+ 	}
  
--	fp->regs[MII_PHYSID1] = fp->id >> 16;
--	fp->regs[MII_PHYSID2] = fp->id;
-+	fp->regs[MII_PHYSID1] = 0xdead;
-+	fp->regs[MII_PHYSID2] = 0xbeef;
- 
- 	fp->regs[MII_BMSR] = bmsr;
- 	fp->regs[MII_BMCR] = bmcr;
-@@ -115,7 +115,7 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	return 0;
- }
- 
--static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
-+static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
- {
- 	struct fixed_mdio_bus *fmb = bus->priv;
- 	struct fixed_phy *fp;
-@@ -124,7 +124,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
- 		return -1;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->id == phy_id) {
-+		if (fp->addr == phy_addr) {
- 			/* Issue callback if user registered it. */
- 			if (fp->link_update) {
- 				fp->link_update(fp->phydev->attached_dev,
-@@ -138,7 +138,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
- 	return 0xFFFF;
- }
- 
--static int fixed_mdio_write(struct mii_bus *bus, int phy_id, int reg_num,
-+static int fixed_mdio_write(struct mii_bus *bus, int phy_addr, int reg_num,
- 			    u16 val)
- {
- 	return 0;
-@@ -160,7 +160,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- 		return -EINVAL;
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
--		if (fp->id == phydev->phy_id) {
-+		if (fp->addr == phydev->addr) {
- 			fp->link_update = link_update;
- 			fp->phydev = phydev;
- 			return 0;
-@@ -171,7 +171,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- }
- EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
- 
--int fixed_phy_add(unsigned int irq, int phy_id,
-+int fixed_phy_add(unsigned int irq, int phy_addr,
- 		  struct fixed_phy_status *status)
- {
- 	int ret;
-@@ -184,9 +184,9 @@ int fixed_phy_add(unsigned int irq, int phy_id,
- 
- 	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
- 
--	fmb->irqs[phy_id] = irq;
-+	fmb->irqs[phy_addr] = irq;
- 
--	fp->id = phy_id;
-+	fp->addr = phy_addr;
- 	fp->status = *status;
- 
- 	ret = fixed_phy_update_regs(fp);
+ 	phy_mode = of_get_phy_mode(dn);
 -- 
 1.8.1.2
