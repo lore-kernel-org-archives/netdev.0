@@ -1,68 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: add documentation for BQL helpers
-Date: Fri, 6 Sep 2013 14:56:08 +0100
-Message-ID: <CAGVrzcby=-hshgq_8z2Y5+U29uwXH+7QZfJBJeyw8t69ZaPVAw@mail.gmail.com>
-References: <1378465119-1894-1-git-send-email-f.fainelli@gmail.com> <1378472605.31445.18.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net/stable] ipv6/exthdrs: accept tlv which includes only padding
+Date: Fri,  6 Sep 2013 16:02:25 +0200
+Message-ID: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eldad@fogrefinery.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:57565 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356Ab3IFN4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 09:56:49 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x10so3264422pdj.29
-        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 06:56:48 -0700 (PDT)
-In-Reply-To: <1378472605.31445.18.camel@edumazet-glaptop>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:33696 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391Ab3IFOCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 10:02:31 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b15so1612541eek.26
+        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 07:02:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/9/6 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Fri, 2013-09-06 at 11:58 +0100, Florian Fainelli wrote:
->> Provide a kernel-doc comment documentation for the BQL helpers:
->> - netdev_sent_queue
->> - netdev_completed_queue
->> - netdev_reset_queue
->>
->> Similarly to how it is done for the other functions, the documentation
->> only covers the function operating on struct net_device and not struct
->> netdev_queue.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  include/linux/netdevice.h | 27 +++++++++++++++++++++++++++
->>  1 file changed, 27 insertions(+)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 8ed4ae9..ac36629 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -2101,6 +2101,16 @@ static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
->>  #endif
->>  }
->>
->> +/**
->> + *   netdev_sent_queue - report the number of bytes queued to hardware
->> + *   @dev: network device
->> + *   @bytes: number of bytes queued to the hardware device queue
->> + *
->> + *   Report the number of bytes queued for sending/completion to the network
->> + *   device hardware queue. @bytes should specify the number of bytes which
->> + *   will be sent over the physical medium (without prepended/appended
->> + *   control blocks, FCS...)
->
-> There is no such requirement.
->
-> @bytes should be a good approximation, and should match
-> netdev_completed_queue() @bytes
->
->
-> If you think of TSO, we know that skb->len does not exactly matches
-> number of bytes on physical medium ( check qdisc_pkt_len_init() to see
-> how Qdisc layer tries to get better estimation )
+In rfc4942 and rfc2460 I cannot find anything which would implicate to
+drop packets which have only padding in tlv.
 
-Thanks Eric, do you also want me to update the comment above
-netdev_completed_queue() or are you happy with it?
+Current behaviour breaks TAHI Test v6LC.1.2.6.
+
+Problem was intruduced in:
+9b905fe6843 "ipv6/exthdrs: strict Pad1 and PadN check"
+
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv6/exthdrs.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 07a7d65..8d67900 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -162,12 +162,6 @@ static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
+ 		off += optlen;
+ 		len -= optlen;
+ 	}
+-	/* This case will not be caught by above check since its padding
+-	 * length is smaller than 7:
+-	 * 1 byte NH + 1 byte Length + 6 bytes Padding
+-	 */
+-	if ((padlen == 6) && ((off - skb_network_header_len(skb)) == 8))
+-		goto bad;
+ 
+ 	if (len == 0)
+ 		return true;
 -- 
-Florian
+1.8.3.1
