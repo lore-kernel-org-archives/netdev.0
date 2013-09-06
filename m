@@ -1,81 +1,80 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
- proper
-Date: Fri, 6 Sep 2013 17:28:09 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D5C3B0A3D@FMSMSX113.amr.corp.intel.com>
-References: <1378447278-13998-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 ,<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
-	 <C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
- <1378450038.19204.6.camel@joe-AO722>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: properly increase rcv_ssthresh for ofo packets
+Date: Fri, 06 Sep 2013 10:35:58 -0700
+Message-ID: <1378488958.31445.47.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Joe Perches <joe@perches.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56896 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721Ab3IFR2e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 13:28:34 -0400
-In-Reply-To: <1378450038.19204.6.camel@joe-AO722>
-Content-Language: en-US
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:56875 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708Ab3IFRf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 13:35:59 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so3459070pbc.39
+        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 10:35:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Joe Perches
-> Sent: Thursday, September 05, 2013 11:47 PM
-> To: Brandeburg, Jesse
-> Cc: Stephen Hemminger; Kirsher, Jeffrey T; davem@davemloft.net; e1000-
-> devel@lists.sourceforge.net; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com
-> Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
-> proper
-> 
-> On Fri, 2013-09-06 at 06:28 +0000, Brandeburg, Jesse wrote:
-> > On Sep 5, 2013, at 11:15 PM, "Stephen Hemminger"
-> <stephen@networkplumber.org<mailto:stephen@networkplumber.org>> wrote:
-> >
-> > Dumb question why is this named Kbuild instead of Makefile like almost
-> > every other network driver?
-> >
-> > All the new kids are doing it, we'll at least that is what I thought when
-> I made it.
-> >
-> > Re-reading https://www.kernel.org/doc/Documentation/kbuild/makefiles.txt
-> >
-> > I see that Makefile is preferred but Kbuild overrides Makefile.
-> >
-> > Either way works, but I would prefer not to rename it at this point but
-> would gladly do so in a follow up patch
-> 
-> Please do.
-> 
-> I suppose it makes _some_ sense to use Kbuild in the
-> include paths but I think Makefile in places where
-> compilations are done is better.
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-That was me. I did it to make things less confusing for our customers and for us as engineers.
+TCP receive window handling is multi staged.
 
-My goal was to make our out-of-tree driver as close as possible - including the makefiles - to the upstream driver. Doing this makes it simpler for us to backport and forward-port patches. It makes it less confusing for us when we're moving from one environment to the other.
+A socket has a memory budget, static or dynamic, in sk_rcvbuf.
 
-The Kbuild file submitted here is exactly the same file that will be included in our out-of-tree tarball. To avoid confusion, I named it Kbuild, so nobody would just run make in the source directory. The toplevel makefile in our tarball is named Makefile, and I wanted that to be the only Makefile around so nobody would be confused (including me).
+Because we do not really know how this memory budget translates to
+a TCP window (payload), TCP announces a small initial window
+(about 20 MSS).
 
-The kernel documentation specifically states that this is acceptable (Documentation/kbuild/modules.txt). Furthermore, Documentation/kbuild/makefiles.txt states that using Kbuild as a filename is acceptable.
+When a packet is received, we increase TCP rcv_win depending
+on the payload/truesize ratio of this packet. Good citizen
+packets give a hint that it's reasonable to have rcv_win = sk_rcvbuf/2
 
-Personally, I'd prefer to keep these named Kbuild. Doing so makes it simpler to keep our in-tree and out-of-tree drivers in sync. But if you're really passionate about having them named Makefile, we can deal with it. It's just one more detail for us to keep track of (and potentially screw up).
+This heuristic takes place in tcp_grow_window()
 
-If there is a hard requirement that these files be named Makefile, then I would request that the kernel documentation be updated to reflect this.
+Problem is : We currently call tcp_grow_window() only for in-order
+packets.
 
--Mitch
+This means that reorders or packet losses stop proper grow of
+rcv_win, and senders are unable to benefit from fast recovery,
+or proper reordering level detection.
+
+Really, a packet being stored in OFO queue is not a bad citizen.
+It should be part of the game as in-order packets.
+
+In our traces, we very often see sender is limited by linux small
+receive windows, even if linux hosts use autotuning (DRS) and should
+allow rcv_win to grow to ~3MB.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1969e16..28708d3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4141,6 +4141,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ 		if (!tcp_try_coalesce(sk, skb1, skb, &fragstolen)) {
+ 			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
+ 		} else {
++			tcp_grow_window(sk, skb);
+ 			kfree_skb_partial(skb, fragstolen);
+ 			skb = NULL;
+ 		}
+@@ -4216,8 +4217,10 @@ add_sack:
+ 	if (tcp_is_sack(tp))
+ 		tcp_sack_new_ofo_skb(sk, seq, end_seq);
+ end:
+-	if (skb)
++	if (skb) {
++		tcp_grow_window(sk, skb);
+ 		skb_set_owner_r(skb, sk);
++	}
+ }
+ 
+ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int hdrlen,
