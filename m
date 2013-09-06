@@ -1,72 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] net: stmmac: fix bad merge conflict resolution
-Date: Fri, 6 Sep 2013 14:19:29 +1000
-Message-ID: <20130906141929.2f30c62de4eb5c6ad9d3f699@canb.auug.org.au>
-References: <20130905.163725.106795517693348522.davem@davemloft.net>
-	<1378429301-19964-1-git-send-email-olof@lixom.net>
-	<20130905.225817.700066425182547791.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bnx2x: VF RSS support
+Date: Thu, 05 Sep 2013 21:21:33 -0700
+Message-ID: <1378441293.31445.1.camel@edumazet-glaptop>
+References: <1378292962-5537-1-git-send-email-ariele@broadcom.com>
+	 <20130905.124540.1074524380635734466.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq"
-Cc: olof@lixom.net, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, akpm@linux-foundation.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ariele@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130905.225817.700066425182547791.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:37231 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702Ab3IFEVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 00:21:35 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ld10so2817450pab.22
+        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 21:21:35 -0700 (PDT)
+In-Reply-To: <20130905.124540.1074524380635734466.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2013-09-05 at 12:45 -0400, David Miller wrote:
+> From: "Ariel Elior" <ariele@broadcom.com>
+> Date: Wed, 4 Sep 2013 14:09:20 +0300
+> 
+> > This patch series adds the capability for VF functions to use multiple queues
+> > and Receive / Transmit side scaling.
+> > 
+> > Patch #1 enhances the PF's side database to allow for multiple queues per PF
+> > and configure the HW appropriately, and the PF side of the VF PF channel
+> > message for configuring the RSS.
+> > 
+> > Patch #2 adds to the VF side the ability to request multiple queues, and if
+> > obtained to configure RSS for them over the VF PF channel.
+> 
+> Series applied, thanks.
 
-Hi all,
+Hmmm
 
-On Thu, 05 Sep 2013 22:58:17 -0400 (EDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Olof Johansson <olof@lixom.net>
-> Date: Thu,  5 Sep 2013 18:01:41 -0700
->=20
-> > Merge commit 06c54055bebf919249aa1eb68312887c3cfe77b4 did a bad conflict
-> > resolution accidentally leaving out a closing brace. Add it back.
-> >=20
-> > Signed-off-by: Olof Johansson <olof@lixom.net>
-> > ---
-> >=20
-> > This breaks a handful of defconfigs on ARM, so it'd be good to see it
-> > applied pretty quickly. Thanks!
->=20
-> Looks like Linus applied this, thanks Olof.
-
-And I cherry-picked it into linux-next for today.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSKVfWAAoJEECxmPOUX5FEVQ8P/A5fyR41e1cgYZgVo2w+XMVW
-LkflqemSr5GD3I+lune+4yqmUsGX9qI27UjiHpNU1pWda0gXXatn16iF6f3sXp/L
-HK03rhXS3TkUouvOwLBi/QDQD5DyBBy7vNn8qzledfQDn1oBeR4vWeZyeXKaLL47
-fQoxLd9GB4Ex/vEBkn5XqxY7BzG2FWrAEuu1XE9lhbe9ZOkagXXzykka7+ix2ofa
-dj8cck+OtRAXV1usvR+EYUMW3UpnHpvhKDJx5josOBiqHrN2yJGVNGgu+im0WL7V
-uWwJfKA2LSJdySaMe3Na5T99kBa2JZzfyan/bf52owKuw5GPgWo8zETn3euey9Xb
-43+D4ORKxX/RjZLMS7lH3CBa72DSSzEFLwK2JIxQkEkqp5OVzwGTP1yPsrtHC2JJ
-0SSPElpD8U90XFq1zd00UQ9Ei1siNFireJW0c0ivFv3jyhQBME0JELkQdzK0hT3L
-h5FbjytxkcH6sa7GWXsyLCofzMW4+cLKQIzyCXAzGjBny2dzWno1CBsz7dd28KfD
-vWRBSwKqJjSUnpSRGcDfWZA/dCcBekxsfSDYpStc2dBEcIL8m/hFSNTY0dM/4SYL
-zx55bwqsEWMZWYybjMGyPq89doLEcf4F6pwoZ2aFzdhjqdghjdWgI2x21MTrXLtp
-/+77/dJ9rwmVZnkjrjP8
-=MLHa
------END PGP SIGNATURE-----
-
---Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq--
+  CC [M]  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.o
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c: In function 'bnx2x_rss':
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:2021:3: error: implicit declaration of function 'bnx2x_vfpf_config_rss' [-Werror=implicit-function-declaration]
+cc1: some warnings being treated as errors
+make[6]: *** [drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.o] Error 1
+make[5]: *** [drivers/net/ethernet/broadcom/bnx2x] Error 2
+make[4]: *** [drivers/net/ethernet/broadcom] Error 2
+make[3]: *** [drivers/net/ethernet] Error 2
+make[2]: *** [drivers/net] Error 2
+make[1]: *** [drivers] Error 2
