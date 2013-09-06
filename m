@@ -1,51 +1,76 @@
-From: "Carlos O'Donell" <carlos@redhat.com>
-Subject: Re: [GLIBC Patch v2] inet: avoid redefinition of some structs in
- kernel
-Date: Fri, 06 Sep 2013 00:52:01 -0400
-Message-ID: <52295F71.50401@redhat.com>
-References: <1376558891-26221-1-git-send-email-amwang@redhat.com> <1376558891-26221-2-git-send-email-amwang@redhat.com> <201308260126.06626.vapier@gentoo.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ethernet/arc/arc_emac: optimize the Tx/Tx-reclaim
+ paths a bit
+Date: Fri, 06 Sep 2013 01:03:03 -0400 (EDT)
+Message-ID: <20130906.010303.1964966449906114324.davem@davemloft.net>
+References: <1378299791-24598-1-git-send-email-vgupta@synopsys.com>
+	<20130905.142436.685399325201245026.davem@davemloft.net>
+	<C2D7FE5348E1B147BCA15975FBA23075141D3B@IN01WEMBXA.internal.synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: libc-alpha@sourceware.org, Cong Wang <amwang@redhat.com>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Thomas Backlund <tmb@mageia.org>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Mike Frysinger <vapier@gentoo.org>
-Return-path: <libc-alpha-return-42562-glibc-alpha=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-##L=##H@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-In-Reply-To: <201308260126.06626.vapier@gentoo.org>
+Cc: netdev@vger.kernel.org, Alexey.Brodkin@synopsys.com,
+	romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	arc-linux-dev@synopsys.com
+To: Vineet.Gupta1@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C2D7FE5348E1B147BCA15975FBA23075141D3B@IN01WEMBXA.internal.synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/26/2013 01:26 AM, Mike Frysinger wrote:
-> On Thursday 15 August 2013 05:28:11 Cong Wang wrote:
->> From: Carlos O'Donell <carlos@redhat.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Fri, 6 Sep 2013 04:24:39 +0000
+
+> On 09/05/2013 11:54 PM, David Miller wrote:
+>> You should keep the check in the transmit queueing code as a BUG check,
+>> almost every driver has code of the form (using NIU as an example):
+ ...
+>> Otherwise queue management bugs are incredibly hard to diagnose.
 >>
->> - Synchronize linux's `include/uapi/linux/in6.h'
->>   with glibc's `inet/netinet/in.h'.
->> - Synchronize glibc's `inet/netinet/in.h with linux's
->>   `include/uapi/linux/in6.h'.
->> - Allow including the headers in either other.
->> - First header included defines the structures and macros.
->>
->> Notes:
->> - You want netinet/in.h to include bits/in.h as early as possible,
->>   but it needs in_addr so define in_addr early.
->> - You want bits/in.h included as early as possible so you can use
->>   the linux specific code to define __USE_KERNEL_DEFS based on
->>   the _UAPI_* macro definition and use those to cull in.h.
->> - glibc was missing IPPROTO_MH, added here.
+>> I'm not applying this patch.
 > 
-> can we get something better documented here in a central location ?  having 
-> the names laid out in a git commit message and in a few leaf headers does not 
-> lend itself to being easily discoverable.
+> The check is already there for current BD. What I removed was checking for next BD
+> too (please see below). IMHO this is useless since it will be done in next
+> iteration anyways. In my tests, the next check never got hit, so it was waste of
+> cycles.
+> 
+> static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+> {
+>     if (unlikely((le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC)) {
+>         netif_stop_queue(ndev);
+>         return NETDEV_TX_BUSY;
+>     }
+> 
+> ...
+>         *txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+> 
+> -       /* Get "info" of the next BD */
+> -       info = &priv->txbd[*txbd_curr].info;
+> -
+> -       /* Check if if Tx BD ring is full - next BD is still owned by EMAC */
+> -       if (unlikely((le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC))
+> -               netif_stop_queue(ndev);
+> 
+> OTOH, I do see a slight stats update issue - if the queue is stopped (but pkt not
+> dropped) we are failing to increment tx_errors. But that would be a separate patch.
 
-Care to suggest something?
+It is exactly the correct thing to do.  The driver should _NEVER_
+return NETDEV_TX_BUSY under normal circumstances.  The queue should
+always be stopped by the ->ndo_start_xmit() method when it fills the
+queue.
 
-Cheers,
-Carlos.
+Again, when ->ndo_start_xmit() is invoked, it should never see the
+queue full.  When that happens it is a bug.
+
+You are deleting exactly the correct part of this function, what it is
+doing right now is precisely the correct way to manage netif queue
+state.
+
+The only valid change you can make here is to make the:
+
+	if (unlikely((le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC)) {
+		netif_stop_queue(ndev);
+		return NETDEV_TX_BUSY;
+	}
+
+print out an error message and increment tx_errors.
