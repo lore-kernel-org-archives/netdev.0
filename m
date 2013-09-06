@@ -1,60 +1,72 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
- interfaces
-Date: Fri, 6 Sep 2013 03:09:35 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E416C6251E3@FMSMSX102.amr.corp.intel.com>
-References: <FC41C24E35F18A40888AACA1A36F3E416C61CF23@FMSMSX102.amr.corp.intel.com>
-	<20130904.231950.956676623509287249.davem@davemloft.net>
-	<1378354121.26131.4.camel@jbrandeb-mobl2>
- <20130905.003757.50136071703836331.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH] net: stmmac: fix bad merge conflict resolution
+Date: Fri, 6 Sep 2013 14:19:29 +1000
+Message-ID: <20130906141929.2f30c62de4eb5c6ad9d3f699@canb.auug.org.au>
+References: <20130905.163725.106795517693348522.davem@davemloft.net>
+	<1378429301-19964-1-git-send-email-olof@lixom.net>
+	<20130905.225817.700066425182547791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6560 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753734Ab3IFDJh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 23:09:37 -0400
-In-Reply-To: <20130905.003757.50136071703836331.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq"
+Cc: olof@lixom.net, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130905.225817.700066425182547791.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, September 04, 2013 9:38 PM
-> To: Brandeburg, Jesse
-> Cc: Nelson, Shannon; stephen@networkplumber.org; Kirsher, Jeffrey T;
-> e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org;
-> gospo@redhat.com; sassmann@redhat.com
-> Subject: Re: [E1000-devel] [net-next v4 7/8] i40e: sysfs and debugfs
-> interfaces
-> 
-> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-> Date: Thu, 5 Sep 2013 04:08:39 +0000
-> 
-> > On Wed, 2013-09-04 at 23:19 -0400, David Miller wrote:
-> >> You will fix the problems people are reporting with this patch series
-> >> before I apply it.
-> >
-> > Okay, the quickest path to that might be to drop the sysfs patch for
-> > now.  If that is acceptable I will re-spin the patches tonight.
-> 
-> You're just going to ask me to add the sysfs code later, just make
-> the appropriate fixes.
-> 
-> Thanks.
+--Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-After some discussion with Stephen and a few others internally, it doesn't look like there's any easy resolution to the i40e sysfs problems so for now we're going to leave that module out of our submission.  Yes, we may want to bring it back in the future, but not until we've had a chance to work through the fundamental problems and come up with an interface that will be more generic, usable, and acceptable by other similar drivers.
+Hi all,
 
-Thanks,
-sln
+On Thu, 05 Sep 2013 22:58:17 -0400 (EDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Olof Johansson <olof@lixom.net>
+> Date: Thu,  5 Sep 2013 18:01:41 -0700
+>=20
+> > Merge commit 06c54055bebf919249aa1eb68312887c3cfe77b4 did a bad conflict
+> > resolution accidentally leaving out a closing brace. Add it back.
+> >=20
+> > Signed-off-by: Olof Johansson <olof@lixom.net>
+> > ---
+> >=20
+> > This breaks a handful of defconfigs on ARM, so it'd be good to see it
+> > applied pretty quickly. Thanks!
+>=20
+> Looks like Linus applied this, thanks Olof.
+
+And I cherry-picked it into linux-next for today.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSKVfWAAoJEECxmPOUX5FEVQ8P/A5fyR41e1cgYZgVo2w+XMVW
+LkflqemSr5GD3I+lune+4yqmUsGX9qI27UjiHpNU1pWda0gXXatn16iF6f3sXp/L
+HK03rhXS3TkUouvOwLBi/QDQD5DyBBy7vNn8qzledfQDn1oBeR4vWeZyeXKaLL47
+fQoxLd9GB4Ex/vEBkn5XqxY7BzG2FWrAEuu1XE9lhbe9ZOkagXXzykka7+ix2ofa
+dj8cck+OtRAXV1usvR+EYUMW3UpnHpvhKDJx5josOBiqHrN2yJGVNGgu+im0WL7V
+uWwJfKA2LSJdySaMe3Na5T99kBa2JZzfyan/bf52owKuw5GPgWo8zETn3euey9Xb
+43+D4ORKxX/RjZLMS7lH3CBa72DSSzEFLwK2JIxQkEkqp5OVzwGTP1yPsrtHC2JJ
+0SSPElpD8U90XFq1zd00UQ9Ei1siNFireJW0c0ivFv3jyhQBME0JELkQdzK0hT3L
+h5FbjytxkcH6sa7GWXsyLCofzMW4+cLKQIzyCXAzGjBny2dzWno1CBsz7dd28KfD
+vWRBSwKqJjSUnpSRGcDfWZA/dCcBekxsfSDYpStc2dBEcIL8m/hFSNTY0dM/4SYL
+zx55bwqsEWMZWYybjMGyPq89doLEcf4F6pwoZ2aFzdhjqdghjdWgI2x21MTrXLtp
+/+77/dJ9rwmVZnkjrjP8
+=MLHa
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__6_Sep_2013_14_19_29_+1000_y258LkJM6Squ_HDq--
