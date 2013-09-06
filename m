@@ -1,127 +1,67 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [ANNOUNCE] ipvsadm release v1.27
-Date: Fri, 6 Sep 2013 10:58:56 +0200
-Message-ID: <20130906105856.466aa103@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: pcan_usb_core: fix memory leak on failure paths
+ in peak_usb_start()
+Date: Fri, 06 Sep 2013 11:03:32 +0200
+Message-ID: <52299A64.2070102@pengutronix.de>
+References: <1378331169-26285-1-git-send-email-khoroshilov@ispras.ru> <52285006.3080303@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA256;
- boundary="Sig_/RxodrJFzld1_TaruaWOsSkE"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	"Ryan O'Hara" <rohara@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Frolkin <avf@eldamar.org.uk>
-To: lvs-devel@vger.kernel.org, lvs-users@linuxvirtualserver.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="6FpgdfratEXkxcwuFFvJ9XNSWqAnvfIo2"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org,
+	"s.grosjean@peak-system.com" <s.grosjean@peak-system.com>
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52285006.3080303@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/RxodrJFzld1_TaruaWOsSkE
-Content-Type: text/plain; charset=US-ASCII
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--6FpgdfratEXkxcwuFFvJ9XNSWqAnvfIo2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
+On 09/05/2013 11:33 AM, Marc Kleine-Budde wrote:
+> Added Stephane to Cc.
+>=20
+> On 09/04/2013 11:46 PM, Alexey Khoroshilov wrote:
+>> Tx and rx urbs are not deallocated if something goes wrong in peak_usb=
+_start().
+>> The patch fixes error handling to deallocate all the resources.
+>>
+>> Found by Linux Driver Verification project (linuxtesting.org).
+>>
+>> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+>=20
+> Stephane, can you have a look at the patch and give your Acked-by.
+>=20
+> Looks good to me.
 
-We are happy to announce the release of ipvsadm v1.27.
+Applied with Stephane's Acked-by to can/fixes-for-3.12.
 
- ipvsadm is a utility to administer the kernels IPVS/LVS load-balancer serv=
-ice
-
-It have been quite a while since the last release of ipvsadm, as v1.26
-were released on February 8, 2011.  Since then, the source code
-repository have been converted into git.
-
-This is the first released based on the kernel.org git tree:
-  https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/
-
-You can download the tarballs from:
- https://kernel.org/pub/linux/utils/kernel/ipvsadm/
-
-The older releases are also available via:
- http://www.linuxvirtualserver.org/software/ipvs.html#kernel-2.6
- http://www.linuxvirtualserver.org/software/kernel-2.6/
-
-Maintainers:
- Simon Horman <horms@verge.net.au>
- Jesper Dangaard Brouer <brouer@redhat.com>
- Wensong Zhang <wensong@linux-vs.org>
-
-The development have slowed down over the past years, as the tool and
-kernel in this area have stabilized.  As can be seen by the shortlog
-below, this release mostly contains bug fixes for existing features.
-
-With one exception commit 3141694c (ipvsadm: support for scheduler flags)
-by Alexander Frolkin, adds support for a new feature in kernel v3.11
-introduced in kernel commit eba3b5a787 (ipvs: SH fallback and L4 hashing).
-
-Shortlog:
----------
-Alexander Frolkin (1):
-      ipvsadm: support for scheduler flags
-
-Alexander Holler (1):
-      libipvs: Fix initialization of netlink (needed for IPv6) when the mod=
-ule ip_vs wasn't loaded.
-
-Daniel Borkmann (1):
-      libipvs: libnl3: fix compilation error
-
-Henrique Mecking (1):
-      libipvs: Fix memory leak
-
-Jesper Dangaard Brouer (6):
-      ipvsadm: fix compiling tool on distros with only libnl-1
-      ipvsadm: detect LIBS and CFLAGS for libnl versions
-      Make README more generic and reference new kernel.org location
-      Add MAINTAINERS style file
-      Maintainer script for releasing tarballs
-      Release: Version 1.27
-
-Julian Anastasov (4):
-      Fix the --pe option checks
-      Fallback to libpopt on shared object
-      ipvsadm: Fix wrong format of --pe option in FMT_RULE listing
-      ipvsadm: init svc in ipvs_get_service
-
-Krzysztof Gajdemski (2):
-      ipvsadm: Fix wrong format of -o option in FMT_RULE listing
-      ipvsadm: Show 'ops' flag regardless of service persistence
-
-Ryan O'Hara (4):
-      ipvsadm: fix list_daemon to handle master/backup status in either pos=
-ition
-      ipvsadm: Fix svc->pe_name conditional
-      libipvs: Remove redundant CHECK_PE
-      libipvs: CHECK_IPV4 and CHECK_PE macros should not call return
-
-Simon Horman (1):
-      Linking against libpopt is always requited
-
-Tim Serong (1):
-      ipvsadm: Fix buffer overrun in ipvs_dests_parse_cb()
-
-wensong (1):
-      exclude the .svn directory and the TAGS file while making distribution
-
+Tnx,
+Marc
 --=20
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
---Sig_/RxodrJFzld1_TaruaWOsSkE
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+
+--6FpgdfratEXkxcwuFFvJ9XNSWqAnvfIo2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-iF4EAREIAAYFAlIpmV4ACgkQOlVNAzs3vO1V7gEAmY5deaZT5PCJXR9upWaDzWKR
-Aqfe98PbAahW8Xj2btUBAIHz6gGTvk9+OsO7JowthYwBMMDAGyaea8X5hlnBUXPM
-=xkmC
+iEYEARECAAYFAlIpmmQACgkQjTAFq1RaXHO3tgCeIBu44NqG47DMuQNm6Ln4bQJq
+Pn4AnRxd0iV9KNTmAuRBRgVl24qt4h0y
+=pDo0
 -----END PGP SIGNATURE-----
 
---Sig_/RxodrJFzld1_TaruaWOsSkE--
+--6FpgdfratEXkxcwuFFvJ9XNSWqAnvfIo2--
