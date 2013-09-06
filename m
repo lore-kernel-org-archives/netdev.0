@@ -1,36 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bnx2x: fix broken compilation with
- CONFIG_BNX2X_SRIOV is not set
-Date: Fri, 06 Sep 2013 09:10:48 -0700
-Message-ID: <1378483848.31445.29.camel@edumazet-glaptop>
-References: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: TSQ accounting skb->truesize degrades throughput for large packets
+Date: Fri, 6 Sep 2013 17:36:42 +0100
+Message-ID: <522A049A.7000105@citrix.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com> <1378472268.31445.15.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Ariel Elior <ariele@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:38943 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753581Ab3IFQKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 12:10:50 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf1so3551301pab.10
-        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 09:10:49 -0700 (PDT)
-In-Reply-To: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
+Received: from smtp.citrix.com ([66.165.176.89]:1834 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755492Ab3IFQgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 12:36:47 -0400
+In-Reply-To: <1378472268.31445.15.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-09-06 at 10:35 +0300, Dmitry Kravkov wrote:
-> Since commit 60cad4e67bd6ff400e7ea61fe762b3042b12ae9d
-> "bnx2x: VF RSS support - VF side" fails to compile w/o
-> CONFIG_BNX2X_SRIOV option.
->  
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> ---
+On 06/09/13 13:57, Eric Dumazet wrote:
+> Well, I have no problem to get line rate on 20Gb with a single flow, so
+> other drivers have no problem.
+I've made some tests on bare metal:
+Dell PE R815, Intel 82599EB 10Gb, 3.11-rc4 32 bit kernel with 3.17.3 
+ixgbe (TSO, GSO on), iperf 2.0.5
+Transmitting packets toward the remote end (so running iperf -c on this 
+host) can make 8.3 Gbps with the default 128k tcp_limit_output_bytes. 
+When I increased this to 131.506 (128k + 434 bytes) suddenly it jumped 
+to 9.4 Gbps. Iperf CPU usage also jumped a few percent from ~36 to ~40% 
+(softint percentage in top also increased from ~3 to ~5%)
+So I guess it would be good to revisit the default value of this 
+setting. What hw you used Eric for your 20Gb results?
 
-Thanks !
+Regards,
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Zoli
