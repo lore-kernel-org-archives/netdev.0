@@ -1,56 +1,49 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net] bnx2x: Restore a call to config_init
-Date: Fri, 6 Sep 2013 12:55:02 +0300
-Message-ID: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
-Reply-To: eilong@broadcom.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: TSQ accounting skb->truesize degrades throughput for large packets
+Date: Fri, 6 Sep 2013 11:16:35 +0100
+Message-ID: <20130906101635.GI14104@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	netdev <netdev@vger.kernel.org>, "Dave Jones" <davej@redhat.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3644 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750895Ab3IFJzL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 05:55:11 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:20668 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882Ab3IFKQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 06:16:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c0a77ec74f295013d7ba3204dd3ed25fccf83cb4 'bnx2x: Add missing braces in
-bnx2x:bnx2x_link_initialize' identified indentation problem, but resolved it
-by adding braces instead of fixing the indentation. The braces now prevents a
-config_init call in some cases, though it should be called regardless of that
-condition. This patch removes the braces and fix the confusing indentation
-that caused this mess.
+Hi Eric
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-CC: Dave Jones <davej@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+I have some questions regarding TSQ and I hope you can shed some light
+on this.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 6645684..d60a2ea 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -6501,13 +6501,10 @@ static int bnx2x_link_initialize(struct link_params *params,
- 		struct bnx2x_phy *phy = &params->phy[INT_PHY];
- 		if (vars->line_speed == SPEED_AUTO_NEG &&
- 		    (CHIP_IS_E1x(bp) ||
--		     CHIP_IS_E2(bp))) {
-+		     CHIP_IS_E2(bp)))
- 			bnx2x_set_parallel_detection(phy, params);
--			if (params->phy[INT_PHY].config_init)
--				params->phy[INT_PHY].config_init(phy,
--								 params,
--								 vars);
--		}
-+		if (params->phy[INT_PHY].config_init)
-+			params->phy[INT_PHY].config_init(phy, params, vars);
- 	}
- 
- 	/* Init external phy*/
--- 
-1.8.3.1
+Our observation is that with the default TSQ limit (128K), throughput
+for Xen network driver for large packets degrades. That's because we now
+only have 1 packet in queue.
+
+I double-checked that skb->len is indeed <64K. Then I discovered that
+TSQ actually accounts for skb->truesize and the packets generated had
+skb->truesize > 64K which effectively prevented us from putting 2
+packets in queue.
+
+There seems to be no way to limit skb->truesize inside driver -- the skb
+is already constructed when it comes to xen-netfront.
+
+My questions are:
+  1) I see the comment in tcp_output.c saying: "TSQ : sk_wmem_alloc
+     accounts skb truesize, including skb overhead. But thats OK", I
+     don't quite understand why it is OK.
+  2) presumably other drivers will suffer from this as well, is it
+     possible to account for skb->len instead of skb->truesize?
+  3) if accounting skb->truesize is on purpose, does that mean we only
+     need to tune that value instead of trying to fix our driver (if
+     there is a way to)?
+
+Thanks
+Wei.
