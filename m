@@ -1,43 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
-Date: Fri, 06 Sep 2013 14:27:35 -0400 (EDT)
-Message-ID: <20130906.142735.458916282873797040.davem@davemloft.net>
-References: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [net-next v5 8/8] i40e: include i40e in kernel
+ proper
+Date: Fri, 6 Sep 2013 11:30:30 -0700
+Message-ID: <20130906113030.000034a7@unknown>
+References: <1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
+	<C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
+	<20130906.140141.2245821068783126791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
-To: mschmidt@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32858 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811Ab3IFS1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:27:38 -0400
-In-Reply-To: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130906.140141.2245821068783126791.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Thu,  5 Sep 2013 22:13:09 +0200
+On Fri, 6 Sep 2013 14:01:41 -0400
+David Miller <davem@davemloft.net> wrote:
+> Please rename this Kbuild file to the normal Makefile instead of
+> trying to be different from every single other driver in the
+> networking for the sake of an issue that is your, and your problem
+> alone.
 
-> During initialization bnx2x allocates significant amounts of memory
-> (for rx data, rx SGEs, TPA pool) using atomic allocations.
-> 
-> I received a report where bnx2x failed to allocate SGEs and it had
-> to fall back to TPA-less operation.
-> 
-> Let's use GFP_KERNEL allocations during initialization, which runs
-> in process context. Add gfp_t parameters to functions that are used
-> both in initialization and in the receive path.
-> 
-> Use an unlikely branch in bnx2x_frag_alloc() to avoid atomic allocation
-> by netdev_alloc_frag(). The branch is taken several thousands of times
-> during initialization, but then never more. Note that fp->rx_frag_size
-> is never greater than PAGE_SIZE, so __get_free_page() can be used here.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Thanks Dave, will do, I'm preparing the patch now.
 
-This change looks good to me, if some Broadcom folks could take a look
-and ACK/NACK that would be great.
+> You guys should really be grateful that anyone at all not being paid
+> to do so is reviewing such a huge body of code for you, rather than
+> complaining that all the issues weren't discovered the first time
+> this series was posted.
 
-Thanks.
+We *are* really grateful for all the effort of any/all reviewers.  I
+would like to personally thank you Dave, Joe Perches, Ben Hutchings,
+and Stephen Hemminger for the non-trival amount of time spent on
+reviewing this patch set.
+
+------------------------------------------------------------------------------
+Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
+Discover the easy way to master current and previous Microsoft technologies
+and advance your career. Get an incredible 1,500+ hours of step-by-step
+tutorial videos with LearnDevNow. Subscribe today and save!
+http://pubads.g.doubleclick.net/gampad/clk?id=58041391&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
