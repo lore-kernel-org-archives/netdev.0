@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: fix bad merge conflict resolution
-Date: Thu, 05 Sep 2013 22:58:17 -0400 (EDT)
-Message-ID: <20130905.225817.700066425182547791.davem@davemloft.net>
-References: <20130905.163725.106795517693348522.davem@davemloft.net>
-	<1378429301-19964-1-git-send-email-olof@lixom.net>
+Subject: Re: [RFC Patch net-next] ipv6: do not allow ipv6 module to be
+ removed
+Date: Thu, 05 Sep 2013 22:58:38 -0400 (EDT)
+Message-ID: <20130905.225838.457359862533804955.davem@davemloft.net>
+References: <1378285970-21404-1-git-send-email-amwang@redhat.com>
+	<20130905.140604.2263717213507575570.davem@davemloft.net>
+	<1378435971.969.6.camel@cr0>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	akpm@linux-foundation.org
-To: olof@lixom.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378429301-19964-1-git-send-email-olof@lixom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	stephen@networkplumber.org
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55221 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753732Ab3IFC6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 22:58:40 -0400
+In-Reply-To: <1378435971.969.6.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Olof Johansson <olof@lixom.net>
-Date: Thu,  5 Sep 2013 18:01:41 -0700
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 06 Sep 2013 10:52:51 +0800
 
-> Merge commit 06c54055bebf919249aa1eb68312887c3cfe77b4 did a bad conflict
-> resolution accidentally leaving out a closing brace. Add it back.
+> On Thu, 2013-09-05 at 14:06 -0400, David Miller wrote:
+>> And this patch has a lot of problems, you aren't removing all of
+>> the functions which will be completely unused.
 > 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
-> ---
-> 
-> This breaks a handful of defconfigs on ARM, so it'd be good to see it
-> applied pretty quickly. Thanks!
+> They are still used in the cleanup path of inet6_init() as well, can't
+> be removed completely.
 
-Looks like Linus applied this, thanks Olof.
+Good point.
