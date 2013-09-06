@@ -1,43 +1,54 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net 1/1] qlcnic: Fix warning reported by kbuild test robot.
-Date: Fri, 6 Sep 2013 18:04:32 -0400
-Message-ID: <1378505072-7879-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bnx2x: Restore a call to config_init
+Date: Fri, 06 Sep 2013 15:39:43 -0700
+Message-ID: <1378507183.31445.53.camel@edumazet-glaptop>
+References: <1378461302.15758.2.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <20130906.144733.708978789363351557.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
-	<shahed.shaikh@qlogic.com>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, netdev@vger.kernel.org, davej@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:39164 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751709Ab3IFWdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 18:33:35 -0400
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:53974 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518Ab3IFWjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 18:39:45 -0400
+Received: by mail-pb0-f50.google.com with SMTP id uo5so3799071pbc.9
+        for <netdev@vger.kernel.org>; Fri, 06 Sep 2013 15:39:45 -0700 (PDT)
+In-Reply-To: <20130906.144733.708978789363351557.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On Fri, 2013-09-06 at 14:47 -0400, David Miller wrote:
+> From: "Eilon Greenstein" <eilong@broadcom.com>
+> Date: Fri, 6 Sep 2013 12:55:02 +0300
+> 
+> > Commit c0a77ec74f295013d7ba3204dd3ed25fccf83cb4 'bnx2x: Add missing braces in
+> > bnx2x:bnx2x_link_initialize' identified indentation problem, but resolved it
+> > by adding braces instead of fixing the indentation. The braces now prevents a
+> > config_init call in some cases, though it should be called regardless of that
+> > condition. This patch removes the braces and fix the confusing indentation
+> > that caused this mess.
+> > 
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> 
+> Applied.
 
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c: In function 'qlcnic_handle_fw_message':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:922:4: warning: overflow in implicit constant conversion [-Woverflow]
+Oh well, latest net tree broke bnx2x again.
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+No idea why.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 88349b8..81bf836 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -430,7 +430,7 @@ struct qlcnic_hardware_context {
- 	u8 diag_test;
- 	u8 num_msix;
- 	u8 nic_mode;
--	char diag_cnt;
-+	int diag_cnt;
- 
- 	u16 max_uc_count;
- 	u16 port_type;
--- 
-1.7.1
+[   61.203313] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   74.021238] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   76.109176] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   78.198178] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   80.286960] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   93.031584] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   95.069939] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   97.133493] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[   99.195912] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[  112.026026] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[  114.087991] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[  116.148976] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[1]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
+[  118.237310] bnx2x: [bnx2x_clean_tx_queue:1259(eth0)]timeout waiting for queue[2]: txdata->tx_pkt_prod(1) != txdata->tx_pkt_cons(0)
