@@ -1,41 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [E1000-devel] [net-next v5 8/8] i40e: include i40e in kernel
- proper
-Date: Fri, 06 Sep 2013 14:01:41 -0400 (EDT)
-Message-ID: <20130906.140141.2245821068783126791.davem@davemloft.net>
-References: <1378447278-13998-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130905231436.761d03c3@nehalam.linuxnetplumber.net>
-	<C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH net] bonding: Avoid possible de-sync with arp_validate
+Date: Fri, 06 Sep 2013 15:02:55 -0300
+Message-ID: <522A18CF.1030606@redhat.com>
+References: <994d2dc994a801fc3aae7aa912266b09ea45d95c.1378489255.git.mleitner@redhat.com> <20130906.135836.365469022075105934.davem@davemloft.net>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: jesse.brandeburg@intel.com
+Cc: netdev@vger.kernel.org, naleksan@redhat.com, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60219 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751518Ab3IFSBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 14:01:45 -0400
-In-Reply-To: <C0F8C5F1-0D98-4297-ACC9-55BB9C889FEB@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17237 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750842Ab3IFSDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 14:03:03 -0400
+In-Reply-To: <20130906.135836.365469022075105934.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Em 06-09-2013 14:58, David Miller escreveu:
+> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Date: Fri,  6 Sep 2013 14:41:53 -0300
+>
+>> Please queue this one for -stable trees too.
+>
+> This is very much not the correct way to submit a patch.
+>
+> First of all, you haven't signed off on the patch.
+>
+> Second of all, any supplemental information that doesn't belong in the
+> commit message needs to go after a "---" dileanator line.
 
-I'm kind of getting sick of the "we'll fix it in a follow up patch"
-talk.
+Okay, sorry for that. I'll resubmit as soon as I work on Jay's comments.
 
-Please rename this Kbuild file to the normal Makefile instead of
-trying to be different from every single other driver in the
-networking for the sake of an issue that is your, and your problem
-alone.
-
-You guys should really be grateful that anyone at all not being paid
-to do so is reviewing such a huge body of code for you, rather than
-complaining that all the issues weren't discovered the first time
-this series was posted.
-
-Please start being more reasonable about this situation.
-
-Thank you.
+Thanks
+Marcelo
