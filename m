@@ -1,61 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bnx2x: VF RSS support
-Date: Thu, 05 Sep 2013 21:26:43 -0700
-Message-ID: <1378441603.31445.2.camel@edumazet-glaptop>
-References: <1378292962-5537-1-git-send-email-ariele@broadcom.com>
-	 <20130905.124540.1074524380635734466.davem@davemloft.net>
-	 <1378441293.31445.1.camel@edumazet-glaptop>
+From: "Carlos O'Donell" <carlos@redhat.com>
+Subject: Re: [GLIBC Patch v2] inet: avoid redefinition of some structs in
+ kernel
+Date: Fri, 06 Sep 2013 00:52:01 -0400
+Message-ID: <52295F71.50401@redhat.com>
+References: <1376558891-26221-1-git-send-email-amwang@redhat.com> <1376558891-26221-2-git-send-email-amwang@redhat.com> <201308260126.06626.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:61854 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713Ab3IFE0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 00:26:45 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so2822086pab.22
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 21:26:44 -0700 (PDT)
-In-Reply-To: <1378441293.31445.1.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: libc-alpha@sourceware.org, Cong Wang <amwang@redhat.com>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Thomas Backlund <tmb@mageia.org>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <libc-alpha-return-42562-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-##L=##H@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <201308260126.06626.vapier@gentoo.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-09-05 at 21:21 -0700, Eric Dumazet wrote:
-> On Thu, 2013-09-05 at 12:45 -0400, David Miller wrote:
-> > From: "Ariel Elior" <ariele@broadcom.com>
-> > Date: Wed, 4 Sep 2013 14:09:20 +0300
-> > 
-> > > This patch series adds the capability for VF functions to use multiple queues
-> > > and Receive / Transmit side scaling.
-> > > 
-> > > Patch #1 enhances the PF's side database to allow for multiple queues per PF
-> > > and configure the HW appropriately, and the PF side of the VF PF channel
-> > > message for configuring the RSS.
-> > > 
-> > > Patch #2 adds to the VF side the ability to request multiple queues, and if
-> > > obtained to configure RSS for them over the VF PF channel.
-> > 
-> > Series applied, thanks.
+On 08/26/2013 01:26 AM, Mike Frysinger wrote:
+> On Thursday 15 August 2013 05:28:11 Cong Wang wrote:
+>> From: Carlos O'Donell <carlos@redhat.com>
+>>
+>> - Synchronize linux's `include/uapi/linux/in6.h'
+>>   with glibc's `inet/netinet/in.h'.
+>> - Synchronize glibc's `inet/netinet/in.h with linux's
+>>   `include/uapi/linux/in6.h'.
+>> - Allow including the headers in either other.
+>> - First header included defines the structures and macros.
+>>
+>> Notes:
+>> - You want netinet/in.h to include bits/in.h as early as possible,
+>>   but it needs in_addr so define in_addr early.
+>> - You want bits/in.h included as early as possible so you can use
+>>   the linux specific code to define __USE_KERNEL_DEFS based on
+>>   the _UAPI_* macro definition and use those to cull in.h.
+>> - glibc was missing IPPROTO_MH, added here.
 > 
-> Hmmm
-> 
->   CC [M]  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.o
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c: In function 'bnx2x_rss':
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:2021:3: error: implicit declaration of function 'bnx2x_vfpf_config_rss' [-Werror=implicit-function-declaration]
-> cc1: some warnings being treated as errors
-> make[6]: *** [drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.o] Error 1
-> make[5]: *** [drivers/net/ethernet/broadcom/bnx2x] Error 2
-> make[4]: *** [drivers/net/ethernet/broadcom] Error 2
-> make[3]: *** [drivers/net/ethernet] Error 2
-> make[2]: *** [drivers/net] Error 2
-> make[1]: *** [drivers] Error 2
-> 
+> can we get something better documented here in a central location ?  having 
+> the names laid out in a git commit message and in a few leaf headers does not 
+> lend itself to being easily discoverable.
 
+Care to suggest something?
 
-root@edumazet-glaptop:/usr/src/net-next# grep BNX2 .config
-CONFIG_SCSI_BNX2_ISCSI=m
-CONFIG_SCSI_BNX2X_FCOE=m
-CONFIG_BNX2=m
-CONFIG_BNX2X=m
-# CONFIG_BNX2X_SRIOV is not set
+Cheers,
+Carlos.
