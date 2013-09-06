@@ -1,128 +1,47 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 6/6] bonding: use RCU protection for alb xmit
- path
-Date: Fri, 6 Sep 2013 15:28:37 +0800
-Message-ID: <52298425.4060309@huawei.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net] bnx2x: fix broken compilation with
+ CONFIG_BNX2X_SRIOV is not set
+Date: Fri, 6 Sep 2013 10:35:28 +0300
+Message-ID: <1378452928-6072-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: eric.dumazet@gmail.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:25288 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946Ab3IFH3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 03:29:02 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:3992 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750717Ab3IFHgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Sep 2013 03:36:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
-(bonding: initial RCU conversion) has convert the roundrobin, active-backup,
-broadcast and xor xmit path to rcu protection, the performance will be better
-for these mode, so this time, convert xmit path for alb mode.
-
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
+Since commit 60cad4e67bd6ff400e7ea61fe762b3042b12ae9d
+"bnx2x: VF RSS support - VF side" fails to compile w/o
+CONFIG_BNX2X_SRIOV option.
+ 
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 ---
- drivers/net/bonding/bond_alb.c | 20 +++++++++-----------
- drivers/net/bonding/bonding.h  |  2 +-
- 2 files changed, 10 insertions(+), 12 deletions(-)
+Done with same formatting used in the file. 
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index c75d383..c0bfd56 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -229,7 +229,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
- 	max_gap = LLONG_MIN;
- 
- 	/* Find the slave with the largest gap */
--	bond_for_each_slave(bond, slave) {
-+	bond_for_each_slave_rcu(bond, slave) {
- 		if (SLAVE_IS_OK(slave)) {
- 			long long gap = compute_gap(slave);
- 
-@@ -625,12 +625,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct arp_pkt *arp = arp_pkt(skb);
--	struct slave *assigned_slave;
-+	struct slave *assigned_slave, *curr_active_slave;
- 	struct rlb_client_info *client_info;
- 	u32 hash_index = 0;
- 
- 	_lock_rx_hashtbl(bond);
- 
-+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-+
- 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
- 	client_info = &(bond_info->rx_hashtbl[hash_index]);
- 
-@@ -654,9 +656,9 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- 			 * move the old client to primary (curr_active_slave) so
- 			 * that the new client can be assigned to this entry.
- 			 */
--			if (bond->curr_active_slave &&
--			    client_info->slave != bond->curr_active_slave) {
--				client_info->slave = bond->curr_active_slave;
-+			if (curr_active_slave &&
-+			    client_info->slave != curr_active_slave) {
-+				client_info->slave = curr_active_slave;
- 				rlb_update_client(client_info);
- 			}
- 		}
-@@ -1338,8 +1340,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 
- 	/* make sure that the curr_active_slave do not change during tx
- 	 */
--	read_lock(&bond->lock);
--	read_lock(&bond->curr_slave_lock);
- 
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP: {
-@@ -1422,12 +1422,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 
- 	if (!tx_slave) {
- 		/* unbalanced or unassigned, send through primary */
--		tx_slave = bond->curr_active_slave;
-+		tx_slave = rcu_dereference(bond->curr_active_slave);
- 		bond_info->unbalanced_load += skb->len;
- 	}
- 
- 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
--		if (tx_slave != bond->curr_active_slave) {
-+		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
- 			memcpy(eth_data->h_source,
- 			       tx_slave->dev->dev_addr,
- 			       ETH_ALEN);
-@@ -1442,8 +1442,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		}
- 	}
- 
--	read_unlock(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	if (res) {
- 		/* no suitable interface, frame not sent */
- 		kfree_skb(skb);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 80b170a..4282e65 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -536,7 +536,7 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
- {
- 	struct slave *tmp;
- 
--	bond_for_each_slave(bond, tmp)
-+	bond_for_each_slave_rcu(bond, tmp)
- 		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
- 			return tmp;
- 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index 2a8c1dc..059f0d4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -816,6 +816,8 @@ static inline int bnx2x_vfpf_setup_q(struct bnx2x *bp, struct bnx2x_fastpath *fp
+ static inline int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx) {return 0; }
+ static inline int bnx2x_vfpf_config_mac(struct bnx2x *bp, u8 *addr,
+ 					u8 vf_qid, bool set) {return 0; }
++static inline int bnx2x_vfpf_config_rss(struct bnx2x *bp,
++					struct bnx2x_config_rss_params *params) {return 0; }
+ static inline int bnx2x_vfpf_set_mcast(struct net_device *dev) {return 0; }
+ static inline int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp) {return 0; }
+ static inline int bnx2x_iov_nic_init(struct bnx2x *bp) {return 0; }
 -- 
-1.8.2.1
+1.8.3.1
