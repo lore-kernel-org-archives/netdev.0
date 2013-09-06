@@ -1,52 +1,48 @@
-From: Andrew Davidoff <davidoff@qedmf.net>
-Subject: Re: Intel igb module command line configuration in kernel sources
-Date: Thu, 5 Sep 2013 22:31:51 -0400
-Message-ID: <CAJLXCZTu_MmoO+2DC6jHyAfHAODKssUpXMZCwLgtekuf3fttXw@mail.gmail.com>
-References: <CAJLXCZRKdz-w8uR3ejzHrBot7OAyVJOWwzA0NszkZL16eFPTbQ@mail.gmail.com>
-	<1378391039.3159.1.camel@bwh-desktop.uk.level5networks.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch net-next] ipv6: do not allow ipv6 module to be
+ removed
+Date: Fri, 06 Sep 2013 10:52:51 +0800
+Message-ID: <1378435971.969.6.camel@cr0>
+References: <1378285970-21404-1-git-send-email-amwang@redhat.com>
+	 <20130905.140604.2263717213507575570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:53135 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240Ab3IFCbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Sep 2013 22:31:52 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so2585759pbc.21
-        for <netdev@vger.kernel.org>; Thu, 05 Sep 2013 19:31:51 -0700 (PDT)
-In-Reply-To: <1378391039.3159.1.camel@bwh-desktop.uk.level5networks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51067 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753774Ab3IFCxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Sep 2013 22:53:10 -0400
+In-Reply-To: <20130905.140604.2263717213507575570.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 5, 2013 at 10:23 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
->
-> I don't know what you're specifically interested in, but a lot of this
-> should be configurable using ethtool.
->
-> Module parameters for device-specific settings are deprecated.
+On Thu, 2013-09-05 at 14:06 -0400, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed,  4 Sep 2013 17:12:50 +0800
+> 
+> > There was some bug report on ipv6 module removal path before.
+> > Also, as Stephen pointed out, after vxlan module gets ipv6 support,
+> > the ipv6 stub it used is not safe against this module removal either.
+> > So, let's just remove inet6_exit() so that ipv6 module will not be
+> > able to be unloaded.
+> > 
+> > Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> I think we should make an effort to make ipv6 unloadable.  If you
+> believe little effort is being put into this now, even less will
+> be expended if I apply a patch like this one.
+> 
+> And this patch has a lot of problems, you aren't removing all of
+> the functions which will be completely unused.
 
-Hi Ben,
+They are still used in the cleanup path of inet6_init() as well, can't
+be removed completely.
 
-Thank you for your reply. I am specifically talking about RSS (receive
-side scaling). I got word from the e1000-devel list (sorry I didn't
-see it first) that, if I understood correctly, indicates ethtool
-cannot yet handle RSS for igb, but that it's being worked on.
-
-Thanks again.
-Andy
-
-
->
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
