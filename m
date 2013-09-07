@@ -1,51 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSQ accounting skb->truesize degrades throughput for large
- packets
-Date: Sat, 07 Sep 2013 10:21:34 -0700
-Message-ID: <1378574494.26319.14.camel@edumazet-glaptop>
-References: <20130906101635.GI14104@zion.uk.xensource.com>
-	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
-	 <1378486840.31445.36.camel@edumazet-glaptop>
+From: David R <david@unsolicited.net>
+Subject: Re: Realtek r8168 hangs when sending data at full speed on a gigabit
+ link
+Date: Sat, 07 Sep 2013 18:19:40 +0100
+Message-ID: <522B602C.80701@unsolicited.net>
+References: <5221C226.9040209@starox.org> <20130901213610.GA25211@electric-eye.fr.zoreil.com> <52245E82.5020004@starox.org> <20130907101546.GA19560@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?RnLDqWTDqXJpYyBMZXJveQ==?= <fredo@starox.org>,
+	netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:40752 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059Ab3IGRVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 13:21:35 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x10so4514865pdj.29
-        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 10:21:35 -0700 (PDT)
-In-Reply-To: <1378486840.31445.36.camel@edumazet-glaptop>
+Received: from mx1.unsolicited.net ([173.255.193.191]:53662 "EHLO
+	mx1.unsolicited.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762Ab3IGRl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 13:41:29 -0400
+In-Reply-To: <20130907101546.GA19560@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-09-06 at 10:00 -0700, Eric Dumazet wrote:
-> On Fri, 2013-09-06 at 17:36 +0100, Zoltan Kiss wrote:
-> 
-> > So I guess it would be good to revisit the default value of this 
-> > setting.
-> 
-> If ixgbe requires 3 TSO packets in TX ring to get line rate, you also
-> can tweak dev->gso_max_size from 65535 to 64000.
+Hi
 
-Another idea would be to no longer use tcp_limit_output_bytes but
+You mean this line from the dmesg? :-
 
-max(sk_pacing_rate / 1000, 2*MSS)
+[    6.015979] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    6.016285] r8169 0000:02:00.0: irq 73 for MSI/MSI-X
+[    6.016549] r8169 0000:02:00.0 eth0: RTL8168f/8111f at
+0xffffc9000060e000, 60:a4:4c:2c:ff:a1, XID 08000800 IRQ 73
 
-This means that number of packets in FQ would be limited to the
-equivalent of 1ms, so TCP could have faster response to packet losses : 
+Cheers
+David
 
-Retransmitted packets would not have to wait for prior packets being
-drained from FQ
-
-For a 8Gbps flow, 1Gbyte/s, sk_pacing_rate would be 2Gbyte, this would
-translate to ~2 Mbytes in Qdisc/TX ring.
-
-sk_pacing_rate was introduced in linux-3.12, but could be backported
-easily.
+On 07/09/13 11:15, Francois Romieu wrote:
+> Fr=C3=A9d=C3=A9ric Leroy <fredo@starox.org> :
+> [...]
+>
+> Sorry for the delay. It was a busy week.
+>
+> Can you give the hack below a try ?
+>
+> David, could you send me the r8169 XID line from a kernel running on
+> the hardware for which I sent you a similar patch back in 2013/04 ?
+> You appeared to own a 8168f and it could be a RTL_GIGA_MAC_VER_36.
+>
+> Thanks.
+>
+> Hayes, see http://marc.info/?l=3Dlinux-netdev&m=3D137794473416308&w=3D=
+1 for
+> history. It could be eb2dc35d99028b698cdedba4f5522bc43e576bd2
+> ("r8169: RxConfig hack for the 8168evl.") return, with a revenge.
+>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index 6f87f2c..3397cee 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -4231,6 +4231,7 @@ static void rtl_init_rxcfg(struct rtl8169_priva=
+te *tp)
+>  	case RTL_GIGA_MAC_VER_23:
+>  	case RTL_GIGA_MAC_VER_24:
+>  	case RTL_GIGA_MAC_VER_34:
+> +	case RTL_GIGA_MAC_VER_35:
+>  		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
+>  		break;
+>  	case RTL_GIGA_MAC_VER_40:
