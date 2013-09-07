@@ -1,61 +1,76 @@
-From: SunLife =?utf-8?Q?Financial=C2=AE?=
-	<sunlife-fin-services@admin.in.th>
-Subject: =?utf-8?Q?l=C3=A5n_erbjudande?=
-Date: Sat, 7 Sep 2013 01:27:53 +0200
-Message-ID: <7cda6cfc14100d2afd9da6aec12ad886.squirrel__40142.8557037891$1378516512$gmane$org@webmail.svorka.net>
-Reply-To: sunlife-fin-services@admin.in.th
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH] bnx2x: avoid atomic allocations during
+ initialization
+Date: Sat, 7 Sep 2013 01:45:10 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20D90E3D@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
+ <20130906.142735.458916282873797040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>,
+	"mschmidt@redhat.com" <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.svorka.net ([88.84.32.89]:40407 "EHLO smtp2.svorka.net"
+Received: from mms2.broadcom.com ([216.31.210.18]:3879 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750726Ab3IGBOq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Sep 2013 21:14:46 -0400
+	id S1750754Ab3IGBpQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 21:45:16 -0400
+In-Reply-To: <20130906.142735.458916282873797040.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> Sent: Friday, September 06, 2013 9:28 PM
+> To: mschmidt@redhat.com
+> Cc: netdev@vger.kernel.org; Ariel Elior; Eilon Greenstein
+> Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
+> 
+> From: Michal Schmidt <mschmidt@redhat.com>
+> Date: Thu,  5 Sep 2013 22:13:09 +0200
+> 
+> > During initialization bnx2x allocates significant amounts of memory
+> > (for rx data, rx SGEs, TPA pool) using atomic allocations.
+> >
+> > I received a report where bnx2x failed to allocate SGEs and it had to
+> > fall back to TPA-less operation.
+> >
+> > Let's use GFP_KERNEL allocations during initialization, which runs in
+> > process context. Add gfp_t parameters to functions that are used both
+> > in initialization and in the receive path.
+> >
+> > Use an unlikely branch in bnx2x_frag_alloc() to avoid atomic
+> > allocation by netdev_alloc_frag(). The branch is taken several
+> > thousands of times during initialization, but then never more. Note
+> > that fp->rx_frag_size is never greater than PAGE_SIZE, so
+> __get_free_page() can be used here.
+> >
+> > Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 
+> This change looks good to me, if some Broadcom folks could take a look and
+> ACK/NACK that would be great.
+>
 
+Michal,
 
+Once you allocated the memory during initialization , you will most probably fail to allocate its replacement during RX handling (on this machine).
+This will cause packets to drop continuously (buffers which were allocated at init time will be returned to the ring).
 
---=20
-Untied Kingdom Registered Address:
-4 Davy Way,
-Quedgeley,
-Gloucester GL2 2DE,
-United Kingdom
+I prefer driver to allow user to receive traffic in non TPA mode, than not receive traffic at all. 
 
-H=C3=A4lsningar,
+Thanks
+Dmitry
+ 
 
-=C3=84r du i behov av l=C3=A5n f=C3=B6r n=C3=A5got syfte?
-
-V=C3=A4nligen kontakta oss p=C3=A5 Sunlife finansiell utl=C3=A5ning f=C3=
-=B6retag f=C3=B6r en
-s=C3=A4ker och snabb l=C3=A5n transaktion med 3% r=C3=A4nta.
-
-Och v=C3=A5r utl=C3=A5ning tj=C3=A4nster str=C3=A4cker sig fr=C3=A5n de=
-n minsta m=C3=A4ngden
-5,000.00 euro till den maximala m=C3=A4ngden 100,000.00 euro
-
-Om du =C3=A4r intresserad Fyll i nedan formul=C3=A4r.
-
-L=C3=A5nebelopp beh=C3=B6vs:
-L=C3=A5n varaktighet:
-=C3=84ndam=C3=A5let med l=C3=A5net:
-Land:
-Tillst=C3=A5nd:
-K=C3=B6n:
-Yrke:
-Telefonnummer:
-
-Vi v=C3=A4ntar ditt snabba svar.
-Tack
-Mitchell Merin
-E-post: (sunlife-fin-services@admin.in.th)
-_____________________________
-Lending Agent: Mitchell M. Merin
-Industry: Financial Services
-Offer Type: Public Offer
-Branch: United Kingdom
-Web Site: sunlife.com
+ 
+> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+> body of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
