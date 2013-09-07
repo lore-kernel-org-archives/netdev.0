@@ -1,64 +1,101 @@
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Subject: [PATCH] net: korina: remove deprecated IRQF_DISABLED
-Date: Sat,  7 Sep 2013 07:20:57 +0200
-Message-ID: <1378531257-5446-1-git-send-email-michael.opdenacker@free-electrons.com>
-Cc: emilio@elopez.com.ar, mugunthanvnm@ti.com, jg1.han@samsung.com,
-	hsweeten@visionengravers.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Michael Opdenacker <michael.opdenacker@free-electrons.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [net v6 1/8] i40e: main driver core
+Date: Sat, 07 Sep 2013 08:44:36 +0200
+Message-ID: <522ACB54.2050706@redhat.com>
+References: <1378510875-10704-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>, gospo@redhat.com,
+	davem@davemloft.net, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This patch proposes to remove the IRQF_DISABLED flag from
-drivers/net/ethernet/korina.c
+[...]
++i40e_status i40e_allocate_dma_mem_d(struct i40e_hw *hw,
++				    struct i40e_dma_mem *mem,
++				    u64 size, u32 alignment)
++{
++	struct i40e_pf *pf = (struct i40e_pf *)hw->back;
++
++	if (!mem)
++		return I40E_ERR_PARAM;
++
++	mem->size = ALIGN(size, alignment);
++	mem->va = dma_zalloc_coherent(&pf->pdev->dev, mem->size,
++				      &mem->pa, GFP_KERNEL);
++	if (mem->va)
++		return I40E_SUCCESS;
++
++	return I40E_ERR_NO_MEMORY;
++}
 
-It's a NOOP since 2.6.35 and it will be removed one day.
+Nitpicking ... at some point in time i40e_status should be removed plus
+I40E_ERR_PARAM, I40E_SUCCESS, I40E_ERR_NO_MEMORY and the like, as we have
+int and -EINVAL, 0, -ENOMEM for that. ;-)
 
-Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
----
- drivers/net/ethernet/korina.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+[...]
++i40e_status i40e_put_mac_in_vlan(struct i40e_vsi *vsi, u8 *macaddr,
++				 bool is_vf, bool is_netdev)
++{
++	struct i40e_mac_filter *f, *add_f;
++
++	list_for_each_entry(f, &vsi->mac_filter_list, list) {
+[...]
++			if (!add_f) {
++				dev_info(&vsi->back->pdev->dev, "Could not add filter %d for %pM\n",
++					 f->vlan, f->macaddr);
++				return -ENOMEM;
++			}
++		}
++	}
++	return I40E_SUCCESS;
++}
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 270e65f..a36fa80 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -996,14 +996,14 @@ static int korina_open(struct net_device *dev)
- 	 * that handles the Done Finished
- 	 * Ovr and Und Events */
- 	ret = request_irq(lp->rx_irq, korina_rx_dma_interrupt,
--			IRQF_DISABLED, "Korina ethernet Rx", dev);
-+			0, "Korina ethernet Rx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
- 		    dev->name, lp->rx_irq);
- 		goto err_release;
- 	}
- 	ret = request_irq(lp->tx_irq, korina_tx_dma_interrupt,
--			IRQF_DISABLED, "Korina ethernet Tx", dev);
-+			0, "Korina ethernet Tx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
- 		    dev->name, lp->tx_irq);
-@@ -1012,7 +1012,7 @@ static int korina_open(struct net_device *dev)
- 
- 	/* Install handler for overrun error. */
- 	ret = request_irq(lp->ovr_irq, korina_ovr_interrupt,
--			IRQF_DISABLED, "Ethernet Overflow", dev);
-+			0, "Ethernet Overflow", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
- 		    dev->name, lp->ovr_irq);
-@@ -1021,7 +1021,7 @@ static int korina_open(struct net_device *dev)
- 
- 	/* Install handler for underflow error. */
- 	ret = request_irq(lp->und_irq, korina_und_interrupt,
--			IRQF_DISABLED, "Ethernet Underflow", dev);
-+			0, "Ethernet Underflow", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
- 		    dev->name, lp->und_irq);
--- 
-1.8.1.2
+Their usage seems also to be mixed anyway: -ENOMEM vs. I40E_SUCCESS.
+
+[...]
++void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
++{
++	struct rtnl_link_stats64 *ns;
++	int i;
++
++	if (!vsi)
++		return;
++
+[...]
++static struct i40e_mac_filter *i40e_find_filter(struct i40e_vsi *vsi,
++						u8 *macaddr, s16 vlan,
++						bool is_vf, bool is_netdev)
++{
++	struct i40e_mac_filter *f;
++
++	if (!vsi || !macaddr)
++		return NULL;
+[...]
+
+Probably the code could also be scanned to remove such checks as well ...
+
+------------------------------------------------------------------------------
+Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
+Discover the easy way to master current and previous Microsoft technologies
+and advance your career. Get an incredible 1,500+ hours of step-by-step
+tutorial videos with LearnDevNow. Subscribe today and save!
+http://pubads.g.doubleclick.net/gampad/clk?id=58041391&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
