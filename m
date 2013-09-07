@@ -1,61 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix multiqueue selection
-Date: Sat, 07 Sep 2013 12:02:57 -0700
-Message-ID: <1378580577.26319.26.camel@edumazet-glaptop>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [net v6 1/8] i40e: main driver core
+Date: Sat, 7 Sep 2013 19:20:37 +0000
+Message-ID: <1378581636.2509.12.camel@jbrandeb-mobl.amr.corp.intel.com>
+References: <1378510875-10704-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <522ACB54.2050706@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:51705 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516Ab3IGTC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 15:02:59 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fb10so4629229pad.23
-        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 12:02:58 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:16197 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750863Ab3IGTUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Sep 2013 15:20:39 -0400
+In-Reply-To: <522ACB54.2050706@redhat.com>
+Content-Language: en-US
+Content-ID: <3B3A8D08BF93944F9B437EB8325BAC52@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-commit 416186fbf8c5b4e4465 ("net: Split core bits of netdev_pick_tx
-into __netdev_pick_tx") added a bug that disables caching of queue
-index in the socket.
-
-This is the source of packet reorders for TCP flows, and
-again this is happening more often when using FQ pacing.
-
-Old code was doing 
-
-if (queue_index != old_index)
-	sk_tx_queue_set(sk, queue_index);
-
-Alexander renamed the variables but forgot to change sk_tx_queue_set()
-2nd parameter.
-
-if (queue_index != new_index)
-	sk_tx_queue_set(sk, queue_index);
-
-This means we store -1 over and over in sk->sk_tx_queue_mapping
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
----
- net/core/flow_dissector.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 0ff42f0..1929af8 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -352,7 +352,7 @@ u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
- 
- 		if (queue_index != new_index && sk &&
- 		    rcu_access_pointer(sk->sk_dst_cache))
--			sk_tx_queue_set(sk, queue_index);
-+			sk_tx_queue_set(sk, new_index);
- 
- 		queue_index = new_index;
- 	}
+T24gU2F0LCAyMDEzLTA5LTA3IGF0IDA4OjQ0ICswMjAwLCBEYW5pZWwgQm9ya21hbm4gd3JvdGU6
+DQoNCj4gTml0cGlja2luZyAuLi4gYXQgc29tZSBwb2ludCBpbiB0aW1lIGk0MGVfc3RhdHVzIHNo
+b3VsZCBiZSByZW1vdmVkIHBsdXMNCj4gSTQwRV9FUlJfUEFSQU0sIEk0MEVfU1VDQ0VTUywgSTQw
+RV9FUlJfTk9fTUVNT1JZIGFuZCB0aGUgbGlrZSwgYXMgd2UgaGF2ZQ0KPiBpbnQgYW5kIC1FSU5W
+QUwsIDAsIC1FTk9NRU0gZm9yIHRoYXQuIDstKQ0KDQpGaXJzdCwgdGhhbmtzIERhbmllbCBmb3Ig
+dGFraW5nIHRoZSB0aW1lIHRvIHJldmlldy4NCg0KVGhvc2UgYXJlIGEgcmVzdWx0IG9mIG91ciBm
+aWxlcyB0aGF0IGFyZSBzaGFyZWQgYWNyb3NzIE9TZXMsIGFzIG5vdCBhbGwNCk9TZXMgaGF2ZSAt
+RU5PTUVNIGV0Yywgd2UgYWxzbyBoYXZlIGEgbG90IG9mIHN0YXR1cyBjb2RlcyB0aGUga2VybmVs
+DQpkb2Vzbid0IGhhdmUuICBUaGF0IHNhaWQsIHdoZW4gdGhlcmUgaXMgYSAxLTEgcmVsYXRpb25z
+aGlwIHRoZQ0KcmVwbGFjZW1lbnRzIHNob3VsZCBiZSBtYWRlLiAgDQoNCj4gDQo+IFsuLi5dDQo+
+ICtpNDBlX3N0YXR1cyBpNDBlX3B1dF9tYWNfaW5fdmxhbihzdHJ1Y3QgaTQwZV92c2kgKnZzaSwg
+dTggKm1hY2FkZHIsDQo+ICsJCQkJIGJvb2wgaXNfdmYsIGJvb2wgaXNfbmV0ZGV2KQ0KPiArew0K
+PiArCXN0cnVjdCBpNDBlX21hY19maWx0ZXIgKmYsICphZGRfZjsNCj4gKw0KPiArCWxpc3RfZm9y
+X2VhY2hfZW50cnkoZiwgJnZzaS0+bWFjX2ZpbHRlcl9saXN0LCBsaXN0KSB7DQo+IFsuLi5dDQo+
+ICsJCQlpZiAoIWFkZF9mKSB7DQo+ICsJCQkJZGV2X2luZm8oJnZzaS0+YmFjay0+cGRldi0+ZGV2
+LCAiQ291bGQgbm90IGFkZCBmaWx0ZXIgJWQgZm9yICVwTVxuIiwNCj4gKwkJCQkJIGYtPnZsYW4s
+IGYtPm1hY2FkZHIpOw0KPiArCQkJCXJldHVybiAtRU5PTUVNOw0KPiArCQkJfQ0KPiArCQl9DQo+
+ICsJfQ0KPiArCXJldHVybiBJNDBFX1NVQ0NFU1M7DQo+ICt9DQo+IA0KPiBUaGVpciB1c2FnZSBz
+ZWVtcyBhbHNvIHRvIGJlIG1peGVkIGFueXdheTogLUVOT01FTSB2cy4gSTQwRV9TVUNDRVNTLg0K
+DQp0aGF0J3MganVzdCBwbGFpbiBidWdneS4gDQoNCg0KPiBbLi4uXQ0KPiArdm9pZCBpNDBlX3Zz
+aV9yZXNldF9zdGF0cyhzdHJ1Y3QgaTQwZV92c2kgKnZzaSkNCj4gK3sNCj4gKwlzdHJ1Y3QgcnRu
+bF9saW5rX3N0YXRzNjQgKm5zOw0KPiArCWludCBpOw0KPiArDQo+ICsJaWYgKCF2c2kpDQo+ICsJ
+CXJldHVybjsNCj4gKw0KPiBbLi4uXQ0KPiArc3RhdGljIHN0cnVjdCBpNDBlX21hY19maWx0ZXIg
+Kmk0MGVfZmluZF9maWx0ZXIoc3RydWN0IGk0MGVfdnNpICp2c2ksDQo+ICsJCQkJCQl1OCAqbWFj
+YWRkciwgczE2IHZsYW4sDQo+ICsJCQkJCQlib29sIGlzX3ZmLCBib29sIGlzX25ldGRldikNCj4g
+K3sNCj4gKwlzdHJ1Y3QgaTQwZV9tYWNfZmlsdGVyICpmOw0KPiArDQo+ICsJaWYgKCF2c2kgfHwg
+IW1hY2FkZHIpDQo+ICsJCXJldHVybiBOVUxMOw0KPiBbLi4uXQ0KPiANCj4gUHJvYmFibHkgdGhl
+IGNvZGUgY291bGQgYWxzbyBiZSBzY2FubmVkIHRvIHJlbW92ZSBzdWNoIGNoZWNrcyBhcyB3ZWxs
+IC4uLg0KDQpkbyB5b3UgbWVhbiB3ZSBzaG91bGQgbm90IGJlIGNoZWNraW5nIGZvciBOVUxMIHZz
+aSBvciBOVUxMIG1hY2FkZHI/ICBXZQ0KaGF2ZSBzZXZlcmFsIHN0cnVjdHVyZXMgaW4gdGhlIGRy
+aXZlciB0aGF0IGJ5IGRlc2lnbiBkb24ndCBoYXZlIGFsbA0KZWxlbWVudHMgZmlsbGVkIGluIGZv
+ciBjZXJ0YWluIGNhc2VzLg0KDQpJIHdlbnQgYW5kIGxvb2tlZCBhdCB0aGUgIXZzaSBjYXNlIGFu
+ZCB3ZSBjYW4gZGVmaW5pdGVseSByZW1vdmUgdGhhdCBpbg0KbW9zdCBjYXNlcywgYXMgdGhlcmUg
+YXJlIHNldmVyYWwgbmVzdGVkIGNoZWNrcyBmb3IgbnVsbCB2c2kuDQoNCnRoYW5rcyBhZ2Fpbiwg
+DQpKZXNzZQ0K
