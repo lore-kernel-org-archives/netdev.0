@@ -1,72 +1,67 @@
-From: David R <david@unsolicited.net>
-Subject: Re: Realtek r8168 hangs when sending data at full speed on a gigabit
- link
-Date: Sat, 07 Sep 2013 18:19:40 +0100
-Message-ID: <522B602C.80701@unsolicited.net>
-References: <5221C226.9040209@starox.org> <20130901213610.GA25211@electric-eye.fr.zoreil.com> <52245E82.5020004@starox.org> <20130907101546.GA19560@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?RnLDqWTDqXJpYyBMZXJveQ==?= <fredo@starox.org>,
-	netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix smatch warning in sctp_send_asconf_del_ip
+Date: Sat,  7 Sep 2013 20:51:21 +0200
+Message-ID: <1378579881-27881-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.unsolicited.net ([173.255.193.191]:53662 "EHLO
-	mx1.unsolicited.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762Ab3IGRl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 13:41:29 -0400
-In-Reply-To: <20130907101546.GA19560@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45014 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751516Ab3IGSvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Sep 2013 14:51:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+This was originally reported in [1] and posted by Neil Horman [2], he said:
 
-You mean this line from the dmesg? :-
+  Fix up a missed null pointer check in the asconf code. If we don't find
+  a local address, but we pass in an address length of more than 1, we may
+  dereference a NULL laddr pointer. Currently this can't happen, as the only
+  users of the function pass in the value 1 as the addrcnt parameter, but
+  its not hot path, and it doesn't hurt to check for NULL should that ever
+  be the case.
 
-[    6.015979] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    6.016285] r8169 0000:02:00.0: irq 73 for MSI/MSI-X
-[    6.016549] r8169 0000:02:00.0 eth0: RTL8168f/8111f at
-0xffffc9000060e000, 60:a4:4c:2c:ff:a1, XID 08000800 IRQ 73
+The callpath from sctp_asconf_mgmt() looks okay. But this could be triggered
+from sctp_setsockopt_bindx() call with SCTP_BINDX_REM_ADDR and addrcnt > 1
+while passing all possible addresses from the bind list to SCTP_BINDX_REM_ADDR
+so that we do *not* find a single address in the association's bind address
+list that is not in the packed array of addresses. If this happens when we
+have an established association with ASCONF-capable peers, then we could get
+a NULL pointer dereference as we only check for laddr == NULL && addrcnt == 1
+and call later sctp_make_asconf_update_ip() with NULL laddr.
 
-Cheers
-David
+BUT: this actually won't happen as sctp_bindx_rem() will catch such a case
+and return with an error earlier. As this is incredably unintuitive and error
+prone, add a check to catch at least future bugs here. As Neil says, its not
+hot path. Introduced by 8a07eb0a5 ("sctp: Add ASCONF operation on the
+single-homed host").
 
-On 07/09/13 11:15, Francois Romieu wrote:
-> Fr=C3=A9d=C3=A9ric Leroy <fredo@starox.org> :
-> [...]
->
-> Sorry for the delay. It was a busy week.
->
-> Can you give the hack below a try ?
->
-> David, could you send me the r8169 XID line from a kernel running on
-> the hardware for which I sent you a similar patch back in 2013/04 ?
-> You appeared to own a 8168f and it could be a RTL_GIGA_MAC_VER_36.
->
-> Thanks.
->
-> Hayes, see http://marc.info/?l=3Dlinux-netdev&m=3D137794473416308&w=3D=
-1 for
-> history. It could be eb2dc35d99028b698cdedba4f5522bc43e576bd2
-> ("r8169: RxConfig hack for the 8168evl.") return, with a revenge.
->
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index 6f87f2c..3397cee 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4231,6 +4231,7 @@ static void rtl_init_rxcfg(struct rtl8169_priva=
-te *tp)
->  	case RTL_GIGA_MAC_VER_23:
->  	case RTL_GIGA_MAC_VER_24:
->  	case RTL_GIGA_MAC_VER_34:
-> +	case RTL_GIGA_MAC_VER_35:
->  		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
->  		break;
->  	case RTL_GIGA_MAC_VER_40:
+ [1] http://www.spinics.net/lists/linux-sctp/msg02132.html
+ [2] http://www.spinics.net/lists/linux-sctp/msg02133.html
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Michio Honda <micchie@sfc.wide.ad.jp>
+---
+ net/sctp/socket.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 5462bbb..911b71b 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -806,6 +806,9 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+ 			goto skip_mkasconf;
+ 		}
+ 
++		if (laddr == NULL)
++			return -EINVAL;
++
+ 		/* We do not need RCU protection throughout this loop
+ 		 * because this is done under a socket lock from the
+ 		 * setsockopt call.
+-- 
+1.7.11.7
