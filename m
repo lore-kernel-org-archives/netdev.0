@@ -1,66 +1,91 @@
 From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Subject: Re: [net v6 1/8] i40e: main driver core
-Date: Sat, 7 Sep 2013 19:20:37 +0000
-Message-ID: <1378581636.2509.12.camel@jbrandeb-mobl.amr.corp.intel.com>
+Date: Sat, 7 Sep 2013 19:27:53 +0000
+Message-ID: <1378582073.2509.18.camel@jbrandeb-mobl.amr.corp.intel.com>
 References: <1378510875-10704-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <522ACB54.2050706@redhat.com>
+	<1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	<522AD28B.5050507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
 To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16197 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863Ab3IGTUj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Sep 2013 15:20:39 -0400
-In-Reply-To: <522ACB54.2050706@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <522AD28B.5050507@redhat.com>
 Content-Language: en-US
-Content-ID: <3B3A8D08BF93944F9B437EB8325BAC52@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-ID: <D2FF772FC3110C4EAA315A3150DBD2BA@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-T24gU2F0LCAyMDEzLTA5LTA3IGF0IDA4OjQ0ICswMjAwLCBEYW5pZWwgQm9ya21hbm4gd3JvdGU6
-DQoNCj4gTml0cGlja2luZyAuLi4gYXQgc29tZSBwb2ludCBpbiB0aW1lIGk0MGVfc3RhdHVzIHNo
-b3VsZCBiZSByZW1vdmVkIHBsdXMNCj4gSTQwRV9FUlJfUEFSQU0sIEk0MEVfU1VDQ0VTUywgSTQw
-RV9FUlJfTk9fTUVNT1JZIGFuZCB0aGUgbGlrZSwgYXMgd2UgaGF2ZQ0KPiBpbnQgYW5kIC1FSU5W
-QUwsIDAsIC1FTk9NRU0gZm9yIHRoYXQuIDstKQ0KDQpGaXJzdCwgdGhhbmtzIERhbmllbCBmb3Ig
-dGFraW5nIHRoZSB0aW1lIHRvIHJldmlldy4NCg0KVGhvc2UgYXJlIGEgcmVzdWx0IG9mIG91ciBm
-aWxlcyB0aGF0IGFyZSBzaGFyZWQgYWNyb3NzIE9TZXMsIGFzIG5vdCBhbGwNCk9TZXMgaGF2ZSAt
-RU5PTUVNIGV0Yywgd2UgYWxzbyBoYXZlIGEgbG90IG9mIHN0YXR1cyBjb2RlcyB0aGUga2VybmVs
-DQpkb2Vzbid0IGhhdmUuICBUaGF0IHNhaWQsIHdoZW4gdGhlcmUgaXMgYSAxLTEgcmVsYXRpb25z
-aGlwIHRoZQ0KcmVwbGFjZW1lbnRzIHNob3VsZCBiZSBtYWRlLiAgDQoNCj4gDQo+IFsuLi5dDQo+
-ICtpNDBlX3N0YXR1cyBpNDBlX3B1dF9tYWNfaW5fdmxhbihzdHJ1Y3QgaTQwZV92c2kgKnZzaSwg
-dTggKm1hY2FkZHIsDQo+ICsJCQkJIGJvb2wgaXNfdmYsIGJvb2wgaXNfbmV0ZGV2KQ0KPiArew0K
-PiArCXN0cnVjdCBpNDBlX21hY19maWx0ZXIgKmYsICphZGRfZjsNCj4gKw0KPiArCWxpc3RfZm9y
-X2VhY2hfZW50cnkoZiwgJnZzaS0+bWFjX2ZpbHRlcl9saXN0LCBsaXN0KSB7DQo+IFsuLi5dDQo+
-ICsJCQlpZiAoIWFkZF9mKSB7DQo+ICsJCQkJZGV2X2luZm8oJnZzaS0+YmFjay0+cGRldi0+ZGV2
-LCAiQ291bGQgbm90IGFkZCBmaWx0ZXIgJWQgZm9yICVwTVxuIiwNCj4gKwkJCQkJIGYtPnZsYW4s
-IGYtPm1hY2FkZHIpOw0KPiArCQkJCXJldHVybiAtRU5PTUVNOw0KPiArCQkJfQ0KPiArCQl9DQo+
-ICsJfQ0KPiArCXJldHVybiBJNDBFX1NVQ0NFU1M7DQo+ICt9DQo+IA0KPiBUaGVpciB1c2FnZSBz
-ZWVtcyBhbHNvIHRvIGJlIG1peGVkIGFueXdheTogLUVOT01FTSB2cy4gSTQwRV9TVUNDRVNTLg0K
-DQp0aGF0J3MganVzdCBwbGFpbiBidWdneS4gDQoNCg0KPiBbLi4uXQ0KPiArdm9pZCBpNDBlX3Zz
-aV9yZXNldF9zdGF0cyhzdHJ1Y3QgaTQwZV92c2kgKnZzaSkNCj4gK3sNCj4gKwlzdHJ1Y3QgcnRu
-bF9saW5rX3N0YXRzNjQgKm5zOw0KPiArCWludCBpOw0KPiArDQo+ICsJaWYgKCF2c2kpDQo+ICsJ
-CXJldHVybjsNCj4gKw0KPiBbLi4uXQ0KPiArc3RhdGljIHN0cnVjdCBpNDBlX21hY19maWx0ZXIg
-Kmk0MGVfZmluZF9maWx0ZXIoc3RydWN0IGk0MGVfdnNpICp2c2ksDQo+ICsJCQkJCQl1OCAqbWFj
-YWRkciwgczE2IHZsYW4sDQo+ICsJCQkJCQlib29sIGlzX3ZmLCBib29sIGlzX25ldGRldikNCj4g
-K3sNCj4gKwlzdHJ1Y3QgaTQwZV9tYWNfZmlsdGVyICpmOw0KPiArDQo+ICsJaWYgKCF2c2kgfHwg
-IW1hY2FkZHIpDQo+ICsJCXJldHVybiBOVUxMOw0KPiBbLi4uXQ0KPiANCj4gUHJvYmFibHkgdGhl
-IGNvZGUgY291bGQgYWxzbyBiZSBzY2FubmVkIHRvIHJlbW92ZSBzdWNoIGNoZWNrcyBhcyB3ZWxs
-IC4uLg0KDQpkbyB5b3UgbWVhbiB3ZSBzaG91bGQgbm90IGJlIGNoZWNraW5nIGZvciBOVUxMIHZz
-aSBvciBOVUxMIG1hY2FkZHI/ICBXZQ0KaGF2ZSBzZXZlcmFsIHN0cnVjdHVyZXMgaW4gdGhlIGRy
-aXZlciB0aGF0IGJ5IGRlc2lnbiBkb24ndCBoYXZlIGFsbA0KZWxlbWVudHMgZmlsbGVkIGluIGZv
-ciBjZXJ0YWluIGNhc2VzLg0KDQpJIHdlbnQgYW5kIGxvb2tlZCBhdCB0aGUgIXZzaSBjYXNlIGFu
-ZCB3ZSBjYW4gZGVmaW5pdGVseSByZW1vdmUgdGhhdCBpbg0KbW9zdCBjYXNlcywgYXMgdGhlcmUg
-YXJlIHNldmVyYWwgbmVzdGVkIGNoZWNrcyBmb3IgbnVsbCB2c2kuDQoNCnRoYW5rcyBhZ2Fpbiwg
-DQpKZXNzZQ0K
+On Sat, 2013-09-07 at 09:15 +0200, Daniel Borkmann wrote:
+
+> Thanks for including SCTP! ;-)
+
+:-)
+
+
+> Here as well, I40E_ERR_NO_MEMORY vs -ENOMEM.
+> 
+
+okay we will audit those and fix them.
+
+> 
+> Nitpick: why s32 in the signature? There are a lot of such places, just int would have
+> been fine probably.
+> 
+
+agreed.
+
+> 			}
+> > +			if (pf->lan_veb == I40E_NO_VEB) {
+> > +				v = i40e_veb_mem_alloc(pf);
+> > +				if (v < 0)
+> > +					break;
+> 
+> Nitpick: I'd expect from *alloc() functions to return NULL, but fair enough.
+
+I will take a look at what we can do about these.
+
+
+> > +	aq_buf = kzalloc(I40E_AQ_LARGE_BUF, GFP_KERNEL);
+> > +	if (!aq_buf)
+> > +		return -ENOMEM;
+> 
+> More of such examples ... ;-) I40E_ERR_BAD_PTR vs. -ENOMEM on a s32 instead of int.
+
+right
+
+> > +	} else if (pf->flags & I40E_FLAG_RSS_ENABLED	  &&
+> > +		   !(pf->flags & I40E_FLAG_FDIR_ENABLED)  &&
+> > +		   !(pf->flags & I40E_FLAG_DCB_ENABLED)) {
+> > +
+> > +		SET_RSS_SIZE;
+> 
+> Can't these macros be done in a small inline function instead?
+
+I'll take a look, as well for all instances of this.
+
+Thanks again,
+ Jesse
+------------------------------------------------------------------------------
+Learn the latest--Visual Studio 2012, SharePoint 2013, SQL 2012, more!
+Discover the easy way to master current and previous Microsoft technologies
+and advance your career. Get an incredible 1,500+ hours of step-by-step
+tutorial videos with LearnDevNow. Subscribe today and save!
+http://pubads.g.doubleclick.net/gampad/clk?id=58041391&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
