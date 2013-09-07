@@ -1,59 +1,63 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: netfilter: active obj WARN when cleaning up
-Date: Sat, 07 Sep 2013 09:10:13 -0400
-Message-ID: <522B25B5.6000808@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: fib: fib6_add: fix potential NULL pointer dereference
+Date: Sat,  7 Sep 2013 15:13:20 +0200
+Message-ID: <1378559600-15858-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Lin Ming <mlin@ss.pku.edu.cn>,
+	Matti Vaittinen <matti.vaittinen@nsn.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30609 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750997Ab3IGNNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Sep 2013 09:13:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+When the kernel is compiled with CONFIG_IPV6_SUBTREES, and we return
+with an error in fn = fib6_add_1(), then error codes are encoded into
+the return pointer e.g. ERR_PTR(-ENOENT). In such an error case, we
+write the error code into err and jump to out, hence enter the if(err)
+condition. Now, if CONFIG_IPV6_SUBTREES is enabled, we check for:
 
-While fuzzing with trinity inside a KVM tools guest, running latest -next kernel, I've
-stumbled on the following:
+  if (pn != fn && pn->leaf == rt)
+    ...
+  if (pn != fn && !pn->leaf && !(pn->fn_flags & RTN_RTINFO))
+    ...
 
-[  418.311956] ------------[ cut here ]------------
-[  418.312449] WARNING: CPU: 6 PID: 4178 at lib/debugobjects.c:260 debug_print_object+0x8d/0xb0()
-[  418.313243] ODEBUG: free active (active state 0) object type: timer_list hint: 
-delayed_work_timer_fn+0x0/0x20
-[  418.314038] Modules linked in:
-[  418.314038] CPU: 6 PID: 4178 Comm: kworker/u16:2 Tainted: G        W 
-3.11.0-next-20130906-sasha #3984
-[  418.314038] Workqueue: netns cleanup_net
-[  418.314038]  0000000000000104 ffff880410371a58 ffffffff841b7815 0000000000000104
-[  418.314038]  ffff880410371aa8 ffff880410371a98 ffffffff8112540c ffff880410371a78
-[  418.314038]  ffffffff853ea0ab ffff8800bdc68b80 ffffffff85a65c00 ffffffff87676658
-[  418.314038] Call Trace:
-[  418.314038]  [<ffffffff841b7815>] dump_stack+0x52/0x87
-[  418.320315]  [<ffffffff8112540c>] warn_slowpath_common+0x8c/0xc0
-[  418.321040]  [<ffffffff811254f6>] warn_slowpath_fmt+0x46/0x50
-[  418.321101]  [<ffffffff81a60ded>] debug_print_object+0x8d/0xb0
-[  418.321101]  [<ffffffff811444e0>] ? __queue_work+0x390/0x390
-[  418.321101]  [<ffffffff81a61605>] __debug_check_no_obj_freed+0xa5/0x220
-[  418.321101]  [<ffffffff81249e76>] ? kmem_cache_destroy+0x86/0xe0
-[  418.321101]  [<ffffffff81a61795>] debug_check_no_obj_freed+0x15/0x20
-[  418.321101]  [<ffffffff812874d7>] kmem_cache_free+0x197/0x340
-[  418.321101]  [<ffffffff81249e76>] kmem_cache_destroy+0x86/0xe0
-[  418.321101]  [<ffffffff83d5d681>] nf_conntrack_cleanup_net_list+0x131/0x170
-[  418.321101]  [<ffffffff83d5ec5d>] nf_conntrack_pernet_exit+0x5d/0x70
-[  418.321101]  [<ffffffff83cda1ce>] ops_exit_list+0x5e/0x70
-[  418.321101]  [<ffffffff83cda80b>] cleanup_net+0xfb/0x1c0
-[  418.321101]  [<ffffffff81145c28>] process_one_work+0x338/0x550
-[  418.321101]  [<ffffffff81145b50>] ? process_one_work+0x260/0x550
-[  418.321883]  [<ffffffff81147605>] worker_thread+0x215/0x350
-[  418.321883]  [<ffffffff811473f0>] ? manage_workers+0x180/0x180
-[  418.321883]  [<ffffffff81150887>] kthread+0xe7/0xf0
-[  418.321883]  [<ffffffff811507a0>] ? __init_kthread_worker+0x70/0x70
-[  418.321883]  [<ffffffff841c7a2c>] ret_from_fork+0x7c/0xb0
-[  418.321883]  [<ffffffff811507a0>] ? __init_kthread_worker+0x70/0x70
-[  418.321883] ---[ end trace c974221542b61d0d ]---
+Since pn is NULL and fn is f.e. ERR_PTR(-ENOENT), then pn != fn
+evaluates to true and causes a NULL-pointer dereference on further
+checks on pn. Fix it, by setting both NULL in error case, so that
+pn != fn already evaluates to false and no further dereference
+takes place.
 
+This was first correctly implemented in 4a287eba2 ("IPv6 routing,
+NLM_F_* flag support: REPLACE and EXCL flags support, warn about
+missing CREATE flag"), but the bug got later on introduced by
+188c517a0 ("ipv6: return errno pointers consistently for fib6_add_1()").
 
-Thanks,
-Sasha
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Lin Ming <mlin@ss.pku.edu.cn>
+Cc: Matti Vaittinen <matti.vaittinen@nsn.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/ip6_fib.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 73db48e..5bec666 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -825,9 +825,9 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
+ 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
+ 			offsetof(struct rt6_info, rt6i_dst), allow_create,
+ 			replace_required);
+-
+ 	if (IS_ERR(fn)) {
+ 		err = PTR_ERR(fn);
++		fn = NULL;
+ 		goto out;
+ 	}
+ 
+-- 
+1.7.11.7
