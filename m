@@ -1,68 +1,51 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only
- padding
-Date: Sat, 7 Sep 2013 18:46:12 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1309071819310.24145@heraclitus>
-References: <1378476145-6282-1-git-send-email-jiri@resnulli.us> <alpine.LNX.2.00.1309071427120.1262@heraclitus> <20130907154602.GA1442@minipsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TSQ accounting skb->truesize degrades throughput for large
+ packets
+Date: Sat, 07 Sep 2013 10:21:34 -0700
+Message-ID: <1378574494.26319.14.camel@edumazet-glaptop>
+References: <20130906101635.GI14104@zion.uk.xensource.com>
+	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
+	 <1378486840.31445.36.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f47.google.com ([209.85.214.47]:62688 "EHLO
-	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab3IGQqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 12:46:24 -0400
-Received: by mail-bk0-f47.google.com with SMTP id mx12so1707787bkb.34
-        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 09:46:22 -0700 (PDT)
-In-Reply-To: <20130907154602.GA1442@minipsycho.orion>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:40752 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059Ab3IGRVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 13:21:35 -0400
+Received: by mail-pd0-f170.google.com with SMTP id x10so4514865pdj.29
+        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 10:21:35 -0700 (PDT)
+In-Reply-To: <1378486840.31445.36.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Sat, 7 Sep 2013, Jiri Pirko wrote:
-
-> Sat, Sep 07, 2013 at 02:31:36PM CEST, eldad@fogrefinery.com wrote:
-> >
-> >Hi Jiri,
-> >
-> >On Fri, 6 Sep 2013, Jiri Pirko wrote:
-> >
-> >> In rfc4942 and rfc2460 I cannot find anything which would implicate to
-> >> drop packets which have only padding in tlv.
-> >
-> >NAK from my side.
-> >Please read RFC4942 2.1.9.5 "Misuse of Pad1 and PadN Options".
+On Fri, 2013-09-06 at 10:00 -0700, Eric Dumazet wrote:
+> On Fri, 2013-09-06 at 17:36 +0100, Zoltan Kiss wrote:
 > 
-> I did.
+> > So I guess it would be good to revisit the default value of this 
+> > setting.
 > 
-> >
-> >While it doesn't specifically discusses this corner case, you can 
-> >understand from "There is no legitimate reason for padding beyond the 
-> >next eight octet..." that there's also no legitimate reason for an 
-> >option header containing only padding.
-> 
-> Okay. I'm glad you agree with me and that we both understand the rfc the
-> same way. And since the rfc does not say that "here's no legitimate
-> reason for an option header containing only padding", this should be
-> possible. I say we respect rfc and do not add stronger restrictions than
-> it dictates. No need for them.
+> If ixgbe requires 3 TSO packets in TX ring to get line rate, you also
+> can tweak dev->gso_max_size from 65535 to 64000.
 
-Strictly speaking, this RFC is informational, so it is doesn't dictate 
-per se. I hope you don't suggest removing the other checks as well...
+Another idea would be to no longer use tcp_limit_output_bytes but
 
-> >I can't imagine a sane use-case for this.
-> 
-> rfcs are not about sanity...
+max(sk_pacing_rate / 1000, 2*MSS)
 
-Great, we're in agreement again :) But I think the networking code is 
-or should be.
-What IPv6 stack would generate such a packet, given that the only usage 
-of the padding options is to align other options?
-Why should I accept a packet which is most likely an artificially 
-crafted packet (RFC 3514)?
+This means that number of packets in FQ would be limited to the
+equivalent of 1ms, so TCP could have faster response to packet losses : 
 
-Cheers,
-Eldad
+Retransmitted packets would not have to wait for prior packets being
+drained from FQ
+
+For a 8Gbps flow, 1Gbyte/s, sk_pacing_rate would be 2Gbyte, this would
+translate to ~2 Mbytes in Qdisc/TX ring.
+
+sk_pacing_rate was introduced in linux-3.12, but could be backported
+easily.
