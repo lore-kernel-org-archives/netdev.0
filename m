@@ -1,67 +1,61 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix smatch warning in sctp_send_asconf_del_ip
-Date: Sat,  7 Sep 2013 20:51:21 +0200
-Message-ID: <1378579881-27881-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix multiqueue selection
+Date: Sat, 07 Sep 2013 12:02:57 -0700
+Message-ID: <1378580577.26319.26.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45014 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751516Ab3IGSvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Sep 2013 14:51:39 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:51705 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516Ab3IGTC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 15:02:59 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb10so4629229pad.23
+        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 12:02:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was originally reported in [1] and posted by Neil Horman [2], he said:
+From: Eric Dumazet <edumazet@google.com>
 
-  Fix up a missed null pointer check in the asconf code. If we don't find
-  a local address, but we pass in an address length of more than 1, we may
-  dereference a NULL laddr pointer. Currently this can't happen, as the only
-  users of the function pass in the value 1 as the addrcnt parameter, but
-  its not hot path, and it doesn't hurt to check for NULL should that ever
-  be the case.
+commit 416186fbf8c5b4e4465 ("net: Split core bits of netdev_pick_tx
+into __netdev_pick_tx") added a bug that disables caching of queue
+index in the socket.
 
-The callpath from sctp_asconf_mgmt() looks okay. But this could be triggered
-from sctp_setsockopt_bindx() call with SCTP_BINDX_REM_ADDR and addrcnt > 1
-while passing all possible addresses from the bind list to SCTP_BINDX_REM_ADDR
-so that we do *not* find a single address in the association's bind address
-list that is not in the packed array of addresses. If this happens when we
-have an established association with ASCONF-capable peers, then we could get
-a NULL pointer dereference as we only check for laddr == NULL && addrcnt == 1
-and call later sctp_make_asconf_update_ip() with NULL laddr.
+This is the source of packet reorders for TCP flows, and
+again this is happening more often when using FQ pacing.
 
-BUT: this actually won't happen as sctp_bindx_rem() will catch such a case
-and return with an error earlier. As this is incredably unintuitive and error
-prone, add a check to catch at least future bugs here. As Neil says, its not
-hot path. Introduced by 8a07eb0a5 ("sctp: Add ASCONF operation on the
-single-homed host").
+Old code was doing 
 
- [1] http://www.spinics.net/lists/linux-sctp/msg02132.html
- [2] http://www.spinics.net/lists/linux-sctp/msg02133.html
+if (queue_index != old_index)
+	sk_tx_queue_set(sk, queue_index);
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Michio Honda <micchie@sfc.wide.ad.jp>
+Alexander renamed the variables but forgot to change sk_tx_queue_set()
+2nd parameter.
+
+if (queue_index != new_index)
+	sk_tx_queue_set(sk, queue_index);
+
+This means we store -1 over and over in sk->sk_tx_queue_mapping
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- net/sctp/socket.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/core/flow_dissector.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 5462bbb..911b71b 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -806,6 +806,9 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 			goto skip_mkasconf;
- 		}
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 0ff42f0..1929af8 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -352,7 +352,7 @@ u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
  
-+		if (laddr == NULL)
-+			return -EINVAL;
-+
- 		/* We do not need RCU protection throughout this loop
- 		 * because this is done under a socket lock from the
- 		 * setsockopt call.
--- 
-1.7.11.7
+ 		if (queue_index != new_index && sk &&
+ 		    rcu_access_pointer(sk->sk_dst_cache))
+-			sk_tx_queue_set(sk, queue_index);
++			sk_tx_queue_set(sk, new_index);
+ 
+ 		queue_index = new_index;
+ 	}
