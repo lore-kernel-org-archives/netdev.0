@@ -1,76 +1,62 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH] bnx2x: avoid atomic allocations during
- initialization
-Date: Sat, 7 Sep 2013 01:45:10 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20D90E3D@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
- <20130906.142735.458916282873797040.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: macvlan: Move skb_clone check closer to call
+Date: Sat, 7 Sep 2013 12:27:11 +1000
+Message-ID: <20130907022711.GA22613@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>,
-	"mschmidt@redhat.com" <mschmidt@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3879 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750754Ab3IGBpQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 21:45:16 -0400
-In-Reply-To: <20130906.142735.458916282873797040.davem@davemloft.net>
-Content-Language: en-US
+Received: from ringil.hengli.com.au ([178.18.16.133]:50803 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751060Ab3IGC1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Sep 2013 22:27:15 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: Friday, September 06, 2013 9:28 PM
-> To: mschmidt@redhat.com
-> Cc: netdev@vger.kernel.org; Ariel Elior; Eilon Greenstein
-> Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
-> 
-> From: Michal Schmidt <mschmidt@redhat.com>
-> Date: Thu,  5 Sep 2013 22:13:09 +0200
-> 
-> > During initialization bnx2x allocates significant amounts of memory
-> > (for rx data, rx SGEs, TPA pool) using atomic allocations.
-> >
-> > I received a report where bnx2x failed to allocate SGEs and it had to
-> > fall back to TPA-less operation.
-> >
-> > Let's use GFP_KERNEL allocations during initialization, which runs in
-> > process context. Add gfp_t parameters to functions that are used both
-> > in initialization and in the receive path.
-> >
-> > Use an unlikely branch in bnx2x_frag_alloc() to avoid atomic
-> > allocation by netdev_alloc_frag(). The branch is taken several
-> > thousands of times during initialization, but then never more. Note
-> > that fp->rx_frag_size is never greater than PAGE_SIZE, so
-> __get_free_page() can be used here.
-> >
-> > Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> This change looks good to me, if some Broadcom folks could take a look and
-> ACK/NACK that would be great.
->
+Currently macvlan calls skb_clone in macvlan_broadcast but checks
+for a NULL return in macvlan_broadcast_one instead.  This is
+needlessly confusing and may lead to bugs introduced later.
 
-Michal,
+This patch moves the error check to where the skb_clone call is.
 
-Once you allocated the memory during initialization , you will most probably fail to allocate its replacement during RX handling (on this machine).
-This will cause packets to drop continuously (buffers which were allocated at init time will be returned to the ring).
+The only other caller of macvlan_broadcast_one never passes in a
+NULL value so it doesn't need the check either.
 
-I prefer driver to allow user to receive traffic in non TPA mode, than not receive traffic at all. 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks
-Dmitry
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 64dfaa3..9bf46bd 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -118,8 +118,6 @@ static int macvlan_broadcast_one(struct sk_buff *skb,
+ 				 const struct ethhdr *eth, bool local)
+ {
+ 	struct net_device *dev = vlan->dev;
+-	if (!skb)
+-		return NET_RX_DROP;
  
+ 	if (local)
+ 		return vlan->forward(dev, skb);
+@@ -171,9 +169,13 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ 			hash = mc_hash(vlan, eth->h_dest);
+ 			if (!test_bit(hash, vlan->mc_filter))
+ 				continue;
++
++			err = NET_RX_DROP;
+ 			nskb = skb_clone(skb, GFP_ATOMIC);
+-			err = macvlan_broadcast_one(nskb, vlan, eth,
+-					 mode == MACVLAN_MODE_BRIDGE);
++			if (likely(nskb))
++				err = macvlan_broadcast_one(
++					nskb, vlan, eth,
++					mode == MACVLAN_MODE_BRIDGE);
+ 			macvlan_count_rx(vlan, skb->len + ETH_HLEN,
+ 					 err == NET_RX_SUCCESS, 1);
+ 		}
 
- 
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-> body of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
