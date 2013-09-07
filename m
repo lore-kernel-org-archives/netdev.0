@@ -1,91 +1,91 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v4 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Sat, 7 Sep 2013 17:03:50 +0200
-Message-ID: <20130907150350.GF26163@redhat.com>
-References: <52298407.9040103@huawei.com>
- <20130907142041.GA20237@redhat.com>
- <522B3BF1.2020208@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only
+ padding
+Date: Sat, 7 Sep 2013 17:46:02 +0200
+Message-ID: <20130907154602.GA1442@minipsycho.orion>
+References: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+ <alpine.LNX.2.00.1309071427120.1262@heraclitus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Eldad Zack <eldad@fogrefinery.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48381 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751384Ab3IGPFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Sep 2013 11:05:35 -0400
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:35663 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797Ab3IGPqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 11:46:08 -0400
+Received: by mail-ea0-f175.google.com with SMTP id m14so2194849eaj.6
+        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 08:46:06 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <522B3BF1.2020208@redhat.com>
+In-Reply-To: <alpine.LNX.2.00.1309071427120.1262@heraclitus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 07, 2013 at 04:45:05PM +0200, Nikolay Aleksandrov wrote:
+Sat, Sep 07, 2013 at 02:31:36PM CEST, eldad@fogrefinery.com wrote:
 >
->On 09/07/2013 04:20 PM, Veaceslav Falico wrote:
->> On Fri, Sep 06, 2013 at 03:28:07PM +0800, Ding Tianhong wrote:
-...snip...
->> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
->> index f4b1001..37b49d1 100644
->> --- a/include/linux/rculist.h
->> +++ b/include/linux/rculist.h
->> @@ -23,6 +23,7 @@
->>   * way, we must not access it directly
->>   */
->>  #define list_next_rcu(list)    (*((struct list_head __rcu
->> **)(&(list)->next)))
->> +#define list_prev_rcu(list)    (*((struct list_head __rcu
->> **)(&(list)->prev)))
->>
->>  /*
->>   * Insert a new entry between two known consecutive entries.
->> @@ -271,6 +272,12 @@ static inline void list_splice_init_rcu(struct
->> list_head *list,
->>        likely(__ptr != __next) ? container_of(__next, type, member) : NULL; \
->>      })
->>
->> +#define list_last_or_null_rcu(ptr, type, member) \
->> +    ({struct list_head *__ptr = (ptr); \
->> +      struct list_head __rcu *__last = list_prev_rcu(__ptr); \
->> +      likely(__ptr != __last) ? container_of(__prev, type, member) : NULL; \
->> +    })
->> +
->Hi,
->Actually I don't think you can dereference ->prev and use the standard
->list_del_rcu because it guarantees only the ->next ptr will be valid and
->->prev is set to LIST_POISON2.
->IMO, you'll need something like this: https://lkml.org/lkml/2012/7/25/193
->with the bidir_del and all that.
+>Hi Jiri,
+>
+>On Fri, 6 Sep 2013, Jiri Pirko wrote:
+>
+>> In rfc4942 and rfc2460 I cannot find anything which would implicate to
+>> drop packets which have only padding in tlv.
+>
+>NAK from my side.
+>Please read RFC4942 2.1.9.5 "Misuse of Pad1 and PadN Options".
 
-Yeah, right, my bad - we can rely only on the ->next pointer, indeed,
-missed that part. RCU is hard :).
-
-So it'll be a lot harder to implement bond_last_slave_rcu() in a
-'straightforward' approach.
-
-I'd rather go in the opposite direction here - i.e. drop the 'reverse'
-traversal completely, and all the use cases for bond_last_slave_rcu(). I've
-got some patches already - http://patchwork.ozlabs.org/patch/272076/ doing
-that, and hopefully will remove the whole 'backword' traversal completely
-in the future.
+I did.
 
 >
->But in any case I complete agree with Veaceslav here. Read all the
->documentation carefully :-)
+>While it doesn't specifically discusses this corner case, you can 
+>understand from "There is no legitimate reason for padding beyond the 
+>next eight octet..." that there's also no legitimate reason for an 
+>option header containing only padding.
+
+Okay. I'm glad you agree with me and that we both understand the rfc the
+same way. And since the rfc does not say that "here's no legitimate
+reason for an option header containing only padding", this should be
+possible. I say we respect rfc and do not add stronger restrictions than
+it dictates. No need for them.
+
+>I can't imagine a sane use-case for this.
+
+rfcs are not about sanity...
+
+>
+>> Current behaviour breaks TAHI Test v6LC.1.2.6.
+>
+>I'm not familiar with this, but IMHO the test should be reversed :)
 >
 >Cheers,
-> Nik
+>Eldad
 >
->>  /**
->>   * list_for_each_entry_rcu    -    iterate over rcu list of given type
->>   * @pos:    the type * to use as a loop cursor.
->> ------- END OF PATCH ------
->>
->> Anyway, it's up to you.
->>
->> Hope that helps.
->
+>> 
+>> Problem was intruduced in:
+>> 9b905fe6843 "ipv6/exthdrs: strict Pad1 and PadN check"
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/ipv6/exthdrs.c | 6 ------
+>>  1 file changed, 6 deletions(-)
+>> 
+>> diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+>> index 07a7d65..8d67900 100644
+>> --- a/net/ipv6/exthdrs.c
+>> +++ b/net/ipv6/exthdrs.c
+>> @@ -162,12 +162,6 @@ static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
+>>  		off += optlen;
+>>  		len -= optlen;
+>>  	}
+>> -	/* This case will not be caught by above check since its padding
+>> -	 * length is smaller than 7:
+>> -	 * 1 byte NH + 1 byte Length + 6 bytes Padding
+>> -	 */
+>> -	if ((padlen == 6) && ((off - skb_network_header_len(skb)) == 8))
+>> -		goto bad;
+>>  
+>>  	if (len == 0)
+>>  		return true;
+>> -- 
+>> 1.8.3.1
+>> 
