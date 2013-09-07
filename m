@@ -1,64 +1,102 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek r8168 hangs when sending data at full speed on a gigabit
- link
-Date: Sat, 7 Sep 2013 12:15:46 +0200
-Message-ID: <20130907101546.GA19560@electric-eye.fr.zoreil.com>
-References: <5221C226.9040209@starox.org>
- <20130901213610.GA25211@electric-eye.fr.zoreil.com>
- <52245E82.5020004@starox.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [RFC PATCHv2 0/4] Add DT support for fixed PHYs
+Date: Sat, 7 Sep 2013 12:27:26 +0200
+Message-ID: <20130907122726.1af7c331@skate>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<2916397.Vz9aZYzLyb@lenovo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	David R <david@unsolicited.net>,
-	Hayes Wang <hayeswang@realtek.com>
-To: =?utf-8?B?RnLDqWTDqXJpYw==?= Leroy <fredo@starox.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51083 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945Ab3IGKQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 06:16:03 -0400
-Content-Disposition: inline
-In-Reply-To: <52245E82.5020004@starox.org>
+Received: from top.free-electrons.com ([176.31.233.9]:50005 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750979Ab3IGK1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 06:27:30 -0400
+In-Reply-To: <2916397.Vz9aZYzLyb@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46r=C3=A9d=C3=A9ric Leroy <fredo@starox.org> :
-[...]
+Dear Florian Fainelli,
 
-Sorry for the delay. It was a busy week.
+On Fri, 06 Sep 2013 21:42:42 +0100, Florian Fainelli wrote:
 
-Can you give the hack below a try ?
+> > Here is a second version of the patch set that adds a Device Tree
+> > binding and the related code to support fixed PHYs. Marked as RFC,
+> > this patch set is obviously not intended for merging in 3.12.
+> 
+> Thanks a lot for continuing on this work, I really like the state of it now.
 
-David, could you send me the r8169 XID line from a kernel running on
-the hardware for which I sent you a similar patch back in 2013/04 ?
-You appeared to own a 8168f and it could be a RTL_GIGA_MAC_VER_36.
+Thanks for your feedback.
 
-Thanks.
+> > Since the first version, the changes have been:
+> > 
+> >  * Instead of using a 'fixed-link' property inside the Ethernet device
+> >    DT node, with a fairly cryptic succession of integer values, we now
+> >    use a PHY subnode under the Ethernet device DT node, with explicit
+> >    properties to configure the duplex, speed, pause and other PHY
+> >    properties.
+> > 
+> >  * The PHY address is automatically allocated by the kernel and no
+> >    longer visible in the Device Tree binding.
+> > 
+> >  * The PHY device is created directly when the network driver calls
+> >    of_phy_connect_fixed_link(), and associated to the PHY DT node,
+> >    which allows the existing of_phy_connect() function to work,
+> >    without the need to use the deprecated of_phy_connect_fixed_link().
+> > 
+> > The things I am not entirely happy with yet are:
+> > 
+> >  * The PHY ID is hardcoded to 0xdeadbeef. Ideally, it should be a
+> >    properly reserved vendor/device identifier, but it isn't clear how
+> >    to get one allocated for this purpose.
+> 
+> Right, we should try to get something better, but we obviously cannot use an 
+> already allocated OUI for this. Can we ask the Linux foundation or a Linux-
+> friendly company to allocate one maybe?
 
-Hayes, see http://marc.info/?l=3Dlinux-netdev&m=3D137794473416308&w=3D1=
- for
-history. It could be eb2dc35d99028b698cdedba4f5522bc43e576bd2
-("r8169: RxConfig hack for the 8168evl.") return, with a revenge.
+According to http://standards.ieee.org/develop/regauth/oui/oui.txt, the
+Linux Foundation doesn't seem to own any OUI. Should we simply be
+contacting some random companies in this list?
 
----
- drivers/net/ethernet/realtek/r8169.c | 1 +
- 1 file changed, 1 insertion(+)
+> >  * The fixed_phy_register() function in drivers/net/phy/fixed.c has
+> >    some OF references. So ideally, I would have preferred to put this
+> >    code in drivers/of/of_mdio.c, but to call get_phy_device(), we need
+> >    a reference to the mii_bus structure that represents the fixed MDIO
+> >    bus.
+> 
+> This is not a big deal, not everything in drivers/ is consistent with this, 
+> and making the fixed MDIO bus globally accessible does not sound too great.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index 6f87f2c..3397cee 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4231,6 +4231,7 @@ static void rtl_init_rxcfg(struct rtl8169_private=
- *tp)
- 	case RTL_GIGA_MAC_VER_23:
- 	case RTL_GIGA_MAC_VER_24:
- 	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	case RTL_GIGA_MAC_VER_40:
---=20
-1.8.3.1
+Indeed.
+
+> >  * There is some error management missing in fixed_phy_register(), but
+> >    it can certainly be added easily. This RFC is meant to sort out the
+> >    general idea.
+> 
+> Do you think you could add these to got beyond the RFC state? The patchset as 
+> it currently is fine with me if you can address these.
+
+Sure, it shouldn't be too difficult.
+
+In the mean time, I'm interested in hearing comments from other people,
+especially from the Device Tree bindings maintainers: while the
+internal implementation details can always be fixed later on, the DT
+binding should obviously get an approval from the DT maintainers.
+
+Thanks,
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
