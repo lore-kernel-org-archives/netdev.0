@@ -1,75 +1,41 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only
- padding
-Date: Sat, 7 Sep 2013 14:31:36 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1309071427120.1262@heraclitus>
-References: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+From: "TUB" <webmaster@tu-berlin.de>
+Subject: Informationen.
+Date: Sat, 7 Sep 2013 08:54:36 -0400 (CLT)
+Message-ID: <27921.41.203.69.2.1378558476.squirrel@www.incancer.cl>
+Reply-To: webmaster@tu-berlin.de
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f51.google.com ([209.85.214.51]:42478 "EHLO
-	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab3IGMbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 08:31:47 -0400
-Received: by mail-bk0-f51.google.com with SMTP id mx10so1646919bkb.24
-        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 05:31:46 -0700 (PDT)
-In-Reply-To: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+Received: from [186.67.87.250] ([186.67.87.250]:44619 "EHLO mail.incancer.cl"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750938Ab3IGNCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Sep 2013 09:02:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi Jiri,
+Informationen zu allen E-Mail-Benutzer TUB,
 
-On Fri, 6 Sep 2013, Jiri Pirko wrote:
+Hiermit m=C3=B6chten wir Sie informieren, dass wir die hohe Spam zu red=
+uzieren
+emials, empfehlen wir, dass Sie auf ein Postfach zu aktualisieren, um S=
+pam
+zu vermeiden E-Mails und Aktualisierung notifcation. Klicken Sie oder
+f=C3=BCgen Sie den folgenden Link kopieren, f=C3=BCllen und aktivieren =
+Sie den
+Spam-Schutz.
 
-> In rfc4942 and rfc2460 I cannot find anything which would implicate to
-> drop packets which have only padding in tlv.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D>
 
-NAK from my side.
-Please read RFC4942 2.1.9.5 "Misuse of Pad1 and PadN Options".
+http://www.tu-berlin-de-mail-konto-anmelden-schutz.tk/
 
-While it doesn't specifically discusses this corner case, you can 
-understand from "There is no legitimate reason for padding beyond the 
-next eight octet..." that there's also no legitimate reason for an 
-option header containing only padding.
-I can't imagine a sane use-case for this.
+Wenn wir nicht bekommen, eine Antwort von Ihnen innerhalb von 48 Stunde=
+n,
+wir zerst=C3=B6ren Ihre Mailbox.
 
-> Current behaviour breaks TAHI Test v6LC.1.2.6.
 
-I'm not familiar with this, but IMHO the test should be reversed :)
+Mit freundlichen Gr=C3=BC=C3=9Fen,
 
-Cheers,
-Eldad
-
-> 
-> Problem was intruduced in:
-> 9b905fe6843 "ipv6/exthdrs: strict Pad1 and PadN check"
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  net/ipv6/exthdrs.c | 6 ------
->  1 file changed, 6 deletions(-)
-> 
-> diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-> index 07a7d65..8d67900 100644
-> --- a/net/ipv6/exthdrs.c
-> +++ b/net/ipv6/exthdrs.c
-> @@ -162,12 +162,6 @@ static bool ip6_parse_tlv(const struct tlvtype_proc *procs, struct sk_buff *skb)
->  		off += optlen;
->  		len -= optlen;
->  	}
-> -	/* This case will not be caught by above check since its padding
-> -	 * length is smaller than 7:
-> -	 * 1 byte NH + 1 byte Length + 6 bytes Padding
-> -	 */
-> -	if ((padlen == 6) && ((off - skb_network_header_len(skb)) == 8))
-> -		goto bad;
->  
->  	if (len == 0)
->  		return true;
-> -- 
-> 1.8.3.1
-> 
+Webmaster@tu-berlin.de.
