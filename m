@@ -1,99 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only padding
-Date: Sun, 8 Sep 2013 00:03:28 +0200
-Message-ID: <20130907220328.GB16589@order.stressinduktion.org>
-References: <1378476145-6282-1-git-send-email-jiri@resnulli.us> <alpine.LNX.2.00.1309071427120.1262@heraclitus> <20130907154602.GA1442@minipsycho.orion> <alpine.LNX.2.00.1309071819310.24145@heraclitus> <20130907213445.GB1442@minipsycho.orion>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [net v6 1/8] i40e: main driver core
+Date: Sun, 8 Sep 2013 01:01:36 +0200
+Message-ID: <20130907230136.GA24530@electric-eye.fr.zoreil.com>
+References: <1378510875-10704-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1378510875-10704-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <522ACB54.2050706@redhat.com>
+ <1378581636.2509.12.camel@jbrandeb-mobl.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eldad Zack <eldad@fogrefinery.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43759 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956Ab3IGWDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 18:03:30 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51536 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab3IGXB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 19:01:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20130907213445.GB1442@minipsycho.orion>
+In-Reply-To: <1378581636.2509.12.camel@jbrandeb-mobl.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On Sat, Sep 07, 2013 at 11:34:45PM +0200, Jiri Pirko wrote:
-> Sat, Sep 07, 2013 at 06:46:12PM CEST, eldad@fogrefinery.com wrote:
-> >
-> >
-> >On Sat, 7 Sep 2013, Jiri Pirko wrote:
-> >
-> >> Sat, Sep 07, 2013 at 02:31:36PM CEST, eldad@fogrefinery.com wrote:
-> >> >
-> >> >Hi Jiri,
-> >> >
-> >> >On Fri, 6 Sep 2013, Jiri Pirko wrote:
-> >> >
-> >> >> In rfc4942 and rfc2460 I cannot find anything which would implicate to
-> >> >> drop packets which have only padding in tlv.
-> >> >
-> >> >NAK from my side.
-> >> >Please read RFC4942 2.1.9.5 "Misuse of Pad1 and PadN Options".
-> >> 
-> >> I did.
-> >> 
-> >> >
-> >> >While it doesn't specifically discusses this corner case, you can 
-> >> >understand from "There is no legitimate reason for padding beyond the 
-> >> >next eight octet..." that there's also no legitimate reason for an 
-> >> >option header containing only padding.
-
-There could be a legitimate reason: if a firewall wants to discard a HBH
-or DOH it could easily zero out the option space instead of rearranging
-the segment. But to make this happen in the general case all limits
-regarding padding options would have to be dropped, too. That said,
-I don't see this as an valid argument.
-
-> >> 
-> >> Okay. I'm glad you agree with me and that we both understand the rfc the
-> >> same way. And since the rfc does not say that "here's no legitimate
-> >> reason for an option header containing only padding", this should be
-> >> possible. I say we respect rfc and do not add stronger restrictions than
-> >> it dictates. No need for them.
-> >
-> >Strictly speaking, this RFC is informational, so it is doesn't dictate 
-> >per se. I hope you don't suggest removing the other checks as well...
+Brandeburg, Jesse <jesse.brandeburg@intel.com> :
+> On Sat, 2013-09-07 at 08:44 +0200, Daniel Borkmann wrote:
 > 
-> If there are some that just plainly assumes something and does
-> restrictions without any solid argument, yes remove them.
+> > Nitpicking ... at some point in time i40e_status should be removed plus
+> > I40E_ERR_PARAM, I40E_SUCCESS, I40E_ERR_NO_MEMORY and the like, as we have
+> > int and -EINVAL, 0, -ENOMEM for that. ;-)
 > 
-> >
-> >> >I can't imagine a sane use-case for this.
-> >> 
-> >> rfcs are not about sanity...
-> >
-> >Great, we're in agreement again :) But I think the networking code is 
-> >or should be.
-> >What IPv6 stack would generate such a packet, given that the only usage 
-> >of the padding options is to align other options?
+> First, thanks Daniel for taking the time to review.
 > 
-> But why not? I do not see anything evil about that. And rfc allows it.
+> Those are a result of our files that are shared across OSes, as not all
+> OSes have -ENOMEM etc, we also have a lot of status codes the kernel
+> doesn't have.  That said, when there is a 1-1 relationship the
+> replacements should be made.  
 
-It is easier to generate valid ipv6 frames which are fragmented in the
-header chain. This makes it harder for firewalls to match packets etc.
+It should always be made. You have kept ignoring it since june (see
+Ben Hutchings's comment on 2013/06/19).
 
-This was a known attack vector with e.g. router advertisments and
-fragmentation. Filters implemented in switches could be circumvented
-because they did not match the fragmented RA but the host correctly did
-reassemble the packet.
+Where did you see that rules changed and the linux kernel should care
+about OS shared code ?
 
-> >Why should I accept a packet which is most likely an artificially 
-> >crafted packet (RFC 3514)?
+- the patchkit does not include a Makefile to compile from patch #1
+- it would not compile since patch #1 depends on stuff that appears
+  later (see i40e_hw or i40e_lump_tracking for instance).
+- some of the I40E_ERR_PARAM error can't happen or are assert() in
+  disguise that could / should instead BUG(). There is no reason to
+  confuse these with runtime failures, especially as code gets really
+  tested on hardware.
 
-Of course, dropping this check won't do big harm. But I actually like
-the strictness of the ipv6 header chain checks and dropping this just
-for the IPv6 Ready Logo doesn't seem right. Perhaps one could talk to
-the people of tahi.org first?
+I could understand it from some newly introduced company but it's
+a bit deceptive from Intel. :o/
 
-Greetings,
-
-  Hannes
+-- 
+Ueimor
