@@ -1,38 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
-Date: Sat, 07 Sep 2013 00:29:52 -0400 (EDT)
-Message-ID: <20130907.002952.1951928882694928547.davem@davemloft.net>
-References: <1378411989-19775-1-git-send-email-mschmidt@redhat.com>
-	<20130906.142735.458916282873797040.davem@davemloft.net>
-	<504C9EFCA2D0054393414C9CB605C37F20D90E3D@SJEXCHMB06.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org, ariele@broadcom.com,
-	eilong@broadcom.com
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787Ab3IGE34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 00:29:56 -0400
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20D90E3D@SJEXCHMB06.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] net: korina: remove deprecated IRQF_DISABLED
+Date: Sat,  7 Sep 2013 07:20:57 +0200
+Message-ID: <1378531257-5446-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: emilio@elopez.com.ar, mugunthanvnm@ti.com, jg1.han@samsung.com,
+	hsweeten@visionengravers.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sat, 7 Sep 2013 01:45:10 +0000
+This patch proposes to remove the IRQF_DISABLED flag from
+drivers/net/ethernet/korina.c
 
-> Once you allocated the memory during initialization , you will most
-> probably fail to allocate its replacement during RX handling (on
-> this machine).
+It's a NOOP since 2.6.35 and it will be removed one day.
 
-Not true, these two events can exist in totally different timeframes
-and totally different memory pressure situations.
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ drivers/net/ethernet/korina.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Probe should never fail because of an atomic memory allocation if at
-all possible.
-
-You should use sleeping allocations in every possible situation for
-maximum stability, and this absolutely matches the approach taken
-by every other major driver.
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+index 270e65f..a36fa80 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -996,14 +996,14 @@ static int korina_open(struct net_device *dev)
+ 	 * that handles the Done Finished
+ 	 * Ovr and Und Events */
+ 	ret = request_irq(lp->rx_irq, korina_rx_dma_interrupt,
+-			IRQF_DISABLED, "Korina ethernet Rx", dev);
++			0, "Korina ethernet Rx", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
+ 		    dev->name, lp->rx_irq);
+ 		goto err_release;
+ 	}
+ 	ret = request_irq(lp->tx_irq, korina_tx_dma_interrupt,
+-			IRQF_DISABLED, "Korina ethernet Tx", dev);
++			0, "Korina ethernet Tx", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
+ 		    dev->name, lp->tx_irq);
+@@ -1012,7 +1012,7 @@ static int korina_open(struct net_device *dev)
+ 
+ 	/* Install handler for overrun error. */
+ 	ret = request_irq(lp->ovr_irq, korina_ovr_interrupt,
+-			IRQF_DISABLED, "Ethernet Overflow", dev);
++			0, "Ethernet Overflow", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
+ 		    dev->name, lp->ovr_irq);
+@@ -1021,7 +1021,7 @@ static int korina_open(struct net_device *dev)
+ 
+ 	/* Install handler for underflow error. */
+ 	ret = request_irq(lp->und_irq, korina_und_interrupt,
+-			IRQF_DISABLED, "Ethernet Underflow", dev);
++			0, "Ethernet Underflow", dev);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
+ 		    dev->name, lp->und_irq);
+-- 
+1.8.1.2
