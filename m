@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [RFC PATCH 2/4] drivers: net: cpsw-phy-sel: Add new driver for phy mode selection for cpsw
-Date: Sun, 8 Sep 2013 16:53:56 +0530
-Message-ID: <1378639438-27686-3-git-send-email-mugunthanvnm@ti.com>
+Subject: [RFC PATCH 3/4] drivers: net: cpsw: use cpsw-phy-sel driver to configure phy mode
+Date: Sun, 8 Sep 2013 16:53:57 +0530
+Message-ID: <1378639438-27686-4-git-send-email-mugunthanvnm@ti.com>
 References: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,289 +10,37 @@ Cc: <zonque@gmail.com>, <davem@davemloft.net>, <bcousson@baylibre.com>,
 	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:34617 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752471Ab3IHLYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 07:24:24 -0400
+Received: from bear.ext.ti.com ([192.94.94.41]:41035 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752471Ab3IHLY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Sep 2013 07:24:29 -0400
 In-Reply-To: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The cpsw currently lacks code to properly set up the hardware interface
-mode on AM33xx. Other platforms might be equally affected.
-
-Usually, the bootloader will configure the control module register, so
-probably that's why such support wasn't needed in the past. In suspend
-mode though, this register is modified, and so it needs reprogramming
-after resume.
-
-This patch adds a new driver in which hardware interface can configure
-correct register bits when the slave is opened.
-
-The AM33xx also has a bit for each slave to configure the RMII reference
-clock direction. Setting it is now supported by a per-slave DT property.
-
-This code path introducted by this patch is currently exclusive for
-am33xx and same can be extened to various platforms via the DT compatibility
-property.
+Phy mode can be configured via the cpsw-phy-sel driver, this patch enabled the
+cpsw driver to utilise the api provided by the cpsw-phy-sel driver to configure
+the phy mode.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- .../devicetree/bindings/net/cpsw-phy-sel.txt       |  28 ++++
- drivers/net/ethernet/ti/Kconfig                    |   8 +
- drivers/net/ethernet/ti/Makefile                   |   1 +
- drivers/net/ethernet/ti/cpsw-phy-sel.c             | 161 +++++++++++++++++++++
- drivers/net/ethernet/ti/cpsw.h                     |   2 +
- 5 files changed, 200 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
- create mode 100644 drivers/net/ethernet/ti/cpsw-phy-sel.c
+ drivers/net/ethernet/ti/cpsw.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw-phy-sel.txt b/Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
-new file mode 100644
-index 0000000..d45fc83
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
-@@ -0,0 +1,28 @@
-+TI CPSW Phy mode Selection Device Tree Bindings
-+-----------------------------------------------
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 01c42e1..5efb37b 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1021,6 +1021,10 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 		dev_info(priv->dev, "phy found : id is : 0x%x\n",
+ 			 slave->phy->phy_id);
+ 		phy_start(slave->phy);
 +
-+Required properties:
-+- compatible		: Should be "ti,am3352-cpsw-phy-sel"
-+- reg			: physical base address and size of the cpsw
-+			  registers map
-+- reg-names		: names of the register map given in "reg" node
-+
-+Optional properties:
-+-rmii-clock-ext		: If present, the driver will configure the RMII
-+			  interface to external clock usage
-+
-+Examples:
-+
-+	phy_sel: cpsw_phy_sel@44e10650 {
-+		compatible = "ti,am3352-cpsw-phy-sel";
-+		reg= <0x44e10650 0x4>;
-+		reg-names = "gmii-sel";
-+	};
-+
-+(or)
-+	phy_sel: cpsw_phy_sel@44e10650 {
-+		compatible = "ti,am3352-cpsw-phy-sel";
-+		reg= <0x44e10650 0x4>;
-+		reg-names = "gmii-sel";
-+		rmii-clock-ext;
-+	};
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index de71b1e..53150c2 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -49,11 +49,19 @@ config TI_DAVINCI_CPDMA
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called davinci_cpdma.  This is recommended.
++		/* Configure GMII_SEL register */
++		cpsw_phy_sel(&priv->pdev->dev, slave->phy->interface,
++			     slave->slave_num);
+ 	}
+ }
  
-+config TI_CPSW_PHY_SEL
-+	boolean "TI CPSW Switch Phy sel Support"
-+	depends on TI_CPSW
-+	---help---
-+	  This driver supports configuring of the phy mode connected to
-+	  the CPSW.
-+
- config TI_CPSW
- 	tristate "TI CPSW Switch Support"
- 	depends on ARM && (ARCH_DAVINCI || SOC_AM33XX)
- 	select TI_DAVINCI_CPDMA
- 	select TI_DAVINCI_MDIO
-+	select TI_CPSW_PHY_SEL
- 	---help---
- 	  This driver supports TI's CPSW Ethernet Switch.
- 
-diff --git a/drivers/net/ethernet/ti/Makefile b/drivers/net/ethernet/ti/Makefile
-index c65148e..9cfaab8 100644
---- a/drivers/net/ethernet/ti/Makefile
-+++ b/drivers/net/ethernet/ti/Makefile
-@@ -7,5 +7,6 @@ obj-$(CONFIG_CPMAC) += cpmac.o
- obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
- obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
- obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
-+obj-$(CONFIG_TI_CPSW_PHY_SEL) += cpsw-phy-sel.o
- obj-$(CONFIG_TI_CPSW) += ti_cpsw.o
- ti_cpsw-y := cpsw_ale.o cpsw.o cpts.o
-diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-new file mode 100644
-index 0000000..593f459
---- /dev/null
-+++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-@@ -0,0 +1,161 @@
-+/* Texas Instruments Ethernet Switch Driver
-+ *
-+ * Copyright (C) 2013 Texas Instruments
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/platform_device.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
-+
-+#include "cpsw.h"
-+
-+/* AM33xx SoC specific definitions for the CONTROL port */
-+#define AM33XX_GMII_SEL_MODE_MII	0
-+#define AM33XX_GMII_SEL_MODE_RMII	1
-+#define AM33XX_GMII_SEL_MODE_RGMII	2
-+
-+#define AM33XX_GMII_SEL_RMII2_IO_CLK_EN	BIT(7)
-+#define AM33XX_GMII_SEL_RMII1_IO_CLK_EN	BIT(6)
-+
-+struct cpsw_phy_sel_priv {
-+	struct device	*dev;
-+	u32 __iomem	*gmii_sel;
-+	bool		rmii_clock_external;
-+	void (*cpsw_phy_sel)(struct cpsw_phy_sel_priv *priv,
-+			     phy_interface_t phy_mode, int slave);
-+};
-+
-+
-+static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
-+				 phy_interface_t phy_mode, int slave)
-+{
-+	u32 reg;
-+	u32 mask;
-+	u32 mode = 0;
-+
-+	reg = readl(priv->gmii_sel);
-+
-+	switch (phy_mode) {
-+	case PHY_INTERFACE_MODE_RMII:
-+		mode = AM33XX_GMII_SEL_MODE_RMII;
-+		break;
-+
-+	case PHY_INTERFACE_MODE_RGMII:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		mode = AM33XX_GMII_SEL_MODE_RGMII;
-+		break;
-+
-+	case PHY_INTERFACE_MODE_MII:
-+	default:
-+		mode = AM33XX_GMII_SEL_MODE_MII;
-+		break;
-+	};
-+
-+	mask = 0x3 << (slave * 2) | BIT(slave + 6);
-+	mode <<= slave * 2;
-+
-+	if (priv->rmii_clock_external) {
-+		if (slave == 0)
-+			mode |= AM33XX_GMII_SEL_RMII1_IO_CLK_EN;
-+		else
-+			mode |= AM33XX_GMII_SEL_RMII2_IO_CLK_EN;
-+	}
-+
-+	reg &= ~mask;
-+	reg |= mode;
-+
-+	writel(reg, priv->gmii_sel);
-+}
-+
-+static struct platform_driver cpsw_phy_sel_driver;
-+static int match(struct device *dev, void *data)
-+{
-+	struct device_node *node = (struct device_node *)data;
-+	return dev->of_node == node &&
-+		dev->driver == &cpsw_phy_sel_driver.driver;
-+}
-+
-+void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
-+{
-+	struct device_node *node;
-+	struct cpsw_phy_sel_priv *priv;
-+
-+	node = of_get_child_by_name(dev->of_node, "cpsw_phy_sel");
-+	if (!node) {
-+		dev_err(dev, "Phy mode driver DT not found\n");
-+		return;
-+	}
-+
-+	dev = bus_find_device(&platform_bus_type, NULL, node, match);
-+	priv = dev_get_drvdata(dev);
-+
-+	priv->cpsw_phy_sel(priv, phy_mode, slave);
-+}
-+EXPORT_SYMBOL_GPL(cpsw_phy_sel);
-+
-+static const struct of_device_id cpsw_phy_sel_id_table[] = {
-+	{
-+		.compatible	= "ti,am3352-cpsw-phy-sel",
-+		.data		= &cpsw_gmii_sel_am3352,
-+	},
-+	{}
-+};
-+MODULE_DEVICE_TABLE(of, cpsw_phy_sel_id_table);
-+
-+static int cpsw_phy_sel_probe(struct platform_device *pdev)
-+{
-+	struct resource	*res;
-+	const struct of_device_id *of_id;
-+	struct cpsw_phy_sel_priv *priv;
-+
-+	of_id = of_match_node(cpsw_phy_sel_id_table, pdev->dev.of_node);
-+	if (!of_id)
-+		return -EINVAL;
-+
-+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv) {
-+		dev_err(&pdev->dev, "unable to alloc memory for cpsw phy sel\n");
-+		return -ENOMEM;
-+	}
-+
-+	priv->cpsw_phy_sel = of_id->data;
-+
-+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gmii-sel");
-+	priv->gmii_sel = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(priv->gmii_sel))
-+		return PTR_ERR(priv->gmii_sel);
-+
-+	if (of_find_property(pdev->dev.of_node, "rmii-clock-ext", NULL))
-+		priv->rmii_clock_external = true;
-+
-+	dev_set_drvdata(&pdev->dev, priv);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver cpsw_phy_sel_driver = {
-+	.probe		= cpsw_phy_sel_probe,
-+	.driver		= {
-+		.name	= "cpsw-phy-sel",
-+		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(cpsw_phy_sel_id_table),
-+	},
-+};
-+
-+module_platform_driver(cpsw_phy_sel_driver);
-+MODULE_AUTHOR("Mugunthan V N <mugunthanvnm@ti.com>");
-+MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
-index eb3e101..574f49d 100644
---- a/drivers/net/ethernet/ti/cpsw.h
-+++ b/drivers/net/ethernet/ti/cpsw.h
-@@ -39,4 +39,6 @@ struct cpsw_platform_data {
- 	bool	dual_emac;	/* Enable Dual EMAC mode */
- };
- 
-+void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave);
-+
- #endif /* __CPSW_H__ */
 -- 
 1.8.4
