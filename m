@@ -1,47 +1,40 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only
- padding
-Date: Sun, 08 Sep 2013 13:20:34 +0900
-Message-ID: <522BFB12.6040700@linux-ipv6.org>
-References: <1378476145-6282-1-git-send-email-jiri@resnulli.us> <alpine.LNX.2.00.1309071427120.1262@heraclitus> <20130907.215020.38125291010941900.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net] net: ovs: flow: fix potential illegal memory access
+ in __parse_flow_nlattrs
+Date: Sat, 7 Sep 2013 22:35:33 -0700
+Message-ID: <CAEP_g=_Bgt8OsORTyYRt=tbssfbd-0Jh2HhnjPdj1aVP8Zd1BA@mail.gmail.com>
+References: <1378539694-3635-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eldad@fogrefinery.com, jiri@resnulli.us, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Andy Zhou <azhou@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58610 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751232Ab3IHEak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 00:30:40 -0400
-In-Reply-To: <20130907.215020.38125291010941900.davem@davemloft.net>
+Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:53961 "HELO
+	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751442Ab3IHFfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 01:35:55 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so4106339lbi.29
+        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 22:35:53 -0700 (PDT)
+In-Reply-To: <1378539694-3635-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Sat, Sep 7, 2013 at 12:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> In function __parse_flow_nlattrs(), we check for condition
+> (type > OVS_KEY_ATTR_MAX) and if true, print an error, but we do
+> not return from this function as in other checks. It seems this
+> has been forgotten, as otherwise, we could access beyond the
+> memory of ovs_key_lens, which is of ovs_key_lens[OVS_KEY_ATTR_MAX + 1].
+> Hence, a maliciously prepared nla_type from user space could access
+> beyond this upper limit.
+>
+> Introduced by 03f0d916a ("openvswitch: Mega flow implementation").
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Andy Zhou <azhou@nicira.com>
 
-David Miller wrote:
-> From: Eldad Zack <eldad@fogrefinery.com>
-> Date: Sat, 7 Sep 2013 14:31:36 +0200 (CEST)
-> 
->> On Fri, 6 Sep 2013, Jiri Pirko wrote:
->>
->>> Current behaviour breaks TAHI Test v6LC.1.2.6.
->>
->> I'm not familiar with this, but IMHO the test should be reversed :)
-> 
-> I think I agree with Eldad on this, and that TAHI should be adjusted
-> to have more reasonable expectations of an implementation.
-> 
+Yeah, looks like a mistake to me.
 
-The tests (including packet formats) are based on the test specification:
- https://www.ipv6ready.org/?page=documents&tag=ipv6-core-protocols
-
-If we want to change the tests, I think we need to consult with IPv6
-Forum.
-
-Regards,
-
---yoshfuji
+Acked-by: Jesse Gross <jesse@nicira.com>
