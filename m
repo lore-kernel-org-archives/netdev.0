@@ -1,50 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH 4/4] ARM: dts: am33xx: adopt to cpsw-phy-sel driver
- to configure phy mode
-Date: Sun, 08 Sep 2013 22:04:05 +0400
-Message-ID: <522CBC15.5060008@cogentembedded.com>
-References: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com> <1378639438-27686-5-git-send-email-mugunthanvnm@ti.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH RFC] net: neighbour: use source address of last enqueued packet for solicitation
+Date: Sun, 8 Sep 2013 21:30:31 +0200
+Message-ID: <20130908193031.GC21070@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zonque@gmail.com, davem@davemloft.net,
-	bcousson@baylibre.com, tony@atomide.com,
-	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1378639438-27686-5-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, ja@ssi.bg
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:45048 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060Ab3IHTac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 15:30:32 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Currently we always use the first member of the arp_queue to determine
+the sender ip address of the arp packet (or in case of IPv6 - source
+address of the ndisc packet). This skb is fixed as long as the queue is
+not drained by a complete purge because of a timeout or by a successful
+response.
 
-On 09/08/2013 03:23 PM, Mugunthan V N wrote:
+If the first packet enqueued on the arp_queue is from a local application
+with a manually set source address and the to be discovered system
+does some kind of uRPF checks on the source address in the arp packet
+the resolving process hangs until a timeout and restarts. This hurts
+communication with the participating network node.
 
-> Add DT entries for the phy mode selection in AM33xx SoC using cpsw-phy-sel
-> driver.
+This could be mitigated a bit if we use the latest enqueued skb's
+source address for the resolving process, which is not as static as
+the arp_queue's head. This change of the source address could result in
+better recovery of a failed solicitation.
 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->   arch/arm/boot/dts/am33xx.dtsi | 6 ++++++
->   1 file changed, 6 insertions(+)
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
 
-> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-> index f9c5da9..4359672 100644
-> --- a/arch/arm/boot/dts/am33xx.dtsi
-> +++ b/arch/arm/boot/dts/am33xx.dtsi
-> @@ -594,6 +594,12 @@
->   				/* Filled in by U-Boot */
->   				mac-address = [ 00 00 00 00 00 00 ];
->   			};
-> +
-> +			phy_sel: cpsw_phy_sel@44e10650 {
+I didn't find anything which could break because of this change, but
+please have a second look.
 
-    Dashes are preferred to uderscores in the device tree names.
+ net/core/neighbour.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> +				compatible = "ti,am3352-cpsw-phy-sel";
-> +				reg= <0x44e10650 0x4>;
-> +				reg-names = "gmii-sel";
-> +			};
-
-WBR, Sergei
-
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 6072610..ca15f32 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -867,7 +867,7 @@ static void neigh_invalidate(struct neighbour *neigh)
+ static void neigh_probe(struct neighbour *neigh)
+ 	__releases(neigh->lock)
+ {
+-	struct sk_buff *skb = skb_peek(&neigh->arp_queue);
++	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
+ 	/* keep skb alive even if arp_queue overflows */
+ 	if (skb)
+ 		skb = skb_copy(skb, GFP_ATOMIC);
+-- 
+1.8.3.1
