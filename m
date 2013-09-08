@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: avoid atomic allocations during initialization
-Date: Sat, 07 Sep 2013 21:48:24 -0400 (EDT)
-Message-ID: <20130907.214824.1685385647443815510.davem@davemloft.net>
-References: <504C9EFCA2D0054393414C9CB605C37F20D90E3D@SJEXCHMB06.corp.ad.broadcom.com>
-	<20130907.002952.1951928882694928547.davem@davemloft.net>
-	<CAM8tLiPCUS3_jo4KU1zY9+8wRg08fA0ohH9d+0a4jyC69D9JZg@mail.gmail.com>
+Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes
+ only padding
+Date: Sat, 07 Sep 2013 21:50:20 -0400 (EDT)
+Message-ID: <20130907.215020.38125291010941900.davem@davemloft.net>
+References: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+	<alpine.LNX.2.00.1309071427120.1262@heraclitus>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry@broadcom.com, mschmidt@redhat.com, netdev@vger.kernel.org,
-	ariele@broadcom.com, eilong@broadcom.com
-To: dkravkov@gmail.com
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: eldad@fogrefinery.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41915 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42000 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151Ab3IHBs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 21:48:28 -0400
-In-Reply-To: <CAM8tLiPCUS3_jo4KU1zY9+8wRg08fA0ohH9d+0a4jyC69D9JZg@mail.gmail.com>
+	with ESMTP id S1751151Ab3IHBuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Sep 2013 21:50:22 -0400
+In-Reply-To: <alpine.LNX.2.00.1309071427120.1262@heraclitus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Date: Sat, 7 Sep 2013 12:07:50 +0300
+From: Eldad Zack <eldad@fogrefinery.com>
+Date: Sat, 7 Sep 2013 14:31:36 +0200 (CEST)
 
-> On Sat, Sep 7, 2013 at 7:29 AM, David Miller <davem@davemloft.net> wrote:
->> Probe should never fail because of an atomic memory allocation if at
->> all possible.
-> We here are in open() flow, not probe()
+> On Fri, 6 Sep 2013, Jiri Pirko wrote:
+> 
+>> Current behaviour breaks TAHI Test v6LC.1.2.6.
+> 
+> I'm not familiar with this, but IMHO the test should be reversed :)
 
-It's the same from my perspective.
-
-Better to drop some packets than have _COMPLETELY INOPERATIVE INTERFACE_.
+I think I agree with Eldad on this, and that TAHI should be adjusted
+to have more reasonable expectations of an implementation.
