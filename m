@@ -1,75 +1,47 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: fix multiqueue selection
-Date: Sat, 07 Sep 2013 21:08:59 -0700
-Message-ID: <522BF85B.3000909@gmail.com>
-References: <1378580577.26319.26.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes only
+ padding
+Date: Sun, 08 Sep 2013 13:20:34 +0900
+Message-ID: <522BFB12.6040700@linux-ipv6.org>
+References: <1378476145-6282-1-git-send-email-jiri@resnulli.us> <alpine.LNX.2.00.1309071427120.1262@heraclitus> <20130907.215020.38125291010941900.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: eldad@fogrefinery.com, jiri@resnulli.us, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:41805 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab3IHEI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 00:08:58 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so4935404pab.22
-        for <netdev@vger.kernel.org>; Sat, 07 Sep 2013 21:08:57 -0700 (PDT)
-In-Reply-To: <1378580577.26319.26.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58610 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751232Ab3IHEak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Sep 2013 00:30:40 -0400
+In-Reply-To: <20130907.215020.38125291010941900.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2013 12:02 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 416186fbf8c5b4e4465 ("net: Split core bits of netdev_pick_tx
-> into __netdev_pick_tx") added a bug that disables caching of queue
-> index in the socket.
-> 
-> This is the source of packet reorders for TCP flows, and
-> again this is happening more often when using FQ pacing.
-> 
-> Old code was doing 
-> 
-> if (queue_index != old_index)
-> 	sk_tx_queue_set(sk, queue_index);
-> 
-> Alexander renamed the variables but forgot to change sk_tx_queue_set()
-> 2nd parameter.
-> 
-> if (queue_index != new_index)
-> 	sk_tx_queue_set(sk, queue_index);
-> 
-> This means we store -1 over and over in sk->sk_tx_queue_mapping
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  net/core/flow_dissector.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 0ff42f0..1929af8 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -352,7 +352,7 @@ u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
->  
->  		if (queue_index != new_index && sk &&
->  		    rcu_access_pointer(sk->sk_dst_cache))
-> -			sk_tx_queue_set(sk, queue_index);
-> +			sk_tx_queue_set(sk, new_index);
->  
->  		queue_index = new_index;
->  	}
-> 
-> 
-> --
+Hi.
 
-Ugh, my bad.  This is a nasty one too since the behaviour appeared to be
-correct for most cases.
+David Miller wrote:
+> From: Eldad Zack <eldad@fogrefinery.com>
+> Date: Sat, 7 Sep 2013 14:31:36 +0200 (CEST)
+> 
+>> On Fri, 6 Sep 2013, Jiri Pirko wrote:
+>>
+>>> Current behaviour breaks TAHI Test v6LC.1.2.6.
+>>
+>> I'm not familiar with this, but IMHO the test should be reversed :)
+> 
+> I think I agree with Eldad on this, and that TAHI should be adjusted
+> to have more reasonable expectations of an implementation.
+> 
 
-It looks like this needs to go into stable for 3.9 - 3.11.
+The tests (including packet formats) are based on the test specification:
+ https://www.ipv6ready.org/?page=documents&tag=ipv6-core-protocols
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+If we want to change the tests, I think we need to consult with IPv6
+Forum.
+
+Regards,
+
+--yoshfuji
