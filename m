@@ -1,7 +1,7 @@
 From: Benedikt Spranger <b.spranger@linutronix.de>
-Subject: [PATCH 15/16] flexcard: can: Configure CAN loopback packages (TXACK)
-Date: Mon,  9 Sep 2013 09:25:12 +0200
-Message-ID: <1378711513-2548-16-git-send-email-b.spranger@linutronix.de>
+Subject: [PATCH 14/16] flexcard: can: CAN local loopback using SKB pflags
+Date: Mon,  9 Sep 2013 09:25:11 +0200
+Message-ID: <1378711513-2548-15-git-send-email-b.spranger@linutronix.de>
 References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
@@ -9,92 +9,151 @@ Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Benedikt Spranger <b.spranger@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:38033 "EHLO
+Received: from www.linutronix.de ([62.245.132.108]:38035 "EHLO
 	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148Ab3IIHna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:43:30 -0400
+	with ESMTP id S1751210Ab3IIHnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:43:31 -0400
 In-Reply-To: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Flexcard receives CAN local loopback in hardware. Include the direction
+information from the raw CAN message (DMA) in the pflags of SKB and use it
+later in the CAN raw layer.
+
 Signed-off-by: Holger Dengler <dengler@linutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 23 ++++++++++++++++-------
- 1 file changed, 16 insertions(+), 7 deletions(-)
+ drivers/net/can/c_can/c_can_platform.c | 14 +++++++++++---
+ include/uapi/linux/can/raw.h           | 20 ++++++++++++++++++++
+ net/can/raw.c                          | 22 ++++++----------------
+ 3 files changed, 37 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 670a6b1..92c1444 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -358,11 +358,13 @@ static inline void c_can_object_put(struct net_device *dev,
- }
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index c6c1eb4..d8b99b5 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -35,6 +35,7 @@
+ #include <linux/flexcard.h>
  
- static void c_can_write_msg_object(struct net_device *dev,
--			int iface, struct can_frame *frame, int objno)
-+			int iface, struct can_frame *frame, int objno,
-+			int txie_off)
- {
- 	u32 flags = IF_ARB_MSGVAL;
- 	unsigned int id;
- 	struct c_can_priv *priv = netdev_priv(dev);
-+	u32 int_en;
+ #include <linux/can/dev.h>
++#include <linux/can/raw.h>
  
- 	if (!(frame->can_id & CAN_RTR_FLAG))
- 		flags |= IF_ARB_TRANSMIT;
-@@ -388,9 +390,10 @@ static void c_can_write_msg_object(struct net_device *dev,
- 			 frame->data[4] | frame->data[5] << 8);
+ #include "c_can.h"
  
- 	/* enable interrupt for this message object */
--	priv->write_reg(priv, C_CAN_IFACE(MSGCTRL_REG, iface),
--			IF_MCONT_TXIE | IF_MCONT_TXRQST | IF_MCONT_EOB |
--			frame->can_dlc);
-+	int_en = frame->can_dlc;
-+	if (!txie_off)
-+		int_en |= IF_MCONT_TXIE | IF_MCONT_TXRQST | IF_MCONT_EOB;
-+	priv->write_reg(priv, C_CAN_IFACE(MSGCTRL_REG, iface), int_en);
- 	c_can_object_put(dev, iface, objno, IF_COMM_ALL);
- }
+@@ -125,6 +126,7 @@ static int c_can_rx_pkt(void *p, void *data, size_t len)
+ 	struct can_frame *frame;
+ 	struct sk_buff *skb;
+ 	u32 flags, id, state, type;
++	unsigned int *pflags;
  
-@@ -616,16 +619,17 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
- 	u32 msg_obj_no;
- 	struct c_can_priv *priv = netdev_priv(dev);
- 	struct can_frame *frame = (struct can_frame *)skb->data;
--	int tx_fifo;
-+	int tx_fifo, txie_off;
+ 	switch (le32_to_cpu(pb->header.type)) {
+ 	case fc_packet_type_can:
+@@ -142,14 +144,20 @@ static int c_can_rx_pkt(void *p, void *data, size_t len)
+ 		else
+ 			frame->can_id = id & CAN_SFF_MASK;
  
- 	if (can_dropped_invalid_skb(dev, skb))
- 		return NETDEV_TX_OK;
- 
- 	tx_fifo = frame->can_dlc & FC_TXFIFO_FLAG;
-+	txie_off = frame->can_dlc & FC_TXACKOFF_FLAG;
- 	frame->can_dlc &= FC_TXFIFO_DLC_MASK;
- 
- 	if (tx_fifo) {
--		u32 id, *data, ctrl;
-+		u32 id, *data, ctrl, conf;
- 
- 		if (readl(priv->base + FC_TXFIFO_STAT) &
- 				FC_TXFIFO_STAT_FULL) {
-@@ -652,6 +656,11 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
- 			writel(data[1], priv->base + FC_TXFIFO_MSGDB);
- 		}
- 
-+		conf = readl(priv->base + FC_TXFIFO_CONF);
-+		conf &= ~FC_TXFIFO_CONF_TXACK;
-+		conf |= (txie_off ? 0 : FC_TXFIFO_CONF_TXACK);
-+		writel(conf, priv->base + FC_TXFIFO_CONF);
++		if (flags & BIT(12)) {
++			pflags = can_raw_flags(skb);
++			*pflags |= CAN_RAW_TX_ECHO;
++		} else {
++			/* No accounting for local echo packages */
++			stats->rx_packets++;
++			stats->rx_bytes += frame->can_dlc;
++		}
 +
- 		ctrl = readl(priv->base + FC_TXFIFO_CTRL);
- 		ctrl |= FC_TXFIFO_CTRL_REQ;
- 		writel(ctrl, priv->base + FC_TXFIFO_CTRL);
-@@ -660,7 +669,7 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
- 		msg_obj_no = get_tx_next_msg_obj(priv);
+ 		if (flags & BIT(13))
+ 			frame->can_id |= CAN_RTR_FLAG;
+ 		frame->can_dlc = (flags >> 8) & 0xf;
+ 		memcpy(frame->data, pt->can_packet.data, frame->can_dlc);
+ 		netif_receive_skb(skb);
+-
+-		stats->rx_packets++;
+-		stats->rx_bytes += frame->can_dlc;
+ 		break;
  
- 		/* prepare message object for transmission */
--		c_can_write_msg_object(dev, 0, frame, msg_obj_no);
-+		c_can_write_msg_object(dev, 0, frame, msg_obj_no, txie_off);
- 		priv->tx_next++;
+ 	case fc_packet_type_can_error:
+diff --git a/include/uapi/linux/can/raw.h b/include/uapi/linux/can/raw.h
+index a814062..188738c 100644
+--- a/include/uapi/linux/can/raw.h
++++ b/include/uapi/linux/can/raw.h
+@@ -27,4 +27,24 @@ enum {
+ 	CAN_RAW_FD_FRAMES,	/* allow CAN FD frames (default:off) */
+ };
  
- 		can_put_echo_skb(skb, dev, msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
++#ifdef __KERNEL__
++
++#define CAN_RAW_TX_ECHO	0x00000001	/* CAN hardware TX echo packet */
++
++/*
++ * Return pointer to store the extra msg flags for raw_recvmsg().
++ * We use the space of one unsigned int beyond the 'struct sockaddr_can'
++ * in skb->cb.
++ */
++static inline unsigned int *can_raw_flags(struct sk_buff *skb)
++{
++	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can) +
++					 sizeof(unsigned int)));
++
++	/* return pointer after struct sockaddr_can */
++	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
++}
++
++#endif /* __KERNEL__ */
++
+ #endif
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 641e1c8..80498cf 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -90,20 +90,6 @@ struct raw_sock {
+ 	can_err_mask_t err_mask;
+ };
+ 
+-/*
+- * Return pointer to store the extra msg flags for raw_recvmsg().
+- * We use the space of one unsigned int beyond the 'struct sockaddr_can'
+- * in skb->cb.
+- */
+-static inline unsigned int *raw_flags(struct sk_buff *skb)
+-{
+-	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can) +
+-					 sizeof(unsigned int)));
+-
+-	/* return pointer after struct sockaddr_can */
+-	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
+-}
+-
+ static inline struct raw_sock *raw_sk(const struct sock *sk)
+ {
+ 	return (struct raw_sock *)sk;
+@@ -117,6 +103,10 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+ 	struct sk_buff *skb;
+ 	unsigned int *pflags;
+ 
++	pflags = can_raw_flags(oskb);
++	if (*pflags & CAN_RAW_TX_ECHO)
++		oskb->sk = sk;
++
+ 	/* check the received tx sock reference */
+ 	if (!ro->recv_own_msgs && oskb->sk == sk)
+ 		return;
+@@ -148,7 +138,7 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+ 	addr->can_ifindex = skb->dev->ifindex;
+ 
+ 	/* add CAN specific message flags for raw_recvmsg() */
+-	pflags = raw_flags(skb);
++	pflags = can_raw_flags(skb);
+ 	*pflags = 0;
+ 	if (oskb->sk)
+ 		*pflags |= MSG_DONTROUTE;
+@@ -780,7 +770,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	}
+ 
+ 	/* assign the flags that have been recorded in raw_rcv() */
+-	msg->msg_flags |= *(raw_flags(skb));
++	msg->msg_flags |= *(can_raw_flags(skb));
+ 
+ 	skb_free_datagram(sk, skb);
+ 
 -- 
 1.8.4.rc3
