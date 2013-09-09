@@ -1,7 +1,7 @@
 From: Benedikt Spranger <b.spranger@linutronix.de>
-Subject: [PATCH 06/16] c_can: consider set bittiming may fail
-Date: Mon,  9 Sep 2013 09:25:03 +0200
-Message-ID: <1378711513-2548-7-git-send-email-b.spranger@linutronix.de>
+Subject: [PATCH 09/16] c_can: expicit 32bit access on D_CAN to message buffer data register
+Date: Mon,  9 Sep 2013 09:25:06 +0200
+Message-ID: <1378711513-2548-10-git-send-email-b.spranger@linutronix.de>
 References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
@@ -9,88 +9,58 @@ Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Benedikt Spranger <b.spranger@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:37931 "EHLO
+Received: from www.linutronix.de ([62.245.132.108]:37940 "EHLO
 	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007Ab3IIHZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:25:34 -0400
+	with ESMTP id S1751336Ab3IIHZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:25:36 -0400
 In-Reply-To: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While setting the bittiming the C_CAN/D_CAN may fail. Do not bring up the
-CAN interface in this case.
+change the 16bit access of ARB1_REG and DATA1/2_REG to a 32bit access.
 
 Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
+ drivers/net/can/c_can/c_can.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index b3cfb85..3fa5347 100644
+index 4b94f2d..c573399 100644
 --- a/drivers/net/can/c_can/c_can.c
 +++ b/drivers/net/can/c_can/c_can.c
-@@ -689,9 +689,10 @@ static void c_can_configure_msg_objects(struct net_device *dev)
-  * - set operating mode
-  * - configure message objects
-  */
--static void c_can_chip_config(struct net_device *dev)
-+static int c_can_chip_config(struct net_device *dev)
+@@ -360,7 +360,6 @@ static inline void c_can_object_put(struct net_device *dev,
+ static void c_can_write_msg_object(struct net_device *dev,
+ 			int iface, struct can_frame *frame, int objno)
  {
+-	int i;
+ 	u32 flags = IF_ARB_MSGVAL;
+ 	unsigned int id;
  	struct c_can_priv *priv = netdev_priv(dev);
-+	int ret;
+@@ -376,15 +375,17 @@ static void c_can_write_msg_object(struct net_device *dev,
  
- 	/* enable automatic retransmission */
- 	priv->write_reg(priv, C_CAN_CTRL_REG,
-@@ -726,15 +727,20 @@ static void c_can_chip_config(struct net_device *dev)
- 	priv->write_reg(priv, C_CAN_STS_REG, LEC_UNUSED);
+ 	id |= flags;
  
- 	/* set bittiming params */
--	c_can_set_bittiming(dev);
-+	ret = c_can_set_bittiming(dev);
+-	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface),
+-				IFX_WRITE_LOW_16BIT(id));
+-	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface),
+-				IFX_WRITE_HIGH_16BIT(id));
++	c_can_writereg32(priv, C_CAN_IFACE(ARB1_REG, iface),
++			IFX_WRITE_HIGH_16BIT(id),
++			IFX_WRITE_LOW_16BIT(id));
 +
-+	return ret;
- }
++	c_can_writereg32(priv, C_CAN_IFACE(DATA1_REG, iface),
++			 frame->data[2] | frame->data[3] << 8,
++			 frame->data[0] | frame->data[1] << 8);
  
--static void c_can_start(struct net_device *dev)
-+static int c_can_start(struct net_device *dev)
- {
- 	struct c_can_priv *priv = netdev_priv(dev);
-+	int ret;
+-	for (i = 0; i < frame->can_dlc; i += 2) {
+-		priv->write_reg(priv, C_CAN_IFACE(DATA1_REG, iface) + i / 2,
+-				frame->data[i] | (frame->data[i + 1] << 8));
+-	}
++	c_can_writereg32(priv, C_CAN_IFACE(DATA3_REG, iface),
++			 frame->data[6] | frame->data[7] << 8,
++			 frame->data[4] | frame->data[5] << 8);
  
- 	/* basic c_can configuration */
--	c_can_chip_config(dev);
-+	ret = c_can_chip_config(dev);
-+	if (ret)
-+		goto out;
- 
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
- 
-@@ -743,6 +749,9 @@ static void c_can_start(struct net_device *dev)
- 
- 	/* enable status change, error and module interrupts */
- 	c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
-+
-+out:
-+	return ret;
- }
- 
- static void c_can_stop(struct net_device *dev)
-@@ -758,9 +767,15 @@ static void c_can_stop(struct net_device *dev)
- 
- static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
- {
-+	int ret;
-+
- 	switch (mode) {
- 	case CAN_MODE_START:
--		c_can_start(dev);
-+		ret = c_can_start(dev);
-+		if (ret) {
-+			c_can_stop(dev);
-+			return ret;
-+		}
- 		netif_wake_queue(dev);
- 		break;
- 	default:
+ 	/* enable interrupt for this message object */
+ 	priv->write_reg(priv, C_CAN_IFACE(MSGCTRL_REG, iface),
 -- 
 1.8.4.rc3
