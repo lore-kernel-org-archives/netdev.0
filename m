@@ -1,97 +1,211 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: RFC: crash in fib6_clean_all() while loading ipv6 module
-Date: Mon, 9 Sep 2013 12:05:15 +0200
-Message-ID: <20130909100515.GA16056@unicorn.suse.cz>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 11/16] c_can: stop netqueue if hardware is busy
+Date: Mon, 09 Sep 2013 12:05:26 +0200
+Message-ID: <522D9D66.20405@pengutronix.de>
+References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-12-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38386 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871Ab3IIKFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 06:05:17 -0400
-Received: from relay1.suse.de (unknown [195.135.220.254])
-	by mx2.suse.de (Postfix) with ESMTP id 048D2A41E0
-	for <netdev@vger.kernel.org>; Mon,  9 Sep 2013 12:05:16 +0200 (CEST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="Kl8sDh2dbrIjOPmRD6PFH0piLdv4SgltG"
+Cc: netdev@vger.kernel.org,
+	Alexander Frank <Alexander.Frank@eberspaecher.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Holger Dengler <dengler@linutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: Benedikt Spranger <b.spranger@linutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1378711513-2548-12-git-send-email-b.spranger@linutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Kl8sDh2dbrIjOPmRD6PFH0piLdv4SgltG
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Two of our customers encountered a crash in fib6_clean_all() when
-booting their system:
+On 09/09/2013 09:25 AM, Benedikt Spranger wrote:
+> Unlike other network devices the FlexCard do not support interrupts on =
+TX.
+> Emulate the TX interrupt by polling the MOTRX registers and restart the=
 
-[   12.408421] BUG: unable to handle kernel NULL pointer dereference at        (null)
-[   12.408424] IP: [<ffffffffa02566b4>] fib6_clean_all+0x34/0xd0 [ipv6_lib]
-[   12.408434] PGD c3590f067 PUD c29073067 PMD 0 
-[   12.408436] Oops: 0000 [#1] SMP 
-[   12.408439] CPU 1 
-[   12.408440] Modules linked in: processor(+) ipv6(+) thermal_sys ipv6_lib
-ahci(+) ixgbe(+) ehci_hcd libahci hwmon igb(+) libata usbcore i2c_i801 dca
-iTCO_wdt pcspkr scsi_mod e1000e i2c_core usb_common iTCO_vendor_support
-rtc_cmos container ptp pps_core button mdio
-[   12.408449] Supported: Yes
-[   12.408449] 
-[   12.408451] Pid: 211, comm: modprobe Not tainted 3.0.76-0.11-default #1 ...
-[   12.408453] RIP: 0010:[<ffffffffa02566b4>]  [<ffffffffa02566b4>] fib6_clean_all+0x34/0xd0 [ipv6_lib]
-[   12.408460] RSP: 0018:ffff880c1e983b98  EFLAGS: 00010246
-[   12.408462] RAX: 0000000000000000 RBX: ffffffffffffffff RCX: 0000000000000000
-[   12.408463] RDX: 0000000000000000 RSI: ffffffffa0254f90 RDI: ffffffff81a72280
-[   12.408464] RBP: ffffffff81a72280 R08: 0000000000000000 R09: 000000003520aec8
-[   12.408466] R10: 000000005f000c28 R11: 000000003520aec8 R12: 0000000000000000
-[   12.408467] R13: ffffffff81a72280 R14: 0000000000000000 R15: ffffffffa0254f90
-[   12.408469] FS:  00007fb2039f1700(0000) GS:ffff880c7f040000(0000) knlGS:0000000000000000
-[   12.408470] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   12.408471] CR2: 0000000000000000 CR3: 0000000c2904e000 CR4: 00000000001407e0
-[   12.408473] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   12.408474] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[   12.408476] Process modprobe (pid: 211, threadinfo ffff880c1e982000, task ffff880c3242c540)
-[   12.408477] Stack:
-[   12.408478]  0000000000000000 0000000000000000 0000000000000000 ffffffff8146544e
-[   12.408480]  000000000006a9d0 0000000000000000 000000003520aec8 000000005f000c28
-[   12.408483]  000000003520aec8 0000000000000000 0000000000000000 0000000000000000
-[   12.408485] Call Trace:
-[   12.408507]  [<ffffffffa02567a3>] fib6_run_gc+0x53/0xf0 [ipv6_lib]
-[   12.408524]  [<ffffffffa025c5c6>] ndisc_netdev_event+0x186/0x190 [ipv6_lib]
-[   12.408541]  [<ffffffff81460437>] notifier_call_chain+0x37/0x70
-[   12.408547]  [<ffffffff813a6e52>] dev_addr_add+0x52/0x90
-[   12.408556]  [<ffffffffa032e3e9>] ixgbe_probe+0x8c9/0xd10 [ixgbe]
-[   12.408565]  [<ffffffff8127d5d4>] local_pci_probe+0x54/0xe0
-[   12.408570]  [<ffffffff8127d740>] __pci_device_probe+0xe0/0xf0
-[   12.408573]  [<ffffffff8127e953>] pci_device_probe+0x33/0x60
-[   12.408578]  [<ffffffff8132ddda>] really_probe+0x7a/0x260
-[   12.408581]  [<ffffffff8132e023>] driver_probe_device+0x63/0xc0
-[   12.408585]  [<ffffffff8132e113>] __driver_attach+0x93/0xa0
-[   12.408588]  [<ffffffff8132d468>] bus_for_each_dev+0x88/0xb0
-[   12.408591]  [<ffffffff8132cbb5>] bus_add_driver+0x155/0x2a0
-[   12.408595]  [<ffffffff8132e769>] driver_register+0x79/0x170
-[   12.408599]  [<ffffffff8127ebe8>] __pci_register_driver+0x58/0xe0
-[   12.408604]  [<ffffffff810001cb>] do_one_initcall+0x3b/0x180
-[   12.408610]  [<ffffffff810a02df>] sys_init_module+0xcf/0x240
-[   12.408615]  [<ffffffff81464592>] system_call_fastpath+0x16/0x1b
+> netqueue if one or more message object is available for transtition of =
+CAN
+> frames.
+>=20
+> Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
+> ---
+>  drivers/net/can/c_can/c_can.c | 61 +++++++++++++++++++++++++++++++++++=
++++++---
+>  drivers/net/can/c_can/c_can.h |  4 +++
+>  2 files changed, 62 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
+n.c
+> index 46d741d..02f7c89 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -550,18 +550,66 @@ static void c_can_inval_msg_object(struct net_dev=
+ice *dev, int iface, int objno)
+> =20
+>  static inline int c_can_is_next_tx_obj_busy(struct c_can_priv *priv, i=
+nt objno)
+>  {
+> -	int val =3D c_can_read_reg32(priv, C_CAN_TXRQST1_REG);
+> +	int val =3D c_can_read_reg32(priv, C_CAN_TXRQST1_REG + (objno / 32) *=
+ 4);
+> =20
+>  	/*
+>  	 * as transmission request register's bit n-1 corresponds to
+>  	 * message object n, we need to handle the same properly.
+>  	 */
+> -	if (val & (1 << (objno - 1)))
+> +	if (val & (1 << ((objno % 32) - 1)))
+>  		return 1;
+> =20
+>  	return 0;
+>  }
+> =20
+> +static void c_can_motrx_add_timer(struct net_device *dev)
+> +{
+> +	struct c_can_priv *priv =3D netdev_priv(dev);
+> +
+> +	priv->timer.expires =3D round_jiffies_relative(1);
+> +	add_timer(&priv->timer);
+> +}
+> +
+> +static void c_can_motrx_poll(unsigned long data)
+> +{
+> +	struct net_device *dev =3D (struct net_device *)data;
+> +	struct c_can_priv *priv =3D netdev_priv(dev);
+> +	u32 val, empty =3D 0;
+> +	int i;
+> +
+> +	for (i =3D 0; i < C_CAN_MOTRX_NR; i++) {
+> +		val =3D c_can_read_reg32(priv, C_CAN_TXRQST1_REG + i * 4);
+> +
+> +		if (val < priv->motrx[i]) {
+> +			netif_wake_queue(dev);
+> +			return;
+> +		}
+> +
+> +		empty |=3D val;
+> +	}
+> +
+> +	if (!empty) {
+> +		netif_wake_queue(dev);
+> +		return;
+> +	}
+> +
+> +	c_can_motrx_add_timer(dev);
+> +}
+> +
+> +static void c_can_motrx_monitor(struct net_device *dev)
+> +{
+> +	struct c_can_priv *priv =3D netdev_priv(dev);
+> +	int i;
+> +
+> +	if (priv->type !=3D BOSCH_D_CAN_FLEXCARD)
+> +		return;
+> +
+> +	for (i =3D 0; i < C_CAN_MOTRX_NR; i++)
+> +		priv->motrx[i] =3D c_can_read_reg32(priv,
+> +				C_CAN_TXRQST1_REG + i * 4);
+> +	c_can_motrx_add_timer(dev);
+> +}
+> +
+>  static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
+>  					struct net_device *dev)
+>  {
+> @@ -582,6 +630,7 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff =
+*skb,
+>  		if (readl(priv->base + FC_TXFIFO_STAT) &
+>  				FC_TXFIFO_STAT_FULL) {
+>  			netif_stop_queue(dev);
+> +			c_can_motrx_monitor(dev);
+>  			return NETDEV_TX_BUSY;
+>  		}
+> =20
+> @@ -619,8 +668,10 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff=
+ *skb,
+>  		 * if the next TX message object is still in use
+>  		 */
+>  		if (c_can_is_next_tx_obj_busy(priv, get_tx_next_msg_obj(priv))
+> -			|| ((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) =3D=3D 0))
+> +			|| ((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) =3D=3D 0)) {
+>  			netif_stop_queue(dev);
+> +			c_can_motrx_monitor(dev);
+> +		}
+>  	}
+> =20
+>  	return NETDEV_TX_OK;
+> @@ -1272,6 +1323,7 @@ static int c_can_close(struct net_device *dev)
+>  {
+>  	struct c_can_priv *priv =3D netdev_priv(dev);
+> =20
+> +	del_timer_sync(&priv->timer);
+>  	netif_stop_queue(dev);
+>  	napi_disable(&priv->napi);
+>  	c_can_stop(dev);
+> @@ -1306,6 +1358,9 @@ struct net_device *alloc_c_can_dev(void)
+>  					CAN_CTRLMODE_LISTENONLY |
+>  					CAN_CTRLMODE_BERR_REPORTING;
+>  	spin_lock_init(&priv->lock);
+> +	priv->timer.function =3D c_can_motrx_poll;
+> +	priv->timer.data =3D (unsigned long) dev;
+> +	init_timer_deferrable(&priv->timer);
+> =20
+>  	return dev;
+>  }
+> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_ca=
+n.h
+> index beea437..6d0f805 100644
+> --- a/drivers/net/can/c_can/c_can.h
+> +++ b/drivers/net/can/c_can/c_can.h
+> @@ -153,6 +153,8 @@ enum c_can_dev_id {
+>  	BOSCH_D_CAN_FLEXCARD,
+>  };
+> =20
+> +#define C_CAN_MOTRX_NR	1
 
-The crash is caused by fib6_clean_all() dereferencing a null pointer in
-init_net.ipv6.fib_table_hash because ndisc_netdev_event() handler which
-calls fib6_run_gc() is registered by ndisc_init() but the relevant data
-structures aren't initialized until ip6_route_init() is called. If a
-device intialization falls into this window, it emits NETDEV_CHANGEADDR,
-leading to a crash.
+Are there reasons to have C_CAN_MOTRX_NR !=3D 1? If not, please remove th=
+e
+array and make code more clean.
 
-This could be prevented by setting a flag when ip6_route_init() is
-complete and not calling fib6_run_gc() from ndisc_netdev_event() until
-the flag is set. However, I don't like the idea of adding a test which
-will be useful only in a short window while loading ipv6 module.
+>  /* c_can private data structure */
+>  struct c_can_priv {
+>  	struct can_priv can;	/* must be the first member */
+> @@ -176,6 +178,8 @@ struct c_can_priv {
+>  	unsigned int instance;
+>  	void (*raminit) (const struct c_can_priv *priv, bool enable);
+>  	spinlock_t lock;
+> +	struct timer_list timer;
+> +	u32 motrx[C_CAN_MOTRX_NR];
+>  };
+> =20
+>  struct net_device *alloc_c_can_dev(void);
+>=20
 
-The only other actions ndisc_netdev_event() does are flushing the neigh
-table (which should be empty at the moment) and calling
-ndisc_send_unsol_na() (which should do nothing as there is no IPv6
-address assigned yet). Thus I believe taking the netdev event handler
-registration call out of ndisc_init() into a separate function, say
-ndisc_late_init(), which would be called after ip6_route_init() should
-be a safe and efficient way to avoid the race condition.
+Marc
 
-Before I submit the patch, I wanted to ask if someone can see a problem
-with this solution (or a better solution).
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-                                                         Michal Kubecek
+
+--Kl8sDh2dbrIjOPmRD6PFH0piLdv4SgltG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlItnWcACgkQjTAFq1RaXHPhCACeMRq9LR7MfrGTkqbAafXoNQwW
+ys0AnjPB07yXYk6pEx7E2fqTGja89c0n
+=ICQk
+-----END PGP SIGNATURE-----
+
+--Kl8sDh2dbrIjOPmRD6PFH0piLdv4SgltG--
