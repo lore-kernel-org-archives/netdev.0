@@ -1,92 +1,60 @@
-From: Marc Weber <marco-oweber@gmx.de>
-Subject: drivers/net/ethernet/nvidia/forcedeth.c saved_config_space[size] access patch
-Date: Mon, 09 Sep 2013 01:39:15 +0200
-Message-ID: <1378682421-sup-4422@nixos>
+From: =?UTF-8?B?RMOibmllbA==?= Fraga <fragabr@gmail.com>
+Subject: e1000e: link up and down issue with TP-Link WDR4300 router
+Date: Sun, 8 Sep 2013 21:33:31 -0300
+Message-ID: <l0j50m$2ii$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-1378683555-269612-11122-8933-1-="
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Kosina <jkosina@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:37865 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750885Ab3IIAdr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Sep 2013 20:33:47 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1VIpQG-0007ex-Oy
+	for netdev@vger.kernel.org; Mon, 09 Sep 2013 02:33:44 +0200
+Received: from 177.189.67.96 ([177.189.67.96])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 02:33:44 +0200
+Received: from fragabr by 177.189.67.96 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 02:33:44 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+	Since I bought this motherboard (Asus P8Z68V-Pro Gen/3) I have
+to deal sometimes (very rare) with this annoying problem:
 
---=-1378683555-269612-11122-8933-1-=
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
+Sep  8 21:24:43 tux kernel: e1000e: eth0 NIC Link is Up 100 Mbps Full Duplex, Flow Control: Rx/Tx
+Sep  8 21:24:43 tux kernel: e1000e 0000:00:19.0 eth0: 10/100 speed: disabling TSO
+Sep  8 21:24:44 tux kernel: e1000e: eth0 NIC Link is Down
 
-  1) VER3 and _MAX are of same size:
-  #define NV_PCI_REGSZ_VER3       0x604
-  #define NV_PCI_REGSZ_MAX        0x604
+	It keeps trying to establish the link forever, going up and down.
 
+	Today it happened after I resumed from standby (S3).
 
-  2) It looks like there is a case where VER3 get's assigned to
-      register_size:
+	My NIC is:
 
-  if (id->driver_data &
-  (DEV_HAS_VLAN|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V2|DEV_HAS_STATISTICS_V
-                  np->register_size = NV_PCI_REGSZ_VER3;
+00:19.0 Ethernet controller: Intel Corporation 82579V Gigabit Network
+Connection (rev 05)
 
-  3) the definition of saved_config_space is MAX divided by 4 (size of u32)
-  struct fe_priv {
-    [...]
-    u32 saved_config_space[NV_PCI_REGSZ_MAX/4]
+	If I search in google for "e1000e link up down" I see a LOT of users complaining.
+As far as I remember Alan Cox onde wrote this is a issue with "cheap chinese router"
+but I don't understand why there isn't a workaround for this annoying problem.
 
-  4) This doesn't stop loop at [size-1]:
-    Thus there is the risk that it overrides the field after
-    saved_config_space. If that's desired behaviour at least a comment
-    is missing IMHO:
+	Usually it establishes the link at 1000 Mbps and as long as I don't turn off the router, 
+it negotiates the link speed correctly.
 
-  for (i = 0; i <= np->register_size/sizeof(u32); i++)
-     np->saved_config_space[i] = readl(base + i*sizeof(u32));
+	Is there some workaround for this? If you need more information, just ask!
 
-  Such for loop is used twice in forcedeth.c
+	Thanks.
 
-Patch againstn 4de9ad9bc08 (Fri Sep 6 11:14:33) attached fixing both
-using < instead of <=.
+	Ps: I'm using Linux 3.11.0.
 
-If you think I've hit a small bug just fix and commit.
-I don't care much about my ownership of this patch.
-
-I didn't test this patch because I don't have the hardware and I think
-its a trivial case.
-
-Marc Weber
-
---=-1378683555-269612-11122-8933-1-=
-Content-Disposition: attachment; filename="0001-forcedepth-fix-possible-out-of-bounds-access.patch"
-Content-Type: application/octet-stream; name="0001-forcedepth-fix-possible-out-of-bounds-access.patch"
-Content-Transfer-Encoding: base64
-
-RnJvbSAyN2NiM2VmMmUwNzk3NTk3YjY0NzczMDk4YWUwZTRkMTY4MGM1NWNm
-IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBNYXJjIFdlYmVyIDxt
-YXJjLW93ZWJlckBnbXguZGU+CkRhdGU6IFN1biwgOCBTZXAgMjAxMyAyMzoz
-NToyOCArMDIwMApTdWJqZWN0OiBbUEFUQ0hdIGZvcmNlZGVwdGg6IGZpeCBw
-b3NzaWJsZSBvdXQgb2YgYm91bmRzIGFjY2VzcwoKLS0tCiBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9udmlkaWEvZm9yY2VkZXRoLmMgfCA0ICsrLS0KIDEgZmls
-ZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbnZpZGlhL2ZvcmNl
-ZGV0aC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbnZpZGlhL2ZvcmNlZGV0
-aC5jCmluZGV4IDA5OGI5NmQuLmQwOGY2ZWYgMTAwNjQ0Ci0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L252aWRpYS9mb3JjZWRldGguYworKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9udmlkaWEvZm9yY2VkZXRoLmMKQEAgLTYxMDYs
-NyArNjEwNiw3IEBAIHN0YXRpYyBpbnQgbnZfc3VzcGVuZChzdHJ1Y3QgZGV2
-aWNlICpkZXZpY2UpCiAJbmV0aWZfZGV2aWNlX2RldGFjaChkZXYpOwogCiAJ
-Lyogc2F2ZSBub24tcGNpIGNvbmZpZ3VyYXRpb24gc3BhY2UgKi8KLQlmb3Ig
-KGkgPSAwOyBpIDw9IG5wLT5yZWdpc3Rlcl9zaXplL3NpemVvZih1MzIpOyBp
-KyspCisJZm9yIChpID0gMDsgaSA8IG5wLT5yZWdpc3Rlcl9zaXplL3NpemVv
-Zih1MzIpOyBpKyspCiAJCW5wLT5zYXZlZF9jb25maWdfc3BhY2VbaV0gPSBy
-ZWFkbChiYXNlICsgaSpzaXplb2YodTMyKSk7CiAKIAlyZXR1cm4gMDsKQEAg
-LTYxMjEsNyArNjEyMSw3IEBAIHN0YXRpYyBpbnQgbnZfcmVzdW1lKHN0cnVj
-dCBkZXZpY2UgKmRldmljZSkKIAlpbnQgaSwgcmMgPSAwOwogCiAJLyogcmVz
-dG9yZSBub24tcGNpIGNvbmZpZ3VyYXRpb24gc3BhY2UgKi8KLQlmb3IgKGkg
-PSAwOyBpIDw9IG5wLT5yZWdpc3Rlcl9zaXplL3NpemVvZih1MzIpOyBpKysp
-CisJZm9yIChpID0gMDsgaSA8IG5wLT5yZWdpc3Rlcl9zaXplL3NpemVvZih1
-MzIpOyBpKyspCiAJCXdyaXRlbChucC0+c2F2ZWRfY29uZmlnX3NwYWNlW2ld
-LCBiYXNlK2kqc2l6ZW9mKHUzMikpOwogCiAJaWYgKG5wLT5kcml2ZXJfZGF0
-YSAmIERFVl9ORUVEX01TSV9GSVgpCi0tIAoxLjguMy40Cgo=
-
---=-1378683555-269612-11122-8933-1-=--
+-- 
+Linux 3.11.0: Linux for Workgroups
+http://www.youtube.com/DanielFragaBR
+http://www.libertarios.org.br
