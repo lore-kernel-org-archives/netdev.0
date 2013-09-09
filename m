@@ -1,53 +1,64 @@
-From: Matti Vaittinen <matti.vaittinen@nsn.com>
-Subject: Re: [PATCH net] net: fib: fib6_add: fix potential NULL pointer dereference
-Date: Mon, 09 Sep 2013 09:26:07 +0300
-Message-ID: <522D69FF.9000001@nsn.com>
-References: <1378559600-15858-1-git-send-email-dborkman@redhat.com> <20130907193557.GB17248@order.stressinduktion.org>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH] mwifiex: Remove casting the return value which is a void
+ pointer
+Date: Mon, 09 Sep 2013 14:26:51 +0900
+Message-ID: <004d01cead1d$3058dcf0$910a96d0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Lin Ming <mlin@ss.pku.edu.cn>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	'David Miller' <davem@davemloft.net>,
+	'Bing Zhao' <bzhao@marvell.com>,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: "'John W. Linville'" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:12608 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212Ab3IIFYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 01:24:55 -0400
-In-Reply-To: <20130907193557.GB17248@order.stressinduktion.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:58556 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176Ab3IIF0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 01:26:53 -0400
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2013 10:35 PM, ext Hannes Frederic Sowa wrote:
-> On Sat, Sep 07, 2013 at 03:13:20PM +0200, Daniel Borkmann wrote:
->> When the kernel is compiled with CONFIG_IPV6_SUBTREES, and we return
->> with an error in fn = fib6_add_1(), then error codes are encoded into
->> the return pointer e.g. ERR_PTR(-ENOENT). In such an error case, we
->> write the error code into err and jump to out, hence enter the if(err)
->> condition. Now, if CONFIG_IPV6_SUBTREES is enabled, we check for:
->>
->>    if (pn != fn && pn->leaf == rt)
->>      ...
->>    if (pn != fn && !pn->leaf && !(pn->fn_flags & RTN_RTINFO))
->>      ...
->>
->> Since pn is NULL and fn is f.e. ERR_PTR(-ENOENT), then pn != fn
->> evaluates to true and causes a NULL-pointer dereference on further
->> checks on pn. Fix it, by setting both NULL in error case, so that
->> pn != fn already evaluates to false and no further dereference
->> takes place.
->>
->> This was first correctly implemented in 4a287eba2 ("IPv6 routing,
->> NLM_F_* flag support: REPLACE and EXCL flags support, warn about
->> missing CREATE flag"), but the bug got later on introduced by
->> 188c517a0 ("ipv6: return errno pointers consistently for fib6_add_1()").
->>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> Cc: Lin Ming <mlin@ss.pku.edu.cn>
->> Cc: Matti Vaittinen <matti.vaittinen@nsn.com>
->> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
->
-> Full ACK!
->
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->
-Acked-by: Matti Vaittinen <matti.vaittinen@nsn.com>
+Casting the return value which is a void pointer is redundant.
+The conversion from void pointer to any other pointer type is
+guaranteed by the C programming language.
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/wireless/mwifiex/pcie.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
+index 52da8ee..33fa943 100644
+--- a/drivers/net/wireless/mwifiex/pcie.c
++++ b/drivers/net/wireless/mwifiex/pcie.c
+@@ -93,7 +93,7 @@ static int mwifiex_pcie_suspend(struct device *dev)
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 
+ 	if (pdev) {
+-		card = (struct pcie_service_card *) pci_get_drvdata(pdev);
++		card = pci_get_drvdata(pdev);
+ 		if (!card || !card->adapter) {
+ 			pr_err("Card or adapter structure is not valid\n");
+ 			return 0;
+@@ -128,7 +128,7 @@ static int mwifiex_pcie_resume(struct device *dev)
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 
+ 	if (pdev) {
+-		card = (struct pcie_service_card *) pci_get_drvdata(pdev);
++		card = pci_get_drvdata(pdev);
+ 		if (!card || !card->adapter) {
+ 			pr_err("Card or adapter structure is not valid\n");
+ 			return 0;
+@@ -2037,7 +2037,7 @@ static irqreturn_t mwifiex_pcie_interrupt(int irq, void *context)
+ 		goto exit;
+ 	}
+ 
+-	card = (struct pcie_service_card *) pci_get_drvdata(pdev);
++	card = pci_get_drvdata(pdev);
+ 	if (!card || !card->adapter) {
+ 		pr_debug("info: %s: card=%p adapter=%p\n", __func__, card,
+ 			 card ? card->adapter : NULL);
+-- 
+1.7.10.4
