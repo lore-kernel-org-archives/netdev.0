@@ -1,30 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: bnx2x fix for stable
-Date: Mon, 9 Sep 2013 18:50:27 +0100
-Message-ID: <1378749027.1806.4.camel@bwh-desktop.uk.level5networks.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] net: tilegx driver: avoid compiler warning
+Date: Mon, 9 Sep 2013 14:11:54 -0400
+Message-ID: <201309091822.r89IMXmA032018@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eilon Greenstein <eilong@broadcom.com>,
-	Dave Jones <davej@redhat.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32018 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346Ab3IIRug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 13:50:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I think you need to either drop the bnx2x non-fix currently in your
-stable queue (commit c0a77ec74f29 'bnx2x: Add missing braces in
-bnx2x:bnx2x_link_initialize', or add the follow-up (commit 937e5c3d63a1
-'bnx2x: Restore a call to config_init') with the net result of fixing
-indentation.
+The "id" variable was being incremented in common code, but only
+initialized and used in IPv4 code.  We move the increment to the IPv4
+code too, and then legitimately use the uninitialized_var() macro to
+avoid the gcc 4.6 warning that 'id' may be used uninitialized.
+Note that gcc 4.7 does not warn.
 
-Ben.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilegx.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 949076f..13e6fff 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -1734,7 +1734,8 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 	unsigned int data_len = skb->len - sh_len;
+ 	unsigned char *data = skb->data;
+ 	unsigned int ih_off, th_off, p_len;
+-	unsigned int isum_seed, tsum_seed, id, seq;
++	unsigned int isum_seed, tsum_seed, seq;
++	unsigned int uninitialized_var(id);
+ 	int is_ipv6;
+ 	long f_id = -1;    /* id of the current fragment */
+ 	long f_size = skb_headlen(skb) - sh_len;  /* current fragment size */
+@@ -1781,7 +1782,7 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 		} else {
+ 			ih = (struct iphdr *)(buf + ih_off);
+ 			ih->tot_len = htons(sh_len + p_len - ih_off);
+-			ih->id = htons(id);
++			ih->id = htons(id++);
+ 			ih->check = csum_long(isum_seed + ih->tot_len +
+ 					      ih->id) ^ 0xffff;
+ 		}
+@@ -1818,7 +1819,6 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 			slot++;
+ 		}
+ 
+-		id++;
+ 		seq += p_len;
+ 
+ 		/* The last segment may be less than gso_size. */
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.1
