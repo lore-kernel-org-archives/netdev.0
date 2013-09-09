@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Fix configuration of doorbell block
-Date: Mon, 09 Sep 2013 17:07:15 -0400 (EDT)
-Message-ID: <20130909.170715.1223677951706730376.davem@davemloft.net>
-References: <1378727487-6921-1-git-send-email-ariele@broadcom.com>
-	<1378736236.26319.29.camel@edumazet-glaptop>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: TSQ accounting skb->truesize degrades throughput for large packets
+Date: Mon, 9 Sep 2013 22:41:20 +0100
+Message-ID: <522E4080.2050802@citrix.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com>  <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>  <1378486840.31445.36.camel@edumazet-glaptop> <1378574494.26319.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: eric.dumazet@gmail.com
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab3IIVHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 17:07:19 -0400
-In-Reply-To: <1378736236.26319.29.camel@edumazet-glaptop>
+Received: from smtp02.citrix.com ([66.165.176.63]:48573 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755905Ab3IIVlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 17:41:24 -0400
+In-Reply-To: <1378574494.26319.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 09 Sep 2013 07:17:16 -0700
+On 07/09/13 18:21, Eric Dumazet wrote:
+> On Fri, 2013-09-06 at 10:00 -0700, Eric Dumazet wrote:
+>> On Fri, 2013-09-06 at 17:36 +0100, Zoltan Kiss wrote:
+>>
+>>> So I guess it would be good to revisit the default value of this
+>>> setting.
+>>
+>> If ixgbe requires 3 TSO packets in TX ring to get line rate, you also
+>> can tweak dev->gso_max_size from 65535 to 64000.
+>
+> Another idea would be to no longer use tcp_limit_output_bytes but
+>
+> max(sk_pacing_rate / 1000, 2*MSS)
 
-> On Mon, 2013-09-09 at 14:51 +0300, Ariel Elior wrote:
->> As part of VF RSS feature doorbell block was configured not to use dpm, but
->> a small part of configuration was left out, preventing the driver from sending
->> tx messages to the device. This patch adds the missing configuration.
->> 
->> Reported-by: Eric Dumazet <eric.dumazet@gmil.com>
->> Signed-off-by: Ariel Elior <ariele@broadcom.com>
->> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->> ---
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    1 +
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    3 ---
->>  2 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> Thanks for fixing this.
-> 
-> Tested-by: Eric Dumazet <edumazet@google.com>
+I've tried this on a freshly updated upstream, and it solved my problem 
+on ixgbe:
 
-Applied, thanks.
+-               if (atomic_read(&sk->sk_wmem_alloc) >= 
+sysctl_tcp_limit_output_bytes) {
++               if (atomic_read(&sk->sk_wmem_alloc) >= 
+max(sk->sk_pacing_rate / 1000, 2 * mss_now) ){
+
+Now I can get proper line rate. Btw. I've tried to decrease 
+dev->gso_max_size to 60K or 32K, both was ineffective.
+
+Regards,
+
+Zoli
