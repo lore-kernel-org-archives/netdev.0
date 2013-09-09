@@ -1,86 +1,65 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 23/26] bonding: remove slave lists
-Date: Mon,  9 Sep 2013 22:16:41 +0200
-Message-ID: <1378757804-3159-24-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 25/26] vlan: link the upper neighbour only after registering
+Date: Mon,  9 Sep 2013 22:16:43 +0200
+Message-ID: <1378757804-3159-26-git-send-email-vfalico@redhat.com>
 References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2480 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23219 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753837Ab3IIURM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 16:17:12 -0400
+	id S1755514Ab3IIURS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:17:18 -0400
 In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And all the initialization.
+Otherwise users might access it without being fully registered, as per
+sysfs - it only inits in register_netdevice(), so is unusable till it is
+called.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 4 ----
- drivers/net/bonding/bonding.h   | 2 --
- 2 files changed, 6 deletions(-)
+ net/8021q/vlan.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 65eae12..707b0bc 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -972,7 +972,6 @@ void bond_select_active_slave(struct bonding *bond)
-  */
- static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
- {
--	list_add_tail_rcu(&new_slave->list, &bond->slave_list);
- 	bond->slave_cnt++;
- }
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 61fc573..69b4a35 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -169,13 +169,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_mvrp;
  
-@@ -988,7 +987,6 @@ static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
-  */
- static void bond_detach_slave(struct bonding *bond, struct slave *slave)
- {
--	list_del_rcu(&slave->list);
- 	bond->slave_cnt--;
- }
+-	err = netdev_upper_dev_link(real_dev, dev);
+-	if (err)
+-		goto out_uninit_mvrp;
+-
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_upper_dev_unlink;
++		goto out_uninit_mvrp;
++
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_unregister_netdev;
  
-@@ -1374,7 +1372,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		res = -ENOMEM;
- 		goto err_undo_flags;
- 	}
--	INIT_LIST_HEAD(&new_slave->list);
- 	/*
- 	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
- 	 * is set via sysfs or module option if desired.
-@@ -4022,7 +4019,6 @@ static void bond_setup(struct net_device *bond_dev)
- 	/* initialize rwlocks */
- 	rwlock_init(&bond->lock);
- 	rwlock_init(&bond->curr_slave_lock);
--	INIT_LIST_HEAD(&bond->slave_list);
- 	bond->params = bonding_defaults;
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -191,8 +191,8 @@ int register_vlan_dev(struct net_device *dev)
  
- 	/* Initialize pointers */
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 9329509..0e8e00e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -167,7 +167,6 @@ struct bond_parm_tbl {
+ 	return 0;
  
- struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
--	struct list_head list;
- 	struct bonding *bond; /* our master */
- 	int    delay;
- 	unsigned long jiffies;
-@@ -207,7 +206,6 @@ struct slave {
-  */
- struct bonding {
- 	struct   net_device *dev; /* first - useful for panic debug */
--	struct   list_head slave_list;
- 	struct   slave *curr_active_slave;
- 	struct   slave *current_arp_slave;
- 	struct   slave *primary_slave;
+-out_upper_dev_unlink:
+-	netdev_upper_dev_unlink(real_dev, dev);
++out_unregister_netdev:
++	unregister_netdevice(dev);
+ out_uninit_mvrp:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_mvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
