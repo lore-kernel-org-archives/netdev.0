@@ -1,35 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v2.39 4/7] ofp-actions: Add separate OpenFlow 1.3 action parser
-Date: Mon,  9 Sep 2013 16:20:04 +0900
-Message-ID: <1378711207-29890-5-git-send-email-horms@verge.net.au>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH v2.39 3/7] ofp-actions: Add
+	OFPUTIL_OFPAT13_PUSH_MPLS
+Date: Mon,  9 Sep 2013 16:20:03 +0900
+Message-ID: <1378711207-29890-4-git-send-email-horms@verge.net.au>
 References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
-Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: dev@openvswitch.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41692 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab3IIHUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:20:14 -0400
-In-Reply-To: <1378711207-29890-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1378711207-29890-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Stringer <joe@wand.net.nz>
+From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
 
-This patch adds new ofpact_from_openflow13() and
-ofpacts_from_openflow13() functions parallel to the existing ofpact
-handling code. In the OpenFlow 1.3 version, push_mpls is handled
-differently, but all other actions are handled by the existing code.
+This patch adds a new compatibility enum for use with MPLS, so that the
+differing behaviour between OpenFlow 1.2 and 1.3 can be implemented in
+ofproto-dpif-xlate.
 
-For push_mpls, ofpact_push_mpls.ofpact.compat is set to
-OFPUTIL_OFPAT13_PUSH_MPLS, which allows correct VLAN+MPLS datapath
-behaviour to be determined at odp translation time.
-
-Signed-off-by: Joe Stringer <joe@wand.net.nz>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 
 ---
 
@@ -39,106 +40,79 @@ v2.36 - v2.39
 v2.35
 * First post
 ---
- lib/ofp-actions.c | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 60 insertions(+), 3 deletions(-)
+ lib/ofp-actions.c | 5 ++++-
+ lib/ofp-parse.c   | 1 +
+ lib/ofp-util.c    | 3 +++
+ lib/ofp-util.h    | 1 +
+ 4 files changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
-index 964ecd7..a890773 100644
+index 77aa69c..964ecd7 100644
 --- a/lib/ofp-actions.c
 +++ b/lib/ofp-actions.c
-@@ -884,6 +884,40 @@ ofpacts_from_openflow11(const union ofp_action *in, size_t n_in,
-     return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow11);
- }
- 
-+static enum ofperr
-+ofpact_from_openflow13(const union ofp_action *a, struct ofpbuf *out)
-+{
-+    enum ofputil_action_code code;
-+    enum ofperr error;
-+
-+    error = decode_openflow11_action(a, &code);
-+    if (error) {
-+        return error;
-+    }
-+
-+    if (code == OFPUTIL_OFPAT11_PUSH_MPLS) {
-+        struct ofpact_push_mpls *oam;
-+        struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
-+        if (!eth_type_mpls(oap->ethertype)) {
-+            return OFPERR_OFPBAC_BAD_ARGUMENT;
-+        }
-+        oam = ofpact_put_PUSH_MPLS(out);
-+        oam->ethertype = oap->ethertype;
-+        oam->ofpact.compat = OFPUTIL_OFPAT13_PUSH_MPLS;
-+    } else {
-+        return ofpact_from_openflow11(a, out);
-+    }
-+
-+    return error;
-+}
-+
-+static enum ofperr
-+ofpacts_from_openflow13(const union ofp_action *in, size_t n_in,
-+                        struct ofpbuf *out)
-+{
-+    return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow13);
-+}
-+
- /* OpenFlow 1.1 instructions. */
+@@ -322,6 +322,7 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
+ #define OFPAT10_ACTION(ENUM, STRUCT, NAME) case OFPUTIL_##ENUM:
+ #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
+ #include "ofp-util.def"
++    case OFPUTIL_OFPAT13_PUSH_MPLS:
+         NOT_REACHED();
  
- #define DEFINE_INST(ENUM, STRUCT, EXTENSIBLE, NAME)             \
-@@ -1088,6 +1122,17 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
-     *n_actions = (ntohs(inst->len) - sizeof *inst) / OFP11_INSTRUCTION_ALIGN;
- }
+     case OFPUTIL_NXAST_RESUBMIT:
+@@ -480,6 +481,7 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
+     case OFPUTIL_ACTION_INVALID:
+ #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
+ #include "ofp-util.def"
++    case OFPUTIL_OFPAT13_PUSH_MPLS:
+         NOT_REACHED();
  
-+static uint8_t
-+get_version_from_ofpbuf(const struct ofpbuf *openflow)
-+{
-+    if (openflow && openflow->l2) {
-+        struct ofp_header *oh = openflow->l2;
-+        return oh->version;
-+    }
-+
-+    return OFP10_VERSION;
-+}
-+
- /* Attempts to convert 'actions_len' bytes of OpenFlow 1.1 actions from the
-  * front of 'openflow' into ofpacts.  On success, replaces any existing content
-  * in 'ofpacts' by the converted ofpacts; on failure, clears 'ofpacts'.
-@@ -1107,8 +1152,15 @@ ofpacts_pull_openflow11_actions(struct ofpbuf *openflow,
-                                 unsigned int actions_len,
-                                 struct ofpbuf *ofpacts)
- {
--    return ofpacts_pull_actions(openflow, actions_len, ofpacts,
--                                ofpacts_from_openflow11);
-+    uint8_t version = get_version_from_ofpbuf(openflow);
-+
-+    if (version < OFP13_VERSION) {
-+        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
-+                                    ofpacts_from_openflow11);
-+    } else {
-+        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
-+                                    ofpacts_from_openflow13);
-+    }
- }
+     case OFPUTIL_OFPAT10_OUTPUT:
+@@ -842,7 +844,8 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
+         ofpact_put_DEC_MPLS_TTL(out);
+         break;
  
- enum ofperr
-@@ -1160,10 +1212,15 @@ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
-     if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
-         const union ofp_action *actions;
-         size_t n_actions;
-+        uint8_t version = get_version_from_ofpbuf(openflow);
+-    case OFPUTIL_OFPAT11_PUSH_MPLS: {
++    case OFPUTIL_OFPAT11_PUSH_MPLS:
++    case OFPUTIL_OFPAT13_PUSH_MPLS: {
+         struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
+         if (!eth_type_mpls(oap->ethertype)) {
+             return OFPERR_OFPBAC_BAD_ARGUMENT;
+diff --git a/lib/ofp-parse.c b/lib/ofp-parse.c
+index a61beb9..9aac20b 100644
+--- a/lib/ofp-parse.c
++++ b/lib/ofp-parse.c
+@@ -804,6 +804,7 @@ parse_named_action(enum ofputil_action_code code,
+         break;
  
-         get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
-                                      &actions, &n_actions);
--        error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
-+        if (version < OFP13_VERSION) {
-+            error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
-+        } else {
-+            error = ofpacts_from_openflow13(actions, n_actions, ofpacts);
-+        }
-         if (error) {
-             goto exit;
-         }
+     case OFPUTIL_OFPAT11_PUSH_MPLS:
++    case OFPUTIL_OFPAT13_PUSH_MPLS:
+     case OFPUTIL_NXAST_PUSH_MPLS:
+         error = str_to_u16(arg, "push_mpls", &ethertype);
+         if (!error) {
+diff --git a/lib/ofp-util.c b/lib/ofp-util.c
+index 23c7136..87336e2 100644
+--- a/lib/ofp-util.c
++++ b/lib/ofp-util.c
+@@ -4768,6 +4768,9 @@ ofputil_put_action(enum ofputil_action_code code, struct ofpbuf *buf)
+     case OFPUTIL_ACTION_INVALID:
+         NOT_REACHED();
+ 
++    case OFPUTIL_OFPAT13_PUSH_MPLS:
++        return ofputil_put_OFPAT11_PUSH_MPLS(buf);
++
+ #define OFPAT10_ACTION(ENUM, STRUCT, NAME)                  \
+     case OFPUTIL_##ENUM: return ofputil_put_##ENUM(buf);
+ #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME)      \
+diff --git a/lib/ofp-util.h b/lib/ofp-util.h
+index 0ca483c..3ca189d 100644
+--- a/lib/ofp-util.h
++++ b/lib/ofp-util.h
+@@ -787,6 +787,7 @@ enum OVS_PACKED_ENUM ofputil_action_code {
+ #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) OFPUTIL_##ENUM,
+ #define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME)   OFPUTIL_##ENUM,
+ #include "ofp-util.def"
++    OFPUTIL_OFPAT13_PUSH_MPLS
+ };
+ 
+ /* The number of values of "enum ofputil_action_code". */
 -- 
 1.8.4
