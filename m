@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 21/26] net: add a function to get the next private
-Date: Mon,  9 Sep 2013 22:16:39 +0200
-Message-ID: <1378757804-3159-22-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 18/26] net: add a possibility to get private from netdev_adjacent->list
+Date: Mon,  9 Sep 2013 22:16:36 +0200
+Message-ID: <1378757804-3159-19-git-send-email-vfalico@redhat.com>
 References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,16 +9,15 @@ Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3705 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14036 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756024Ab3IIURG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 16:17:06 -0400
+	id S1754417Ab3IIURB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:17:01 -0400
 In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It searches for the provided private and returns the next one. If private
-is not found or next list element is list head - returns NULL.
+It will be useful to get first/last element.
 
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
@@ -26,60 +25,42 @@ CC: Jiri Pirko <jiri@resnulli.us>
 CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            | 27 +++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 72d1631..b487302 100644
+index 48431f0..72d1631 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2866,6 +2866,8 @@ extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
- 					      struct net_device *lower_dev);
- extern void *netdev_lower_dev_get_private(struct net_device *dev,
- 					  struct net_device *lower_dev);
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private);
- extern int skb_checksum_help(struct sk_buff *skb);
- extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	netdev_features_t features, bool tx_path);
+@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+ 
++extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
 diff --git a/net/core/dev.c b/net/core/dev.c
-index adcc163..8d5473d 100644
+index ebf8182..adcc163 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5041,6 +5041,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+@@ -4512,6 +4512,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
  }
- EXPORT_SYMBOL(netdev_lower_dev_get_private);
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
  
-+/* netdev_lower_dev_get_next_private - return the ->private of the list
-+ *				       element whos ->private == private.
-+ * @dev - device to search
-+ * @private - private pointer to search for.
-+ *
-+ * Returns the next ->private pointer, if ->next is not head and private is
-+ * found.
-+ */
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private)
++void *netdev_adjacent_get_private(struct list_head *adj_list)
 +{
-+	struct netdev_adjacent *lower;
++	struct netdev_adjacent *adj;
 +
-+	list_for_each_entry(lower, &dev->adj_list.lower, list) {
-+		if (lower->private == private) {
-+			lower = list_entry(lower->list.next,
-+					   struct netdev_adjacent, list);
-+			if (&lower->list == &dev->adj_list.lower)
-+				return NULL;
-+			return lower->private;
-+		}
-+	}
++	adj = list_entry(adj_list, struct netdev_adjacent, list);
 +
-+	return NULL;
++	return adj->private;
 +}
-+EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
++EXPORT_SYMBOL(netdev_adjacent_get_private);
 +
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+ /* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
+  * @iter: list_head ** of the current position
 -- 
 1.8.4
