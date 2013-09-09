@@ -1,56 +1,47 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net] net: sctp: fix bug in sctp_poll for
- SOCK_SELECT_ERR_QUEUE
-Date: Mon, 9 Sep 2013 19:12:03 +0000
-Message-ID: <1378753922.10690.0.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1378565099-20987-1-git-send-email-dborkman@redhat.com>
-	 <522DD37C.5070108@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Vladimir Murzin <murzin.v@gmail.com>
+Subject: [PATCH] pch_gbe: fix unmet direct dependency on PTP_1588_CLOCK_PCH
+Date: Mon,  9 Sep 2013 21:28:30 +0200
+Message-ID: <1378754910-2254-1-git-send-email-murzin.v@gmail.com>
+Cc: davem@davemloft.net, ben@decadent.org.uk,
+	jeffrey.t.kirsher@intel.com, rdunlap@xenotime.net,
+	haicheng.lee@gmail.com, Vladimir Murzin <murzin.v@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27889 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752571Ab3IITMG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 15:12:06 -0400
-In-Reply-To: <522DD37C.5070108@gmail.com>
-Content-Language: en-US
-Content-ID: <61B525854D82ED4B9DAC7303AD3DDBA7@intel.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:65321 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754333Ab3IIT3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 15:29:20 -0400
+Received: by mail-lb0-f174.google.com with SMTP id w6so5304723lbh.5
+        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 12:29:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDEzLTA5LTA5IGF0IDA5OjU2IC0wNDAwLCBWbGFkIFlhc2V2aWNoIHdyb3RlOg0K
-PiBPbiAwOS8wNy8yMDEzIDEwOjQ0IEFNLCBEYW5pZWwgQm9ya21hbm4gd3JvdGU6DQo+ID4gSWYg
-d2UgZG8gbm90IGFkZCBicmFjZXMgYXJvdW5kIC4uLg0KPiA+DQo+ID4gICAgbWFzayB8PSBQT0xM
-RVJSIHwNCj4gPiAgICAgICAgICAgIHNvY2tfZmxhZyhzaywgU09DS19TRUxFQ1RfRVJSX1FVRVVF
-KSA/IFBPTExQUkkgOiAwOw0KPiA+DQo+ID4gLi4uIHRoZW4gdGhpcyBjb25kaXRpb24gYWx3YXlz
-IGV2YWx1YXRlcyB0byB0cnVlIGFzIFBPTExFUlIgaXMNCj4gPiBkZWZpbmVkIGFzIDggYW5kIGJp
-bmFyeSBvcidkIHdpdGggd2hhdGV2ZXIgcmVzdWx0IGNvbWVzIG91dCBvZg0KPiA+IHNvY2tfZmxh
-ZygpLiBIZW5jZSBpbnN0ZWFkIG9mIChYIHwgWSkgPyBBIDogQiwgdHJhbnNmb3JtIGl0IGludG8N
-Cj4gPiBYIHwgKFkgPyBBIDogQikuIFVuZm9ydHVuYXRlbHR5LCBjb21taXQgOGZhY2Q1ZmI3MyAo
-Im5ldDogZml4DQo+ID4gc21hdGNoIHdhcm5pbmdzIGluc2lkZSBkYXRhZ3JhbV9wb2xsIikgZm9y
-Z290IGFib3V0IFNDVFAuIDotKA0KPiA+DQo+ID4gSW50cm9kdWNlZCBieSA3ZDRjMDRmYzE3MCAo
-Im5ldDogYWRkIG9wdGlvbiB0byBlbmFibGUgZXJyb3IgcXVldWUNCj4gPiBwYWNrZXRzIHdha2lu
-ZyBzZWxlY3QiKS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IERhbmllbCBCb3JrbWFubiA8ZGJv
-cmttYW5AcmVkaGF0LmNvbT4NCj4gPiBDYyBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGlu
-dGVsLmNvbT4NCj4gDQo+IEFja2VkLWJ5OiBWbGFkIFlhc2V2aWNoIDx2eWFzZXZpY2hAZ21haWwu
-Y29tPg0KDQpBY2tlZC1ieTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+
-DQoNCj4gLXZsYWQNCj4gDQo+ID4gLS0tDQo+ID4gICBuZXQvc2N0cC9zb2NrZXQuYyB8IDIgKy0N
-Cj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+
-DQo+ID4gZGlmZiAtLWdpdCBhL25ldC9zY3RwL3NvY2tldC5jIGIvbmV0L3NjdHAvc29ja2V0LmMN
-Cj4gPiBpbmRleCBkNWQ1ODgyLi41NDYyYmJiIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9zY3RwL3Nv
-Y2tldC5jDQo+ID4gKysrIGIvbmV0L3NjdHAvc29ja2V0LmMNCj4gPiBAQCAtNjE3Niw3ICs2MTc2
-LDcgQEAgdW5zaWduZWQgaW50IHNjdHBfcG9sbChzdHJ1Y3QgZmlsZSAqZmlsZSwgc3RydWN0IHNv
-Y2tldCAqc29jaywgcG9sbF90YWJsZSAqd2FpdCkNCj4gPiAgIAkvKiBJcyB0aGVyZSBhbnkgZXhj
-ZXB0aW9uYWwgZXZlbnRzPyAgKi8NCj4gPiAgIAlpZiAoc2stPnNrX2VyciB8fCAhc2tiX3F1ZXVl
-X2VtcHR5KCZzay0+c2tfZXJyb3JfcXVldWUpKQ0KPiA+ICAgCQltYXNrIHw9IFBPTExFUlIgfA0K
-PiA+IC0JCQlzb2NrX2ZsYWcoc2ssIFNPQ0tfU0VMRUNUX0VSUl9RVUVVRSkgPyBQT0xMUFJJIDog
-MDsNCj4gPiArCQkJKHNvY2tfZmxhZyhzaywgU09DS19TRUxFQ1RfRVJSX1FVRVVFKSA/IFBPTExQ
-UkkgOiAwKTsNCj4gPiAgIAlpZiAoc2stPnNrX3NodXRkb3duICYgUkNWX1NIVVRET1dOKQ0KPiA+
-ICAgCQltYXNrIHw9IFBPTExSREhVUCB8IFBPTExJTiB8IFBPTExSRE5PUk07DQo+ID4gICAJaWYg
-KHNrLT5za19zaHV0ZG93biA9PSBTSFVURE9XTl9NQVNLKQ0KPiA+DQo+IA0KDQoNCg==
+While cross-building for PPC.
+
+warning: (PCH_GBE) selects PTP_1588_CLOCK_PCH which has unmet direct
+dependencies (X86 || COMPILE_TEST)
+
+Both PCH_GBE and PPT_1588_CLOCK_PCH is only compatible with Intel
+architecture. Add dependency on x86 for PCH_GBE. Keep COMPILE_TEST to allow
+building on different arches.
+
+Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+index cb22341..4a935ec 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ config PCH_GBE
+ 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
+-	depends on PCI
++	depends on PCI && (x86 || COMPILE_TEST)
+ 	select MII
+ 	select PTP_1588_CLOCK_PCH
+ 	---help---
+-- 
+1.8.1.5
