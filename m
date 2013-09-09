@@ -1,46 +1,33 @@
-From: Chris Healy <cphealy@gmail.com>
-Subject: [PATCH 1/1] bridge: fix message_age_timer calculation
-Date: Mon,  9 Sep 2013 09:56:08 -0700
-Message-ID: <1378745768-4495-1-git-send-email-cphealy@gmail.com>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	buytenh@wantstofly.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: crash in fib6_clean_all() while loading ipv6 module
+Date: Mon, 09 Sep 2013 13:27:20 -0400 (EDT)
+Message-ID: <20130909.132720.1372904024173191622.davem@davemloft.net>
+References: <20130909100515.GA16056@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mkubecek@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38209 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753283Ab3IIR1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 13:27:25 -0400
+In-Reply-To: <20130909100515.GA16056@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This changes the message_age_timer calculation to use the BPDU's max age as opposed to the local bridge's max age.  This is in accordance with section 8.6.2.3.2 Step 2 of the 802.1D-1998 sprecification.
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Mon, 9 Sep 2013 12:05:15 +0200
 
-With the current implementation, when running with very large bridge diameters, convergance will not always occur even if a root bridge is configured to have a longer max age.
+> This could be prevented by setting a flag when ip6_route_init() is
+> complete and not calling fib6_run_gc() from ndisc_netdev_event() until
+> the flag is set. However, I don't like the idea of adding a test which
+> will be useful only in a short window while loading ipv6 module.
 
-Tested successfully on bridge diameters of ~200.
+Please just initialize the parts of ipv6 in the correct order necessary
+to prevent this problem.
 
-Signed-off-by: Chris Healy <cphealy@gmail.com>
----
- net/bridge/br_stp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 1c0a50f..f1887ba 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -209,7 +209,7 @@ static void br_record_config_information(struct net_bridge_port *p,
- 	p->designated_age = jiffies - bpdu->message_age;
- 
- 	mod_timer(&p->message_age_timer, jiffies
--		  + (p->br->max_age - bpdu->message_age));
-+		  + (bpdu->max_age - bpdu->message_age));
- }
- 
- /* called under bridge lock */
--- 
-1.8.1.2
+I stronly dislike using flags when it's simply an initialization
+ordering problem.  It's just like registering a device interrupt
+handle before the driver's data structures are properly setup.
