@@ -1,30 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] r8169: enforce RX_MULTI_EN for the 8168f.
-Date: Mon, 09 Sep 2013 00:13:40 -0400 (EDT)
-Message-ID: <20130909.001340.1324942746421870783.davem@davemloft.net>
-References: <20130907231535.GB24530@electric-eye.fr.zoreil.com>
-	<941AC15120E247718F8B349F9B3B7422@realtek.com.tw>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/2] irda: donauboe: Remove casting the return value which is a
+ void pointer
+Date: Mon, 09 Sep 2013 14:22:19 +0900
+Message-ID: <004b01cead1c$8e1678d0$aa436a70$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	david@unsolicited.net, fredo@starox.org, nic_swsd@realtek.com
-To: hayeswang@realtek.com
+Cc: netdev@vger.kernel.org, 'Samuel Ortiz' <samuel@sortiz.org>
+To: 'David Miller' <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37478 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663Ab3IIENp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 00:13:45 -0400
-In-Reply-To: <941AC15120E247718F8B349F9B3B7422@realtek.com.tw>
+Received: from mailout1.samsung.com ([203.254.224.24]:46355 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073Ab3IIFWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 01:22:25 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MSU00EJMEX7D020@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Mon, 09 Sep 2013 14:22:19 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Casting the return value which is a void pointer is redundant.
+The conversion from void pointer to any other pointer type is
+guaranteed by the C programming language.
 
-Please do not quote a patch this way, to our automated systems it makes
-it look like another submission of the patch which makes more work for me.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/irda/donauboe.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Quoting must use some kind of reasonable prefix on the quoted content
-such as "> ", as is common in mailers, to delimit new content from
-quoted content.
-
-Thank you.
+diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
+index c6bfc4a..bef2243 100644
+--- a/drivers/net/irda/donauboe.c
++++ b/drivers/net/irda/donauboe.c
+@@ -1488,7 +1488,7 @@ static void
+ toshoboe_close (struct pci_dev *pci_dev)
+ {
+   int i;
+-  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
++  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
+ 
+   IRDA_DEBUG (4, "%s()\n", __func__);
+ 
+@@ -1696,7 +1696,7 @@ freeself:
+ static int
+ toshoboe_gotosleep (struct pci_dev *pci_dev, pm_message_t crap)
+ {
+-  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
++  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
+   unsigned long flags;
+   int i = 10;
+ 
+@@ -1725,7 +1725,7 @@ toshoboe_gotosleep (struct pci_dev *pci_dev, pm_message_t crap)
+ static int
+ toshoboe_wakeup (struct pci_dev *pci_dev)
+ {
+-  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
++  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
+   unsigned long flags;
+ 
+   IRDA_DEBUG (4, "%s()\n", __func__);
+-- 
+1.7.10.4
