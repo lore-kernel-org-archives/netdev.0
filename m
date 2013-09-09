@@ -1,175 +1,57 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.39 0/7] MPLS actions and matches
-Date: Mon, 9 Sep 2013 16:25:14 +0900
-Message-ID: <20130909072512.GA30283@verge.net.au>
-References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+From: Benedikt Spranger <b.spranger@linutronix.de>
+Subject: =?UTF-8?q?=5BPATCH=2000/16=5D=20Support=20for=20Ebersp=C3=A4cher=20Flexcard=20DCAN=20function?=
+Date: Mon,  9 Sep 2013 09:24:57 +0200
+Message-ID: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: dev@openvswitch.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Holger Dengler <dengler@linutronix.de>,
+	Benedikt Spranger <b.spranger@linutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56300 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758Ab3IIHZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:25:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+Received: from www.linutronix.de ([62.245.132.108]:37913 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155Ab3IIHZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:25:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 09, 2013 at 04:20:00PM +0900, Simon Horman wrote:
-> Hi,
-> 
-> This series implements MPLS actions and matches based on work by
-> Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
-> 
-> This series provides two changes
-> 
-> * Provide user-space support for the VLAN/MPLS tag insertion order
->   up to and including OpenFlow 1.2, and the different ordering
->   specified from OpenFlow 1.3. In a nutshell the datapath always
->   uses the OpenFlow 1.3 ordering, which is to always insert tags
->   immediately after the L2 header, regardless of the presence of other
->   tags. And ovs-vswtichd provides compatibility for the behaviour up
->   to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
->   if present.
-> 
-> * Adding basic MPLS action and match support to the kernel datapath
-> 
-> 
-> Differences between v2.39 and v2.38:
-> 
-> * Rebase for removal of vlan, checksum and skb->mark compat code
->   - This includes adding adding a new patch,
->     "[PATCH v2.39 6/7] datapath: Break out deacceleration portion of
->     vlan_push" to allow re-use of some existing code.
->     
-> 
-> Differences between v2.38 and v2.37:
-> 
-> * Rebase for SCTP support
-> * Refactor validate_tp_port() to iterate over eth_types rather
->   than open-coding the loop. With the addition of SCTP this logic
->   is now used three times.
-> 
-> 
-> Differences between v2.37 and v2.36:
-> 
-> * Rebase
-> 
-> 
-> Differences between v2.36 and v2.35:
-> 
-> * Rebase
-> 
-> * Do not add set_ethertype() to datapath/actions.c.
->   As this patch has evolved this function had devolved into
->   to sets of functionality wrapped into a single function with
->   only one line of common code. Refactor things to simply
->   open-code setting the ether type in the two locations where
->   set_ethertype() was previously used. The aim here is to improve
->   readability.
-> 
-> * Update setting skb->ethertype after mpls push and pop.
->   - In the case of push_mpls it should be set unconditionally
->     as in v2.35 the behaviour of this function to always push
->     an MPLS LSE before any VLAN tags.
->   - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
->     test than skb->protocol != htons(ETH_P_8021Q) as it will give the
->     correct behaviour in the presence of other VLAN ethernet types,
->     for example 0x88a8 which is used by 802.1ad. Moreover, it seems
->     correct to update the ethernet type if it was previously set
->     according to the top-most MPLS LSE.
-> 
-> * Deaccelerate VLANs when pushing MPLS tags the
->   - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN tags.
->     This means that if an accelerated tag is present it should be
->     deaccelerated to ensure it ends up in the correct position.
-> 
-> * Update skb->mac_len in push_mpls() so that it will be correct
->   when used by a subsequent call to pop_mpls().
-> 
->   As things stand I do not believe this is strictly necessary as
->   ovs-vswitchd will not send a pop MPLS action after a push MPLS action.
->   However, I have added this in order to code more defensively as I believe
->   that if such a sequence did occur it would be rather unobvious why
->   it didn't work.
-> 
-> * Do not add skb_cow_head() call in push_mpls().
->   It is unnecessary as there is a make_writable() call.
->   This change was also made in v2.30 but some how the
->   code regressed between then and v2.35.
-> 
-> 
-> Differences between v2.35 and v2.34:
-> 
-> * Add support for the tag ordering specified up until OpenFlow 1.2 and
->   the ordering specified from OpenFlow 1.3.
-> 
-> * Correct error in datapath patch's handling of GSO in the presence
->   of MPLS and absence of VLANs.
+The Ebersp=C3=A4cher Flexcard is a multifunctional PCI Mezzanine Card. =
+This
+patch-series adds support for the DCAN function. The Flexcard supports
+up too 8 CAN devices and has some CAN related special features:
+- own FIFO per device
+- DMA for receiving CAN frames
+- Firmware tracks CAN echo packets
 
-I forgot to update the trailing portion of this cover letter.
-It should read as follows:
+Benedikt Spranger (16):
+  c_can_platform: add FlexCard D-CAN support
+  c_can: add generic D-CAN RAM initialization support
+  c_can: simplify arbitration register handling
+  c_can: fix receive buffer configuration
+  c_can: use 32 bit access for D_CAN
+  c_can: consider set bittiming may fail
+  c_can: reconfigre message objects after leaving init state
+  c_can: Add FlexCard CAN TX fifo support
+  c_can: expicit 32bit access on D_CAN to message buffer data register
+  c_can: add 16bit align 32bit access functions
+  c_can: stop netqueue if hardware is busy
+  c_can: Add flag to disable automatic retransmission of CAN frames
+  c_can: flexcard: add ioctl to reset FIFO message object
+  flexcard: can: CAN local loopback using SKB pflags
+  flexcard: can: Configure CAN loopback packages (TXACK)
+  c_can: fix TX packet accounting
 
-Patch overview:
+ drivers/net/can/c_can/c_can.c          | 383 +++++++++++++++++++++++++=
++-------
+ drivers/net/can/c_can/c_can.h          |   8 +
+ drivers/net/can/c_can/c_can_platform.c | 191 +++++++++++++++-
+ include/uapi/linux/can/netlink.h       |   2 +
+ include/uapi/linux/can/raw.h           |  20 ++
+ net/can/raw.c                          |  22 +-
+ 6 files changed, 526 insertions(+), 100 deletions(-)
 
-* The first 5 patches add support for different tag ordering
-  to user-space.
-* The 6th patch breaks out kernel datapath some code to allow
-  it to be re-used by the last patch.
-* The last patch is a revised version of the patch to add MPLS support
-  to the kernel datapath.
-
-To aid review this series is available in git at:
-
-git://github.com/horms/openvswitch.git devel/mpls-v2.39
-
-
-Patch list and overall diffstat:
-
-Joe Stringer (5):
-  odp: Only pass vlan_tci to commit_vlan_action()
-  odp: Allow VLAN actions after MPLS actions
-  ofp-actions: Add OFPUTIL_OFPAT13_PUSH_MPLS
-  ofp-actions: Add separate OpenFlow 1.3 action parser
-  lib: Push MPLS tags in the OpenFlow 1.3 ordering
-
-Simon Horman (2):
-  datapath: Break out deacceleration portion of vlan_push
-  datapath: Add basic MPLS support to kernel
-
- datapath/Modules.mk                             |   1 +
- datapath/actions.c                              | 154 +++++++-
- datapath/datapath.c                             | 259 ++++++++++++--
- datapath/datapath.h                             |   9 +
- datapath/flow.c                                 |  58 ++-
- datapath/flow.h                                 |  17 +-
- datapath/linux/compat/gso.c                     |  50 ++-
- datapath/linux/compat/gso.h                     |  39 +++
- datapath/linux/compat/include/linux/netdevice.h |  12 -
- datapath/linux/compat/netdevice.c               |  28 --
- datapath/mpls.h                                 |  15 +
- datapath/vport-lisp.c                           |   1 +
- datapath/vport-netdev.c                         |  47 ++-
- include/linux/openvswitch.h                     |   7 +-
- lib/flow.c                                      |   2 +-
- lib/odp-util.c                                  |  22 +-
- lib/odp-util.h                                  |   4 +-
- lib/ofp-actions.c                               |  68 +++-
- lib/ofp-parse.c                                 |   1 +
- lib/ofp-util.c                                  |   3 +
- lib/ofp-util.h                                  |   1 +
- lib/packets.c                                   |  10 +-
- lib/packets.h                                   |   2 +-
- ofproto/ofproto-dpif-xlate.c                    | 103 ++++--
- ofproto/ofproto-dpif-xlate.h                    |   5 +
- tests/ofproto-dpif.at                           | 446 ++++++++++++++++++++++++
- 26 files changed, 1225 insertions(+), 139 deletions(-)
- create mode 100644 datapath/mpls.h
-
--- 
-1.8.4
+--=20
+1.8.4.rc3
