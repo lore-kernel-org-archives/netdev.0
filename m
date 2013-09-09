@@ -1,60 +1,73 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net] bnx2x: Fix configuration of doorbell block
-Date: Mon, 9 Sep 2013 14:51:27 +0300
-Message-ID: <1378727487-6921-1-git-send-email-ariele@broadcom.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH stable] ipv6: restrict neighbor entry creation to output
+ flow
+Date: Mon, 9 Sep 2013 14:17:19 +0200
+Message-ID: <20130909121719.GA3269@minipsycho.brq.redhat.com>
+References: <abab9dc5af4b61da70672b99ad80175b94b4ec68.1376488215.git.mleitner@redhat.com>
+ <20130814150054.GB2723@order.stressinduktion.org>
+ <20130815.155454.417440388188230172.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ariel Elior" <ariele@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, mleitner@redhat.com,
+	netdev@vger.kernel.org, dbanerje@akamai.com,
+	yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2210 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752397Ab3IILua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 07:50:30 -0400
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:62585 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321Ab3IIMRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 08:17:23 -0400
+Received: by mail-ee0-f49.google.com with SMTP id d41so3036938eek.8
+        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 05:17:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130815.155454.417440388188230172.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As part of VF RSS feature doorbell block was configured not to use dpm, but
-a small part of configuration was left out, preventing the driver from sending
-tx messages to the device. This patch adds the missing configuration.
+Fri, Aug 16, 2013 at 12:54:54AM CEST, davem@davemloft.net wrote:
+>From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>Date: Wed, 14 Aug 2013 17:00:54 +0200
+>
+>> On Wed, Aug 14, 2013 at 10:53:27AM -0300, Marcelo Ricardo Leitner wrote:
+>>> This patch is based on 3.2.y branch, the one used by reported. Please let me
+>>> know if it should be different. Thanks.
+>>> 
+>>> ---8<---
+>>> 
+>>> Commit 0d6a77079c475033cb622c07c5a880b392ef664e introduced a regression on
+>>> which routes to local delivery would not work anymore. Like this:
+>>> 
+>>>     $ ip -6 route add local 2001::/64 dev lo
+>>>     $ ping6 -c1 2001::9
+>>>     PING 2001::9(2001::9) 56 data bytes
+>>>     ping: sendmsg: Invalid argument
+>>> 
+>>> As this is a local delivery, that commit would not allow the creation of a
+>>> neighbor entry and thus the packet cannot be sent.
+>>> 
+>>> But as TPROXY scenario actually needs to avoid the neighbor entry creation only
+>>> for input flow, this patch now limits previous patch to input flow, keeping
+>>> output as before that patch.
+>>> 
+>>> Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
+>>> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+>>> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> 
+>> Looks good, thanks Marcelo!
+>> 
+>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> 
+>> David, this patch is for all stable kernels except the 3.10 series.
+>> It does not apply cleanly throughout the whole longterm kernels but the
+>> changes should not be too difficult to adapt. Do you take care of this
+>> or can we do something to ease this process?
+>
+>I've queued it up for -stable, thanks.
 
-Reported-by: Eric Dumazet <eric.dumazet@gmil.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    3 ---
- 2 files changed, 1 insertions(+), 3 deletions(-)
+Hi Dave.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 634a793..2f8dbbb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -7645,6 +7645,7 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 
- 	bnx2x_init_block(bp, BLOCK_TM, init_phase);
- 	bnx2x_init_block(bp, BLOCK_DORQ, init_phase);
-+	REG_WR(bp, DORQ_REG_MODE_ACT, 1); /* no dpm */
- 
- 	bnx2x_iov_init_dq(bp);
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index b26eb83..2604b62 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -1756,9 +1756,6 @@ void bnx2x_iov_init_dq(struct bnx2x *bp)
- 	REG_WR(bp, DORQ_REG_VF_TYPE_MIN_MCID_0, 0);
- 	REG_WR(bp, DORQ_REG_VF_TYPE_MAX_MCID_0, 0x1ffff);
- 
--	/* set the number of VF allowed doorbells to the full DQ range */
--	REG_WR(bp, DORQ_REG_VF_NORM_MAX_CID_COUNT, 0x20000);
--
- 	/* set the VF doorbell threshold */
- 	REG_WR(bp, DORQ_REG_VF_USAGE_CT_LIMIT, 4);
- }
--- 
-1.7.1
+When do you plan to push this to stable maintainers?
+
+Thanks!
+
+Jiri
