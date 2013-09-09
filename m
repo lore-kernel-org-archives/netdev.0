@@ -1,7 +1,7 @@
 From: Benedikt Spranger <b.spranger@linutronix.de>
-Subject: [PATCH 14/16] flexcard: can: CAN local loopback using SKB pflags
-Date: Mon,  9 Sep 2013 09:25:11 +0200
-Message-ID: <1378711513-2548-15-git-send-email-b.spranger@linutronix.de>
+Subject: [PATCH 11/16] c_can: stop netqueue if hardware is busy
+Date: Mon,  9 Sep 2013 09:25:08 +0200
+Message-ID: <1378711513-2548-12-git-send-email-b.spranger@linutronix.de>
 References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
@@ -9,151 +9,157 @@ Cc: Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Benedikt Spranger <b.spranger@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:38035 "EHLO
+Received: from www.linutronix.de ([62.245.132.108]:38029 "EHLO
 	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210Ab3IIHnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:43:31 -0400
+	with ESMTP id S1751171Ab3IIHn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 03:43:27 -0400
 In-Reply-To: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flexcard receives CAN local loopback in hardware. Include the direction
-information from the raw CAN message (DMA) in the pflags of SKB and use it
-later in the CAN raw layer.
+Unlike other network devices the FlexCard do not support interrupts on TX.
+Emulate the TX interrupt by polling the MOTRX registers and restart the
+netqueue if one or more message object is available for transtition of CAN
+frames.
 
-Signed-off-by: Holger Dengler <dengler@linutronix.de>
+Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
 ---
- drivers/net/can/c_can/c_can_platform.c | 14 +++++++++++---
- include/uapi/linux/can/raw.h           | 20 ++++++++++++++++++++
- net/can/raw.c                          | 22 ++++++----------------
- 3 files changed, 37 insertions(+), 19 deletions(-)
+ drivers/net/can/c_can/c_can.c | 61 ++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/can/c_can/c_can.h |  4 +++
+ 2 files changed, 62 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index c6c1eb4..d8b99b5 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -35,6 +35,7 @@
- #include <linux/flexcard.h>
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 46d741d..02f7c89 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -550,18 +550,66 @@ static void c_can_inval_msg_object(struct net_device *dev, int iface, int objno)
  
- #include <linux/can/dev.h>
-+#include <linux/can/raw.h>
+ static inline int c_can_is_next_tx_obj_busy(struct c_can_priv *priv, int objno)
+ {
+-	int val = c_can_read_reg32(priv, C_CAN_TXRQST1_REG);
++	int val = c_can_read_reg32(priv, C_CAN_TXRQST1_REG + (objno / 32) * 4);
  
- #include "c_can.h"
+ 	/*
+ 	 * as transmission request register's bit n-1 corresponds to
+ 	 * message object n, we need to handle the same properly.
+ 	 */
+-	if (val & (1 << (objno - 1)))
++	if (val & (1 << ((objno % 32) - 1)))
+ 		return 1;
  
-@@ -125,6 +126,7 @@ static int c_can_rx_pkt(void *p, void *data, size_t len)
- 	struct can_frame *frame;
- 	struct sk_buff *skb;
- 	u32 flags, id, state, type;
-+	unsigned int *pflags;
+ 	return 0;
+ }
  
- 	switch (le32_to_cpu(pb->header.type)) {
- 	case fc_packet_type_can:
-@@ -142,14 +144,20 @@ static int c_can_rx_pkt(void *p, void *data, size_t len)
- 		else
- 			frame->can_id = id & CAN_SFF_MASK;
- 
-+		if (flags & BIT(12)) {
-+			pflags = can_raw_flags(skb);
-+			*pflags |= CAN_RAW_TX_ECHO;
-+		} else {
-+			/* No accounting for local echo packages */
-+			stats->rx_packets++;
-+			stats->rx_bytes += frame->can_dlc;
-+		}
-+
- 		if (flags & BIT(13))
- 			frame->can_id |= CAN_RTR_FLAG;
- 		frame->can_dlc = (flags >> 8) & 0xf;
- 		memcpy(frame->data, pt->can_packet.data, frame->can_dlc);
- 		netif_receive_skb(skb);
--
--		stats->rx_packets++;
--		stats->rx_bytes += frame->can_dlc;
- 		break;
- 
- 	case fc_packet_type_can_error:
-diff --git a/include/uapi/linux/can/raw.h b/include/uapi/linux/can/raw.h
-index a814062..188738c 100644
---- a/include/uapi/linux/can/raw.h
-+++ b/include/uapi/linux/can/raw.h
-@@ -27,4 +27,24 @@ enum {
- 	CAN_RAW_FD_FRAMES,	/* allow CAN FD frames (default:off) */
- };
- 
-+#ifdef __KERNEL__
-+
-+#define CAN_RAW_TX_ECHO	0x00000001	/* CAN hardware TX echo packet */
-+
-+/*
-+ * Return pointer to store the extra msg flags for raw_recvmsg().
-+ * We use the space of one unsigned int beyond the 'struct sockaddr_can'
-+ * in skb->cb.
-+ */
-+static inline unsigned int *can_raw_flags(struct sk_buff *skb)
++static void c_can_motrx_add_timer(struct net_device *dev)
 +{
-+	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can) +
-+					 sizeof(unsigned int)));
++	struct c_can_priv *priv = netdev_priv(dev);
 +
-+	/* return pointer after struct sockaddr_can */
-+	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
++	priv->timer.expires = round_jiffies_relative(1);
++	add_timer(&priv->timer);
 +}
 +
-+#endif /* __KERNEL__ */
++static void c_can_motrx_poll(unsigned long data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct c_can_priv *priv = netdev_priv(dev);
++	u32 val, empty = 0;
++	int i;
 +
- #endif
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 641e1c8..80498cf 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -90,20 +90,6 @@ struct raw_sock {
- 	can_err_mask_t err_mask;
- };
- 
--/*
-- * Return pointer to store the extra msg flags for raw_recvmsg().
-- * We use the space of one unsigned int beyond the 'struct sockaddr_can'
-- * in skb->cb.
-- */
--static inline unsigned int *raw_flags(struct sk_buff *skb)
--{
--	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can) +
--					 sizeof(unsigned int)));
--
--	/* return pointer after struct sockaddr_can */
--	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
--}
--
- static inline struct raw_sock *raw_sk(const struct sock *sk)
++	for (i = 0; i < C_CAN_MOTRX_NR; i++) {
++		val = c_can_read_reg32(priv, C_CAN_TXRQST1_REG + i * 4);
++
++		if (val < priv->motrx[i]) {
++			netif_wake_queue(dev);
++			return;
++		}
++
++		empty |= val;
++	}
++
++	if (!empty) {
++		netif_wake_queue(dev);
++		return;
++	}
++
++	c_can_motrx_add_timer(dev);
++}
++
++static void c_can_motrx_monitor(struct net_device *dev)
++{
++	struct c_can_priv *priv = netdev_priv(dev);
++	int i;
++
++	if (priv->type != BOSCH_D_CAN_FLEXCARD)
++		return;
++
++	for (i = 0; i < C_CAN_MOTRX_NR; i++)
++		priv->motrx[i] = c_can_read_reg32(priv,
++				C_CAN_TXRQST1_REG + i * 4);
++	c_can_motrx_add_timer(dev);
++}
++
+ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
+ 					struct net_device *dev)
  {
- 	return (struct raw_sock *)sk;
-@@ -117,6 +103,10 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
- 	struct sk_buff *skb;
- 	unsigned int *pflags;
+@@ -582,6 +630,7 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
+ 		if (readl(priv->base + FC_TXFIFO_STAT) &
+ 				FC_TXFIFO_STAT_FULL) {
+ 			netif_stop_queue(dev);
++			c_can_motrx_monitor(dev);
+ 			return NETDEV_TX_BUSY;
+ 		}
  
-+	pflags = can_raw_flags(oskb);
-+	if (*pflags & CAN_RAW_TX_ECHO)
-+		oskb->sk = sk;
-+
- 	/* check the received tx sock reference */
- 	if (!ro->recv_own_msgs && oskb->sk == sk)
- 		return;
-@@ -148,7 +138,7 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
- 	addr->can_ifindex = skb->dev->ifindex;
- 
- 	/* add CAN specific message flags for raw_recvmsg() */
--	pflags = raw_flags(skb);
-+	pflags = can_raw_flags(skb);
- 	*pflags = 0;
- 	if (oskb->sk)
- 		*pflags |= MSG_DONTROUTE;
-@@ -780,7 +770,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+@@ -619,8 +668,10 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
+ 		 * if the next TX message object is still in use
+ 		 */
+ 		if (c_can_is_next_tx_obj_busy(priv, get_tx_next_msg_obj(priv))
+-			|| ((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) == 0))
++			|| ((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) == 0)) {
+ 			netif_stop_queue(dev);
++			c_can_motrx_monitor(dev);
++		}
  	}
  
- 	/* assign the flags that have been recorded in raw_rcv() */
--	msg->msg_flags |= *(raw_flags(skb));
-+	msg->msg_flags |= *(can_raw_flags(skb));
+ 	return NETDEV_TX_OK;
+@@ -1272,6 +1323,7 @@ static int c_can_close(struct net_device *dev)
+ {
+ 	struct c_can_priv *priv = netdev_priv(dev);
  
- 	skb_free_datagram(sk, skb);
++	del_timer_sync(&priv->timer);
+ 	netif_stop_queue(dev);
+ 	napi_disable(&priv->napi);
+ 	c_can_stop(dev);
+@@ -1306,6 +1358,9 @@ struct net_device *alloc_c_can_dev(void)
+ 					CAN_CTRLMODE_LISTENONLY |
+ 					CAN_CTRLMODE_BERR_REPORTING;
+ 	spin_lock_init(&priv->lock);
++	priv->timer.function = c_can_motrx_poll;
++	priv->timer.data = (unsigned long) dev;
++	init_timer_deferrable(&priv->timer);
  
+ 	return dev;
+ }
+diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+index beea437..6d0f805 100644
+--- a/drivers/net/can/c_can/c_can.h
++++ b/drivers/net/can/c_can/c_can.h
+@@ -153,6 +153,8 @@ enum c_can_dev_id {
+ 	BOSCH_D_CAN_FLEXCARD,
+ };
+ 
++#define C_CAN_MOTRX_NR	1
++
+ /* c_can private data structure */
+ struct c_can_priv {
+ 	struct can_priv can;	/* must be the first member */
+@@ -176,6 +178,8 @@ struct c_can_priv {
+ 	unsigned int instance;
+ 	void (*raminit) (const struct c_can_priv *priv, bool enable);
+ 	spinlock_t lock;
++	struct timer_list timer;
++	u32 motrx[C_CAN_MOTRX_NR];
+ };
+ 
+ struct net_device *alloc_c_can_dev(void);
 -- 
 1.8.4.rc3
