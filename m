@@ -1,12 +1,13 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 04/16] c_can: fix receive buffer configuration
-Date: Mon, 09 Sep 2013 12:51:04 +0200
-Message-ID: <522DA818.1020802@pengutronix.de>
-References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-5-git-send-email-b.spranger@linutronix.de>
+Subject: Re: [PATCH 09/16] c_can: expicit 32bit access on D_CAN to message
+ buffer data register
+Date: Mon, 09 Sep 2013 13:20:35 +0200
+Message-ID: <522DAF03.7020806@pengutronix.de>
+References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-10-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="6er5p5pG68BfWwmJxbv7FdpxIQhVxwkEk"
+ boundary="a12S2VQjkbuvq5FMXEh491WbqOWKtMnq4"
 Cc: netdev@vger.kernel.org,
 	Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
@@ -14,69 +15,67 @@ Cc: netdev@vger.kernel.org,
 	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
 To: Benedikt Spranger <b.spranger@linutronix.de>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1378711513-2548-5-git-send-email-b.spranger@linutronix.de>
+In-Reply-To: <1378711513-2548-10-git-send-email-b.spranger@linutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6er5p5pG68BfWwmJxbv7FdpxIQhVxwkEk
+--a12S2VQjkbuvq5FMXEh491WbqOWKtMnq4
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
 On 09/09/2013 09:25 AM, Benedikt Spranger wrote:
-> The former implementation lacks some initialization of receive buffer.
-> First the maximal buffer length was 0. The Buffer direction was not set=
-
-> and the mask register a reserverd flag was cleared.
+> change the 16bit access of ARB1_REG and DATA1/2_REG to a 32bit access.
 >=20
 > Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
 > ---
->  drivers/net/can/c_can/c_can.c | 19 ++++++++++++++-----
->  1 file changed, 14 insertions(+), 5 deletions(-)
+>  drivers/net/can/c_can/c_can.c | 19 ++++++++++---------
+>  1 file changed, 10 insertions(+), 9 deletions(-)
 >=20
 > diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
 n.c
-> index bdb7bcd..886163f 100644
+> index 4b94f2d..c573399 100644
 > --- a/drivers/net/can/c_can/c_can.c
 > +++ b/drivers/net/can/c_can/c_can.c
-> @@ -116,6 +116,11 @@
->  				IF_COMM_CONTROL | IF_COMM_TXRQST | \
->  				IF_COMM_DATAA | IF_COMM_DATAB)
+> @@ -360,7 +360,6 @@ static inline void c_can_object_put(struct net_devi=
+ce *dev,
+>  static void c_can_write_msg_object(struct net_device *dev,
+>  			int iface, struct can_frame *frame, int objno)
+>  {
+> -	int i;
+>  	u32 flags =3D IF_ARB_MSGVAL;
+>  	unsigned int id;
+>  	struct c_can_priv *priv =3D netdev_priv(dev);
+> @@ -376,15 +375,17 @@ static void c_can_write_msg_object(struct net_dev=
+ice *dev,
 > =20
-> +/* IFx mask */
-> +#define IF_MASK_MXTD		BIT(31)
-> +#define IF_MASK_MDIR		BIT(30)
-> +#define IF_MASK_RES		BIT(29)
+>  	id |=3D flags;
+> =20
+> -	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface),
+> -				IFX_WRITE_LOW_16BIT(id));
+> -	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface),
+> -				IFX_WRITE_HIGH_16BIT(id));
+> +	c_can_writereg32(priv, C_CAN_IFACE(ARB1_REG, iface),
+> +			IFX_WRITE_HIGH_16BIT(id),
+> +			IFX_WRITE_LOW_16BIT(id));
 > +
->  /* IFx arbitration */
->  #define IF_ARB_MSGVAL		BIT(31)
->  #define IF_ARB_MSGXTD		BIT(30)
-> @@ -653,11 +658,15 @@ static void c_can_configure_msg_objects(struct ne=
-t_device *dev)
-> =20
->  	/* setup receive message objects */
->  	for (i =3D C_CAN_MSG_OBJ_RX_FIRST; i < C_CAN_MSG_OBJ_RX_LAST; i++)
-> -		c_can_setup_receive_object(dev, 0, i, 0, 0,
-> -			(IF_MCONT_RXIE | IF_MCONT_UMASK) & ~IF_MCONT_EOB);
-> -
-> -	c_can_setup_receive_object(dev, 0, C_CAN_MSG_OBJ_RX_LAST, 0, 0,
-> -			IF_MCONT_EOB | IF_MCONT_RXIE | IF_MCONT_UMASK);
-> +		c_can_setup_receive_object(dev, 0, i,
-> +					   IF_MASK_MDIR | IF_MASK_RES, 0,
-> +					   IF_MCONT_UMASK | IF_MCONT_RXIE |
-> +					   IF_MCONT_DLC_MAX);
+> +	c_can_writereg32(priv, C_CAN_IFACE(DATA1_REG, iface),
+> +			 frame->data[2] | frame->data[3] << 8,
+> +			 frame->data[0] | frame->data[1] << 8);
 
-DLC_MAX should be added in this patch. not in 3.
+You can use something like beXX_to_cpup((__be32 *)&cf->data[0]) here.
 
-> +
-> +	c_can_setup_receive_object(dev, 0, C_CAN_MSG_OBJ_RX_LAST,
-> +				   IF_MASK_MDIR | IF_MASK_RES, 0,
-> +				   IF_MCONT_UMASK | IF_MCONT_EOB |
-> +				   IF_MCONT_RXIE | IF_MCONT_DLC_MAX);
->  }
 > =20
->  /*
->=20
+> -	for (i =3D 0; i < frame->can_dlc; i +=3D 2) {
+> -		priv->write_reg(priv, C_CAN_IFACE(DATA1_REG, iface) + i / 2,
+> -				frame->data[i] | (frame->data[i + 1] << 8));
+> -	}
+> +	c_can_writereg32(priv, C_CAN_IFACE(DATA3_REG, iface),
+> +			 frame->data[6] | frame->data[7] << 8,
+> +			 frame->data[4] | frame->data[5] << 8);
+
+You write here the upper 32 bit unconditionally, the original code doesn'=
+t.
 
 Marc
 
@@ -87,7 +86,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---6er5p5pG68BfWwmJxbv7FdpxIQhVxwkEk
+--a12S2VQjkbuvq5FMXEh491WbqOWKtMnq4
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -96,9 +95,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.14 (GNU/Linux)
 Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-iEYEARECAAYFAlItqBkACgkQjTAFq1RaXHMPWQCeMYQlUVG3BiJhhKRyW59/tJN/
-WbQAn3PSh3qGJT5fuYrY2HQlWcvsbBAM
-=0sTP
+iEYEARECAAYFAlItrwMACgkQjTAFq1RaXHMEFACginTgGgvLR54I+fndX0BEHXgf
+QXoAn285I8yUEb6d0gFR6PHyK4eE8++C
+=3iN3
 -----END PGP SIGNATURE-----
 
---6er5p5pG68BfWwmJxbv7FdpxIQhVxwkEk--
+--a12S2VQjkbuvq5FMXEh491WbqOWKtMnq4--
