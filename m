@@ -1,12 +1,12 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 08/16] c_can: Add FlexCard CAN TX fifo support
-Date: Mon, 09 Sep 2013 11:47:55 +0200
-Message-ID: <522D994B.70908@pengutronix.de>
-References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-9-git-send-email-b.spranger@linutronix.de>
+Subject: Re: [PATCH 10/16] c_can: add 16bit align 32bit access functions
+Date: Mon, 09 Sep 2013 11:57:34 +0200
+Message-ID: <522D9B8E.2040400@pengutronix.de>
+References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-11-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="QwrOUilOsHjDWL121JetPhE8U7a5WrAVS"
+ boundary="d6OC3VvG9r5iglTw8BFRcCqC99bS3v7np"
 Cc: netdev@vger.kernel.org,
 	Alexander Frank <Alexander.Frank@eberspaecher.com>,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
@@ -14,176 +14,126 @@ Cc: netdev@vger.kernel.org,
 	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
 To: Benedikt Spranger <b.spranger@linutronix.de>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1378711513-2548-9-git-send-email-b.spranger@linutronix.de>
+In-Reply-To: <1378711513-2548-11-git-send-email-b.spranger@linutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---QwrOUilOsHjDWL121JetPhE8U7a5WrAVS
+--d6OC3VvG9r5iglTw8BFRcCqC99bS3v7np
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
 On 09/09/2013 09:25 AM, Benedikt Spranger wrote:
-> The FlexCard DCAN implementation contains a specialized TX fifo functio=
-n.
-> Add the TX support for this function.
+> The FlexCard only allows 32bit access to DCAN registers, otherwise the
+> register value can be wraped up. Add a new helper function to access
+> registers 16bit aligned but 32bit access.
 
-This patch looks a bit fishy. Is this compatible with existing
-c_can/d_can hardware. It looks like you "use" frame->dlc to transport
-some information.
+You are modifying code you have previously added. You should shuffle
+your patches that this is not necessary.
 
 > Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
 > ---
->  drivers/net/can/c_can/c_can.c | 77 +++++++++++++++++++++++++++++++++++=
-+-------
->  1 file changed, 65 insertions(+), 12 deletions(-)
+>  drivers/net/can/c_can/c_can.c          |  1 +
+>  drivers/net/can/c_can/c_can.h          |  1 +
+>  drivers/net/can/c_can/c_can_platform.c | 38 ++++++++++++++++++++++++++=
+++++++--
+>  3 files changed, 38 insertions(+), 2 deletions(-)
 >=20
 > diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
 n.c
-> index 39e2bb0..4b94f2d 100644
+> index c573399..46d741d 100644
 > --- a/drivers/net/can/c_can/c_can.c
 > +++ b/drivers/net/can/c_can/c_can.c
-> @@ -41,6 +41,7 @@
->  #include <linux/can/error.h>
->  #include <linux/can/led.h>
+> @@ -1305,6 +1305,7 @@ struct net_device *alloc_c_can_dev(void)
+>  	priv->can.ctrlmode_supported =3D CAN_CTRLMODE_LOOPBACK |
+>  					CAN_CTRLMODE_LISTENONLY |
+>  					CAN_CTRLMODE_BERR_REPORTING;
+> +	spin_lock_init(&priv->lock);
 > =20
-> +#include <linux/flexcard.h>
->  #include "c_can.h"
+>  	return dev;
+>  }
+> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_ca=
+n.h
+> index 9f0eda8..beea437 100644
+> --- a/drivers/net/can/c_can/c_can.h
+> +++ b/drivers/net/can/c_can/c_can.h
+> @@ -175,6 +175,7 @@ struct c_can_priv {
+>  	u32 __iomem *raminit_ctrlreg;
+>  	unsigned int instance;
+>  	void (*raminit) (const struct c_can_priv *priv, bool enable);
+> +	spinlock_t lock;
+>  };
 > =20
->  /* Number of interface registers */
-> @@ -566,24 +567,60 @@ static netdev_tx_t c_can_start_xmit(struct sk_buf=
-f *skb,
->  	u32 msg_obj_no;
->  	struct c_can_priv *priv =3D netdev_priv(dev);
->  	struct can_frame *frame =3D (struct can_frame *)skb->data;
-> +	int tx_fifo;
+>  struct net_device *alloc_c_can_dev(void);
+> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c=
+_can/c_can_platform.c
+> index 43a3e3f..c6c1eb4 100644
+> --- a/drivers/net/can/c_can/c_can_platform.c
+> +++ b/drivers/net/can/c_can/c_can_platform.c
+> @@ -58,6 +58,40 @@ static void c_can_plat_write_reg_aligned_to_16bit(st=
+ruct c_can_priv *priv,
+>  	writew(val, priv->base + priv->regs[index]);
+>  }
 > =20
->  	if (can_dropped_invalid_skb(dev, skb))
->  		return NETDEV_TX_OK;
-> =20
-> -	msg_obj_no =3D get_tx_next_msg_obj(priv);
-> +	tx_fifo =3D frame->can_dlc & FC_TXFIFO_FLAG;
+> +#define ALIGN_DOWN(p, a)	((typeof(p))round_down((unsigned long)(p), (a=
+)))
+> +
+> +static u16 c_can_plat_read_16bit_align_32bit_access(struct c_can_priv =
+*priv,
+> +						    enum reg index)
+> +{
+> +	void *addr =3D priv->base + priv->regs[index];
 
-Can you describe what you have encoded into to frame->can_dlc?
+Please compile with C=3D2. Should be void __iomem *.
 
-> +	frame->can_dlc &=3D FC_TXFIFO_DLC_MASK;
-> =20
-> -	/* prepare message object for transmission */
-> -	c_can_write_msg_object(dev, 0, frame, msg_obj_no);
-> -	can_put_echo_skb(skb, dev, msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
-> +	if (tx_fifo) {
-> +		u32 id, *data, ctrl;
-> =20
-> -	/*
-> -	 * we have to stop the queue in case of a wrap around or
-> -	 * if the next TX message object is still in use
-> -	 */
-> -	priv->tx_next++;
-> -	if (c_can_is_next_tx_obj_busy(priv, get_tx_next_msg_obj(priv)) ||
-> -			(priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) =3D=3D 0)
-> -		netif_stop_queue(dev);
-> +		if (readl(priv->base + FC_TXFIFO_STAT) &
-> +				FC_TXFIFO_STAT_FULL) {
-> +			netif_stop_queue(dev);
-> +			return NETDEV_TX_BUSY;
-> +		}
+> +	u32 reg;
+> +	reg =3D readl(ALIGN_DOWN(addr, 4));
 > +
-> +		if (frame->can_id & CAN_EFF_FLAG) {
-> +			id =3D frame->can_id & CAN_EFF_MASK;
-> +			id |=3D FC_TXFIFO_MSGID_EXT;
-> +		} else {
-> +			id =3D frame->can_id & CAN_SFF_MASK;
-> +			/* StdID is left alligned */
-> +			id <<=3D FC_TXFIFO_MSGID_STDID_SHIFT;
-> +		}
+> +	return IS_ALIGNED((unsigned long)addr, 4) ?
+> +			reg & 0xffff :
+> +			reg >> 16;
+> +}
 > +
-> +		writel(id, priv->base + FC_TXFIFO_MSGID);
-> +		writel(frame->can_dlc, priv->base + FC_TXFIFO_MSGCTRL);
+> +static void c_can_plat_write_16bit_align_32bit_access(struct c_can_pri=
+v *priv,
+> +						      enum reg index, u16 val)
+> +{
+> +	unsigned long flags;
+> +	void *addr =3D priv->base + priv->regs[index];
+
+dito
+
+> +	u32 reg;
 > +
-> +		if (frame->can_dlc) {
-> +			data =3D (u32 *) frame->data;
-> +			writel(data[0], priv->base + FC_TXFIFO_MSGDA);
-> +			writel(data[1], priv->base + FC_TXFIFO_MSGDB);
-> +		}
-> +
-> +		ctrl =3D readl(priv->base + FC_TXFIFO_CTRL);
-> +		ctrl |=3D FC_TXFIFO_CTRL_REQ;
-> +		writel(ctrl, priv->base + FC_TXFIFO_CTRL);
-> +		kfree_skb(skb);
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	reg =3D readl(ALIGN_DOWN(addr, 4));
+> +	if (IS_ALIGNED((unsigned long)addr, 4)) {
+> +		reg &=3D 0xffff0000;
+> +		reg |=3D val;
 > +	} else {
-> +		msg_obj_no =3D get_tx_next_msg_obj(priv);
-> +
-> +		/* prepare message object for transmission */
-> +		c_can_write_msg_object(dev, 0, frame, msg_obj_no);
-> +		priv->tx_next++;
-> +
-> +		can_put_echo_skb(skb, dev, msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
-> +		/* we have to stop the queue in case of a wrap around or
-> +		 * if the next TX message object is still in use
-> +		 */
-> +		if (c_can_is_next_tx_obj_busy(priv, get_tx_next_msg_obj(priv))
-> +			|| ((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) =3D=3D 0))
-> +			netif_stop_queue(dev);
+> +		reg &=3D 0xffff;
+> +		reg |=3D val << 16;
 > +	}
-> =20
->  	return NETDEV_TX_OK;
->  }
-> @@ -683,6 +720,8 @@ static void c_can_configure_msg_objects(struct net_=
-device *dev, int invalidate)
->  				   IF_MASK_MDIR | IF_MASK_RES, 0,
->  				   IF_MCONT_UMASK | IF_MCONT_EOB |
->  				   IF_MCONT_RXIE | IF_MCONT_DLC_MAX);
+> +	writel(reg, ALIGN_DOWN(addr, 4));
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +}
 > +
-> +	c_can_inval_msg_object(dev, 0, FC_TXFIFO_MO);
->  }
-> =20
->  /*
-> @@ -740,8 +779,13 @@ static int c_can_chip_config(struct net_device *de=
-v)
->  static int c_can_start(struct net_device *dev)
+>  static u16 c_can_plat_read_reg_aligned_to_32bit(struct c_can_priv *pri=
+v,
+>  						enum reg index)
 >  {
->  	struct c_can_priv *priv =3D netdev_priv(dev);
-> +	u32 conf;
->  	int ret;
+> @@ -317,8 +351,8 @@ static int c_can_plat_probe(struct platform_device =
+*pdev)
+>  	case BOSCH_D_CAN_FLEXCARD:
+>  		priv->regs =3D reg_map_d_can;
+>  		priv->can.ctrlmode_supported |=3D CAN_CTRLMODE_3_SAMPLES;
+> -		priv->read_reg =3D c_can_plat_read_reg_aligned_to_16bit;
+> -		priv->write_reg =3D c_can_plat_write_reg_aligned_to_16bit;
+> +		priv->read_reg =3D c_can_plat_read_16bit_align_32bit_access;
+> +		priv->write_reg =3D c_can_plat_write_16bit_align_32bit_access;
+>  		priv->instance =3D pdev->id;
 > =20
-> +	conf =3D readl(priv->base + FC_TXFIFO_CONF);
-> +	conf |=3D FC_TXFIFO_CONF_EN;
-> +	writel(conf, priv->base + FC_TXFIFO_CONF);
-> +
->  	/* basic c_can configuration */
->  	ret =3D c_can_chip_config(dev);
->  	if (ret)
-> @@ -762,6 +806,11 @@ out:
->  static void c_can_stop(struct net_device *dev)
->  {
->  	struct c_can_priv *priv =3D netdev_priv(dev);
-> +	u32 conf;
-> +
-> +	conf =3D readl(priv->base + FC_TXFIFO_CONF);
-> +	conf &=3D ~FC_TXFIFO_CONF_EN;
-> +	writel(conf, priv->base + FC_TXFIFO_CONF);
-> =20
->  	/* disable all interrupts */
->  	c_can_enable_all_interrupts(priv, DISABLE_ALL_INTERRUPTS);
-> @@ -1350,6 +1399,8 @@ int register_c_can_dev(struct net_device *dev)
->  	struct c_can_priv *priv =3D netdev_priv(dev);
->  	int err;
-> =20
-> +	writel(0, priv->base + FC_TXFIFO_CONF);
-> +
->  	c_can_pm_runtime_enable(priv);
-> =20
->  	dev->flags |=3D IFF_ECHO;	/* we support local echo */
-> @@ -1369,6 +1420,8 @@ void unregister_c_can_dev(struct net_device *dev)=
-
->  {
->  	struct c_can_priv *priv =3D netdev_priv(dev);
-> =20
-> +	writel(0, priv->base + FC_TXFIFO_CONF);
-> +
->  	unregister_candev(dev);
-> =20
->  	c_can_pm_runtime_disable(priv);
+>  		res =3D platform_get_resource(pdev, IORESOURCE_MEM, 1);
 >=20
 
 Marc
@@ -195,7 +145,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---QwrOUilOsHjDWL121JetPhE8U7a5WrAVS
+--d6OC3VvG9r5iglTw8BFRcCqC99bS3v7np
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -204,9 +154,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.14 (GNU/Linux)
 Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-iEYEARECAAYFAlItmUsACgkQjTAFq1RaXHNwmgCfVBttguAuvI4Xr8VdjVkaum95
-rHYAnRhKHe4aXGnBzeKwYUkX/4FkpOrD
-=LrrM
+iEYEARECAAYFAlItm44ACgkQjTAFq1RaXHMJ/gCgkjr5UumiwWs6HIRASfpHUhRl
+3GYAnRnqEmmzySlW+bJaVrIyRWkoamZL
+=NU9F
 -----END PGP SIGNATURE-----
 
---QwrOUilOsHjDWL121JetPhE8U7a5WrAVS--
+--d6OC3VvG9r5iglTw8BFRcCqC99bS3v7np--
