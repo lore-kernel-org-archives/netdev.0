@@ -1,42 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: TSQ accounting skb->truesize degrades throughput for large
- packets
-Date: Mon, 9 Sep 2013 05:28:50 +0000 (UTC)
-Message-ID: <l0jmai$qhd$1@ger.gmane.org>
-References: <20130906101635.GI14104@zion.uk.xensource.com>
- <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
- <1378486840.31445.36.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] mwifiex: Remove casting the return value which is a
+ void pointer
+Date: Sun, 08 Sep 2013 22:41:03 -0700
+Message-ID: <1378705263.1928.7.camel@joe-AO722>
+References: <004d01cead1d$3058dcf0$910a96d0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "'John W. Linville'" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	'David Miller' <davem@davemloft.net>,
+	'Bing Zhao' <bzhao@marvell.com>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50809 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751075Ab3IIF3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 01:29:12 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1VIu29-0003ZB-Ul
-	for netdev@vger.kernel.org; Mon, 09 Sep 2013 07:29:09 +0200
-Received: from 117.57.171.128 ([117.57.171.128])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 07:29:09 +0200
-Received: from xiyou.wangcong by 117.57.171.128 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 07:29:09 +0200
+Received: from smtprelay0054.hostedemail.com ([216.40.44.54]:57550 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751075Ab3IIFvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 01:51:32 -0400
+In-Reply-To: <004d01cead1d$3058dcf0$910a96d0$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 06 Sep 2013 at 17:00 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2013-09-06 at 17:36 +0100, Zoltan Kiss wrote:
->
->> So I guess it would be good to revisit the default value of this 
->> setting.
->
-> If ixgbe requires 3 TSO packets in TX ring to get line rate, you also
-> can tweak dev->gso_max_size from 65535 to 64000.
->
+On Mon, 2013-09-09 at 14:26 +0900, Jingoo Han wrote:
+> Casting the return value which is a void pointer is redundant.
+> The conversion from void pointer to any other pointer type is
+> guaranteed by the C programming language.
 
-We observe similar regression on ixgbe driver, also virtio_net driver.
+spatch (aka: Coccinelle) should be able to find a lot
+of these with:
+
+$ cat void.cocci 
+@@
+void *t;
+type other;
+@@
+
+-	(other *)t
++	t
