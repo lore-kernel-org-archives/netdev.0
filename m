@@ -1,58 +1,88 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] pch_gbe: fix unmet direct dependency on PTP_1588_CLOCK_PCH
-Date: Mon, 09 Sep 2013 13:00:37 -0700
-Message-ID: <522E28E5.5010106@infradead.org>
-References: <1378754910-2254-1-git-send-email-murzin.v@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH RFC] net: neighbour: use source address of last enqueued
+ packet for solicitation
+Date: Mon, 9 Sep 2013 23:17:45 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1309092208460.1655@ja.ssi.bg>
+References: <20130908193031.GC21070@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ben@decadent.org.uk,
-	jeffrey.t.kirsher@intel.com, rdunlap@xenotime.net,
-	haicheng.lee@gmail.com
-To: Vladimir Murzin <murzin.v@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59642 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571Ab3IIUBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 16:01:17 -0400
-In-Reply-To: <1378754910-2254-1-git-send-email-murzin.v@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:39678 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755752Ab3IIUN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:13:28 -0400
+In-Reply-To: <20130908193031.GC21070@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/13 12:28, Vladimir Murzin wrote:
-> While cross-building for PPC.
+
+	Hello,
+
+On Sun, 8 Sep 2013, Hannes Frederic Sowa wrote:
+
+> Currently we always use the first member of the arp_queue to determine
+> the sender ip address of the arp packet (or in case of IPv6 - source
+> address of the ndisc packet). This skb is fixed as long as the queue is
+> not drained by a complete purge because of a timeout or by a successful
+> response.
 > 
-> warning: (PCH_GBE) selects PTP_1588_CLOCK_PCH which has unmet direct
-> dependencies (X86 || COMPILE_TEST)
+> If the first packet enqueued on the arp_queue is from a local application
+> with a manually set source address and the to be discovered system
+> does some kind of uRPF checks on the source address in the arp packet
+> the resolving process hangs until a timeout and restarts. This hurts
+> communication with the participating network node.
 > 
-> Both PCH_GBE and PPT_1588_CLOCK_PCH is only compatible with Intel
-> architecture. Add dependency on x86 for PCH_GBE. Keep COMPILE_TEST to allow
-> building on different arches.
+> This could be mitigated a bit if we use the latest enqueued skb's
+> source address for the resolving process, which is not as static as
+> the arp_queue's head. This change of the source address could result in
+> better recovery of a failed solicitation.
 > 
-> Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig | 2 +-
+> 
+> I didn't find anything which could break because of this change, but
+> please have a second look.
+
+	arp_queue has packets only in NUD_INCOMPLETE state 
+(mcast_solicit=3 secs by default). And __neigh_event_send()
+now can keep many packets, 64KB from recent changes. So the
+1st place is not guaranteed but now it is more difficult
+to kick the first packet compared to the old limit of just
+3 packets.
+
+	The change can give chance for 2nd and 3th
+probe if the 1st probe is not replied, so it should be
+better to apply it:
+
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
+
+	Still, I think such problems should be addressed
+with conf/{DEV,all}/arp_announce=1 or 2.
+
+>  net/core/neighbour.c | 2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> index cb22341..4a935ec 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> @@ -4,7 +4,7 @@
->  
->  config PCH_GBE
->  	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
-> -	depends on PCI
-> +	depends on PCI && (x86 || COMPILE_TEST)
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 6072610..ca15f32 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -867,7 +867,7 @@ static void neigh_invalidate(struct neighbour *neigh)
+>  static void neigh_probe(struct neighbour *neigh)
+>  	__releases(neigh->lock)
+>  {
+> -	struct sk_buff *skb = skb_peek(&neigh->arp_queue);
+> +	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
+>  	/* keep skb alive even if arp_queue overflows */
+>  	if (skb)
+>  		skb = skb_copy(skb, GFP_ATOMIC);
+> -- 
+> 1.8.3.1
 
-Has this been tested?
-That should be             X86
+Regards
 
->  	select MII
->  	select PTP_1588_CLOCK_PCH
->  	---help---
-> 
-
-
--- 
-~Randy
+--
+Julian Anastasov <ja@ssi.bg>
