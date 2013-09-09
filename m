@@ -1,106 +1,168 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v4 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Mon, 9 Sep 2013 16:58:29 +0800
-Message-ID: <522D8DB5.1030302@huawei.com>
-References: <52298407.9040103@huawei.com> <20130907142041.GA20237@redhat.com> <522B3BF1.2020208@redhat.com> <20130907150350.GF26163@redhat.com> <522C13A3.9090206@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 03/16] c_can: simplify arbitration register handling
+Date: Mon, 09 Sep 2013 11:16:26 +0200
+Message-ID: <522D91EA.3020302@pengutronix.de>
+References: <1378711513-2548-1-git-send-email-b.spranger@linutronix.de> <1378711513-2548-4-git-send-email-b.spranger@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="GwN7friMwC0SrvunuhbIfmN4lndcGKbSh"
+Cc: netdev@vger.kernel.org,
+	Alexander Frank <Alexander.Frank@eberspaecher.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Holger Dengler <dengler@linutronix.de>
+To: Benedikt Spranger <b.spranger@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:7433 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548Ab3III7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 04:59:18 -0400
-In-Reply-To: <522C13A3.9090206@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:54641 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814Ab3IIJQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 05:16:34 -0400
+In-Reply-To: <1378711513-2548-4-git-send-email-b.spranger@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/9/8 14:05, Ding Tianhong wrote:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--GwN7friMwC0SrvunuhbIfmN4lndcGKbSh
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Hi Veaceslav and Nik:
+On 09/09/2013 09:25 AM, Benedikt Spranger wrote:
+> The IF1/2 Arbitration register of the C_CAN/D_CAN ip core is internaly
+> a 32bit register. Do not use two different 16bit variables to handle
+> the IF1/2 Arbitration register.
+>=20
+> Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
 
-please take a moment to reveiw the function just modify for bond_XXX_rcu,
-and give me some advice. thanks for the help again.:)
+Looks good, nitpit inline.
 
-+#define bond_first_slave_rcu(bond) \
-+   list_first_or_null_rcu(&(bond)->slave_list, struct slave, list);
-+#define bond_last_slave_rcu(bond) \
-+   ({struct list_head *__slave_list = &(bond)->slave_list; \
-+    struct list_head __rcu *__prev = \
-+    (*((struct list_head __rcu **)(&(__slave_list)->prev)));\
-+    likely(__slave_list != __prev) ? \
-+    container_of(__prev, struct slave, list) : NULL;})
-+
- #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
- #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
+Marc
+> ---
+>  drivers/net/can/c_can/c_can.c | 27 ++++++++++++++-------------
+>  1 file changed, 14 insertions(+), 13 deletions(-)
+>=20
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
+n.c
+> index 081620b..bdb7bcd 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -117,9 +117,9 @@
+>  				IF_COMM_DATAA | IF_COMM_DATAB)
+> =20
+>  /* IFx arbitration */
+> -#define IF_ARB_MSGVAL		BIT(15)
+> -#define IF_ARB_MSGXTD		BIT(14)
+> -#define IF_ARB_TRANSMIT		BIT(13)
+> +#define IF_ARB_MSGVAL		BIT(31)
+> +#define IF_ARB_MSGXTD		BIT(30)
+> +#define IF_ARB_TRANSMIT		BIT(29)
+> =20
+>  /* IFx message control */
+>  #define IF_MCONT_NEWDAT		BIT(15)
+> @@ -133,6 +133,7 @@
+>  #define IF_MCONT_TXRQST		BIT(8)
+>  #define IF_MCONT_EOB		BIT(7)
+>  #define IF_MCONT_DLC_MASK	0xf
+> +#define IF_MCONT_DLC_MAX	8
 
-@@ -93,6 +117,29 @@
-    (bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
-                      bond_to_slave((pos)->list.prev))
+It's not used, is it?
 
-+/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
-+#define bond_next_slave_rcu(bond, pos) \
-+   ({struct list_head *__slave_list = &(bond)->slave_list; \
-+    struct list_head __rcu *__next = list_next_rcu(__slave_list); \
-+    struct list_head *__pos_list = &(pos)->list; \
-+    struct list_head __rcu *__pos_next = list_next_rcu(__pos_list); \
-+    likely(__pos_next != __slave_list) ? \
-+    container_of(__pos_next, struct slave, list) : \
-+    container_of(__next, struct slave, list); \
-+    })
-+
-+#define bond_prev_slave_rcu(bond, pos) \
-+   ({struct list_head *__slave_list = &(bond)->slave_list; \
-+    struct list_head __rcu *__prev = \
-+    (*((struct list_head __rcu **)(&(__slave_list)->prev)));\
-+    struct list_head *__pos_list = &(pos)->list; \
-+    struct list_head __rcu *__pos_prev = (__pos_list->prev != LIST_POISON2) ? \
-+    (*((struct list_head __rcu **)(&(__pos_list)->prev))) : NULL; \
-+    likely(__pos_prev != __slave_list) ? \
-+    ((__pos_prev) ? list_entry_rcu(__pos_prev, struct slave, list) : NULL;) : \
-+    (list_entry_rcu(__prev, struct slave, list)); \
-+    })
-+
+> =20
+>  /*
+>   * IFx register masks:
+> @@ -336,7 +337,7 @@ static void c_can_write_msg_object(struct net_devic=
+e *dev,
+>  			int iface, struct can_frame *frame, int objno)
+>  {
+>  	int i;
+> -	u16 flags =3D 0;
+> +	u32 flags =3D IF_ARB_MSGVAL;
+>  	unsigned int id;
+>  	struct c_can_priv *priv =3D netdev_priv(dev);
+> =20
+> @@ -349,11 +350,11 @@ static void c_can_write_msg_object(struct net_dev=
+ice *dev,
+>  	} else
+>  		id =3D ((frame->can_id & CAN_SFF_MASK) << 18);
+> =20
+> -	flags |=3D IF_ARB_MSGVAL;
+> +	id |=3D flags;
+> =20
+>  	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface),
+>  				IFX_WRITE_LOW_16BIT(id));
+> -	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface), flags |
+> +	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface),
+>  				IFX_WRITE_HIGH_16BIT(id));
+> =20
+>  	for (i =3D 0; i < frame->can_dlc; i +=3D 2) {
+> @@ -439,7 +440,7 @@ static void c_can_handle_lost_msg_obj(struct net_de=
+vice *dev,
+> =20
+>  static int c_can_read_msg_object(struct net_device *dev, int iface, in=
+t ctrl)
+>  {
+> -	u16 flags, data;
+> +	u16 data;
+>  	int i;
+>  	unsigned int val;
+>  	struct c_can_priv *priv =3D netdev_priv(dev);
+> @@ -455,16 +456,15 @@ static int c_can_read_msg_object(struct net_devic=
+e *dev, int iface, int ctrl)
+> =20
+>  	frame->can_dlc =3D get_can_dlc(ctrl & 0x0F);
+> =20
+> -	flags =3D	priv->read_reg(priv, C_CAN_IFACE(ARB2_REG, iface));
+> -	val =3D priv->read_reg(priv, C_CAN_IFACE(ARB1_REG, iface)) |
+> -		(flags << 16);
+> +	val =3D (priv->read_reg(priv, C_CAN_IFACE(ARB2_REG, iface)) << 16);
+> +	val |=3D priv->read_reg(priv, C_CAN_IFACE(ARB1_REG, iface));
+> =20
+> -	if (flags & IF_ARB_MSGXTD)
+> +	if (val & IF_ARB_MSGXTD)
+>  		frame->can_id =3D (val & CAN_EFF_MASK) | CAN_EFF_FLAG;
+>  	else
+>  		frame->can_id =3D (val >> 18) & CAN_SFF_MASK;
+> =20
+> -	if (flags & IF_ARB_TRANSMIT)
+> +	if (val & IF_ARB_TRANSMIT)
+>  		frame->can_id |=3D CAN_RTR_FLAG;
+>  	else {
+>  		for (i =3D 0; i < frame->can_dlc; i +=3D 2) {
+> @@ -500,10 +500,11 @@ static void c_can_setup_receive_object(struct net=
+_device *dev, int iface,
+>  	priv->write_reg(priv, C_CAN_IFACE(MASK2_REG, iface),
+>  			IFX_WRITE_HIGH_16BIT(mask) | BIT(13));
+> =20
+> +	id |=3D IF_ARB_MSGVAL;
+>  	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface),
+>  			IFX_WRITE_LOW_16BIT(id));
+>  	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface),
+> -			(IF_ARB_MSGVAL | IFX_WRITE_HIGH_16BIT(id)));
+> +			(IFX_WRITE_HIGH_16BIT(id)));
+> =20
+>  	priv->write_reg(priv, C_CAN_IFACE(MSGCTRL_REG, iface), mcont);
+>  	c_can_object_put(dev, iface, objno, IF_COMM_ALL & ~IF_COMM_TXRQST);
+>=20
 
 
--#define bond_for_each_slave_from(bond, pos, cnt, start) \
--   for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
--        cnt++, pos = bond_next_slave(bond, pos))
--
-+#define bond_for_each_slave_from(bond, pos, start) \
-+   for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
-+       (pos) : (pos = NULL))
-+
-+#define bond_for_each_slave_from_rcu(bond, pos, start) \
-+   for ({struct list_head *__start = &(start)->list; \
-+        struct list_head *__slave_list = &(bond)->slave_list; \
-+        pos = list_entry_rcu(__start, struct slave, list);}; \
-+        pos; \
-+        {struct list_head __rcu *__next = list_next_rcu(pos->next); \
-+        __next != __slave_list ? \
-+        __next : __next = list_next_rcu(__next->next); \
-+        __next != __start ? \
-+        pos = list_entry_rcu(__next, struct slave, list) : \
-+        pos = NULL; \
-+        })
-+
-
-Best regards
-Ding
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
->> -- 
->> To unsubscribe from this list: send the line "unsubsc ribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at http://vger.kernel.org/majordomo-info.html
->>
-> 
-> 
-> .
-> 
+--GwN7friMwC0SrvunuhbIfmN4lndcGKbSh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlItkeoACgkQjTAFq1RaXHN6IgCaAnWMkrSl00KUzgacs4oUSWEs
+ynIAn37MK5y3Oxxr+Rggdg43Oks8KJGG
+=ujb4
+-----END PGP SIGNATURE-----
+
+--GwN7friMwC0SrvunuhbIfmN4lndcGKbSh--
