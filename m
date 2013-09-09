@@ -1,8 +1,8 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH v2.39 3/7] ofp-actions: Add
-	OFPUTIL_OFPAT13_PUSH_MPLS
-Date: Mon,  9 Sep 2013 16:20:03 +0900
-Message-ID: <1378711207-29890-4-git-send-email-horms@verge.net.au>
+Subject: [PATCH v2.39 1/7] odp: Only pass vlan_tci to
+	commit_vlan_action()
+Date: Mon,  9 Sep 2013 16:20:01 +0900
+Message-ID: <1378711207-29890-2-git-send-email-horms@verge.net.au>
 References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,9 +25,8 @@ List-Id: netdev.vger.kernel.org
 
 From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
 
-This patch adds a new compatibility enum for use with MPLS, so that the
-differing behaviour between OpenFlow 1.2 and 1.3 can be implemented in
-ofproto-dpif-xlate.
+This allows for future patches to pass different tci values to
+commit_vlan_action() without passing an entire flow structure.
 
 Signed-off-by: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
 Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
@@ -40,79 +39,53 @@ v2.36 - v2.39
 v2.35
 * First post
 ---
- lib/ofp-actions.c | 5 ++++-
- lib/ofp-parse.c   | 1 +
- lib/ofp-util.c    | 3 +++
- lib/ofp-util.h    | 1 +
- 4 files changed, 9 insertions(+), 1 deletion(-)
+ lib/odp-util.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
-index 77aa69c..964ecd7 100644
---- a/lib/ofp-actions.c
-+++ b/lib/ofp-actions.c
-@@ -322,6 +322,7 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
- #define OFPAT10_ACTION(ENUM, STRUCT, NAME) case OFPUTIL_##ENUM:
- #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
- #include "ofp-util.def"
-+    case OFPUTIL_OFPAT13_PUSH_MPLS:
-         NOT_REACHED();
+diff --git a/lib/odp-util.c b/lib/odp-util.c
+index f20bd8a..11aa32f 100644
+--- a/lib/odp-util.c
++++ b/lib/odp-util.c
+@@ -3326,10 +3326,10 @@ commit_set_ether_addr_action(const struct flow *flow, struct flow *base,
+ }
  
-     case OFPUTIL_NXAST_RESUBMIT:
-@@ -480,6 +481,7 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
-     case OFPUTIL_ACTION_INVALID:
- #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
- #include "ofp-util.def"
-+    case OFPUTIL_OFPAT13_PUSH_MPLS:
-         NOT_REACHED();
+ static void
+-commit_vlan_action(const struct flow *flow, struct flow *base,
++commit_vlan_action(ovs_be16 vlan_tci, struct flow *base,
+                    struct ofpbuf *odp_actions, struct flow_wildcards *wc)
+ {
+-    if (base->vlan_tci == flow->vlan_tci) {
++    if (base->vlan_tci == vlan_tci) {
+         return;
+     }
  
-     case OFPUTIL_OFPAT10_OUTPUT:
-@@ -842,7 +844,8 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
-         ofpact_put_DEC_MPLS_TTL(out);
-         break;
+@@ -3339,15 +3339,15 @@ commit_vlan_action(const struct flow *flow, struct flow *base,
+         nl_msg_put_flag(odp_actions, OVS_ACTION_ATTR_POP_VLAN);
+     }
  
--    case OFPUTIL_OFPAT11_PUSH_MPLS: {
-+    case OFPUTIL_OFPAT11_PUSH_MPLS:
-+    case OFPUTIL_OFPAT13_PUSH_MPLS: {
-         struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
-         if (!eth_type_mpls(oap->ethertype)) {
-             return OFPERR_OFPBAC_BAD_ARGUMENT;
-diff --git a/lib/ofp-parse.c b/lib/ofp-parse.c
-index a61beb9..9aac20b 100644
---- a/lib/ofp-parse.c
-+++ b/lib/ofp-parse.c
-@@ -804,6 +804,7 @@ parse_named_action(enum ofputil_action_code code,
-         break;
+-    if (flow->vlan_tci & htons(VLAN_CFI)) {
++    if (vlan_tci & htons(VLAN_CFI)) {
+         struct ovs_action_push_vlan vlan;
  
-     case OFPUTIL_OFPAT11_PUSH_MPLS:
-+    case OFPUTIL_OFPAT13_PUSH_MPLS:
-     case OFPUTIL_NXAST_PUSH_MPLS:
-         error = str_to_u16(arg, "push_mpls", &ethertype);
-         if (!error) {
-diff --git a/lib/ofp-util.c b/lib/ofp-util.c
-index 23c7136..87336e2 100644
---- a/lib/ofp-util.c
-+++ b/lib/ofp-util.c
-@@ -4768,6 +4768,9 @@ ofputil_put_action(enum ofputil_action_code code, struct ofpbuf *buf)
-     case OFPUTIL_ACTION_INVALID:
-         NOT_REACHED();
+         vlan.vlan_tpid = htons(ETH_TYPE_VLAN);
+-        vlan.vlan_tci = flow->vlan_tci;
++        vlan.vlan_tci = vlan_tci;
+         nl_msg_put_unspec(odp_actions, OVS_ACTION_ATTR_PUSH_VLAN,
+                           &vlan, sizeof vlan);
+     }
+-    base->vlan_tci = flow->vlan_tci;
++    base->vlan_tci = vlan_tci;
+ }
  
-+    case OFPUTIL_OFPAT13_PUSH_MPLS:
-+        return ofputil_put_OFPAT11_PUSH_MPLS(buf);
-+
- #define OFPAT10_ACTION(ENUM, STRUCT, NAME)                  \
-     case OFPUTIL_##ENUM: return ofputil_put_##ENUM(buf);
- #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME)      \
-diff --git a/lib/ofp-util.h b/lib/ofp-util.h
-index 0ca483c..3ca189d 100644
---- a/lib/ofp-util.h
-+++ b/lib/ofp-util.h
-@@ -787,6 +787,7 @@ enum OVS_PACKED_ENUM ofputil_action_code {
- #define OFPAT11_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) OFPUTIL_##ENUM,
- #define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME)   OFPUTIL_##ENUM,
- #include "ofp-util.def"
-+    OFPUTIL_OFPAT13_PUSH_MPLS
- };
- 
- /* The number of values of "enum ofputil_action_code". */
+ static void
+@@ -3567,7 +3567,7 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
+                    struct ofpbuf *odp_actions, struct flow_wildcards *wc)
+ {
+     commit_set_ether_addr_action(flow, base, odp_actions, wc);
+-    commit_vlan_action(flow, base, odp_actions, wc);
++    commit_vlan_action(flow->vlan_tci, base, odp_actions, wc);
+     commit_set_nw_action(flow, base, odp_actions, wc);
+     commit_set_port_action(flow, base, odp_actions, wc);
+     /* Committing MPLS actions should occur after committing nw and port
 -- 
 1.8.4
