@@ -1,87 +1,86 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 20/26] bonding: remove bond_prev_slave()
-Date: Mon,  9 Sep 2013 22:16:38 +0200
-Message-ID: <1378757804-3159-21-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 23/26] bonding: remove slave lists
+Date: Mon,  9 Sep 2013 22:16:41 +0200
+Message-ID: <1378757804-3159-24-git-send-email-vfalico@redhat.com>
 References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42419 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2480 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753837Ab3IIURH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 16:17:07 -0400
+	id S1753837Ab3IIURM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:17:12 -0400
 In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't really need it, and it's really hard to RCUify the list->prev.
+And all the initialization.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 9 +++------
- drivers/net/bonding/bonding.h   | 4 ----
- 2 files changed, 3 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bond_main.c | 4 ----
+ drivers/net/bonding/bonding.h   | 2 --
+ 2 files changed, 6 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c91b754..65eae12 100644
+index 65eae12..707b0bc 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1255,7 +1255,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+@@ -972,7 +972,6 @@ void bond_select_active_slave(struct bonding *bond)
+  */
+ static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
--	struct slave *new_slave = NULL;
-+	struct slave *new_slave = NULL, *prev_slave;
- 	struct sockaddr addr;
- 	int link_reporting;
- 	int res = 0, i;
-@@ -1472,6 +1472,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+-	list_add_tail_rcu(&new_slave->list, &bond->slave_list);
+ 	bond->slave_cnt++;
+ }
  
- 	write_lock_bh(&bond->lock);
+@@ -988,7 +987,6 @@ static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
+  */
+ static void bond_detach_slave(struct bonding *bond, struct slave *slave)
+ {
+-	list_del_rcu(&slave->list);
+ 	bond->slave_cnt--;
+ }
  
-+	prev_slave = bond_last_slave(bond);
- 	bond_attach_slave(bond, new_slave);
+@@ -1374,7 +1372,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		res = -ENOMEM;
+ 		goto err_undo_flags;
+ 	}
+-	INIT_LIST_HEAD(&new_slave->list);
+ 	/*
+ 	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
+ 	 * is set via sysfs or module option if desired.
+@@ -4022,7 +4019,6 @@ static void bond_setup(struct net_device *bond_dev)
+ 	/* initialize rwlocks */
+ 	rwlock_init(&bond->lock);
+ 	rwlock_init(&bond->curr_slave_lock);
+-	INIT_LIST_HEAD(&bond->slave_list);
+ 	bond->params = bonding_defaults;
  
- 	new_slave->delay = 0;
-@@ -1566,9 +1567,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			 */
- 			bond_3ad_initialize(bond, 1000/AD_TIMER_INTERVAL);
- 		} else {
--			struct slave *prev_slave;
--
--			prev_slave = bond_prev_slave(bond, new_slave);
- 			SLAVE_AD_INFO(new_slave).id =
- 				SLAVE_AD_INFO(prev_slave).id + 1;
- 		}
-@@ -3506,9 +3504,8 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- 	 */
- 
- 	bond_for_each_slave(bond, slave, iter) {
--		pr_debug("s %p s->p %p c_m %p\n",
-+		pr_debug("s %p c_m %p\n",
- 			 slave,
--			 bond_prev_slave(bond, slave),
- 			 slave->dev->netdev_ops->ndo_change_mtu);
- 
- 		res = dev_set_mtu(slave->dev, new_mtu);
+ 	/* Initialize pointers */
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b82474d..03daadd 100644
+index 9329509..0e8e00e 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -96,10 +96,6 @@
- 	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
- 					 bond_to_slave((pos)->list.next))
+@@ -167,7 +167,6 @@ struct bond_parm_tbl {
  
--#define bond_prev_slave(bond, pos) \
--	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
--					  bond_to_slave((pos)->list.prev))
--
- /**
-  * bond_for_each_slave - iterate over all slaves
-  * @bond:	the bond holding this list
+ struct slave {
+ 	struct net_device *dev; /* first - useful for panic debug */
+-	struct list_head list;
+ 	struct bonding *bond; /* our master */
+ 	int    delay;
+ 	unsigned long jiffies;
+@@ -207,7 +206,6 @@ struct slave {
+  */
+ struct bonding {
+ 	struct   net_device *dev; /* first - useful for panic debug */
+-	struct   list_head slave_list;
+ 	struct   slave *curr_active_slave;
+ 	struct   slave *current_arp_slave;
+ 	struct   slave *primary_slave;
 -- 
 1.8.4
