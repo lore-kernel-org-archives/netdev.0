@@ -1,99 +1,111 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 13/26] bonding: rework bond_find_best_slave() to use bond_for_each_slave()
-Date: Mon,  9 Sep 2013 22:16:31 +0200
-Message-ID: <1378757804-3159-14-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 14/26] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
+Date: Mon,  9 Sep 2013 22:16:32 +0200
+Message-ID: <1378757804-3159-15-git-send-email-vfalico@redhat.com>
 References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4118 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33079 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755981Ab3IIUQx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 16:16:53 -0400
+	id S1755981Ab3IIUQz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:16:55 -0400
 In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_find_best_slave() does not have to be balanced - i.e. return the slave
-that is *after* some other slave, but rather return the best slave that
-suits, except of bond->primary_slave - in which case we just return it if
-it's suitable.
+Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
+it doesn't check every slave for disrepencies between the actual
+IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
+next suitable slave.
 
-After that we just look through all the slaves and return either first up
-slave or the slave whose link came back earliest.
+Fix this by using bond_for_each_slave() and storing the first good slave in
+*before till we find the current_arp_slave, after that we store the first good
+slave in new_slave. If new_slave is empty - use the slave stored in before,
+and if it's also empty - then we didn't find any suitable slave.
 
-We also don't care about curr_active_slave lock cause we use it in
-bond_should_change_active() only and there we take it right away - i.e. it
-won't go away.
+Also, in the meanwhile, check for each slave status.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 43 ++++++++++++-----------------------------
- 1 file changed, 12 insertions(+), 31 deletions(-)
+ drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2075321..b5497e7 100644
+index b5497e7..eedfa8f 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -785,43 +785,24 @@ static bool bond_should_change_active(struct bonding *bond)
- /**
-  * find_best_interface - select the best available slave to be the active one
-  * @bond: our bonding struct
-- *
-- * Warning: Caller must hold curr_slave_lock for writing.
+@@ -2761,8 +2761,9 @@ do_failover:
   */
- static struct slave *bond_find_best_slave(struct bonding *bond)
+ static void bond_ab_arp_probe(struct bonding *bond)
  {
--	struct slave *new_active, *old_active;
--	struct slave *bestslave = NULL;
-+	struct slave *slave, *bestslave = NULL;
-+	struct list_head *iter;
- 	int mintime = bond->params.updelay;
+-	struct slave *slave, *next_slave;
 -	int i;
++	struct slave *slave, *before = NULL, *new_slave = NULL;
++	struct list_head *iter;
++	bool found = false;
  
--	new_active = bond->curr_active_slave;
--
--	if (!new_active) { /* there were no active slaves left */
--		new_active = bond_first_slave(bond);
--		if (!new_active)
--			return NULL; /* still no slave, return NULL */
--	}
-+	if (bond->primary_slave && bond->primary_slave->link == BOND_LINK_UP &&
-+	    bond_should_change_active(bond))
-+		return bond->primary_slave;
+ 	read_lock(&bond->curr_slave_lock);
  
--	if ((bond->primary_slave) &&
--	    bond->primary_slave->link == BOND_LINK_UP &&
--	    bond_should_change_active(bond)) {
--		new_active = bond->primary_slave;
--	}
--
--	/* remember where to stop iterating over the slaves */
--	old_active = new_active;
--
--	bond_for_each_slave_from(bond, new_active, i, old_active) {
--		if (new_active->link == BOND_LINK_UP) {
--			return new_active;
--		} else if (new_active->link == BOND_LINK_BACK &&
--			   IS_UP(new_active->dev)) {
--			/* link up, but waiting for stabilization */
--			if (new_active->delay < mintime) {
--				mintime = new_active->delay;
--				bestslave = new_active;
--			}
+@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	bond_set_slave_inactive_flags(bond->current_arp_slave);
+ 
+-	/* search for next candidate */
+-	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+-		if (IS_UP(slave->dev)) {
+-			slave->link = BOND_LINK_BACK;
+-			bond_set_slave_active_flags(slave);
+-			bond_arp_send_all(bond, slave);
+-			slave->jiffies = jiffies;
+-			bond->current_arp_slave = slave;
+-			break;
+-		}
 +	bond_for_each_slave(bond, slave, iter) {
-+		if (slave->link == BOND_LINK_UP)
-+			return slave;
-+		if (slave->link == BOND_LINK_BACK && IS_UP(slave->dev) &&
-+		    slave->delay < mintime) {
-+			mintime = slave->delay;
-+			bestslave = slave;
- 		}
- 	}
++		if (!found && !before && IS_UP(slave->dev))
++			before = slave;
  
++		if (found && !new_slave && IS_UP(slave->dev))
++			new_slave = slave;
+ 		/* if the link state is up at this point, we
+ 		 * mark it down - this can happen if we have
+ 		 * simultaneous link failures and
+@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 		 * one the current slave so it is still marked
+ 		 * up when it is actually down
+ 		 */
+-		if (slave->link == BOND_LINK_UP) {
++		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
+ 			slave->link = BOND_LINK_DOWN;
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 			pr_info("%s: backup interface %s is now down.\n",
+ 				bond->dev->name, slave->dev->name);
+ 		}
++		if (slave == bond->current_arp_slave)
++			found = true;
+ 	}
++
++	if (!new_slave && before)
++		new_slave = before;
++
++	if (!new_slave)
++		return;
++
++	new_slave->link = BOND_LINK_BACK;
++	bond_set_slave_active_flags(new_slave);
++	bond_arp_send_all(bond, new_slave);
++	new_slave->jiffies = jiffies;
++	bond->current_arp_slave = new_slave;
++
+ }
+ 
+ void bond_activebackup_arp_mon(struct work_struct *work)
 -- 
 1.8.4
