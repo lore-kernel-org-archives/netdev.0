@@ -1,130 +1,97 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v4 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Mon, 9 Sep 2013 11:57:52 +0200
-Message-ID: <20130909095752.GC2048@redhat.com>
-References: <52298407.9040103@huawei.com>
- <20130907142041.GA20237@redhat.com>
- <522B3BF1.2020208@redhat.com>
- <20130907150350.GF26163@redhat.com>
- <522C13A3.9090206@gmail.com>
- <522D8DB5.1030302@huawei.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: RFC: crash in fib6_clean_all() while loading ipv6 module
+Date: Mon, 9 Sep 2013 12:05:15 +0200
+Message-ID: <20130909100515.GA16056@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9064 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:38386 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751275Ab3IIJ7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 05:59:34 -0400
+	id S1750871Ab3IIKFR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 06:05:17 -0400
+Received: from relay1.suse.de (unknown [195.135.220.254])
+	by mx2.suse.de (Postfix) with ESMTP id 048D2A41E0
+	for <netdev@vger.kernel.org>; Mon,  9 Sep 2013 12:05:16 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <522D8DB5.1030302@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 09, 2013 at 04:58:29PM +0800, Ding Tianhong wrote:
->On 2013/9/8 14:05, Ding Tianhong wrote:
->
->Hi Veaceslav and Nik:
->
->please take a moment to reveiw the function just modify for bond_XXX_rcu,
->and give me some advice. thanks for the help again.:)
->
->+#define bond_first_slave_rcu(bond) \
->+   list_first_or_null_rcu(&(bond)->slave_list, struct slave, list);
->+#define bond_last_slave_rcu(bond) \
->+   ({struct list_head *__slave_list = &(bond)->slave_list; \
->+    struct list_head __rcu *__prev = \
->+    (*((struct list_head __rcu **)(&(__slave_list)->prev)));\
->+    likely(__slave_list != __prev) ? \
->+    container_of(__prev, struct slave, list) : NULL;})
+Hello,
 
-Please take a look at Nikolay's reply to my RCU email -
-http://www.spinics.net/lists/netdev/msg249805.html . And mine also, to his
-email. In short - RCU doesn't guarantee ->prev, so better take the approach
-of eliminating bond_last/prev_slave completely.
+Two of our customers encountered a crash in fib6_clean_all() when
+booting their system:
 
->+
-> #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
-> #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
->
->@@ -93,6 +117,29 @@
->    (bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
->                      bond_to_slave((pos)->list.prev))
->
->+/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
->+#define bond_next_slave_rcu(bond, pos) \
->+   ({struct list_head *__slave_list = &(bond)->slave_list; \
->+    struct list_head __rcu *__next = list_next_rcu(__slave_list); \
->+    struct list_head *__pos_list = &(pos)->list; \
->+    struct list_head __rcu *__pos_next = list_next_rcu(__pos_list); \
->+    likely(__pos_next != __slave_list) ? \
->+    container_of(__pos_next, struct slave, list) : \
->+    container_of(__next, struct slave, list); \
->+    })
+[   12.408421] BUG: unable to handle kernel NULL pointer dereference at        (null)
+[   12.408424] IP: [<ffffffffa02566b4>] fib6_clean_all+0x34/0xd0 [ipv6_lib]
+[   12.408434] PGD c3590f067 PUD c29073067 PMD 0 
+[   12.408436] Oops: 0000 [#1] SMP 
+[   12.408439] CPU 1 
+[   12.408440] Modules linked in: processor(+) ipv6(+) thermal_sys ipv6_lib
+ahci(+) ixgbe(+) ehci_hcd libahci hwmon igb(+) libata usbcore i2c_i801 dca
+iTCO_wdt pcspkr scsi_mod e1000e i2c_core usb_common iTCO_vendor_support
+rtc_cmos container ptp pps_core button mdio
+[   12.408449] Supported: Yes
+[   12.408449] 
+[   12.408451] Pid: 211, comm: modprobe Not tainted 3.0.76-0.11-default #1 ...
+[   12.408453] RIP: 0010:[<ffffffffa02566b4>]  [<ffffffffa02566b4>] fib6_clean_all+0x34/0xd0 [ipv6_lib]
+[   12.408460] RSP: 0018:ffff880c1e983b98  EFLAGS: 00010246
+[   12.408462] RAX: 0000000000000000 RBX: ffffffffffffffff RCX: 0000000000000000
+[   12.408463] RDX: 0000000000000000 RSI: ffffffffa0254f90 RDI: ffffffff81a72280
+[   12.408464] RBP: ffffffff81a72280 R08: 0000000000000000 R09: 000000003520aec8
+[   12.408466] R10: 000000005f000c28 R11: 000000003520aec8 R12: 0000000000000000
+[   12.408467] R13: ffffffff81a72280 R14: 0000000000000000 R15: ffffffffa0254f90
+[   12.408469] FS:  00007fb2039f1700(0000) GS:ffff880c7f040000(0000) knlGS:0000000000000000
+[   12.408470] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[   12.408471] CR2: 0000000000000000 CR3: 0000000c2904e000 CR4: 00000000001407e0
+[   12.408473] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[   12.408474] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[   12.408476] Process modprobe (pid: 211, threadinfo ffff880c1e982000, task ffff880c3242c540)
+[   12.408477] Stack:
+[   12.408478]  0000000000000000 0000000000000000 0000000000000000 ffffffff8146544e
+[   12.408480]  000000000006a9d0 0000000000000000 000000003520aec8 000000005f000c28
+[   12.408483]  000000003520aec8 0000000000000000 0000000000000000 0000000000000000
+[   12.408485] Call Trace:
+[   12.408507]  [<ffffffffa02567a3>] fib6_run_gc+0x53/0xf0 [ipv6_lib]
+[   12.408524]  [<ffffffffa025c5c6>] ndisc_netdev_event+0x186/0x190 [ipv6_lib]
+[   12.408541]  [<ffffffff81460437>] notifier_call_chain+0x37/0x70
+[   12.408547]  [<ffffffff813a6e52>] dev_addr_add+0x52/0x90
+[   12.408556]  [<ffffffffa032e3e9>] ixgbe_probe+0x8c9/0xd10 [ixgbe]
+[   12.408565]  [<ffffffff8127d5d4>] local_pci_probe+0x54/0xe0
+[   12.408570]  [<ffffffff8127d740>] __pci_device_probe+0xe0/0xf0
+[   12.408573]  [<ffffffff8127e953>] pci_device_probe+0x33/0x60
+[   12.408578]  [<ffffffff8132ddda>] really_probe+0x7a/0x260
+[   12.408581]  [<ffffffff8132e023>] driver_probe_device+0x63/0xc0
+[   12.408585]  [<ffffffff8132e113>] __driver_attach+0x93/0xa0
+[   12.408588]  [<ffffffff8132d468>] bus_for_each_dev+0x88/0xb0
+[   12.408591]  [<ffffffff8132cbb5>] bus_add_driver+0x155/0x2a0
+[   12.408595]  [<ffffffff8132e769>] driver_register+0x79/0x170
+[   12.408599]  [<ffffffff8127ebe8>] __pci_register_driver+0x58/0xe0
+[   12.408604]  [<ffffffff810001cb>] do_one_initcall+0x3b/0x180
+[   12.408610]  [<ffffffff810a02df>] sys_init_module+0xcf/0x240
+[   12.408615]  [<ffffffff81464592>] system_call_fastpath+0x16/0x1b
 
-Nice, but can be shortened - we know that pos won't go away.
+The crash is caused by fib6_clean_all() dereferencing a null pointer in
+init_net.ipv6.fib_table_hash because ndisc_netdev_event() handler which
+calls fib6_run_gc() is registered by ndisc_init() but the relevant data
+structures aren't initialized until ip6_route_init() is called. If a
+device intialization falls into this window, it emits NETDEV_CHANGEADDR,
+leading to a crash.
 
->+
->+#define bond_prev_slave_rcu(bond, pos) \
->+   ({struct list_head *__slave_list = &(bond)->slave_list; \
->+    struct list_head __rcu *__prev = \
->+    (*((struct list_head __rcu **)(&(__slave_list)->prev)));\
->+    struct list_head *__pos_list = &(pos)->list; \
->+    struct list_head __rcu *__pos_prev = (__pos_list->prev != LIST_POISON2) ? \
->+    (*((struct list_head __rcu **)(&(__pos_list)->prev))) : NULL; \
->+    likely(__pos_prev != __slave_list) ? \
->+    ((__pos_prev) ? list_entry_rcu(__pos_prev, struct slave, list) : NULL;) : \
->+    (list_entry_rcu(__prev, struct slave, list)); \
->+    })
+This could be prevented by setting a flag when ip6_route_init() is
+complete and not calling fib6_run_gc() from ndisc_netdev_event() until
+the flag is set. However, I don't like the idea of adding a test which
+will be useful only in a short window while loading ipv6 module.
 
-Same remark as above about prev.
+The only other actions ndisc_netdev_event() does are flushing the neigh
+table (which should be empty at the moment) and calling
+ndisc_send_unsol_na() (which should do nothing as there is no IPv6
+address assigned yet). Thus I believe taking the netdev event handler
+registration call out of ndisc_init() into a separate function, say
+ndisc_late_init(), which would be called after ip6_route_init() should
+be a safe and efficient way to avoid the race condition.
 
->+
->
->
->-#define bond_for_each_slave_from(bond, pos, cnt, start) \
->-   for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
->-        cnt++, pos = bond_next_slave(bond, pos))
->-
->+#define bond_for_each_slave_from(bond, pos, start) \
->+   for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
->+       (pos) : (pos = NULL))
->+
->+#define bond_for_each_slave_from_rcu(bond, pos, start) \
->+   for ({struct list_head *__start = &(start)->list; \
->+        struct list_head *__slave_list = &(bond)->slave_list; \
->+        pos = list_entry_rcu(__start, struct slave, list);}; \
->+        pos; \
->+        {struct list_head __rcu *__next = list_next_rcu(pos->next); \
->+        __next != __slave_list ? \
->+        __next : __next = list_next_rcu(__next->next); \
->+        __next != __start ? \
->+        pos = list_entry_rcu(__next, struct slave, list) : \
->+        pos = NULL; \
->+        })
+Before I submit the patch, I wanted to ask if someone can see a problem
+with this solution (or a better solution).
 
-Jeez, I don't even want to review it. It's too complex and too hard to
-maintain, even if it works. Can you please make something shorter/easier to
-understand?
-
->+
->
->Best regards
->Ding
->
->
->>> --
->>> To unsubscribe from this list: send the line "unsubsc ribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at http://vger.kernel.org/majordomo-info.html
->>>
->>
->>
->> .
->>
->
->
+                                                         Michal Kubecek
