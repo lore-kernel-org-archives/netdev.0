@@ -1,66 +1,125 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 19/26] bonding: convert first/last slave logic to use neighbours
-Date: Mon,  9 Sep 2013 22:16:37 +0200
-Message-ID: <1378757804-3159-20-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 11/26] bonding: rework bond_3ad_xmit_xor() to use bond_for_each_slave() only
+Date: Mon,  9 Sep 2013 22:16:29 +0200
+Message-ID: <1378757804-3159-12-git-send-email-vfalico@redhat.com>
 References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62734 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:25245 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755677Ab3IIUSD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Sep 2013 16:18:03 -0400
+	id S1755530Ab3IIUQu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Sep 2013 16:16:50 -0400
 In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For that, use netdev_adjacent_get_private(list_head) on bond's lower
-neighbour list members. Also, add a small macro - bond_slave_list(bond),
-which returns the bond list via neighbour list.
+Currently, there are two loops - first we find the first slave in an
+aggregator after the xmit_hash_policy() returned number, and after that we
+loop from that slave, over bonding head, and till that slave to find any
+suitable slave to send the packet through.
+
+Replace it by just one bond_for_each_slave() loop, which first loops
+through the requested number of slaves, saving the first suitable one, and
+after that we've hit the requested number of slaves to skip - search for
+any up slave to send the packet through. If we don't find such kind of
+slave - then just send the packet through the first suitable slave found.
+
+Logic remains unchainged, and we skip two loops. Also, refactor it a bit
+for readability.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bonding.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 8176842..b82474d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -72,19 +72,24 @@
- 	res; })
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 3847aee..c861ee7 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
  
- /* slave list primitives */
--#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
-+#define bond_slave_list(bond) (&(bond)->dev->adj_list.lower)
+ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct slave *slave, *start_at;
+ 	struct bonding *bond = netdev_priv(dev);
++	struct slave *slave, *first_ok_slave;
++	struct aggregator *agg;
++	struct ad_info ad_info;
+ 	struct list_head *iter;
+-	int slave_agg_no;
+ 	int slaves_in_agg;
+-	int agg_id;
+-	int i;
+-	struct ad_info ad_info;
++	int slave_agg_no;
+ 	int res = 1;
++	int agg_id;
+ 
+ 	read_lock(&bond->lock);
+ 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+@@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	agg_id = ad_info.aggregator_id;
+ 
+ 	if (slaves_in_agg == 0) {
+-		/*the aggregator is empty*/
+ 		pr_debug("%s: Error: active aggregator is empty\n", dev->name);
+ 		goto out;
+ 	}
+ 
+ 	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
++	first_ok_slave = NULL;
+ 
+ 	bond_for_each_slave(bond, slave, iter) {
+-		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
++		agg = SLAVE_AD_INFO(slave).port.aggregator;
++		if (!agg || agg->aggregator_identifier != agg_id)
++			continue;
+ 
+-		if (agg && (agg->aggregator_identifier == agg_id)) {
++		if (slave_agg_no >= 0) {
++			if (!first_ok_slave && SLAVE_IS_OK(slave))
++				first_ok_slave = slave;
+ 			slave_agg_no--;
+-			if (slave_agg_no < 0)
+-				break;
++			continue;
++		}
 +
-+#define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
++		if (SLAVE_IS_OK(slave)) {
++			res = bond_dev_queue_xmit(bond, skb, slave->dev);
++			goto out;
+ 		}
+ 	}
  
- #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
+@@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		goto out;
+ 	}
  
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
--	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
-+		NULL)
- #define bond_last_slave(bond) \
--	(list_empty(&(bond)->slave_list) ? NULL : \
--					   bond_to_slave((bond)->slave_list.prev))
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
-+		NULL)
+-	start_at = slave;
+-
+-	bond_for_each_slave_from(bond, slave, i, start_at) {
+-		int slave_agg_id = 0;
+-		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+-
+-		if (agg)
+-			slave_agg_id = agg->aggregator_identifier;
+-
+-		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
+-			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+-			break;
+-		}
+-	}
++	/* we couldn't find any suitable slave after the agg_no, so use the
++	 * first suitable found, if found. */
++	if (first_ok_slave)
++		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
  
--#define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
--#define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
-+#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
-+#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
- 
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
- #define bond_next_slave(bond, pos) \
+ out:
+ 	read_unlock(&bond->lock);
 -- 
 1.8.4
