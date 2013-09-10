@@ -1,22 +1,22 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 17/27] bonding: convert bond_has_slaves() to use the neighbour list
-Date: Tue, 10 Sep 2013 22:58:01 +0200
-Message-ID: <1378846691-9717-18-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 20/27] bonding: remove bond_prev_slave()
+Date: Tue, 10 Sep 2013 22:58:04 +0200
+Message-ID: <1378846691-9717-21-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23976 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21363 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948Ab3IJU6g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:36 -0400
+	id S1751948Ab3IJU6l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:41 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The same way as it was used for its own slave_list.
+We don't really need it, and it's really hard to RCUify the list->prev.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -28,23 +28,68 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Use the renamed adj_list instead of neighbour_dev_list.
+    New patch.
 
- drivers/net/bonding/bonding.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c | 9 +++------
+ drivers/net/bonding/bonding.h   | 4 ----
+ 2 files changed, 3 insertions(+), 10 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c91b754..65eae12 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1255,7 +1255,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
+-	struct slave *new_slave = NULL;
++	struct slave *new_slave = NULL, *prev_slave;
+ 	struct sockaddr addr;
+ 	int link_reporting;
+ 	int res = 0, i;
+@@ -1472,6 +1472,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 
+ 	write_lock_bh(&bond->lock);
+ 
++	prev_slave = bond_last_slave(bond);
+ 	bond_attach_slave(bond, new_slave);
+ 
+ 	new_slave->delay = 0;
+@@ -1566,9 +1567,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 			 */
+ 			bond_3ad_initialize(bond, 1000/AD_TIMER_INTERVAL);
+ 		} else {
+-			struct slave *prev_slave;
+-
+-			prev_slave = bond_prev_slave(bond, new_slave);
+ 			SLAVE_AD_INFO(new_slave).id =
+ 				SLAVE_AD_INFO(prev_slave).id + 1;
+ 		}
+@@ -3506,9 +3504,8 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
+ 	 */
+ 
+ 	bond_for_each_slave(bond, slave, iter) {
+-		pr_debug("s %p s->p %p c_m %p\n",
++		pr_debug("s %p c_m %p\n",
+ 			 slave,
+-			 bond_prev_slave(bond, slave),
+ 			 slave->dev->netdev_ops->ndo_change_mtu);
+ 
+ 		res = dev_set_mtu(slave->dev, new_mtu);
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 2908bd2..8176842 100644
+index b82474d..03daadd 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -72,7 +72,7 @@
- 	res; })
+@@ -96,10 +96,6 @@
+ 	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
+ 					 bond_to_slave((pos)->list.next))
  
- /* slave list primitives */
--#define bond_has_slaves(bond) !list_empty(&(bond)->slave_list)
-+#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
- 
- #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
- 
+-#define bond_prev_slave(bond, pos) \
+-	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
+-					  bond_to_slave((pos)->list.prev))
+-
+ /**
+  * bond_for_each_slave - iterate over all slaves
+  * @bond:	the bond holding this list
 -- 
 1.8.4
