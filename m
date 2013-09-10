@@ -1,39 +1,43 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/1] net: cdc-phonet: Staticize usbpn_probe
-Date: Tue, 10 Sep 2013 12:00:55 +0530
-Message-ID: <1378794655-18570-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, remi@remlab.net, sachin.kamat@linaro.org
-To: netdev@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: TSQ accounting skb->truesize degrades throughput for large packets
+Date: Tue, 10 Sep 2013 15:45:47 +0800
+Message-ID: <522ECE2B.7020409@redhat.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com>   <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>  <1378486604.31445.34.camel@edumazet-glaptop> <522D9466.6020205@redhat.com> <1378734444.26319.28.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:40476 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001Ab3IJGs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 02:48:59 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so7113986pbc.36
-        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 23:48:58 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:63441 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753719Ab3IJHqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 03:46:12 -0400
+In-Reply-To: <1378734444.26319.28.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'usbpn_probe' is referenced only in this file. Make it static.
+On 09/09/2013 09:47 PM, Eric Dumazet wrote:
+> On Mon, 2013-09-09 at 17:27 +0800, Jason Wang wrote:
+>
+>> Virtio-net orphan the skb in .ndo_start_xmit() so TSQ can not throttle
+>> packets in device accurately, and it also can't do BQL. Does this means
+>> TSQ should be disabled for virtio-net?
+>>
+> If skb are orphaned, there is no way TSQ can work at all.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
- drivers/net/usb/cdc-phonet.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+For example, virtio-net will stop the tx queue when it finds the tx
+queue may full and enable the queue when some packets were sent. In this
+case, tsq works and throttles the total bytes queued in qdisc. This
+usually happen during heavy network load such as two sessions of netperf.
+>
+> It is already disabled, so why do you want to disable it ?
+>
+>
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
-index 7d78669..8c44f86 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -328,7 +328,8 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
- 
- static struct usb_driver usbpn_driver;
- 
--int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
-+static int
-+usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
- {
- 	static const char ifname[] = "usbpn%d";
- 	const struct usb_cdc_union_desc *union_header = NULL;
--- 
-1.7.9.5
+We notice a regression, and bisect shows it was introduced by TSQ.
