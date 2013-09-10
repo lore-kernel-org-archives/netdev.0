@@ -1,34 +1,32 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 11/27] bonding: rework bond_3ad_xmit_xor() to use bond_for_each_slave() only
-Date: Tue, 10 Sep 2013 22:57:55 +0200
-Message-ID: <1378846691-9717-12-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 14/27] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
+Date: Tue, 10 Sep 2013 22:57:58 +0200
+Message-ID: <1378846691-9717-15-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6516 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50582 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751804Ab3IJU61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:27 -0400
+	id S1752210Ab3IJU7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:59:32 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, there are two loops - first we find the first slave in an
-aggregator after the xmit_hash_policy() returned number, and after that we
-loop from that slave, over bonding head, and till that slave to find any
-suitable slave to send the packet through.
+Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
+it doesn't check every slave for disrepencies between the actual
+IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
+next suitable slave.
 
-Replace it by just one bond_for_each_slave() loop, which first loops
-through the requested number of slaves, saving the first suitable one, and
-after that we've hit the requested number of slaves to skip - search for
-any up slave to send the packet through. If we don't find such kind of
-slave - then just send the packet through the first suitable slave found.
+Fix this by using bond_for_each_slave() and storing the first good slave in
+*before till we find the current_arp_slave, after that we store the first good
+slave in new_slave. If new_slave is empty - use the slave stored in before,
+and if it's also empty - then we didn't find any suitable slave.
 
-Logic remains unchainged, and we skip two loops. Also, refactor it a bit
-for readability.
+Also, in the meanwhile, check for each slave status.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -42,92 +40,80 @@ Notes:
     RFC -> v1:
     New patch.
 
- drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 24 deletions(-)
+ drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 3847aee..c861ee7 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b5497e7..eedfa8f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2761,8 +2761,9 @@ do_failover:
+  */
+ static void bond_ab_arp_probe(struct bonding *bond)
  {
--	struct slave *slave, *start_at;
- 	struct bonding *bond = netdev_priv(dev);
-+	struct slave *slave, *first_ok_slave;
-+	struct aggregator *agg;
-+	struct ad_info ad_info;
- 	struct list_head *iter;
--	int slave_agg_no;
- 	int slaves_in_agg;
--	int agg_id;
+-	struct slave *slave, *next_slave;
 -	int i;
--	struct ad_info ad_info;
-+	int slave_agg_no;
- 	int res = 1;
-+	int agg_id;
++	struct slave *slave, *before = NULL, *new_slave = NULL;
++	struct list_head *iter;
++	bool found = false;
  
- 	read_lock(&bond->lock);
- 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
-@@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 	agg_id = ad_info.aggregator_id;
+ 	read_lock(&bond->curr_slave_lock);
  
- 	if (slaves_in_agg == 0) {
--		/*the aggregator is empty*/
- 		pr_debug("%s: Error: active aggregator is empty\n", dev->name);
- 		goto out;
- 	}
+@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
  
- 	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
-+	first_ok_slave = NULL;
+ 	bond_set_slave_inactive_flags(bond->current_arp_slave);
  
- 	bond_for_each_slave(bond, slave, iter) {
--		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
-+		agg = SLAVE_AD_INFO(slave).port.aggregator;
-+		if (!agg || agg->aggregator_identifier != agg_id)
-+			continue;
- 
--		if (agg && (agg->aggregator_identifier == agg_id)) {
-+		if (slave_agg_no >= 0) {
-+			if (!first_ok_slave && SLAVE_IS_OK(slave))
-+				first_ok_slave = slave;
- 			slave_agg_no--;
--			if (slave_agg_no < 0)
--				break;
-+			continue;
-+		}
-+
-+		if (SLAVE_IS_OK(slave)) {
-+			res = bond_dev_queue_xmit(bond, skb, slave->dev);
-+			goto out;
- 		}
- 	}
- 
-@@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 	}
- 
--	start_at = slave;
--
--	bond_for_each_slave_from(bond, slave, i, start_at) {
--		int slave_agg_id = 0;
--		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
--
--		if (agg)
--			slave_agg_id = agg->aggregator_identifier;
--
--		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
--			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+-	/* search for next candidate */
+-	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+-		if (IS_UP(slave->dev)) {
+-			slave->link = BOND_LINK_BACK;
+-			bond_set_slave_active_flags(slave);
+-			bond_arp_send_all(bond, slave);
+-			slave->jiffies = jiffies;
+-			bond->current_arp_slave = slave;
 -			break;
 -		}
--	}
-+	/* we couldn't find any suitable slave after the agg_no, so use the
-+	 * first suitable found, if found. */
-+	if (first_ok_slave)
-+		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
++	bond_for_each_slave(bond, slave, iter) {
++		if (!found && !before && IS_UP(slave->dev))
++			before = slave;
  
- out:
- 	read_unlock(&bond->lock);
++		if (found && !new_slave && IS_UP(slave->dev))
++			new_slave = slave;
+ 		/* if the link state is up at this point, we
+ 		 * mark it down - this can happen if we have
+ 		 * simultaneous link failures and
+@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 		 * one the current slave so it is still marked
+ 		 * up when it is actually down
+ 		 */
+-		if (slave->link == BOND_LINK_UP) {
++		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
+ 			slave->link = BOND_LINK_DOWN;
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 			pr_info("%s: backup interface %s is now down.\n",
+ 				bond->dev->name, slave->dev->name);
+ 		}
++		if (slave == bond->current_arp_slave)
++			found = true;
+ 	}
++
++	if (!new_slave && before)
++		new_slave = before;
++
++	if (!new_slave)
++		return;
++
++	new_slave->link = BOND_LINK_BACK;
++	bond_set_slave_active_flags(new_slave);
++	bond_arp_send_all(bond, new_slave);
++	new_slave->jiffies = jiffies;
++	bond->current_arp_slave = new_slave;
++
+ }
+ 
+ void bond_activebackup_arp_mon(struct work_struct *work)
 -- 
 1.8.4
