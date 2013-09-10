@@ -1,166 +1,83 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: bonding: Make alb learning packet interval configurable
-Date: Tue, 10 Sep 2013 20:11:49 +0200
-Message-ID: <20130910181149.GE8474@redhat.com>
-References: <1378822490-28667-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [-net,v2,1/2] bonding: fix store_arp_validate race with mode
+ change
+Date: Tue, 10 Sep 2013 20:15:29 +0200
+Message-ID: <20130910181529.GF8474@redhat.com>
+References: <1378504826-18855-2-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29500 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30023 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753184Ab3IJSNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 14:13:36 -0400
+	id S1750936Ab3IJSRf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 14:17:35 -0400
 Content-Disposition: inline
-In-Reply-To: <1378822490-28667-1-git-send-email-nhorman@tuxdriver.com>
+In-Reply-To: <1378504826-18855-2-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 10, 2013 at 10:14:50AM -0400, Neil Horman wrote:
->From: Neil Horman <nhorman@redhat.com>
+On Sat, Sep 07, 2013 at 12:00:25AM +0200, nikolay@redhat.com wrote:
+>We need to protect store_arp_validate via rtnl because it can race with
+>mode changing and we can end up having arp_validate set in a mode
+>different from active-backup.
 >
->running bonding in ALB mode requires that learning packets be sent periodically,
->so that the switch knows where to send responding traffic.  However, depending
->on switch configuration, there may not be any need to send traffic at the
->default rate of 3 packets per second, which represents little more than wasted
->data.  Allow the ALB learning packet interval to be made configurable via sysfs
->
->Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: "David S. Miller" <davem@davemloft.net>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
+
 >
 >---
->drivers/net/bonding/bond_alb.c   |  2 +-
-> drivers/net/bonding/bond_alb.h   |  8 ++++----
-> drivers/net/bonding/bond_main.c  |  1 +
-> drivers/net/bonding/bond_sysfs.c | 39 +++++++++++++++++++++++++++++++++++++++
-> drivers/net/bonding/bonding.h    |  1 +
-> 5 files changed, 46 insertions(+), 5 deletions(-)
-
-Maybe add some description about it to Documentation/networking/bonding.txt?
-
-Otherwise seems good.
-
+>v2: no change
 >
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index 91f179d..f428ef57 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -1472,7 +1472,7 @@ void bond_alb_monitor(struct work_struct *work)
-> 	bond_info->lp_counter++;
+> drivers/net/bonding/bond_sysfs.c | 14 ++++++++++----
+> 1 file changed, 10 insertions(+), 4 deletions(-)
 >
-> 	/* send learning packets */
->-	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS) {
->+	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
-> 		/* change of curr_active_slave involves swapping of mac addresses.
-> 		 * in order to avoid this swapping from happening while
-> 		 * sending the learning packets, the curr_slave_lock must be held for
->diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
->index 28d8e4c..e78fd9b 100644
->--- a/drivers/net/bonding/bond_alb.h
->+++ b/drivers/net/bonding/bond_alb.h
->@@ -36,14 +36,14 @@ struct slave;
-> 					 * Used for division - never set
-> 					 * to zero !!!
-> 					 */
->-#define BOND_ALB_LP_INTERVAL	    1	/* In seconds, periodic send of
->-					 * learning packets to the switch
->-					 */
->+#define BOND_ALB_LP_INTERVAL(bond) (bond->params.lp_interval)	/* In seconds, periodic send of
->+								 * learning packets to the switch
->+								 */
->
-> #define BOND_TLB_REBALANCE_TICKS (BOND_TLB_REBALANCE_INTERVAL \
-> 				  * ALB_TIMER_TICKS_PER_SEC)
->
->-#define BOND_ALB_LP_TICKS (BOND_ALB_LP_INTERVAL \
->+#define BOND_ALB_LP_TICKS(bond) (BOND_ALB_LP_INTERVAL(bond) \
-> 			   * ALB_TIMER_TICKS_PER_SEC)
->
-> #define TLB_HASH_TABLE_SIZE 256	/* The size of the clients hash table.
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 39e5b1c..b8c9ec3 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -4416,6 +4416,7 @@ static int bond_check_params(struct bond_params *params)
-> 	params->all_slaves_active = all_slaves_active;
-> 	params->resend_igmp = resend_igmp;
-> 	params->min_links = min_links;
->+	params->lp_interval = 1;
->
-> 	if (primary) {
-> 		strncpy(params->primary, primary, IFNAMSIZ);
 >diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->index ce46776..4532259 100644
+>index ce46776..4e38683 100644
 >--- a/drivers/net/bonding/bond_sysfs.c
 >+++ b/drivers/net/bonding/bond_sysfs.c
->@@ -1680,6 +1680,44 @@ out:
-> static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
-> 		   bonding_show_resend_igmp, bonding_store_resend_igmp);
->
->+
->+static ssize_t bonding_show_lp_interval(struct device *d,
->+					struct device_attribute *attr,
->+					char *buf)
->+{
->+	struct bonding *bond = to_bond(d);
->+	return sprintf(buf, "%d\n", bond->params.lp_interval);
->+}
->+
->+static ssize_t bonding_store_lp_interval(struct device *d,
->+					 struct device_attribute *attr,
->+					 const char *buf, size_t count)
->+{
->+	struct bonding *bond = to_bond(d);
+>@@ -419,27 +419,33 @@ static ssize_t bonding_store_arp_validate(struct device *d,
+> 					  struct device_attribute *attr,
+> 					  const char *buf, size_t count)
+> {
+>-	int new_value;
 >+	int new_value, ret = count;
->+
->+	if (sscanf(buf, "%d", &new_value) != 1) {
->+		pr_err("%s: no lp interval value specified.\n",
->+			bond->dev->name);
+> 	struct bonding *bond = to_bond(d);
+
+p.s. If, by any chance, there'll be another v3 - move that struct before
+ints :). But it's ok as is, anyway.
+
+>
+>+	if (!rtnl_trylock())
+>+		return restart_syscall();
+> 	new_value = bond_parse_parm(buf, arp_validate_tbl);
+> 	if (new_value < 0) {
+> 		pr_err("%s: Ignoring invalid arp_validate value %s\n",
+> 		       bond->dev->name, buf);
+>-		return -EINVAL;
 >+		ret = -EINVAL;
 >+		goto out;
->+	}
->+
->+	if (new_value <= 0) {
->+		pr_err ("%s: lp_interval must be between 1 and %d\n",
->+			bond->dev->name, INT_MAX);
+> 	}
+> 	if (new_value && (bond->params.mode != BOND_MODE_ACTIVEBACKUP)) {
+> 		pr_err("%s: arp_validate only supported in active-backup mode.\n",
+> 		       bond->dev->name);
+>-		return -EINVAL;
 >+		ret = -EINVAL;
 >+		goto out;
->+	}
->+
->+	bond->params.lp_interval = new_value;
+> 	}
+> 	pr_info("%s: setting arp_validate to %s (%d).\n",
+> 		bond->dev->name, arp_validate_tbl[new_value].modename,
+> 		new_value);
+>
+> 	bond->params.arp_validate = new_value;
 >+out:
+>+	rtnl_unlock();
+>
+>-	return count;
 >+	return ret;
->+}
->+
->+static DEVICE_ATTR(lp_interval, S_IRUGO | S_IWUSR,
->+		   bonding_show_lp_interval, bonding_store_lp_interval);
->+
-> static struct attribute *per_bond_attrs[] = {
-> 	&dev_attr_slaves.attr,
-> 	&dev_attr_mode.attr,
->@@ -1710,6 +1748,7 @@ static struct attribute *per_bond_attrs[] = {
-> 	&dev_attr_all_slaves_active.attr,
-> 	&dev_attr_resend_igmp.attr,
-> 	&dev_attr_min_links.attr,
->+	&dev_attr_lp_interval.attr,
-> 	NULL,
-> };
+> }
 >
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index f7ab161..4bd9d5b 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -176,6 +176,7 @@ struct bond_params {
-> 	int tx_queues;
-> 	int all_slaves_active;
-> 	int resend_igmp;
->+	int lp_interval;
-> };
->
-> struct bond_parm_tbl {
+> static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
