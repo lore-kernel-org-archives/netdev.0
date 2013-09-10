@@ -1,27 +1,28 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 19/27] bonding: convert first/last slave logic to use neighbours
-Date: Tue, 10 Sep 2013 22:58:03 +0200
-Message-ID: <1378846691-9717-20-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 18/27] net: add a possibility to get private from netdev_adjacent->list
+Date: Tue, 10 Sep 2013 22:58:02 +0200
+Message-ID: <1378846691-9717-19-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31369 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1881 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948Ab3IJU6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:40 -0400
+	id S1752017Ab3IJU6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:45 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For that, use netdev_adjacent_get_private(list_head) on bond's lower
-neighbour list members. Also, add a small macro - bond_slave_list(bond),
-which returns the bond list via neighbour list.
+It will be useful to get first/last element.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -30,45 +31,44 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Rename neieghour_dev_list to adj_list.
+    No changes.
 
- drivers/net/bonding/bonding.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 8176842..b82474d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -72,19 +72,24 @@
- 	res; })
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 48431f0..72d1631 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
- /* slave list primitives */
--#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
-+#define bond_slave_list(bond) (&(bond)->dev->adj_list.lower)
++extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11284c8..24c7d17 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4512,6 +4512,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
+ 
++void *netdev_adjacent_get_private(struct list_head *adj_list)
++{
++	struct netdev_adjacent *adj;
 +
-+#define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
- 
- #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
- 
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
--	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
-+		NULL)
- #define bond_last_slave(bond) \
--	(list_empty(&(bond)->slave_list) ? NULL : \
--					   bond_to_slave((bond)->slave_list.prev))
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
-+		NULL)
- 
--#define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
--#define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
-+#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
-+#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
- 
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
- #define bond_next_slave(bond, pos) \
++	adj = list_entry(adj_list, struct netdev_adjacent, list);
++
++	return adj->private;
++}
++EXPORT_SYMBOL(netdev_adjacent_get_private);
++
+ /* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
+  * @iter: list_head ** of the current position
 -- 
 1.8.4
