@@ -1,28 +1,27 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 18/27] net: add a possibility to get private from netdev_adjacent->list
-Date: Tue, 10 Sep 2013 22:58:02 +0200
-Message-ID: <1378846691-9717-19-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 24/27] vlan: link the upper neighbour only after registering
+Date: Tue, 10 Sep 2013 22:58:08 +0200
+Message-ID: <1378846691-9717-25-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1881 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51575 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752017Ab3IJU6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:45 -0400
+	id S1751948Ab3IJU6t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:49 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be useful to get first/last element.
+Otherwise users might access it without being fully registered, as per
+sysfs - it only inits in register_netdevice(), so is unusable till it is
+called.
 
+CC: Patrick McHardy <kaber@trash.net>
 CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -33,42 +32,42 @@ Notes:
     RFC -> v1:
     No changes.
 
- include/linux/netdevice.h |  1 +
- net/core/dev.c            | 10 ++++++++++
- 2 files changed, 11 insertions(+)
+ net/8021q/vlan.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 48431f0..72d1631 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- 	     priv; \
- 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 61fc573..69b4a35 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -169,13 +169,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_mvrp;
  
-+extern void *netdev_adjacent_get_private(struct list_head *adj_list);
- extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- extern int netdev_upper_dev_link(struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 11284c8..24c7d17 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4512,6 +4512,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get);
+-	err = netdev_upper_dev_link(real_dev, dev);
+-	if (err)
+-		goto out_uninit_mvrp;
+-
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_upper_dev_unlink;
++		goto out_uninit_mvrp;
++
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_unregister_netdev;
  
-+void *netdev_adjacent_get_private(struct list_head *adj_list)
-+{
-+	struct netdev_adjacent *adj;
-+
-+	adj = list_entry(adj_list, struct netdev_adjacent, list);
-+
-+	return adj->private;
-+}
-+EXPORT_SYMBOL(netdev_adjacent_get_private);
-+
- /* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-  * @dev: device
-  * @iter: list_head ** of the current position
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -191,8 +191,8 @@ int register_vlan_dev(struct net_device *dev)
+ 
+ 	return 0;
+ 
+-out_upper_dev_unlink:
+-	netdev_upper_dev_unlink(real_dev, dev);
++out_unregister_netdev:
++	unregister_netdevice(dev);
+ out_uninit_mvrp:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_mvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
