@@ -1,43 +1,48 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: TSQ accounting skb->truesize degrades throughput for large packets
-Date: Tue, 10 Sep 2013 15:45:47 +0800
-Message-ID: <522ECE2B.7020409@redhat.com>
-References: <20130906101635.GI14104@zion.uk.xensource.com>   <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>  <1378486604.31445.34.camel@edumazet-glaptop> <522D9466.6020205@redhat.com> <1378734444.26319.28.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xenproject.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 1/1] net: bnx2x: Staticize local symbols
+Date: Tue, 10 Sep 2013 13:12:40 +0530
+Message-ID: <1378798960-6572-1-git-send-email-sachin.kamat@linaro.org>
+Cc: davem@davemloft.net, eilong@broadcom.com, sachin.kamat@linaro.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63441 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753719Ab3IJHqM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 03:46:12 -0400
-In-Reply-To: <1378734444.26319.28.camel@edumazet-glaptop>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:55756 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754966Ab3IJIAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 04:00:45 -0400
+Received: by mail-pb0-f51.google.com with SMTP id jt11so7273277pbb.10
+        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 01:00:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/2013 09:47 PM, Eric Dumazet wrote:
-> On Mon, 2013-09-09 at 17:27 +0800, Jason Wang wrote:
->
->> Virtio-net orphan the skb in .ndo_start_xmit() so TSQ can not throttle
->> packets in device accurately, and it also can't do BQL. Does this means
->> TSQ should be disabled for virtio-net?
->>
-> If skb are orphaned, there is no way TSQ can work at all.
+Local symbols used only in this file are made static.
 
-For example, virtio-net will stop the tx queue when it finds the tx
-queue may full and enable the queue when some packets were sent. In this
-case, tsq works and throttles the total bytes queued in qdisc. This
-usually happen during heavy network load such as two sessions of netperf.
->
-> It is already disabled, so why do you want to disable it ?
->
->
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-We notice a regression, and bisect shows it was introduced by TSQ.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 2604b62..5ec30cc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2802,7 +2802,7 @@ struct set_vf_state_cookie {
+ 	u8 state;
+ };
+ 
+-void bnx2x_set_vf_state(void *cookie)
++static void bnx2x_set_vf_state(void *cookie)
+ {
+ 	struct set_vf_state_cookie *p = (struct set_vf_state_cookie *)cookie;
+ 
+@@ -3222,7 +3222,8 @@ void bnx2x_disable_sriov(struct bnx2x *bp)
+ 	pci_disable_sriov(bp->pdev);
+ }
+ 
+-int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
++static int
++bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
+ 			struct pf_vf_bulletin_content **bulletin)
+ {
+ 	if (bp->state != BNX2X_STATE_OPEN) {
+-- 
+1.7.9.5
