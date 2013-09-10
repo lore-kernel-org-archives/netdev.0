@@ -1,259 +1,95 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 04/27] net: add netdev_adjacent->private and allow to use it
-Date: Tue, 10 Sep 2013 22:57:48 +0200
-Message-ID: <1378846691-9717-5-git-send-email-vfalico@redhat.com>
-References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
-Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
+Subject: [PATCH v2 net-next 00/27] bonding: use neighbours instead of own lists
+Date: Tue, 10 Sep 2013 22:57:44 +0200
+Message-ID: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
+Cc: jiri@resnulli.us, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Dimitris Michailidis <dm@chelsio.com>,
 	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
 	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23386 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59780 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994Ab3IJU6O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:14 -0400
-In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
+	id S1751491Ab3IJU6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, even though we can access any linked device, we can't attach
-anything to it, which is vital to properly manage them.
+(David, feel free to drop the whole patchset - I know that the window is
+closed and I'm quite sure that it's not the last version, and even if it is
+- I'll easily re-submit it. Sorry for the mess, again :) )
 
-To fix this, add a new void *private to netdev_adjacent and functions
-setting/getting it (per link), so that we can save, per example, bonding's
-slave structures there, per slave device.
+Hi,
 
-netdev_master_upper_dev_link_private(dev, upper_dev, private) links dev to
-upper dev and populates the neighbour link only with private.
+v1  -> v2:
+Fix a bug when we could remove try to remove a neighbour twice - it was
+possible if we've had this neighbour already and added another devices
+which had this neighbour in its lists. Fix it by following the rule - there
+can be only one neighbour link, so add also _remove_neighbour() functions
+to the generic _remove()s to handle the neighbour only removing, and fix
+its refcounting while adding (all in patch 01).
+Also, fix a vlan bug when it called unregister netdevice before unlinking -
+it could possibly lead to a subte race condition - cause it was
+unregistered but still in global-accessible list.
+Rearrange sysfs/vlan patches so that first we fix vlan and only after we
+add sysfs stuff.
 
-netdev_lower_dev_get_private{,_rcu}() returns the private, if found.
+RFC -> v1:
+I've added proper, consistent naming for all variables/functions, uninlined
+some helpers to get better backtraces, just in case (overhead is minimal,
+no hot paths), rearranged patches for better review, dropped bondings
+->prev and bond_for_each_slave_continue() functionality - to be able to
+RCUify it easier, and renamed slave_* sysfs links to lower_* sysfs links to
+maintain upper/lower naming. I've also dropped, thanks to bonding cleanup,
+some heavy and ugly/intrusive patches.
 
+I'm sending it as early as possible, because it's quite a big patchset and
+some of the approaches I've chosen are not really easy/straightforward.
+It's, however, quite heavily tested already and works fine.
+
+I'm sending it to gather any feedback possible.
+
+This patchset introduces all the needed infrastructure, on top of current
+adjacent lists, to be able to remove bond's slave_list/slave->list. The
+overhead in memory/CPU is minimal, and after the patchset bonding can rely
+on its slave-related functions, given the proper locking. I've done some
+netperf benchmarks on a vm, and the delta was about 0.1gbps for 35gbps as a
+whole, so no speed fluctuations.
+
+It also automatically creates lower/upper and master symlinks in dev's
+sysfs directory.
+
+The current version works ok, as first tests have shown. I'm testing it
+further, if anything comes up - I'll update.
+
+The per-patch description has moved from here to per-patch notes.
+
+Thanks in advance.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Dimitris Michailidis <dm@chelsio.com>
 CC: "David S. Miller" <davem@davemloft.net>
+CC: Patrick McHardy <kaber@trash.net>
 CC: Eric Dumazet <edumazet@google.com>
 CC: Jiri Pirko <jiri@resnulli.us>
 CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
 ---
-
-Notes:
-    v1  -> v2:
-    No changes.
-    
-    RFC -> v1:
-    rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
-    the naming of functions - to make the use the pattern
-    netdev_(all_)(lower|upper)_* .
-
- include/linux/netdevice.h |  7 ++++
- net/core/dev.c            | 83 ++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 75 insertions(+), 15 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2a944e5..eab8e36 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2839,8 +2839,15 @@ extern int netdev_upper_dev_link(struct net_device *dev,
- 				 struct net_device *upper_dev);
- extern int netdev_master_upper_dev_link(struct net_device *dev,
- 					struct net_device *upper_dev);
-+extern int netdev_master_upper_dev_link_private(struct net_device *dev,
-+						struct net_device *upper_dev,
-+						void *private);
- extern void netdev_upper_dev_unlink(struct net_device *dev,
- 				    struct net_device *upper_dev);
-+extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
-+					      struct net_device *lower_dev);
-+extern void *netdev_lower_dev_get_private(struct net_device *dev,
-+					  struct net_device *lower_dev);
- extern int skb_checksum_help(struct sk_buff *skb);
- extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d277081..6b2b12f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4376,6 +4376,9 @@ struct netdev_adjacent {
- 	/* counter for the number of times this device was added to us */
- 	u16 ref_nr;
- 
-+	/* private field for the users */
-+	void *private;
-+
- 	struct list_head list;
- 	struct rcu_head rcu;
- };
-@@ -4556,7 +4559,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
- 					bool neighbour, bool master,
--					bool upper)
-+					bool upper, void *private)
- {
- 	struct netdev_adjacent *adj, *neigh = NULL;
- 
-@@ -4599,9 +4602,15 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 			 adj_dev->name);
- 
- 	if (!upper) {
--		if (neigh)
-+		if (neigh) {
-+			/* we're backlinging the master device to its
-+			 * slave, so save the private in this link.
-+			 */
-+			if (master)
-+				neigh->private = private;
- 			list_add_tail_rcu(&neigh->list,
- 					  &dev->adj_list.lower);
-+		}
- 		list_add_tail_rcu(&adj->list, &dev->all_adj_list.lower);
- 		return 0;
- 	}
-@@ -4627,15 +4636,16 @@ static int __netdev_upper_dev_insert(struct net_device *dev,
- 				     bool master, bool neighbour)
- {
- 	return __netdev_adjacent_dev_insert(dev, udev, neighbour, master,
--					    true);
-+					    true, NULL);
- }
- 
- static int __netdev_lower_dev_insert(struct net_device *dev,
- 				     struct net_device *ldev,
--				     bool neighbour)
-+				     bool master, bool neighbour,
-+				     void *private)
- {
--	return __netdev_adjacent_dev_insert(dev, ldev, neighbour, false,
--					    false);
-+	return __netdev_adjacent_dev_insert(dev, ldev, neighbour, master,
-+					    false, private);
- }
- 
- void __netdev_adjacent_dev_remove(struct net_device *dev,
-@@ -4710,7 +4720,8 @@ static void __netdev_lower_dev_remove_neighbour(struct net_device *dev,
- 
- int __netdev_adjacent_dev_insert_link(struct net_device *dev,
- 				      struct net_device *upper_dev,
--				      bool master, bool neighbour)
-+				      bool master, bool neighbour,
-+				      void *private)
- {
- 	int ret;
- 
-@@ -4718,7 +4729,8 @@ int __netdev_adjacent_dev_insert_link(struct net_device *dev,
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_lower_dev_insert(upper_dev, dev, neighbour);
-+	ret = __netdev_lower_dev_insert(upper_dev, dev, master, neighbour,
-+					private);
- 	if (ret) {
- 		__netdev_upper_dev_remove(dev, upper_dev);
- 		return ret;
-@@ -4730,14 +4742,15 @@ int __netdev_adjacent_dev_insert_link(struct net_device *dev,
- static int __netdev_adjacent_dev_link(struct net_device *dev,
- 				      struct net_device *udev)
- {
--	return __netdev_adjacent_dev_insert_link(dev, udev, false, false);
-+	return __netdev_adjacent_dev_insert_link(dev, udev, false, false, NULL);
- }
- 
- static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 						struct net_device *udev,
--						bool master)
-+						bool master, void *priv)
- {
--	return __netdev_adjacent_dev_insert_link(dev, udev, master, true);
-+	return __netdev_adjacent_dev_insert_link(dev, udev, master, true,
-+						 priv);
- }
- 
- void __netdev_adjacent_dev_unlink(struct net_device *dev,
-@@ -4756,7 +4769,8 @@ void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
- 
- 
- static int __netdev_upper_dev_link(struct net_device *dev,
--				   struct net_device *upper_dev, bool master)
-+				   struct net_device *upper_dev, bool master,
-+				   void *private)
- {
- 	struct netdev_adjacent *i, *j, *to_i, *to_j;
- 	int ret = 0;
-@@ -4776,7 +4790,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (master && netdev_master_upper_dev_get(dev))
- 		return -EBUSY;
- 
--	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master);
-+	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master,
-+						   private);
- 	if (ret)
- 		return ret;
- 
-@@ -4867,7 +4882,7 @@ rollback_mesh:
- int netdev_upper_dev_link(struct net_device *dev,
- 			  struct net_device *upper_dev)
- {
--	return __netdev_upper_dev_link(dev, upper_dev, false);
-+	return __netdev_upper_dev_link(dev, upper_dev, false, NULL);
- }
- EXPORT_SYMBOL(netdev_upper_dev_link);
- 
-@@ -4885,10 +4900,18 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
- int netdev_master_upper_dev_link(struct net_device *dev,
- 				 struct net_device *upper_dev)
- {
--	return __netdev_upper_dev_link(dev, upper_dev, true);
-+	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_link);
- 
-+int netdev_master_upper_dev_link_private(struct net_device *dev,
-+					 struct net_device *upper_dev,
-+					 void *private)
-+{
-+	return __netdev_upper_dev_link(dev, upper_dev, true, private);
-+}
-+EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
-+
- /**
-  * netdev_upper_dev_unlink - Removes a link to upper device
-  * @dev: device
-@@ -4926,6 +4949,36 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
- 
-+void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
-+				       struct net_device *lower_dev)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	if (!lower_dev)
-+		return NULL;
-+	lower = __netdev_lower_find_rcu(dev, lower_dev);
-+	if (!lower)
-+		return NULL;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_private_rcu);
-+
-+void *netdev_lower_dev_get_private(struct net_device *dev,
-+				   struct net_device *lower_dev)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	if (!lower_dev)
-+		return NULL;
-+	lower = __netdev_lower_find(dev, lower_dev);
-+	if (!lower)
-+		return NULL;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_private);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
--- 
-1.8.4
+ drivers/net/bonding/bond_3ad.c                  |  54 +--
+ drivers/net/bonding/bond_alb.c                  |  81 ++--
+ drivers/net/bonding/bond_alb.h                  |   4 +-
+ drivers/net/bonding/bond_main.c                 | 296 ++++++++-------
+ drivers/net/bonding/bond_procfs.c               |   5 +-
+ drivers/net/bonding/bond_sysfs.c                |  62 +--
+ drivers/net/bonding/bonding.h                   |  74 ++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   3 +-
+ include/linux/netdevice.h                       |  57 ++-
+ net/8021q/vlan.c                                |  18 +-
+ net/core/dev.c                                  | 482 +++++++++++++++++++-----
+ 11 files changed, 724 insertions(+), 412 deletions(-)
