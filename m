@@ -1,81 +1,47 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH] net: fec: add the initial to set the physical mac address
-Date: Tue, 10 Sep 2013 18:19:11 +0400
-Message-ID: <CAOJe8K2eH+6Eg0vOnOFwNsy9-TyxBJwYDCTDbLcbB3yu42OW1w@mail.gmail.com>
-References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Question about reading the routing table with netlink
+Date: Tue, 10 Sep 2013 11:21:44 -0300
+Message-ID: <522F2AF8.9080106@gont.com.ar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: b20596@freescale.com, b45643@freescale.com, davem@davemloft.net,
-	netdev@vger.kernel.org, shawn.guo@linaro.org,
-	bhutchings@solarflare.com, R49496@freescale.com,
-	stephen@networkplumber.org
-To: Fugang Duan <B38611@freescale.com>
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:34773 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753121Ab3IJOTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 10:19:12 -0400
-Received: by mail-oa0-f43.google.com with SMTP id i10so7919037oag.16
-        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 07:19:11 -0700 (PDT)
-In-Reply-To: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+Received: from web01.jbserver.net ([93.186.182.34]:45085 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752832Ab3IJOVx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 10:21:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/22/13, Fugang Duan <B38611@freescale.com> wrote:
-> For imx6slx evk platform, the fec driver cannot work since there
-> have no valid mac address set in physical mac registers.
->
-> For imx serial platform, fec/enet IPs both need the physical MAC
-> address initial, otherwise it cannot work.
->
-> After acquiring the valid MAC address from devices tree/pfuse/
-> kernel command line/random mac address, and then set it to the
-> physical MAC address registers.
->
-> Signed-off-by: Fugang Duan  <B38611@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c |    9 ++++++---
->  1 files changed, 6 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 4349a9e..9b5e08c 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1867,10 +1867,12 @@ fec_set_mac_address(struct net_device *ndev, void
-> *p)
->  	struct fec_enet_private *fep = netdev_priv(ndev);
->  	struct sockaddr *addr = p;
->
-> -	if (!is_valid_ether_addr(addr->sa_data))
-> -		return -EADDRNOTAVAIL;
-> +	if (p) {
+Folks,
 
-I don't see how the p pointer can be NULL...
+Short version of the question:
+I'm trying to loop up a routing table entry with a
+socket(AF_NETLINK,SOCK_RAW,NETLINK_ROUTE).
 
-> +		if (!is_valid_ether_addr(addr->sa_data))
-> +			return -EADDRNOTAVAIL;
->
-> -	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +	}
->
->  	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
->  		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
-> @@ -1969,6 +1971,7 @@ static int fec_enet_init(struct net_device *ndev)
->
->  	/* Get the Ethernet address */
->  	fec_get_mac(ndev);
-> +	fec_set_mac_address(ndev, NULL);
->
->  	/* Set receive and transmit descriptor base. */
->  	fep->rx_bd_base = cbd_base;
-> --
-> 1.7.1
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Everything seems fine, except that I do not quite understand what's the
+effect of setting the RTA_SRC attribute type when doing that.
+
+Empirically, it seems that if the RTA_SRC attribute is set and it
+contains an address that is assigned to the interface involved in the
+route, then such address is later returned in the reply as an RTA_SRC
+attribute.
+
+
+Aside question, I was curious about the NETLINK_FIB_LOOKUP family (I
+guess it can be used for the same purpose?) -- but I wasn't able to get
+much information about it.
+
+Any help will be welcome.
+
+Thanks!
+
+P.S.: Not sure if this is the right forum to ask this.. please direct me
+elsewhere if appropriate.
+
+Best regards,
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
