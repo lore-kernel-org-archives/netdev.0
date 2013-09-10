@@ -1,95 +1,25 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 00/27] bonding: use neighbours instead of own lists
-Date: Tue, 10 Sep 2013 22:57:44 +0200
-Message-ID: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
-Cc: jiri@resnulli.us, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
+From: "T. Stratford" <info@sfp.com>
+Subject: Hello
+Date: Tue, 10 Sep 2013 06:59:42 +0100
+Message-ID: <20130910053540.D5FC37F00BF@mail.dream.com.ph>
+Reply-To: jeremy-office@qq.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@sfp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59780 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751491Ab3IJU6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:17 -0400
+Received: from ip-203.189.11.40.dream.com.ph ([203.189.11.40]:40062 "EHLO
+	mail.dream.com.ph" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752091Ab3IJVAd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 17:00:33 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(David, feel free to drop the whole patchset - I know that the window is
-closed and I'm quite sure that it's not the last version, and even if it is
-- I'll easily re-submit it. Sorry for the mess, again :) )
+Hello,
 
-Hi,
+You have won  1,000.000 great british pounds in the ongoing promo draw.
+For claims, contact Mr Jeremy via email on: jeremy-office@qq.com
 
-v1  -> v2:
-Fix a bug when we could remove try to remove a neighbour twice - it was
-possible if we've had this neighbour already and added another devices
-which had this neighbour in its lists. Fix it by following the rule - there
-can be only one neighbour link, so add also _remove_neighbour() functions
-to the generic _remove()s to handle the neighbour only removing, and fix
-its refcounting while adding (all in patch 01).
-Also, fix a vlan bug when it called unregister netdevice before unlinking -
-it could possibly lead to a subte race condition - cause it was
-unregistered but still in global-accessible list.
-Rearrange sysfs/vlan patches so that first we fix vlan and only after we
-add sysfs stuff.
-
-RFC -> v1:
-I've added proper, consistent naming for all variables/functions, uninlined
-some helpers to get better backtraces, just in case (overhead is minimal,
-no hot paths), rearranged patches for better review, dropped bondings
-->prev and bond_for_each_slave_continue() functionality - to be able to
-RCUify it easier, and renamed slave_* sysfs links to lower_* sysfs links to
-maintain upper/lower naming. I've also dropped, thanks to bonding cleanup,
-some heavy and ugly/intrusive patches.
-
-I'm sending it as early as possible, because it's quite a big patchset and
-some of the approaches I've chosen are not really easy/straightforward.
-It's, however, quite heavily tested already and works fine.
-
-I'm sending it to gather any feedback possible.
-
-This patchset introduces all the needed infrastructure, on top of current
-adjacent lists, to be able to remove bond's slave_list/slave->list. The
-overhead in memory/CPU is minimal, and after the patchset bonding can rely
-on its slave-related functions, given the proper locking. I've done some
-netperf benchmarks on a vm, and the delta was about 0.1gbps for 35gbps as a
-whole, so no speed fluctuations.
-
-It also automatically creates lower/upper and master symlinks in dev's
-sysfs directory.
-
-The current version works ok, as first tests have shown. I'm testing it
-further, if anything comes up - I'll update.
-
-The per-patch description has moved from here to per-patch notes.
-
-Thanks in advance.
-
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Dimitris Michailidis <dm@chelsio.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
----
- drivers/net/bonding/bond_3ad.c                  |  54 +--
- drivers/net/bonding/bond_alb.c                  |  81 ++--
- drivers/net/bonding/bond_alb.h                  |   4 +-
- drivers/net/bonding/bond_main.c                 | 296 ++++++++-------
- drivers/net/bonding/bond_procfs.c               |   5 +-
- drivers/net/bonding/bond_sysfs.c                |  62 +--
- drivers/net/bonding/bonding.h                   |  74 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   3 +-
- include/linux/netdevice.h                       |  57 ++-
- net/8021q/vlan.c                                |  18 +-
- net/core/dev.c                                  | 482 +++++++++++++++++++-----
- 11 files changed, 724 insertions(+), 412 deletions(-)
+Thanks,
+T. Stratford.
