@@ -1,55 +1,33 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/26] bonding: use neighbours instead of own
- lists
-Date: Tue, 10 Sep 2013 18:41:59 +0200
-Message-ID: <20130910164159.GC8474@redhat.com>
-References: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [request for stable inclusion] net: neighbour: prohibit
+ negative value for unres_qlen_bytes parameter
+Date: Tue, 10 Sep 2013 13:55:26 -0400 (EDT)
+Message-ID: <20130910.135526.1863493803956191042.davem@davemloft.net>
+References: <5201BD94.4060100@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: jiri@resnulli.us, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1657 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751631Ab3IJQn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 12:43:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1378757804-3159-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+	davidshan@tencent.com, dingtianhong@huawei.com, lizefan@huawei.com
+To: wangweidong1@huawei.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5201BD94.4060100@huawei.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 09, 2013 at 10:16:18PM +0200, Veaceslav Falico wrote:
->(David, feel free to drop the whole patchset - I know that the window is
->closed and I'm quite sure that it's not the last version, and even if it is
->- I'll easily re-submit it. Sorry for the mess :-/)
->
->Hi,
->
->RFC -> v1:
->I've added proper, consistent naming for all variables/functions, uninlined
->some helpers to get better backtraces, just in case (overhead is minimal,
->no hot paths), rearranged patches for better review, dropped bondings
->->prev and bond_for_each_slave_continue() functionality - to be able to
->RCUify it easier, and renamed slave_* sysfs links to lower_* sysfs links to
->maintain upper/lower naming. I've also dropped, thanks to bonding cleanup,
->some heavy and ugly/intrusive patches.
+From: wangweidong <wangweidong1@huawei.com>
+Date: Wed, 7 Aug 2013 11:23:00 +0800
 
-Self-NAK on this version, there is a bug - desynchronization of
-adj_list/all_adj_list lists in case we make a loop consecutively (otherwise
-it won't trigger):
+> Hi Shan Wei or David,
+> 
+> ce46cc64d47a8afaf13c300b09a7f9c29f4979b6
+> net: neighbour: prohibit negative value for unres_qlen_bytes parameter
+> 
+> This looks applicable to stable-3.4, I can reproduce it on this 3.4 kernel.
+> It fixes a type overflow when setting unres_qlen. I try to reproduce, and
+> then this patch works well. But git am or patch -p1 failed, because a
+> previous patch [commit 9a6308d74ed (neighbour: Stop using NLA_PUT*().)]
+> change the NLA_PUT_U32 to nla_put_u32. With some modifies, it was built
+> successful for me. What do you think?
 
-ifenslave bond0 eth0
-vconfig add eth0 100
-ifenslave bond0 eth0.100
-ifesnlave -d bond0 eth0.100
-
-It's, however, easily fixable (and quite a rare scenario) - so all reviews
-are still welcome. I'll continue testing and waiting for any input.
-
-Thanks all!
+Queued up, thanks.
