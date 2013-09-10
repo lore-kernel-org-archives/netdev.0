@@ -1,77 +1,106 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: macvlan: Move skb_clone check closer to call
-Date: Tue, 10 Sep 2013 10:38:10 +0900
-Message-ID: <20130910013810.GA28966@verge.net.au>
-References: <20130907022711.GA22613@gondor.apana.org.au>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH] net: fec: add the initial to set the physical mac
+ address
+Date: Tue, 10 Sep 2013 01:45:52 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE016A7B22@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1377170269-8988-1-git-send-email-B38611@freescale.com>
+ <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+ <9848F2DB572E5649BA045B288BE08FBE01653FEA@039-SN2MPN1-021.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: Lucas Stach <l.stach@pengutronix.de>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44764 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183Ab3IJBiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 21:38:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20130907022711.GA22613@gondor.apana.org.au>
+Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:59270
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750820Ab3IJBp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 21:45:56 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 07, 2013 at 12:27:11PM +1000, Herbert Xu wrote:
-> Currently macvlan calls skb_clone in macvlan_broadcast but checks
-> for a NULL return in macvlan_broadcast_one instead.  This is
-> needlessly confusing and may lead to bugs introduced later.
-> 
-> This patch moves the error check to where the skb_clone call is.
-> 
-> The only other caller of macvlan_broadcast_one never passes in a
-> NULL value so it doesn't need the check either.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-This seems good to me as macvlan_handle_frame(), which is
-the only other caller of macvlan_broadcast_one(), already checks
-that skb is non-NULL before calling macvlan_handle_frame().
-
-Reviewed-by: Simon Horman <horms@verge.net.au>
-
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 64dfaa3..9bf46bd 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -118,8 +118,6 @@ static int macvlan_broadcast_one(struct sk_buff *skb,
->  				 const struct ethhdr *eth, bool local)
->  {
->  	struct net_device *dev = vlan->dev;
-> -	if (!skb)
-> -		return NET_RX_DROP;
->  
->  	if (local)
->  		return vlan->forward(dev, skb);
-> @@ -171,9 +169,13 @@ static void macvlan_broadcast(struct sk_buff *skb,
->  			hash = mc_hash(vlan, eth->h_dest);
->  			if (!test_bit(hash, vlan->mc_filter))
->  				continue;
-> +
-> +			err = NET_RX_DROP;
->  			nskb = skb_clone(skb, GFP_ATOMIC);
-> -			err = macvlan_broadcast_one(nskb, vlan, eth,
-> -					 mode == MACVLAN_MODE_BRIDGE);
-> +			if (likely(nskb))
-> +				err = macvlan_broadcast_one(
-> +					nskb, vlan, eth,
-> +					mode == MACVLAN_MODE_BRIDGE);
->  			macvlan_count_rx(vlan, skb->len + ETH_HLEN,
->  					 err == NET_RX_SUCCESS, 1);
->  		}
-> 
-> Thanks,
-> -- 
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+SGksIERhdmlkLA0KDQpQbGVhc2UgZG9uJ3QgaWdub3JlIHRoZSBwYXRjaC4gDQoNClRoYW5rcywN
+CkFuZHkNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEdWFuIEZ1Z2Fu
+Zy1CMzg2MTENCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMzAsIDIwMTMgMTA6MDEgQU0NCj4gVG86
+IEx1Y2FzIFN0YWNoOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBkYXZlbUBkYXZlbWxvZnQu
+bmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOw0K
+PiBFc3RldmFtIEZhYmlvLVI0OTQ5Njsgc3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmcNCj4gU3Vi
+amVjdDogUkU6IFtQQVRDSF0gbmV0OiBmZWM6IGFkZCB0aGUgaW5pdGlhbCB0byBzZXQgdGhlIHBo
+eXNpY2FsIG1hYw0KPiBhZGRyZXNzDQo+IA0KPiBQaW5nLi4uDQo+IA0KPiA+IC0tLS0tT3JpZ2lu
+YWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZw0K
+PiA+IFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gPiBPbiBCZWhhbGYg
+T2YgRHVhbiBGdWdhbmctQjM4NjExDQo+ID4gU2VudDogV2VkbmVzZGF5LCBBdWd1c3QgMjgsIDIw
+MTMgMTA6MTEgQU0NCj4gPiBUbzogTHVjYXMgU3RhY2gNCj4gPiBDYzogTGkgRnJhbmstQjIwNTk2
+OyBaaG91IEx1d2VpLUI0NTY0MzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gPiBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOyBzaGF3bi5ndW9AbGluYXJvLm9yZzsNCj4gPiBiaHV0Y2hpbmdzQHNvbGFy
+ZmxhcmUuY29tOyBFc3RldmFtIEZhYmlvLVI0OTQ5NjsNCj4gPiBzdGVwaGVuQG5ldHdvcmtwbHVt
+YmVyLm9yZw0KPiA+IFN1YmplY3Q6IFJFOiBbUEFUQ0hdIG5ldDogZmVjOiBhZGQgdGhlIGluaXRp
+YWwgdG8gc2V0IHRoZSBwaHlzaWNhbCBtYWMNCj4gPiBhZGRyZXNzDQo+ID4NCj4gPiBGcm9tOiBM
+dWNhcyBTdGFjaCBbbWFpbHRvOmwuc3RhY2hAcGVuZ3V0cm9uaXguZGVdDQo+ID4gRGF0YTogVHVl
+c2RheSwgQXVndXN0IDI3LCAyMDEzIDEwOjE5IFBNDQo+ID4NCj4gPiA+IFRvOiBEdWFuIEZ1Z2Fu
+Zy1CMzg2MTENCj4gPiA+IENjOiBMaSBGcmFuay1CMjA1OTY7IFpob3UgTHV3ZWktQjQ1NjQzOyBk
+YXZlbUBkYXZlbWxvZnQubmV0Ow0KPiA+ID4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hhd24u
+Z3VvQGxpbmFyby5vcmc7DQo+ID4gPiBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBFc3RldmFt
+IEZhYmlvLVI0OTQ5NjsNCj4gPiA+IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnDQo+ID4gPiBT
+dWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGZlYzogYWRkIHRoZSBpbml0aWFsIHRvIHNldCB0aGUg
+cGh5c2ljYWwNCj4gPiA+IG1hYyBhZGRyZXNzDQo+ID4gPg0KPiA+ID4gQW0gRG9ubmVyc3RhZywg
+ZGVuIDIyLjA4LjIwMTMsIDE5OjE3ICswODAwIHNjaHJpZWIgRnVnYW5nIER1YW46DQo+ID4gPiA+
+IEZvciBpbXg2c2x4IGV2ayBwbGF0Zm9ybSwgdGhlIGZlYyBkcml2ZXIgY2Fubm90IHdvcmsgc2lu
+Y2UgdGhlcmUNCj4gPiA+ID4gaGF2ZSBubyB2YWxpZCBtYWMgYWRkcmVzcyBzZXQgaW4gcGh5c2lj
+YWwgbWFjIHJlZ2lzdGVycy4NCj4gPiA+ID4NCj4gPiA+ID4gRm9yIGlteCBzZXJpYWwgcGxhdGZv
+cm0sIGZlYy9lbmV0IElQcyBib3RoIG5lZWQgdGhlIHBoeXNpY2FsIE1BQw0KPiA+ID4gPiBhZGRy
+ZXNzIGluaXRpYWwsIG90aGVyd2lzZSBpdCBjYW5ub3Qgd29yay4NCj4gPiA+ID4NCj4gPiA+ID4g
+QWZ0ZXIgYWNxdWlyaW5nIHRoZSB2YWxpZCBNQUMgYWRkcmVzcyBmcm9tIGRldmljZXMgdHJlZS9w
+ZnVzZS8NCj4gPiA+ID4ga2VybmVsIGNvbW1hbmQgbGluZS9yYW5kb20gbWFjIGFkZHJlc3MsIGFu
+ZCB0aGVuIHNldCBpdCB0byB0aGUNCj4gPiA+ID4gcGh5c2ljYWwgTUFDIGFkZHJlc3MgcmVnaXN0
+ZXJzLg0KPiA+ID4gPg0KPiA+ID4gWWVhaCwgd2UgaGF2ZSBhbHNvIHNlZW4gdGhhdCB3ZSBuZWVk
+IHRvIHNldCB0aGlzIGV4cGxpY2l0bHkuIFRoZQ0KPiA+ID4gc3RyYW5nZSB0aGluZyBpcyB0aGF0
+IEkgcmVjYWxsIHRoaXMgdXNlZCB0byB3b3JrIHdpdGhvdXQgY2FsbGluZw0KPiA+ID4gZmVjX3Nl
+dF9tYWNfYWRkcmVzcygpIGV4cGxpY2l0bHksIHNvIGVpdGhlciB0aGUgbmV0ZGV2IGNvcmUgd2Fz
+DQo+ID4gPiBjYWxsaW5nIGl0IGF0IHNvbWUgcG9pbnQsIG9yIG91ciB1c2Vyc3BhY2Ugd2FzLiBJ
+IGRpZG4ndCBnb3QgYXJvdW5kDQo+ID4gPiB0byBpbnZlc3RpZ2F0ZSB0aGlzIGZ1cnRoZXIuDQo+
+ID4gTmV0ZGV2IGNvcmUgZG9uJ3QgY2FsbCB0aGUgZnVuY3Rpb24gd2lsbGluZ2x5LCBpZiBvbmx5
+IHVzZXIgY29uZmlnIE1BQw0KPiA+IGFkZHJlc3Mgc3VjaCBhcyBjYWxsIGlvY3RsKHNvY2tmZCwg
+U0lPQ1NJRkhXQUREUiwgaWZyZXEpLg0KPiA+DQo+ID4gPiBTbyBhbnl3YXk6DQo+ID4gPiBSZXZp
+ZXdlZC1ieTogTHVjYXMgU3RhY2ggPGwuc3RhY2hAcGVuZ3V0cm9uaXguZGU+DQo+ID4gPg0KPiA+
+ID4gPiBTaWduZWQtb2ZmLWJ5OiBGdWdhbmcgRHVhbiAgPEIzODYxMUBmcmVlc2NhbGUuY29tPg0K
+PiA+ID4gPiAtLS0NCj4gPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNf
+bWFpbi5jIHwgICAgOSArKysrKystLS0NCj4gPiA+ID4gIDEgZmlsZXMgY2hhbmdlZCwgNiBpbnNl
+cnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiA+ID4gPg0KPiA+ID4gPiBkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiA+ID4gYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiBpbmRleCA0MzQ5
+YTllLi45YjVlMDhjIDEwMDY0NA0KPiA+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiBAQCAtMTg2NywxMCArMTg2NywxMiBAQCBmZWNf
+c2V0X21hY19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlDQo+ID4gPiA+ICpuZGV2LA0KPiA+ID4g
+dm9pZCAqcCkNCj4gPiA+ID4gIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwID0gbmV0ZGV2
+X3ByaXYobmRldik7DQo+ID4gPiA+ICAJc3RydWN0IHNvY2thZGRyICphZGRyID0gcDsNCj4gPiA+
+ID4NCj4gPiA+ID4gLQlpZiAoIWlzX3ZhbGlkX2V0aGVyX2FkZHIoYWRkci0+c2FfZGF0YSkpDQo+
+ID4gPiA+IC0JCXJldHVybiAtRUFERFJOT1RBVkFJTDsNCj4gPiA+ID4gKwlpZiAocCkgew0KPiA+
+ID4gPiArCQlpZiAoIWlzX3ZhbGlkX2V0aGVyX2FkZHIoYWRkci0+c2FfZGF0YSkpDQo+ID4gPiA+
+ICsJCQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7DQo+ID4gPiA+DQo+ID4gPiA+IC0JbWVtY3B5KG5k
+ZXYtPmRldl9hZGRyLCBhZGRyLT5zYV9kYXRhLCBuZGV2LT5hZGRyX2xlbik7DQo+ID4gPiA+ICsJ
+CW1lbWNweShuZGV2LT5kZXZfYWRkciwgYWRkci0+c2FfZGF0YSwgbmRldi0+YWRkcl9sZW4pOw0K
+PiA+ID4gPiArCX0NCj4gPiA+ID4NCj4gPiA+ID4gIAl3cml0ZWwobmRldi0+ZGV2X2FkZHJbM10g
+fCAobmRldi0+ZGV2X2FkZHJbMl0gPDwgOCkgfA0KPiA+ID4gPiAgCQkobmRldi0+ZGV2X2FkZHJb
+MV0gPDwgMTYpIHwgKG5kZXYtPmRldl9hZGRyWzBdIDw8IDI0KSwNCj4gQEAgLQ0KPiA+ID4gMTk2
+OSw2DQo+ID4gPiA+ICsxOTcxLDcgQEAgc3RhdGljIGludCBmZWNfZW5ldF9pbml0KHN0cnVjdCBu
+ZXRfZGV2aWNlICpuZGV2KQ0KPiA+ID4gPg0KPiA+ID4gPiAgCS8qIEdldCB0aGUgRXRoZXJuZXQg
+YWRkcmVzcyAqLw0KPiA+ID4gPiAgCWZlY19nZXRfbWFjKG5kZXYpOw0KPiA+ID4gPiArCWZlY19z
+ZXRfbWFjX2FkZHJlc3MobmRldiwgTlVMTCk7DQo+ID4gPiA+DQo+ID4gPiA+ICAJLyogU2V0IHJl
+Y2VpdmUgYW5kIHRyYW5zbWl0IGRlc2NyaXB0b3IgYmFzZS4gKi8NCj4gPiA+ID4gIAlmZXAtPnJ4
+X2JkX2Jhc2UgPSBjYmRfYmFzZTsNCj4gPiA+DQo+ID4gPiAtLQ0KPiA+ID4gUGVuZ3V0cm9uaXgg
+ZS5LLiAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgTHVjYXMgU3RhY2gNCj4gPiB8DQo+ID4g
+PiBJbmR1c3RyaWFsIExpbnV4IFNvbHV0aW9ucyAgICAgICAgICAgICAgICAgfA0KPiBodHRwOi8v
+d3d3LnBlbmd1dHJvbml4LmRlLw0KPiA+IHwNCj4gPiA+IFBlaW5lciBTdHIuIDYtOCwgMzExMzcg
+SGlsZGVzaGVpbSwgR2VybWFueSB8IFBob25lOg0KPiA+ID4gKzQ5LTUxMjEtMjA2OTE3LTUwNzYN
+Cj4gPiB8DQo+ID4gPiBBbXRzZ2VyaWNodCBIaWxkZXNoZWltLCBIUkEgMjY4NiAgICAgICAgICAg
+fCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LQ0KPiA1NTU1DQo+ID4gfA0KPiA+ID4NCj4gPg0KPiAN
+Cg==
