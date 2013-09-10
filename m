@@ -1,58 +1,99 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 3/4] bridge: Fix the way the PVID is referenced
-Date: Tue, 10 Sep 2013 10:08:32 -0400
-Message-ID: <522F27E0.7070807@redhat.com>
-References: <1378808874.3988.2.camel@ubuntu-vm-makita> <1378809451.3988.11.camel@ubuntu-vm-makita>
+Subject: Re: VLAN filtering/VLAN aware bridge problems
+Date: Tue, 10 Sep 2013 10:11:19 -0400
+Message-ID: <522F2887.1080300@redhat.com>
+References: <521F4393.1020907@profihost.ag> <521FB2E3.6060508@redhat.com> <522048CB.1090000@profihost.ag> <5220A895.5040501@redhat.com> <2036307B-46CC-40F6-ACE0-93A08BDEE0B9@profihost.ag>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50537 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7660 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751098Ab3IJOIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 10:08:47 -0400
-In-Reply-To: <1378809451.3988.11.camel@ubuntu-vm-makita>
+	id S1751643Ab3IJOL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 10:11:26 -0400
+In-Reply-To: <2036307B-46CC-40F6-ACE0-93A08BDEE0B9@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/10/2013 06:37 AM, Toshiaki Makita wrote:
-> We are using the VLAN_TAG_PRESENT bit to detect whether the PVID is
-> set or not at br_get_pvid(), while we don't care about the bit in
-> adding/deleting the PVID, which makes it impossible to forward any
-> incomming untagged frame with vlan_filtering enabled.
+On 08/30/2013 11:01 AM, Stefan Priebe - Profihost AG wrote:
+> Yes
 >
-> Since vid 0 cannot be used for the PVID, we can use vid 0 to indicate
-> that the PVID is not set, which is slightly more efficient than using
-> the VLAN_TAG_PRESENT.
->
-> Fix the problem by getting rid of using the VLAN_TAG_PRESENT.
->
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
+Can you apply this patch and see if this fixes your problem.
+	http://patchwork.ozlabs.org/patch/273841/
+
+In my attempts to reproduce your problem I didn't configuring filtering
+on the upper bridge, but that is what could have been causing
+your problem.  I'll attempt it and let you know.
 
 -vlad
 
-> ---
->   net/bridge/br_private.h | 4 +---
->   1 file changed, 1 insertion(+), 3 deletions(-)
+
+> Stefan
 >
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 598cb0b..435ca4d 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -646,9 +646,7 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
->   	 * vid wasn't set
->   	 */
->   	smp_rmb();
-> -	return (v->pvid & VLAN_TAG_PRESENT) ?
-> -			(v->pvid & ~VLAN_TAG_PRESENT) :
-> -			VLAN_N_VID;
-> +	return v->pvid ?: VLAN_N_VID;
->   }
+> This mail was sent with my iPhone.
 >
->   #else
+> Am 30.08.2013 um 16:13 schrieb Vlad Yasevich <vyasevic@redhat.com>:
 >
+>> On 08/30/2013 03:24 AM, Stefan Priebe - Profihost AG wrote:
+>>> Am 29.08.2013 22:45, schrieb Vlad Yasevich:
+>>>> On 08/29/2013 08:50 AM, Stefan Priebe - Profihost AG wrote:
+>>>
+>>>>> The packets never reach the TAP device.
+>>>>>
+>>>>> Here is an output of ip a l (vlan 3021):
+>>>>
+>>>> Can you provide output of brctl show?
+>>>
+>>> Sure:
+>>> # brctl show
+>>> bridge name     bridge id               STP enabled     interfaces
+>>> vmbr0           8000.00259084dea8       no              bond0
+>>>                                                          tap320i0
+>>> vmbr1           8000.00259084deaa       no              bond1
+>>> vmbr1v3021              8000.00259084deaa       no              tap320i1
+>>>                                                          vmbr1.3021
+>>
+>> so let me see if I can understand this configuration.
+>>
+>>           vmbr1v3021 (bridge)
+>>            /          \
+>>        tap320i1       vmbr1.3021 (vlan)
+>>                           \
+>>                           vmbr1 (bridge)
+>>                              \
+>>                             bond1
+>>                                \
+>>                              eth X
+>>
+>>
+>> Is that right? Is this the setup that has the problem you are
+>> describing?
+>>
+>> Thanks
+>> -vlad
+>>
+>>>> On the off chance that you are actually trying to configure vlan
+>>>> filtering, can you give this patch a try (net-2.6 tree):
+>>>>
+>>>> Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>> Date:   Tue Aug 20 17:10:18 2013 +0900
+>>>>
+>>>>      bridge: Use the correct bit length for bitmap functions in the VLAN
+>>>> code
+>>>>
+>>>> I don't think it made it to stable yet.
+>>>
+>>> I addd that patch and now the vlan stuff works at least on the host
+>>> node. But my tap devices still don't work.
+>>>
+>>> I also tried to attach the tap device on top of a vlan attached to bond1
+>>> but then gvrp does not work anymore. The kernel announces gvrp once and
+>>> then does not answer the query packets from the switch.
+>>>
+>>> Stefan
+>>
