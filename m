@@ -1,7 +1,7 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 2/4] bridge: Handle priority-tagged frames properly
-Date: Tue, 10 Sep 2013 19:34:40 +0900
-Message-ID: <1378809280.3988.8.camel@ubuntu-vm-makita>
+Subject: [PATCH net 3/4] bridge: Fix the way the PVID is referenced
+Date: Tue, 10 Sep 2013 19:37:31 +0900
+Message-ID: <1378809451.3988.11.camel@ubuntu-vm-makita>
 References: <1378808874.3988.2.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,76 +10,44 @@ Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 To: "David S. Miller" <davem@davemloft.net>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:57455 "EHLO
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:57470 "EHLO
 	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011Ab3IJKer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 06:34:47 -0400
+	with ESMTP id S1750758Ab3IJKhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 06:37:37 -0400
 In-Reply-To: <1378808874.3988.2.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IEEE 802.1Q says that when we receive priority-tagged (VID 0) frames
-use the PVID for the port as its VID.
-(See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
+We are using the VLAN_TAG_PRESENT bit to detect whether the PVID is
+set or not at br_get_pvid(), while we don't care about the bit in
+adding/deleting the PVID, which makes it impossible to forward any
+incomming untagged frame with vlan_filtering enabled.
 
-Apply the PVID to not only untagged frames but also priority-tagged frames.
+Since vid 0 cannot be used for the PVID, we can use vid 0 to indicate
+that the PVID is not set, which is slightly more efficient than using
+the VLAN_TAG_PRESENT.
+
+Fix the problem by getting rid of using the VLAN_TAG_PRESENT.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- net/bridge/br_vlan.c | 27 ++++++++++++++++++++-------
- 1 file changed, 20 insertions(+), 7 deletions(-)
+ net/bridge/br_private.h | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 21b6d21..5a9c44a 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -189,6 +189,8 @@ out:
- bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			struct sk_buff *skb, u16 *vid)
- {
-+	int err;
-+
- 	/* If VLAN filtering is disabled on the bridge, all packets are
- 	 * permitted.
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 598cb0b..435ca4d 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -646,9 +646,7 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ 	 * vid wasn't set
  	 */
-@@ -201,20 +203,31 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	if (!v)
- 		return false;
+ 	smp_rmb();
+-	return (v->pvid & VLAN_TAG_PRESENT) ?
+-			(v->pvid & ~VLAN_TAG_PRESENT) :
+-			VLAN_N_VID;
++	return v->pvid ?: VLAN_N_VID;
+ }
  
--	if (br_vlan_get_tag(skb, vid)) {
-+	err = br_vlan_get_tag(skb, vid);
-+	if (!*vid) {
- 		u16 pvid = br_get_pvid(v);
- 
--		/* Frame did not have a tag.  See if pvid is set
--		 * on this port.  That tells us which vlan untagged
--		 * traffic belongs to.
-+		/* Frame had a tag with VID 0 or did not have a tag.
-+		 * See if pvid is set on this port.  That tells us which
-+		 * vlan untagged or priority-tagged traffic belongs to.
- 		 */
- 		if (pvid == VLAN_N_VID)
- 			return false;
- 
--		/* PVID is set on this port.  Any untagged ingress
--		 * frame is considered to belong to this vlan.
-+		/* PVID is set on this port.  Any untagged or priority-tagged
-+		 * ingress frame is considered to belong to this vlan.
- 		 */
--		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+		if (likely(err))
-+			/* Untagged Frame. */
-+			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+		else
-+			/* Priority-tagged Frame.
-+			 * At this point, We know that skb->vlan_tci had
-+			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
-+			 * We update only VID field and preserve PCP field.
-+			 */
-+			skb->vlan_tci |= pvid;
-+
- 		return true;
- 	}
- 
+ #else
 -- 
 1.8.1.2
