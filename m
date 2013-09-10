@@ -1,54 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1] bridge: fix message_age_timer calculation
-Date: Tue, 10 Sep 2013 11:41:52 -0700
-Message-ID: <20130910114152.40b28ef3@nehalam.linuxnetplumber.net>
-References: <1378745768-4495-1-git-send-email-cphealy@gmail.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net: fec: fix phy reset operation to let imx6sl evk work
+Date: Tue, 10 Sep 2013 20:48:56 +0200
+Message-ID: <20130910184856.GF30088@pengutronix.de>
+References: <1378804053-5094-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	buytenh@wantstofly.org
-To: Chris Healy <cphealy@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shawn.guo@linaro.org, davem@davemloft.net, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, stephen@networkplumber.org,
+	b20596@freescale.com
+To: Fugang Duan <B38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:61037 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901Ab3IJSl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 14:41:56 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so8168502pad.33
-        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 11:41:55 -0700 (PDT)
-In-Reply-To: <1378745768-4495-1-git-send-email-cphealy@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:32986 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150Ab3IJStB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 14:49:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1378804053-5094-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  9 Sep 2013 09:56:08 -0700
-Chris Healy <cphealy@gmail.com> wrote:
-
-> This changes the message_age_timer calculation to use the BPDU's max age as opposed to the local bridge's max age.  This is in accordance with section 8.6.2.3.2 Step 2 of the 802.1D-1998 sprecification.
-> 
-> With the current implementation, when running with very large bridge diameters, convergance will not always occur even if a root bridge is configured to have a longer max age.
-> 
-> Tested successfully on bridge diameters of ~200.
-> 
-> Signed-off-by: Chris Healy <cphealy@gmail.com>
-> ---
->  net/bridge/br_stp.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-> index 1c0a50f..f1887ba 100644
-> --- a/net/bridge/br_stp.c
-> +++ b/net/bridge/br_stp.c
-> @@ -209,7 +209,7 @@ static void br_record_config_information(struct net_bridge_port *p,
->  	p->designated_age = jiffies - bpdu->message_age;
+On Tue, Sep 10, 2013 at 05:07:33PM +0800, Fugang Duan wrote:
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index f9aacf5..0c17df2 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -61,6 +61,7 @@
+>  #include "fec.h"
 >  
->  	mod_timer(&p->message_age_timer, jiffies
-> -		  + (p->br->max_age - bpdu->message_age));
-> +		  + (bpdu->max_age - bpdu->message_age));
->  }
->  
->  /* called under bridge lock */
+>  static void set_multicast_list(struct net_device *ndev);
+> +static void fec_enet_reset_phy(struct platform_device *pdev);
 
-This makes sense.
+Please move the function up and remove the prototype.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+> @@ -1780,6 +1781,10 @@ fec_enet_open(struct net_device *ndev)
+>  	phy_start(fep->phy_dev);
+>  	netif_start_queue(ndev);
+>  	fep->opened = 1;
+> +
+> +	/* reset phy */
+> +	fec_enet_reset_phy(fep->pdev);
+
+Drop this comment. It's very redundant to the function name.
+
+> +static void fec_enet_reset_phy(struct platform_device *pdev)
+>  {
+> -	/*
+> -	 * In case of platform probe, the reset has been done
+> -	 * by machine code.
+> -	 */
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +
+> +	/* check GPIO valid to avoid kernel print warning when no gpio reset */
+> +	if (gpio_is_valid(fep->phy_reset_gpio)) {
+> +		gpio_set_value(fep->phy_reset_gpio, 0);
+> +		msleep(fep->reset_duration);
+> +		gpio_set_value(fep->phy_reset_gpio, 1);
+> +	}
+
+Drop the comment. It's obvious why it's a good idea to check for a valid
+gpio.
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
