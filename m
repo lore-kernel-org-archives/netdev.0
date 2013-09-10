@@ -1,91 +1,94 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 23/27] bonding: remove slave lists
-Date: Tue, 10 Sep 2013 22:58:07 +0200
-Message-ID: <1378846691-9717-24-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 21/27] net: add a function to get the next private
+Date: Tue, 10 Sep 2013 22:58:05 +0200
+Message-ID: <1378846691-9717-22-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34968 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34725 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948Ab3IJU6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:46 -0400
+	id S1751255Ab3IJU6x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:53 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And all the initialization.
+It searches for the provided private and returns the next one. If private
+is not found or next list element is list head - returns NULL.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
-    RFC -> v2:
-    New patch.
+    v1  -> v2:
+    No changes.
+    
+    RFC -> v1:
+    Drop the bool switch - it only goes to ->next now, and rework it so
+    that it doesn't go over the head, but rather returns NULL.
 
- drivers/net/bonding/bond_main.c | 4 ----
- drivers/net/bonding/bonding.h   | 2 --
- 2 files changed, 6 deletions(-)
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 27 +++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 65eae12..707b0bc 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -972,7 +972,6 @@ void bond_select_active_slave(struct bonding *bond)
-  */
- static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
- {
--	list_add_tail_rcu(&new_slave->list, &bond->slave_list);
- 	bond->slave_cnt++;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 72d1631..b487302 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2866,6 +2866,8 @@ extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
+ 					      struct net_device *lower_dev);
+ extern void *netdev_lower_dev_get_private(struct net_device *dev,
+ 					  struct net_device *lower_dev);
++extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
++					       void *private);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features, bool tx_path);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 24c7d17..d58ca53 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
  }
+ EXPORT_SYMBOL(netdev_lower_dev_get_private);
  
-@@ -988,7 +987,6 @@ static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
-  */
- static void bond_detach_slave(struct bonding *bond, struct slave *slave)
++/* netdev_lower_dev_get_next_private - return the ->private of the list
++ *				       element whos ->private == private.
++ * @dev - device to search
++ * @private - private pointer to search for.
++ *
++ * Returns the next ->private pointer, if ->next is not head and private is
++ * found.
++ */
++extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
++					       void *private)
++{
++	struct netdev_adjacent *lower;
++
++	list_for_each_entry(lower, &dev->adj_list.lower, list) {
++		if (lower->private == private) {
++			lower = list_entry(lower->list.next,
++					   struct netdev_adjacent, list);
++			if (&lower->list == &dev->adj_list.lower)
++				return NULL;
++			return lower->private;
++		}
++	}
++
++	return NULL;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
  {
--	list_del_rcu(&slave->list);
- 	bond->slave_cnt--;
- }
- 
-@@ -1374,7 +1372,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		res = -ENOMEM;
- 		goto err_undo_flags;
- 	}
--	INIT_LIST_HEAD(&new_slave->list);
- 	/*
- 	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
- 	 * is set via sysfs or module option if desired.
-@@ -4022,7 +4019,6 @@ static void bond_setup(struct net_device *bond_dev)
- 	/* initialize rwlocks */
- 	rwlock_init(&bond->lock);
- 	rwlock_init(&bond->curr_slave_lock);
--	INIT_LIST_HEAD(&bond->slave_list);
- 	bond->params = bonding_defaults;
- 
- 	/* Initialize pointers */
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 9329509..0e8e00e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -167,7 +167,6 @@ struct bond_parm_tbl {
- 
- struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
--	struct list_head list;
- 	struct bonding *bond; /* our master */
- 	int    delay;
- 	unsigned long jiffies;
-@@ -207,7 +206,6 @@ struct slave {
-  */
- struct bonding {
- 	struct   net_device *dev; /* first - useful for panic debug */
--	struct   list_head slave_list;
- 	struct   slave *curr_active_slave;
- 	struct   slave *current_arp_slave;
- 	struct   slave *primary_slave;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.8.4
