@@ -1,198 +1,92 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: qmi_wwan: add new Qualcomm devices
-Date: Tue, 10 Sep 2013 15:06:20 +0200
-Message-ID: <1378818380-5255-1-git-send-email-bjorn@mork.no>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 2/4] bridge: Handle priority-tagged frames properly
+Date: Tue, 10 Sep 2013 10:03:31 -0400
+Message-ID: <522F26B3.60709@redhat.com>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita> <1378809280.3988.8.camel@ubuntu-vm-makita>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?=E7=8E=8B=E5=BA=B7?= <scateu@gmail.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:41501 "EHLO canardo.mork.no"
+Received: from mx1.redhat.com ([209.132.183.28]:13009 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751414Ab3IJNG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 09:06:59 -0400
+	id S1751098Ab3IJODr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 10:03:47 -0400
+In-Reply-To: <1378809280.3988.8.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding the device list from the Windows driver description files
-included with a new Qualcomm MDM9615 based device, "Alcatel-sbell
-ASB TL131 TDD LTE", from China Mobile.  This device is tested
-and verified to work.  The others are assumed to work based on
-using the same Windows driver.
+On 09/10/2013 06:34 AM, Toshiaki Makita wrote:
+> IEEE 802.1Q says that when we receive priority-tagged (VID 0) frames
+> use the PVID for the port as its VID.
+> (See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
+>
+> Apply the PVID to not only untagged frames but also priority-tagged frames.
+>
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+>   net/bridge/br_vlan.c | 27 ++++++++++++++++++++-------
+>   1 file changed, 20 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> index 21b6d21..5a9c44a 100644
+> --- a/net/bridge/br_vlan.c
+> +++ b/net/bridge/br_vlan.c
+> @@ -189,6 +189,8 @@ out:
+>   bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+>   			struct sk_buff *skb, u16 *vid)
+>   {
+> +	int err;
+> +
+>   	/* If VLAN filtering is disabled on the bridge, all packets are
+>   	 * permitted.
+>   	 */
+> @@ -201,20 +203,31 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+>   	if (!v)
+>   		return false;
+>
+> -	if (br_vlan_get_tag(skb, vid)) {
+> +	err = br_vlan_get_tag(skb, vid);
+> +	if (!*vid) {
+>   		u16 pvid = br_get_pvid(v);
+>
+> -		/* Frame did not have a tag.  See if pvid is set
+> -		 * on this port.  That tells us which vlan untagged
+> -		 * traffic belongs to.
+> +		/* Frame had a tag with VID 0 or did not have a tag.
+> +		 * See if pvid is set on this port.  That tells us which
+> +		 * vlan untagged or priority-tagged traffic belongs to.
+>   		 */
+>   		if (pvid == VLAN_N_VID)
+>   			return false;
+>
+> -		/* PVID is set on this port.  Any untagged ingress
+> -		 * frame is considered to belong to this vlan.
+> +		/* PVID is set on this port.  Any untagged or priority-tagged
+> +		 * ingress frame is considered to belong to this vlan.
+>   		 */
+> -		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+> +		if (likely(err))
+> +			/* Untagged Frame. */
+> +			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+> +		else
+> +			/* Priority-tagged Frame.
+> +			 * At this point, We know that skb->vlan_tci had
+> +			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
+> +			 * We update only VID field and preserve PCP field.
+> +			 */
+> +			skb->vlan_tci |= pvid;
+> +
 
-Many of these devices support multiple QMI/wwan ports, requiring
-multiple interface matching entries.  All devices are composite,
-providing a mix of one or more serial, storage or Android Debug
-Brigde functions in addition to the wwan function.
+In the case of a priority tagged frame, we should unroll the 
+modification above and restore the VID field to 0.  Otherwise, you
+may end up either stripping the vlan header completely or forwarding
+with pvid of the ingress port.
 
-This device list included an update of one previously known device,
-which was incorrectly assumed to have a Gobi 2K layout.  This is
-corrected.
-
-Reported-by: =E7=8E=8B=E5=BA=B7 <scateu@gmail.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |  130 ++++++++++++++++++++++++++++++++++++=
-+++++++-
- 1 file changed, 129 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 3a81315..6312332 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -518,6 +518,135 @@ static const struct usb_device_id products[] =3D =
-{
-=20
- 	/* 3. Combined interface devices matching on interface number */
- 	{QMI_FIXED_INTF(0x0408, 0xea42, 4)},	/* Yota / Megafon M100-1 */
-+	{QMI_FIXED_INTF(0x05c6, 0x7000, 0)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7001, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7002, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7101, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7101, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7101, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7102, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7102, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x7102, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x8000, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x8001, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9000, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9003, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9005, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900a, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900b, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900c, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900c, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900c, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900d, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900f, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900f, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x900f, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9010, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9010, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9011, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9011, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9021, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9022, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9025, 4)},	/* Alcatel-sbell ASB TL131 TDD L=
-TE  (China Mobile) */
-+	{QMI_FIXED_INTF(0x05c6, 0x9026, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x902e, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9031, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9032, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9033, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9033, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9033, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9033, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9034, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9034, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9034, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9034, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9034, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9035, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9036, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9037, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9038, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x903b, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x903c, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x903d, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x903e, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9043, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9046, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9046, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9046, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9047, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9047, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9047, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9048, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9048, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9048, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9048, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9048, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x904c, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x904c, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x904c, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x904c, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9050, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9052, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9053, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9053, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9054, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9054, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9055, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9055, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9055, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9055, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9055, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9056, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9062, 9)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9064, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9065, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9065, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9066, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9066, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9067, 1)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 2)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9068, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9069, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9069, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9069, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9069, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9070, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9070, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9075, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9076, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9076, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9076, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9076, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9076, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9077, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9077, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9077, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9077, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9078, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9079, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9079, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9079, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9079, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9079, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9080, 5)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9080, 6)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9080, 7)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9080, 8)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9083, 3)},
-+	{QMI_FIXED_INTF(0x05c6, 0x9084, 4)},
-+	{QMI_FIXED_INTF(0x05c6, 0x920d, 0)},
-+	{QMI_FIXED_INTF(0x05c6, 0x920d, 5)},
- 	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
- 	{QMI_FIXED_INTF(0x12d1, 0x14ac, 1)},	/* Huawei E1820 */
- 	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
-@@ -612,7 +741,6 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_GOBI_DEVICE(0x413c, 0x8186)},	/* Dell Gobi 2000 Modem device (N0=
-218, VU936) */
- 	{QMI_GOBI_DEVICE(0x413c, 0x8194)},	/* Dell Gobi 3000 Composite */
- 	{QMI_GOBI_DEVICE(0x05c6, 0x920b)},	/* Generic Gobi 2000 Modem device =
-*/
--	{QMI_GOBI_DEVICE(0x05c6, 0x920d)},	/* Gobi 3000 Composite */
- 	{QMI_GOBI_DEVICE(0x05c6, 0x9225)},	/* Sony Gobi 2000 Modem device (N0=
-279, VU730) */
- 	{QMI_GOBI_DEVICE(0x05c6, 0x9245)},	/* Samsung Gobi 2000 Modem device =
-(VL176) */
- 	{QMI_GOBI_DEVICE(0x03f0, 0x251d)},	/* HP Gobi 2000 Modem device (VP41=
-2) */
---=20
-1.7.10.4
+-vlad
+>   		return true;
+>   	}
+>
+>
