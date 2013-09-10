@@ -1,34 +1,148 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [request for stable inclusion] tipc: fix lockdep warning
- during bearer initialization
-Date: Tue, 10 Sep 2013 14:00:39 -0400 (EDT)
-Message-ID: <20130910.140039.686890682279858377.davem@davemloft.net>
-References: <5201BD9C.4070407@huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	ying.xue@windriver.com, jon.maloy@ericsson.com,
-	paul.gortmaker@windriver.com, dingtianhong@huawei.com,
-	lizefan@huawei.com
-To: wangweidong1@huawei.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5201BD9C.4070407@huawei.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix ipv6 ipsec encryption bug in sctp_v6_xmit
+Date: Tue, 10 Sep 2013 20:05:16 +0200
+Message-ID: <1378836316-17503-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	adobriyan@gmail.com,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35120 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752646Ab3IJSF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 14:05:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: wangweidong <wangweidong1@huawei.com>
-Date: Wed, 7 Aug 2013 11:23:08 +0800
+Alan Chester reported an issue with IPv6 on SCTP that IPsec traffic is not
+being encrypted, whereas on IPv4 it is. Setting up an AH + ESP transport
+does not seem to have the desired effect:
 
-> 4225a398c1352a7a5c14dc07277cb5cc4473983b
-> tipc: fix lockdep warning during bearer initialization
-> 
-> This looks applicable to stable-3.0/3.2/3.4, that fixed one deadlock. 
-> With the tipc-config cmd, I can reproduce that. The deadlock possibly
-> occur when the second TIPC bearer is registered, the deadlock can perhaps
-> really happen. And this patch works well. But git am or patch -p1 failed,
-> because a previous patch [commit 617d3c7a5 (tipc: compress out gratuitous
-> extra carriage returns)] deletes some blank lines. With some modifies, it
-> was built successful for me. What do you think?
+SCTP + IPv4:
 
-Queued up, thanks.
+  22:14:20.809645 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 116)
+    192.168.0.2 > 192.168.0.5: AH(spi=0x00000042,sumlen=16,seq=0x1): ESP(spi=0x00000044,seq=0x1), length 72
+  22:14:20.813270 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 340)
+    192.168.0.5 > 192.168.0.2: AH(spi=0x00000043,sumlen=16,seq=0x1):
+
+SCTP + IPv6:
+
+  22:31:19.215029 IP6 (class 0x02, hlim 64, next-header SCTP (132) payload length: 364)
+    fe80::222:15ff:fe87:7fc.3333 > fe80::92e6:baff:fe0d:5a54.36767: sctp
+    1) [INIT ACK] [init tag: 747759530] [rwnd: 62464] [OS: 10] [MIS: 10]
+
+Moreover, Alan says:
+
+  This problem was seen with both Racoon and Racoon2. Other people have seen
+  this with OpenSwan. When IPsec is configured to encrypt all upper layer
+  protocols the SCTP connection does not initialize. After using Wireshark to
+  follow packets, this is because the SCTP packet leaves Box A unencrypted and
+  Box B believes all upper layer protocols are to be encrypted so it drops
+  this packet, causing the SCTP connection to fail to initialize. When IPsec
+  is configured to encrypt just SCTP, the SCTP packets are observed unencrypted.
+
+In fact, using `socat sctp6-listen:3333 -` on one end and transferring "plaintext"
+string on the other end, results in cleartext on the wire where SCTP eventually
+does not report any errors, thus in the latter case that Alan reports, the
+non-paranoid user might think he's communicating over an encrypted transport on
+SCTP although he's not (tcpdump ... -X):
+
+  ...
+  0x0030: 5d70 8e1a 0003 001a 177d eb6c 0000 0000  ]p.......}.l....
+  0x0040: 0000 0000 706c 6169 6e74 6578 740a 0000  ....plaintext...
+
+Only in /proc/net/xfrm_stat we can see XfrmInTmplMismatch increasing on the
+receiver side. Initial follow-up analysis from Alan's bug report was done by
+Alexey Dobriyan.
+
+SCTP has its own implementation of sctp_v6_xmit() not calling inet6_csk_xmit().
+This has the implication that it probably never really got updated along with
+changes in inet6_csk_xmit() and therefore does not seem to invoke xfrm handlers.
+SCTP's IPv4 xmit however, properly calls ip_queue_xmit() to do the work. Hence,
+lets do the same for IPv6 and invoke inet6_csk_xmit() [it does the same work
+for us we do here manually anyway]; result is that we do not have any
+XfrmInTmplMismatch increase plus on the wire with this patch it now looks like:
+
+SCTP + IPv6:
+
+  08:17:47.074080 IP6 2620:52:0:102f:7a2b:cbff:fe27:1b0a > 2620:52:0:102f:213:72ff:fe32:7eba:
+    AH(spi=0x00005fb4,seq=0x1): ESP(spi=0x00005fb5,seq=0x1), length 72
+  08:17:47.074264 IP6 2620:52:0:102f:213:72ff:fe32:7eba > 2620:52:0:102f:7a2b:cbff:fe27:1b0a:
+    AH(spi=0x00003d54,seq=0x1): ESP(spi=0x00003d55,seq=0x1), length 296
+
+This fixes Kernel Bugzilla 24412. This security issue seems to be present since
+2.6.18 kernels. Lets just hope some big passive adversary in the wild didn't have
+its fun with that. lksctp-tools IPv6 regression test suite passes as well with
+this patch.
+
+Reported-by: Alan Chester <alan.chester@tekelec.com>
+Reported-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/sctp/ipv6.c | 34 ++++++++--------------------------
+ 1 file changed, 8 insertions(+), 26 deletions(-)
+
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index da613ce..74ba5ee 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -69,6 +69,7 @@
+ #include <net/addrconf.h>
+ #include <net/ip6_route.h>
+ #include <net/inet_common.h>
++#include <net/inet6_connection_sock.h>
+ #include <net/inet_ecn.h>
+ #include <net/sctp/sctp.h>
+ 
+@@ -209,39 +210,20 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
+ {
+ 	struct sock *sk = skb->sk;
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+-	struct flowi6 fl6;
+ 
+-	memset(&fl6, 0, sizeof(fl6));
+-
+-	fl6.flowi6_proto = sk->sk_protocol;
+-
+-	/* Fill in the dest address from the route entry passed with the skb
+-	 * and the source address from the transport.
+-	 */
+-	fl6.daddr = transport->ipaddr.v6.sin6_addr;
+-	fl6.saddr = transport->saddr.v6.sin6_addr;
+-
+-	fl6.flowlabel = np->flow_label;
+-	IP6_ECN_flow_xmit(sk, fl6.flowlabel);
+-	if (ipv6_addr_type(&fl6.saddr) & IPV6_ADDR_LINKLOCAL)
+-		fl6.flowi6_oif = transport->saddr.v6.sin6_scope_id;
+-	else
+-		fl6.flowi6_oif = sk->sk_bound_dev_if;
+-
+-	if (np->opt && np->opt->srcrt) {
+-		struct rt0_hdr *rt0 = (struct rt0_hdr *) np->opt->srcrt;
+-		fl6.daddr = *rt0->addr;
+-	}
++	/* This needs to explicitly done as we can have different transports. */
++	np->daddr = transport->ipaddr.v6.sin6_addr;
++	np->saddr = transport->saddr.v6.sin6_addr;
+ 
+ 	pr_debug("%s: skb:%p, len:%d, src:%pI6 dst:%pI6\n", __func__, skb,
+-		 skb->len, &fl6.saddr, &fl6.daddr);
+-
+-	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
++		 skb->len, &np->saddr, &np->daddr);
+ 
+ 	if (!(transport->param_flags & SPP_PMTUD_ENABLE))
+ 		skb->local_df = 1;
+ 
+-	return ip6_xmit(sk, skb, &fl6, np->opt, np->tclass);
++	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
++
++	return inet6_csk_xmit(skb, NULL);
+ }
+ 
+ /* Returns the dst cache entry for the given source and destination ip
+-- 
+1.7.11.7
