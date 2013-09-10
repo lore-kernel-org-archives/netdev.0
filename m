@@ -1,35 +1,38 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 14/27] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
-Date: Tue, 10 Sep 2013 22:57:58 +0200
-Message-ID: <1378846691-9717-15-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 04/27] net: add netdev_adjacent->private and allow to use it
+Date: Tue, 10 Sep 2013 22:57:48 +0200
+Message-ID: <1378846691-9717-5-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50582 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23386 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752210Ab3IJU7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:59:32 -0400
+	id S1750994Ab3IJU6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:14 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
-it doesn't check every slave for disrepencies between the actual
-IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
-next suitable slave.
+Currently, even though we can access any linked device, we can't attach
+anything to it, which is vital to properly manage them.
 
-Fix this by using bond_for_each_slave() and storing the first good slave in
-*before till we find the current_arp_slave, after that we store the first good
-slave in new_slave. If new_slave is empty - use the slave stored in before,
-and if it's also empty - then we didn't find any suitable slave.
+To fix this, add a new void *private to netdev_adjacent and functions
+setting/getting it (per link), so that we can save, per example, bonding's
+slave structures there, per slave device.
 
-Also, in the meanwhile, check for each slave status.
+netdev_master_upper_dev_link_private(dev, upper_dev, private) links dev to
+upper dev and populates the neighbour link only with private.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+netdev_lower_dev_get_private{,_rcu}() returns the private, if found.
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -38,82 +41,219 @@ Notes:
     No changes.
     
     RFC -> v1:
-    New patch.
+    rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
+    the naming of functions - to make the use the pattern
+    netdev_(all_)(lower|upper)_* .
 
- drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
- 1 file changed, 24 insertions(+), 14 deletions(-)
+ include/linux/netdevice.h |  7 ++++
+ net/core/dev.c            | 83 ++++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 75 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b5497e7..eedfa8f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2761,8 +2761,9 @@ do_failover:
-  */
- static void bond_ab_arp_probe(struct bonding *bond)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2a944e5..eab8e36 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2839,8 +2839,15 @@ extern int netdev_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev);
+ extern int netdev_master_upper_dev_link(struct net_device *dev,
+ 					struct net_device *upper_dev);
++extern int netdev_master_upper_dev_link_private(struct net_device *dev,
++						struct net_device *upper_dev,
++						void *private);
+ extern void netdev_upper_dev_unlink(struct net_device *dev,
+ 				    struct net_device *upper_dev);
++extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++					      struct net_device *lower_dev);
++extern void *netdev_lower_dev_get_private(struct net_device *dev,
++					  struct net_device *lower_dev);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features, bool tx_path);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d277081..6b2b12f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4376,6 +4376,9 @@ struct netdev_adjacent {
+ 	/* counter for the number of times this device was added to us */
+ 	u16 ref_nr;
+ 
++	/* private field for the users */
++	void *private;
++
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ };
+@@ -4556,7 +4559,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+ 					bool neighbour, bool master,
+-					bool upper)
++					bool upper, void *private)
  {
--	struct slave *slave, *next_slave;
--	int i;
-+	struct slave *slave, *before = NULL, *new_slave = NULL;
-+	struct list_head *iter;
-+	bool found = false;
+ 	struct netdev_adjacent *adj, *neigh = NULL;
  
- 	read_lock(&bond->curr_slave_lock);
+@@ -4599,9 +4602,15 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 			 adj_dev->name);
  
-@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 
- 	bond_set_slave_inactive_flags(bond->current_arp_slave);
- 
--	/* search for next candidate */
--	next_slave = bond_next_slave(bond, bond->current_arp_slave);
--	bond_for_each_slave_from(bond, slave, i, next_slave) {
--		if (IS_UP(slave->dev)) {
--			slave->link = BOND_LINK_BACK;
--			bond_set_slave_active_flags(slave);
--			bond_arp_send_all(bond, slave);
--			slave->jiffies = jiffies;
--			bond->current_arp_slave = slave;
--			break;
--		}
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (!found && !before && IS_UP(slave->dev))
-+			before = slave;
- 
-+		if (found && !new_slave && IS_UP(slave->dev))
-+			new_slave = slave;
- 		/* if the link state is up at this point, we
- 		 * mark it down - this can happen if we have
- 		 * simultaneous link failures and
-@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 		 * one the current slave so it is still marked
- 		 * up when it is actually down
- 		 */
--		if (slave->link == BOND_LINK_UP) {
-+		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
- 			slave->link = BOND_LINK_DOWN;
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
-@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			pr_info("%s: backup interface %s is now down.\n",
- 				bond->dev->name, slave->dev->name);
- 		}
-+		if (slave == bond->current_arp_slave)
-+			found = true;
+ 	if (!upper) {
+-		if (neigh)
++		if (neigh) {
++			/* we're backlinging the master device to its
++			 * slave, so save the private in this link.
++			 */
++			if (master)
++				neigh->private = private;
+ 			list_add_tail_rcu(&neigh->list,
+ 					  &dev->adj_list.lower);
++		}
+ 		list_add_tail_rcu(&adj->list, &dev->all_adj_list.lower);
+ 		return 0;
  	}
-+
-+	if (!new_slave && before)
-+		new_slave = before;
-+
-+	if (!new_slave)
-+		return;
-+
-+	new_slave->link = BOND_LINK_BACK;
-+	bond_set_slave_active_flags(new_slave);
-+	bond_arp_send_all(bond, new_slave);
-+	new_slave->jiffies = jiffies;
-+	bond->current_arp_slave = new_slave;
-+
+@@ -4627,15 +4636,16 @@ static int __netdev_upper_dev_insert(struct net_device *dev,
+ 				     bool master, bool neighbour)
+ {
+ 	return __netdev_adjacent_dev_insert(dev, udev, neighbour, master,
+-					    true);
++					    true, NULL);
  }
  
- void bond_activebackup_arp_mon(struct work_struct *work)
+ static int __netdev_lower_dev_insert(struct net_device *dev,
+ 				     struct net_device *ldev,
+-				     bool neighbour)
++				     bool master, bool neighbour,
++				     void *private)
+ {
+-	return __netdev_adjacent_dev_insert(dev, ldev, neighbour, false,
+-					    false);
++	return __netdev_adjacent_dev_insert(dev, ldev, neighbour, master,
++					    false, private);
+ }
+ 
+ void __netdev_adjacent_dev_remove(struct net_device *dev,
+@@ -4710,7 +4720,8 @@ static void __netdev_lower_dev_remove_neighbour(struct net_device *dev,
+ 
+ int __netdev_adjacent_dev_insert_link(struct net_device *dev,
+ 				      struct net_device *upper_dev,
+-				      bool master, bool neighbour)
++				      bool master, bool neighbour,
++				      void *private)
+ {
+ 	int ret;
+ 
+@@ -4718,7 +4729,8 @@ int __netdev_adjacent_dev_insert_link(struct net_device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_lower_dev_insert(upper_dev, dev, neighbour);
++	ret = __netdev_lower_dev_insert(upper_dev, dev, master, neighbour,
++					private);
+ 	if (ret) {
+ 		__netdev_upper_dev_remove(dev, upper_dev);
+ 		return ret;
+@@ -4730,14 +4742,15 @@ int __netdev_adjacent_dev_insert_link(struct net_device *dev,
+ static int __netdev_adjacent_dev_link(struct net_device *dev,
+ 				      struct net_device *udev)
+ {
+-	return __netdev_adjacent_dev_insert_link(dev, udev, false, false);
++	return __netdev_adjacent_dev_insert_link(dev, udev, false, false, NULL);
+ }
+ 
+ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 						struct net_device *udev,
+-						bool master)
++						bool master, void *priv)
+ {
+-	return __netdev_adjacent_dev_insert_link(dev, udev, master, true);
++	return __netdev_adjacent_dev_insert_link(dev, udev, master, true,
++						 priv);
+ }
+ 
+ void __netdev_adjacent_dev_unlink(struct net_device *dev,
+@@ -4756,7 +4769,8 @@ void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
+ 
+ 
+ static int __netdev_upper_dev_link(struct net_device *dev,
+-				   struct net_device *upper_dev, bool master)
++				   struct net_device *upper_dev, bool master,
++				   void *private)
+ {
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+ 	int ret = 0;
+@@ -4776,7 +4790,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (master && netdev_master_upper_dev_get(dev))
+ 		return -EBUSY;
+ 
+-	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master);
++	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master,
++						   private);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -4867,7 +4882,7 @@ rollback_mesh:
+ int netdev_upper_dev_link(struct net_device *dev,
+ 			  struct net_device *upper_dev)
+ {
+-	return __netdev_upper_dev_link(dev, upper_dev, false);
++	return __netdev_upper_dev_link(dev, upper_dev, false, NULL);
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_link);
+ 
+@@ -4885,10 +4900,18 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
+ int netdev_master_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev)
+ {
+-	return __netdev_upper_dev_link(dev, upper_dev, true);
++	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_link);
+ 
++int netdev_master_upper_dev_link_private(struct net_device *dev,
++					 struct net_device *upper_dev,
++					 void *private)
++{
++	return __netdev_upper_dev_link(dev, upper_dev, true, private);
++}
++EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
++
+ /**
+  * netdev_upper_dev_unlink - Removes a link to upper device
+  * @dev: device
+@@ -4926,6 +4949,36 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
++void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++				       struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_lower_find_rcu(dev, lower_dev);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private_rcu);
++
++void *netdev_lower_dev_get_private(struct net_device *dev,
++				   struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_lower_find(dev, lower_dev);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.8.4
