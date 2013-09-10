@@ -1,7 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 0/4] bridge: Fix problems around the PVID
-Date: Tue, 10 Sep 2013 19:27:54 +0900
-Message-ID: <1378808874.3988.2.camel@ubuntu-vm-makita>
+Subject: [PATCH net 1/4] bridge: Don't use VID 0 and 4095 in vlan filtering
+Date: Tue, 10 Sep 2013 19:32:24 +0900
+Message-ID: <1378809144.3988.6.camel@ubuntu-vm-makita>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -9,94 +10,223 @@ Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 To: "David S. Miller" <davem@davemloft.net>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:57406 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026Ab3IJK2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 06:28:04 -0400
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:37266 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075Ab3IJKcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 06:32:32 -0400
+In-Reply-To: <1378808874.3988.2.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There seem to be some undesirable behaviors related with PVID.
-1. It has no effect assigning PVID to a port. PVID cannot be applied
-to any frame regardless of whether we set it or not.
-2. FDB entries learned via frames applied PVID are registered with
-VID 0 rather than VID value of PVID.
-3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
-This leads interoperational problems such as sending frames with VID
-4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
-0 as they belong to VLAN 0, which is expected to be handled as they have
-no VID according to IEEE 802.1Q.
+IEEE 802.1Q says that:
+- VID 0 shall not be configured as a PVID, or configured in any Filtering
+Database entry.
+- VID 4095 shall not be configured as a PVID, or transmitted in a tag
+header. This VID value may be used to indicate a wildcard match for the VID
+in management operations or Filtering Database entries.
+(See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
 
-Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
-is fixed, because we cannot activate PVID due to it.
+Don't accept adding these VIDs in the vlan_filtering implementation.
 
-This is my analysis for each behavior.
-1. We are using VLAN_TAG_PRESENT bit when getting PVID, and not when
-adding/deleting PVID.
-It can be fixed in either way using or not using VLAN_TAG_PRESENT,
-but I think the latter is slightly more efficient.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_fdb.c     |  4 +-
+ net/bridge/br_netlink.c |  2 +-
+ net/bridge/br_vlan.c    | 97 +++++++++++++++++++++++--------------------------
+ 3 files changed, 49 insertions(+), 54 deletions(-)
 
-2. We are setting skb->vlan_tci with the value of PVID but the variable
-vid, which is used in FDB later, is set to 0 at br_allowed_ingress()
-when untagged frames arrive at a port with PVID valid. I'm afraid that
-vid should be updated to the value of PVID if PVID is valid.
-
-3. According to IEEE 802.1Q-2005 (6.7.1 and Table 9-2), we cannot use
-VID 0 or 4095 as a PVID.
-It looks like that there are more stuff to consider.
-
-- VID 0:
-VID 0 shall not be configured in any FDB entry and used in a tag header
-to indicate it is a 802.1p priority-tagged frame.
-Priority-tagged frames should be applied PVID (from IEEE 802.1Q 6.7.1).
-In my opinion, since we can filter incomming priority-tagged frames by
-deleting PVID, we don't need to filter them by vlan_bitmap.
-In other words, priority-tagged frames don't have VID 0 but have no VID,
-which is the same as untagged frames, and should be filtered by unsetting
-PVID.
-So, not only we cannot set PVID as 0, but also we don't need to add 0 to
-vlan_bitmap, which enable us to simply forbid to add vlan 0.
-
-- VID 4095:
-VID 4095 shall not be transmitted in a tag header. This VID value may be
-used to indicate a wildcard match for the VID in management operations or
-FDB entries (from IEEE 802.1Q Table 9-2).
-In current implementation, we can create a static FDB entry with all
-existing VIDs by not specifying any VID when creating it.
-I don't think this way to add wildcard-like entries needs to change,
-and VID 4095 looks no use and can be unacceptable to add.
-
-Consequently, I believe what we should do for 3rd problem is below:
-- Not allowing VID 0 and 4095 to be added.
-- Applying PVID to priority-tagged (VID 0) frames.
-
-Patch set follows this mail.
-The order of patches is not the same as described above, because the way
-to fix 1st problem is based on the assumption that we don't use VID 0 as
-a PVID, which is realized by fixing 3rd problem.
-(1/4)(2/4): Fix 3rd problem.
-(3/4): Fix 1st problem.
-(4/4): Fix 2nd probelm.
-
-If something wrong or any misunderstanding is found, please comment.
-If another way to fix is better such as using VLAN_TAG_PRESENT, I can
-submit modified patches.
-
-Thanks,
-
-Toshiaki Makita
-
-Toshiaki Makita (4):
-  bridge: Don't use VID 0 and 4095 in vlan filtering
-  bridge: Handle priority-tagged frames properly
-  bridge: Fix the way the PVID is referenced
-  bridge: Fix updating FDB entries when the PVID is applied
-
- net/bridge/br_fdb.c     |   4 +-
- net/bridge/br_netlink.c |   2 +-
- net/bridge/br_private.h |   4 +-
- net/bridge/br_vlan.c    | 125 ++++++++++++++++++++++++++----------------------
- 4 files changed, 71 insertions(+), 64 deletions(-)
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index ffd5874..33e8f23 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -700,7 +700,7 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ 		vid = nla_get_u16(tb[NDA_VLAN]);
+ 
+-		if (vid >= VLAN_N_VID) {
++		if (!vid || vid >= VLAN_VID_MASK) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+ 				vid);
+ 			return -EINVAL;
+@@ -794,7 +794,7 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ 		vid = nla_get_u16(tb[NDA_VLAN]);
+ 
+-		if (vid >= VLAN_N_VID) {
++		if (!vid || vid >= VLAN_VID_MASK) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+ 				vid);
+ 			return -EINVAL;
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index b9259ef..9bac61e 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -243,7 +243,7 @@ static int br_afspec(struct net_bridge *br,
+ 
+ 		vinfo = nla_data(tb[IFLA_BRIDGE_VLAN_INFO]);
+ 
+-		if (vinfo->vid >= VLAN_N_VID)
++		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
+ 			return -EINVAL;
+ 
+ 		switch (cmd) {
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 9a9ffe7..21b6d21 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -45,37 +45,34 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 		return 0;
+ 	}
+ 
+-	if (vid) {
+-		if (v->port_idx) {
+-			p = v->parent.port;
+-			br = p->br;
+-			dev = p->dev;
+-		} else {
+-			br = v->parent.br;
+-			dev = br->dev;
+-		}
+-		ops = dev->netdev_ops;
+-
+-		if (p && (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)) {
+-			/* Add VLAN to the device filter if it is supported.
+-			 * Stricly speaking, this is not necessary now, since
+-			 * devices are made promiscuous by the bridge, but if
+-			 * that ever changes this code will allow tagged
+-			 * traffic to enter the bridge.
+-			 */
+-			err = ops->ndo_vlan_rx_add_vid(dev, htons(ETH_P_8021Q),
+-						       vid);
+-			if (err)
+-				return err;
+-		}
+-
+-		err = br_fdb_insert(br, p, dev->dev_addr, vid);
+-		if (err) {
+-			br_err(br, "failed insert local address into bridge "
+-			       "forwarding table\n");
+-			goto out_filt;
+-		}
++	if (v->port_idx) {
++		p = v->parent.port;
++		br = p->br;
++		dev = p->dev;
++	} else {
++		br = v->parent.br;
++		dev = br->dev;
++	}
++	ops = dev->netdev_ops;
++
++	if (p && (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)) {
++		/* Add VLAN to the device filter if it is supported.
++		 * Stricly speaking, this is not necessary now, since
++		 * devices are made promiscuous by the bridge, but if
++		 * that ever changes this code will allow tagged
++		 * traffic to enter the bridge.
++		 */
++		err = ops->ndo_vlan_rx_add_vid(dev, htons(ETH_P_8021Q),
++					       vid);
++		if (err)
++			return err;
++	}
+ 
++	err = br_fdb_insert(br, p, dev->dev_addr, vid);
++	if (err) {
++		br_err(br, "failed insert local address into bridge "
++		       "forwarding table\n");
++		goto out_filt;
+ 	}
+ 
+ 	set_bit(vid, v->vlan_bitmap);
+@@ -98,7 +95,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
+ 	__vlan_delete_pvid(v, vid);
+ 	clear_bit(vid, v->untagged_bitmap);
+ 
+-	if (v->port_idx && vid) {
++	if (v->port_idx) {
+ 		struct net_device *dev = v->parent.port->dev;
+ 		const struct net_device_ops *ops = dev->netdev_ops;
+ 
+@@ -248,7 +245,9 @@ bool br_allowed_egress(struct net_bridge *br,
+ 	return false;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ {
+ 	struct net_port_vlans *pv = NULL;
+@@ -278,7 +277,9 @@ out:
+ 	return err;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ {
+ 	struct net_port_vlans *pv;
+@@ -289,14 +290,9 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
+-	if (vid) {
+-		/* If the VID !=0 remove fdb for this vid. VID 0 is special
+-		 * in that it's the default and is always there in the fdb.
+-		 */
+-		spin_lock_bh(&br->hash_lock);
+-		fdb_delete_by_addr(br, br->dev->dev_addr, vid);
+-		spin_unlock_bh(&br->hash_lock);
+-	}
++	spin_lock_bh(&br->hash_lock);
++	fdb_delete_by_addr(br, br->dev->dev_addr, vid);
++	spin_unlock_bh(&br->hash_lock);
+ 
+ 	__vlan_del(pv, vid);
+ 	return 0;
+@@ -329,7 +325,9 @@ unlock:
+ 	return 0;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ {
+ 	struct net_port_vlans *pv = NULL;
+@@ -363,7 +361,9 @@ clean_up:
+ 	return err;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ {
+ 	struct net_port_vlans *pv;
+@@ -374,14 +374,9 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
+-	if (vid) {
+-		/* If the VID !=0 remove fdb for this vid. VID 0 is special
+-		 * in that it's the default and is always there in the fdb.
+-		 */
+-		spin_lock_bh(&port->br->hash_lock);
+-		fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
+-		spin_unlock_bh(&port->br->hash_lock);
+-	}
++	spin_lock_bh(&port->br->hash_lock);
++	fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
++	spin_unlock_bh(&port->br->hash_lock);
+ 
+ 	return __vlan_del(pv, vid);
+ }
 -- 
 1.8.1.2
