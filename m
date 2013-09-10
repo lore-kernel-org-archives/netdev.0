@@ -1,77 +1,41 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] net: sctp: fix smatch warning in sctp_send_asconf_del_ip
-Date: Tue, 10 Sep 2013 10:18:56 -0400
-Message-ID: <522F2A50.3070604@gmail.com>
-References: <1378579881-27881-1-git-send-email-dborkman@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 4/7] ptp: switch to use gpiolib
+Date: Tue, 10 Sep 2013 16:19:13 +0200
+Message-ID: <20130910141912.GB5088@netboy>
+References: <1378816260-8091-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Michio Honda <micchie@sfc.wide.ad.jp>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-gpio@vger.kernel.org, Imre Kaloz <kaloz@openwrt.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:49038 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753035Ab3IJOTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 10:19:00 -0400
-In-Reply-To: <1378579881-27881-1-git-send-email-dborkman@redhat.com>
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:35996 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784Ab3IJOTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 10:19:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1378816260-8091-1-git-send-email-linus.walleij@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2013 02:51 PM, Daniel Borkmann wrote:
-> This was originally reported in [1] and posted by Neil Horman [2], he said:
->
->    Fix up a missed null pointer check in the asconf code. If we don't find
->    a local address, but we pass in an address length of more than 1, we may
->    dereference a NULL laddr pointer. Currently this can't happen, as the only
->    users of the function pass in the value 1 as the addrcnt parameter, but
->    its not hot path, and it doesn't hurt to check for NULL should that ever
->    be the case.
->
-> The callpath from sctp_asconf_mgmt() looks okay. But this could be triggered
-> from sctp_setsockopt_bindx() call with SCTP_BINDX_REM_ADDR and addrcnt > 1
-> while passing all possible addresses from the bind list to SCTP_BINDX_REM_ADDR
-> so that we do *not* find a single address in the association's bind address
-> list that is not in the packed array of addresses. If this happens when we
-> have an established association with ASCONF-capable peers, then we could get
-> a NULL pointer dereference as we only check for laddr == NULL && addrcnt == 1
-> and call later sctp_make_asconf_update_ip() with NULL laddr.
->
-> BUT: this actually won't happen as sctp_bindx_rem() will catch such a case
-> and return with an error earlier. As this is incredably unintuitive and error
-> prone, add a check to catch at least future bugs here. As Neil says, its not
-> hot path. Introduced by 8a07eb0a5 ("sctp: Add ASCONF operation on the
-> single-homed host").
->
->   [1] http://www.spinics.net/lists/linux-sctp/msg02132.html
->   [2] http://www.spinics.net/lists/linux-sctp/msg02133.html
->
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Michio Honda <micchie@sfc.wide.ad.jp>
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
+On Tue, Sep 10, 2013 at 02:31:00PM +0200, Linus Walleij wrote:
+> This platform supports gpiolib, so remove the custom API use
+> and replace with calls to gpiolib. Also request the GPIO before
+> starting to use it.
+> 
+> Cc: Imre Kaloz <kaloz@openwrt.org>
+> Cc: Krzysztof Halasa <khc@pm.waw.pl>
+> Cc: Alexandre Courbot <acourbot@nvidia.com>
+> Cc: Richard Cochran <richardcochran@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 > ---
->   net/sctp/socket.c | 3 +++
->   1 file changed, 3 insertions(+)
->
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 5462bbb..911b71b 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -806,6 +806,9 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
->   			goto skip_mkasconf;
->   		}
->
-> +		if (laddr == NULL)
-> +			return -EINVAL;
-> +
->   		/* We do not need RCU protection throughout this loop
->   		 * because this is done under a socket lock from the
->   		 * setsockopt call.
->
+> Hi Richard, I'm seeking an ACK on this patch to take it throug
+> the GPIO tree as part of a clean-out of custom GPIO implementations.
+
+I don't have this hardware for testing (it is really obsolete now),
+but the change looks okay to me.
+
+Acked-by: Richard Cochran <richardcochran@gmail.com>
