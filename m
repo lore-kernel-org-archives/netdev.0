@@ -1,43 +1,36 @@
-From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: [PATCH net-next] net: sk_buff: memset(skb,0) after alloc in skb_clone
-Date: Tue, 10 Sep 2013 10:18:53 +0530
-Message-ID: <1378788533-5609-1-git-send-email-govindarajulu90@gmail.com>
-Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: add the initial to set the physical mac
+ address
+Date: Tue, 10 Sep 2013 01:07:48 -0400 (EDT)
+Message-ID: <20130910.010748.1537386784228501617.davem@davemloft.net>
+References: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
+	<9848F2DB572E5649BA045B288BE08FBE01653FEA@039-SN2MPN1-021.039d.mgd.msft.net>
+	<9848F2DB572E5649BA045B288BE08FBE016A7B22@039-SN2MPN1-023.039d.mgd.msft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: l.stach@pengutronix.de, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, r49496@freescale.com,
+	stephen@networkplumber.org, s.hauer@pengutronix.de
+To: B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:53682 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753066Ab3IJEs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 00:48:59 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf1so7237657pab.10
-        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 21:48:58 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:45060 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752426Ab3IJFID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 01:08:03 -0400
+In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE016A7B22@039-SN2MPN1-023.039d.mgd.msft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch memset the skb to 0 after alloc. We do this in
-__alloc_skb_head, __alloc_skb, build_skb. We are missing this in
-skb_clone.
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Date: Tue, 10 Sep 2013 01:45:52 +0000
 
-The following call to __skb_clone in skb_clone does not copy all the
-members of sk_buff. If we donot clear the skb to 0, we will have some
-uninitialized members in new skb.
+> Please don't ignore the patch. 
 
-Signed-off-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
----
- net/core/skbuff.c | 1 +
- 1 file changed, 1 insertion(+)
+Please don't just pray that it's in my queue and I will apply it.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d81cff1..fc78f66 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -891,6 +891,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 		if (!n)
- 			return NULL;
-+		memset(n, 0, offsetof(struct sk_buff, tail));
- 
- 		kmemcheck_annotate_bitfield(n, flags1);
- 		kmemcheck_annotate_bitfield(n, flags2);
--- 
-1.8.4
+If it's not in my patchwork queue, you need to simply resubmit it.
+
+If it is in my patchwork queue, you need to be patient.
+
+Thank you.
