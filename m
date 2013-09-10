@@ -1,65 +1,43 @@
-From: Vladimir Murzin <murzin.v@gmail.com>
-Subject: Re: [PATCH v2] pch_gbe: fix unmet direct dependency on
- PTP_1588_CLOCK_PCH
-Date: Tue, 10 Sep 2013 05:12:44 +0200
-Message-ID: <20130910031241.GA3979@hp530>
-References: <1378780396-3694-1-git-send-email-murzin.v@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: davem@davemloft.net, ben@decadent.org.uk,
-	jeffrey.t.kirsher@intel.com, rdunlap@infradead.org,
-	haicheng.lee@gmail.com
-To: netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Subject: [PATCH net-next] net: sk_buff: memset(skb,0) after alloc in skb_clone
+Date: Tue, 10 Sep 2013 10:18:53 +0530
+Message-ID: <1378788533-5609-1-git-send-email-govindarajulu90@gmail.com>
+Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:59902 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752468Ab3IJDNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Sep 2013 23:13:24 -0400
-Received: by mail-la0-f44.google.com with SMTP id eo20so5647075lab.17
-        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 20:13:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1378780396-3694-1-git-send-email-murzin.v@gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:53682 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753066Ab3IJEs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 00:48:59 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf1so7237657pab.10
+        for <netdev@vger.kernel.org>; Mon, 09 Sep 2013 21:48:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 10, 2013 at 04:33:16AM +0200, Vladimir Murzin wrote:
-> While cross-building for PPC.
-> 
-> warning: (PCH_GBE) selects PTP_1588_CLOCK_PCH which has unmet direct
-> dependencies (X86 || COMPILE_TEST)
-> 
-> Both PCH_GBE and PPT_1588_CLOCK_PCH is only compatible with Intel
-> architecture. Add dependency on x86 for PCH_GBE. Keep COMPILE_TEST to allow
-> building on different arches.
-> 
-> Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
-> ---
-> v1->v2:
->  - s/x86/X86 (pointed  by Randy)
-> 
->  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> index cb22341..4a935ec 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-> @@ -4,7 +4,7 @@
->  
->  config PCH_GBE
->  	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
-> -	depends on PCI
-> +	depends on PCI && (X86 || COMPILE_TEST)
->  	select MII
->  	select PTP_1588_CLOCK_PCH
->  	---help---
-> -- 
-> 1.8.1.5
-> 
+The following patch memset the skb to 0 after alloc. We do this in
+__alloc_skb_head, __alloc_skb, build_skb. We are missing this in
+skb_clone.
 
-Please, ignore it. It's already fixed by f0e6160 "net: pch_gbe depends on
-x86".
+The following call to __skb_clone in skb_clone does not copy all the
+members of sk_buff. If we donot clear the skb to 0, we will have some
+uninitialized members in new skb.
 
-Sorry for the noise.
+Signed-off-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+---
+ net/core/skbuff.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Vladimir 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d81cff1..fc78f66 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -891,6 +891,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
+ 		if (!n)
+ 			return NULL;
++		memset(n, 0, offsetof(struct sk_buff, tail));
+ 
+ 		kmemcheck_annotate_bitfield(n, flags1);
+ 		kmemcheck_annotate_bitfield(n, flags2);
+-- 
+1.8.4
