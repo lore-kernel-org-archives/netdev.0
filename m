@@ -1,63 +1,198 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH 4/4] ARM: dts: am33xx: adopt to cpsw-phy-sel driver
- to configure phy mode
-Date: Tue, 10 Sep 2013 16:55:32 +0400
-Message-ID: <522F16C4.5030600@cogentembedded.com>
-References: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com> <1378639438-27686-5-git-send-email-mugunthanvnm@ti.com> <522CBC15.5060008@cogentembedded.com> <522D6DE7.5080305@ti.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: qmi_wwan: add new Qualcomm devices
+Date: Tue, 10 Sep 2013 15:06:20 +0200
+Message-ID: <1378818380-5255-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zonque@gmail.com, davem@davemloft.net,
-	bcousson@baylibre.com, tony@atomide.com,
-	devicetree@vger.kernel.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <522D6DE7.5080305@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?=E7=8E=8B=E5=BA=B7?= <scateu@gmail.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:41501 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751414Ab3IJNG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 09:06:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Adding the device list from the Windows driver description files
+included with a new Qualcomm MDM9615 based device, "Alcatel-sbell
+ASB TL131 TDD LTE", from China Mobile.  This device is tested
+and verified to work.  The others are assumed to work based on
+using the same Windows driver.
 
-On 09-09-2013 10:42, Mugunthan V N wrote:
+Many of these devices support multiple QMI/wwan ports, requiring
+multiple interface matching entries.  All devices are composite,
+providing a mix of one or more serial, storage or Android Debug
+Brigde functions in addition to the wwan function.
 
->>> Add DT entries for the phy mode selection in AM33xx SoC using
->>> cpsw-phy-sel
->>> driver.
+This device list included an update of one previously known device,
+which was incorrectly assumed to have a Gobi 2K layout.  This is
+corrected.
 
->>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->>> ---
->>>    arch/arm/boot/dts/am33xx.dtsi | 6 ++++++
->>>    1 file changed, 6 insertions(+)
+Reported-by: =E7=8E=8B=E5=BA=B7 <scateu@gmail.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/qmi_wwan.c |  130 ++++++++++++++++++++++++++++++++++++=
++++++++-
+ 1 file changed, 129 insertions(+), 1 deletion(-)
 
->>> diff --git a/arch/arm/boot/dts/am33xx.dtsi
->>> b/arch/arm/boot/dts/am33xx.dtsi
->>> index f9c5da9..4359672 100644
->>> --- a/arch/arm/boot/dts/am33xx.dtsi
->>> +++ b/arch/arm/boot/dts/am33xx.dtsi
->>> @@ -594,6 +594,12 @@
->>>                    /* Filled in by U-Boot */
->>>                    mac-address = [ 00 00 00 00 00 00 ];
->>>                };
->>> +
->>> +            phy_sel: cpsw_phy_sel@44e10650 {
-
->>     Dashes are preferred to uderscores in the device tree names.
-
-> I tried with dashes but i get the below error.
-
-> $ make CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm dtbs
->    DTC     arch/arm/boot/dts/am335x-evm.dtb
-> Error: arch/arm/boot/dts/am33xx.dtsi:598.11-12 syntax error
-> FATAL ERROR: Unable to parse input tree
-> make[1]: *** [arch/arm/boot/dts/am335x-evm.dtb] Error 1
-> make: *** [dtbs] Error 2
-
-    Hm, perhaps the dashes can't be used in the labels but I was talking of 
-the names. Dashes in the node names should be definitely valid.
-
-> Regards
-> Mugunthan V N
-
-WBR, Sergei
-
-
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 3a81315..6312332 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -518,6 +518,135 @@ static const struct usb_device_id products[] =3D =
+{
+=20
+ 	/* 3. Combined interface devices matching on interface number */
+ 	{QMI_FIXED_INTF(0x0408, 0xea42, 4)},	/* Yota / Megafon M100-1 */
++	{QMI_FIXED_INTF(0x05c6, 0x7000, 0)},
++	{QMI_FIXED_INTF(0x05c6, 0x7001, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x7002, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x7101, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x7101, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x7101, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x7102, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x7102, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x7102, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x8000, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x8001, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9000, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9003, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9005, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x900a, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x900b, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x900c, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x900c, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x900c, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x900d, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x900f, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x900f, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x900f, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9010, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9010, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9011, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9011, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9021, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x9022, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x9025, 4)},	/* Alcatel-sbell ASB TL131 TDD L=
+TE  (China Mobile) */
++	{QMI_FIXED_INTF(0x05c6, 0x9026, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x902e, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9031, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9032, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9033, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9033, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9033, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9033, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9034, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9034, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9034, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9034, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9034, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9035, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9036, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9037, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9038, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x903b, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x903c, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x903d, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x903e, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9043, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9046, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9046, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9046, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9047, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x9047, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9047, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9048, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9048, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9048, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9048, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9048, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x904c, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x904c, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x904c, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x904c, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9050, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9052, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9053, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9053, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9054, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9054, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9055, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9055, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9055, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9055, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9055, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9056, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9062, 9)},
++	{QMI_FIXED_INTF(0x05c6, 0x9064, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9065, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9065, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9066, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9066, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9067, 1)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 2)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9068, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9069, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9069, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9069, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9069, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9070, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9070, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9075, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9076, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9076, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9076, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9076, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9076, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9077, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9077, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9077, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9077, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9078, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9079, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x9079, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9079, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9079, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9079, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9080, 5)},
++	{QMI_FIXED_INTF(0x05c6, 0x9080, 6)},
++	{QMI_FIXED_INTF(0x05c6, 0x9080, 7)},
++	{QMI_FIXED_INTF(0x05c6, 0x9080, 8)},
++	{QMI_FIXED_INTF(0x05c6, 0x9083, 3)},
++	{QMI_FIXED_INTF(0x05c6, 0x9084, 4)},
++	{QMI_FIXED_INTF(0x05c6, 0x920d, 0)},
++	{QMI_FIXED_INTF(0x05c6, 0x920d, 5)},
+ 	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
+ 	{QMI_FIXED_INTF(0x12d1, 0x14ac, 1)},	/* Huawei E1820 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
+@@ -612,7 +741,6 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_GOBI_DEVICE(0x413c, 0x8186)},	/* Dell Gobi 2000 Modem device (N0=
+218, VU936) */
+ 	{QMI_GOBI_DEVICE(0x413c, 0x8194)},	/* Dell Gobi 3000 Composite */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x920b)},	/* Generic Gobi 2000 Modem device =
+*/
+-	{QMI_GOBI_DEVICE(0x05c6, 0x920d)},	/* Gobi 3000 Composite */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9225)},	/* Sony Gobi 2000 Modem device (N0=
+279, VU730) */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9245)},	/* Samsung Gobi 2000 Modem device =
+(VL176) */
+ 	{QMI_GOBI_DEVICE(0x03f0, 0x251d)},	/* HP Gobi 2000 Modem device (VP41=
+2) */
+--=20
+1.7.10.4
