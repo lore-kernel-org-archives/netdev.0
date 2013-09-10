@@ -1,25 +1,34 @@
-From: "T. Stratford" <info@sfp.com>
-Subject: Hello
-Date: Tue, 10 Sep 2013 06:59:42 +0100
-Message-ID: <20130910053540.D5FC37F00BF@mail.dream.com.ph>
-Reply-To: jeremy-office@qq.com
+From: r.diterlizzi@regione.puglia.it
+Subject: Namaste
+Date: Wed, 11 Sep 2013 02:41:47 +0530
+Message-ID: <20130910211159.5013A1FBCC3@epfmmr01-a>
+Reply-To: mailssaachdeva@yahoo.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-To: Recipients <info@sfp.com>
+To: Recipients <r.diterlizzi@regione.puglia.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-203.189.11.40.dream.com.ph ([203.189.11.40]:40062 "EHLO
-	mail.dream.com.ph" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752091Ab3IJVAd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 17:00:33 -0400
+Received: from mr1.rupar.fweds-spc.it ([93.63.84.108]:39946 "EHLO
+	mr1.regione.puglia.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178Ab3IJVMF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 17:12:05 -0400
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-You have won  1,000.000 great british pounds in the ongoing promo draw.
-For claims, contact Mr Jeremy via email on: jeremy-office@qq.com
 
-Thanks,
-T. Stratford.
+Hello ,
+
+Namaste to you and your loved ones.
+
+Kindly forgive my intrusion ,my email must have come as a surprise to you seeing that we hardly know eachother ,I am a native of India  ,female and 26yrs of old , I presently live in the England.
+
+I have mailed you to seek for your help in a matter of great importance to my family ,I would be able to tell you more when I get a response from you.
+
+Thank you for taking time out to read my mail.
+
+Wishing you and your loved ones a Happy New Year
+
+
+Sonali Sachdeva
