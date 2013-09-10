@@ -1,23 +1,22 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 22/27] bonding: use neighbours for bond_next_slave()
-Date: Tue, 10 Sep 2013 22:58:06 +0200
-Message-ID: <1378846691-9717-23-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 10/27] bonding: use bond_for_each_slave() in bond_uninit()
+Date: Tue, 10 Sep 2013 22:57:54 +0200
+Message-ID: <1378846691-9717-11-git-send-email-vfalico@redhat.com>
 References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7165 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46147 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948Ab3IJU6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 16:58:45 -0400
+	id S1751658Ab3IJU6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 16:58:25 -0400
 In-Reply-To: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If it's the last slave - return the first slave, otherwise - return the
-next slave via netdev_lower_dev_get_next_private().
+We're safe agains removal there, cause we use neighbours primitives.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -29,37 +28,31 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Change to standard logic - if it's the last slave - return the first one,
-    otherwise - return the next via netdev_lower_dev_get_next_private().
-    Also, bond_prev_slave() was dropped - so we don't need it.
+    Move the patch rigth after we start using neighbour lists for
+    bond_for_each_slave().
 
- drivers/net/bonding/bonding.h | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 03daadd..9329509 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -76,8 +76,6 @@
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index cdd5c5f..2075321 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4090,12 +4090,13 @@ static void bond_setup(struct net_device *bond_dev)
+ static void bond_uninit(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave, *tmp_slave;
++	struct list_head *iter;
++	struct slave *slave;
  
- #define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
+ 	bond_netpoll_cleanup(bond_dev);
  
--#define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
--
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
- 	(bond_has_slaves(bond) ? \
-@@ -93,8 +91,9 @@
+ 	/* Release the bonded slaves */
+-	list_for_each_entry_safe(slave, tmp_slave, &bond->slave_list, list)
++	bond_for_each_slave(bond, slave, iter)
+ 		__bond_release_one(bond_dev, slave->dev, true);
+ 	pr_info("%s: released all slaves\n", bond_dev->name);
  
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
- #define bond_next_slave(bond, pos) \
--	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
--					 bond_to_slave((pos)->list.next))
-+	(bond_is_last_slave(bond, pos) ? \
-+		bond_first_slave(bond) : \
-+		netdev_lower_dev_get_next_private((bond)->dev, pos))
- 
- /**
-  * bond_for_each_slave - iterate over all slaves
 -- 
 1.8.4
