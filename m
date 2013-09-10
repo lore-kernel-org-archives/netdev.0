@@ -1,54 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][v3.2.y] inetpeer: Invalidate the inetpeer tree along
- with the routing cache
-Date: Tue, 10 Sep 2013 14:53:34 -0400 (EDT)
-Message-ID: <20130910.145334.1669114772684195996.davem@davemloft.net>
-References: <5213A8BB.5070309@canonical.com>
-	<1377986658.21578.5.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
-	steffen.klassert@secunet.com, edumazet@google.com
-To: ben@decadent.org.uk
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1377986658.21578.5.camel@deadeye.wl.decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] igb: Read flow control for i350 from correct EEPROM section
+Date: Tue, 10 Sep 2013 11:57:17 -0700
+Message-ID: <1378839437-10965-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1378839437-10965-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:16614 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750974Ab3IJS5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 14:57:20 -0400
+In-Reply-To: <1378839437-10965-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sat, 31 Aug 2013 23:04:18 +0100
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
 
-> On Tue, 2013-08-20 at 13:34 -0400, Joseph Salisbury wrote:
->> Hello,
->> 
->> Please consider including mainline commit 5faa5df in the next v3.2.y
->> release.  It was included in the mainline tree as of v3.3-rc7.  It has
->> been tested and confirmed to resolve
->> http://bugs.launchpad.net/bugs/1205741 .
->> 
->> 
->> commit 5faa5df1fa2024bd750089ff21dcc4191798263d
->> Author: Steffen Klassert <steffen.klassert@secunet.com>
->> Date:   Tue Mar 6 21:20:26 2012 +0000
->> 
->>     inetpeer: Invalidate the inetpeer tree along with the routing cache
->> 
->> 
->> Also note that commit 5faa5df introduced a race condition that is fixed
->> by mainline commit 55432d2, so that commit would also be required:
->> 
->> commit 55432d2b543a4b6dfae54f5c432a566877a85d90
->> Author: Eric Dumazet <edumazet@google.com>
->> Date:   Tue Jun 5 03:00:18 2012 +0000
->> 
->>     inetpeer: fix a race in inetpeer_gc_worker()
-> 
-> David, could you ack/nak these for 3.2 (maybe 3.0 as well?).
+Flow control is defined in the four EEPROM sections but the driver only reads
+from section 0.
 
-I'm queueing these two patches up for 3.2 only, the
-inetpeer/metrics-cache situation in 3.0 has so many deeper problems
-than can be reasonably dealt with using backports.  Just look at the
-layout differences of struct inetpeer between 3.0 and 3.2, and the
-reasons for that, for the tip of the iceberg.
+Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_mac.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
+index f0dfd41..298f0ed 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_mac.c
++++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
+@@ -712,6 +712,7 @@ static s32 igb_set_fc_watermarks(struct e1000_hw *hw)
+ static s32 igb_set_default_fc(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = 0;
++	u16 lan_offset;
+ 	u16 nvm_data;
+ 
+ 	/* Read and store word 0x0F of the EEPROM. This word contains bits
+@@ -722,7 +723,14 @@ static s32 igb_set_default_fc(struct e1000_hw *hw)
+ 	 * control setting, then the variable hw->fc will
+ 	 * be initialized based on a value in the EEPROM.
+ 	 */
+-	ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG, 1, &nvm_data);
++	if (hw->mac.type == e1000_i350) {
++		lan_offset = NVM_82580_LAN_FUNC_OFFSET(hw->bus.func);
++		ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG
++					   + lan_offset, 1, &nvm_data);
++	 } else {
++		ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG,
++					   1, &nvm_data);
++	 }
+ 
+ 	if (ret_val) {
+ 		hw_dbg("NVM Read Error\n");
+-- 
+1.8.3.1
