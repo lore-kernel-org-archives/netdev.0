@@ -1,44 +1,76 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net: fec: fix phy reset operation to let imx6sl evk work
-Date: Tue, 10 Sep 2013 08:21:18 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE016A95E0@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1378780505-23102-1-git-send-email-B38611@freescale.com>
- <20130910081434.GG5815@S2101-09.ap.freescale.net>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: RE: [PATCH 1/1] net: bnx2x: Staticize local symbols
+Date: Tue, 10 Sep 2013 08:23:59 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BEE8FD8@SJEXCHMB05.corp.ad.broadcom.com>
+References: <1378798960-6572-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 8BIT
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>
-To: Shawn Guo <shawn.guo@linaro.org>
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Sachin Kamat" <sachin.kamat@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:51726 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753107Ab3IJIVX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 04:21:23 -0400
-In-Reply-To: <20130910081434.GG5815@S2101-09.ap.freescale.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:3759 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752468Ab3IJIYM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 04:24:12 -0400
+In-Reply-To: <1378798960-6572-1-git-send-email-sachin.kamat@linaro.org>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo [mailto:shawn.guo@linaro.org]
-Data: Tuesday, September 10, 2013 4:15 PM
-
-> To: Duan Fugang-B38611
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; bhutchings@solarflare.com;
-> stephen@networkplumber.org; Li Frank-B20596; s.hauer@pengutronix.de
-> Subject: Re: [PATCH] net: fec: fix phy reset operation to let imx6sl evk
-> work
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Sachin Kamat
+> Sent: Tuesday, September 10, 2013 9:43 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; Eilon Greenstein; sachin.kamat@linaro.org
+> Subject: [PATCH 1/1] net: bnx2x: Staticize local symbols
 > 
-> First of all, the patch does not apply on linux-next which means it will
-> likely not apply on David's tree either.  Please generate the patch
-> against the tree which your patch will go through.
+> Local symbols used only in this file are made static.
 > 
-Sorry, pls drop to review the patch, there have two changes in local (Linux-next) not commit amend to the patch.
-But I tested the patch (+ changes) on imx6sl evk and pass.
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> index 2604b62..5ec30cc 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> @@ -2802,7 +2802,7 @@ struct set_vf_state_cookie {
+>  	u8 state;
+>  };
+> 
+> -void bnx2x_set_vf_state(void *cookie)
+> +static void bnx2x_set_vf_state(void *cookie)
+>  {
+>  	struct set_vf_state_cookie *p = (struct set_vf_state_cookie
+> *)cookie;
+> 
+> @@ -3222,7 +3222,8 @@ void bnx2x_disable_sriov(struct bnx2x *bp)
+>  	pci_disable_sriov(bp->pdev);
+>  }
+> 
+> -int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
+> +static int
+I don't like this form. Better to put the last variable in the next line.
 
-I send the integrated patch again.
+> +bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
+>  			struct pf_vf_bulletin_content **bulletin)
+>  {
+>  	if (bp->state != BNX2X_STATE_OPEN) {
+> --
+> 1.7.9.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Thanks for suggesting the fix.
+Not sure this is appropriate for net though...
+Ariel
