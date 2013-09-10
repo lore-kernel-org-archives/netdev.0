@@ -1,83 +1,64 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [-net,v2,1/2] bonding: fix store_arp_validate race with mode
- change
-Date: Tue, 10 Sep 2013 20:15:29 +0200
-Message-ID: <20130910181529.GF8474@redhat.com>
-References: <1378504826-18855-2-git-send-email-nikolay@redhat.com>
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Subject: Re: [PATCH 1/2] ipv6 mcast: use del_timer_sync instead of del_timer
+ in ipv6_mc_down
+Date: Tue, 10 Sep 2013 11:20:18 -0700
+Message-ID: <CAO7SqHCsRrZYEQqFCCdroyGZUoa8RX_U0CXMTaG7efRKuCRjvw@mail.gmail.com>
+References: <1378363359-37716-1-git-send-email-noureddine@aristanetworks.com>
+	<1378391415.3159.3.camel@bwh-desktop.uk.level5networks.com>
+	<CAO7SqHA7R8-r_G+-oZfg-zUTnkG2wNCWwY6bRar77dnZPS13ZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: nikolay@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936Ab3IJSRf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 14:17:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1378504826-18855-2-git-send-email-nikolay@redhat.com>
+Received: from mail-vc0-f177.google.com ([209.85.220.177]:36764 "EHLO
+	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab3IJSUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 14:20:19 -0400
+Received: by mail-vc0-f177.google.com with SMTP id gf12so5160488vcb.22
+        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 11:20:19 -0700 (PDT)
+In-Reply-To: <CAO7SqHA7R8-r_G+-oZfg-zUTnkG2wNCWwY6bRar77dnZPS13ZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 07, 2013 at 12:00:25AM +0200, nikolay@redhat.com wrote:
->We need to protect store_arp_validate via rtnl because it can race with
->mode changing and we can end up having arp_validate set in a mode
->different from active-backup.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+I ran our usual workload with lockdep enabled and didn't see any
+lockdep complaints.
+Another approach to solve this would be to use in6_dev_put instead of
+__in6_dev_put
+int the multicast code. I am not sure though why __in6_dev_put was
+originally used.
+This part of the code seems to not have been changed since the initial
+git check-in.
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+Thanks,
 
->
->---
->v2: no change
->
-> drivers/net/bonding/bond_sysfs.c | 14 ++++++++++----
-> 1 file changed, 10 insertions(+), 4 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->index ce46776..4e38683 100644
->--- a/drivers/net/bonding/bond_sysfs.c
->+++ b/drivers/net/bonding/bond_sysfs.c
->@@ -419,27 +419,33 @@ static ssize_t bonding_store_arp_validate(struct device *d,
-> 					  struct device_attribute *attr,
-> 					  const char *buf, size_t count)
-> {
->-	int new_value;
->+	int new_value, ret = count;
-> 	struct bonding *bond = to_bond(d);
+Salam
 
-p.s. If, by any chance, there'll be another v3 - move that struct before
-ints :). But it's ok as is, anyway.
-
+On Thu, Sep 5, 2013 at 10:20 AM, Salam Noureddine
+<noureddine@aristanetworks.com> wrote:
+> On Thu, Sep 5, 2013 at 7:30 AM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+>>> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+>>> index 99cd65c..5c8d49d 100644
+>>> --- a/net/ipv6/mcast.c
+>>> +++ b/net/ipv6/mcast.c
+>>> @@ -2277,12 +2277,12 @@ void ipv6_mc_down(struct inet6_dev *idev)
+>>>
+>>>       read_lock_bh(&idev->lock);
+>>>       idev->mc_ifc_count = 0;
+>>> -     if (del_timer(&idev->mc_ifc_timer))
+>>> +     if (del_timer_sync(&idev->mc_ifc_timer))
+>>
+>> Are you sure this doesn't introduce a potential deadlock?  Have you
+>> tested this with lockdep enabled?
+>>
+>> Ben.
 >
->+	if (!rtnl_trylock())
->+		return restart_syscall();
-> 	new_value = bond_parse_parm(buf, arp_validate_tbl);
-> 	if (new_value < 0) {
-> 		pr_err("%s: Ignoring invalid arp_validate value %s\n",
-> 		       bond->dev->name, buf);
->-		return -EINVAL;
->+		ret = -EINVAL;
->+		goto out;
-> 	}
-> 	if (new_value && (bond->params.mode != BOND_MODE_ACTIVEBACKUP)) {
-> 		pr_err("%s: arp_validate only supported in active-backup mode.\n",
-> 		       bond->dev->name);
->-		return -EINVAL;
->+		ret = -EINVAL;
->+		goto out;
-> 	}
-> 	pr_info("%s: setting arp_validate to %s (%d).\n",
-> 		bond->dev->name, arp_validate_tbl[new_value].modename,
-> 		new_value);
+> I will test with lockdep enabled and get back to you.
 >
-> 	bond->params.arp_validate = new_value;
->+out:
->+	rtnl_unlock();
+> Thanks,
 >
->-	return count;
->+	return ret;
-> }
->
-> static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
+> Salam
