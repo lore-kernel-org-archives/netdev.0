@@ -1,29 +1,42 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: copyright in net/usb/ax188179_178a.c
-Date: Tue, 10 Sep 2013 12:16:47 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7323@saturn3.aculab.com>
+From: Fernando Gont <fgont@si6networks.com>
+Subject: Update to RFC793's TCP sequence number validation checks
+Date: Tue, 10 Sep 2013 08:00:19 -0300
+Message-ID: <522EFBC3.7030401@si6networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39106 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751326Ab3IJLRt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 07:17:49 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 27021-01 for <netdev@vger.kernel.org>;
- Tue, 10 Sep 2013 12:17:47 +0100 (BST)
-Content-class: urn:content-classes:message
+Received: from web01.jbserver.net ([93.186.182.34]:44465 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069Ab3IJL33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 07:29:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The copyright at the top of net/usb/ax188179_178a.c just says
-   Copyright (C) 2011-2113 ASIX
-However a lot of the code comes from the earlier driver
-so the earlier copyrights should have been copied over.
-(Unless it can be determined that all the changes related
-to one of the copyrights have not been carried forwards.)
+Folks,
 
-	David
+Dave Borman and me have posted an IETF Internet-Draft
+(<http://tools.ietf.org/id/draft-gont-tcpm-tcp-seq-validation-01.txt>)
+that fixes an existing bug in the RFC 793 TCP sequence number validation
+checks.
+
+The proposed fix has been implemented in open source stacks for many
+years, so we're essentially updating the specs accordingly.
+
+The IETF's TCPM working group chairs wanted to to some reviews of this
+(very short) Internet-Draft before it is adopted as a working group item.
+
+If you have a few minutes, please take a look, and post your
+comments/review to <tcpm@ietf.org> (and make sure to CC me). This will
+be of much help, and having feedback from the implementers' community
+would be really valuable.
+
+Thanks!
+
+Best regards,
+-- 
+Fernando Gont
+SI6 Networks
+e-mail: fgont@si6networks.com
+PGP Fingerprint: 6666 31C6 D484 63B2 8FB1 E3C4 AE25 0D55 1D4E 7492
