@@ -1,50 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] sfc: Staticize efx_ef10_filter_update_rx_scatter
-Date: Tue, 10 Sep 2013 13:08:43 +0100
-Message-ID: <1378814923.32513.30.camel@deadeye.wl.decadent.org.uk>
-References: <1378806567-30625-1-git-send-email-sachin.kamat@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: Sachin Kamat <sachin.kamat@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41440 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751207Ab3IJMIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 08:08:47 -0400
-In-Reply-To: <1378806567-30625-1-git-send-email-sachin.kamat@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: [PATCH 4/7] ptp: switch to use gpiolib
+Date: Tue, 10 Sep 2013 14:31:00 +0200
+Message-ID: <1378816260-8091-1-git-send-email-linus.walleij@linaro.org>
+Cc: Alexandre Courbot <acourbot@nvidia.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Linus Walleij <linus.walleij@linaro.org>,
+	netdev@vger.kernel.org
+To: linux-gpio@vger.kernel.org, Imre Kaloz <kaloz@openwrt.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-10 at 15:19 +0530, Sachin Kamat wrote:
-> 'efx_ef10_filter_update_rx_scatter' is used only in this file.
-> Make it static.
-> 
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-> ---
->  drivers/net/ethernet/sfc/ef10.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-> index 5f42313..6956bd2 100644
-> --- a/drivers/net/ethernet/sfc/ef10.c
-> +++ b/drivers/net/ethernet/sfc/ef10.c
-> @@ -2121,7 +2121,7 @@ out_unlock:
->  	return rc;
->  }
->  
-> -void efx_ef10_filter_update_rx_scatter(struct efx_nic *efx)
-> +static void efx_ef10_filter_update_rx_scatter(struct efx_nic *efx)
->  {
->  	/* no need to do anything here on EF10 */
->  }
+This platform supports gpiolib, so remove the custom API use
+and replace with calls to gpiolib. Also request the GPIO before
+starting to use it.
 
-Same for this.
+Cc: Imre Kaloz <kaloz@openwrt.org>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: Alexandre Courbot <acourbot@nvidia.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+---
+Hi Richard, I'm seeking an ACK on this patch to take it throug
+the GPIO tree as part of a clean-out of custom GPIO implementations.
+---
+ drivers/ptp/ptp_ixp46x.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Ben.
-
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index d49b851..4a08727 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -259,8 +259,15 @@ static struct ixp_clock ixp_clock;
+ static int setup_interrupt(int gpio)
+ {
+ 	int irq;
++	int err;
+ 
+-	gpio_line_config(gpio, IXP4XX_GPIO_IN);
++	err = gpio_request(gpio, "ixp4-ptp");
++	if (err)
++		return err;
++
++	err = gpio_direction_input(gpio);
++	if (err)
++		return err;
+ 
+ 	irq = gpio_to_irq(gpio);
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.1
+
