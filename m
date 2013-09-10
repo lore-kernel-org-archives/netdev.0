@@ -1,56 +1,61 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net: fec: add the initial to set the physical mac
- address
-Date: Tue, 10 Sep 2013 05:23:24 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE016A9113@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1377613134.4246.12.camel@weser.hi.pengutronix.de>
-	<9848F2DB572E5649BA045B288BE08FBE01653FEA@039-SN2MPN1-021.039d.mgd.msft.net>
-	<9848F2DB572E5649BA045B288BE08FBE016A7B22@039-SN2MPN1-023.039d.mgd.msft.net>
- <20130910.010748.1537386784228501617.davem@davemloft.net>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file
+ copies
+Date: Tue, 10 Sep 2013 11:57:30 +0530
+Message-ID: <522EBBD2.1060003@synopsys.com>
+References: <1378295235-18928-1-git-send-email-vgupta@synopsys.com> <20130905.142530.732425484460470485.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0250.outbound.messaging.microsoft.com ([213.199.154.250]:7840
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753223Ab3IJFXa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 01:23:30 -0400
-In-Reply-To: <20130910.010748.1537386784228501617.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Alexey.Brodkin@synopsys.com>, <linux-kernel@vger.kernel.org>,
+	<arc-linux-dev@synopsys.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130905.142530.732425484460470485.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller [mailto:davem@davemloft.net]
-Data: Tuesday, September 10, 2013 1:08 PM
+On 09/05/2013 11:55 PM, David Miller wrote:
+> From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+> Date: Wed, 4 Sep 2013 17:17:15 +0530
+> 
+>> copying large files to a NFS mounted host was taking absurdly large
+>> time.
+>>
+>> Turns out that TX BD reclaim had a sublte bug.
+>>
+>> Loop starts off from @txbd_dirty cursor and stops when it hits a BD
+>> still in use by controller. However when it stops it needs to keep the
+>> cursor at that very BD to resume scanning in next iteration. However it
+>> was erroneously incrementing the cursor, causing the next scan(s) to
+>> fail too, unless the BD chain was completely drained out.
+>>
+>> [ARCLinux]$ ls -l -sh /disk/log.txt
+>>  17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
+>>
+>> ========== Before =====================
+>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>> real    31m 7.95s
+>> user    0m 0.00s
+>> sys     0m 0.10s
+>>
+>> ========== After =====================
+>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>> real    0m 24.33s
+>> user    0m 0.00s
+>> sys     0m 0.19s
+>>
+>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+> 
+> Applied.
+> 
 
-> To: Duan Fugang-B38611
-> Cc: l.stach@pengutronix.de; netdev@vger.kernel.org;
-> bhutchings@solarflare.com; Estevam Fabio-R49496;
-> stephen@networkplumber.org; s.hauer@pengutronix.de
-> Subject: Re: [PATCH] net: fec: add the initial to set the physical mac
-> address
-> 
-> From: Duan Fugang-B38611 <B38611@freescale.com>
-> Date: Tue, 10 Sep 2013 01:45:52 +0000
-> 
-> > Please don't ignore the patch.
-> 
-> Please don't just pray that it's in my queue and I will apply it.
-> 
-> If it's not in my patchwork queue, you need to simply resubmit it.
-> 
-> If it is in my patchwork queue, you need to be patient.
-> 
-> Thank you.
-> 
-Ok, I know, just a notify to avoid forget it because I did ping to you.
+Hi Greg,
 
-Thanks.
+This needs a stable backport (3.11).
+Mainline commit 27082ee1b92f4d41e78b85
+
+Thx,
+-Vineet
