@@ -1,68 +1,205 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/1] net: cxgb4vf: Staticize local symbols
-Date: Tue, 10 Sep 2013 13:22:35 +0530
-Message-ID: <1378799555-11872-1-git-send-email-sachin.kamat@linaro.org>
-Cc: leedom@chelsio.com, davem@davemloft.net, sachin.kamat@linaro.org
-To: netdev@vger.kernel.org
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH] net: fec: fix phy reset operation to let imx6sl evk work
+Date: Tue, 10 Sep 2013 16:15:00 +0800
+Message-ID: <20130910081434.GG5815@S2101-09.ap.freescale.net>
+References: <1378780505-23102-1-git-send-email-B38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<bhutchings@solarflare.com>, <stephen@networkplumber.org>,
+	<b20596@freescale.com>, <s.hauer@pengutronix.de>
+To: Fugang Duan <B38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:33801 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755343Ab3IJIKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 04:10:37 -0400
-Received: by mail-pb0-f50.google.com with SMTP id uo5so7285361pbc.9
-        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 01:10:37 -0700 (PDT)
+Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:12699
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753930Ab3IJIOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 04:14:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1378780505-23102-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Local symbols used only in this file are made static.
+First of all, the patch does not apply on linux-next which means it will
+likely not apply on David's tree either.  Please generate the patch
+against the tree which your patch will go through.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+On Tue, Sep 10, 2013 at 10:35:05AM +0800, Fugang Duan wrote:
+> The patch do correct phy reset operation to let imx6sl evk
+> ethernet work.
+> 
+> Current driver only do phy reset in probe function, which is
+> not right. Since some phy clock is disabled after module probe,
+> the phy enter abnormal status, which needs do reset to recovery
+> the phy. And do ifconfig ethx up/down test, the phy also enter
+> abnormal status.
+> 
+> The log as:
+> libphy: 2188000.ethernet:04 - Link is Up - 10/Full
+> libphy: 2188000.ethernet:04 - Link is Up - 100/Full
+> libphy: 2188000.ethernet:04 - Link is Down
+> libphy: 2188000.ethernet:04 - Link is Up - 10/Half
+> libphy: 2188000.ethernet:04 - Link is Up - 10/Full
+> libphy: 2188000.ethernet:04 - Link is Up - 100/Full
+> ...
+> 
+> So, do phy reset if ethx up/down or clock enable/disable.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Reviewed-by: Shawn Guo <R65073@freescale.com>
+> CC: Shawn Guo <R65073@freescale.com>
+> CC: Li Frank <B20596@freescale.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/freescale/fec.h      |    3 +
+>  drivers/net/ethernet/freescale/fec_main.c |   61 +++++++++++++++++-----------
+>  2 files changed, 40 insertions(+), 24 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+> index 0120217..b33c92d 100644
+> --- a/drivers/net/ethernet/freescale/fec.h
+> +++ b/drivers/net/ethernet/freescale/fec.h
+> @@ -321,6 +321,9 @@ struct fec_enet_private {
+>  	struct	napi_struct napi;
+>  	int	csum_flags;
+>  
+> +	int	phy_reset_gpio;
+> +	int     reset_duration;
+> +
+>  	struct ptp_clock *ptp_clock;
+>  	struct ptp_clock_info ptp_caps;
+>  	unsigned long last_overflow_check;
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 7a87012..5a9ba1d 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -18,7 +18,7 @@
+>   * Bug fixes and cleanup by Philippe De Muyter (phdm@macqel.be)
+>   * Copyright (c) 2004-2006 Macq Electronique SA.
+>   *
+> - * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
+> + * Copyright (C) 2010-2013 Freescale Semiconductor, Inc.
+>   */
+>  
+>  #include <linux/module.h>
+> @@ -61,6 +61,7 @@
+>  #include "fec.h"
+>  
+>  static void set_multicast_list(struct net_device *ndev);
+> +static void fec_reset_phy(struct platform_device *pdev);
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index df296af..8475c4c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1396,8 +1396,9 @@ static inline void copy_frags(struct sk_buff *skb,
-  *	Builds an sk_buff from the given packet gather list.  Returns the
-  *	sk_buff or %NULL if sk_buff allocation failed.
-  */
--struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
--				  unsigned int skb_len, unsigned int pull_len)
-+static struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
-+					 unsigned int skb_len,
-+					 unsigned int pull_len)
- {
- 	struct sk_buff *skb;
- 
-@@ -1443,7 +1444,7 @@ out:
-  *	Releases the pages of a packet gather list.  We do not own the last
-  *	page on the list and do not free it.
-  */
--void t4vf_pktgl_free(const struct pkt_gl *gl)
-+static void t4vf_pktgl_free(const struct pkt_gl *gl)
- {
- 	int frag;
- 
-@@ -1640,7 +1641,7 @@ static inline void rspq_next(struct sge_rspq *rspq)
-  *	on this queue.  If the system is under memory shortage use a fairly
-  *	long delay to help recovery.
-  */
--int process_responses(struct sge_rspq *rspq, int budget)
-+static int process_responses(struct sge_rspq *rspq, int budget)
- {
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
- 	int budget_left = budget;
-@@ -1893,7 +1894,7 @@ static unsigned int process_intrq(struct adapter *adapter)
-  * The MSI interrupt handler handles data events from SGE response queues as
-  * well as error and other async events as they all use the same MSI vector.
-  */
--irqreturn_t t4vf_intr_msi(int irq, void *cookie)
-+static irqreturn_t t4vf_intr_msi(int irq, void *cookie)
- {
- 	struct adapter *adapter = cookie;
- 
--- 
-1.7.9.5
+You probably mean fec_enet_reset_phy()?
+
+>  
+>  #if defined(CONFIG_ARM)
+>  #define FEC_ALIGNMENT	0xf
+> @@ -1781,6 +1782,10 @@ fec_enet_open(struct net_device *ndev)
+>  	phy_start(fep->phy_dev);
+>  	netif_start_queue(ndev);
+>  	fep->opened = 1;
+> +
+> +	/* reset phy */
+> +	fec_enet_reset_phy(fep->pdev);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -2030,43 +2035,52 @@ static int fec_enet_init(struct net_device *ndev)
+>  	return 0;
+>  }
+>  
+> -#ifdef CONFIG_OF
+> -static void fec_reset_phy(struct platform_device *pdev)
+> +static void fec_enet_of_init(struct platform_device *pdev)
+>  {
+> -	int err, phy_reset;
+> -	int msec = 1;
+>  	struct device_node *np = pdev->dev.of_node;
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +	int err;
+> +
+> +	/*
+> +	 * init phy-reset-gpio to one invalid GPIO for no phy
+> +	 * gpio reset platform
+> +	 */
+> +	fep->phy_reset_gpio = -1;
+>  
+>  	if (!np)
+>  		return;
+>  
+> -	of_property_read_u32(np, "phy-reset-duration", &msec);
+> +	of_property_read_u32(np, "phy-reset-duration"
+
+It misses one comma at the end of the line.
+
+Shawn
+
+> +				&fep->reset_duration);
+>  	/* A sane reset duration should not be longer than 1s */
+> -	if (msec > 1000)
+> -		msec = 1;
+> +	if ((fep->reset_duration > 1000) || (fep->reset_duration == 0))
+> +		fep->reset_duration = 1;
+>  
+> -	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
+> -	if (!gpio_is_valid(phy_reset))
+> +	fep->phy_reset_gpio = of_get_named_gpio(np, "phy-reset-gpios", 0);
+> +	if (!gpio_is_valid(fep->phy_reset_gpio))
+>  		return;
+>  
+> -	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+> -				    GPIOF_OUT_INIT_LOW, "phy-reset");
+> +	err = devm_gpio_request_one(&pdev->dev, fep->phy_reset_gpio,
+> +				    GPIOF_OUT_INIT_HIGH, "phy-reset");
+>  	if (err) {
+>  		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+> -		return;
+> +		fep->phy_reset_gpio = -1;
+>  	}
+> -	msleep(msec);
+> -	gpio_set_value(phy_reset, 1);
+>  }
+> -#else /* CONFIG_OF */
+> -static void fec_reset_phy(struct platform_device *pdev)
+> +
+> +static void fec_enet_reset_phy(struct platform_device *pdev)
+>  {
+> -	/*
+> -	 * In case of platform probe, the reset has been done
+> -	 * by machine code.
+> -	 */
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +
+> +	/* check GPIO valid to avoid kernel print warning when no gpio reset */
+> +	if (gpio_is_valid(fep->phy_reset_gpio)) {
+> +		gpio_set_value(fep->phy_reset_gpio, 0);
+> +		msleep(fep->reset_duration);
+> +		gpio_set_value(fep->phy_reset_gpio, 1);
+> +	}
+>  }
+> -#endif /* CONFIG_OF */
+>  
+>  static int
+>  fec_probe(struct platform_device *pdev)
+> @@ -2117,6 +2131,7 @@ fec_probe(struct platform_device *pdev)
+>  
+>  	platform_set_drvdata(pdev, ndev);
+>  
+> +	fec_enet_of_init(pdev);
+>  	ret = of_get_phy_mode(pdev->dev.of_node);
+>  	if (ret < 0) {
+>  		pdata = pdev->dev.platform_data;
+> @@ -2170,8 +2185,6 @@ fec_probe(struct platform_device *pdev)
+>  		fep->reg_phy = NULL;
+>  	}
+>  
+> -	fec_reset_phy(pdev);
+> -
+>  	if (fep->bufdesc_ex)
+>  		fec_ptp_init(pdev);
+>  
+> -- 
+> 1.7.1
+> 
+> 
