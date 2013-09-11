@@ -1,58 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix multiqueue selection
-Date: Wed, 11 Sep 2013 16:13:36 -0400 (EDT)
-Message-ID: <20130911.161336.533952405072438938.davem@davemloft.net>
-References: <1378580577.26319.26.camel@edumazet-glaptop>
-	<522BF85B.3000909@gmail.com>
+Subject: Re: [PATCH net] net: sctp: fix bug in sctp_poll for
+ SOCK_SELECT_ERR_QUEUE
+Date: Wed, 11 Sep 2013 16:14:01 -0400 (EDT)
+Message-ID: <20130911.161401.1088919298333377389.davem@davemloft.net>
+References: <1378565099-20987-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: alexander.duyck@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	jacob.e.keller@intel.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46791 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46805 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756848Ab3IKUNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 16:13:38 -0400
-In-Reply-To: <522BF85B.3000909@gmail.com>
+	with ESMTP id S1756310Ab3IKUOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 16:14:03 -0400
+In-Reply-To: <1378565099-20987-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Sat, 07 Sep 2013 21:08:59 -0700
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat,  7 Sep 2013 16:44:59 +0200
 
-> On 09/07/2013 12:02 PM, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> commit 416186fbf8c5b4e4465 ("net: Split core bits of netdev_pick_tx
->> into __netdev_pick_tx") added a bug that disables caching of queue
->> index in the socket.
->> 
->> This is the source of packet reorders for TCP flows, and
->> again this is happening more often when using FQ pacing.
->> 
->> Old code was doing 
->> 
->> if (queue_index != old_index)
->> 	sk_tx_queue_set(sk, queue_index);
->> 
->> Alexander renamed the variables but forgot to change sk_tx_queue_set()
->> 2nd parameter.
->> 
->> if (queue_index != new_index)
->> 	sk_tx_queue_set(sk, queue_index);
->> 
->> This means we store -1 over and over in sk->sk_tx_queue_mapping
->> 
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
- ...
-> Ugh, my bad.  This is a nasty one too since the behaviour appeared to be
-> correct for most cases.
+> If we do not add braces around ...
 > 
-> It looks like this needs to go into stable for 3.9 - 3.11.
+>   mask |= POLLERR |
+>           sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
 > 
-> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ... then this condition always evaluates to true as POLLERR is
+> defined as 8 and binary or'd with whatever result comes out of
+> sock_flag(). Hence instead of (X | Y) ? A : B, transform it into
+> X | (Y ? A : B). Unfortunatelty, commit 8facd5fb73 ("net: fix
+> smatch warnings inside datagram_poll") forgot about SCTP. :-(
 > 
+> Introduced by 7d4c04fc170 ("net: add option to enable error queue
+> packets waking select").
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
