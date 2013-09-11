@@ -1,42 +1,39 @@
-From: Christian Ege <k4230r6@gmail.com>
-Subject: How to enable extended Ethtool support for SOCs like the i.mx6
-Date: Wed, 11 Sep 2013 16:37:29 +0200
-Message-ID: <CAALGJZZCnW+7_ChjHSiC=F+HPz0mZ+-xhRcO5gT-qBL4=xevpg@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Use-after-free in TUNSETIFF
+Date: Wed, 11 Sep 2013 15:44:07 +0100
+Message-ID: <1378910647.1538.13.camel@bwh-desktop.uk.level5networks.com>
+References: <522FACCB.1040707@epitech.eu> <522FB273.1030506@epitech.eu>
+	 <20130910173257.47e2dc08@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wannes Rombouts <wannes.rombouts@epitech.eu>,
+	<davem@davemloft.net>, <jasowang@redhat.com>, <mst@redhat.com>,
+	<edumazet@google.com>, <nhorman@tuxdriver.com>,
+	<netdev@vger.kernel.org>, Kevin Soules <kevin.soules@epitech.eu>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:52981 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752595Ab3IKOh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 10:37:29 -0400
-Received: by mail-ie0-f179.google.com with SMTP id e14so4883908iej.38
-        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 07:37:29 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:45143 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754504Ab3IKOoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 10:44:12 -0400
+In-Reply-To: <20130910173257.47e2dc08@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+On Tue, 2013-09-10 at 17:32 -0700, Stephen Hemminger wrote:
+[...]
+> [1] A user with CAP_NET_ADMIN can basically hose the system many other ways.
+> Capabilities are a failed security model.
+> Almost all distro's limit CAP_NET_ADMIN to root anyway.
 
-I am currently developping on a freescale i.mx6 custom design with a
-Micrel ksz9031 Phy. Both are supported by Linux. The adjustment of
-speed and duplex modes can be done by ethtool without any problems.
+tun uses ns_capable(), not capable().  If user namespaces are enabled
+then I think any user can create their own user & net namespaces, be
+'root' in those namespaces and then invoke TUNSETIFF successfully.
 
-Then our hardware department started a request to toggle mdi and mdi-x
-modes,this is done through the vendor specific Register 0x1C, of the
-PHY. The PHY itself supports this feature. But I can not find any
-clear way to add this support in the Kernel.
+Ben.
 
-The ethtool communicates over the freescale fec driver with the PHY.
-The FEC Driver itself does not really know what PHY it is attached to.
-The only examples about the mdi/mdi-x features in the kernel are
-located in the intel drivers which I think do know which PHY
-capabilities they can rely on.
-
-What is the preferred way to make this settings available to the user-space?
-
-Is extending the phy_device struct a way to go?
-
-
-with kind regards,
-
-Christian Ege
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
