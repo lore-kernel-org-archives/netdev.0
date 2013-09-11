@@ -1,85 +1,40 @@
-From: Duan Fugang-B38611 <B38611@freescale.com>
-Subject: RE: [PATCH] net: fec: fix phy reset operation to let imx6sl evk work
-Date: Wed, 11 Sep 2013 01:17:19 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE016ACCFC@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1378804053-5094-1-git-send-email-B38611@freescale.com>
- <20130910184856.GF30088@pengutronix.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net-next 07/27] net: add for_each iterators through
+ neighbour lower link's private
+Date: Wed, 11 Sep 2013 01:46:24 +0000 (UTC)
+Message-ID: <l0oi1g$jo6$1@ger.gmane.org>
+References: <1378846691-9717-1-git-send-email-vfalico@redhat.com>
+ <1378846691-9717-8-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Li Frank-B20596 <B20596@freescale.com>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.184] ([213.199.154.184]:37449 "EHLO
-	db8outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752448Ab3IKBSz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Sep 2013 21:18:55 -0400
-In-Reply-To: <20130910184856.GF30088@pengutronix.de>
-Content-Language: en-US
+Received: from plane.gmane.org ([80.91.229.3]:34890 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751525Ab3IKBqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Sep 2013 21:46:45 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1VJZVz-0001zb-MZ
+	for netdev@vger.kernel.org; Wed, 11 Sep 2013 03:46:43 +0200
+Received: from 117.57.109.128 ([117.57.109.128])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 03:46:43 +0200
+Received: from xiyou.wangcong by 117.57.109.128 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 03:46:43 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hauer [mailto:s.hauer@pengutronix.de]
-Data: Wednesday, September 11, 2013 2:49 AM
+On Tue, 10 Sep 2013 at 20:57 GMT, Veaceslav Falico <vfalico@redhat.com> wrote:
+> +void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+> +					struct list_head **iter)
+> +{
+> +	struct netdev_adjacent *lower;
+> +
+> +	WARN_ON_ONCE(!rcu_read_lock_held());
+> +
 
-> To: Duan Fugang-B38611
-> Cc: shawn.guo@linaro.org; davem@davemloft.net; netdev@vger.kernel.org;
-> bhutchings@solarflare.com; stephen@networkplumber.org; Li Frank-B20596
-> Subject: Re: [PATCH] net: fec: fix phy reset operation to let imx6sl evk
-> work
-> 
-> On Tue, Sep 10, 2013 at 05:07:33PM +0800, Fugang Duan wrote:
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c
-> > index f9aacf5..0c17df2 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -61,6 +61,7 @@
-> >  #include "fec.h"
-> >
-> >  static void set_multicast_list(struct net_device *ndev);
-> > +static void fec_enet_reset_phy(struct platform_device *pdev);
-> 
-> Please move the function up and remove the prototype.
-Ok, i will do it. Thanks.
-
-> 
-> > @@ -1780,6 +1781,10 @@ fec_enet_open(struct net_device *ndev)
-> >  	phy_start(fep->phy_dev);
-> >  	netif_start_queue(ndev);
-> >  	fep->opened = 1;
-> > +
-> > +	/* reset phy */
-> > +	fec_enet_reset_phy(fep->pdev);
-> 
-> Drop this comment. It's very redundant to the function name.
-Thanks, I will remove the comment.
-
-> 
-> > +static void fec_enet_reset_phy(struct platform_device *pdev)
-> >  {
-> > -	/*
-> > -	 * In case of platform probe, the reset has been done
-> > -	 * by machine code.
-> > -	 */
-> > +	struct net_device *ndev = platform_get_drvdata(pdev);
-> > +	struct fec_enet_private *fep = netdev_priv(ndev);
-> > +
-> > +	/* check GPIO valid to avoid kernel print warning when no gpio reset
-> */
-> > +	if (gpio_is_valid(fep->phy_reset_gpio)) {
-> > +		gpio_set_value(fep->phy_reset_gpio, 0);
-> > +		msleep(fep->reset_duration);
-> > +		gpio_set_value(fep->phy_reset_gpio, 1);
-> > +	}
-> 
-> Drop the comment. It's obvious why it's a good idea to check for a valid
-> gpio.
-
-Thanks, I will remove the comments.
+Since this function has _rcu suffix, this warning is not useful at all.
