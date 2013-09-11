@@ -1,24 +1,25 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 13/52] net: cxgb2: remove unnecessary pci_set_drvdata()
-Date: Wed, 11 Sep 2013 16:34:12 +0900
-Message-ID: <005701ceaec1$4f6b5b40$ee4211c0$%han@samsung.com>
+Subject: [PATCH 14/52] net: cxgb4vf: remove unnecessary pci_set_drvdata()
+Date: Wed, 11 Sep 2013 16:34:59 +0900
+Message-ID: <005801ceaec1$6b8d3320$42a79960$%han@samsung.com>
 References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	'Casey Leedom' <leedom@chelsio.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:52603 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318Ab3IKHeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:34:14 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout1.samsung.com ([203.254.224.24]:27549 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990Ab3IKHfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:35:01 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSY009X2AD0DHN0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Wed, 11 Sep 2013 16:34:12 +0900 (KST)
+ with ESMTP id <0MSY00AD5ADUWVU0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 11 Sep 2013 16:35:00 +0900 (KST)
 In-reply-to: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
@@ -30,28 +31,32 @@ device driver data to NULL.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/chelsio/cxgb/cxgb2.c |    2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-index d7048db..1d02105 100644
---- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-@@ -1168,7 +1168,6 @@ out_free_dev:
- 	pci_release_regions(pdev);
- out_disable_pdev:
- 	pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 40c22e7..43bb012 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2782,11 +2782,9 @@ err_unmap_bar:
+ 
+ err_free_adapter:
+ 	kfree(adapter);
 -	pci_set_drvdata(pdev, NULL);
- 	return err;
- }
  
-@@ -1347,7 +1346,6 @@ static void remove_one(struct pci_dev *pdev)
- 
+ err_release_regions:
  	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
 -	pci_set_drvdata(pdev, NULL);
- 	t1_sw_reset(pdev);
- }
+ 	pci_clear_master(pdev);
  
+ err_disable_device:
+@@ -2851,7 +2849,6 @@ static void cxgb4vf_pci_remove(struct pci_dev *pdev)
+ 		}
+ 		iounmap(adapter->regs);
+ 		kfree(adapter);
+-		pci_set_drvdata(pdev, NULL);
+ 	}
+ 
+ 	/*
 -- 
 1.7.10.4
