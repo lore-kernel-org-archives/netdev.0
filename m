@@ -1,203 +1,85 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net v2] net: sctp: fix ipv6 ipsec encryption bug in sctp_v6_xmit
-Date: Wed, 11 Sep 2013 16:58:36 +0200
-Message-ID: <1378911516-15942-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	adobriyan@gmail.com,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: usbnet transmit path problems
+Date: Wed, 11 Sep 2013 23:11:57 +0800
+Message-ID: <CACVXFVN6ZHLesrsMVNMWrikRs1mMbk=aZD9qZybNn1gB7aFTZQ@mail.gmail.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com>
+	<1378894312.28160.15.camel@linux-fkkt.site>
+	<20130911193430.0825ac95@tom-ThinkPad-T410>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24282 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753959Ab3IKO6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Sep 2013 10:58:45 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:40898 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052Ab3IKPMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 11:12:00 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Chester reported an issue with IPv6 on SCTP that IPsec traffic is not
-being encrypted, whereas on IPv4 it is. Setting up an AH + ESP transport
-does not seem to have the desired effect:
+On Wed, Sep 11, 2013 at 8:56 PM, David Laight <David.Laight@aculab.com> wrote:
+>> > > 2) If 'length % dev->maxpacket == 0' for a multi-fragment packet then
+>> > >    the extra byte isn't added correctly (the code probably falls off
+>> > >    the end of the scatter-gather list).
+>> >
+>> > Indeed. Ming Lei, should usbnet handle this in the sg case or better
+>> > leave it to the subdriver you introduced this for?
+>
+> Is the ZLP issue a problem with the host or with the target?
 
-SCTP + IPv4:
+Sorry, what do you mean the ZLP issue here? I understand Oliver
+thinks one commit from me may break ZLP handling, are you discussing
+this problem? If not, could you explain it in a bit detail?
 
-  22:14:20.809645 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 116)
-    192.168.0.2 > 192.168.0.5: AH(spi=0x00000042,sumlen=16,seq=0x1): ESP(spi=0x00000044,seq=0x1), length 72
-  22:14:20.813270 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 340)
-    192.168.0.5 > 192.168.0.2: AH(spi=0x00000043,sumlen=16,seq=0x1):
+> If it is a host problem then the necessity comes from the host,
+> but the fix needs to be target dependant.
+> If it is a common target problem then generic code can apply
+> a common fix.
 
-SCTP + IPv6:
+All usbnet device should have sent one ZLP in case the size of
+bulk out transfer can be divided by max packet size, but the one
+byte transfer might be introduced for avoiding some target problem
+(can't deal with zlp well), as said by David, see below discussion:
 
-  22:31:19.215029 IP6 (class 0x02, hlim 64, next-header SCTP (132) payload length: 364)
-    fe80::222:15ff:fe87:7fc.3333 > fe80::92e6:baff:fe0d:5a54.36767: sctp
-    1) [INIT ACK] [init tag: 747759530] [rwnd: 62464] [OS: 10] [MIS: 10]
+   http://marc.info/?l=linux-usb&m=127067487604112&w=2
 
-Moreover, Alan says:
+>
+> AFICT there are at least 3 fixes:
+> 1) Extend the ethernet frame by one byte and hope the receiving
+>    system doesn't object to the padding.
+>    This is probably the only option if tx_fixup() doesn't
+>    add a header.
+> 2) Put the ethernet frame length in the header and have the
+>    target discard the added pad byte (ax88179_178a.c).
+> 3) Add a second zero-length frame in the same USB data block
+>    (ax88172a.c).
 
-  This problem was seen with both Racoon and Racoon2. Other people have seen
-  this with OpenSwan. When IPsec is configured to encrypt all upper layer
-  protocols the SCTP connection does not initialize. After using Wireshark to
-  follow packets, this is because the SCTP packet leaves Box A unencrypted and
-  Box B believes all upper layer protocols are to be encrypted so it drops
-  this packet, causing the SCTP connection to fail to initialize. When IPsec
-  is configured to encrypt just SCTP, the SCTP packets are observed unencrypted.
+Why do we need the above 3 fixes? The patch in my last email can
+fix the problem which is introduced recently, can't it?
 
-In fact, using `socat sctp6-listen:3333 -` on one end and transferring "plaintext"
-string on the other end, results in cleartext on the wire where SCTP eventually
-does not report any errors, thus in the latter case that Alan reports, the
-non-paranoid user might think he's communicating over an encrypted transport on
-SCTP although he's not (tcpdump ... -X):
+>
+> Only the third requires that tx_fixup() append to the packet.
+> For the other two actual pad can be added by usbnet.
+>
+>> IMO, it should be handled by usbnet, could you comment on below patch?
+>
+> Seems excessive to kmalloc() one byte!
 
-  ...
-  0x0030: 5d70 8e1a 0003 001a 177d eb6c 0000 0000  ]p.......}.l....
-  0x0040: 0000 0000 706c 6169 6e74 6578 740a 0000  ....plaintext...
+It isn't strange, many usb drivers have to do that(maybe kmalloc
+two or three, or four bytes) since the buffer is involved into DMA.
 
-Only in /proc/net/xfrm_stat we can see XfrmInTmplMismatch increasing on the
-receiver side. Initial follow-up analysis from Alan's bug report was done by
-Alexey Dobriyan. Also thanks to Vlad Yasevich for feedback on this.
+> If you can't assume that the 'dev' structure itself can be dma'd from
+> allocate the extra byte in the sg list.
 
-SCTP has its own implementation of sctp_v6_xmit() not calling inet6_csk_xmit().
-This has the implication that it probably never really got updated along with
-changes in inet6_csk_xmit() and therefore does not seem to invoke xfrm handlers.
+It is better to always obey rule of DMA-API, so don't do that since
+one extra kmalloc() per device is needed, even though we can allocate
+only one global buffer for this purpose.
 
-SCTP's IPv4 xmit however, properly calls ip_queue_xmit() to do the work. Since
-a call to inet6_csk_xmit() would solve this problem, but result in unecessary
-route lookups, let us just use the cached flowi6 instead that we got through
-sctp_v6_get_dst(). Since all SCTP packets are being sent through sctp_packet_transmit(),
-we do the route lookup / flow caching in sctp_transport_route(), hold it in
-tp->dst and skb_dst_set() right after that. If we would alter fl6->daddr in
-sctp_v6_xmit() to np->opt->srcrt, we possibly could run into the same effect
-of not having xfrm layer pick it up, hence, use fl6_update_dst() in sctp_v6_get_dst()
-instead to get the correct source routed dst entry, which we assign to the skb.
 
-Also source address routing example from 625034113 ("sctp: fix sctp to work with
-ipv6 source address routing") still works with this patch! Nevertheless, in RFC5095
-it is actually 'recommended' to not use that anyway due to traffic amplification [1].
-So it seems we're not supposed to do that anyway in sctp_v6_xmit(). Moreover, if
-we overwrite the flow destination here, the lower IPv6 layer will be unable to
-put the correct destination address into IP header, as routing header is added in
-ipv6_push_nfrag_opts() but then probably with wrong final destination. Things aside,
-result of this patch is that we do not have any XfrmInTmplMismatch increase plus on
-the wire with this patch it now looks like:
-
-SCTP + IPv6:
-
-  08:17:47.074080 IP6 2620:52:0:102f:7a2b:cbff:fe27:1b0a > 2620:52:0:102f:213:72ff:fe32:7eba:
-    AH(spi=0x00005fb4,seq=0x1): ESP(spi=0x00005fb5,seq=0x1), length 72
-  08:17:47.074264 IP6 2620:52:0:102f:213:72ff:fe32:7eba > 2620:52:0:102f:7a2b:cbff:fe27:1b0a:
-    AH(spi=0x00003d54,seq=0x1): ESP(spi=0x00003d55,seq=0x1), length 296
-
-This fixes Kernel Bugzilla 24412. This security issue seems to be present since
-2.6.18 kernels. Lets just hope some big passive adversary in the wild didn't have
-its fun with that. lksctp-tools IPv6 regression test suite passes as well with
-this patch.
-
- [1] http://www.secdev.org/conf/IPv6_RH_security-csw07.pdf
-
-Reported-by: Alan Chester <alan.chester@tekelec.com>
-Reported-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- v1->v2:
-  - use cached flow
-  - improved commit msg
-
- net/sctp/ipv6.c | 42 +++++++++++++-----------------------------
- 1 file changed, 13 insertions(+), 29 deletions(-)
-
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index da613ce..4f52e2c 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -204,44 +204,23 @@ out:
- 		in6_dev_put(idev);
- }
- 
--/* Based on tcp_v6_xmit() in tcp_ipv6.c. */
- static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
- {
- 	struct sock *sk = skb->sk;
- 	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct flowi6 fl6;
--
--	memset(&fl6, 0, sizeof(fl6));
--
--	fl6.flowi6_proto = sk->sk_protocol;
--
--	/* Fill in the dest address from the route entry passed with the skb
--	 * and the source address from the transport.
--	 */
--	fl6.daddr = transport->ipaddr.v6.sin6_addr;
--	fl6.saddr = transport->saddr.v6.sin6_addr;
--
--	fl6.flowlabel = np->flow_label;
--	IP6_ECN_flow_xmit(sk, fl6.flowlabel);
--	if (ipv6_addr_type(&fl6.saddr) & IPV6_ADDR_LINKLOCAL)
--		fl6.flowi6_oif = transport->saddr.v6.sin6_scope_id;
--	else
--		fl6.flowi6_oif = sk->sk_bound_dev_if;
--
--	if (np->opt && np->opt->srcrt) {
--		struct rt0_hdr *rt0 = (struct rt0_hdr *) np->opt->srcrt;
--		fl6.daddr = *rt0->addr;
--	}
-+	struct flowi6 *fl6 = &transport->fl.u.ip6;
- 
- 	pr_debug("%s: skb:%p, len:%d, src:%pI6 dst:%pI6\n", __func__, skb,
--		 skb->len, &fl6.saddr, &fl6.daddr);
-+		 skb->len, &fl6->saddr, &fl6->daddr);
- 
--	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
-+	IP6_ECN_flow_xmit(sk, fl6->flowlabel);
- 
- 	if (!(transport->param_flags & SPP_PMTUD_ENABLE))
- 		skb->local_df = 1;
- 
--	return ip6_xmit(sk, skb, &fl6, np->opt, np->tclass);
-+	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
-+
-+	return ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
- }
- 
- /* Returns the dst cache entry for the given source and destination ip
-@@ -254,10 +233,12 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 	struct dst_entry *dst = NULL;
- 	struct flowi6 *fl6 = &fl->u.ip6;
- 	struct sctp_bind_addr *bp;
-+	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct sctp_sockaddr_entry *laddr;
- 	union sctp_addr *baddr = NULL;
- 	union sctp_addr *daddr = &t->ipaddr;
- 	union sctp_addr dst_saddr;
-+	struct in6_addr *final_p, final;
- 	__u8 matchlen = 0;
- 	__u8 bmatchlen;
- 	sctp_scope_t scope;
-@@ -281,7 +262,8 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 		pr_debug("src=%pI6 - ", &fl6->saddr);
- 	}
- 
--	dst = ip6_dst_lookup_flow(sk, fl6, NULL, false);
-+	final_p = fl6_update_dst(fl6, np->opt, &final);
-+	dst = ip6_dst_lookup_flow(sk, fl6, final_p, false);
- 	if (!asoc || saddr)
- 		goto out;
- 
-@@ -333,10 +315,12 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 		}
- 	}
- 	rcu_read_unlock();
-+
- 	if (baddr) {
- 		fl6->saddr = baddr->v6.sin6_addr;
- 		fl6->fl6_sport = baddr->v6.sin6_port;
--		dst = ip6_dst_lookup_flow(sk, fl6, NULL, false);
-+		final_p = fl6_update_dst(fl6, np->opt, &final);
-+		dst = ip6_dst_lookup_flow(sk, fl6, final_p, false);
- 	}
- 
- out:
--- 
-1.7.11.7
+Thanks,
+--
+Ming Lei
