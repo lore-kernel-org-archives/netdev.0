@@ -1,73 +1,80 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: usbnet transmit path problems
-Date: Wed, 11 Sep 2013 10:10:02 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] tuntap: correctly handle error in tun_set_iff()
+Date: Wed, 11 Sep 2013 12:38:43 +0300
+Message-ID: <20130911093843.GA20836@redhat.com>
+References: <1378887845-6821-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:52802 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752311Ab3IKJKy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 05:10:54 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17012-08 for <netdev@vger.kernel.org>;
- Wed, 11 Sep 2013 10:10:47 +0100 (BST)
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	wannes.rombouts@epitech.eu, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1378887845-6821-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've been looking at the code in drivers/net/usb/usbnet.c that
-processes tx data after the tx_fixup() function has run.
+On Wed, Sep 11, 2013 at 04:24:05PM +0800, Jason Wang wrote:
+> Commit c8d68e6be1c3b242f1c598595830890b65cea64a (tuntap: multiqueue support)
+> only call free_netdev() on err in tun_set_iff(). This causes several issues:
+> 
+> - memory of tun security were leaked
 
-The code currently looks like:
+Not just tun security -  sock reference too (didn't detach)
 
-	usb_fill_bulk_urb (urb, dev->udev, dev->out,
-			skb->data, skb->len, tx_complete, skb);
-	if (dev->can_dma_sg) {
-		if (build_dma_sg(skb, urb) < 0)
-			goto drop;
-	}
-	entry->length = length = urb->transfer_buffer_length;
+> - use after free since the flow gc timer was not deleted and the tfile were not
+>   detached
+> 
+> This patch solves the above issues.
+> 
+> Reported-by: Wannes Rombouts <wannes.rombouts@epitech.eu>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> The patch were also needed for stable 3.8+.
+> ---
+>  drivers/net/tun.c |    9 +++++++--
+>  1 files changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index a639de8..e5fb5d3 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1641,11 +1641,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		INIT_LIST_HEAD(&tun->disabled);
+>  		err = tun_attach(tun, file, false);
+>  		if (err < 0)
+> -			goto err_free_dev;
+> +			goto err_free_flow;
+>  
+>  		err = register_netdevice(tun->dev);
+>  		if (err < 0)
+> -			goto err_free_dev;
+> +			goto err_detach;
+>  
+>  		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
+>  		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
+> @@ -1689,6 +1689,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  	strcpy(ifr->ifr_name, tun->dev->name);
+>  	return 0;
+>  
+> +err_detach:
+> +	tun_detach_all(dev);
+> +err_free_flow:
+> +	tun_flow_uninit(tun);
+> +	security_tun_dev_free_security(tun->security);
 
-	/* don't assume the hardware handles USB_ZERO_PACKET
-	 * NOTE:  strictly conforming cdc-ether devices should expect
-	 * the ZLP here, but ignore the one-byte packet.
-	 * NOTE2: CDC NCM specification is different from CDC ECM when
-	 * handling ZLP/short packets, so cdc_ncm driver will make short
-	 * packet itself if needed.
-	 */
-	if (length % dev->maxpacket == 0) {
-		if (!(info->flags & FLAG_SEND_ZLP)) {
-			if (!(info->flags & FLAG_MULTI_PACKET)) {
-				urb->transfer_buffer_length++;
-				if (skb_tailroom(skb)) {
-					skb->data[skb->len] = 0;
-					__skb_put(skb, 1);
-				}
-			}
-		} else
-			urb->transfer_flags |= URB_ZERO_PACKET;
-	}
+This bit looks wrong: if flow_init fails, we
+need security_tun_dev_free_security, don't we?
+I think we need:
+	+err_free_sec:	security_tun_dev_free_security(tun->security);
+and goto here on flow_init failures.
 
-1) I can't see where skb_linearize() gets called if 'can_dma_sg' is unset.
+>   err_free_dev:
 
-2) If 'length % dev->maxpacket == 0' for a multi-fragment packet then
-   the extra byte isn't added correctly (the code probably falls off
-   the end of the scatter-gather list).
+Pls shift this one 1 space left for consistency.
 
-3) If 'length % dev->maxpacket == 0' for a single-fragment packet then
-   shouldn't there be a check that the skb isn't shared before modifying it?
-   Also if there is no tailroom increasing the usb transfer length might
-   result in reading an unmapped memory location.
-
-Have I missed something, or is all this code in the wrong order?
-
-4) I read that USB3 has a different scheme for terminating bulk data
-   that is a multiple of the packet size.
-   Does this mean that the pad byte isn't needed for USB3?
-   (Or are USB3 controllers/targets just as buggy?)
-
-	David
+>  	free_netdev(dev);
+>  	return err;
+> -- 
+> 1.7.1
