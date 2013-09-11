@@ -1,120 +1,77 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net 2/4] bridge: Handle priority-tagged frames properly
-Date: Wed, 11 Sep 2013 16:00:32 +0900
-Message-ID: <1378882832.3495.12.camel@ubuntu-vm-makita>
-References: <1378808874.3988.2.camel@ubuntu-vm-makita>
-	 <1378809280.3988.8.camel@ubuntu-vm-makita> <522F26B3.60709@redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: Do route updating for redirect in ndisc layer
+Date: Wed, 11 Sep 2013 15:04:35 +0800
+Message-ID: <52301603.7030906@cn.fujitsu.com>
+References: <522D7444.20505@cn.fujitsu.com> <20130910225023.GB4794@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:44669 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973Ab3IKHAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:00:42 -0400
-In-Reply-To: <522F26B3.60709@redhat.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:37647 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751230Ab3IKHFf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:05:35 -0400
+In-Reply-To: <20130910225023.GB4794@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-10 at 10:03 -0400, Vlad Yasevich wrote:
-> On 09/10/2013 06:34 AM, Toshiaki Makita wrote:
-> > IEEE 802.1Q says that when we receive priority-tagged (VID 0) frames
-> > use the PVID for the port as its VID.
-> > (See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
-> >
-> > Apply the PVID to not only untagged frames but also priority-tagged frames.
-> >
-> > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> > ---
-> >   net/bridge/br_vlan.c | 27 ++++++++++++++++++++-------
-> >   1 file changed, 20 insertions(+), 7 deletions(-)
-> >
-> > diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> > index 21b6d21..5a9c44a 100644
-> > --- a/net/bridge/br_vlan.c
-> > +++ b/net/bridge/br_vlan.c
-> > @@ -189,6 +189,8 @@ out:
-> >   bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >   			struct sk_buff *skb, u16 *vid)
-> >   {
-> > +	int err;
-> > +
-> >   	/* If VLAN filtering is disabled on the bridge, all packets are
-> >   	 * permitted.
-> >   	 */
-> > @@ -201,20 +203,31 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >   	if (!v)
-> >   		return false;
-> >
-> > -	if (br_vlan_get_tag(skb, vid)) {
-> > +	err = br_vlan_get_tag(skb, vid);
-> > +	if (!*vid) {
-> >   		u16 pvid = br_get_pvid(v);
-> >
-> > -		/* Frame did not have a tag.  See if pvid is set
-> > -		 * on this port.  That tells us which vlan untagged
-> > -		 * traffic belongs to.
-> > +		/* Frame had a tag with VID 0 or did not have a tag.
-> > +		 * See if pvid is set on this port.  That tells us which
-> > +		 * vlan untagged or priority-tagged traffic belongs to.
-> >   		 */
-> >   		if (pvid == VLAN_N_VID)
-> >   			return false;
-> >
-> > -		/* PVID is set on this port.  Any untagged ingress
-> > -		 * frame is considered to belong to this vlan.
-> > +		/* PVID is set on this port.  Any untagged or priority-tagged
-> > +		 * ingress frame is considered to belong to this vlan.
-> >   		 */
-> > -		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-> > +		if (likely(err))
-> > +			/* Untagged Frame. */
-> > +			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-> > +		else
-> > +			/* Priority-tagged Frame.
-> > +			 * At this point, We know that skb->vlan_tci had
-> > +			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
-> > +			 * We update only VID field and preserve PCP field.
-> > +			 */
-> > +			skb->vlan_tci |= pvid;
-> > +
-> 
-> In the case of a priority tagged frame, we should unroll the 
-> modification above and restore the VID field to 0.  Otherwise, you
-> may end up either stripping the vlan header completely or forwarding
-> with pvid of the ingress port.
+=E4=BA=8E 2013=E5=B9=B409=E6=9C=8811=E6=97=A5 06:50, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Mon, Sep 09, 2013 at 03:09:56PM +0800, Duan Jiong wrote:
+>> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+>> index 5c71501..61fe8e5 100644
+>> --- a/net/ipv6/tcp_ipv6.c
+>> +++ b/net/ipv6/tcp_ipv6.c
+>> @@ -382,14 +382,6 @@ static void tcp_v6_err(struct sk_buff *skb, str=
+uct inet6_skb_parm *opt,
+>> =20
+>>  	np =3D inet6_sk(sk);
+>> =20
+>> -	if (type =3D=3D NDISC_REDIRECT) {
+>> -		struct dst_entry *dst =3D __sk_dst_check(sk, np->dst_cookie);
+>> -
+>> -		if (dst)
+>> -			dst->ops->redirect(dst, sk, skb);
+>> -		goto out;
+>> -	}
+>> -
+>=20
+> You dropped the "goto out" here in case of an NDISC_REDIRECT, so this=
+ sends an
+> EPROTO further up the socket layer. Was this intended?
+>=20
 
-Thank you for reviewing.
+I'm sorry, i didn't notice the variable err was assigned to EPROTO.
+I only thought that message should be sent to the socket layer, because
+i found that in function sctp_v6_err().
 
-It is my intended behavior that an incoming priority-tagged frame is
-forwarded as a frame untagged or tagged with pvid.
+In addition, the rfc 4443 said the Redirect Message is not the ICMPv6 E=
+rror
+Message, so i think we shouldn't call those err_handler function, in ot=
+her
+words we shouldn't call the icmpv6_notify().
 
-IEEE 802.1Q-2011:
+How do you think of this?
 
-  section 8.1.7 Conversion of frame formats
+> Also:
+>=20
+> In some _err() functions there is this check, e.g. ah6.c:
+>=20
+>     621         if (type !=3D ICMPV6_DEST_UNREACH &&
+>     622             type !=3D ICMPV6_PKT_TOOBIG &&
+>     623             type !=3D NDISC_REDIRECT)
+>     624                 return;
+>=20
+> It could actually be adjusted now as we don't handle NDISC_REDIRECTs =
+here any
+> more. I don't see any side-effects down the code in these functions. =
+We could
+> also only just match on ICMPV6_PKT_TOOBIG. Can you confirm?
+>=20
 
-  NOTE - As all incoming frames, including priority-tagged frames, are
-  classified as belonging to a VLAN, the transmitting Port transmits
-  VLAN-tagged frames or untagged frames. Hence, a station sending a
-  priority-tagged frame via a Bridge will receive a response that is
-  either VLAN-tagged or untagged, as described in 8.5.
+Yes, i agree this.=20
 
-  3. Definitions
-
-  3.132 Priority-tagged frame: A tagged frame whose tag header carries
-  priority information but carries no VLAN identification information.
-
-  3.203 VLAN-tagged frame: A VLAN-tagged frame is a tagged frame whose
-  tag header carries *both* VLAN identification and priority
-  information.
-
-Toshiaki Makita
-
-> 
-> -vlad
-> >   		return true;
-> >   	}
-> >
-> >
+Thanks,
+  Duan
