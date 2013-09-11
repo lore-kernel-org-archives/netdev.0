@@ -1,62 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fib: fib6_add: fix potential NULL pointer
- dereference
-Date: Wed, 11 Sep 2013 16:14:29 -0400 (EDT)
-Message-ID: <20130911.161429.1045792260139768799.davem@davemloft.net>
-References: <1378559600-15858-1-git-send-email-dborkman@redhat.com>
-	<20130907193557.GB17248@order.stressinduktion.org>
-	<522D69FF.9000001@nsn.com>
+Subject: Re: [PATCH net] net: ovs: flow: fix potential illegal memory
+ access in __parse_flow_nlattrs
+Date: Wed, 11 Sep 2013 16:14:42 -0400 (EDT)
+Message-ID: <20130911.161442.1309302931442181150.davem@davemloft.net>
+References: <1378539694-3635-1-git-send-email-dborkman@redhat.com>
+	<CAEP_g=_Bgt8OsORTyYRt=tbssfbd-0Jh2HhnjPdj1aVP8Zd1BA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org, mlin@ss.pku.edu.cn
-To: matti.vaittinen@nsn.com
+Cc: dborkman@redhat.com, netdev@vger.kernel.org, azhou@nicira.com,
+	dev@openvswitch.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46832 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46839 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755701Ab3IKUOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 16:14:31 -0400
-In-Reply-To: <522D69FF.9000001@nsn.com>
+	with ESMTP id S1755749Ab3IKUOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 16:14:44 -0400
+In-Reply-To: <CAEP_g=_Bgt8OsORTyYRt=tbssfbd-0Jh2HhnjPdj1aVP8Zd1BA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matti Vaittinen <matti.vaittinen@nsn.com>
-Date: Mon, 09 Sep 2013 09:26:07 +0300
+From: Jesse Gross <jesse@nicira.com>
+Date: Sat, 7 Sep 2013 22:35:33 -0700
 
-> On 09/07/2013 10:35 PM, ext Hannes Frederic Sowa wrote:
->> On Sat, Sep 07, 2013 at 03:13:20PM +0200, Daniel Borkmann wrote:
->>> When the kernel is compiled with CONFIG_IPV6_SUBTREES, and we return
->>> with an error in fn = fib6_add_1(), then error codes are encoded into
->>> the return pointer e.g. ERR_PTR(-ENOENT). In such an error case, we
->>> write the error code into err and jump to out, hence enter the if(err)
->>> condition. Now, if CONFIG_IPV6_SUBTREES is enabled, we check for:
->>>
->>>    if (pn != fn && pn->leaf == rt)
->>>      ...
->>>    if (pn != fn && !pn->leaf && !(pn->fn_flags & RTN_RTINFO))
->>>      ...
->>>
->>> Since pn is NULL and fn is f.e. ERR_PTR(-ENOENT), then pn != fn
->>> evaluates to true and causes a NULL-pointer dereference on further
->>> checks on pn. Fix it, by setting both NULL in error case, so that
->>> pn != fn already evaluates to false and no further dereference
->>> takes place.
->>>
->>> This was first correctly implemented in 4a287eba2 ("IPv6 routing,
->>> NLM_F_* flag support: REPLACE and EXCL flags support, warn about
->>> missing CREATE flag"), but the bug got later on introduced by
->>> 188c517a0 ("ipv6: return errno pointers consistently for
->>> fib6_add_1()").
->>>
->>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->>> Cc: Lin Ming <mlin@ss.pku.edu.cn>
->>> Cc: Matti Vaittinen <matti.vaittinen@nsn.com>
->>> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> On Sat, Sep 7, 2013 at 12:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> In function __parse_flow_nlattrs(), we check for condition
+>> (type > OVS_KEY_ATTR_MAX) and if true, print an error, but we do
+>> not return from this function as in other checks. It seems this
+>> has been forgotten, as otherwise, we could access beyond the
+>> memory of ovs_key_lens, which is of ovs_key_lens[OVS_KEY_ATTR_MAX + 1].
+>> Hence, a maliciously prepared nla_type from user space could access
+>> beyond this upper limit.
 >>
->> Full ACK!
+>> Introduced by 03f0d916a ("openvswitch: Mega flow implementation").
 >>
->> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>
-> Acked-by: Matti Vaittinen <matti.vaittinen@nsn.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Andy Zhou <azhou@nicira.com>
+> 
+> Yeah, looks like a mistake to me.
+> 
+> Acked-by: Jesse Gross <jesse@nicira.com>
 
-Applied, thanks everyone.
+Applied, thanks.
