@@ -1,42 +1,42 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: [PATCH] bug[#43]: kgdboe: netpoll: Should handle ETH_P_ARP other than ETH_P_IP in netpoll_neigh_reply
-Date: Wed, 11 Sep 2013 11:31:53 +0800
-Message-ID: <1378870313-14161-1-git-send-email-sonic.adi@gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] xen-netback: fix possible format string flaw
+Date: Tue, 10 Sep 2013 21:39:11 -0700
+Message-ID: <20130911043911.GA17237@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	<adi-buildroot-devel@lists.sourceforge.net>,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.180.187] ([216.32.180.187]:41794 "EHLO
-	co1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752605Ab3IKDYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 23:24:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+This makes sure a format string cannot accidentally leak into the
+kthread_run() call.
 
-The received ARP request type in the Ethernet packet head is ETH_P_ARP other than ETH_P_IP.
-
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- net/core/netpoll.c | 2 +-
+ drivers/net/xen-netback/interface.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 2c637e9..c3c7b27 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -550,7 +550,7 @@ static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo
- 		return;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 625c6f4..77fee1d 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -406,7 +406,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
  
- 	proto = ntohs(eth_hdr(skb)->h_proto);
--	if (proto == ETH_P_IP) {
-+	if (proto == ETH_P_ARP) {
- 		struct arphdr *arp;
- 		unsigned char *arp_ptr;
- 		/* No arp on this interface */
+ 	init_waitqueue_head(&vif->wq);
+ 	vif->task = kthread_create(xenvif_kthread,
+-				   (void *)vif, vif->dev->name);
++				   (void *)vif, "%s", vif->dev->name);
+ 	if (IS_ERR(vif->task)) {
+ 		pr_warn("Could not allocate kthread for %s\n", vif->dev->name);
+ 		err = PTR_ERR(vif->task);
 -- 
-1.8.2.3
+1.7.9.5
+
+
+-- 
+Kees Cook
+Chrome OS Security
