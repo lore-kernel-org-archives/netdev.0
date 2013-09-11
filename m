@@ -1,42 +1,59 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: Re: 3.10.0 network trace
-Date: Wed, 11 Sep 2013 08:49:36 -0400
-Message-ID: <CA+5PVA5bDAz5a-TrM4ALA9vJz2JbE14VT7xM5=WqaRg=Ro0_xQ@mail.gmail.com>
-References: <CA+rTEUPfP8ouJHbaFrO=-zktg2D06kYgXOq-LnmyKbbEzj-TmA@mail.gmail.com>
-	<CA+rTEUMYihwm_5ado5q1ZrYovgM6=Yc99mSaO-dNUyj4XyTj_Q@mail.gmail.com>
-	<CAK6E8=eNa72=LySKsgpnKd5A6CSkr0pbpet1X2g8em9Or=m7bg@mail.gmail.com>
-	<CA+rTEUNfHvr-Zs1JWVQV+_7ygW5AP9UScePSBEM-dsi0h7nS=w@mail.gmail.com>
-	<CAK6E8=eqFm5_nDMdzkt6WUJXmKVTOyGbt-WtVPHDWdrOdYK_Ow@mail.gmail.com>
-	<CA+rTEUNkqngK5cTUPPKAYkNgF4P8JcHoRoaEgUzBUTvO+h5JXQ@mail.gmail.com>
-	<CAK6E8=fefVLUorMKCqJGSnq6Sc9LOKp7eUyOnh6h8rcOcJtQNQ@mail.gmail.com>
-	<CA+rTEUOXAH4TGMGvgBJ6FktA6E=hFhQmFHRf4Zaw5YJ6giOpOA@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: usbnet transmit path problems
+Date: Wed, 11 Sep 2013 13:56:48 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com><1378894312.28160.15.camel@linux-fkkt.site> <20130911193430.0825ac95@tom-ThinkPad-T410>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>
-To: Michael Sterrett <michael@sterretts.net>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Ming Lei" <ming.lei@canonical.com>,
+	"Oliver Neukum" <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:43099 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507Ab3IKMth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 08:49:37 -0400
-Received: by mail-ob0-f169.google.com with SMTP id es8so8503600obc.14
-        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 05:49:37 -0700 (PDT)
-In-Reply-To: <CA+rTEUOXAH4TGMGvgBJ6FktA6E=hFhQmFHRf4Zaw5YJ6giOpOA@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:56521 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752718Ab3IKM6I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 08:58:08 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 28246-08 for <netdev@vger.kernel.org>;
+ Wed, 11 Sep 2013 13:58:04 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130911193430.0825ac95@tom-ThinkPad-T410>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 21, 2013 at 9:36 PM, Michael Sterrett <michael@sterretts.net> wrote:
-> Since upgraded to 3.10.1 which exhibits the same issue (probably not
-> surprising).
->
-> sysctl net.ipv4.tcp_frto=0 net.ipv4.tcp_early_retrans=3 seems to take
-> care of it.
+> > > 2) If 'length % dev->maxpacket == 0' for a multi-fragment packet then
+> > >    the extra byte isn't added correctly (the code probably falls off
+> > >    the end of the scatter-gather list).
+> >
+> > Indeed. Ming Lei, should usbnet handle this in the sg case or better
+> > leave it to the subdriver you introduced this for?
 
-We're still getting reports of this with 3.10.10 in Fedora [1].  At
-least one of the reporters has said those sysctl settings didn't help.
+Is the ZLP issue a problem with the host or with the target?
+If it is a host problem then the necessity comes from the host,
+but the fix needs to be target dependant.
+If it is a common target problem then generic code can apply
+a common fix.
 
-Is there anything else that can be gathered to help track this down?
+AFICT there are at least 3 fixes:
+1) Extend the ethernet frame by one byte and hope the receiving
+   system doesn't object to the padding.
+   This is probably the only option if tx_fixup() doesn't
+   add a header.
+2) Put the ethernet frame length in the header and have the
+   target discard the added pad byte (ax88179_178a.c).
+3) Add a second zero-length frame in the same USB data block
+   (ax88172a.c).
 
-josh
+Only the third requires that tx_fixup() append to the packet.
+For the other two actual pad can be added by usbnet.
+ 
+> IMO, it should be handled by usbnet, could you comment on below patch?
 
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=989251
+Seems excessive to kmalloc() one byte!
+If you can't assume that the 'dev' structure itself can be dma'd from
+allocate the extra byte in the sg list.
+
+	David
