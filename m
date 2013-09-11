@@ -1,74 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] vsnprintf: Remove use of %n and convert existing
- uses
-Date: Wed, 11 Sep 2013 16:43:03 -0700
-Message-ID: <1378942983.4714.40.camel@joe-AO722>
-References: <20130911044116.GA17294@www.outflux.net>
-	 <1378875632.606.5.camel@joe-AO722>
-	 <CAGXu5jLm1RNp4mB2KfeRumTqeWgcAsZ4CpQQQGA67WukERefXQ@mail.gmail.com>
-	 <20130911093118.GD25896@mwanda>
-	 <CAGXu5j+H_RLwj9c6CKxMpaYeR9kS-qDnK+e1mOHHt9zh6vAm=w@mail.gmail.com>
-	 <1378926562.4714.11.camel@joe-AO722>
-	 <CAGXu5jLO6109fkejXqX=WhkQnfAUeWtTcow0v1BNqyi=8=Qa3Q@mail.gmail.com>
-	 <1378928700.4714.17.camel@joe-AO722>
-	 <CAGXu5jLTjrPr=GwOmMcu55Qp9K-_XS75xq9NJ0vBUEwy-i_YMw@mail.gmail.com>
-	 <1378941761.4714.37.camel@joe-AO722>
-	 <CAGXu5jLyCGuSRqEGCSw=VrrOvOr=aAok6ZZTAj_qmDA3CbmLww@mail.gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [RFC PATCH] vsnprintf: Remove use of %n and convert existing uses
+Date: Thu, 12 Sep 2013 08:40:54 +0900
+Message-ID: <201309120840.HHE37542.OJMFFHSOQOtVFL@I-love.SAKURA.ne.jp>
+References: <1378926562.4714.11.camel@joe-AO722>
+	<CAGXu5jLO6109fkejXqX=WhkQnfAUeWtTcow0v1BNqyi=8=Qa3Q@mail.gmail.com>
+	<1378928700.4714.17.camel@joe-AO722>
+	<CAGXu5jLTjrPr=GwOmMcu55Qp9K-_XS75xq9NJ0vBUEwy-i_YMw@mail.gmail.com>
+	<1378941761.4714.37.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	devel@driverdev.osuosl.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Tushar Behera <tushar.behera@linaro.org>,
-	Lidza Louina <lidza.louina@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Remi Denis-Courmont <courmisch@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: kosaki.motohiro@jp.fujitsu.com, keescook@chromium.org,
+	fweisbec@gmail.com, dan.carpenter@oracle.com,
+	devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+	tushar.behera@linaro.org, lidza.louina@gmail.com,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, courmisch@gmail.com,
+	vyasevich@gmail.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0129.hostedemail.com ([216.40.44.129]:41395 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753597Ab3IKXnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 19:43:13 -0400
-In-Reply-To: <CAGXu5jLyCGuSRqEGCSw=VrrOvOr=aAok6ZZTAj_qmDA3CbmLww@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: joe@perches.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1378941761.4714.37.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-09-11 at 16:29 -0700, Kees Cook wrote:
-> On Wed, Sep 11, 2013 at 4:22 PM, Joe Perches <joe@perches.com> wrote:
-> > Using vsnprintf or its derivatives with %n can have security
-> > vulnerability implications.
-> >
-> > Prior to commit fef20d9c1380
-> > ("vsprintf: unify the format decoding layer for its 3 users"),
-> > any use of %n was ignored.
-> >
-> > Reintroduce this feature and convert the existing uses of %n
-> > to use the return length from vsnprintf or its derivatives.
-> >
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > Acked-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com> (proc bits)
-> > cc: Kees Cook <keescook@chromium.org>
-> > cc: Frederic Weisbecker <fweisbec@gmail.com>
-> 
-> Yes, please. It might also be worth updating
-> Documentation/printk-formats.txt to mention that %n has intentionally
-> removed and will be ignored.
+Joe Perches wrote:
+> -	seq_printf(m, "%s%d%n", con->name, con->index, &len);
+> +	len = seq_printf(m, "%s%d", con->name, con->index);
 
-Fine with me if you want to update that file.
+Isn't len always 0 or -1 ?
 
-It doesn't currently try to be a complete man page
-for vsnprintf though.
+int seq_vprintf(struct seq_file *m, const char *f, va_list args)
+{
+	int len;
 
-vsprintf.c does have kernel-doc documentation and
-that already does show that %n is ignored.
+	if (m->count < m->size) {
+		len = vsnprintf(m->buf + m->count, m->size - m->count, f, args);
+		if (m->count + len < m->size) {
+			m->count += len;
+			return 0;
+		}
+	}
+	seq_set_overflow(m);
+	return -1;
+}
+EXPORT_SYMBOL(seq_vprintf);
+
+int seq_printf(struct seq_file *m, const char *f, ...)
+{
+	int ret;
+	va_list args;
+
+	va_start(args, f);
+	ret = seq_vprintf(m, f, args);
+	va_end(args);
+
+	return ret;
+}
+EXPORT_SYMBOL(seq_printf);
