@@ -1,85 +1,41 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: usbnet transmit path problems
-Date: Wed, 11 Sep 2013 23:11:57 +0800
-Message-ID: <CACVXFVN6ZHLesrsMVNMWrikRs1mMbk=aZD9qZybNn1gB7aFTZQ@mail.gmail.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com>
-	<1378894312.28160.15.camel@linux-fkkt.site>
-	<20130911193430.0825ac95@tom-ThinkPad-T410>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net  8/8] i40e: include i40e in kernel proper
+Date: Wed, 11 Sep 2013 15:24:38 +0000
+Message-ID: <1378913071.3863.27.camel@ppwaskie-mobl2>
+References: <1378893056-4821-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378893056-4821-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378902002.606.42.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:40898 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754052Ab3IKPMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 11:12:00 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
+Received: from mga09.intel.com ([134.134.136.24]:27037 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754451Ab3IKPYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Sep 2013 11:24:40 -0400
+In-Reply-To: <1378902002.606.42.camel@joe-AO722>
+Content-Language: en-US
+Content-ID: <04D6A3306D5DC247B28E8B6DC9857669@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 11, 2013 at 8:56 PM, David Laight <David.Laight@aculab.com> wrote:
->> > > 2) If 'length % dev->maxpacket == 0' for a multi-fragment packet then
->> > >    the extra byte isn't added correctly (the code probably falls off
->> > >    the end of the scatter-gather list).
->> >
->> > Indeed. Ming Lei, should usbnet handle this in the sg case or better
->> > leave it to the subdriver you introduced this for?
->
-> Is the ZLP issue a problem with the host or with the target?
-
-Sorry, what do you mean the ZLP issue here? I understand Oliver
-thinks one commit from me may break ZLP handling, are you discussing
-this problem? If not, could you explain it in a bit detail?
-
-> If it is a host problem then the necessity comes from the host,
-> but the fix needs to be target dependant.
-> If it is a common target problem then generic code can apply
-> a common fix.
-
-All usbnet device should have sent one ZLP in case the size of
-bulk out transfer can be divided by max packet size, but the one
-byte transfer might be introduced for avoiding some target problem
-(can't deal with zlp well), as said by David, see below discussion:
-
-   http://marc.info/?l=linux-usb&m=127067487604112&w=2
-
->
-> AFICT there are at least 3 fixes:
-> 1) Extend the ethernet frame by one byte and hope the receiving
->    system doesn't object to the padding.
->    This is probably the only option if tx_fixup() doesn't
->    add a header.
-> 2) Put the ethernet frame length in the header and have the
->    target discard the added pad byte (ax88179_178a.c).
-> 3) Add a second zero-length frame in the same USB data block
->    (ax88172a.c).
-
-Why do we need the above 3 fixes? The patch in my last email can
-fix the problem which is introduced recently, can't it?
-
->
-> Only the third requires that tx_fixup() append to the packet.
-> For the other two actual pad can be added by usbnet.
->
->> IMO, it should be handled by usbnet, could you comment on below patch?
->
-> Seems excessive to kmalloc() one byte!
-
-It isn't strange, many usb drivers have to do that(maybe kmalloc
-two or three, or four bytes) since the buffer is involved into DMA.
-
-> If you can't assume that the 'dev' structure itself can be dma'd from
-> allocate the extra byte in the sg list.
-
-It is better to always obey rule of DMA-API, so don't do that since
-one extra kmalloc() per device is needed, even though we can allocate
-only one global buffer for this purpose.
-
-
-Thanks,
---
-Ming Lei
+T24gV2VkLCAyMDEzLTA5LTExIGF0IDA1OjIwIC0wNzAwLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4g
+T24gV2VkLCAyMDEzLTA5LTExIGF0IDAyOjUwIC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
+ID4gTmV3IGRyaXZlciBidWlsZCBvcHRpb24gaXMgQ09ORklHX0k0MEUNCj4gDQo+ID4gZGlmZiAt
+LWdpdCBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy8wMC1JTkRFWCBiL0RvY3VtZW50YXRpb24v
+bmV0d29ya2luZy8wMC1JTkRFWA0KPiBbXQ0KPiA+ICtpNDBlLnR4dA0KPiA+ICsJLSBSRUFETUUg
+Zm9yIHRoZSBJbnRlbCBFdGhlcm5ldCBDb250cm9sbGVyIFhMNzEwIERyaXZlciAoaTQwZSkuDQo+
+IA0KPiBKdXN0IGN1cmlvdXMgYnV0IHdoeSB0aGUgWEw3MTAgLyBpNDBlIG5hbWUgbWlzbWF0Y2g/
+DQoNCml4Z2JlIGlzIGEgZ29vZCBleGFtcGxlLiAgaXhnYmUgaXMgdGhlIGRyaXZlciBuYW1lLCBi
+dXQgaXQgc3VwcG9ydHMgdGhlDQo4MjU5OCwgODI1OTkgLyBYNTIwLCBhbmQgWDU0MCBjaGlwcy4N
+Cg0KQ2hlZXJzLA0KLVBKDQo=
