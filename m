@@ -1,59 +1,34 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
 Subject: RE: usbnet transmit path problems
-Date: Wed, 11 Sep 2013 13:56:48 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7326@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com><1378894312.28160.15.camel@linux-fkkt.site> <20130911193430.0825ac95@tom-ThinkPad-T410>
+Date: Wed, 11 Sep 2013 14:00:33 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7327@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com> <1378894312.28160.15.camel@linux-fkkt.site>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Ming Lei" <ming.lei@canonical.com>,
-	"Oliver Neukum" <oliver@neukum.org>
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, "Ming Lei" <ming.lei@canonical.com>
+To: "Oliver Neukum" <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56521 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:56632 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752718Ab3IKM6I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 08:58:08 -0400
+	id S1752813Ab3IKNCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Sep 2013 09:02:15 -0400
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28246-08 for <netdev@vger.kernel.org>;
- Wed, 11 Sep 2013 13:58:04 +0100 (BST)
+ id 30180-05 for <netdev@vger.kernel.org>;
+ Wed, 11 Sep 2013 14:02:11 +0100 (BST)
 Content-class: urn:content-classes:message
-In-Reply-To: <20130911193430.0825ac95@tom-ThinkPad-T410>
+In-Reply-To: <1378894312.28160.15.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > 2) If 'length % dev->maxpacket == 0' for a multi-fragment packet then
-> > >    the extra byte isn't added correctly (the code probably falls off
-> > >    the end of the scatter-gather list).
-> >
-> > Indeed. Ming Lei, should usbnet handle this in the sg case or better
-> > leave it to the subdriver you introduced this for?
-
-Is the ZLP issue a problem with the host or with the target?
-If it is a host problem then the necessity comes from the host,
-but the fix needs to be target dependant.
-If it is a common target problem then generic code can apply
-a common fix.
-
-AFICT there are at least 3 fixes:
-1) Extend the ethernet frame by one byte and hope the receiving
-   system doesn't object to the padding.
-   This is probably the only option if tx_fixup() doesn't
-   add a header.
-2) Put the ethernet frame length in the header and have the
-   target discard the added pad byte (ax88179_178a.c).
-3) Add a second zero-length frame in the same USB data block
-   (ax88172a.c).
-
-Only the third requires that tx_fixup() append to the packet.
-For the other two actual pad can be added by usbnet.
- 
-> IMO, it should be handled by usbnet, could you comment on below patch?
-
-Seems excessive to kmalloc() one byte!
-If you can't assume that the 'dev' structure itself can be dma'd from
-allocate the extra byte in the sg list.
-
-	David
+PiA+IDQpIEkgcmVhZCB0aGF0IFVTQjMgaGFzIGEgZGlmZmVyZW50IHNjaGVtZSBmb3IgdGVybWlu
+YXRpbmcgYnVsayBkYXRhDQo+ID4gICAgdGhhdCBpcyBhIG11bHRpcGxlIG9mIHRoZSBwYWNrZXQg
+c2l6ZS4NCj4gPiAgICBEb2VzIHRoaXMgbWVhbiB0aGF0IHRoZSBwYWQgYnl0ZSBpc24ndCBuZWVk
+ZWQgZm9yIFVTQjM/DQo+ID4gICAgKE9yIGFyZSBVU0IzIGNvbnRyb2xsZXJzL3RhcmdldHMganVz
+dCBhcyBidWdneT8pDQo+IA0KPiBXZSBkb24ndCBoYXZlIGVub3VnaCBleGFtcGxlcyB0byB0ZWxs
+Lg0KDQpQZXJoYXBzIHRoZXJlIHNob3VsZCBiZSBhIHNlcGFyYXRlIGZsYWcgZm9yIFVTQjM/DQpB
+IGRldmljZSBtaWdodCBoYXZlIGlzc3VlcyBvbiBVU0IyLCBidXQgbm90IFVTQjMhDQoNClRoZSBm
+bGFnIGlzIHRhcmdldCBzcGVjaWZpYyAtIHNvIEkgcHJlc3VtZSBpdCBpc24ndA0KYSBob3N0L3Nl
+bmRpbmcgcHJvYmxlbS4NCg0KCURhdmlkDQoNCg==
