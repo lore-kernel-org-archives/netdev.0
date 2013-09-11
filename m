@@ -1,34 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: usbnet transmit path problems
-Date: Wed, 11 Sep 2013 14:00:33 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7327@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7325@saturn3.aculab.com> <1378894312.28160.15.camel@linux-fkkt.site>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, "Ming Lei" <ming.lei@canonical.com>
-To: "Oliver Neukum" <oliver@neukum.org>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: [PATCH 1/1] net: sched: Make netns available for ematch extensions
+Date: Wed, 11 Sep 2013 15:20:14 +0200
+Message-ID: <1378905614-29691-2-git-send-email-kadlec@blackhole.kfki.hu>
+References: <1378905614-29691-1-git-send-email-kadlec@blackhole.kfki.hu>
+Cc: netdev@vger.kernel.org, "V. Lavrov" <lve@guap.ru>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56632 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752813Ab3IKNCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Sep 2013 09:02:15 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 30180-05 for <netdev@vger.kernel.org>;
- Wed, 11 Sep 2013 14:02:11 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1378894312.28160.15.camel@linux-fkkt.site>
+Received: from smtp2.kfki.hu ([148.6.0.28]:33555 "EHLO smtp2.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753413Ab3IKNUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Sep 2013 09:20:16 -0400
+In-Reply-To: <1378905614-29691-1-git-send-email-kadlec@blackhole.kfki.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IDQpIEkgcmVhZCB0aGF0IFVTQjMgaGFzIGEgZGlmZmVyZW50IHNjaGVtZSBmb3IgdGVybWlu
-YXRpbmcgYnVsayBkYXRhDQo+ID4gICAgdGhhdCBpcyBhIG11bHRpcGxlIG9mIHRoZSBwYWNrZXQg
-c2l6ZS4NCj4gPiAgICBEb2VzIHRoaXMgbWVhbiB0aGF0IHRoZSBwYWQgYnl0ZSBpc24ndCBuZWVk
-ZWQgZm9yIFVTQjM/DQo+ID4gICAgKE9yIGFyZSBVU0IzIGNvbnRyb2xsZXJzL3RhcmdldHMganVz
-dCBhcyBidWdneT8pDQo+IA0KPiBXZSBkb24ndCBoYXZlIGVub3VnaCBleGFtcGxlcyB0byB0ZWxs
-Lg0KDQpQZXJoYXBzIHRoZXJlIHNob3VsZCBiZSBhIHNlcGFyYXRlIGZsYWcgZm9yIFVTQjM/DQpB
-IGRldmljZSBtaWdodCBoYXZlIGlzc3VlcyBvbiBVU0IyLCBidXQgbm90IFVTQjMhDQoNClRoZSBm
-bGFnIGlzIHRhcmdldCBzcGVjaWZpYyAtIHNvIEkgcHJlc3VtZSBpdCBpc24ndA0KYSBob3N0L3Nl
-bmRpbmcgcHJvYmxlbS4NCg0KCURhdmlkDQoNCg==
+Ematch API (change, destroy) doesn't pass netns data to ematch extensions.
+This prevents adding netns support to ipset, which is an ematch too.
+
+The patch adds the required pointer to "struct tcf_proto", thus
+making it available for every ematch.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+---
+ include/net/sch_generic.h |    1 +
+ net/sched/cls_api.c       |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index f4eb365..38e5e4b 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -225,6 +225,7 @@ struct tcf_proto {
+ 	struct Qdisc		*q;
+ 	void			*data;
+ 	const struct tcf_proto_ops	*ops;
++	struct net		*net;
+ };
+ 
+ struct qdisc_skb_cb {
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 8e118af..1b1cb11 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -266,6 +266,7 @@ replay:
+ 		tp->q = q;
+ 		tp->classify = tp_ops->classify;
+ 		tp->classid = parent;
++		tp->net = net;
+ 
+ 		err = tp_ops->init(tp);
+ 		if (err != 0) {
+-- 
+1.7.0.4
