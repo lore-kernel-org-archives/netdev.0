@@ -1,33 +1,34 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 15/52] net: enic: remove unnecessary pci_set_drvdata()
-Date: Wed, 11 Sep 2013 16:36:35 +0900
-Message-ID: <005901ceaec1$a5898f60$f09cae20$%han@samsung.com>
+Subject: [PATCH 16/52] net: tulip: remove unnecessary pci_set_drvdata()
+Date: Wed, 11 Sep 2013 16:37:15 +0900
+Message-ID: <005a01ceaec1$bd391900$37ab4b00$%han@samsung.com>
 References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
-	'Christian Benvenuti' <benve@cisco.com>,
-	'Sujith Sankar' <ssujith@cisco.com>,
-	'Govindarajulu Varadarajan' <govindarajulu90@gmail.com>,
-	'Neel Patel' <neepatel@cisco.com>,
-	'Nishank Trivedi' <nistrive@cisco.com>
+	'Grant Grundler' <grundler@parisc-linux.org>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:27991 "EHLO
+Received: from mailout1.samsung.com ([203.254.224.24]:28113 "EHLO
 	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936Ab3IKHgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:36:38 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
+	with ESMTP id S1751424Ab3IKHhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:37:18 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
  by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSY00I2UAH12410@mailout1.samsung.com> for
- netdev@vger.kernel.org; Wed, 11 Sep 2013 16:36:37 +0900 (KST)
+ with ESMTP id <0MSY00ANJAFYJCU0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 11 Sep 2013 16:37:17 +0900 (KST)
 In-reply-to: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+>From 0ac65a86b433bc21a50ea07c923e0060e472bf2b Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Wed, 11 Sep 2013 14:30:15 +0900
+Subject: [PATCH 16/52] net: tulip: remove unnecessary pci_set_drvdata()
 
 The driver core clears the driver data to NULL after device_release
 or on probe failure. Thus, it is not needed to manually clear the
@@ -35,28 +36,119 @@ device driver data to NULL.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c |    2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/dec/tulip/de2104x.c     |    1 -
+ drivers/net/ethernet/dec/tulip/dmfe.c        |    3 ---
+ drivers/net/ethernet/dec/tulip/tulip_core.c  |    1 -
+ drivers/net/ethernet/dec/tulip/uli526x.c     |    2 --
+ drivers/net/ethernet/dec/tulip/winbond-840.c |    3 ---
+ drivers/net/ethernet/dec/tulip/xircom_cb.c   |    2 --
+ 6 files changed, 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 7b756cf9..ff78dfa 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2309,7 +2309,6 @@ err_out_release_regions:
- err_out_disable_device:
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index eaab73c..38148b0 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -2110,7 +2110,6 @@ static void de_remove_one(struct pci_dev *pdev)
+ 	iounmap(de->regs);
+ 	pci_release_regions(pdev);
  	pci_disable_device(pdev);
- err_out_free_netdev:
 -	pci_set_drvdata(pdev, NULL);
- 	free_netdev(netdev);
+ 	free_netdev(dev);
+ }
+ 
+diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
+index 8313930..5ad9e3e 100644
+--- a/drivers/net/ethernet/dec/tulip/dmfe.c
++++ b/drivers/net/ethernet/dec/tulip/dmfe.c
+@@ -523,7 +523,6 @@ err_out_res:
+ err_out_disable:
+ 	pci_disable_device(pdev);
+ err_out_free:
+-	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
  
  	return err;
-@@ -2338,7 +2337,6 @@ static void enic_remove(struct pci_dev *pdev)
- 		enic_iounmap(enic);
+@@ -548,8 +547,6 @@ static void dmfe_remove_one(struct pci_dev *pdev)
+ 					db->buf_pool_ptr, db->buf_pool_dma_ptr);
  		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
+ 		free_netdev(dev);	/* free board information */
+-
 -		pci_set_drvdata(pdev, NULL);
- 		free_netdev(netdev);
  	}
+ 
+ 	DMFE_DBUG(0, "dmfe_remove_one() exit", 0);
+diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+index 4e8cfa2..add05f1 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip_core.c
++++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+@@ -1939,7 +1939,6 @@ static void tulip_remove_one(struct pci_dev *pdev)
+ 	pci_iounmap(pdev, tp->base_addr);
+ 	free_netdev (dev);
+ 	pci_release_regions (pdev);
+-	pci_set_drvdata (pdev, NULL);
+ 
+ 	/* pci_power_off (pdev, -1); */
  }
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+index 93845af..a5397b1 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -429,7 +429,6 @@ err_out_release:
+ err_out_disable:
+ 	pci_disable_device(pdev);
+ err_out_free:
+-	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+ 
+ 	return err;
+@@ -450,7 +449,6 @@ static void uli526x_remove_one(struct pci_dev *pdev)
+ 				db->buf_pool_ptr, db->buf_pool_dma_ptr);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+-	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+ }
+ 
+diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+index c7b04ec..62fe512 100644
+--- a/drivers/net/ethernet/dec/tulip/winbond-840.c
++++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
+@@ -468,7 +468,6 @@ static int w840_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return 0;
+ 
+ err_out_cleardev:
+-	pci_set_drvdata(pdev, NULL);
+ 	pci_iounmap(pdev, ioaddr);
+ err_out_free_res:
+ 	pci_release_regions(pdev);
+@@ -1542,8 +1541,6 @@ static void w840_remove1(struct pci_dev *pdev)
+ 		pci_iounmap(pdev, np->base_addr);
+ 		free_netdev(dev);
+ 	}
+-
+-	pci_set_drvdata(pdev, NULL);
+ }
+ 
+ #ifdef CONFIG_PM
+diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+index 9b84cb0..ab7ebac 100644
+--- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
++++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+@@ -289,7 +289,6 @@ out:
+ err_unmap:
+ 	pci_iounmap(pdev, private->ioaddr);
+ reg_fail:
+-	pci_set_drvdata(pdev, NULL);
+ 	dma_free_coherent(d, 8192, private->tx_buffer, private->tx_dma_handle);
+ tx_buf_fail:
+ 	dma_free_coherent(d, 8192, private->rx_buffer, private->rx_dma_handle);
+@@ -317,7 +316,6 @@ static void xircom_remove(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(dev);
+ 	pci_iounmap(pdev, card->ioaddr);
+-	pci_set_drvdata(pdev, NULL);
+ 	dma_free_coherent(d, 8192, card->tx_buffer, card->tx_dma_handle);
+ 	dma_free_coherent(d, 8192, card->rx_buffer, card->rx_dma_handle);
+ 	free_netdev(dev);
 -- 
 1.7.10.4
