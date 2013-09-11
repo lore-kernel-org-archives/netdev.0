@@ -1,49 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net_sched: htb: fix a typo in htb_change_class()
-Date: Tue, 10 Sep 2013 17:36:37 -0700
-Message-ID: <1378859797.26319.90.camel@edumazet-glaptop>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: Re: [PATCH] net: korina: remove deprecated IRQF_DISABLED
+Date: Wed, 11 Sep 2013 10:00:49 +0900
+Message-ID: <003001ceae8a$5b0ad700$11208500$%han@samsung.com>
+References: <1378531257-5446-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Vimalkumar <j.vimal@gmail.com>, Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f42.google.com ([209.85.213.42]:50572 "EHLO
-	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100Ab3IKAnZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Sep 2013 20:43:25 -0400
-Received: by mail-yh0-f42.google.com with SMTP id z12so3276162yhz.15
-        for <netdev@vger.kernel.org>; Tue, 10 Sep 2013 17:43:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, emilio@elopez.com.ar, mugunthanvnm@ti.com,
+	hsweeten@visionengravers.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: 'Michael Opdenacker' <michael.opdenacker@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1378531257-5446-1-git-send-email-michael.opdenacker@free-electrons.com>
+Content-language: ko
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vimalkumar <j.vimal@gmail.com>
+On Saturday, September 07, 2013 2:21 PM, Michael Opdenacker wrote:
+> 
+> This patch proposes to remove the IRQF_DISABLED flag from
+> drivers/net/ethernet/korina.c
+> 
+> It's a NOOP since 2.6.35 and it will be removed one day.
+> 
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 
-Fix a typo added in commit 56b765b79 ("htb: improved accuracy at high
-rates")
+Reviewed-by: Jingoo Han <jg1.han@samsung.com>
 
-cbuffer should not be a copy of buffer.
+Best regards,
+Jingoo Han
 
-Signed-off-by: Vimalkumar <j.vimal@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-Cc: Jiri Pirko <jpirko@redhat.com>
----
- net/sched/sch_htb.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index c2178b1..863846c 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1495,7 +1495,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil);
- 
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
--	cl->cbuffer = PSCHED_TICKS2NS(hopt->buffer);
-+	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
- 
- 	sch_tree_unlock(sch);
- 
+> ---
+>  drivers/net/ethernet/korina.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
