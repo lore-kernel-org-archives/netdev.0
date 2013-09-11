@@ -1,40 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] bridge: fix message_age_timer calculation
-Date: Wed, 11 Sep 2013 16:48:32 -0400 (EDT)
-Message-ID: <20130911.164832.448084143075884864.davem@davemloft.net>
-References: <1378745768-4495-1-git-send-email-cphealy@gmail.com>
-	<5230B93B.3040900@cogentembedded.com>
+Subject: Re: [PATCH] net: tilegx driver: avoid compiler warning
+Date: Wed, 11 Sep 2013 16:58:14 -0400 (EDT)
+Message-ID: <20130911.165814.2091435893983550695.davem@davemloft.net>
+References: <201309091822.r89IMXmA032018@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, buytenh@wantstofly.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5230B93B.3040900@cogentembedded.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201309091822.r89IMXmA032018@farm-0002.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 11 Sep 2013 22:40:59 +0400
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Mon, 9 Sep 2013 14:11:54 -0400
 
-> Hello.
+> The "id" variable was being incremented in common code, but only
+> initialized and used in IPv4 code.  We move the increment to the IPv4
+> code too, and then legitimately use the uninitialized_var() macro to
+> avoid the gcc 4.6 warning that 'id' may be used uninitialized.
+> Note that gcc 4.7 does not warn.
 > 
-> On 09/09/2013 08:56 PM, Chris Healy wrote:
-> 
->> This changes the message_age_timer calculation to use the BPDU's max
->> age as opposed to the local bridge's max age.  This is in accordance
->> with section 8.6.2.3.2 Step 2 of the 802.1D-1998 sprecification.
-> 
->    You should wrap your changelog lines at 80 chars at most, preferably
->    less.
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 
-Yes, please fix this and resubmit.
+Ugly situation, but whatever, applied :-)
