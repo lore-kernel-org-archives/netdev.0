@@ -1,78 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net  8/8] i40e: include i40e in kernel proper
-Date: Wed, 11 Sep 2013 08:25:48 -0700
-Message-ID: <1378913148.2026.17.camel@jtkirshe-mobl>
-References: <1378893056-4821-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1378893056-4821-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1378902002.606.42.camel@joe-AO722> <1378909937.2026.8.camel@jtkirshe-mobl>
-	 <1378910832.4714.2.camel@joe-AO722>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf] netfilter: use RCU safe kfree for conntrack extensions
+Date: Wed, 11 Sep 2013 17:28:05 +0200
+Message-ID: <20130911152804.GA5397@unicorn.suse.cz>
+References: <20130911090900.0129AE8AFF@unicorn.suse.cz>
+ <20130911145715.GA2882@linuxace.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Th1DPQC9UbMENxfnM0Ea"
-Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:14126 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754451Ab3IKPZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Sep 2013 11:25:51 -0400
-In-Reply-To: <1378910832.4714.2.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	coreteam@netfilter.org
+To: Phil Oester <kernel@linuxace.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130911145715.GA2882@linuxace.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 11, 2013 at 07:57:15AM -0700, Phil Oester wrote:
+> On Wed, Sep 11, 2013 at 10:17:27AM +0200, Michal Kubecek wrote:
+> > Commit 68b80f11 (netfilter: nf_nat: fix RCU races) introduced
+> > RCU protection for freeing extension data when reallocation
+> > moves them to a new location. We need the same protection when
+> > freeing them in nf_ct_ext_free() in order to prevent a
+> > use-after-free by other threads referencing a NAT extension data
+> > via bysource list.
+> 
+> Hi Michal - 
+> 
+> coincidentally I've been looking into this area this week due to another
+> bug report (https://bugzilla.kernel.org/show_bug.cgi?id=60853).
 
---=-Th1DPQC9UbMENxfnM0Ea
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Looking at the initial command, I would say this bug report is actually
+of the same origin as ours.
 
-On Wed, 2013-09-11 at 07:47 -0700, Joe Perches wrote:
-> On Wed, 2013-09-11 at 07:32 -0700, Jeff Kirsher wrote:
-> > On Wed, 2013-09-11 at 05:20 -0700, Joe Perches wrote:
-> > > On Wed, 2013-09-11 at 02:50 -0700, Jeff Kirsher wrote:
-> > > > New driver build option is CONFIG_I40E
-> > >=20
-> > > > diff --git a/Documentation/networking/00-INDEX b/Documentation/netw=
-orking/00-INDEX
-> > > []
-> > > > +i40e.txt
-> > > > +	- README for the Intel Ethernet Controller XL710 Driver (i40e).
-> > >=20
-> > > Just curious but why the XL710 / i40e name mismatch?
-> >=20
-> > i40e stands for Intel 40 GbE Ethernet which is more generic than naming
-> > the driver the same as the first part (XL710).
->=20
-> Too bad if also means that when 100 comes out
-> this driver won't be expected to work.
+> Looking at
+> your proposed fix, the NAT extension data should have been cleaned
+> from the bysource list in nf_nat_cleanup_conntrack (via __nf_ct_ext_destroy)
+> before reaching the kfree.  Would you agree?
 
-It will work for our 40GbE parts definitely, as far as future technology
-and silicon, I cannot say.
+It is cleaned from the list but as it is an RCU list, other readers can
+still be holding pointers to it. We have to wait for the RCU grace
+period before we can reuse it.
 
---=-Th1DPQC9UbMENxfnM0Ea
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> The reporter of #60853 suggested adding a synchronize_rcu to the end of the
+> nf_nat_cleanup_conntrack function, which seems sane.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
+That was also my first idea. However, nf_nat_cleanup_conntrack() is
+called from __nf_ct_ext_destroy() inside a rcu_read_lock() /
+rcu_read_unlock() block. Even if this block is for a different RCU list,
+we still cannot call synchronize_rcu() while inside it.
 
-iQIcBAABCgAGBQJSMIt8AAoJEOVv75VaS+3OaJQQAIXyCgDBdHOYEf7jEkNJfDeY
-oe2Jkkdy7PIlh3UNRhiRePNxB+3T6QN4c0apan0/rJOK/fhUPIShvWc7HwFoAlLr
-eyJuofz+udltL3tOSOyH4x/tJeo/ChGYaij3fg78UgqXrNSsft39BWqMCqOXl1be
-AwrshaRJ6/+XHBJsmAuTD6+tbnUOGz6nMeDENRQn/Vi1ydE5tvxCzKvWhjMAPgoO
-O7aZ2n1OfKKKjnsQH0WuzkA6JJiICvc62FRqF5exK/oUx0Q99+Sw0ZGbLrldeafk
-3ndbF0zNubfH9KCpn1QhREEH26wLGcVFhG5z119XWMi4VjpuOlGN9NqLvl864Nvg
-6U8Xv722dHMRfQ0hgCIrCizTncqb94Y85DB4Z/q8mZ4zueARFEB/ihoyiNFu/G2B
-0gzbuIpkscVqmA435nETDSoJ2oCR+a6tFtnQh0c2npgzBH4ka4HcyRgn3EVTV2JI
-xGECp8RCGGvTT7IHG+hQcflH0HNCwpvnoRIkfJQVB9VgZboh7RYfmR/+AVvbryGl
-K6TrPI3czEPEBdmoOZ52J7gHo2gNqirR2eFJrFwDbBu1aVkvDxa0UT3QlQewqJM3
-kXLbYT2Tef+C0v3wZjEWSIaa0ej4P5u6kkQHwCaMOQrfE13btR9rll9rtXJPekWQ
-8NDAM/H0XWMc1uXJtyZF
-=VD8i
------END PGP SIGNATURE-----
+We could call synchronize_rcu() in __nf_ct_ext_destroy() after
+rcu_read_unlock() but this would IMHO add an unnecessary delay so it is
+more efficient and more appropriate to wait before the actual kfree()
+which is the operation that needs to wait for RCU grace period.
 
---=-Th1DPQC9UbMENxfnM0Ea--
+> I have been trying to reproduce the crash to test that theory.
+> Are you able to reproduce an OOPS in your testing?  Or is there a bug
+> report you are working from?
+
+No, it is a bugreport from our customer. And even that customer
+encountered it only once so far. Which is not very surprising as to
+reproduce it, you have to be (un)lucky twice: first to have someone
+overwrite the area soon enough and second to have someone access the
+area after it is overwritten. This is IMHO the reason why the reporter
+cleared the block with memset() for testing purposes.
+
+                                                     Michal Kubecek
+
