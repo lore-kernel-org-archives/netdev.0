@@ -1,39 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Use-after-free in TUNSETIFF
-Date: Wed, 11 Sep 2013 15:44:07 +0100
-Message-ID: <1378910647.1538.13.camel@bwh-desktop.uk.level5networks.com>
-References: <522FACCB.1040707@epitech.eu> <522FB273.1030506@epitech.eu>
-	 <20130910173257.47e2dc08@nehalam.linuxnetplumber.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net  8/8] i40e: include i40e in kernel proper
+Date: Wed, 11 Sep 2013 07:47:12 -0700
+Message-ID: <1378910832.4714.2.camel@joe-AO722>
+References: <1378893056-4821-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378893056-4821-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1378902002.606.42.camel@joe-AO722> <1378909937.2026.8.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Wannes Rombouts <wannes.rombouts@epitech.eu>,
-	<davem@davemloft.net>, <jasowang@redhat.com>, <mst@redhat.com>,
-	<edumazet@google.com>, <nhorman@tuxdriver.com>,
-	<netdev@vger.kernel.org>, Kevin Soules <kevin.soules@epitech.eu>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:45143 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754504Ab3IKOoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 10:44:12 -0400
-In-Reply-To: <20130910173257.47e2dc08@nehalam.linuxnetplumber.net>
+Received: from smtprelay0216.hostedemail.com ([216.40.44.216]:49164 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753959Ab3IKOrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 10:47:25 -0400
+In-Reply-To: <1378909937.2026.8.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-10 at 17:32 -0700, Stephen Hemminger wrote:
-[...]
-> [1] A user with CAP_NET_ADMIN can basically hose the system many other ways.
-> Capabilities are a failed security model.
-> Almost all distro's limit CAP_NET_ADMIN to root anyway.
+On Wed, 2013-09-11 at 07:32 -0700, Jeff Kirsher wrote:
+> On Wed, 2013-09-11 at 05:20 -0700, Joe Perches wrote:
+> > On Wed, 2013-09-11 at 02:50 -0700, Jeff Kirsher wrote:
+> > > New driver build option is CONFIG_I40E
+> > 
+> > > diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
+> > []
+> > > +i40e.txt
+> > > +	- README for the Intel Ethernet Controller XL710 Driver (i40e).
+> > 
+> > Just curious but why the XL710 / i40e name mismatch?
+> 
+> i40e stands for Intel 40 GbE Ethernet which is more generic than naming
+> the driver the same as the first part (XL710).
 
-tun uses ns_capable(), not capable().  If user namespaces are enabled
-then I think any user can create their own user & net namespaces, be
-'root' in those namespaces and then invoke TUNSETIFF successfully.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Too bad if also means that when 100 comes out
+this driver won't be expected to work.
