@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net/stable] ipv6/exthdrs: accept tlv which includes
- only padding
-Date: Wed, 11 Sep 2013 15:53:01 -0400 (EDT)
-Message-ID: <20130911.155301.1665252915703098120.davem@davemloft.net>
-References: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH -net v2 0/2] bonding: fix arp_validate desync state &
+ race
+Date: Wed, 11 Sep 2013 15:55:50 -0400 (EDT)
+Message-ID: <20130911.155550.1090007387355030571.davem@davemloft.net>
+References: <1378504826-18855-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, eldad@fogrefinery.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46360 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46440 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754742Ab3IKTxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 15:53:04 -0400
-In-Reply-To: <1378476145-6282-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1753710Ab3IKTzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 15:55:52 -0400
+In-Reply-To: <1378504826-18855-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  6 Sep 2013 16:02:25 +0200
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Sat,  7 Sep 2013 00:00:24 +0200
 
-> In rfc4942 and rfc2460 I cannot find anything which would implicate to
-> drop packets which have only padding in tlv.
+> Hello all,
+> These two patches aim to fix the possible de-sync state which the bond
+> can enter if we have arp_validate without arp_interval or the other way
+> around. They also fix a race condition between arp_validate setting and
+> mode changing.
 > 
-> Current behaviour breaks TAHI Test v6LC.1.2.6.
+> Patch 01 - fixes the race condition between store_arp_validate and bond
+> mode change by using rtnl for sync
+> Patch 02 - fixes the possible de-sync state by setting/unsetting recv_probe
+> if arp_interval is set/unset and also if arp_validate is set/unset
 > 
-> Problem was intruduced in:
-> 9b905fe6843 "ipv6/exthdrs: strict Pad1 and PadN check"
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> v2: Fix the mode check in store_arp_validate
 
-Ok I've changed my position, applied and queued up for -stable.
-
-Thanks.
+Series applied, thank you.
