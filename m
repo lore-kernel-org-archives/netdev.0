@@ -1,36 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH nf] netfilter: use RCU safe kfree for conntrack
- extensions
-Date: Wed, 11 Sep 2013 10:54:38 -0700
-Message-ID: <1378922078.21474.5.camel@edumazet-glaptop>
-References: <20130911090900.0129AE8AFF@unicorn.suse.cz>
-	 <20130911145715.GA2882@linuxace.com>
-	 <20130911152804.GA5397@unicorn.suse.cz>
-	 <20130911170946.GA2926@linuxace.com>
-	 <20130911174248.GA8318@unicorn.suse.cz>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: Re: [PATCH 29/52] net: neterion: remove unnecessary pci_set_drvdata()
+Date: Wed, 11 Sep 2013 11:05:17 -0700
+Message-ID: <CAPoiz9xLT=p0ws3CyeiBnANuujheJHzXiC1b8Xg_rFJ5AXuW3w@mail.gmail.com>
+References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
+	<006701ceaec3$dce53e30$96afba90$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Phil Oester <kernel@linuxace.com>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:33350 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755481Ab3IKRyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 13:54:45 -0400
-In-Reply-To: <20130911174248.GA8318@unicorn.suse.cz>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:36508 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755351Ab3IKSFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 14:05:19 -0400
+Received: by mail-lb0-f169.google.com with SMTP id z5so7764474lbh.14
+        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 11:05:18 -0700 (PDT)
+In-Reply-To: <006701ceaec3$dce53e30$96afba90$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-11 at 19:42 +0200, Michal Kubecek wrote:
+On Wed, Sep 11, 2013 at 12:52 AM, Jingoo Han <jg1.han@samsung.com> wrote:
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure. Thus, it is not needed to manually clear the
+> device driver data to NULL.
+>
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
-> Yes, the patch submitted here is against current nf branch. For
-> SLES 11 SP1 (with 2.6.32 kernel), I'm going to use call_rcu() the way
-> original commit 68b80f11 does. 
+Looks sane to me.
+Acked-by: Jon Mason <jdmason@kudzu.us>
 
-Well, please just submit a patch for current tree, using kfree_rcu()
-
-When doing backport to stable branches, needed adaptation shall be done.
+> ---
+>  drivers/net/ethernet/neterion/s2io.c           |    2 --
+>  drivers/net/ethernet/neterion/vxge/vxge-main.c |    2 --
+>  2 files changed, 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+> index 51b0094..9eeddbd 100644
+> --- a/drivers/net/ethernet/neterion/s2io.c
+> +++ b/drivers/net/ethernet/neterion/s2io.c
+> @@ -8185,7 +8185,6 @@ mem_alloc_failed:
+>         free_shared_mem(sp);
+>         pci_disable_device(pdev);
+>         pci_release_regions(pdev);
+> -       pci_set_drvdata(pdev, NULL);
+>         free_netdev(dev);
+>
+>         return ret;
+> @@ -8221,7 +8220,6 @@ static void s2io_rem_nic(struct pci_dev *pdev)
+>         iounmap(sp->bar0);
+>         iounmap(sp->bar1);
+>         pci_release_regions(pdev);
+> -       pci_set_drvdata(pdev, NULL);
+>         free_netdev(dev);
+>         pci_disable_device(pdev);
+>  }
+> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> index 5a20eaf..8614eeb 100644
+> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> @@ -4739,7 +4739,6 @@ _exit6:
+>  _exit5:
+>         vxge_device_unregister(hldev);
+>  _exit4:
+> -       pci_set_drvdata(pdev, NULL);
+>         vxge_hw_device_terminate(hldev);
+>         pci_disable_sriov(pdev);
+>  _exit3:
+> @@ -4782,7 +4781,6 @@ static void vxge_remove(struct pci_dev *pdev)
+>                 vxge_free_mac_add_list(&vdev->vpaths[i]);
+>
+>         vxge_device_unregister(hldev);
+> -       pci_set_drvdata(pdev, NULL);
+>         /* Do not call pci_disable_sriov here, as it will break child devices */
+>         vxge_hw_device_terminate(hldev);
+>         iounmap(vdev->bar0);
+> --
+> 1.7.10.4
+>
+>
