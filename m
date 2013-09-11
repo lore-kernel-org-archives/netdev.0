@@ -1,25 +1,24 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 17/52] net: sundance: remove unnecessary pci_set_drvdata()
-Date: Wed, 11 Sep 2013 16:37:54 +0900
-Message-ID: <005b01ceaec1$d3968020$7ac38060$%han@samsung.com>
+Subject: [PATCH 18/52] net: dl2k: remove unnecessary pci_set_drvdata()
+Date: Wed, 11 Sep 2013 16:38:28 +0900
+Message-ID: <005c01ceaec1$e857ea80$b907bf80$%han@samsung.com>
 References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
-	'Denis Kirjanov' <kda@linux-powerpc.org>
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:28247 "EHLO
+Received: from mailout1.samsung.com ([203.254.224.24]:28372 "EHLO
 	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708Ab3IKHhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:37:55 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
+	with ESMTP id S1751789Ab3IKHib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 03:38:31 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
  by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MSY00ALVAJ4WVU0@mailout1.samsung.com> for
- netdev@vger.kernel.org; Wed, 11 Sep 2013 16:37:54 +0900 (KST)
+ with ESMTP id <0MSY00AMXAJXWVU0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 11 Sep 2013 16:38:29 +0900 (KST)
 In-reply-to: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
@@ -31,28 +30,20 @@ device driver data to NULL.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/dlink/sundance.c |    2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/dlink/dl2k.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index bf3bf6f..113cd79 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -703,7 +703,6 @@ err_out_unmap_tx:
- 	dma_free_coherent(&pdev->dev, TX_TOTAL_SIZE,
- 		np->tx_ring, np->tx_ring_dma);
- err_out_cleardev:
--	pci_set_drvdata(pdev, NULL);
- 	pci_iounmap(pdev, ioaddr);
- err_out_res:
- 	pci_release_regions(pdev);
-@@ -1941,7 +1940,6 @@ static void sundance_remove1(struct pci_dev *pdev)
- 	    pci_iounmap(pdev, np->base);
- 	    pci_release_regions(pdev);
- 	    free_netdev(dev);
--	    pci_set_drvdata(pdev, NULL);
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index afa8e3a..4fb756d 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -1746,7 +1746,6 @@ rio_remove1 (struct pci_dev *pdev)
+ 		pci_release_regions (pdev);
+ 		pci_disable_device (pdev);
  	}
+-	pci_set_drvdata (pdev, NULL);
  }
  
+ static struct pci_driver rio_driver = {
 -- 
 1.7.10.4
