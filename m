@@ -1,64 +1,44 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH 14/52] net: cxgb4vf: remove unnecessary pci_set_drvdata()
-Date: Wed, 11 Sep 2013 10:24:16 -0700
-Message-ID: <5230A740.4020503@chelsio.com>
-References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com> <005801ceaec1$6b8d3320$42a79960$%han@samsung.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf] netfilter: use RCU safe kfree for conntrack extensions
+Date: Wed, 11 Sep 2013 19:42:48 +0200
+Message-ID: <20130911174248.GA8318@unicorn.suse.cz>
+References: <20130911090900.0129AE8AFF@unicorn.suse.cz>
+ <20130911145715.GA2882@linuxace.com>
+ <20130911152804.GA5397@unicorn.suse.cz>
+ <20130911170946.GA2926@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jingoo Han <jg1.han@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:39799
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755793Ab3IKRYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 13:24:21 -0400
-In-Reply-To: <005801ceaec1$6b8d3320$42a79960$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: Phil Oester <kernel@linuxace.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130911170946.GA2926@linuxace.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-   I agree that the redundant pci_set_drvdata(pdev, NULL) in 
-cxgb4vf_pci_probe() under the err_release_regions: label is unneeded, 
-but don't we need to NULL out the PCI Driver Data under the 
-err_free_adapter: label and also in cxgb4vf_pci_remove()?  Or is that 
-handled automatically in the PCI infrastructure code which calls the 
-Device Probe and Remove routines?  Mostly I was just being an 
-obsessively clean housewife assuming that we'd want to clean up these 
-references ...
+On Wed, Sep 11, 2013 at 10:09:47AM -0700, Phil Oester wrote:
+> 
+> 1) normally RCU functions have _rcu suffixes.  So nf_ct_ext_free should
+> become nf_ct_ext_free_rcu.
 
-Casey
+Right. I'll post updated version with the rename tomorrow.
 
-On 09/11/13 00:34, Jingoo Han wrote:
-> The driver core clears the driver data to NULL after device_release
-> or on probe failure. Thus, it is not needed to manually clear the
-> device driver data to NULL.
->
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
-> ---
->   drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c |    3 ---
->   1 file changed, 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-> index 40c22e7..43bb012 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-> @@ -2782,11 +2782,9 @@ err_unmap_bar:
->   
->   err_free_adapter:
->   	kfree(adapter);
-> -	pci_set_drvdata(pdev, NULL);
->   
->   err_release_regions:
->   	pci_release_regions(pdev);
-> -	pci_set_drvdata(pdev, NULL);
->   	pci_clear_master(pdev);
->   
->   err_disable_device:
-> @@ -2851,7 +2849,6 @@ static void cxgb4vf_pci_remove(struct pci_dev *pdev)
->   		}
->   		iounmap(adapter->regs);
->   		kfree(adapter);
-> -		pci_set_drvdata(pdev, NULL);
->   	}
->   
->   	/*
+> 2) kfree_rcu was not added to the kernel until 3.0.  All of the bug
+> reports I've been looking into (including the original in netfilter bugzilla
+> at http://bugzilla.netfilter.org/show_bug.cgi?id=714) have been reported in
+> 2.6.32 or earlier kernels.  So a different fix would need to be backported for
+> -stable.  For that, we would probably export __nf_ct_ext_free_rcu from
+> nf_conntrack_extend.c and change the kfree call in nf_ct_ext_free_rcu to
+> call_rcu(&ct->ext->rcu, __nf_ct_ext_free_rcu).
+
+Yes, the patch submitted here is against current nf branch. For
+SLES 11 SP1 (with 2.6.32 kernel), I'm going to use call_rcu() the way
+original commit 68b80f11 does. IIRC the only pre-3.0 stable branch still
+maintained is 2.6.32, all others are 3.0 or newer so they have
+kfree_rcu() and also use it in __nf_ct_ext_add() since commit 1f8d36a1. 
+
+                                                        Michal Kubecek
+
