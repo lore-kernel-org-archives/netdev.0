@@ -1,33 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net  8/8] i40e: include i40e in kernel proper
-Date: Wed, 11 Sep 2013 05:20:02 -0700
-Message-ID: <1378902002.606.42.camel@joe-AO722>
-References: <1378893056-4821-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1378893056-4821-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: Re: 3.10.0 network trace
+Date: Wed, 11 Sep 2013 08:49:36 -0400
+Message-ID: <CA+5PVA5bDAz5a-TrM4ALA9vJz2JbE14VT7xM5=WqaRg=Ro0_xQ@mail.gmail.com>
+References: <CA+rTEUPfP8ouJHbaFrO=-zktg2D06kYgXOq-LnmyKbbEzj-TmA@mail.gmail.com>
+	<CA+rTEUMYihwm_5ado5q1ZrYovgM6=Yc99mSaO-dNUyj4XyTj_Q@mail.gmail.com>
+	<CAK6E8=eNa72=LySKsgpnKd5A6CSkr0pbpet1X2g8em9Or=m7bg@mail.gmail.com>
+	<CA+rTEUNfHvr-Zs1JWVQV+_7ygW5AP9UScePSBEM-dsi0h7nS=w@mail.gmail.com>
+	<CAK6E8=eqFm5_nDMdzkt6WUJXmKVTOyGbt-WtVPHDWdrOdYK_Ow@mail.gmail.com>
+	<CA+rTEUNkqngK5cTUPPKAYkNgF4P8JcHoRoaEgUzBUTvO+h5JXQ@mail.gmail.com>
+	<CAK6E8=fefVLUorMKCqJGSnq6Sc9LOKp7eUyOnh6h8rcOcJtQNQ@mail.gmail.com>
+	<CA+rTEUOXAH4TGMGvgBJ6FktA6E=hFhQmFHRf4Zaw5YJ6giOpOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>
+To: Michael Sterrett <michael@sterretts.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0021.hostedemail.com ([216.40.44.21]:52999 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751640Ab3IKMUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 08:20:05 -0400
-In-Reply-To: <1378893056-4821-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:43099 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507Ab3IKMth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 08:49:37 -0400
+Received: by mail-ob0-f169.google.com with SMTP id es8so8503600obc.14
+        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 05:49:37 -0700 (PDT)
+In-Reply-To: <CA+rTEUOXAH4TGMGvgBJ6FktA6E=hFhQmFHRf4Zaw5YJ6giOpOA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-11 at 02:50 -0700, Jeff Kirsher wrote:
-> New driver build option is CONFIG_I40E
+On Sun, Jul 21, 2013 at 9:36 PM, Michael Sterrett <michael@sterretts.net> wrote:
+> Since upgraded to 3.10.1 which exhibits the same issue (probably not
+> surprising).
+>
+> sysctl net.ipv4.tcp_frto=0 net.ipv4.tcp_early_retrans=3 seems to take
+> care of it.
 
-> diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-[]
-> +i40e.txt
-> +	- README for the Intel Ethernet Controller XL710 Driver (i40e).
+We're still getting reports of this with 3.10.10 in Fedora [1].  At
+least one of the reporters has said those sysctl settings didn't help.
 
-Just curious but why the XL710 / i40e name mismatch?
+Is there anything else that can be gathered to help track this down?
+
+josh
+
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=989251
