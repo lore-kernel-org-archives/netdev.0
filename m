@@ -1,36 +1,33 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH] bfin_mac: remove deprecated IRQF_DISABLED
-Date: Thu, 12 Sep 2013 17:09:58 +0900
-Message-ID: <000101ceaf8f$795f5cc0$6c1e1640$%han@samsung.com>
-References: <1378956943-3470-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/52] net: fealnx: remove unnecessary pci_set_drvdata()
+Date: Thu, 12 Sep 2013 04:19:22 -0400 (EDT)
+Message-ID: <20130912.041922.87675350693543309.davem@davemloft.net>
+References: <000601ceaf7b$e8e7b2e0$bab718a0$%han@samsung.com>
+	<20130912.033606.1689936899104585741.davem@davemloft.net>
+	<000001ceaf8d$46951cf0$d3bf56d0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, jiri@resnulli.us, mugunthanvnm@ti.com,
-	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: 'Michael Opdenacker' <michael.opdenacker@free-electrons.com>,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1378956943-3470-1-git-send-email-michael.opdenacker@free-electrons.com>
-Content-language: ko
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: jg1.han@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755547Ab3ILITY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 04:19:24 -0400
+In-Reply-To: <000001ceaf8d$46951cf0$d3bf56d0$%han@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, September 12, 2013 12:36 PM, Michael Opdenacker wrote:
-> 
-> This patch proposes to remove the IRQF_DISABLED flag from
-> drivers/net/ethernet/adi/bfin_mac.c.
-> 
-> It's a NOOP since 2.6.35 and it will be removed one day.
-> 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Thu, 12 Sep 2013 16:54:14 +0900
 
-Reviewed-by: Jingoo Han <jg1.han@samsung.com>
+> I have to split the patches into several chunks, and send them
+> over few weeks?
+> For example,
+>   one day: 15 patches
+>   2 weeks later: 15 patches
+>   2 weeks later: 15 patches
+>   2 weeks later: 7 patches
 
-Best regards,
-Jingoo Han
-
-> ---
->  drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+You can send the new chunk after I apply the previous one.
