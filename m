@@ -1,30 +1,37 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [ovs-dev] [PATCH v2.39 0/7] MPLS actions and matches
-Date: Thu, 12 Sep 2013 12:06:36 -0700
-Message-ID: <20130912190636.GL16044@nicira.com>
-References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] fix NULL pointer dereference in
+ br_handle_frame
+Date: Thu, 12 Sep 2013 15:18:55 -0400 (EDT)
+Message-ID: <20130912.151855.2190474215627495241.davem@davemloft.net>
+References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
+	<1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ravi K <rkerur@gmail.com>
-To: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, zhiguohong@tencent.com
+To: honkiko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:60916 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751229Ab3ILTGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 15:06:47 -0400
-Received: by mail-pb0-f52.google.com with SMTP id wz12so200568pbc.39
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 12:06:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37015 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855Ab3ILTS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 15:18:58 -0400
+In-Reply-To: <1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've totally lost track of the status of this patch series.  I assume it
-needs Jesse's review.  Jesse, if I'm wrong about that, let me know and
-I'll take a pass at it.
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Thu, 12 Sep 2013 23:57:08 +0800
 
-Thanks,
+> @@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
+>  int br_handle_frame_finish(struct sk_buff *skb)
+>  {
+>  	const unsigned char *dest = eth_hdr(skb)->h_dest;
+> -	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+> +	enet_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
 
-Ben.
+You did not even compile test this patch.
+
+This is a good way to make people not want to review your work at all,
+because if you don't care enough to even compile test your patch why
+should other people care enough to look at it?
