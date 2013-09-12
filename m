@@ -1,141 +1,79 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH v2] Don't destroy the netdev until the vif is shut down
-Date: Thu, 12 Sep 2013 13:14:52 +0100
-Message-ID: <1378988092-15443-1-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
+Date: Thu, 12 Sep 2013 20:16:35 +0800
+Message-ID: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
+Cc: davem@davemloft.net, zhiguohong@tencent.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:52165 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753176Ab3ILMPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 08:15:01 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:58618 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528Ab3ILMS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 08:18:57 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so10444920pbb.5
+        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 05:18:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch, if a frontend cycles through states Closing
-and Closed (which Windows frontends need to do) then the netdev
-will be destroyed and requires re-invocation of hotplug scripts
-to restore state before the frontend can move to Connected. Thus
-when udev is not in use the backend gets stuck in InitWait.
+From: Hong Zhiguo <zhiguohong@tencent.com>
 
-With this patch, the netdev is left alone whilst the backend is
-still online and is only de-registered and freed just prior to
-destroying the vif (which is also nicely symmetrical with the
-netdev allocation and registration being done during probe) so
-no re-invocation of hotplug scripts is required.
+In function netdev_rx_handler_unregister it's said that:
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
+/* a reader seeing a non NULL rx_handler in a rcu_read_lock()
+ * section has a guarantee to see a non NULL rx_handler_data
+ * as well.
+ */
+
+This is true. But br_port_get_rcu(dev) returns NULL if:
+	!(dev->priv_flags & IFF_BRIDGE_PORT)
+
+And this happended on my box when br_handle_frame is called
+between these 2 lines of del_nbp:
+
+	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+	/* --> br_handle_frame is called at this time */
+	netdev_upper_dev_unlink(dev, br->dev);
+
+I got below Oops(some lines omitted):
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000021
+IP: [<ffffffff8150901d>] br_handle_frame+0xed/0x230
+Oops: 0000 [#1] PREEMPT SMP
+RIP: 0010:[<ffffffff8150901d>]  [<ffffffff8150901d>] br_handle_frame+0xed/0x230
+RSP: 0018:ffff880030403c10  EFLAGS: 00010286
+Stack:
+ ffff88002c945700 ffffffff81508f30 0000000000000000 ffff88002d41e000
+ ffff880030403c98 ffffffff81477acb ffffffff81477821 ffff880030403c68
+ ffffffff81090e10 00ff88002d545c80 ffff88002c945700 ffffffff81aa50c0
+Call Trace:
+ <IRQ>
+ [<ffffffff81508f30>] ? br_handle_frame_finish+0x300/0x300
+ [<ffffffff81477acb>] __netif_receive_skb_core+0x39b/0x880
+
+Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
 ---
-v2:
- - Modify netback_remove() - bug only seemed to manifest with linux guest
+ net/bridge/br_if.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |   13 ++++++++-----
- drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
- 3 files changed, 21 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index a197743..5715318 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -184,6 +184,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
- 		   unsigned int rx_evtchn);
- void xenvif_disconnect(struct xenvif *vif);
-+void xenvif_free(struct xenvif *vif);
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c41d5fb..bd21159 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -133,6 +133,8 @@ static void del_nbp(struct net_bridge_port *p)
  
- int xenvif_xenbus_init(void);
- void xenvif_xenbus_fini(void);
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 625c6f4..65e78f9 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -477,14 +477,17 @@ void xenvif_disconnect(struct xenvif *vif)
- 	if (vif->task)
- 		kthread_stop(vif->task);
+ 	sysfs_remove_link(br->ifobj, p->dev->name);
  
-+	xenvif_unmap_frontend_rings(vif);
++	netdev_rx_handler_unregister(dev);
 +
-+	if (need_module_put)
-+		module_put(THIS_MODULE);
-+}
-+
-+void xenvif_free(struct xenvif *vif)
-+{
- 	netif_napi_del(&vif->napi);
+ 	dev_set_promiscuity(dev, -1);
  
- 	unregister_netdev(vif->dev);
+ 	spin_lock_bh(&br->lock);
+@@ -148,8 +150,6 @@ static void del_nbp(struct net_bridge_port *p)
  
--	xenvif_unmap_frontend_rings(vif);
+ 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+ 
+-	netdev_rx_handler_unregister(dev);
 -
- 	free_netdev(vif->dev);
--
--	if (need_module_put)
--		module_put(THIS_MODULE);
- }
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 1fe48fe3..a53782e 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
- 	if (be->vif) {
- 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- 	kfree(be);
-@@ -213,9 +213,18 @@ static void disconnect_backend(struct xenbus_device *dev)
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
+ 	netdev_upper_dev_unlink(dev, br->dev);
  
-+	if (be->vif)
-+		xenvif_disconnect(be->vif);
-+}
-+
-+static void destroy_backend(struct xenbus_device *dev)
-+{
-+	struct backend_info *be = dev_get_drvdata(&dev->dev);
-+
- 	if (be->vif) {
-+		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- }
-@@ -246,14 +255,11 @@ static void frontend_changed(struct xenbus_device *dev,
- 	case XenbusStateConnected:
- 		if (dev->state == XenbusStateConnected)
- 			break;
--		backend_create_xenvif(be);
- 		if (be->vif)
- 			connect(be);
- 		break;
- 
- 	case XenbusStateClosing:
--		if (be->vif)
--			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		disconnect_backend(dev);
- 		xenbus_switch_state(dev, XenbusStateClosing);
- 		break;
-@@ -262,6 +268,7 @@ static void frontend_changed(struct xenbus_device *dev,
- 		xenbus_switch_state(dev, XenbusStateClosed);
- 		if (xenbus_dev_is_online(dev))
- 			break;
-+		destroy_backend(dev);
- 		/* fall through if not online */
- 	case XenbusStateUnknown:
- 		device_unregister(&dev->dev);
+ 	br_multicast_del_port(p);
 -- 
-1.7.10.4
+1.8.1.2
