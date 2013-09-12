@@ -1,63 +1,65 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
- was called
-Date: Thu, 12 Sep 2013 16:43:37 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de>
-References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
- <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de> <5212CCCA.4090907@windriver.com> <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de> <20130912134409.GB21212@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Fan Du <fan.du@windriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130912134409.GB21212@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH for-net] net/mlx4_en: Check device state when setting coalescing
+Date: Thu, 12 Sep 2013 18:11:20 +0300
+Message-ID: <1378998680-7546-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Gideon Naim <gideonn@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:38125 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754281Ab3ILPLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 11:11:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Sep 2013, Herbert Xu wrote:
-> On Thu, Sep 12, 2013 at 03:21:24PM +0200, Thomas Gleixner wrote:
-> >
-> > > (3): http://www.spinics.net/lists/netdev/msg245169.html
-> > 
-> > Thanks for the explanation so far.
-> > 
-> > What's still unclear to me is why these timeouts are bound to wall
-> > time in the first place.
-> > 
-> > Is there any real reason why the key life time can't simply be
-> > expressed in monotonic time, e.g. N seconds after creation or M
-> > seconds after usage? Looking at the relevant RFCs I can't find any
-> > requirement for binding the life time to wall time. 
-> > 
-> > A life time of 10 minutes does not change when the wall clock is
-> > adjusted for whatever reasons. It's still 10 minutes and not some
-> > random result of the wall clock adjustments. But I might be wrong as
-> > usual :)
-> 
-> Well we started out with straight timers.  It was changed because
-> people wanted IPsec SAs to expire after a suspect/resume which
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Right suspend is the usual suspect :)
+When the device is down, CQs are freed. We must check the device state
+to avoid issuing firmware commands on non existing CQs.
 
-> AFAIK does not touch normal timers.
-> 
-> Of course, this brought with it a new set of problems when the
-> system time is stepped which now cause SAs to expire even though
-> they probably shouldn't.
+CC: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-Right. That's what I guessed. So your problem is that the timer_list
-timers which are the proper mechanism for this (the life time has a 1
-second granularity, so hrtimers are complete overkill) are not
-expiring after a suspend/resume cycle.
-
-So what about going back to timer_list timers and simply utilize
-register_pm_notifier(), which will tell you that the system resumed?
-
-Thanks,
-
-	tglx
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index a28cd80..0c75098 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -53,9 +53,11 @@ static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		priv->tx_cq[i].moder_cnt = priv->tx_frames;
+ 		priv->tx_cq[i].moder_time = priv->tx_usecs;
+-		err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
+-		if (err)
+-			return err;
++		if (priv->port_up) {
++			err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
++			if (err)
++				return err;
++		}
+ 	}
+ 
+ 	if (priv->adaptive_rx_coal)
+@@ -65,9 +67,11 @@ static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
+ 		priv->rx_cq[i].moder_cnt = priv->rx_frames;
+ 		priv->rx_cq[i].moder_time = priv->rx_usecs;
+ 		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
+-		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
+-		if (err)
+-			return err;
++		if (priv->port_up) {
++			err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
++			if (err)
++				return err;
++		}
+ 	}
+ 
+ 	return err;
+-- 
+1.8.3.4
