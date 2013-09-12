@@ -1,47 +1,55 @@
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Subject: [PATCH] bfin_mac: remove deprecated IRQF_DISABLED
-Date: Thu, 12 Sep 2013 05:35:43 +0200
-Message-ID: <1378956943-3470-1-git-send-email-michael.opdenacker@free-electrons.com>
-Cc: richardcochran@gmail.com, jg1.han@samsung.com, jiri@resnulli.us,
-	mugunthanvnm@ti.com, uclinux-dist-devel@blackfin.uclinux.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michael Opdenacker <michael.opdenacker@free-electrons.com>
-To: davem@davemloft.net
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCHSET] sysfs: disentangle kobject namespace handling from sysfs
+Date: Wed, 11 Sep 2013 20:37:23 -0700
+Message-ID: <87li324sng.fsf@xmission.com>
+References: <1378952949-7900-1-git-send-email-tj@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	kay@vrfy.org, netdev@vger.kernel.org, lizefan@huawei.com
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1378952949-7900-1-git-send-email-tj@kernel.org> (Tejun Heo's
+	message of "Wed, 11 Sep 2013 22:29:02 -0400")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch proposes to remove the IRQF_DISABLED flag from
-drivers/net/ethernet/adi/bfin_mac.c.
+Tejun Heo <tj@kernel.org> writes:
 
-It's a NOOP since 2.6.35 and it will be removed one day.
+> Hello,
+>
+> I'll send out multiple patchsets to separate out sysfs from driver
+> core and kobject.  The eventual goal is making sysfs modular enough so
+> that cgroup can replace its nightmarish cgroupfs implementation which
+> repeated and worsened all the past mistakes of sysfs.  This patchset
+> is first of the effort and separates out kobject namespace handling
+> from sysfs.
 
-Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
----
- drivers/net/ethernet/adi/bfin_mac.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+At a practical level you probably just want to copy the good parts of
+the structure of sysfs, instead of attempting to share code.
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index e66684a..75fb1d2 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -530,7 +530,7 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
- 	if (lp->wol && !lp->irq_wake_requested) {
- 		/* register wake irq handler */
- 		rc = request_irq(IRQ_MAC_WAKEDET, bfin_mac_wake_interrupt,
--				 IRQF_DISABLED, "EMAC_WAKE", dev);
-+				 0, "EMAC_WAKE", dev);
- 		if (rc)
- 			return rc;
- 		lp->irq_wake_requested = true;
-@@ -1686,7 +1686,7 @@ static int bfin_mac_probe(struct platform_device *pdev)
- 	/* now, enable interrupts */
- 	/* register irq handler */
- 	rc = request_irq(IRQ_MAC_RX, bfin_mac_interrupt,
--			IRQF_DISABLED, "EMAC_RX", ndev);
-+			0, "EMAC_RX", ndev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Cannot request Blackfin MAC RX IRQ!\n");
- 		rc = -EBUSY;
--- 
-1.8.1.2
+Sharing code is likely to get you into all kinds of problems with short
+term hacks.
+
+> I never really understood why namespace support was added the way it
+> was added.  Namespace information is communicated to sysfs via
+> callbacks and back-queries to upper layer, which is a very unusual and
+> weird thing to do when all the involved operations are synchronous.
+> For example, a tagged attribute creation looks like the following.
+
+Then please ask.
+
+I don't have the time or energy to review these right now, and given the
+sweeping nature of the patches, and the dismissive attitude of the
+original design there is almost at least one stupid bug if not something
+worse.
+
+So until I have the energy to review these.
+
+Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+I am sorry but I don't have time to clean up after any more people
+touching sysfs when the break something.  It does look like there are so
+possibly good things going on but..
+
+Eric
