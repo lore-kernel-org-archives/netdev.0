@@ -1,78 +1,124 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH 14/52] net: cxgb4vf: remove unnecessary pci_set_drvdata()
-Date: Thu, 12 Sep 2013 08:59:07 -0700
-Message-ID: <5231E4CB.2060901@chelsio.com>
-References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com> <005801ceaec1$6b8d3320$42a79960$%han@samsung.com> <5230A740.4020503@chelsio.com> <000001ceaf56$1cdf7d60$569e7820$%han@samsung.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH] vsnprintf: Remove use of %n and convert existing
+ uses
+Date: Thu, 12 Sep 2013 08:59:22 -0700
+Message-ID: <1379001562.2075.9.camel@joe-AO722>
+References: <1378926562.4714.11.camel@joe-AO722>
+	 <CAGXu5jLO6109fkejXqX=WhkQnfAUeWtTcow0v1BNqyi=8=Qa3Q@mail.gmail.com>
+	 <1378928700.4714.17.camel@joe-AO722>
+	 <CAGXu5jLTjrPr=GwOmMcu55Qp9K-_XS75xq9NJ0vBUEwy-i_YMw@mail.gmail.com>
+	 <1378941761.4714.37.camel@joe-AO722>
+	 <201309120840.HHE37542.OJMFFHSOQOtVFL@I-love.SAKURA.ne.jp>
+	 <1378944257.4714.45.camel@joe-AO722>
+	 <20130912001911.GO13318@ZenIV.linux.org.uk>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B732A@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jingoo Han <jg1.han@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42011
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754375Ab3ILP7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:59:24 -0400
-In-Reply-To: <000001ceaf56$1cdf7d60$569e7820$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	linux-kernel@vger.kernel.org, kosaki.motohiro@jp.fujitsu.com,
+	keescook@chromium.org, fweisbec@gmail.com,
+	dan.carpenter@oracle.com, devel@driverdev.osuosl.org,
+	gregkh@linuxfoundation.org, tushar.behera@linaro.org,
+	lidza.louina@gmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	courmisch@gmail.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B732A@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-   Ah, okay.  And I presume the same is true of the PCI Remove path. I 
-wasn't aware of this but if it's the Linux pattern to let the 
-surrounding support code do this work, then go for it.
+On Thu, 2013-09-12 at 09:06 +0100, David Laight wrote:
+> > On Wed, Sep 11, 2013 at 05:04:17PM -0700, Joe Perches wrote:
+> > > On Thu, 2013-09-12 at 08:40 +0900, Tetsuo Handa wrote:
+> > > > Joe Perches wrote:
+> > > > > -	seq_printf(m, "%s%d%n", con->name, con->index, &len);
+> > > > > +	len = seq_printf(m, "%s%d", con->name, con->index);
+> > > >
+> > > > Isn't len always 0 or -1 ?
+> > >
+> > > Right.  Well you're no fun...
+[]
+> > > Suggestions?
+> 
+> Change the return type of seq_printf() to void and require that
+> code use access functions/macros to find the length and error
+> status. Possibly save the length of the last call separately.
 
-   As I said, I'm something of a Mad Housewife when it comes to cleaning 
-things up which were allocated/assigned in a particular routine.  
-Basically I program like I drive, practising defensive programming ... :-)
+Are there any races if this is done?
+---
+ fs/seq_file.c            | 15 +++++++--------
+ include/linux/seq_file.h |  6 ++++--
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
-Casey
-
-On 09/11/13 18:19, Jingoo Han wrote:
-> On Thursday, September 12, 2013 2:24 AM, Casey Leedom wrote:
->>     I agree that the redundant pci_set_drvdata(pdev, NULL) in
->> cxgb4vf_pci_probe() under the err_release_regions: label is unneeded,
->> but don't we need to NULL out the PCI Driver Data under the
->> err_free_adapter: label and also in cxgb4vf_pci_remove()?  Or is that
->> handled automatically in the PCI infrastructure code which calls the
->> Device Probe and Remove routines?  Mostly I was just being an
->> obsessively clean housewife assuming that we'd want to clean up these
->> references ...
->
-> No, 'pci_set_drvdata(pdev, NULL) under err_free_adapter label' is not
-> necessary.
->
-> As you know, pci_set_drvdata(pdev, NULL) calls dev_set_drvdata() as below:
-> pci_set_drvdata(pdev, NULL) is dev_set_drvdata(&pdev->dev, NULL).
->
-> ./include/linux/pci.h
-> 1504:static inline void pci_set_drvdata(struct pci_dev *pdev, void *data)
-> 1505{
-> 1506	dev_set_drvdata(&pdev->dev, data);
-> 1507}
->
->
-> However, when the driver goes to err_free_adapter label,
-> The following sequence will be done.
->      kfree(adapter) -> .... -> return -ENOMEM;
->
-> In this case,
-> when probe() returns error value such as '-ENOMEM',
-> really_probe() of driver core automatically calls 'dev_set_drvdata(dev, NULL)'
-> as below:
->
-> ./drivers/base/dd.c
-> 303-probe_failed:
-> 304	devres_release_all(dev);
-> 305	driver_sysfs_remove(dev);
-> 306	dev->driver = NULL;
-> 307	dev_set_drvdata(dev, NULL);
->
-> Thus, without 'pci_set_drvdata(pdev, NULL) under err_free_adapter label',
-> dev_set_drvdata(dev, NULL) can be called.
->
-> I already tested this with other drivers such as e1000e LAN card driver.
->
-> Best regards,
-> Jingoo Han
->
->
+diff --git a/fs/seq_file.c b/fs/seq_file.c
+index 3135c25..b6c9eab 100644
+--- a/fs/seq_file.c
++++ b/fs/seq_file.c
+@@ -389,32 +389,31 @@ int seq_escape(struct seq_file *m, const char *s, const char *esc)
+ }
+ EXPORT_SYMBOL(seq_escape);
+ 
+-int seq_vprintf(struct seq_file *m, const char *f, va_list args)
++void seq_vprintf(struct seq_file *m, const char *f, va_list args)
+ {
+ 	int len;
+ 
+ 	if (m->count < m->size) {
+ 		len = vsnprintf(m->buf + m->count, m->size - m->count, f, args);
++		m->last_len = len;
+ 		if (m->count + len < m->size) {
+ 			m->count += len;
+-			return 0;
++			m->last_rtn = 0;
++			return;
+ 		}
+ 	}
+ 	seq_set_overflow(m);
+-	return -1;
++	m->last_rtn = -1;
+ }
+ EXPORT_SYMBOL(seq_vprintf);
+ 
+-int seq_printf(struct seq_file *m, const char *f, ...)
++void seq_printf(struct seq_file *m, const char *f, ...)
+ {
+-	int ret;
+ 	va_list args;
+ 
+ 	va_start(args, f);
+-	ret = seq_vprintf(m, f, args);
++	seq_vprintf(m, f, args);
+ 	va_end(args);
+-
+-	return ret;
+ }
+ EXPORT_SYMBOL(seq_printf);
+ 
+diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
+index 4e32edc..9af05e1 100644
+--- a/include/linux/seq_file.h
++++ b/include/linux/seq_file.h
+@@ -20,6 +20,8 @@ struct seq_file {
+ 	size_t size;
+ 	size_t from;
+ 	size_t count;
++	size_t last_len;
++	int last_rtn;
+ 	loff_t index;
+ 	loff_t read_pos;
+ 	u64 version;
+@@ -89,8 +91,8 @@ int seq_putc(struct seq_file *m, char c);
+ int seq_puts(struct seq_file *m, const char *s);
+ int seq_write(struct seq_file *seq, const void *data, size_t len);
+ 
+-__printf(2, 3) int seq_printf(struct seq_file *, const char *, ...);
+-__printf(2, 0) int seq_vprintf(struct seq_file *, const char *, va_list args);
++__printf(2, 3) void seq_printf(struct seq_file *, const char *, ...);
++__printf(2, 0) void seq_vprintf(struct seq_file *, const char *, va_list args);
+ 
+ int seq_path(struct seq_file *, const struct path *, const char *);
+ int seq_dentry(struct seq_file *, struct dentry *, const char *);
