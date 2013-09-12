@@ -1,67 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 20/52] net: fealnx: remove unnecessary pci_set_drvdata()
-Date: Thu, 12 Sep 2013 21:11:42 +0400
-Message-ID: <5231F5CE.8000406@cogentembedded.com>
-References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com> <005e01ceaec2$23e32420$6ba96c60$%han@samsung.com> <5230B435.2050908@cogentembedded.com> <000e01ceaf4c$90cde130$b269a390$%han@samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Thu, 12 Sep 2013 13:32:52 -0400 (EDT)
+Message-ID: <20130912.133252.425268707009916773.davem@davemloft.net>
+References: <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de>
+	<20130912134409.GB21212@gondor.apana.org.au>
+	<alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jingoo Han <jg1.han@samsung.com>
+Cc: herbert@gondor.apana.org.au, fan.du@windriver.com,
+	steffen.klassert@secunet.com, dborkman@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:60228 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754337Ab3ILRLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 13:11:39 -0400
-Received: by mail-la0-f54.google.com with SMTP id ea20so79254lab.27
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 10:11:38 -0700 (PDT)
-In-Reply-To: <000e01ceaf4c$90cde130$b269a390$%han@samsung.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35294 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755272Ab3ILRc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 13:32:58 -0400
+In-Reply-To: <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 12 Sep 2013 16:43:37 +0200 (CEST)
 
-On 09/12/2013 04:11 AM, Jingoo Han wrote:
+> So what about going back to timer_list timers and simply utilize
+> register_pm_notifier(), which will tell you that the system resumed?
 
->>> The driver core clears the driver data to NULL after device_release
->>> or on probe failure. Thus, it is not needed to manually clear the
->>> device driver data to NULL.
+The thing to understand is that there are two timeouts for an IPSEC
+rule, a soft and a hard timeout.
 
->>> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
->>> ---
->>>    drivers/net/ethernet/fealnx.c |    4 ++--
->>>    1 file changed, 2 insertions(+), 2 deletions(-)
+There is a gap between these two exactly so that we can negotiate a
+new encapsulation with the IPSEC gateway before communication ceases
+to be possible over the IPSEC protected path.
 
->>> diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
->>> index c706b7a..99194d1 100644
->>> --- a/drivers/net/ethernet/fealnx.c
->>> +++ b/drivers/net/ethernet/fealnx.c
->>> @@ -699,9 +699,9 @@ static void fealnx_remove_one(struct pci_dev *pdev)
->>>    		pci_iounmap(pdev, np->mem);
->>>    		free_netdev(dev);
->>>    		pci_release_regions(pdev);
->>> -		pci_set_drvdata(pdev, NULL);
->>> -	} else
->>> +	} else {
->>>    		printk(KERN_ERR "fealnx: remove for unknown device\n");
->>> +	}
+So the idea is that the soft timeout triggers the re-negotiation,
+and after a hard timeout the IPSEC path is no longer usable and
+all communication will fail.
 
->>      No "drove-by" coding style fixes, please.
+Simply triggering a re-negoation after every suspend/resume makes
+no sense at all.  Spurious re-negotiations are undesirable.
 
-> Hi Sergei,
-
-> Sorry, but I just want to know the reason. :-)
-> Would you let know the reason not to add coding style fixes?
-
-    This change doesn't get covered by the patch subject/changelog. Even if 
-you're doing it, it should preferably be done in a separate patch and at the 
-very least documented in the changelog.
-
-> Thank you.
-
-    Not at all.
-
-> Best regards,
-> Jingoo Han
-
-WBR, Sergei
+What we want are real timers.  We want that rather than a "we
+suspended so just assume all timers expired" event which is not very
+useful for this kind of application.
