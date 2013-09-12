@@ -1,65 +1,95 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH for-net] net/mlx4_en: Check device state when setting coalescing
-Date: Thu, 12 Sep 2013 18:11:20 +0300
-Message-ID: <1378998680-7546-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Gideon Naim <gideonn@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v2] Don't destroy the netdev until the vif is shut down
+Date: Thu, 12 Sep 2013 16:21:22 +0100
+Message-ID: <20130912152122.GC934@zion.uk.xensource.com>
+References: <1378988092-15443-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:38125 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754281Ab3ILPLj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 11:11:39 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:23483 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147Ab3ILPVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:21:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1378988092-15443-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+The title should start with "[PATCH net-next]".
 
-When the device is down, CQs are freed. We must check the device state
-to avoid issuing firmware commands on non existing CQs.
+On Thu, Sep 12, 2013 at 01:14:52PM +0100, Paul Durrant wrote:
+> Without this patch, if a frontend cycles through states Closing
+> and Closed (which Windows frontends need to do) then the netdev
+> will be destroyed and requires re-invocation of hotplug scripts
+> to restore state before the frontend can move to Connected. Thus
+> when udev is not in use the backend gets stuck in InitWait.
+> 
+> With this patch, the netdev is left alone whilst the backend is
+> still online and is only de-registered and freed just prior to
+> destroying the vif (which is also nicely symmetrical with the
+> netdev allocation and registration being done during probe) so
+> no re-invocation of hotplug scripts is required.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> ---
+> v2:
+>  - Modify netback_remove() - bug only seemed to manifest with linux guest
+> 
+>  drivers/net/xen-netback/common.h    |    1 +
+>  drivers/net/xen-netback/interface.c |   13 ++++++++-----
+>  drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
+>  3 files changed, 21 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index a197743..5715318 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -184,6 +184,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+>  		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
+>  		   unsigned int rx_evtchn);
+>  void xenvif_disconnect(struct xenvif *vif);
+> +void xenvif_free(struct xenvif *vif);
+>  
 
-CC: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+This can be moved a few lines above to group with xenvif_alloc() IMHO.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index a28cd80..0c75098 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -53,9 +53,11 @@ static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		priv->tx_cq[i].moder_cnt = priv->tx_frames;
- 		priv->tx_cq[i].moder_time = priv->tx_usecs;
--		err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
--		if (err)
--			return err;
-+		if (priv->port_up) {
-+			err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
-+			if (err)
-+				return err;
-+		}
- 	}
- 
- 	if (priv->adaptive_rx_coal)
-@@ -65,9 +67,11 @@ static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
- 		priv->rx_cq[i].moder_cnt = priv->rx_frames;
- 		priv->rx_cq[i].moder_time = priv->rx_usecs;
- 		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
--		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
--		if (err)
--			return err;
-+		if (priv->port_up) {
-+			err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
-+			if (err)
-+				return err;
-+		}
- 	}
- 
- 	return err;
--- 
-1.8.3.4
+>  int xenvif_xenbus_init(void);
+>  void xenvif_xenbus_fini(void);
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 625c6f4..65e78f9 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -477,14 +477,17 @@ void xenvif_disconnect(struct xenvif *vif)
+>  	if (vif->task)
+>  		kthread_stop(vif->task);
+>  
+> +	xenvif_unmap_frontend_rings(vif);
+> +
+> +	if (need_module_put)
+> +		module_put(THIS_MODULE);
+> +}
+> +
+
+The original thought for this module_get/put thing is that admin can
+just disconnect all frontends then replace netback module. With this
+patch that doesn't work anymore. We leak memory when all frontends are
+disconnected and admin runs "modprobe -r xen-netback".  That happened to
+work before ecause everytime a frontend is disconnected the netdev structure
+is already freed.
+
+The ability to unload netback is still quite handy for developer / admin
+so I would like to keep it. My suggestion would be, move module_get/put
+to the point where netdev is allocated / freed. The impact of moving
+module_get/put is that we cannot just simply disconnect all frontends
+then replace netback, we need to actually shutdown / migrate all VMs
+before replacing netback.
+
+Wei.
