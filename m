@@ -1,49 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/4] bridge: Don't use VID 0 and 4095 in vlan
- filtering
-Date: Thu, 12 Sep 2013 15:55:33 -0400 (EDT)
-Message-ID: <20130912.155533.521690436399073964.davem@davemloft.net>
+Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
+Date: Thu, 12 Sep 2013 16:00:33 -0400 (EDT)
+Message-ID: <20130912.160033.779509034953932316.davem@davemloft.net>
 References: <1378808874.3988.2.camel@ubuntu-vm-makita>
-	<1378809144.3988.6.camel@ubuntu-vm-makita>
-	<522F2B22.5010007@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: makita.toshiaki@lab.ntt.co.jp, netdev@vger.kernel.org
-To: vyasevic@redhat.com
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org
+To: makita.toshiaki@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37623 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756662Ab3ILTzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 15:55:43 -0400
-In-Reply-To: <522F2B22.5010007@redhat.com>
+	with ESMTP id S1755161Ab3ILUAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 16:00:36 -0400
+In-Reply-To: <1378808874.3988.2.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue, 10 Sep 2013 10:22:26 -0400
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Tue, 10 Sep 2013 19:27:54 +0900
 
-> On 09/10/2013 06:32 AM, Toshiaki Makita wrote:
->> IEEE 802.1Q says that:
->> - VID 0 shall not be configured as a PVID, or configured in any
->> - Filtering
->> Database entry.
->> - VID 4095 shall not be configured as a PVID, or transmitted in a tag
->> header. This VID value may be used to indicate a wildcard match for
->> the VID
->> in management operations or Filtering Database entries.
->> (See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
->>
->> Don't accept adding these VIDs in the vlan_filtering implementation.
->>
->> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> There seem to be some undesirable behaviors related with PVID.
+> 1. It has no effect assigning PVID to a port. PVID cannot be applied
+> to any frame regardless of whether we set it or not.
+> 2. FDB entries learned via frames applied PVID are registered with
+> VID 0 rather than VID value of PVID.
+> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
+> This leads interoperational problems such as sending frames with VID
+> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
+> 0 as they belong to VLAN 0, which is expected to be handled as they have
+> no VID according to IEEE 802.1Q.
 > 
-> Reviewed-by: Vlad Yasevich <vyasevich@redhat.com>
+> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
+> is fixed, because we cannot activate PVID due to it.
 
-Vlad, as far as I can see your redhat.com email ends just with a "c"
-not a "ch".  It's your gmail account that ends in a "ch".
+Please work out the issues in patch #2 with Vlad and resubmit this
+series.
 
-I'm fixing this up while applying these patches, if you have something
-automatically generating these reviewed-by strings please fix it up
-although I note that some are correct and some are not so maybe you
-do this by hand :-)
+Thank you.
