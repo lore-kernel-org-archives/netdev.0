@@ -1,50 +1,67 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [ethtool 1/3] ethtool: fix ixgbe 82598EB only registers
-Date: Thu, 12 Sep 2013 16:33:26 +0000
-Message-ID: <1379003606.9217.0.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1377648529-8297-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1377809470.5372.16.camel@bwh-desktop.uk.level5networks.com>
-	 <1379000729.1531.12.camel@bwh-desktop.uk.level5networks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 20/52] net: fealnx: remove unnecessary pci_set_drvdata()
+Date: Thu, 12 Sep 2013 21:11:42 +0400
+Message-ID: <5231F5CE.8000406@cogentembedded.com>
+References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com> <005e01ceaec2$23e32420$6ba96c60$%han@samsung.com> <5230B435.2050908@cogentembedded.com> <000e01ceaf4c$90cde130$b269a390$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7472 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754632Ab3ILQd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 12:33:27 -0400
-In-Reply-To: <1379000729.1531.12.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
-Content-ID: <05CE293D19BF4544A6FCAC34B0620236@intel.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:60228 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754337Ab3ILRLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 13:11:39 -0400
+Received: by mail-la0-f54.google.com with SMTP id ea20so79254lab.27
+        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 10:11:38 -0700 (PDT)
+In-Reply-To: <000e01ceaf4c$90cde130$b269a390$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDEzLTA5LTEyIGF0IDE2OjQ1ICswMTAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
-PiBPbiBUaHUsIDIwMTMtMDgtMjkgYXQgMjE6NTEgKzAxMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6
-DQo+ID4gT24gVHVlLCAyMDEzLTA4LTI3IGF0IDE3OjA4IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3Jv
-dGU6DQo+ID4gPiBGcm9tOiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4N
-Cj4gPiA+IA0KPiA+ID4gVGhpcyBwYXRjaCBmaXhlcyBpeGdiZV9yZWdfZHVtcCB0byBvbmx5IGRp
-c3BsYXkgcmVnaXN0ZXJzIHNwZWNpZmljIHRvIHRoZQ0KPiA+ID4gODI1OThFQiBwYXJ0LCBhcyB0
-aGVzZSByZWdpc3RlcnMgZGlzcGxheSAweERFQURCRUVGIG90aGVyd2lzZSwgYW5kIGNsdXR0ZXIg
-dXANCj4gPiA+IHRoZSByZWdpc3RlciBkdW1wLg0KPiA+ID4gDQo+ID4gPiBTaWduZWQtb2ZmLWJ5
-OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiA+IFRlc3RlZC1i
-eTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+DQo+ID4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4g
-PiA+IC0tLQ0KPiA+ID4gIGl4Z2JlLmMgfCAxNDQgKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ID4gIDEgZmlsZSBjaGFu
-Z2VkLCA3NSBpbnNlcnRpb25zKCspLCA2OSBkZWxldGlvbnMoLSkNCj4gPiA+IA0KPiA+ID4gZGlm
-ZiAtLWdpdCBhL2l4Z2JlLmMgYi9peGdiZS5jDQo+ID4gPiBpbmRleCA5YjAwNWYyLi44OWNiNmJl
-IDEwMDY0NA0KPiA+ID4gLS0tIGEvaXhnYmUuYw0KPiA+ID4gKysrIGIvaXhnYmUuYw0KPiA+IFsu
-Li5dDQo+ID4gPiAtCWZwcmludGYoc3Rkb3V0LA0KPiA+ID4gLQkJIjB4MDJGMjA6IFJEUFJPQkUg
-ICAgIChSeCBQcm9iZSBNb2RlIFN0YXR1cykgICAgICAgICAgIDB4JTA4WFxuIiwNCj4gPiA+IC0J
-CXJlZ3NfYnVmZlsxMDg1XSk7DQo+ID4gWy4uLl0NCj4gPiANCj4gPiBJdCBsb29rcyBsaWtlIHRo
-aXMgcmVtb3ZhbCByZWFsbHkgYmVsb25ncyB0byB0aGUgbmV4dCBwYXRjaCwgd2hpY2ggYWRkcw0K
-PiA+IGl0IGJhY2sgd2l0aCB0aGUgbWFjX3R5cGUgPCBpeGdiZV9tYWNfWDU0MCBjb25kaXRpb24u
-DQo+IA0KPiBXZWxsLCBJJ3ZlIGFwcGxpZWQgdGhlIHR3byBwYXRjaGVzIHdpdGggdGhpcyBiaXQg
-Zml4ZWQgdXAuDQo+IA0KPiBCZW4uDQo+IA0KDQpUaGFua3MsIEJlbi4NCg0KUmVnYXJkcywNCkph
-a2UNCg==
+Hello.
+
+On 09/12/2013 04:11 AM, Jingoo Han wrote:
+
+>>> The driver core clears the driver data to NULL after device_release
+>>> or on probe failure. Thus, it is not needed to manually clear the
+>>> device driver data to NULL.
+
+>>> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+>>> ---
+>>>    drivers/net/ethernet/fealnx.c |    4 ++--
+>>>    1 file changed, 2 insertions(+), 2 deletions(-)
+
+>>> diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
+>>> index c706b7a..99194d1 100644
+>>> --- a/drivers/net/ethernet/fealnx.c
+>>> +++ b/drivers/net/ethernet/fealnx.c
+>>> @@ -699,9 +699,9 @@ static void fealnx_remove_one(struct pci_dev *pdev)
+>>>    		pci_iounmap(pdev, np->mem);
+>>>    		free_netdev(dev);
+>>>    		pci_release_regions(pdev);
+>>> -		pci_set_drvdata(pdev, NULL);
+>>> -	} else
+>>> +	} else {
+>>>    		printk(KERN_ERR "fealnx: remove for unknown device\n");
+>>> +	}
+
+>>      No "drove-by" coding style fixes, please.
+
+> Hi Sergei,
+
+> Sorry, but I just want to know the reason. :-)
+> Would you let know the reason not to add coding style fixes?
+
+    This change doesn't get covered by the patch subject/changelog. Even if 
+you're doing it, it should preferably be done in a separate patch and at the 
+very least documented in the changelog.
+
+> Thank you.
+
+    Not at all.
+
+> Best regards,
+> Jingoo Han
+
+WBR, Sergei
