@@ -1,111 +1,54 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] net/irda/mcs7780: fix memory leaks in mcs_net_open()
-Date: Fri, 13 Sep 2013 00:51:20 +0400
-Message-ID: <1379019080-25354-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 1/4] bridge: Don't use VID 0 and 4095 in vlan filtering
+Date: Thu, 12 Sep 2013 16:57:31 -0400
+Message-ID: <52322ABB.9050903@redhat.com>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita> <1378809144.3988.6.camel@ubuntu-vm-makita> <522F2B22.5010007@redhat.com> <20130912.155533.521690436399073964.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: makita.toshiaki@lab.ntt.co.jp, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60941 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753590Ab3ILU5h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 16:57:37 -0400
+In-Reply-To: <20130912.155533.521690436399073964.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If rx_urb allocation fails in mcs_setup_urbs(), tx_urb leaks.
-If mcs_receive_start() fails in mcs_net_open(), the both urbs are not deallocated.
+On 09/12/2013 03:55 PM, David Miller wrote:
+> From: Vlad Yasevich <vyasevic@redhat.com>
+> Date: Tue, 10 Sep 2013 10:22:26 -0400
+>
+>> On 09/10/2013 06:32 AM, Toshiaki Makita wrote:
+>>> IEEE 802.1Q says that:
+>>> - VID 0 shall not be configured as a PVID, or configured in any
+>>> - Filtering
+>>> Database entry.
+>>> - VID 4095 shall not be configured as a PVID, or transmitted in a tag
+>>> header. This VID value may be used to indicate a wildcard match for
+>>> the VID
+>>> in management operations or Filtering Database entries.
+>>> (See IEEE 802.1Q-2005 6.7.1 and Table 9-2)
+>>>
+>>> Don't accept adding these VIDs in the vlan_filtering implementation.
+>>>
+>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>
+>> Reviewed-by: Vlad Yasevich <vyasevich@redhat.com>
+>
+> Vlad, as far as I can see your redhat.com email ends just with a "c"
+> not a "ch".  It's your gmail account that ends in a "ch".
+>
+> I'm fixing this up while applying these patches, if you have something
+> automatically generating these reviewed-by strings please fix it up
+> although I note that some are correct and some are not so maybe you
+> do this by hand :-)
+>
 
-The patch fixes the issues and by the way fixes label indentation.
+Apologies.  Yes, I usually ack things by hand and sometimes fingers just
+keep going...
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/irda/mcs7780.c | 40 +++++++++++++++++++++++-----------------
- 1 file changed, 23 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index f07c340..3f138ca 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -191,8 +191,8 @@ static inline int mcs_setup_transceiver_vishay(struct mcs_cb *mcs)
- 		goto error;
- 
- 	ret = 0;
--	error:
--		return ret;
-+error:
-+	return ret;
- }
- 
- /* Setup a communication between mcs7780 and agilent chip. */
-@@ -501,8 +501,11 @@ static inline int mcs_setup_urbs(struct mcs_cb *mcs)
- 		return 0;
- 
- 	mcs->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
--	if (!mcs->rx_urb)
-+	if (!mcs->rx_urb) {
-+		usb_free_urb(mcs->tx_urb);
-+		mcs->tx_urb = NULL;
- 		return 0;
-+	}
- 
- 	return 1;
- }
-@@ -643,9 +646,9 @@ static int mcs_speed_change(struct mcs_cb *mcs)
- 	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
- 
- 	mcs->speed = mcs->new_speed;
--	error:
--		mcs->new_speed = 0;
--		return ret;
-+error:
-+	mcs->new_speed = 0;
-+	return ret;
- }
- 
- /* Ioctl calls not supported at this time.  Can be an area of future work. */
-@@ -738,17 +741,20 @@ static int mcs_net_open(struct net_device *netdev)
- 
- 	ret = mcs_receive_start(mcs);
- 	if (ret)
--		goto error3;
-+		goto error4;
- 
- 	netif_start_queue(netdev);
- 	return 0;
- 
--	error3:
--		irlap_close(mcs->irlap);
--	error2:
--		kfree_skb(mcs->rx_buff.skb);
--	error1:
--		return ret;
-+error4:
-+	usb_free_urb(mcs->rx_urb);
-+	usb_free_urb(mcs->tx_urb);
-+error3:
-+	irlap_close(mcs->irlap);
-+error2:
-+	kfree_skb(mcs->rx_buff.skb);
-+error1:
-+	return ret;
- }
- 
- /* Receive callback function.  */
-@@ -946,11 +952,11 @@ static int mcs_probe(struct usb_interface *intf,
- 	usb_set_intfdata(intf, mcs);
- 	return 0;
- 
--	error2:
--		free_netdev(ndev);
-+error2:
-+	free_netdev(ndev);
- 
--	error1:
--		return ret;
-+error1:
-+	return ret;
- }
- 
- /* The current device is removed, the USB layer tells us to shut down. */
--- 
-1.8.1.2
+-vlad
