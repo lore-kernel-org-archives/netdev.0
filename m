@@ -1,51 +1,45 @@
-From: Vladimir Murzin <murzin.v@gmail.com>
-Subject: [PATCH 1/3] wlcore: fix frame size overflow warning in wl12xx_spi_raw_write
-Date: Thu, 12 Sep 2013 17:32:21 +0200
-Message-ID: <1378999943-1968-2-git-send-email-murzin.v@gmail.com>
+From: Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 3/3] wlcore: limit base for output buffer in dev_mem_read
+Date: Thu, 12 Sep 2013 17:32:23 +0200
+Message-ID: <1378999943-1968-4-git-send-email-murzin.v@gmail.com>
 References: <1378999943-1968-1-git-send-email-murzin.v@gmail.com>
-Cc: coelho@ti.com, linville@tuxdriver.com,
-	Vladimir Murzin <murzin.v@gmail.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:55994 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753187Ab3ILPdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:33:39 -0400
-In-Reply-To: <1378999943-1968-1-git-send-email-murzin.v@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: coelho-l0cyMroinI0@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1378999943-1968-1-git-send-email-murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-While cross-building for PPC64 I've got
+dev_mem_read tries to speed up things a bit by limiting output
+buffer which can not exceed WLCORE_MAX_BLOCK_SIZE. However,
+WLCORE_MAX_BLOCK_SIZE is based on PAGE_SIZE which may vary.
 
-drivers/net/wireless/ti/wlcore/spi.c: In function
-'wl12xx_spi_raw_write': drivers/net/wireless/ti/wlcore/spi.c:317:1:
-warning: the frame size of 9712 bytes is larger than 2048 bytes
-[-Wframe-larger-than=]
+Use 4K size base for buffer explicitly.
 
-WSPI_MAX_NUM_OF_CHUNKS depends on SPI_AGGR_BUFFER_SIZE which in turn
-is based on PAGE_SIZE. For most systems PAGE_SIZE is stands for 4K,
-but it may vary - in my case PAGE_SIZE is 64K.
-
-Fix calculation by using 4K explicitly.
-
-Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+Signed-off-by: Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/wireless/ti/wlcore/spi.c |    3 ++-
+ drivers/net/wireless/ti/wlcore/debugfs.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index 1b0cd98..8dce028 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -70,7 +70,8 @@
-  * only support SPI for 12xx - this code should be reworked when 18xx
-  * support is introduced
-  */
--#define SPI_AGGR_BUFFER_SIZE (4 * PAGE_SIZE)
-+#define SPI_PAGE_SIZE	4096
-+#define SPI_AGGR_BUFFER_SIZE (4 * SPI_PAGE_SIZE)
+diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
+index e17630c..6b413a7 100644
+--- a/drivers/net/wireless/ti/wlcore/debugfs.c
++++ b/drivers/net/wireless/ti/wlcore/debugfs.c
+@@ -38,7 +38,8 @@
+ /* ms */
+ #define WL1271_DEBUGFS_STATS_LIFETIME 1000
  
- #define WSPI_MAX_NUM_OF_CHUNKS (SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE)
+-#define WLCORE_MAX_BLOCK_SIZE ((size_t)(4*PAGE_SIZE))
++#define WLCORE_PAGE_SIZE	4096
++#define WLCORE_MAX_BLOCK_SIZE ((size_t)(4*WLCORE_PAGE_SIZE))
  
+ /* debugfs macros idea from mac80211 */
+ int wl1271_format_buffer(char __user *userbuf, size_t count,
 -- 
 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
