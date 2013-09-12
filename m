@@ -1,38 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] tuntap: correctly handle error in tun_set_iff()
-Date: Thu, 12 Sep 2013 17:22:41 -0400 (EDT)
-Message-ID: <20130912.172241.886631046673790242.davem@davemloft.net>
-References: <1378894188-8015-1-git-send-email-jasowang@redhat.com>
-	<20130911104350.GA25316@redhat.com>
+Subject: Re: [PATCH net v2] net: sctp: fix ipv6 ipsec encryption bug in
+ sctp_v6_xmit
+Date: Thu, 12 Sep 2013 17:26:40 -0400 (EDT)
+Message-ID: <20130912.172640.1787268200692982351.davem@davemloft.net>
+References: <1378911516-15942-1-git-send-email-dborkman@redhat.com>
+	<52308C88.10604@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wannes.rombouts@epitech.eu
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130911104350.GA25316@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, adobriyan@gmail.com,
+	steffen.klassert@secunet.com, hannes@stressinduktion.org
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38894 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757186Ab3ILV0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 17:26:43 -0400
+In-Reply-To: <52308C88.10604@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 11 Sep 2013 13:43:50 +0300
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Wed, 11 Sep 2013 11:30:16 -0400
 
-> On Wed, Sep 11, 2013 at 06:09:48PM +0800, Jason Wang wrote:
->> Commit c8d68e6be1c3b242f1c598595830890b65cea64a
->> (tuntap: multiqueue support) only call free_netdev() on error in
->> tun_set_iff(). This causes several issues:
->> 
->> - memory of tun security were leaked
->> - use after free since the flow gc timer was not deleted and the tfile
->>   were not detached
->> 
->> This patch solves the above issues.
->> 
->> Reported-by: Wannes Rombouts <wannes.rombouts@epitech.eu>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> On 09/11/2013 10:58 AM, Daniel Borkmann wrote:
+>> Alan Chester reported an issue with IPv6 on SCTP that IPsec traffic is
+>> not
+>> being encrypted, whereas on IPv4 it is. Setting up an AH + ESP
+>> transport
+>> does not seem to have the desired effect:
+...
+>> Reported-by: Alan Chester <alan.chester@tekelec.com>
+>> Reported-by: Alexey Dobriyan <adobriyan@gmail.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+>> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 Applied and queued up for -stable, thanks.
+
+Yeah it is tricky to share a common transmit path with the
+way SCTP works.
