@@ -1,85 +1,126 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] vsnprintf: Remove use of %n and convert existing
- uses
-Date: Wed, 11 Sep 2013 17:41:12 -0700
-Message-ID: <1378946472.4714.52.camel@joe-AO722>
-References: <1378926562.4714.11.camel@joe-AO722>
-	 <CAGXu5jLO6109fkejXqX=WhkQnfAUeWtTcow0v1BNqyi=8=Qa3Q@mail.gmail.com>
-	 <1378928700.4714.17.camel@joe-AO722>
-	 <CAGXu5jLTjrPr=GwOmMcu55Qp9K-_XS75xq9NJ0vBUEwy-i_YMw@mail.gmail.com>
-	 <1378941761.4714.37.camel@joe-AO722>
-	 <201309120840.HHE37542.OJMFFHSOQOtVFL@I-love.SAKURA.ne.jp>
-	 <1378944257.4714.45.camel@joe-AO722>
-	 <20130912001911.GO13318@ZenIV.linux.org.uk>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] ipv6: Do route updating for redirect in ndisc layer
+Date: Wed, 11 Sep 2013 21:16:52 -0400
+Message-ID: <52311604.6080507@redhat.com>
+References: <522D7444.20505@cn.fujitsu.com> <20130910225023.GB4794@order.stressinduktion.org> <52301603.7030906@cn.fujitsu.com> <20130911231721.GA24195@order.stressinduktion.org>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	linux-kernel@vger.kernel.org, kosaki.motohiro@jp.fujitsu.com,
-	keescook@chromium.org, fweisbec@gmail.com,
-	dan.carpenter@oracle.com, devel@driverdev.osuosl.org,
-	gregkh@linuxfoundation.org, tushar.behera@linaro.org,
-	lidza.louina@gmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	courmisch@gmail.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130912001911.GO13318@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, dborkman@redhat.com, vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56034 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750974Ab3ILBRN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Sep 2013 21:17:13 -0400
+In-Reply-To: <20130911231721.GA24195@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-12 at 01:19 +0100, Al Viro wrote:
-> On Wed, Sep 11, 2013 at 05:04:17PM -0700, Joe Perches wrote:
-> > On Thu, 2013-09-12 at 08:40 +0900, Tetsuo Handa wrote:
-> > > Joe Perches wrote:
-> > > > -	seq_printf(m, "%s%d%n", con->name, con->index, &len);
-> > > > +	len = seq_printf(m, "%s%d", con->name, con->index);
-> > > 
-> > > Isn't len always 0 or -1 ?
-> > 
-> > Right.  Well you're no fun...
-> > 
-> > These uses would seem broken anyway because the
-> > seq_printf isn't itself tested for correctness.
-> > 
-> > Hmm.
-> > 
-> > Also, there's a large amount of code that appears
-> > to do calculations with pos or len like:
-> > 
-> > 	pos += seq_printf(handle, fmt. ...)
-> 
-> ... and most of that code proceeds to ignore pos completely.
-> Note that ->show() is *NOT* supposed to return the number of
-> characters it has/would like to have produced.  Just return
-> 0 and be done with that; overflows are dealt with just fine.
-> The large amount, BTW, is below 100 lines, AFAICS, in rather
-> few files.
+On 09/11/2013 07:17 PM, Hannes Frederic Sowa wrote:
+> [added Cc to Daniel and Vlad because of ipv6/sctp/redirect problem]
+>
+> On Wed, Sep 11, 2013 at 03:04:35PM +0800, Duan Jiong wrote:
+>> =E4=BA=8E 2013=E5=B9=B409=E6=9C=8811=E6=97=A5 06:50, Hannes Frederic=
+ Sowa =E5=86=99=E9=81=93:
+>>> On Mon, Sep 09, 2013 at 03:09:56PM +0800, Duan Jiong wrote:
+>>>> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+>>>> index 5c71501..61fe8e5 100644
+>>>> --- a/net/ipv6/tcp_ipv6.c
+>>>> +++ b/net/ipv6/tcp_ipv6.c
+>>>> @@ -382,14 +382,6 @@ static void tcp_v6_err(struct sk_buff *skb, s=
+truct inet6_skb_parm *opt,
+>>>>
+>>>>   	np =3D inet6_sk(sk);
+>>>>
+>>>> -	if (type =3D=3D NDISC_REDIRECT) {
+>>>> -		struct dst_entry *dst =3D __sk_dst_check(sk, np->dst_cookie);
+>>>> -
+>>>> -		if (dst)
+>>>> -			dst->ops->redirect(dst, sk, skb);
+>>>> -		goto out;
+>>>> -	}
+>>>> -
+>>>
+>>> You dropped the "goto out" here in case of an NDISC_REDIRECT, so th=
+is sends an
+>>> EPROTO further up the socket layer. Was this intended?
+>>>
+>>
+>> I'm sorry, i didn't notice the variable err was assigned to EPROTO.
+>> I only thought that message should be sent to the socket layer, beca=
+use
+>> i found that in function sctp_v6_err().
+>>
+>> In addition, the rfc 4443 said the Redirect Message is not the ICMPv=
+6 Error
+>> Message, so i think we shouldn't call those err_handler function, in=
+ other
+>> words we shouldn't call the icmpv6_notify().
+>>
+>> How do you think of this?
+>
+> Hm, thats hard.
+>
+> First of, when the kernel started publishing these errors it had a
+> contract with user-space we cannot break now. This includes all error
+> handling functions which call ipv6_icmp_error. So we only have to car=
+e
+> about INET6_PROTO_FINAL protocols, bbecause they mostly operate in so=
+cket
+> space (in this case these are the raw and the udp protocol and curren=
+tly
+> sctp). Especially I do think it is important to report the redirects
+> to raw sockets. The other non-final protocols only need to be notifie=
+d
+> for mtu reduction currently. Maybe we could stop notifying non-final
+> protocols for redirects, but I don't think this will improve things.
+>
+> Also we cannot know if the router sending the redirect discarded the
+> original packet or if it forwarded it just notifying us of a better r=
+oute,
+> so we don't know if an actual error happend. So I would do the same t=
+hing
+> as IPv4 sockets, set sk_err to zero and queue up the icmp packet on t=
+he
+> socket's error queue (for udp and raw).
+>
+> Regarding notifying tcp sockets about the redirect seems wrong. It wo=
+uld
+> generate a poll notification and I do think it could even tear down
+> the whole connection.  I guess sctp should also stop updating sk_err
+> on redirects.  But let's Cc Daniel and Vlad about this. My guess is t=
+hat
+> sctp could go into some error recovery mode because of this which wou=
+ld
+> be wrong.
 
-Unfortunately, when you count the uses of
-	return seq_printf(...)
-it's rather higher and all the callers need
-to be chased down too.
+You are right.  SCTP shouldn't be setting sk_err on redirects as it
+isn't an error condition.  it should be doing exactly what tcp is doing=
+=20
+and leaving the error handler without touching the socket.
 
-$ grep -rP --include=*.[ch] "^[ \t]*(\S[ \t\S]*=|return[\s\(]*)\s*\bseq_[v]?printf\b" * | wc -l
-320
-$ grep -rPl --include=*.[ch] "^[ \t]*(\S[ \t\S]*=|return[\s\(]*)\s*\bseq_[v]?printf\b" *|wc -l
-81
+Thanks
+-vlad
 
-> Just bury the cargo-culting crap.  All those += seq_printf() should
-> be simply calling it.
-
-Most likely.
-
-> The *only* reason to look at the return
-> value is "if we'd already overflown the buffer, I'd rather skipped
-> the costly generation of the rest of the record".  In that case
-> seq_printf() returning -1 means "skip it, nothing else will fit and
-> caller will be repeating with bigger buffer anyway".
-
-Perhaps changing the seq_vprintf return from 0 to len
-and testing for -1 would work.
-
-Still would need to change a few lines in netfilter
-and probably a few other places.
+>
+> So, for this patch I would leave the logic as is and not change anyth=
+ing
+> at the error reporting. Maybe Daniel and Vlad could check if we shoul=
+d
+> suppress redirect information for ipv6 in sctp, too? But this should
+> go into another patch.  Regarding the EPROTO problem in raw and udp,
+> let's see if all the problems go away if we update icmpv6_err_convert
+> to set *err to 0.
+>
+> Greetings,
+>
+>    Hannes
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
