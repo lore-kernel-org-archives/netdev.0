@@ -1,40 +1,39 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCHSET] sysfs: disentangle kobject namespace handling from sysfs
-Date: Wed, 11 Sep 2013 20:38:32 -0700
-Message-ID: <87eh8u4slj.fsf@xmission.com>
+Subject: Re: [PATCH 7/7] sysfs: @name comes before @ns
+Date: Wed, 11 Sep 2013 20:39:27 -0700
+Message-ID: <87a9ji4sk0.fsf@xmission.com>
 References: <1378952949-7900-1-git-send-email-tj@kernel.org>
-	<20130912031912.GA9773@kroah.com>
+	<1378952949-7900-8-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Tejun Heo <tj@kernel.org>, linux-kernel@vger.kernel.org,
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	kay@vrfy.org, netdev@vger.kernel.org, lizefan@huawei.com
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130912031912.GA9773@kroah.com> (Greg KH's message of "Wed, 11
-	Sep 2013 20:19:12 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:53710 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757630Ab3ILDjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 23:39:36 -0400
+In-Reply-To: <1378952949-7900-8-git-send-email-tj@kernel.org> (Tejun Heo's
+	message of "Wed, 11 Sep 2013 22:29:09 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@linuxfoundation.org> writes:
+Tejun Heo <tj@kernel.org> writes:
 
-> On Wed, Sep 11, 2013 at 10:29:02PM -0400, Tejun Heo wrote:
->> Hello,
->> 
->> I'll send out multiple patchsets to separate out sysfs from driver
->> core and kobject.  The eventual goal is making sysfs modular enough so
->> that cgroup can replace its nightmarish cgroupfs implementation which
->> repeated and worsened all the past mistakes of sysfs.  This patchset
->> is first of the effort and separates out kobject namespace handling
->> from sysfs.
->> 
->> I never really understood why namespace support was added the way it
->> was added.
+> Some internal sysfs functions which take explicit namespace argument
+> are weird in that they place the optional @ns in front of @name which
+> is contrary to the established convention.  This is confusing and
+> error-prone especially as @ns and @name may be interchanged without
+> causing compilation warning.
 >
-> I just took the patches and didn't ask questions :)
+> Swap the positions of @name and @ns in the following internal
+> functions.
 
-Greg you don't get to play dumb you asked questions and required most of
-the current strucuture of the code.
+Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-The code is convoluted by your request.
+@ns is more significant so it should come first.
+
+Where do we have the backwards convention of putting @name first?
 
 Eric
