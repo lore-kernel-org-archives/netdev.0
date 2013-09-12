@@ -1,35 +1,38 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 7/7] sysfs: @name comes before @ns
-Date: Wed, 11 Sep 2013 23:49:43 -0400
-Message-ID: <20130912034943.GB4723@mtj.dyndns.org>
-References: <1378952949-7900-1-git-send-email-tj@kernel.org>
- <1378952949-7900-8-git-send-email-tj@kernel.org>
- <87a9ji4sk0.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	kay@vrfy.org, netdev@vger.kernel.org, lizefan@huawei.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] ethernet: amd: remove deprecated IRQF_DISABLED
+Date: Thu, 12 Sep 2013 05:52:50 +0200
+Message-ID: <1378957970-3666-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: rusty@rustcorp.com.au, benh@kernel.crashing.org,
+	silviupopescu1990@gmail.com, geert@linux-m68k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87a9ji4sk0.fsf@xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Eric.
+This patch proposes to remove the IRQF_DISABLED flag from
+drivers/net/ethernet/amd/sun3lance.c
 
-On Wed, Sep 11, 2013 at 08:39:27PM -0700, Eric W. Biederman wrote:
-> @ns is more significant so it should come first.
-> 
-> Where do we have the backwards convention of putting @name first?
+It's a NOOP since 2.6.35 and it will be removed one day.
 
-Because @ns is optional and you end up with stupid stuff like
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ drivers/net/ethernet/amd/sun3lance.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	sysfs_xxx_ns(@param, @ns, @name)
-	sysfs_xxx(@param, @name)
-
-You put optional params after the mandatory ones.  It may be difficult
-to accept for you but @ns is a *clearly* optional thing for sysfs.
-
+diff --git a/drivers/net/ethernet/amd/sun3lance.c b/drivers/net/ethernet/amd/sun3lance.c
+index d6b2029..3d8c6b2 100644
+--- a/drivers/net/ethernet/amd/sun3lance.c
++++ b/drivers/net/ethernet/amd/sun3lance.c
+@@ -358,7 +358,7 @@ static int __init lance_probe( struct net_device *dev)
+ 
+ 	REGA(CSR0) = CSR0_STOP;
+ 
+-	if (request_irq(LANCE_IRQ, lance_interrupt, IRQF_DISABLED, "SUN3 Lance", dev) < 0) {
++	if (request_irq(LANCE_IRQ, lance_interrupt, 0, "SUN3 Lance", dev) < 0) {
+ #ifdef CONFIG_SUN3
+ 		iounmap((void __iomem *)ioaddr);
+ #endif
 -- 
-tejun
+1.8.1.2
