@@ -1,75 +1,47 @@
-From: Hong zhi guo <honkiko@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
-Date: Fri, 13 Sep 2013 00:06:52 +0800
-Message-ID: <CAA7+ByXUnTi1+-yreK+q03Cbqg+FM7DTfQ9qXbyRbZ0N508JBQ@mail.gmail.com>
+Date: Thu, 12 Sep 2013 09:08:58 -0700
+Message-ID: <1379002138.24408.17.camel@edumazet-glaptop>
 References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
-	<1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
+	   <1378995112.24408.4.camel@edumazet-glaptop>
+	   <CAA7+ByWJLUkxy7C0frKOFUscJaQyRLsfk_N=NZfdzUrbZ=4MNA@mail.gmail.com>
+	  <1378996396.24408.8.camel@edumazet-glaptop> <5231D2D2.3090907@redhat.com>
+	 <1378999470.24408.10.camel@edumazet-glaptop> <5231E2C7.1010106@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hong Zhiguo <zhiguohong@tencent.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hong zhi guo <honkiko@gmail.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, zhiguohong@tencent.com
 To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:46961 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099Ab3ILQGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 12:06:53 -0400
-Received: by mail-qc0-f171.google.com with SMTP id x19so3240qcw.16
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 09:06:52 -0700 (PDT)
-In-Reply-To: <1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:45818 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753939Ab3ILQJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 12:09:03 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so5935pdj.22
+        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 09:09:02 -0700 (PDT)
+In-Reply-To: <5231E2C7.1010106@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You're right, Vlad.
-One thing is missing in Eric's fix, NULL dereference is still possible
-in br_handle_local_finish. Above is the new version of fix.
+On Thu, 2013-09-12 at 11:50 -0400, Vlad Yasevich wrote:
+> On 09/12/2013 11:24 AM, Eric Dumazet wrote:
+> > On Thu, 2013-09-12 at 10:42 -0400, Vlad Yasevich wrote:
+> >
+> >> Don't all tests for IFF_BRIDGE_PORT on the bridge receive path become
+> >> redundant as well?
+> >
+> > Sure but anyway this part is net-next material
+> >
+> > Lets fix the bug first.
+> 
+> Seems like the race is possible in net as well.  If we just include the
+> original patch, then br_add_if() also has to be modified to make sure
+> the flag is set properly before netdev_rx_handler_register() is called.
+> 
+> If we remove the need to check the flag during bridge input handling,
+> then br_add_if() change is not necessary.
 
-On Thu, Sep 12, 2013 at 11:57 PM, Hong Zhiguo <honkiko@gmail.com> wrote:
-> not check IFF_BRIDGE_PORT within br_handle_frame
->
-> Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
-> ---
->  net/bridge/br_input.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index a2fd37e..da4714a 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
->  int br_handle_frame_finish(struct sk_buff *skb)
->  {
->         const unsigned char *dest = eth_hdr(skb)->h_dest;
-> -       struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-> +       enet_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
->         struct net_bridge *br;
->         struct net_bridge_fdb_entry *dst;
->         struct net_bridge_mdb_entry *mdst;
-> @@ -143,7 +143,7 @@ drop:
->  /* note: already called with rcu_read_lock */
->  static int br_handle_local_finish(struct sk_buff *skb)
->  {
-> -       struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-> +       struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
->         u16 vid = 0;
->
->         br_vlan_get_tag(skb, &vid);
-> @@ -173,7 +173,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
->         if (!skb)
->                 return RX_HANDLER_CONSUMED;
->
-> -       p = br_port_get_rcu(skb->dev);
-> +       p = rcu_dereference(skb->dev->rx_handler_data);
->
->         if (unlikely(is_link_local_ether_addr(dest))) {
->                 /*
-> --
-> 1.7.0.4
->
+Yep, really testing IFF_BRIDGE_PORT in fast path is currently racy.
 
-
-
--- 
-best regards
-Hong Zhiguo
+rcu protection should be enough.
