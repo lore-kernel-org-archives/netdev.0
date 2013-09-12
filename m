@@ -1,54 +1,52 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH V2 20/52] net: fealnx: remove unnecessary pci_set_drvdata()
-Date: Thu, 12 Sep 2013 14:57:13 +0900
-Message-ID: <001601ceaf7c$edbac950$c9305bf0$%han@samsung.com>
-References: <004a01ceaebf$43f920f0$cbeb62d0$%han@samsung.com>
- <005e01ceaec2$23e32420$6ba96c60$%han@samsung.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH] net: tulip: remove deprecated IRQF_DISABLED
+Date: Wed, 11 Sep 2013 23:05:56 -0700
+Message-ID: <CAP6odjg63+g1gLMS9F+O1fQXwFZud10L11P5irJWdQsuDuNXaA@mail.gmail.com>
+References: <1378959624-4123-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
-	'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:26703 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753315Ab3ILF5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 01:57:25 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MT000CQF0IEAF70@mailout2.samsung.com> for
- netdev@vger.kernel.org; Thu, 12 Sep 2013 14:57:13 +0900 (KST)
-In-reply-to: <005e01ceaec2$23e32420$6ba96c60$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1378959624-4123-1-git-send-email-michael.opdenacker@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+On Wed, Sep 11, 2013 at 9:20 PM, Michael Opdenacker
+<michael.opdenacker@free-electrons.com> wrote:
+> This patch proposes to remove the IRQF_DISABLED flag from
+> drivers/net/ethernet/dec/tulip/de4x5.c
+>
+> It's a NOOP since 2.6.35 and it will be removed one day.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
-Changes since v1:
-- removed coding style fix.
+yup - that was easy to confirm.
 
- drivers/net/ethernet/fealnx.c |    1 -
- 1 file changed, 1 deletion(-)
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 
-diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
-index c706b7a..4b22a95 100644
---- a/drivers/net/ethernet/fealnx.c
-+++ b/drivers/net/ethernet/fealnx.c
-@@ -699,7 +699,6 @@ static void fealnx_remove_one(struct pci_dev *pdev)
- 		pci_iounmap(pdev, np->mem);
- 		free_netdev(dev);
- 		pci_release_regions(pdev);
--		pci_set_drvdata(pdev, NULL);
- 	} else
- 		printk(KERN_ERR "fealnx: remove for unknown device\n");
- }
--- 
-1.7.10.4
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
+
+thanks,
+grant
+
+> ---
+>  drivers/net/ethernet/dec/tulip/de4x5.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+> index 2db6c57..263b92c 100644
+> --- a/drivers/net/ethernet/dec/tulip/de4x5.c
+> +++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+> @@ -1321,7 +1321,7 @@ de4x5_open(struct net_device *dev)
+>      if (request_irq(dev->irq, de4x5_interrupt, IRQF_SHARED,
+>                                                      lp->adapter_name, dev)) {
+>         printk("de4x5_open(): Requested IRQ%d is busy - attemping FAST/SHARE...", dev->irq);
+> -       if (request_irq(dev->irq, de4x5_interrupt, IRQF_DISABLED | IRQF_SHARED,
+> +       if (request_irq(dev->irq, de4x5_interrupt, IRQF_SHARED,
+>                                                      lp->adapter_name, dev)) {
+>             printk("\n              Cannot get IRQ- reconfigure your hardware.\n");
+>             disable_ast(dev);
+> --
+> 1.8.1.2
+>
