@@ -1,45 +1,49 @@
-From: Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/3] wlcore: limit base for output buffer in dev_mem_read
-Date: Thu, 12 Sep 2013 17:32:23 +0200
-Message-ID: <1378999943-1968-4-git-send-email-murzin.v@gmail.com>
-References: <1378999943-1968-1-git-send-email-murzin.v@gmail.com>
-Cc: coelho-l0cyMroinI0@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1378999943-1968-1-git-send-email-murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
+Date: Thu, 12 Sep 2013 11:50:31 -0400
+Message-ID: <5231E2C7.1010106@redhat.com>
+References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>   <1378995112.24408.4.camel@edumazet-glaptop>   <CAA7+ByWJLUkxy7C0frKOFUscJaQyRLsfk_N=NZfdzUrbZ=4MNA@mail.gmail.com>  <1378996396.24408.8.camel@edumazet-glaptop> <5231D2D2.3090907@redhat.com> <1378999470.24408.10.camel@edumazet-glaptop>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hong zhi guo <honkiko@gmail.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, zhiguohong@tencent.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38075 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753264Ab3ILPvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 11:51:05 -0400
+In-Reply-To: <1378999470.24408.10.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dev_mem_read tries to speed up things a bit by limiting output
-buffer which can not exceed WLCORE_MAX_BLOCK_SIZE. However,
-WLCORE_MAX_BLOCK_SIZE is based on PAGE_SIZE which may vary.
+On 09/12/2013 11:24 AM, Eric Dumazet wrote:
+> On Thu, 2013-09-12 at 10:42 -0400, Vlad Yasevich wrote:
+>
+>> Don't all tests for IFF_BRIDGE_PORT on the bridge receive path become
+>> redundant as well?
+>
+> Sure but anyway this part is net-next material
+>
+> Lets fix the bug first.
 
-Use 4K size base for buffer explicitly.
+Seems like the race is possible in net as well.  If we just include the
+original patch, then br_add_if() also has to be modified to make sure
+the flag is set properly before netdev_rx_handler_register() is called.
 
-Signed-off-by: Vladimir Murzin <murzin.v-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/ti/wlcore/debugfs.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+If we remove the need to check the flag during bridge input handling,
+then br_add_if() change is not necessary.
 
-diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
-index e17630c..6b413a7 100644
---- a/drivers/net/wireless/ti/wlcore/debugfs.c
-+++ b/drivers/net/wireless/ti/wlcore/debugfs.c
-@@ -38,7 +38,8 @@
- /* ms */
- #define WL1271_DEBUGFS_STATS_LIFETIME 1000
- 
--#define WLCORE_MAX_BLOCK_SIZE ((size_t)(4*PAGE_SIZE))
-+#define WLCORE_PAGE_SIZE	4096
-+#define WLCORE_MAX_BLOCK_SIZE ((size_t)(4*WLCORE_PAGE_SIZE))
- 
- /* debugfs macros idea from mac80211 */
- int wl1271_format_buffer(char __user *userbuf, size_t count,
--- 
-1.7.10.4
+-vlad
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
