@@ -1,53 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 20/52] net: fealnx: remove unnecessary pci_set_drvdata()
-Date: Thu, 12 Sep 2013 14:16:01 +0100
-Message-ID: <1378991761.1531.2.camel@bwh-desktop.uk.level5networks.com>
-References: <000e01ceaf4c$90cde130$b269a390$%han@samsung.com>
-	 <20130912.012443.2294235053428746280.davem@davemloft.net>
-	 <000601ceaf7b$e8e7b2e0$bab718a0$%han@samsung.com>
-	 <20130912.033606.1689936899104585741.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <jg1.han@samsung.com>, <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
+Date: Thu, 12 Sep 2013 23:57:08 +0800
+Message-ID: <1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
+References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
+Cc: eric.dumazet@gmail.com, davem@davemloft.net,
+	netdev@vger.kernel.org, Hong Zhiguo <zhiguohong@tencent.com>
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57200 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754138Ab3ILPxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:53:39 -0400
-In-Reply-To: <20130912.033606.1689936899104585741.davem@davemloft.net>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:45318 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754432Ab3ILP5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:57:24 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so10665377pbc.7
+        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 08:57:24 -0700 (PDT)
+In-Reply-To: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-12 at 03:36 -0400, David Miller wrote:
-> From: Jingoo Han <jg1.han@samsung.com>
-> Date: Thu, 12 Sep 2013 14:49:56 +0900
-> 
-> > On Thursday, September 12, 2013 2:25 PM, David Miller wrote:
-> >> On Thu, 12 Sep 2013 09:11:01 +0900, Jingoo Han wrote:
-> >> > Would you let know the reason not to add coding style fixes?
-> >> 
-> >> They should be made seperately so that the individual changes
-> >> can be reviewed more easily and without unnecessary unrelated
-> >> changes mixed in.
-> > 
-> > OK, I see. :-)
-> > Thank you for your answer.
-> > Then, I will send V2 patch soon.
-> 
-> Please do not submit such a huge patch series in the future.
-> 
-> Anything more than 16 patches at a time is not reasonable and
-> overloads reviewer's capacity to look at your changes.
+not check IFF_BRIDGE_PORT within br_handle_frame
 
-Given that this is the same trivial change applied to many different
-drivers, is it really worthwhile to break it up into a patch per driver?
+Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
+---
+ net/bridge/br_input.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Ben.
-
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index a2fd37e..da4714a 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	enet_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
+ 	struct net_bridge *br;
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+@@ -143,7 +143,7 @@ drop:
+ /* note: already called with rcu_read_lock */
+ static int br_handle_local_finish(struct sk_buff *skb)
+ {
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
+ 	u16 vid = 0;
+ 
+ 	br_vlan_get_tag(skb, &vid);
+@@ -173,7 +173,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 	if (!skb)
+ 		return RX_HANDLER_CONSUMED;
+ 
+-	p = br_port_get_rcu(skb->dev);
++	p = rcu_dereference(skb->dev->rx_handler_data);
+ 
+ 	if (unlikely(is_link_local_ether_addr(dest))) {
+ 		/*
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.0.4
