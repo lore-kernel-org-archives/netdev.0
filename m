@@ -1,183 +1,50 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v3] Don't destroy the netdev until the vif is shut down
-Date: Thu, 12 Sep 2013 17:19:57 +0100
-Message-ID: <1379002797-18105-1-git-send-email-paul.durrant@citrix.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [ethtool 1/3] ethtool: fix ixgbe 82598EB only registers
+Date: Thu, 12 Sep 2013 16:33:26 +0000
+Message-ID: <1379003606.9217.0.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1377648529-8297-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1377809470.5372.16.camel@bwh-desktop.uk.level5networks.com>
+	 <1379000729.1531.12.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:52384 "EHLO SMTP.CITRIX.COM"
+Received: from mga02.intel.com ([134.134.136.20]:7472 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752646Ab3ILQV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 12:21:27 -0400
+	id S1754632Ab3ILQd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 12:33:27 -0400
+In-Reply-To: <1379000729.1531.12.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Content-ID: <05CE293D19BF4544A6FCAC34B0620236@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch, if a frontend cycles through states Closing
-and Closed (which Windows frontends need to do) then the netdev
-will be destroyed and requires re-invocation of hotplug scripts
-to restore state before the frontend can move to Connected. Thus
-when udev is not in use the backend gets stuck in InitWait.
-
-With this patch, the netdev is left alone whilst the backend is
-still online and is only de-registered and freed just prior to
-destroying the vif (which is also nicely symmetrical with the
-netdev allocation and registration being done during probe) so
-no re-invocation of hotplug scripts is required.
-
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
----
-v2:
- - Modify netback_remove() - bug only seemed to manifest with linux guest
-
-v3:
- - Move __module_get() and module_put() calls
-
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |   25 +++++++++----------------
- drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
- 3 files changed, 22 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index a197743..5715318 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -184,6 +184,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
- 		   unsigned int rx_evtchn);
- void xenvif_disconnect(struct xenvif *vif);
-+void xenvif_free(struct xenvif *vif);
- 
- int xenvif_xenbus_init(void);
- void xenvif_xenbus_fini(void);
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 625c6f4..6b1096d 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -353,6 +353,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	}
- 
- 	netdev_dbg(dev, "Successfully created xenvif\n");
-+
-+	__module_get(THIS_MODULE);
-+
- 	return vif;
- }
- 
-@@ -366,8 +369,6 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	if (vif->tx_irq)
- 		return 0;
- 
--	__module_get(THIS_MODULE);
--
- 	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
- 	if (err < 0)
- 		goto err;
-@@ -452,12 +453,6 @@ void xenvif_carrier_off(struct xenvif *vif)
- 
- void xenvif_disconnect(struct xenvif *vif)
- {
--	/* Disconnect funtion might get called by generic framework
--	 * even before vif connects, so we need to check if we really
--	 * need to do a module_put.
--	 */
--	int need_module_put = 0;
--
- 	if (netif_carrier_ok(vif->dev))
- 		xenvif_carrier_off(vif);
- 
-@@ -468,23 +463,21 @@ void xenvif_disconnect(struct xenvif *vif)
- 			unbind_from_irqhandler(vif->tx_irq, vif);
- 			unbind_from_irqhandler(vif->rx_irq, vif);
- 		}
--		/* vif->irq is valid, we had a module_get in
--		 * xenvif_connect.
--		 */
--		need_module_put = 1;
- 	}
- 
- 	if (vif->task)
- 		kthread_stop(vif->task);
- 
-+	xenvif_unmap_frontend_rings(vif);
-+}
-+
-+void xenvif_free(struct xenvif *vif)
-+{
- 	netif_napi_del(&vif->napi);
- 
- 	unregister_netdev(vif->dev);
- 
--	xenvif_unmap_frontend_rings(vif);
--
- 	free_netdev(vif->dev);
- 
--	if (need_module_put)
--		module_put(THIS_MODULE);
-+	module_put(THIS_MODULE);
- }
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 1fe48fe3..a53782e 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
- 	if (be->vif) {
- 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- 	kfree(be);
-@@ -213,9 +213,18 @@ static void disconnect_backend(struct xenbus_device *dev)
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
-+	if (be->vif)
-+		xenvif_disconnect(be->vif);
-+}
-+
-+static void destroy_backend(struct xenbus_device *dev)
-+{
-+	struct backend_info *be = dev_get_drvdata(&dev->dev);
-+
- 	if (be->vif) {
-+		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- }
-@@ -246,14 +255,11 @@ static void frontend_changed(struct xenbus_device *dev,
- 	case XenbusStateConnected:
- 		if (dev->state == XenbusStateConnected)
- 			break;
--		backend_create_xenvif(be);
- 		if (be->vif)
- 			connect(be);
- 		break;
- 
- 	case XenbusStateClosing:
--		if (be->vif)
--			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		disconnect_backend(dev);
- 		xenbus_switch_state(dev, XenbusStateClosing);
- 		break;
-@@ -262,6 +268,7 @@ static void frontend_changed(struct xenbus_device *dev,
- 		xenbus_switch_state(dev, XenbusStateClosed);
- 		if (xenbus_dev_is_online(dev))
- 			break;
-+		destroy_backend(dev);
- 		/* fall through if not online */
- 	case XenbusStateUnknown:
- 		device_unregister(&dev->dev);
--- 
-1.7.10.4
+T24gVGh1LCAyMDEzLTA5LTEyIGF0IDE2OjQ1ICswMTAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
+PiBPbiBUaHUsIDIwMTMtMDgtMjkgYXQgMjE6NTEgKzAxMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6
+DQo+ID4gT24gVHVlLCAyMDEzLTA4LTI3IGF0IDE3OjA4IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3Jv
+dGU6DQo+ID4gPiBGcm9tOiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4N
+Cj4gPiA+IA0KPiA+ID4gVGhpcyBwYXRjaCBmaXhlcyBpeGdiZV9yZWdfZHVtcCB0byBvbmx5IGRp
+c3BsYXkgcmVnaXN0ZXJzIHNwZWNpZmljIHRvIHRoZQ0KPiA+ID4gODI1OThFQiBwYXJ0LCBhcyB0
+aGVzZSByZWdpc3RlcnMgZGlzcGxheSAweERFQURCRUVGIG90aGVyd2lzZSwgYW5kIGNsdXR0ZXIg
+dXANCj4gPiA+IHRoZSByZWdpc3RlciBkdW1wLg0KPiA+ID4gDQo+ID4gPiBTaWduZWQtb2ZmLWJ5
+OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiA+IFRlc3RlZC1i
+eTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+DQo+ID4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4g
+PiA+IC0tLQ0KPiA+ID4gIGl4Z2JlLmMgfCAxNDQgKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ID4gIDEgZmlsZSBjaGFu
+Z2VkLCA3NSBpbnNlcnRpb25zKCspLCA2OSBkZWxldGlvbnMoLSkNCj4gPiA+IA0KPiA+ID4gZGlm
+ZiAtLWdpdCBhL2l4Z2JlLmMgYi9peGdiZS5jDQo+ID4gPiBpbmRleCA5YjAwNWYyLi44OWNiNmJl
+IDEwMDY0NA0KPiA+ID4gLS0tIGEvaXhnYmUuYw0KPiA+ID4gKysrIGIvaXhnYmUuYw0KPiA+IFsu
+Li5dDQo+ID4gPiAtCWZwcmludGYoc3Rkb3V0LA0KPiA+ID4gLQkJIjB4MDJGMjA6IFJEUFJPQkUg
+ICAgIChSeCBQcm9iZSBNb2RlIFN0YXR1cykgICAgICAgICAgIDB4JTA4WFxuIiwNCj4gPiA+IC0J
+CXJlZ3NfYnVmZlsxMDg1XSk7DQo+ID4gWy4uLl0NCj4gPiANCj4gPiBJdCBsb29rcyBsaWtlIHRo
+aXMgcmVtb3ZhbCByZWFsbHkgYmVsb25ncyB0byB0aGUgbmV4dCBwYXRjaCwgd2hpY2ggYWRkcw0K
+PiA+IGl0IGJhY2sgd2l0aCB0aGUgbWFjX3R5cGUgPCBpeGdiZV9tYWNfWDU0MCBjb25kaXRpb24u
+DQo+IA0KPiBXZWxsLCBJJ3ZlIGFwcGxpZWQgdGhlIHR3byBwYXRjaGVzIHdpdGggdGhpcyBiaXQg
+Zml4ZWQgdXAuDQo+IA0KPiBCZW4uDQo+IA0KDQpUaGFua3MsIEJlbi4NCg0KUmVnYXJkcywNCkph
+a2UNCg==
