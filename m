@@ -1,39 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 7/7] sysfs: @name comes before @ns
-Date: Wed, 11 Sep 2013 20:39:27 -0700
-Message-ID: <87a9ji4sk0.fsf@xmission.com>
-References: <1378952949-7900-1-git-send-email-tj@kernel.org>
-	<1378952949-7900-8-git-send-email-tj@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	kay@vrfy.org, netdev@vger.kernel.org, lizefan@huawei.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53710 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757630Ab3ILDjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Sep 2013 23:39:36 -0400
-In-Reply-To: <1378952949-7900-8-git-send-email-tj@kernel.org> (Tejun Heo's
-	message of "Wed, 11 Sep 2013 22:29:09 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] ehea: remove deprecated IRQF_DISABLED
+Date: Thu, 12 Sep 2013 05:46:11 +0200
+Message-ID: <1378957571-3574-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: cascardo@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tejun Heo <tj@kernel.org> writes:
+This patch proposes to remove the IRQF_DISABLED flag from
+drivers/net/ethernet/ibm/ehea/ehea_main.c
 
-> Some internal sysfs functions which take explicit namespace argument
-> are weird in that they place the optional @ns in front of @name which
-> is contrary to the established convention.  This is confusing and
-> error-prone especially as @ns and @name may be interchanged without
-> causing compilation warning.
->
-> Swap the positions of @name and @ns in the following internal
-> functions.
+It's a NOOP since 2.6.35 and it will be removed one day.
 
-Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-@ns is more significant so it should come first.
-
-Where do we have the backwards convention of putting @name first?
-
-Eric
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 35853b4..04e0ef1 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -1285,7 +1285,7 @@ static int ehea_reg_interrupts(struct net_device *dev)
+ 
+ 	ret = ibmebus_request_irq(port->qp_eq->attr.ist1,
+ 				  ehea_qp_aff_irq_handler,
+-				  IRQF_DISABLED, port->int_aff_name, port);
++				  0, port->int_aff_name, port);
+ 	if (ret) {
+ 		netdev_err(dev, "failed registering irq for qp_aff_irq_handler:ist=%X\n",
+ 			   port->qp_eq->attr.ist1);
+@@ -1303,8 +1303,7 @@ static int ehea_reg_interrupts(struct net_device *dev)
+ 			 "%s-queue%d", dev->name, i);
+ 		ret = ibmebus_request_irq(pr->eq->attr.ist1,
+ 					  ehea_recv_irq_handler,
+-					  IRQF_DISABLED, pr->int_send_name,
+-					  pr);
++					  0, pr->int_send_name, pr);
+ 		if (ret) {
+ 			netdev_err(dev, "failed registering irq for ehea_queue port_res_nr:%d, ist=%X\n",
+ 				   i, pr->eq->attr.ist1);
+@@ -3320,7 +3319,7 @@ static int ehea_probe_adapter(struct platform_device *dev)
+ 	}
+ 
+ 	ret = ibmebus_request_irq(adapter->neq->attr.ist1,
+-				  ehea_interrupt_neq, IRQF_DISABLED,
++				  ehea_interrupt_neq, 0,
+ 				  "ehea_neq", adapter);
+ 	if (ret) {
+ 		dev_err(&dev->dev, "requesting NEQ IRQ failed\n");
+-- 
+1.8.1.2
