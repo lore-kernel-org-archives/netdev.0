@@ -1,28 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Inet-hashtable: Change the range of sk->hash lock to
- avoid the race condition.
-Date: Thu, 12 Sep 2013 05:00:04 -0700
-Message-ID: <1378987204.24408.1.camel@edumazet-glaptop>
-References: <1379003549.12328.6.camel@chenjun-workstation>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ehea: remove deprecated IRQF_DISABLED
+Date: Thu, 12 Sep 2013 09:05:00 -0300
+Message-ID: <20130912120500.GB28361@oc0268524204.ibm.com>
+References: <1378957571-3574-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jun Chen <jun.d.chen@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379003549.12328.6.camel@chenjun-workstation>
+Content-Disposition: inline
+In-Reply-To: <1378957571-3574-1-git-send-email-michael.opdenacker@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-09-12 at 12:32 -0400, Jun Chen wrote:
-> When try to add node to list in __inet_hash_nolisten function, first get the
-> list and then to lock for using, but in extremeness case, others can del this
-> node before locking it, then the node should be null.So this patch try to lock
-> firstly and then get the list for using to avoid this race condition.
+On Thu, Sep 12, 2013 at 05:46:11AM +0200, Michael Opdenacker wrote:
+> This patch proposes to remove the IRQF_DISABLED flag from
+> drivers/net/ethernet/ibm/ehea/ehea_main.c
+> 
+> It's a NOOP since 2.6.35 and it will be removed one day.
+> 
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+> ---
+>  drivers/net/ethernet/ibm/ehea/ehea_main.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> index 35853b4..04e0ef1 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> @@ -1285,7 +1285,7 @@ static int ehea_reg_interrupts(struct net_device *dev)
+> 
+>  	ret = ibmebus_request_irq(port->qp_eq->attr.ist1,
+>  				  ehea_qp_aff_irq_handler,
+> -				  IRQF_DISABLED, port->int_aff_name, port);
+> +				  0, port->int_aff_name, port);
+>  	if (ret) {
+>  		netdev_err(dev, "failed registering irq for qp_aff_irq_handler:ist=%X\n",
+>  			   port->qp_eq->attr.ist1);
+> @@ -1303,8 +1303,7 @@ static int ehea_reg_interrupts(struct net_device *dev)
+>  			 "%s-queue%d", dev->name, i);
+>  		ret = ibmebus_request_irq(pr->eq->attr.ist1,
+>  					  ehea_recv_irq_handler,
+> -					  IRQF_DISABLED, pr->int_send_name,
+> -					  pr);
+> +					  0, pr->int_send_name, pr);
+>  		if (ret) {
+>  			netdev_err(dev, "failed registering irq for ehea_queue port_res_nr:%d, ist=%X\n",
+>  				   i, pr->eq->attr.ist1);
+> @@ -3320,7 +3319,7 @@ static int ehea_probe_adapter(struct platform_device *dev)
+>  	}
+> 
+>  	ret = ibmebus_request_irq(adapter->neq->attr.ist1,
+> -				  ehea_interrupt_neq, IRQF_DISABLED,
+> +				  ehea_interrupt_neq, 0,
+>  				  "ehea_neq", adapter);
+>  	if (ret) {
+>  		dev_err(&dev->dev, "requesting NEQ IRQ failed\n");
+> -- 
+> 1.8.1.2
+> 
 
-I suspect another bug. This should not happen.
-
-Care to describe the problem you got ?
-
-Thanks
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
