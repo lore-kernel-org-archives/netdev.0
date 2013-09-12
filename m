@@ -1,71 +1,43 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: ip l2tp - suspected defect using IPv6 local/remote addresses
-Date: Thu, 12 Sep 2013 11:20:38 +0100
-Message-ID: <CAEwTi7Qo8=X=v51_1y3JMQnbG3xBQYRb9YRePFh6KfYmb_Y0-g@mail.gmail.com>
-References: <CAG2uBVfwNOj_jKvaHV_66qrrBU5adDoqDWMvV7seNWfsG4RVAQ@mail.gmail.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH 00/11] ipv6: Do route updating for redirect in ndisc layer
+Date: Thu, 12 Sep 2013 18:41:50 +0800
+Message-ID: <52319A6E.6090503@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Jeff Loughridge <jeffl@alumni.duke.edu>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:41567 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754160Ab3ILKbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 06:31:06 -0400
-Received: from mail-vb0-f53.google.com (mail-vb0-f53.google.com [209.85.212.53])
-	(Authenticated sender: james)
-	by bert.katalix.com (Postfix) with ESMTPSA id 28D154D727
-	for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 11:20:40 +0100 (BST)
-Received: by mail-vb0-f53.google.com with SMTP id i3so6909508vbh.26
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 03:20:39 -0700 (PDT)
-In-Reply-To: <CAG2uBVfwNOj_jKvaHV_66qrrBU5adDoqDWMvV7seNWfsG4RVAQ@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:39642 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751545Ab3ILKmz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 06:42:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11 September 2013 19:52, Jeff Loughridge <jeffl@alumni.duke.edu> wrote:
->
-> Using IPv6 address as L2TPv3 endpoints doesn't seem to work in
-> iproute2 3.11. I see a cosmetic defect in the output of 'ip l2tp show
-> tunnel'. In addition, I can't get tunnels to function with UDP or IP
-> encapsulation.
->
-> root@debian:~# ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000
-> encap udp local a::1 remote a::2 udp_sport 5000 udp_dport 6000
-> root@debian:~# ip l2tp add session tunnel_id 3000 session_id 1000
-> peer_session_id 2000
-> root@debian:~# ip l2tp show tunnel
-> Tunnel 3000, encap UDP
->   From 127.0.0.1 to 127.0.0.1
->   Peer tunnel 4000
->   UDP source / dest ports: 5000/6000
-> root@debian:~#
+the ip6_redirect() could be replaced with
+ip6_redirect_no_header(), we could always use ip6_redirect()
+for route updating in ndisc layer and use the data of the
+redirected header option just for finding the socket to be
+notified and then notify user in protocols' err_handler.
 
-You'll need a 3.5 or later kernel for L2TP over IPv6. I see you are
-using 3.2. Are you using a version of iproute2 which is not matched to
-your kernel?
+---
 
-> See below for more details about my set-up. I have no problems using
-> IPv4 endpoints.
->
-> root@debian:~# ip addr show eth0
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UNKNOWN group default qlen 1000
->     link/ether 00:0c:29:91:cb:3c brd ff:ff:ff:ff:ff:ff
->     inet 5.1.0.100/24 scope global eth0
->     inet6 a::1/64 scope global
->        valid_lft forever preferred_lft forever
->     inet6 fe80::20c:29ff:fe91:cb3c/64 scope link
->        valid_lft forever preferred_lft forever
-> root@debian:~#
-> root@debian:~# ip -V
-> ip utility, iproute2-ss130903
-> root@debian:~# uname -a
-> Linux debian 3.2.0-4-686-pae #1 SMP Debian 3.2.41-2 i686 GNU/Linux
-> root@debian:~#
-> root@debian:~# modprobe l2tp_eth
-> root@debian:~# lsmod | grep l2tp
-> l2tp_eth               12738  0
-> l2tp_netlink           17263  1 l2tp_eth
-> l2tp_core              17486  2 l2tp_netlink,l2tp_eth
->
-> Jeff L.
+ include/net/ip6_route.h |  3 ---
+ net/dccp/ipv6.c         | 10 +++-------
+ net/ipv6/ah6.c          |  9 ++-------
+ net/ipv6/esp6.c         |  9 ++-------
+ net/ipv6/icmp.c         |  2 --
+ net/ipv6/ip6_tunnel.c   |  5 -----
+ net/ipv6/ipcomp6.c      |  9 ++-------
+ net/ipv6/ndisc.c        |  6 ++----
+ net/ipv6/raw.c          |  2 +-
+ net/ipv6/route.c        | 29 ++---------------------------
+ net/ipv6/tcp_ipv6.c     | 12 ++++--------
+ net/ipv6/udp.c          |  4 ++--
+ net/sctp/input.c        | 12 ------------
+ net/sctp/ipv6.c         |  6 +++---
+ 14 files changed, 23 insertions(+), 95 deletions(-)
+
+-- 
+1.8.3.1
