@@ -1,52 +1,45 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH] net: tulip: remove deprecated IRQF_DISABLED
-Date: Wed, 11 Sep 2013 23:05:56 -0700
-Message-ID: <CAP6odjg63+g1gLMS9F+O1fQXwFZud10L11P5irJWdQsuDuNXaA@mail.gmail.com>
-References: <1378959624-4123-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Subject: Re: [PATCH net-next] net: sk_buff: memset(skb,0) after alloc in
+ skb_clone
+Date: Thu, 12 Sep 2013 11:51:18 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1309121149320.1735@gmail.com>
+References: <1378788533-5609-1-git-send-email-govindarajulu90@gmail.com> <1378816832.26319.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1378959624-4123-1-git-send-email-michael.opdenacker@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:42178 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596Ab3ILGVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 02:21:23 -0400
+Received: by mail-pb0-f49.google.com with SMTP id xb4so10049458pbc.36
+        for <netdev@vger.kernel.org>; Wed, 11 Sep 2013 23:21:22 -0700 (PDT)
+In-Reply-To: <1378816832.26319.75.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 11, 2013 at 9:20 PM, Michael Opdenacker
-<michael.opdenacker@free-electrons.com> wrote:
-> This patch proposes to remove the IRQF_DISABLED flag from
-> drivers/net/ethernet/dec/tulip/de4x5.c
+
+
+On Tue, 10 Sep 2013, Eric Dumazet wrote:
+
+> On Tue, 2013-09-10 at 10:18 +0530, Govindarajulu Varadarajan wrote:
+>> The following patch memset the skb to 0 after alloc. We do this in
+>> __alloc_skb_head, __alloc_skb, build_skb. We are missing this in
+>> skb_clone.
+>>
+>> The following call to __skb_clone in skb_clone does not copy all the
+>> members of sk_buff. If we donot clear the skb to 0, we will have some
+>> uninitialized members in new skb.
 >
-> It's a NOOP since 2.6.35 and it will be removed one day.
-
-yup - that was easy to confirm.
-
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-thanks,
-grant
-
-> ---
->  drivers/net/ethernet/dec/tulip/de4x5.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Which ones exactly ?
 >
-> diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-> index 2db6c57..263b92c 100644
-> --- a/drivers/net/ethernet/dec/tulip/de4x5.c
-> +++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-> @@ -1321,7 +1321,7 @@ de4x5_open(struct net_device *dev)
->      if (request_irq(dev->irq, de4x5_interrupt, IRQF_SHARED,
->                                                      lp->adapter_name, dev)) {
->         printk("de4x5_open(): Requested IRQ%d is busy - attemping FAST/SHARE...", dev->irq);
-> -       if (request_irq(dev->irq, de4x5_interrupt, IRQF_DISABLED | IRQF_SHARED,
-> +       if (request_irq(dev->irq, de4x5_interrupt, IRQF_SHARED,
->                                                      lp->adapter_name, dev)) {
->             printk("\n              Cannot get IRQ- reconfigure your hardware.\n");
->             disable_ast(dev);
-> --
-> 1.8.1.2
+> I would rather make sure all fields are properly copied.
 >
+> Your patch is incomplete, because it doesn't handle the fast clone case.
+
+Sorry, my bad. Didnt check the __copy_skb_header completely.
+
+thanks
+//govind
