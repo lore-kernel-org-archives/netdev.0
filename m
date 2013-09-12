@@ -1,55 +1,73 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: [PATCH] sunrpc: Add missing kuids conversion for printing
-Date: Thu, 12 Sep 2013 15:09:39 +0200
-Message-ID: <1378991379-9106-1-git-send-email-geert@linux-m68k.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Thu, 12 Sep 2013 15:21:24 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
+ <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de> <5212CCCA.4090907@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5212CCCA.4090907@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-m68k/allmodconfig:
+On Tue, 20 Aug 2013, Fan Du wrote:
+> Thanks for your patience. Please let me take a few seconds try to
+> explain this.
 
-net/sunrpc/auth_generic.c: In function =E2=80=98generic_key_timeout=E2=80=
-=99:
-net/sunrpc/auth_generic.c:241: warning: format =E2=80=98%d=E2=80=99 exp=
-ects type =E2=80=98int=E2=80=99, but
-argument 2 has type =E2=80=98kuid_t=E2=80=99
+Sorry for the late reply.
+ 
+> Current xfrm layers has *one* hrtimer to guard Ipsec keys timeout,
+> The timeout could be measured in either of below two ways:
+> 
+>  (1) The timer is started once the keys is created, but this
+>      key is not necessary actually used right now. In detail,
+>      record the get_seconds() when this key is created.
+> 
+>  (2) Starting the timer when this key is actually used, e.g when
+>      an IP packet need to be encrypted. In details, recored the
+>      get_seconds() when this key is first used.
+> 
+> So in the hrtimer handler, the code get current get_seconds, and
+> check against with what saved in (1)or(2), and notify the timeout
+> up to user land.
+> 
+> So the pitfall is using one hrtimer for two timeout events,
+> most importantly using get_seconds to check timeout, once system
+> clock is changed by user intentionally, the key timeout could
+> misbehave wildly.
+> 
+> A refractor has been proposed to get rid of depending on system wall
+> clock by cleaning up the hrtimer handler. Unfortunately David frowned
+> on it in (3), and suggest once system clock is changed, adjust the
+> timeout of the key.
+> 
+> 
+> (3): http://www.spinics.net/lists/netdev/msg245169.html
 
-commit cdba321e291f0fbf5abda4d88340292b858e3d4d ("sunrpc: Convert kuids=
- and
-kgids to uids and gids for printing") forgot to convert one instance.
+Thanks for the explanation so far.
 
-Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
----
- net/sunrpc/auth_generic.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+What's still unclear to me is why these timeouts are bound to wall
+time in the first place.
 
-diff --git a/net/sunrpc/auth_generic.c b/net/sunrpc/auth_generic.c
-index f6d84be..ed04869 100644
---- a/net/sunrpc/auth_generic.c
-+++ b/net/sunrpc/auth_generic.c
-@@ -239,7 +239,7 @@ generic_key_timeout(struct rpc_auth *auth, struct r=
-pc_cred *cred)
- 		if (test_and_clear_bit(RPC_CRED_KEY_EXPIRE_SOON,
- 					&acred->ac_flags))
- 			dprintk("RPC:        UID %d Credential key reset\n",
--				tcred->cr_uid);
-+				from_kuid(&init_user_ns, tcred->cr_uid));
- 		/* set up fasttrack for the normal case */
- 		set_bit(RPC_CRED_NOTIFY_TIMEOUT, &acred->ac_flags);
- 	}
---=20
-1.7.9.5
+Is there any real reason why the key life time can't simply be
+expressed in monotonic time, e.g. N seconds after creation or M
+seconds after usage? Looking at the relevant RFCs I can't find any
+requirement for binding the life time to wall time. 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+A life time of 10 minutes does not change when the wall clock is
+adjusted for whatever reasons. It's still 10 minutes and not some
+random result of the wall clock adjustments. But I might be wrong as
+usual :)
+
+Thanks,
+
+	tglx
