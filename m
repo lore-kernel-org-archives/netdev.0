@@ -1,49 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] net: neighbour: use source address of last enqueued packet for solicitation
-Date: Fri, 13 Sep 2013 00:20:17 +0200
-Message-ID: <20130912222017.GD2101@order.stressinduktion.org>
-References: <20130908193031.GC21070@order.stressinduktion.org> <alpine.LFD.2.00.1309092208460.1655@ja.ssi.bg>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.39 0/7] MPLS actions and matches
+Date: Fri, 13 Sep 2013 07:56:14 +0900
+Message-ID: <20130912225614.GB30229@verge.net.au>
+References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+	<20130912190636.GL16044@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54433 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223Ab3ILWUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 18:20:18 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1309092208460.1655@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130912190636.GL16044-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 09, 2013 at 11:17:45PM +0300, Julian Anastasov wrote:
-> 	arp_queue has packets only in NUD_INCOMPLETE state 
-> (mcast_solicit=3 secs by default). And __neigh_event_send()
-> now can keep many packets, 64KB from recent changes. So the
-> 1st place is not guaranteed but now it is more difficult
-> to kick the first packet compared to the old limit of just
-> 3 packets.
-> 
-> 	The change can give chance for 2nd and 3th
-> probe if the 1st probe is not replied, so it should be
-> better to apply it:
-> 
-> Reviewed-by: Julian Anastasov <ja@ssi.bg>
+On Thu, Sep 12, 2013 at 12:06:36PM -0700, Ben Pfaff wrote:
+> I've totally lost track of the status of this patch series.  I assume it
+> needs Jesse's review.  Jesse, if I'm wrong about that, let me know and
+> I'll take a pass at it.
 
-Thanks for the review. I resend the patch as soon as net-next opens.
+My understanding is that you have looked over the approach
+taken for the non-datapath code and were happy with it in
+the context that it needed review from Jesse along with the
+datapath code.
 
-> 
-> 	Still, I think such problems should be addressed
-> with conf/{DEV,all}/arp_announce=1 or 2.
-
-*nod*
-
-I use this knob if I have such problems. But this patch improves
-connectivity in the default configuration and we actually don't care much
-about the source address in either ipv4 or ipv6. So it seemed legitimate
-and simple to me.
-
-Greetings,
-
-  Hannes
+I believe it was a few revisions ago that you looked over
+the series but I don't believe the non-datapath code has changed
+in a meaningful way since then.
