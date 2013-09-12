@@ -1,79 +1,85 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
-Date: Thu, 12 Sep 2013 20:16:35 +0800
-Message-ID: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
-Cc: davem@davemloft.net, zhiguohong@tencent.com
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH 09/11] sctp: move route updating for redirect to ndisc
+ layer
+Date: Thu, 12 Sep 2013 14:33:32 +0200
+Message-ID: <5231B49C.5010305@redhat.com>
+References: <52319A6E.6090503@cn.fujitsu.com> <52319CA7.8080809@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	hannes@stressinduktion.org,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:58618 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528Ab3ILMS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 08:18:57 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so10444920pbb.5
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 05:18:57 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:39412 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753176Ab3ILMdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 08:33:44 -0400
+In-Reply-To: <52319CA7.8080809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hong Zhiguo <zhiguohong@tencent.com>
+(Please also cc linux-sctp on this one.)
 
-In function netdev_rx_handler_unregister it's said that:
-
-/* a reader seeing a non NULL rx_handler in a rcu_read_lock()
- * section has a guarantee to see a non NULL rx_handler_data
- * as well.
- */
-
-This is true. But br_port_get_rcu(dev) returns NULL if:
-	!(dev->priv_flags & IFF_BRIDGE_PORT)
-
-And this happended on my box when br_handle_frame is called
-between these 2 lines of del_nbp:
-
-	dev->priv_flags &= ~IFF_BRIDGE_PORT;
-	/* --> br_handle_frame is called at this time */
-	netdev_upper_dev_unlink(dev, br->dev);
-
-I got below Oops(some lines omitted):
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000021
-IP: [<ffffffff8150901d>] br_handle_frame+0xed/0x230
-Oops: 0000 [#1] PREEMPT SMP
-RIP: 0010:[<ffffffff8150901d>]  [<ffffffff8150901d>] br_handle_frame+0xed/0x230
-RSP: 0018:ffff880030403c10  EFLAGS: 00010286
-Stack:
- ffff88002c945700 ffffffff81508f30 0000000000000000 ffff88002d41e000
- ffff880030403c98 ffffffff81477acb ffffffff81477821 ffff880030403c68
- ffffffff81090e10 00ff88002d545c80 ffff88002c945700 ffffffff81aa50c0
-Call Trace:
- <IRQ>
- [<ffffffff81508f30>] ? br_handle_frame_finish+0x300/0x300
- [<ffffffff81477acb>] __netif_receive_skb_core+0x39b/0x880
-
-Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
----
- net/bridge/br_if.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c41d5fb..bd21159 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -133,6 +133,8 @@ static void del_nbp(struct net_bridge_port *p)
- 
- 	sysfs_remove_link(br->ifobj, p->dev->name);
- 
-+	netdev_rx_handler_unregister(dev);
-+
- 	dev_set_promiscuity(dev, -1);
- 
- 	spin_lock_bh(&br->lock);
-@@ -148,8 +150,6 @@ static void del_nbp(struct net_bridge_port *p)
- 
- 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
- 
--	netdev_rx_handler_unregister(dev);
--
- 	netdev_upper_dev_unlink(dev, br->dev);
- 
- 	br_multicast_del_port(p);
--- 
-1.8.1.2
+On 09/12/2013 12:51 PM, Duan Jiong wrote:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> 
+> In additon, when dealing with redirect message, it should
+> not report error message to user, and need to return
+> directly.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>   net/sctp/input.c | 12 ------------
+>   net/sctp/ipv6.c  |  6 +++---
+>   2 files changed, 3 insertions(+), 15 deletions(-)
+> 
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 5f20686..0d2d4b7 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -413,18 +413,6 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
+>   	sctp_retransmit(&asoc->outqueue, t, SCTP_RTXR_PMTUD);
+>   }
+>   
+> -void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
+> -			struct sk_buff *skb)
+> -{
+> -	struct dst_entry *dst;
+> -
+> -	if (!t)
+> -		return;
+> -	dst = sctp_transport_dst_check(t);
+> -	if (dst)
+> -		dst->ops->redirect(dst, sk, skb);
+> -}
+> -
+>   /*
+>    * SCTP Implementer's Guide, 2.37 ICMP handling procedures
+>    *
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index da613ce..ee12d87 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -151,6 +151,9 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>   	int err;
+>   	struct net *net = dev_net(skb->dev);
+>   
+> +	if (type == NDISC_REDIRECT)
+> +		return;
+> +
+>   	idev = in6_dev_get(skb->dev);
+>   
+>   	/* Fix up skb to look at the embedded net header. */
+> @@ -181,9 +184,6 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>   			goto out_unlock;
+>   		}
+>   		break;
+> -	case NDISC_REDIRECT:
+> -		sctp_icmp_redirect(sk, transport, skb);
+> -		break;
+>   	default:
+>   		break;
+>   	}
+> 
