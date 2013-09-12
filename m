@@ -1,49 +1,51 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
-Date: Thu, 12 Sep 2013 11:50:31 -0400
-Message-ID: <5231E2C7.1010106@redhat.com>
-References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>   <1378995112.24408.4.camel@edumazet-glaptop>   <CAA7+ByWJLUkxy7C0frKOFUscJaQyRLsfk_N=NZfdzUrbZ=4MNA@mail.gmail.com>  <1378996396.24408.8.camel@edumazet-glaptop> <5231D2D2.3090907@redhat.com> <1378999470.24408.10.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool] ethtool: correct ixgbevf copyright date
+Date: Thu, 12 Sep 2013 15:17:10 +0100
+Message-ID: <1378995430.1531.7.camel@bwh-desktop.uk.level5networks.com>
+References: <1377925372-13385-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hong zhi guo <honkiko@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, zhiguohong@tencent.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38075 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753264Ab3ILPvF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 11:51:05 -0400
-In-Reply-To: <1378999470.24408.10.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:57194 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736Ab3ILPx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:53:26 -0400
+In-Reply-To: <1377925372-13385-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/12/2013 11:24 AM, Eric Dumazet wrote:
-> On Thu, 2013-09-12 at 10:42 -0400, Vlad Yasevich wrote:
->
->> Don't all tests for IFF_BRIDGE_PORT on the bridge receive path become
->> redundant as well?
->
-> Sure but anyway this part is net-next material
->
-> Lets fix the bug first.
+On Fri, 2013-08-30 at 22:02 -0700, Jeff Kirsher wrote:
+> From: Jacob Keller <jacob.e.keller@intel.com>
+> 
+> This patch corrects the copyright date of the ixgbevf code, which was only
+> recently added.
 
-Seems like the race is possible in net as well.  If we just include the
-original patch, then br_add_if() also has to be modified to make sure
-the flag is set properly before netdev_rx_handler_register() is called.
+Applied, thanks.
 
-If we remove the need to check the flag during bridge input handling,
-then br_add_if() change is not necessary.
+Ben.
 
--vlad
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  ixgbevf.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/ixgbevf.c b/ixgbevf.c
+> index dae1178..2a3aa6f 100644
+> --- a/ixgbevf.c
+> +++ b/ixgbevf.c
+> @@ -1,4 +1,4 @@
+> -/* Copyright (c) 2007 Intel Corporation */
+> +/* Copyright (c) 2013 Intel Corporation */
+>  #include <stdio.h>
+>  #include "internal.h"
+>  
 
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
