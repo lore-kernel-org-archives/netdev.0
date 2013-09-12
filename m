@@ -1,59 +1,36 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
-Date: Thu, 12 Sep 2013 23:57:08 +0800
-Message-ID: <1379001428-2727-1-git-send-email-zhiguohong@tencent.com>
-References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
-Cc: eric.dumazet@gmail.com, davem@davemloft.net,
-	netdev@vger.kernel.org, Hong Zhiguo <zhiguohong@tencent.com>
-To: vyasevic@redhat.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: ethtool 3.11 released
+Date: Thu, 12 Sep 2013 16:58:24 +0100
+Message-ID: <1379001504.7901.0.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:45318 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754432Ab3ILP5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:57:24 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so10665377pbc.7
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 08:57:24 -0700 (PDT)
-In-Reply-To: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:57281 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753099Ab3ILP60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 11:58:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-not check IFF_BRIDGE_PORT within br_handle_frame
+ethtool version 3.11 has been released.
 
-Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
----
- net/bridge/br_input.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Home page: https://ftp.kernel.org/pub/software/network/ethtool/
+Download link:
+https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.11.tar.xz
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index a2fd37e..da4714a 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
- int br_handle_frame_finish(struct sk_buff *skb)
- {
- 	const unsigned char *dest = eth_hdr(skb)->h_dest;
--	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-+	enet_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
- 	struct net_bridge *br;
- 	struct net_bridge_fdb_entry *dst;
- 	struct net_bridge_mdb_entry *mdst;
-@@ -143,7 +143,7 @@ drop:
- /* note: already called with rcu_read_lock */
- static int br_handle_local_finish(struct sk_buff *skb)
- {
--	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-+	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
- 	u16 vid = 0;
- 
- 	br_vlan_get_tag(skb, &vid);
-@@ -173,7 +173,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 	if (!skb)
- 		return RX_HANDLER_CONSUMED;
- 
--	p = br_port_get_rcu(skb->dev);
-+	p = rcu_dereference(skb->dev->rx_handler_data);
- 
- 	if (unlikely(is_link_local_ether_addr(dest))) {
- 		/*
+Release notes:
+
+	* Feature: Update Realtek chip list for register dump to match
+	  r8169 driver in Linux 3.11 (-d option)
+	* Feature: Add ixgbevf support for register dump (-d option)
+	* Feature: Filter ixgbe register dump according to the specific chip
+	  (-d option)
+
+Ben.
+
 -- 
-1.7.0.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
