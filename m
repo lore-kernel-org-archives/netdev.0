@@ -1,85 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH 09/11] sctp: move route updating for redirect to ndisc
- layer
-Date: Thu, 12 Sep 2013 14:33:32 +0200
-Message-ID: <5231B49C.5010305@redhat.com>
-References: <52319A6E.6090503@cn.fujitsu.com> <52319CA7.8080809@cn.fujitsu.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH] sunrpc: Add missing kuids conversion for printing
+Date: Thu, 12 Sep 2013 15:09:39 +0200
+Message-ID: <1378991379-9106-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	hannes@stressinduktion.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39412 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753176Ab3ILMdo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 08:33:44 -0400
-In-Reply-To: <52319CA7.8080809@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-(Please also cc linux-sctp on this one.)
+m68k/allmodconfig:
 
-On 09/12/2013 12:51 PM, Duan Jiong wrote:
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> 
-> In additon, when dealing with redirect message, it should
-> not report error message to user, and need to return
-> directly.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
->   net/sctp/input.c | 12 ------------
->   net/sctp/ipv6.c  |  6 +++---
->   2 files changed, 3 insertions(+), 15 deletions(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 5f20686..0d2d4b7 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -413,18 +413,6 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
->   	sctp_retransmit(&asoc->outqueue, t, SCTP_RTXR_PMTUD);
->   }
->   
-> -void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
-> -			struct sk_buff *skb)
-> -{
-> -	struct dst_entry *dst;
-> -
-> -	if (!t)
-> -		return;
-> -	dst = sctp_transport_dst_check(t);
-> -	if (dst)
-> -		dst->ops->redirect(dst, sk, skb);
-> -}
-> -
->   /*
->    * SCTP Implementer's Guide, 2.37 ICMP handling procedures
->    *
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index da613ce..ee12d87 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -151,6 +151,9 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->   	int err;
->   	struct net *net = dev_net(skb->dev);
->   
-> +	if (type == NDISC_REDIRECT)
-> +		return;
-> +
->   	idev = in6_dev_get(skb->dev);
->   
->   	/* Fix up skb to look at the embedded net header. */
-> @@ -181,9 +184,6 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->   			goto out_unlock;
->   		}
->   		break;
-> -	case NDISC_REDIRECT:
-> -		sctp_icmp_redirect(sk, transport, skb);
-> -		break;
->   	default:
->   		break;
->   	}
-> 
+net/sunrpc/auth_generic.c: In function =E2=80=98generic_key_timeout=E2=80=
+=99:
+net/sunrpc/auth_generic.c:241: warning: format =E2=80=98%d=E2=80=99 exp=
+ects type =E2=80=98int=E2=80=99, but
+argument 2 has type =E2=80=98kuid_t=E2=80=99
+
+commit cdba321e291f0fbf5abda4d88340292b858e3d4d ("sunrpc: Convert kuids=
+ and
+kgids to uids and gids for printing") forgot to convert one instance.
+
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+---
+ net/sunrpc/auth_generic.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/auth_generic.c b/net/sunrpc/auth_generic.c
+index f6d84be..ed04869 100644
+--- a/net/sunrpc/auth_generic.c
++++ b/net/sunrpc/auth_generic.c
+@@ -239,7 +239,7 @@ generic_key_timeout(struct rpc_auth *auth, struct r=
+pc_cred *cred)
+ 		if (test_and_clear_bit(RPC_CRED_KEY_EXPIRE_SOON,
+ 					&acred->ac_flags))
+ 			dprintk("RPC:        UID %d Credential key reset\n",
+-				tcred->cr_uid);
++				from_kuid(&init_user_ns, tcred->cr_uid));
+ 		/* set up fasttrack for the normal case */
+ 		set_bit(RPC_CRED_NOTIFY_TIMEOUT, &acred->ac_flags);
+ 	}
+--=20
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
