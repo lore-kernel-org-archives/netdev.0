@@ -1,43 +1,64 @@
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Subject: Re: [PATCH 1/1] net: race condition when removing virtual net_device
-Date: Thu, 12 Sep 2013 15:02:22 -0700
-Message-ID: <CA+HUmGjDKKke7PXr3Bps1oVx7X9JN5-2+uUhxKDkqoT8nbPLWw@mail.gmail.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 10/11] ipv6: move route updating for redirect to ndisc layer
+Date: Fri, 13 Sep 2013 00:04:35 +0200
+Message-ID: <20130912220435.GC2101@order.stressinduktion.org>
+References: <52319A6E.6090503@cn.fujitsu.com> <52319CC5.10902@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f170.google.com ([209.85.220.170]:46885 "EHLO
-	mail-vc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562Ab3ILWCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 18:02:22 -0400
-Received: by mail-vc0-f170.google.com with SMTP id kw10so342515vcb.15
-        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 15:02:22 -0700 (PDT)
-In-Reply-To: <CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:54405 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497Ab3ILWEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 18:04:37 -0400
+Content-Disposition: inline
+In-Reply-To: <52319CC5.10902@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 12, 2013 at 2:48 PM, Francesco Ruggeri
-<fruggeri@aristanetworks.com> wrote:
-> On Thu, Sep 12, 2013 at 1:06 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> Francesco Ruggeri <fruggeri@aristanetworks.com> writes:
-...
-> netdev_run_todo. This guarantees that no deadlocks are introduced,
-> since the relative order of net_devices within each namespace is
-> preserved, and only non-loopback_devs take and release the extra
-> reference.
+On Thu, Sep 12, 2013 at 06:51:49PM +0800, Duan Jiong wrote:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> 
+> And when dealing with redirect message, the err shoud
+> be assigned to 0.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/ipv6/raw.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+> index 58916bb..6138199 100644
+> --- a/net/ipv6/raw.c
+> +++ b/net/ipv6/raw.c
+> @@ -336,7 +336,7 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
+>  		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
+>  	}
+>  	if (type == NDISC_REDIRECT)
+> -		ip6_sk_redirect(skb, sk);
+> +		err = 0;
+>  	if (np->recverr) {
+>  		u8 *payload = skb->data;
+>  		if (!inet->hdrincl)
 
-I should have said "since in net_todo_list the relative order of
-net_devices within each namespace is the same as before, ...".
+Hm, I don't like the cirumstance that we first call icmpv6_err_convert at
+first and get back a bogus error value and later on convert it to something
+meaningful.
 
-Sorry for any confusion.
+Either:
+a) Don't call icmpv6_err_convert at all for redirects. Then we could
+   place a WARN_ON(type == NDISC_REDIRECT) into this function to find future
+   missuse of this function with redirects or
 
-Francesco
+b) handle the update of the NDISC_REDIRECT error code directly in
+   icmpv6_err_convert.
+
+Also that you used the same headings for some commits shows that you could
+perhaps squash them into one patch.
+
+Otherwise I'm fine with the changes, thanks.
+
+Greetings,
+
+  Hannes
