@@ -1,48 +1,63 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next] fix NULL pointer dereference in br_handle_frame
-Date: Thu, 12 Sep 2013 10:42:26 -0400
-Message-ID: <5231D2D2.3090907@redhat.com>
-References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>  <1378995112.24408.4.camel@edumazet-glaptop>  <CAA7+ByWJLUkxy7C0frKOFUscJaQyRLsfk_N=NZfdzUrbZ=4MNA@mail.gmail.com> <1378996396.24408.8.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Thu, 12 Sep 2013 16:43:37 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de>
+References: <1375866296-15079-1-git-send-email-fan.du@windriver.com> <1375866296-15079-2-git-send-email-fan.du@windriver.com> <52021177.6020306@redhat.com> <520213F2.5090401@windriver.com> <520214C6.6000307@redhat.com> <520B4552.2000607@windriver.com>
+ <alpine.DEB.2.02.1308181102230.4089@ionos.tec.linutronix.de> <5212CCCA.4090907@windriver.com> <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de> <20130912134409.GB21212@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hong zhi guo <honkiko@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, zhiguohong@tencent.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38958 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752053Ab3ILOmt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 10:42:49 -0400
-In-Reply-To: <1378996396.24408.8.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Fan Du <fan.du@windriver.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130912134409.GB21212@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/12/2013 10:33 AM, Eric Dumazet wrote:
-> On Thu, 2013-09-12 at 22:24 +0800, Hong zhi guo wrote:
->> You mean IFF_BRIDGE_PORT should be only for admin/control path, but
->> not for data path?
->
-> By definition, br_handle_frame() should be called only when device is a
-> bridge port.
->
-> After the call to synchronize_net() included in
-> netdev_rx_handler_unregister(), you have guarantee br_handle_frame()
-> wont be called.
->
-> Therefore, testing IFF_BRIDGE_PORT in br_handle_frame() is redundant.
+On Thu, 12 Sep 2013, Herbert Xu wrote:
+> On Thu, Sep 12, 2013 at 03:21:24PM +0200, Thomas Gleixner wrote:
+> >
+> > > (3): http://www.spinics.net/lists/netdev/msg245169.html
+> > 
+> > Thanks for the explanation so far.
+> > 
+> > What's still unclear to me is why these timeouts are bound to wall
+> > time in the first place.
+> > 
+> > Is there any real reason why the key life time can't simply be
+> > expressed in monotonic time, e.g. N seconds after creation or M
+> > seconds after usage? Looking at the relevant RFCs I can't find any
+> > requirement for binding the life time to wall time. 
+> > 
+> > A life time of 10 minutes does not change when the wall clock is
+> > adjusted for whatever reasons. It's still 10 minutes and not some
+> > random result of the wall clock adjustments. But I might be wrong as
+> > usual :)
+> 
+> Well we started out with straight timers.  It was changed because
+> people wanted IPsec SAs to expire after a suspect/resume which
 
-Don't all tests for IFF_BRIDGE_PORT on the bridge receive path become 
-redundant as well?
+Right suspend is the usual suspect :)
 
--vlad
+> AFAIK does not touch normal timers.
+> 
+> Of course, this brought with it a new set of problems when the
+> system time is stepped which now cause SAs to expire even though
+> they probably shouldn't.
 
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Right. That's what I guessed. So your problem is that the timer_list
+timers which are the proper mechanism for this (the life time has a 1
+second granularity, so hrtimers are complete overkill) are not
+expiring after a suspend/resume cycle.
+
+So what about going back to timer_list timers and simply utilize
+register_pm_notifier(), which will tell you that the system resumed?
+
+Thanks,
+
+	tglx
