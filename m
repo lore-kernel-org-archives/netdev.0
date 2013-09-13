@@ -1,109 +1,45 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/4] mISDN: add support for group membership check
-Date: Fri, 13 Sep 2013 14:52:02 -0700
-Message-ID: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: GRE support for IPv6
+Date: Fri, 13 Sep 2013 15:06:26 -0700
+Message-ID: <20130913150626.5f9ecc3b@samsung-9>
+References: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com>
+	<CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com>
+	<20130913164404.GA32431@order.stressinduktion.org>
+	<2134F8430051B64F815C691A62D98318108CA3@XCH-BLV-504.nw.nos.boeing.com>
+	<20130913210105.GD32431@order.stressinduktion.org>
+	<20130913144630.1cb1863c@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, jeffm@suse.com,
-	isdn4linux@koppen.de, isdn@linux-pingi.de, jslaby@suse.cz,
-	sergei.shtylyov@cogentembedded.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, xeb@mail.ru
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:37394 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755302Ab3IMV5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 17:57:04 -0400
-Received: by mail-vc0-f202.google.com with SMTP id gd11so228754vcb.3
-        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 14:57:04 -0700 (PDT)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:43803 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753932Ab3IMWGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 18:06:30 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so1790509pdi.13
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 15:06:30 -0700 (PDT)
+In-Reply-To: <20130913144630.1cb1863c@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: mISDN: add support for group membership check
+On Fri, 13 Sep 2013 14:46:30 -0700
+Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-This patch adds a module parameter to allow a group access to the mISDN
-devices.  Otherwise, unpriviledged users on systems with ISDN hardware
-have the ability to dial out, potentially causing expensive bills.
+> On Fri, 13 Sep 2013 23:01:05 +0200
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> 
+> > On Fri, Sep 13, 2013 at 06:32:53PM +0000, Templin, Fred L wrote:
+> > > Someone recently added the module ./net/ipv6/ip6_gre.c to the
+> > > kernel, but I cannot find any obvious way to configure it using
+> > > iproute2. Is there any userland code available for turning on
+> > > GRE tunnels for IPv6?
+> > 
+> > I guess it got lost somehow:
+> > 
+> > http://patchwork.ozlabs.org/patch/173836/
 
-Based on a different implementation by Patrick Koppen.
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Acked-by: Jeff Mahoney <jeffm@suse.com>
-Cc: Patrick Koppen <isdn4linux@koppen.de>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/isdn/mISDN/core.c   |    6 ++++++
- drivers/isdn/mISDN/core.h   |    1 +
- drivers/isdn/mISDN/socket.c |    9 +++++++++
- 3 files changed, 16 insertions(+)
-
-diff -puN drivers/isdn/mISDN/core.c~misdn-add-support-for-group-membership-check drivers/isdn/mISDN/core.c
---- a/drivers/isdn/mISDN/core.c~misdn-add-support-for-group-membership-check
-+++ a/drivers/isdn/mISDN/core.c
-@@ -21,10 +21,14 @@
- #include "core.h"
- 
- static u_int debug;
-+static u_int gid;
-+kgid_t misdn_permitted_gid;
- 
- MODULE_AUTHOR("Karsten Keil");
- MODULE_LICENSE("GPL");
- module_param(debug, uint, S_IRUGO | S_IWUSR);
-+module_param(gid, uint, 0);
-+MODULE_PARM_DESC(gid, "Unix group for accessing misdn socket (default 0)");
- 
- static u64		device_ids;
- #define MAX_DEVICE_ID	63
-@@ -372,6 +376,8 @@ mISDNInit(void)
- {
- 	int	err;
- 
-+	misdn_permitted_gid = make_kgid(current_user_ns(), gid);
-+
- 	printk(KERN_INFO "Modular ISDN core version %d.%d.%d\n",
- 	       MISDN_MAJOR_VERSION, MISDN_MINOR_VERSION, MISDN_RELEASE);
- 	mISDN_init_clock(&debug);
-diff -puN drivers/isdn/mISDN/core.h~misdn-add-support-for-group-membership-check drivers/isdn/mISDN/core.h
---- a/drivers/isdn/mISDN/core.h~misdn-add-support-for-group-membership-check
-+++ a/drivers/isdn/mISDN/core.h
-@@ -17,6 +17,7 @@
- 
- extern struct mISDNdevice	*get_mdevice(u_int);
- extern int			get_mdevice_count(void);
-+extern kgid_t misdn_permitted_gid;
- 
- /* stack status flag */
- #define mISDN_STACK_ACTION_MASK		0x0000ffff
-diff -puN drivers/isdn/mISDN/socket.c~misdn-add-support-for-group-membership-check drivers/isdn/mISDN/socket.c
---- a/drivers/isdn/mISDN/socket.c~misdn-add-support-for-group-membership-check
-+++ a/drivers/isdn/mISDN/socket.c
-@@ -612,6 +612,11 @@ data_sock_create(struct net *net, struct
- {
- 	struct sock *sk;
- 
-+	if (!capable(CAP_SYS_ADMIN) &&
-+			!gid_eq(misdn_permitted_gid, current_gid()) &&
-+			!in_group_p(misdn_permitted_gid))
-+		return -EPERM;
-+
- 	if (sock->type != SOCK_DGRAM)
- 		return -ESOCKTNOSUPPORT;
- 
-@@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns
- 	case IMSETDEVNAME:
- 	{
- 		struct mISDN_devrename dn;
-+		if (!capable(CAP_SYS_ADMIN) &&
-+				!gid_eq(misdn_permitted_gid, current_gid()) &&
-+				!in_group_p(misdn_permitted_gid))
-+			return -EPERM;
- 		if (copy_from_user(&dn, (void __user *)arg,
- 				   sizeof(dn))) {
- 			err = -EFAULT;
-_
+That patch is out of date and does not apply cleanly to current iproute2
