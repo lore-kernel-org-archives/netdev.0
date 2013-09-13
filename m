@@ -1,51 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] bonding: Make alb learning packet interval
- configurable
-Date: Thu, 12 Sep 2013 23:01:16 -0400
-Message-ID: <20130913030116.GA15143@neilslaptop.think-freely.org>
-References: <1378822490-28667-1-git-send-email-nhorman@tuxdriver.com>
- <1378845543-14876-1-git-send-email-nhorman@tuxdriver.com>
- <20130912.164948.1364121695106020281.davem@davemloft.net>
- <20130912210613.GA15224@gospo.rdu.redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH v2 3/6] ipv6: del statements for dealing with NDISC_REDIRECT
+Date: Fri, 13 Sep 2013 11:00:41 +0800
+Message-ID: <52327FD9.8080108@cn.fujitsu.com>
+References: <52327F00.4040802@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vfalico@redhat.com, nhorman@redhat.com, fubar@us.ibm.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56697 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968Ab3IMDBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 23:01:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20130912210613.GA15224@gospo.rdu.redhat.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:35768 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968Ab3IMDBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Sep 2013 23:01:40 -0400
+In-Reply-To: <52327F00.4040802@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 12, 2013 at 05:06:13PM -0400, Andy Gospodarek wrote:
-> On Thu, Sep 12, 2013 at 04:49:48PM -0400, David Miller wrote:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Tue, 10 Sep 2013 16:39:03 -0400
-> > 
-> > > From: Neil Horman <nhorman@redhat.com>
-> > > 
-> > > running bonding in ALB mode requires that learning packets be sent periodically,
-> > > so that the switch knows where to send responding traffic.  However, depending
-> > > on switch configuration, there may not be any need to send traffic at the
-> > > default rate of 3 packets per second, which represents little more than wasted
-> > > data.  Allow the ALB learning packet interval to be made configurable via sysfs
-> > > 
-> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > 
-> > I hate to be a stickler, but I'd like you to make the default value
-> > documented both in the code and in the documentation.
-> > 
-> > Use some macro for the code "#define BOND_ALB_DEFAULT_LP_INTERVAL 1" and
-> > mention the default in the bonding.txt changes.
-> > 
-> 
-> Agree with DaveM on this.  You can just keep the one that was there and
-> it should be pretty easy.
-> 
-Yeah, sure I can do that. v3 in the AM
-Neil
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+
+Now the route updating for redirect is done in ndisc
+layer.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv6/icmp.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index eef8d94..4bde43c 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -91,8 +91,6 @@ static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 
+ 	if (type == ICMPV6_PKT_TOOBIG)
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+-	else if (type == NDISC_REDIRECT)
+-		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+ 
+ 	if (!(type & ICMPV6_INFOMSG_MASK))
+ 		if (icmp6->icmp6_type == ICMPV6_ECHO_REQUEST)
+-- 
+1.8.3.1
