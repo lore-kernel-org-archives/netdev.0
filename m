@@ -1,50 +1,67 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH] net: smsc: remove deprecated IRQF_DISABLED
-Date: Fri, 13 Sep 2013 09:56:07 +0100
-Message-ID: <20130913085607.GA20681@mudshark.cambridge.arm.com>
-References: <1379046467-6900-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [patch -stable] igbvf: integer wrapping bug setting the mtu
+Date: Fri, 13 Sep 2013 09:58:25 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B732F@saturn3.aculab.com>
+References: <20130913083736.GK19211@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	davidb@quicinc.com
-To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1379046467-6900-1-git-send-email-michael.opdenacker@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jesse Brandeburg" <jesse.brandeburg@intel.com>,
+	"Bruce Allan" <bruce.w.allan@intel.com>,
+	"Carolyn Wyborny" <carolyn.wyborny@intel.com>,
+	"Don Skidmore" <donald.c.skidmore@intel.com>,
+	"Greg Rose" <gregory.v.rose@intel.com>,
+	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>,
+	"Alex Duyck" <alexander.h.duyck@intel.com>,
+	"John Ronciak" <john.ronciak@intel.com>,
+	"Tushar Dave" <tushar.n.dave@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Mitch Williams" <mitch.a.williams@intel.com>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: "Dan Carpenter" <dan.carpenter@oracle.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:56250 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754024Ab3IMJAG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 05:00:06 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 14786-02 for <netdev@vger.kernel.org>;
+ Fri, 13 Sep 2013 09:59:58 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130913083736.GK19211@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[adding David Brown]
-
-On Fri, Sep 13, 2013 at 05:27:47AM +0100, Michael Opdenacker wrote:
-> This patch proposes to remove the IRQF_DISABLED flag from
-> code in drivers/net/ethernet/smsc/
+> If new_mtu is very large then "new_mtu + ETH_HLEN + ETH_FCS_LEN" can
+> wrap and the check on the next line can underflow. This is one of those
+> bugs which can be triggered by the user if you have namespaces
+> configured.
 > 
-> It's a NOOP since 2.6.35 and it will be removed one day.
+> This is a static checker fix and I'm not sure what the impact is.
 > 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-> ---
->  drivers/net/ethernet/smsc/smc91x.h   | 2 +-
->  drivers/net/ethernet/smsc/smsc9420.c | 3 +--
->  2 files changed, 2 insertions(+), 3 deletions(-)
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 > 
-> diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-> index 370e13d..5730fe2 100644
-> --- a/drivers/net/ethernet/smsc/smc91x.h
-> +++ b/drivers/net/ethernet/smsc/smc91x.h
-> @@ -271,7 +271,7 @@ static inline void mcf_outsw(void *a, unsigned char *p, int l)
->  #define SMC_insw(a, r, p, l)	mcf_insw(a + r, p, l)
->  #define SMC_outsw(a, r, p, l)	mcf_outsw(a + r, p, l)
->  
-> -#define SMC_IRQ_FLAGS		(IRQF_DISABLED)
-> +#define SMC_IRQ_FLAGS		0
+> diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+> index 95d5430..24e3883 100644
+> --- a/drivers/net/ethernet/intel/igbvf/netdev.c
+> +++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+> @@ -2342,7 +2342,7 @@ static struct net_device_stats *igbvf_get_stats(struct net_device *netdev)
+>  static int igbvf_change_mtu(struct net_device *netdev, int new_mtu)
+>  {
+>  	struct igbvf_adapter *adapter = netdev_priv(netdev);
+> -	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+> +	unsigned int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+> 
+>  	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
+>  		dev_err(&adapter->pdev->dev, "Invalid MTU setting\n");
 
-After this change, the only machine that defines the flags to anything other
-than IRQF_TRIGGER_RISING is MSM, which uses IRQF_TRIGGER_HIGH. David: do
-you actually need this? The irq_chip code under mach-msm doesn't seem to
-distinguish between the two.
+It is safer to check:
+  	if ((new_mtu < 68) || (new_mtu > MAX_JUMBO_FRAME_SIZE - ETH_HLEN - ETH_FCS_LEN)) {
 
-Will
+	David
