@@ -1,46 +1,50 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 4/7] ptp: switch to use gpiolib
-Date: Fri, 13 Sep 2013 10:38:21 +0200
-Message-ID: <CACRpkdZOCkLmgQHZSiqQfvLp=WzNsaE5AcY3siJ0b=bL0Xv8Pg@mail.gmail.com>
-References: <1378816260-8091-1-git-send-email-linus.walleij@linaro.org>
-	<20130910141912.GB5088@netboy>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] net: smsc: remove deprecated IRQF_DISABLED
+Date: Fri, 13 Sep 2013 09:56:07 +0100
+Message-ID: <20130913085607.GA20681@mudshark.cambridge.arm.com>
+References: <1379046467-6900-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:52071 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756011Ab3IMIiW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 04:38:22 -0400
-Received: by mail-oa0-f42.google.com with SMTP id n12so896194oag.29
-        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 01:38:21 -0700 (PDT)
-In-Reply-To: <20130910141912.GB5088@netboy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	davidb@quicinc.com
+To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1379046467-6900-1-git-send-email-michael.opdenacker@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 10, 2013 at 4:19 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Tue, Sep 10, 2013 at 02:31:00PM +0200, Linus Walleij wrote:
+[adding David Brown]
 
->> Hi Richard, I'm seeking an ACK on this patch to take it throug
->> the GPIO tree as part of a clean-out of custom GPIO implementations.
->
-> I don't have this hardware for testing (it is really obsolete now),
-> but the change looks okay to me.
->
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
+On Fri, Sep 13, 2013 at 05:27:47AM +0100, Michael Opdenacker wrote:
+> This patch proposes to remove the IRQF_DISABLED flag from
+> code in drivers/net/ethernet/smsc/
+> 
+> It's a NOOP since 2.6.35 and it will be removed one day.
+> 
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+> ---
+>  drivers/net/ethernet/smsc/smc91x.h   | 2 +-
+>  drivers/net/ethernet/smsc/smsc9420.c | 3 +--
+>  2 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+> index 370e13d..5730fe2 100644
+> --- a/drivers/net/ethernet/smsc/smc91x.h
+> +++ b/drivers/net/ethernet/smsc/smc91x.h
+> @@ -271,7 +271,7 @@ static inline void mcf_outsw(void *a, unsigned char *p, int l)
+>  #define SMC_insw(a, r, p, l)	mcf_insw(a + r, p, l)
+>  #define SMC_outsw(a, r, p, l)	mcf_outsw(a + r, p, l)
+>  
+> -#define SMC_IRQ_FLAGS		(IRQF_DISABLED)
+> +#define SMC_IRQ_FLAGS		0
 
-Thanks, I have found numerous active hobbyists using the
-IXP4-based NSLU2 NAS machine for various things - mostly
-non-network related as it happens, so it'll be with us for a
-while I think.
+After this change, the only machine that defines the flags to anything other
+than IRQF_TRIGGER_RISING is MSM, which uses IRQF_TRIGGER_HIGH. David: do
+you actually need this? The irq_chip code under mach-msm doesn't seem to
+distinguish between the two.
 
-Yours,
-Linus Walleij
+Will
