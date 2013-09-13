@@ -1,52 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] [Trivial] remove unnecessary header file inclusion
-Date: Fri, 13 Sep 2013 17:11:27 +0100
-Message-ID: <1379088687.2438.13.camel@bwh-desktop.uk.level5networks.com>
-References: <20130913145718.GA2536@will>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] ath9k: mark wmi_event_swba as __packed
+Date: Fri, 13 Sep 2013 12:14:09 -0400
+Message-ID: <201309131617.r8DGHu7H000791@farm-0013.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: ZHAO Gang <gamerh2o@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49012 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753037Ab3IMQLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 12:11:34 -0400
-In-Reply-To: <20130913145718.GA2536@will>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	Jouni Malinen <jouni@qca.qualcomm.com>,
+	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
+	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <ath9k-devel@venema.h4ckr.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-09-13 at 22:57 +0800, ZHAO Gang wrote:
-> file linux/fib_rules.h doesn't exist, so remove it.
+The other structures in wmi.h are already marked this way.
+Without this marking, we get an unaliged access panic in the tilegx kernel:
 
-Do you think people wouldn't notice #include of a nonexistent file?  gcc
-is quite good at complaining about them...
+Starting stack dump of tid 0, pid 0 (swapper) on cpu 35 at cycle 198675113844
+  frame 0: 0xfffffff7103ada90 ath9k_htc_swba+0x120/0x618 [ath9k_htc]
+  frame 1: 0xfffffff7103a4b10 ath9k_wmi_event_tasklet+0x1b0/0x270 [ath9k_htc]
+  frame 2: 0xfffffff700326570 tasklet_action+0x148/0x298
+  [...]
 
-It's now called include/uapi/linux/fib_rules.h.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/wireless/ath/ath9k/wmi.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ben.
-
-> Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
-> ---
->  include/net/fib_rules.h | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-> index 4b2b557..c816f91 100644
-> --- a/include/net/fib_rules.h
-> +++ b/include/net/fib_rules.h
-> @@ -4,7 +4,6 @@
->  #include <linux/types.h>
->  #include <linux/slab.h>
->  #include <linux/netdevice.h>
-> -#include <linux/fib_rules.h>
->  #include <net/flow.h>
->  #include <net/rtnetlink.h>
->  
-
+diff --git a/drivers/net/wireless/ath/ath9k/wmi.h b/drivers/net/wireless/ath/ath9k/wmi.h
+index fde6da6..0db37f2 100644
+--- a/drivers/net/wireless/ath/ath9k/wmi.h
++++ b/drivers/net/wireless/ath/ath9k/wmi.h
+@@ -39,7 +39,7 @@ struct wmi_fw_version {
+ struct wmi_event_swba {
+ 	__be64 tsf;
+ 	u8 beacon_pending;
+-};
++} __packed;
+ 
+ /*
+  * 64 - HTC header - WMI header - 1 / txstatus
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.1
