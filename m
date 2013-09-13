@@ -1,120 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] vxlan: Fix sparse warnings
-Date: Fri, 13 Sep 2013 07:34:13 -0700
-Message-ID: <1379082853-28172-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net, vxlan Fix compile warning
+Date: Fri, 13 Sep 2013 07:40:10 -0700
+Message-ID: <20130913074010.5a778f79@samsung-9>
+References: <1379075352-20051-1-git-send-email-prarit@redhat.com>
+	<20130913072028.54b1c28d@samsung-9>
+	<52331FF7.3070905@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jpirko@redhat.com, tgraf@redhat.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Prarit Bhargava <prarit@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44708 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932683Ab3IMOeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Sep 2013 10:34:18 -0400
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:56038 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756704Ab3IMOkP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 10:40:15 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so1335499pdi.27
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 07:40:15 -0700 (PDT)
+In-Reply-To: <52331FF7.3070905@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+On Fri, 13 Sep 2013 10:23:51 -0400
+Prarit Bhargava <prarit@redhat.com> wrote:
 
-This patch fixes sparse warnings when incorrectly handling the port number
-and using int instead of unsigned int iterating through &vn->sock_list[].
-Keeping the port as __be16 also makes things clearer wrt endianess.
-Also, it was pointed out that vxlan_get_rx_port() had unnecessary checks
-which got removed.
+>=20
+>=20
+> On 09/13/2013 10:20 AM, Stephen Hemminger wrote:
+> > On Fri, 13 Sep 2013 08:29:12 -0400
+> > Prarit Bhargava <prarit@redhat.com> wrote:
+> >=20
+> >> Fix a unintialized variable warning.
+> >>
+> >> drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
+> >> drivers/net/vxlan.c:2240:11: error: =E2=80=98sock=E2=80=99 may be =
+used uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+> >>   vs->sock =3D sock;
+> >>            ^
+> >> drivers/net/vxlan.c:2217:17: note: =E2=80=98sock=E2=80=99 was decl=
+ared here
+> >>   struct socket *sock;
+> >>                  ^
+> >>
+> >> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+> >> Cc: jpirko@redhat.com
+> >> Cc: tgraf@redhat.com
+> >> Cc: "David S. Miller" <davem@davemloft.net>
+> >=20
+> > Which compiler version? Gcc 4.6 is known to be stupid,
+> > and I would rather not change the source if it is only caused
+> > by a gcc bug fixed in a later release.
+>=20
+> Hi Stephen,
+>=20
+> [root@intel-rosecity-06 ~]# gcc --version
+> gcc (GCC) 4.8.1 20130603 (Red Hat 4.8.1-1)
+> Copyright (C) 2013 Free Software Foundation, Inc.
+> This is free software; see the source for copying conditions.  There =
+is NO
+> warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PU=
+RPOSE.
+>=20
+> P.
 
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/vxlan.c       | 18 ++++++++----------
- include/linux/netdevice.h |  8 ++++----
- 2 files changed, 12 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index bf64b41..2400b1b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -564,7 +564,7 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
- 	struct net_device *dev;
- 	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
--	u16 port = htons(inet_sk(sk)->inet_sport);
-+	__be16 port = inet_sk(sk)->inet_sport;
- 
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
-@@ -581,7 +581,7 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
- 	struct net_device *dev;
- 	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
--	u16 port = htons(inet_sk(sk)->inet_sport);
-+	__be16 port = inet_sk(sk)->inet_sport;
- 
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
-@@ -2021,7 +2021,8 @@ static struct device_type vxlan_type = {
- };
- 
- /* Calls the ndo_add_vxlan_port of the caller in order to
-- * supply the listening VXLAN udp ports.
-+ * supply the listening VXLAN udp ports. Callers are expected
-+ * to implement the ndo_add_vxlan_port.
-  */
- void vxlan_get_rx_port(struct net_device *dev)
- {
-@@ -2029,16 +2030,13 @@ void vxlan_get_rx_port(struct net_device *dev)
- 	struct net *net = dev_net(dev);
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	sa_family_t sa_family;
--	u16 port;
--	int i;
--
--	if (!dev || !dev->netdev_ops || !dev->netdev_ops->ndo_add_vxlan_port)
--		return;
-+	__be16 port;
-+	unsigned int i;
- 
- 	spin_lock(&vn->sock_lock);
- 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
--		hlist_for_each_entry_rcu(vs, vs_head(net, i), hlist) {
--			port = htons(inet_sk(vs->sock->sk)->inet_sport);
-+		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
-+			port = inet_sk(vs->sock->sk)->inet_sport;
- 			sa_family = vs->sock->sk->sk_family;
- 			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
- 							    port);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 041b42a..3de49ac 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -950,14 +950,14 @@ struct netdev_phys_port_id {
-  *	multiple net devices on single physical port.
-  *
-  * void (*ndo_add_vxlan_port)(struct  net_device *dev,
-- *			      sa_family_t sa_family, __u16 port);
-+ *			      sa_family_t sa_family, __be16 port);
-  *	Called by vxlan to notiy a driver about the UDP port and socket
-  *	address family that vxlan is listnening to. It is called only when
-  *	a new port starts listening. The operation is protected by the
-  *	vxlan_net->sock_lock.
-  *
-  * void (*ndo_del_vxlan_port)(struct  net_device *dev,
-- *			      sa_family_t sa_family, __u16 port);
-+ *			      sa_family_t sa_family, __be16 port);
-  *	Called by vxlan to notify the driver about a UDP port and socket
-  *	address family that vxlan is not listening to anymore. The operation
-  *	is protected by the vxlan_net->sock_lock.
-@@ -1093,10 +1093,10 @@ struct net_device_ops {
- 							struct netdev_phys_port_id *ppid);
- 	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
--						      __u16 port);
-+						      __be16 port);
- 	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
--						      __u16 port);
-+						      __be16 port);
- };
- 
- /*
--- 
-1.8.3.1
+Argh, gcc got stupid again. I guess we have to live it.
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
