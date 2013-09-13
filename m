@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] resubmit bridge: fix message_age_timer
-	calculation
-Date: Thu, 12 Sep 2013 23:31:08 -0400 (EDT)
-Message-ID: <20130912.233108.685057998121546379.davem@davemloft.net>
-References: <1378960667-5092-1-git-send-email-cphealy@gmail.com>
+Subject: Re: bridge: Clamp forward_delay when enabling STP
+Date: Thu, 12 Sep 2013 23:32:33 -0400 (EDT)
+Message-ID: <20130912.233233.870577692268998436.davem@davemloft.net>
+References: <20130912071204.GA16548@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, buytenh@wantstofly.org
-To: cphealy@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1378960667-5092-1-git-send-email-cphealy@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41770 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968Ab3IMDce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 23:32:34 -0400
+In-Reply-To: <20130912071204.GA16548@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Healy <cphealy@gmail.com>
-Date: Wed, 11 Sep 2013 21:37:47 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 12 Sep 2013 17:12:05 +1000
 
-> This changes the message_age_timer calculation to use the BPDU's max age as
-> opposed to the local bridge's max age.  This is in accordance with section
-> 8.6.2.3.2 Step 2 of the 802.1D-1998 sprecification.
+> At some point limits were added to forward_delay.  However, the
+> limits are only enforced when STP is enabled.  This created a
+> scenario where you could have a value outside the allowed range
+> while STP is disabled, which then stuck around even after STP
+> is enabled.
 > 
-> With the current implementation, when running with very large bridge
-> diameters, convergance will not always occur even if a root bridge is 
-> configured to have a longer max age.
+> This patch fixes this by clamping the value when we enable STP.
 > 
-> Tested successfully on bridge diameters of ~200.
+> I had to move the locking around a bit to ensure that there is
+> no window where someone could insert a value outside the range
+> while we're in the middle of enabling STP.
 > 
-> Signed-off-by: Chris Healy <cphealy@gmail.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied and queued up for -stable, thanks!
+Applied and queued up for -stable, thanks Herbert.
