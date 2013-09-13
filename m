@@ -1,62 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -stable] igbvf: integer wrapping bug setting
-	the mtu
-Date: Fri, 13 Sep 2013 11:37:36 +0300
-Message-ID: <20130913083736.GK19211@elgon.mountain>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH 4/7] ptp: switch to use gpiolib
+Date: Fri, 13 Sep 2013 10:38:21 +0200
+Message-ID: <CACRpkdZOCkLmgQHZSiqQfvLp=WzNsaE5AcY3siJ0b=bL0Xv8Pg@mail.gmail.com>
+References: <1378816260-8091-1-git-send-email-linus.walleij@linaro.org>
+	<20130910141912.GB5088@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Ronciak <john.ronciak@intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Imre Kaloz <kaloz@openwrt.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:52071 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756011Ab3IMIiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 04:38:22 -0400
+Received: by mail-oa0-f42.google.com with SMTP id n12so896194oag.29
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 01:38:21 -0700 (PDT)
+In-Reply-To: <20130910141912.GB5088@netboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If new_mtu is very large then "new_mtu + ETH_HLEN + ETH_FCS_LEN" can
-wrap and the check on the next line can underflow. This is one of those
-bugs which can be triggered by the user if you have namespaces
-configured.
+On Tue, Sep 10, 2013 at 4:19 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Tue, Sep 10, 2013 at 02:31:00PM +0200, Linus Walleij wrote:
 
-This is a static checker fix and I'm not sure what the impact is.
+>> Hi Richard, I'm seeking an ACK on this patch to take it throug
+>> the GPIO tree as part of a clean-out of custom GPIO implementations.
+>
+> I don't have this hardware for testing (it is really obsolete now),
+> but the change looks okay to me.
+>
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Thanks, I have found numerous active hobbyists using the
+IXP4-based NSLU2 NAS machine for various things - mostly
+non-network related as it happens, so it'll be with us for a
+while I think.
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 95d5430..24e3883 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2342,7 +2342,7 @@ static struct net_device_stats *igbvf_get_stats(struct net_device *netdev)
- static int igbvf_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct igbvf_adapter *adapter = netdev_priv(netdev);
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	unsigned int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
- 
- 	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
- 		dev_err(&adapter->pdev->dev, "Invalid MTU setting\n");
-
-------------------------------------------------------------------------------
-How ServiceNow helps IT people transform IT departments:
-1. Consolidate legacy IT systems to a single system of record for IT
-2. Standardize and globalize service processes across IT
-3. Implement zero-touch automation to replace manual, redundant tasks
-http://pubads.g.doubleclick.net/gampad/clk?id=51271111&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Yours,
+Linus Walleij
