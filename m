@@ -1,78 +1,117 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [patch v2 -stable] igbvf: integer wrapping bug setting the mtu
-Date: Fri, 13 Sep 2013 05:39:44 -0700
-Message-ID: <1379075984.1995.9.camel@jtkirshe-mobl>
-References: <20130913122927.GA31819@elgon.mountain>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net v2] net: sctp: fix ipv6 ipsec encryption bug in
+ sctp_v6_xmit
+Date: Fri, 13 Sep 2013 08:42:25 -0400
+Message-ID: <20130913124225.GA31185@hmsreliant.think-freely.org>
+References: <1378911516-15942-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-V4sA63ToewYOBz/k4ftM"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130913122927.GA31819@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, adobriyan@gmail.com,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60539 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751847Ab3IMMmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 08:42:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1378911516-15942-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---=-V4sA63ToewYOBz/k4ftM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2013-09-13 at 15:29 +0300, Dan Carpenter wrote:
-> If new_mtu is very large then "new_mtu + ETH_HLEN + ETH_FCS_LEN" can
-> wrap and the check on the next line can underflow. This is one of
-> those
-> bugs which can be triggered by the user if you have namespaces
-> configured.
->=20
-> Also since this is something the user can trigger then we don't want
-> to
-> have dev_err() message.
->=20
-> This is a static checker fix and I'm not sure what the impact is.
+On Wed, Sep 11, 2013 at 04:58:36PM +0200, Daniel Borkmann wrote:
+> Alan Chester reported an issue with IPv6 on SCTP that IPsec traffic is not
+> being encrypted, whereas on IPv4 it is. Setting up an AH + ESP transport
+> does not seem to have the desired effect:
+> 
+> SCTP + IPv4:
+> 
+>   22:14:20.809645 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 116)
+>     192.168.0.2 > 192.168.0.5: AH(spi=0x00000042,sumlen=16,seq=0x1): ESP(spi=0x00000044,seq=0x1), length 72
+>   22:14:20.813270 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags [DF], proto AH (51), length 340)
+>     192.168.0.5 > 192.168.0.2: AH(spi=0x00000043,sumlen=16,seq=0x1):
+> 
+> SCTP + IPv6:
+> 
+>   22:31:19.215029 IP6 (class 0x02, hlim 64, next-header SCTP (132) payload length: 364)
+>     fe80::222:15ff:fe87:7fc.3333 > fe80::92e6:baff:fe0d:5a54.36767: sctp
+>     1) [INIT ACK] [init tag: 747759530] [rwnd: 62464] [OS: 10] [MIS: 10]
+> 
+> Moreover, Alan says:
+> 
+>   This problem was seen with both Racoon and Racoon2. Other people have seen
+>   this with OpenSwan. When IPsec is configured to encrypt all upper layer
+>   protocols the SCTP connection does not initialize. After using Wireshark to
+>   follow packets, this is because the SCTP packet leaves Box A unencrypted and
+>   Box B believes all upper layer protocols are to be encrypted so it drops
+>   this packet, causing the SCTP connection to fail to initialize. When IPsec
+>   is configured to encrypt just SCTP, the SCTP packets are observed unencrypted.
+> 
+> In fact, using `socat sctp6-listen:3333 -` on one end and transferring "plaintext"
+> string on the other end, results in cleartext on the wire where SCTP eventually
+> does not report any errors, thus in the latter case that Alan reports, the
+> non-paranoid user might think he's communicating over an encrypted transport on
+> SCTP although he's not (tcpdump ... -X):
+> 
+>   ...
+>   0x0030: 5d70 8e1a 0003 001a 177d eb6c 0000 0000  ]p.......}.l....
+>   0x0040: 0000 0000 706c 6169 6e74 6578 740a 0000  ....plaintext...
+> 
+> Only in /proc/net/xfrm_stat we can see XfrmInTmplMismatch increasing on the
+> receiver side. Initial follow-up analysis from Alan's bug report was done by
+> Alexey Dobriyan. Also thanks to Vlad Yasevich for feedback on this.
+> 
+> SCTP has its own implementation of sctp_v6_xmit() not calling inet6_csk_xmit().
+> This has the implication that it probably never really got updated along with
+> changes in inet6_csk_xmit() and therefore does not seem to invoke xfrm handlers.
+> 
+> SCTP's IPv4 xmit however, properly calls ip_queue_xmit() to do the work. Since
+> a call to inet6_csk_xmit() would solve this problem, but result in unecessary
+> route lookups, let us just use the cached flowi6 instead that we got through
+> sctp_v6_get_dst(). Since all SCTP packets are being sent through sctp_packet_transmit(),
+> we do the route lookup / flow caching in sctp_transport_route(), hold it in
+> tp->dst and skb_dst_set() right after that. If we would alter fl6->daddr in
+> sctp_v6_xmit() to np->opt->srcrt, we possibly could run into the same effect
+> of not having xfrm layer pick it up, hence, use fl6_update_dst() in sctp_v6_get_dst()
+> instead to get the correct source routed dst entry, which we assign to the skb.
+> 
+> Also source address routing example from 625034113 ("sctp: fix sctp to work with
+> ipv6 source address routing") still works with this patch! Nevertheless, in RFC5095
+> it is actually 'recommended' to not use that anyway due to traffic amplification [1].
+> So it seems we're not supposed to do that anyway in sctp_v6_xmit(). Moreover, if
+> we overwrite the flow destination here, the lower IPv6 layer will be unable to
+> put the correct destination address into IP header, as routing header is added in
+> ipv6_push_nfrag_opts() but then probably with wrong final destination. Things aside,
+> result of this patch is that we do not have any XfrmInTmplMismatch increase plus on
+> the wire with this patch it now looks like:
+> 
+> SCTP + IPv6:
+> 
+>   08:17:47.074080 IP6 2620:52:0:102f:7a2b:cbff:fe27:1b0a > 2620:52:0:102f:213:72ff:fe32:7eba:
+>     AH(spi=0x00005fb4,seq=0x1): ESP(spi=0x00005fb5,seq=0x1), length 72
+>   08:17:47.074264 IP6 2620:52:0:102f:213:72ff:fe32:7eba > 2620:52:0:102f:7a2b:cbff:fe27:1b0a:
+>     AH(spi=0x00003d54,seq=0x1): ESP(spi=0x00003d55,seq=0x1), length 296
+> 
+> This fixes Kernel Bugzilla 24412. This security issue seems to be present since
+> 2.6.18 kernels. Lets just hope some big passive adversary in the wild didn't have
+> its fun with that. lksctp-tools IPv6 regression test suite passes as well with
+> this patch.
+> 
+>  [1] http://www.secdev.org/conf/IPv6_RH_security-csw07.pdf
+> 
+> Reported-by: Alan Chester <alan.chester@tekelec.com>
+> Reported-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
-> v2: reformat and also remove the dev_err()
->=20
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Thanks Dan, I have added your patch to my queue.
-
---=-V4sA63ToewYOBz/k4ftM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAABCgAGBQJSMweQAAoJEOVv75VaS+3OXGkQAJH6h2MjI6HWqoOY/Az1qrsb
-TuA0KCm3DjH1QN1QwVv70K9V4wAN4JibNFEX3QlOsSFJBG8L0edgWK8M7xuxEOwq
-S4cj/n+T4v5RsfBhXcIF/SvIl5CgB6w6cy/uJEL0AQAwJVL8uX81s5LxhadbRch5
-a8BA2KgPNTI/gezqW7imwQg7VQBjTFru69u/K2baKsdcYesae9tScxdIi8qNvgGz
-ZAK3PVnqOCDG++gKsgjwX+bEnYBKXM9h6+O19Wsv2eJHMBsd0Ob+5VL7qRedCbUj
-QpUYRuoPPU67N1+imGbx9nq69zbuZjexmiqVPVMEloWDvkvkI0fmgkRvaCn1+G7Y
-KdUM3elE53/HgaxEezYeVjSG27gPolSFyU69wRAT6oabRn8RnGDM9wKmBFHxXoX/
-Vxi8xJwMCLSSNRzFGDEPoqGUD4AUJ1m9BKGoNxliDwhAzWSPUDPA10phzCy/yIht
-U5DWosKKR4QKbieVcMYvgk+kAhV62v3qGE0svxWj8xemN5UMJ/nSJzaODK+wKpCr
-h88z+01elDk790Z4xUfjVBZ5JjwB4mtmusMv5u/fNgxw2woNL9E8z9b25Jnn9IVZ
-aruSsIGj0Ik+maX20MLk5pog7sH0cYk5bfF/xbFvrJFNNt8nHgb5eqkXxS86Rt8B
-qQS2EpkD1MKU8mX0Xwok
-=BiXj
------END PGP SIGNATURE-----
-
---=-V4sA63ToewYOBz/k4ftM--
-
+>  v1->v2:
+>   - use cached flow
+>   - improved commit msg
+> 
+>  net/sctp/ipv6.c | 42 +++++++++++++-----------------------------
+>  1 file changed, 13 insertions(+), 29 deletions(-)
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
