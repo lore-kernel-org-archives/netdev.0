@@ -1,39 +1,50 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.39 6/7] datapath: Break out deacceleration portion of vlan_push
-Date: Fri, 13 Sep 2013 15:07:12 -0700
-Message-ID: <CAEP_g=_ZQ6hNpxoHm6t3N=PxA+3WTrvNegL514j0R3GDM5C92A@mail.gmail.com>
-References: <1378711207-29890-1-git-send-email-horms@verge.net.au> <1378711207-29890-7-git-send-email-horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH v2.39 0/7] MPLS actions and matches
+Date: Fri, 13 Sep 2013 15:15:17 -0700
+Message-ID: <CAEP_g=9ji2ihWrVuoUrcZswrOCz_f2SFeYBTwPzbB7p=ONCPUA@mail.gmail.com>
+References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+ <20130912190636.GL16044@nicira.com> <20130912225614.GB30229@verge.net.au> <20130912225439.GH25242@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+Cc: Simon Horman <horms@verge.net.au>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
 	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
+	Ravi K <rkerur@gmail.com>
+To: Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:57183 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754990Ab3IMWHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 18:07:33 -0400
-Received: by mail-ie0-f180.google.com with SMTP id u16so3645616iet.25
-        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 15:07:32 -0700 (PDT)
-In-Reply-To: <1378711207-29890-7-git-send-email-horms@verge.net.au>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:46702 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754761Ab3IMWPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 18:15:38 -0400
+Received: by mail-ie0-f177.google.com with SMTP id qd12so3639790ieb.8
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 15:15:38 -0700 (PDT)
+In-Reply-To: <20130912225439.GH25242@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 9, 2013 at 12:20 AM, Simon Horman <horms@verge.net.au> wrote:
-> diff --git a/datapath/actions.c b/datapath/actions.c
-> index 30ea1d2..6741d81 100644
-> --- a/datapath/actions.c
-> +++ b/datapath/actions.c
-> @@ -105,22 +105,29 @@ static int pop_vlan(struct sk_buff *skb)
->         return 0;
->  }
+On Thu, Sep 12, 2013 at 3:54 PM, Ben Pfaff <blp@nicira.com> wrote:
+> On Fri, Sep 13, 2013 at 07:56:14AM +0900, Simon Horman wrote:
+>> On Thu, Sep 12, 2013 at 12:06:36PM -0700, Ben Pfaff wrote:
+>> > I've totally lost track of the status of this patch series.  I assume it
+>> > needs Jesse's review.  Jesse, if I'm wrong about that, let me know and
+>> > I'll take a pass at it.
+>>
+>> My understanding is that you have looked over the approach
+>> taken for the non-datapath code and were happy with it in
+>> the context that it needed review from Jesse along with the
+>> datapath code.
+>>
+>> I believe it was a few revisions ago that you looked over
+>> the series but I don't believe the non-datapath code has changed
+>> in a meaningful way since then.
 >
-> -static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
-> +/* push down current VLAN tag */
-> +static struct sk_buff *put_vlan(struct sk_buff *skb)
+> That sounds plausible, thanks for refreshing my memory.
 
-This never changes the skb, right? Can we simplify things and just
-return an error code?
+I haven't really reviewed the userspace code but there is one thing in
+particular that concerns me: mpls_depth in the flow structure. We
+obviously can't be making flow-level decisions on information that the
+kernel doesn't include in the flow and I think that it is mostly
+vestigial at this point. However, at best the name seems misleading
+and at worst could result in someone trying to use information that we
+don't really have. Can we fix this somehow? Maybe using the BoS bit?
