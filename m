@@ -1,204 +1,66 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH v3] bonding: Make alb learning packet interval
- configurable
-Date: Fri, 13 Sep 2013 11:38:34 -0400
-Message-ID: <20130913153834.GA23623@gospo.rdu.redhat.com>
-References: <1378822490-28667-1-git-send-email-nhorman@tuxdriver.com>
- <1379084733-9219-1-git-send-email-nhorman@tuxdriver.com>
+From: Andy Johnson <johnsonzjo@gmail.com>
+Subject: Re: ICMP rate limiting in IPv4 but not in IPv6
+Date: Fri, 13 Sep 2013 18:57:56 +0300
+Message-ID: <CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com>
+References: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61088 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756440Ab3IMPlr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Sep 2013 11:41:47 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r8DFfkWi004825
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 11:41:47 -0400
-Received: from gospo.rdu.redhat.com (gospo.rdu.redhat.com [10.13.136.34])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r8DFfiLu018561
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 11:41:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1379084733-9219-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:63071 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755032Ab3IMP55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 11:57:57 -0400
+Received: by mail-we0-f176.google.com with SMTP id u56so1323387wes.21
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 08:57:56 -0700 (PDT)
+In-Reply-To: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 13, 2013 at 11:05:33AM -0400, Neil Horman wrote:
-> running bonding in ALB mode requires that learning packets be sent periodically,
-> so that the switch knows where to send responding traffic.  However, depending
-> on switch configuration, there may not be any need to send traffic at the
-> default rate of 3 packets per second, which represents little more than wasted
-> data.  Allow the ALB learning packet interval to be made configurable via sysfs
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Hello,
+After probing into the RFC of ICMPv6, I am even more confused.
 
-Thanks for making those changes, Neil.
+RFC 4443 says:
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+2.4.  Message Processing Rules
+...
 
-> Acked-by: Acked-by: Veaceslav Falico <vfalico@redhat.com>
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: "David S. Miller" <davem@davemloft.net>
-> 
-> ---
-> Change Notes:
-> v2)
-> Add documentation
-> 
-> v3)
-> Document the default value and make it a new macro
-> ---
->  Documentation/networking/bonding.txt |  6 ++++++
->  drivers/net/bonding/bond_alb.c       |  2 +-
->  drivers/net/bonding/bond_alb.h       |  9 +++++----
->  drivers/net/bonding/bond_main.c      |  1 +
->  drivers/net/bonding/bond_sysfs.c     | 39 ++++++++++++++++++++++++++++++++++++
->  drivers/net/bonding/bonding.h        |  1 +
->  6 files changed, 53 insertions(+), 5 deletions(-)
-> 
-> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-> index 87bbcfe..9b28e71 100644
-> --- a/Documentation/networking/bonding.txt
-> +++ b/Documentation/networking/bonding.txt
-> @@ -1362,6 +1362,12 @@ To add ARP targets:
->  To remove an ARP target:
->  # echo -192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
->  
-> +To configure the interval between learning packet transmits:
-> +# echo 12 > /sys/class/net/bond0/bonding/lp_interval
-> +	NOTE: the lp_inteval is the number of seconds between instances where
-> +the bonding driver sends learning packets to each slaves peer switch.  The
-> +default interval is 1 second.
-> +
->  Example Configuration
->  ---------------------
->  	We begin with the same example that is shown in section 3.3,
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index 91f179d..f428ef57 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -1472,7 +1472,7 @@ void bond_alb_monitor(struct work_struct *work)
->  	bond_info->lp_counter++;
->  
->  	/* send learning packets */
-> -	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS) {
-> +	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
->  		/* change of curr_active_slave involves swapping of mac addresses.
->  		 * in order to avoid this swapping from happening while
->  		 * sending the learning packets, the curr_slave_lock must be held for
-> diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-> index 28d8e4c..c5eff5d 100644
-> --- a/drivers/net/bonding/bond_alb.h
-> +++ b/drivers/net/bonding/bond_alb.h
-> @@ -36,14 +36,15 @@ struct slave;
->  					 * Used for division - never set
->  					 * to zero !!!
->  					 */
-> -#define BOND_ALB_LP_INTERVAL	    1	/* In seconds, periodic send of
-> -					 * learning packets to the switch
-> -					 */
-> +#define BOND_ALB_DEFAULT_LP_INTERVAL 1
-> +#define BOND_ALB_LP_INTERVAL(bond) (bond->params.lp_interval)	/* In seconds, periodic send of
-> +								 * learning packets to the switch
-> +								 */
->  
->  #define BOND_TLB_REBALANCE_TICKS (BOND_TLB_REBALANCE_INTERVAL \
->  				  * ALB_TIMER_TICKS_PER_SEC)
->  
-> -#define BOND_ALB_LP_TICKS (BOND_ALB_LP_INTERVAL \
-> +#define BOND_ALB_LP_TICKS(bond) (BOND_ALB_LP_INTERVAL(bond) \
->  			   * ALB_TIMER_TICKS_PER_SEC)
->  
->  #define TLB_HASH_TABLE_SIZE 256	/* The size of the clients hash table.
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 39e5b1c..31106b5 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4416,6 +4416,7 @@ static int bond_check_params(struct bond_params *params)
->  	params->all_slaves_active = all_slaves_active;
->  	params->resend_igmp = resend_igmp;
->  	params->min_links = min_links;
-> +	params->lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
->  
->  	if (primary) {
->  		strncpy(params->primary, primary, IFNAMSIZ);
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index ce46776..4532259 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -1680,6 +1680,44 @@ out:
->  static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
->  		   bonding_show_resend_igmp, bonding_store_resend_igmp);
->  
-> +
-> +static ssize_t bonding_show_lp_interval(struct device *d,
-> +					struct device_attribute *attr,
-> +					char *buf)
-> +{
-> +	struct bonding *bond = to_bond(d);
-> +	return sprintf(buf, "%d\n", bond->params.lp_interval);
-> +}
-> +
-> +static ssize_t bonding_store_lp_interval(struct device *d,
-> +					 struct device_attribute *attr,
-> +					 const char *buf, size_t count)
-> +{
-> +	struct bonding *bond = to_bond(d);
-> +	int new_value, ret = count;
-> +
-> +	if (sscanf(buf, "%d", &new_value) != 1) {
-> +		pr_err("%s: no lp interval value specified.\n",
-> +			bond->dev->name);
-> +		ret = -EINVAL;
-> +		goto out;
-> +	}
-> +
-> +	if (new_value <= 0) {
-> +		pr_err ("%s: lp_interval must be between 1 and %d\n",
-> +			bond->dev->name, INT_MAX);
-> +		ret = -EINVAL;
-> +		goto out;
-> +	}
-> +
-> +	bond->params.lp_interval = new_value;
-> +out:
-> +	return ret;
-> +}
-> +
-> +static DEVICE_ATTR(lp_interval, S_IRUGO | S_IWUSR,
-> +		   bonding_show_lp_interval, bonding_store_lp_interval);
-> +
->  static struct attribute *per_bond_attrs[] = {
->  	&dev_attr_slaves.attr,
->  	&dev_attr_mode.attr,
-> @@ -1710,6 +1748,7 @@ static struct attribute *per_bond_attrs[] = {
->  	&dev_attr_all_slaves_active.attr,
->  	&dev_attr_resend_igmp.attr,
->  	&dev_attr_min_links.attr,
-> +	&dev_attr_lp_interval.attr,
->  	NULL,
->  };
->  
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index f7ab161..4bd9d5b 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -176,6 +176,7 @@ struct bond_params {
->  	int tx_queues;
->  	int all_slaves_active;
->  	int resend_igmp;
-> +	int lp_interval;
->  };
->  
->  struct bond_parm_tbl {
-> -- 
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+(f) Finally, in order to limit the bandwidth and forwarding costs
+       incurred by originating ICMPv6 error messages, an IPv6 node MUST
+       limit the rate of ICMPv6 error messages it originates.
+...
+The rate-limiting parameters SHOULD be configurable.
+...
+
+Any ideas?
+
+regards,
+Andy
+
+On Fri, Sep 13, 2013 at 10:21 AM, Andy Johnson <johnsonzjo@gmail.com> wrote:
+> Hello,
+>
+> I am trying to understand the difference between ICMP rate limiting
+> in IPv4 and in IPv6.
+>
+> In IPv4 we have the ability to rate limit ICMPv4 while in IPv6 we do not have
+> this ability.
+>
+> To be more code-oriented:
+> The icmpv4_xrlim_allow() method does inspect the rate mask,
+> (net->ipv4.sysctl_icmp_ratemask)
+> whereas the icmpv6_xrlim_allow() method does not inspect the rate mask.
+>
+> I do not understand why, for example, we can rate limit ICMPv4 messages of
+> Echo Reply and not rate limit ICMPv6 messages of Echo Reply.
+>
+> See: icmp_ratemask and icmp_ratelimit in Documentation/networking/ip-sysctl.txt
+>
+> I believe there is some reason behind it (adding checking of rate mask
+> seems to me trivial). I try to figure out the reason behind this but I did not
+> find anything reasonable,
+>
+> Does anybody happen to know ?
+>
+> Regards,
+> Andy
