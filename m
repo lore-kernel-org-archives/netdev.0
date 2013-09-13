@@ -1,114 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] bridge: fix NULL pointer deref in
- br_handle_frame
-Date: Fri, 13 Sep 2013 09:21:51 -0700
-Message-ID: <20130913092151.27143ccc@samsung-9>
-References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
-	<1379041787-14232-1-git-send-email-zhiguohong@tencent.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ICMP rate limiting in IPv4 but not in IPv6
+Date: Fri, 13 Sep 2013 18:44:05 +0200
+Message-ID: <20130913164404.GA32431@order.stressinduktion.org>
+References: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com> <CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	zhiguohong@tencent.com, eric.dumazet@gmail.com, vyasevic@redhat.com
-To: Hong Zhiguo <honkiko@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Andy Johnson <johnsonzjo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:48377 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754252Ab3IMQV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 12:21:59 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so1448404pdj.4
-        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 09:21:58 -0700 (PDT)
-In-Reply-To: <1379041787-14232-1-git-send-email-zhiguohong@tencent.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:56181 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab3IMQoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 12:44:07 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Sep 2013 11:09:47 +0800
-Hong Zhiguo <honkiko@gmail.com> wrote:
+On Fri, Sep 13, 2013 at 06:57:56PM +0300, Andy Johnson wrote:
+> Hello,
+> After probing into the RFC of ICMPv6, I am even more confused.
+> 
+> RFC 4443 says:
+> 
+> 2.4.  Message Processing Rules
+> ...
+> 
+> (f) Finally, in order to limit the bandwidth and forwarding costs
+>        incurred by originating ICMPv6 error messages, an IPv6 node MUST
+>        limit the rate of ICMPv6 error messages it originates.
+> ...
+> The rate-limiting parameters SHOULD be configurable.
+> ...
+> 
+> Any ideas?
 
-> From: Hong Zhiguo <zhiguohong@tencent.com>
-> 
-> I got an Oops on my box when br_handle_frame is called between these
-> 2 lines of del_nbp:
-> 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
-> 	/* --> br_handle_frame is called at this time */
-> 	netdev_rx_handler_unregister(dev);
-> 
-> In br_handle_frame the return of br_port_get_rcu(dev) is dereferenced
-> without check but br_port_get_rcu(dev) returns NULL if:
-> 	!(dev->priv_flags & IFF_BRIDGE_PORT)
-> 
-> In my first fix I moved netdev_rx_handler_unregister up. Eric Dumazet
-> pointed out the testing of IFF_BRIDGE_PORT is not necessary here since
-> we're in rcu_read_lock and we have synchronize_net() in
-> netdev_rx_handler_unregister. This fix removed the testing of
-> IFF_BRIDGE_PORT.
-> 
-> I tested the fix on my box with script doing "brctl addif" and "brctl
-> delif" repeatedly while a lot of broadcast frame present on the LAN.
-> I added msleep in del_nbp between setting of priv_flags and unregister
-> so it's easy to reproduce the oops without the fix.
-> 
-> I'll send another patch to net-next to take care of br_netfilter and
-> ebtable if necessary(seems there's NULL check following but I'll
-> have a look).
-> 
-> The Oops(some lines omitted):
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000021
-> IP: [<ffffffff8150901d>] br_handle_frame+0xed/0x230
-> Oops: 0000 [#1] PREEMPT SMP
-> RIP: 0010:[<ffffffff8150901d>]  [<ffffffff8150901d>] br_handle_frame+0xed/0x230
-> RSP: 0018:ffff880030403c10  EFLAGS: 00010286
-> Stack:
->  ffff88002c945700 ffffffff81508f30 0000000000000000 ffff88002d41e000
->  ffff880030403c98 ffffffff81477acb ffffffff81477821 ffff880030403c68
->  ffffffff81090e10 00ff88002d545c80 ffff88002c945700 ffffffff81aa50c0
-> Call Trace:
->  <IRQ>
->  [<ffffffff81508f30>] ? br_handle_frame_finish+0x300/0x300
->  [<ffffffff81477acb>] __netif_receive_skb_core+0x39b/0x880
-> 
-> Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
-> ---
->  net/bridge/br_input.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index a2fd37e..2244049 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
->  int br_handle_frame_finish(struct sk_buff *skb)
->  {
->  	const unsigned char *dest = eth_hdr(skb)->h_dest;
-> -	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-> +	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
->  	struct net_bridge *br;
->  	struct net_bridge_fdb_entry *dst;
->  	struct net_bridge_mdb_entry *mdst;
-> @@ -143,7 +143,7 @@ drop:
->  /* note: already called with rcu_read_lock */
->  static int br_handle_local_finish(struct sk_buff *skb)
->  {
-> -	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-> +	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
->  	u16 vid = 0;
->  
->  	br_vlan_get_tag(skb, &vid);
-> @@ -173,7 +173,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
->  	if (!skb)
->  		return RX_HANDLER_CONSUMED;
->  
-> -	p = br_port_get_rcu(skb->dev);
-> +	p = rcu_dereference(skb->dev->rx_handler_data);
->  
->  	if (unlikely(is_link_local_ether_addr(dest))) {
->  		/*
+Well, nobody has implemented it because nobody missed the feature yet. I
+don't believe there is another reason for that. If you come up with a
+patch, I am sure it can go upstream.
 
-There are more uses of br_port_get_rcu that have the same problem.
-For example receiving an STP packet in that window.
-I bet if you look at all the callers of br_port_get_rcu() you will
-see the same issue, therefore either the check should be removed from br_port_get_rcu.
+Do you want to try to come up with a patch? We need to be a bit
+careful regarding neighbor discovery but otherwise this should be
+relativ straightforward. In the meantime you could also implement such
+ratelimiting with netfilter.
 
-A little bit of history, the bridge code orginally did not use RCU,
-and there was a flag on the device. Then RCU was added, then the receive
-handler stuff was added.
+Greetings,
+
+  Hannes
