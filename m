@@ -1,80 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/1] net: race condition when removing virtual net_device
-Date: Thu, 12 Sep 2013 22:50:06 -0700
-Message-ID: <871u4t1d9t.fsf@xmission.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
+From: Jun Chen <jun.d.chen@intel.com>
+Subject: Re: [PATCH] Inet-hashtable: Change the range of sk->hash lock to
+ avoid the race condition.
+Date: Fri, 13 Sep 2013 10:01:40 -0400
+Message-ID: <1379080900.23597.18.camel@chenjun-workstation>
+References: <1379003549.12328.6.camel@chenjun-workstation>
+	 <1378987204.24408.1.camel@edumazet-glaptop>
+	 <1379065643.3390.3.camel@chenjun-workstation>
+	 <1379050801.24408.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:60269 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781Ab3IMFuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 01:50:17 -0400
-In-Reply-To: <CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	(Francesco Ruggeri's message of "Thu, 12 Sep 2013 14:48:19 -0700")
+Received: from mga02.intel.com ([134.134.136.20]:39812 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751467Ab3IMGC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Sep 2013 02:02:26 -0400
+In-Reply-To: <1379050801.24408.29.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francesco Ruggeri <fruggeri@aristanetworks.com> writes:
+On Thu, 2013-09-12 at 22:40 -0700, Eric Dumazet wrote:
+> On Fri, 2013-09-13 at 05:47 -0400, Jun Chen wrote:
+> > On Thu, 2013-09-12 at 05:00 -0700, Eric Dumazet wrote:
+> > > On Thu, 2013-09-12 at 12:32 -0400, Jun Chen wrote:
+> > > > When try to add node to list in __inet_hash_nolisten function, first get the
+> > > > list and then to lock for using, but in extremeness case, others can del this
+> > > > node before locking it, then the node should be null.So this patch try to lock
+> > > > firstly and then get the list for using to avoid this race condition.
+> > > 
+> > > I suspect another bug. This should not happen.
+> > > 
+> > > Care to describe the problem you got ?
+> > > 
+> > > Thanks
+> > > 
+> > > 
+> > 
+> > Ok, I just got this call stack and no more info, pls help to look it.
+> > thanks!
+> > 
+> > <1>[ 88.548263] BUG: unable to handle kernel NULL pointer dereference at
+> > 00000004
+> > <1>[ 88.548490] IP: [] __inet_hash_nolisten+0xc1/0x140
+> > <4>[ 88.548617] *pde = 00000000
+> > <4>[ 88.549927] EIP is at __inet_hash_nolisten+0xc1/0x140
+> > <4>[ 88.550008] EAX: 00000000 EBX: e08c0000 ECX: edf846e0 EDX: e08c0020
+> > <4>[ 88.550055] ESI: c20213c0 EDI: edc12dc0 EBP: ce4bfdfc ESP: ce4bfde8
+> > <4>[ 88.550137] DS: 007b ES: 007b FS: 00d8 GS: 003b SS: 0068
+> > <4>[ 88.550184] CR0: 80050033 CR2: 00000004 CR3: 2b4ff000 CR4: 001007d0
+> > <4>[ 88.550266] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+> > <4>[ 88.550346] DR6: ffff0ff0 DR7: 00000400
+> > <0>[ 88.550392] Process WebViewCoreThre (pid: 2137, ti=ce4be000
+> > task=eb193c80 task.ti=ce4be000)
+> > <0>[ 88.551746] Call Trace:
+> > <4>[ 88.551797] [] __inet_hash_connect+0x295/0x2d0
+> > <4>[ 88.551883] [] inet_hash_connect+0x40/0x50
+> > <4>[ 88.551932] [] ? inet_unhash+0x90/0x90
+> > <4>[ 88.551981] [] ? __inet_lookup_listener+0x1b0/0x1b0
+> > <4>[ 88.552067] [] tcp_v4_connect+0x247/0x4a0
+> > <4>[ 88.552117] [] ? lock_sock_nested+0x3e/0x50
+> > <4>[ 88.552205] [] inet_stream_connect+0xe2/0x290
+> > <4>[ 88.552254] [] ? _copy_from_user+0x35/0x50
+> > <4>[ 88.552342] [] sys_connect+0xb2/0xd0
+> > <4>[ 88.552393] [] ? alloc_file+0x20/0xa0
+> > <4>[ 88.552441] [] ? tcp_setsockopt+0x50/0x60
+> > <4>[ 88.552525] [] ? fget_light+0x44/0xe0
+> > <4>[ 88.552574] [] ? sock_common_setsockopt+0x27/0x40
+> > <4>[ 88.552659] [] ? _copy_from_user+0x35/0x50
+> > <4>[ 88.552708] [] sys_socketcall+0xab/0x2b0
+> > <4>[ 88.552790] [] ? trace_hardirqs_on_thunk+0xc/0x10
+> > <4>[ 88.552840] [] syscall_call+0x7/0xb
+> > <4>[ 88.552923] [] ? mutex_trylock+0x30/0x140
+> > 
+> 
+> This makes no sense to me. This could be a random memory corruption.
+> 
+> Do you have disassembly of __inet_hash_nolisten ?
+> 
+> 
+I had disassembled the __inet_hash_nolisten+0xc1, 
+the corruption is located on the:  
 
-> That would be great. There would still be one scenario to take care of though:
->
-> - veth interfaces v0 and v1 are in namespaces ns0 and ns1.
-> - process p0 unregisters v0, which also causes v1 to be unregistered.
-> When p0 enters netdev_run_todo both v0 and v1 are in net_todo_list and
-> have been unlisted from their namespaces.
-> - then in p0's netdev_run_todo:
+__inet_hash_nolisten -->
+__sk_nulls_add_node_rcu(sk, list); -->
+__sk_nulls_add_node_rcu -->
+static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
+                                        struct hlist_nulls_head *h)
+{
+... 
+    if (!is_a_nulls(first))
+        first->pprev = &n->next;  (this line trigger corruption)
+...
+}
 
-So I looked at this a little more and this problem appears largely
-specific to veth.  In the normal case the caller of dellink has to hold
-a reference to the network namespace to find the device to delete.
-
-So I think the solution is just to warp the interface of the second
-device into the network namespace of the device we are actually
-deleting.
-
-I will buy that similar situations can happen with other virtual devices
-that have one foot in two network namespaces, and I expect the same
-solution will apply.
-
-So the patch below looks like the solution.  If there is more than one
-device that needs this treatment perhaps the code should be moved
-into a helper function rather than expanded inline.
-
-Does this look like it will fix your issue?
-
-Eric
-
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index da86652..5922066 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -423,6 +423,19 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
-        unregister_netdevice_queue(dev, head);
- 
-        if (peer) {
-+               struct net *net = dev_net(dev);
-+               if (dev_net(peer) != net) {
-+                       /* Move the peer to the same net to avoid teardown races */
-+                       char peer_name[IFNAMSIZ];
-+                       int err;
-+                       snprintf(fb_name, IFNAMSIZ, "dev%d", peer->ifindex);
-+                       err = dev_change_net_namespace(peer, net, peer_name);
-+                       if (err) {
-+                               pr_emerg("%s: failed to move %s to peers net: %d\n",
-+                                        __func__, peer->name, err);
-+                               BUG();
-+                       }
-+               }
-                priv = netdev_priv(peer);
-                RCU_INIT_POINTER(priv->peer, NULL);
-                unregister_netdevice_queue(peer, head);
+Thanks!
