@@ -1,113 +1,99 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v2 6/6] ipv6: Do route updating for redirect in ndisc layer
-Date: Fri, 13 Sep 2013 11:03:07 +0800
-Message-ID: <5232806B.6050601@cn.fujitsu.com>
-References: <52327F00.4040802@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] bridge: fix NULL pointer deref in br_handle_frame
+Date: Fri, 13 Sep 2013 11:09:47 +0800
+Message-ID: <1379041787-14232-1-git-send-email-zhiguohong@tencent.com>
+References: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
+Cc: davem@davemloft.net, zhiguohong@tencent.com,
+	eric.dumazet@gmail.com, vyasevic@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61527 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752300Ab3IMDED (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 23:04:03 -0400
-In-Reply-To: <52327F00.4040802@cn.fujitsu.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:41076 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944Ab3IMDMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 23:12:36 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so662188pde.10
+        for <netdev@vger.kernel.org>; Thu, 12 Sep 2013 20:12:35 -0700 (PDT)
+In-Reply-To: <1378988195-2710-1-git-send-email-zhiguohong@tencent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+From: Hong Zhiguo <zhiguohong@tencent.com>
 
-Do the whole verification and route updating in ndisc
-lay and then just call into icmpv6_notify() to notify
-the upper protocols.
+I got an Oops on my box when br_handle_frame is called between these
+2 lines of del_nbp:
+	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+	/* --> br_handle_frame is called at this time */
+	netdev_rx_handler_unregister(dev);
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+In br_handle_frame the return of br_port_get_rcu(dev) is dereferenced
+without check but br_port_get_rcu(dev) returns NULL if:
+	!(dev->priv_flags & IFF_BRIDGE_PORT)
+
+In my first fix I moved netdev_rx_handler_unregister up. Eric Dumazet
+pointed out the testing of IFF_BRIDGE_PORT is not necessary here since
+we're in rcu_read_lock and we have synchronize_net() in
+netdev_rx_handler_unregister. This fix removed the testing of
+IFF_BRIDGE_PORT.
+
+I tested the fix on my box with script doing "brctl addif" and "brctl
+delif" repeatedly while a lot of broadcast frame present on the LAN.
+I added msleep in del_nbp between setting of priv_flags and unregister
+so it's easy to reproduce the oops without the fix.
+
+I'll send another patch to net-next to take care of br_netfilter and
+ebtable if necessary(seems there's NULL check following but I'll
+have a look).
+
+The Oops(some lines omitted):
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000021
+IP: [<ffffffff8150901d>] br_handle_frame+0xed/0x230
+Oops: 0000 [#1] PREEMPT SMP
+RIP: 0010:[<ffffffff8150901d>]  [<ffffffff8150901d>] br_handle_frame+0xed/0x230
+RSP: 0018:ffff880030403c10  EFLAGS: 00010286
+Stack:
+ ffff88002c945700 ffffffff81508f30 0000000000000000 ffff88002d41e000
+ ffff880030403c98 ffffffff81477acb ffffffff81477821 ffff880030403c68
+ ffffffff81090e10 00ff88002d545c80 ffff88002c945700 ffffffff81aa50c0
+Call Trace:
+ <IRQ>
+ [<ffffffff81508f30>] ? br_handle_frame_finish+0x300/0x300
+ [<ffffffff81477acb>] __netif_receive_skb_core+0x39b/0x880
+
+Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
 ---
- include/net/ip6_route.h |  3 ---
- net/ipv6/ndisc.c        |  6 ++----
- net/ipv6/route.c        | 29 ++---------------------------
- 3 files changed, 4 insertions(+), 34 deletions(-)
+ net/bridge/br_input.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index f525e70..5db259e 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -133,9 +133,6 @@ extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
- extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
- 			       __be32 mtu);
- extern void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark);
--extern void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
--				   u32 mark);
--extern void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk);
- 
- struct netlink_callback;
- 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index f8a55ff..6bd1b41 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1368,11 +1368,9 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
- 		return;
- 
--	if (!ndopts.nd_opts_rh) {
--		ip6_redirect_no_header(skb, dev_net(skb->dev),
--					skb->dev->ifindex, 0);
-+	ip6_redirect(skb, dev_net(skb->dev), skb->dev->ifindex, 0);
-+	if (!ndopts.nd_opts_rh)
- 		return;
--	}
- 
- 	hdr = (u8 *)ndopts.nd_opts_rh;
- 	hdr += 8;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c979dd9..151bd6c 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1227,27 +1227,7 @@ static struct dst_entry *ip6_route_redirect(struct net *net,
- 				flags, __ip6_route_redirect);
- }
- 
--void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
--{
--	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
--	struct dst_entry *dst;
--	struct flowi6 fl6;
--
--	memset(&fl6, 0, sizeof(fl6));
--	fl6.flowi6_oif = oif;
--	fl6.flowi6_mark = mark;
--	fl6.flowi6_flags = 0;
--	fl6.daddr = iph->daddr;
--	fl6.saddr = iph->saddr;
--	fl6.flowlabel = ip6_flowinfo(iph);
--
--	dst = ip6_route_redirect(net, &fl6, &ipv6_hdr(skb)->saddr);
--	rt6_do_redirect(dst, NULL, skb);
--	dst_release(dst);
--}
--EXPORT_SYMBOL_GPL(ip6_redirect);
--
--void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
-+void ip6_redirect(struct sk_buff *skb, struct net *net, int oif,
- 			    u32 mark)
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index a2fd37e..2244049 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ int br_handle_frame_finish(struct sk_buff *skb)
  {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
-@@ -1266,12 +1246,7 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
- 	rt6_do_redirect(dst, NULL, skb);
- 	dst_release(dst);
- }
--
--void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
--{
--	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
--}
--EXPORT_SYMBOL_GPL(ip6_sk_redirect);
-+EXPORT_SYMBOL_GPL(ip6_redirect);
- 
- static unsigned int ip6_default_advmss(const struct dst_entry *dst)
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
+ 	struct net_bridge *br;
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+@@ -143,7 +143,7 @@ drop:
+ /* note: already called with rcu_read_lock */
+ static int br_handle_local_finish(struct sk_buff *skb)
  {
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	struct net_bridge_port *p = rcu_dereference(skb->dev->rx_handler_data);
+ 	u16 vid = 0;
+ 
+ 	br_vlan_get_tag(skb, &vid);
+@@ -173,7 +173,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 	if (!skb)
+ 		return RX_HANDLER_CONSUMED;
+ 
+-	p = br_port_get_rcu(skb->dev);
++	p = rcu_dereference(skb->dev->rx_handler_data);
+ 
+ 	if (unlikely(is_link_local_ether_addr(dest))) {
+ 		/*
 -- 
-1.8.3.1
+1.8.1.2
