@@ -1,28 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Expand led off fix to include 5720
-Date: Thu, 12 Sep 2013 23:11:01 -0400 (EDT)
-Message-ID: <20130912.231101.252211030441347649.davem@davemloft.net>
-References: <1379019691-4618-1-git-send-email-nsujir@broadcom.com>
+Subject: Re: [PATCHv2 net] xen-netback: count number required slots for an
+ skb more carefully
+Date: Thu, 12 Sep 2013 23:23:28 -0400 (EDT)
+Message-ID: <20130912.232328.1199260755421139102.davem@davemloft.net>
+References: <1378907568-8062-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1379019691-4618-1-git-send-email-nsujir@broadcom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xen-devel@lists.xen.org, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, netdev@vger.kernel.org,
+	ian.campbell@citrix.com
+To: david.vrabel@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41677 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418Ab3IMDX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 23:23:29 -0400
+In-Reply-To: <1378907568-8062-1-git-send-email-david.vrabel@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Thu, 12 Sep 2013 14:01:31 -0700
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Wed, 11 Sep 2013 14:52:48 +0100
 
-> Commit 989038e217e94161862a959e82f9a1ecf8dda152 ("tg3: Don't turn off
-> led on 5719 serdes port 0") added code to skip turning led off on port
-> 0 of the 5719 since it powered down other ports. This workaround needs
-> to be enabled on the 5720 as well.
+> From: David Vrabel <david.vrabel@citrix.com>
 > 
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> When a VM is providing an iSCSI target and the LUN is used by the
+> backend domain, the generated skbs for direct I/O writes to the disk
+> have large, multi-page skb->data but no frags.
+> 
+> With some lengths and starting offsets, xen_netbk_count_skb_slots()
+> would be one short because the simple calculation of
+> DIV_ROUND_UP(skb_headlen(), PAGE_SIZE) was not accounting for the
+> decisions made by start_new_rx_buffer() which does not guarantee
+> responses are fully packed.
+ ...
+> Fix this by counting the number of required slots more carefully.  In
+> xen_netbk_count_skb_slots(), more closely follow the algorithm used by
+> xen_netbk_gop_skb() by introducing xen_netbk_count_frag_slots() which
+> is the dry-run equivalent of netbk_gop_frag_copy().
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> --
+> v2: xen_netbk_* -> xenvif_* to match new style
 
-Applied and queued up for -stable.
+Thanks for resolving this into a final patch after so much back and
+forth :-)
+
+I assume you want this queued up for -stable, and can you check if
+there is any non-trivial backporting for earlier kernels?
