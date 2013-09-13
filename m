@@ -1,58 +1,43 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH] net, vxlan Fix compile warning
-Date: Fri, 13 Sep 2013 10:23:51 -0400
-Message-ID: <52331FF7.3070905@redhat.com>
-References: <1379075352-20051-1-git-send-email-prarit@redhat.com> <20130913072028.54b1c28d@samsung-9>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
+ was called
+Date: Fri, 13 Sep 2013 16:32:24 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1309131628250.4089@ionos.tec.linutronix.de>
+References: <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de> <20130912134409.GB21212@gondor.apana.org.au> <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de> <20130912.133252.425268707009916773.davem@davemloft.net>
+ <52327C92.5010009@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jpirko@redhat.com, tgraf@redhat.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5612 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757040Ab3IMOXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Sep 2013 10:23:54 -0400
-In-Reply-To: <20130913072028.54b1c28d@samsung-9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
+	steffen.klassert@secunet.com, dborkman@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	John Stultz <john.stultz@linaro.org>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52327C92.5010009@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 13 Sep 2013, Fan Du wrote:
+> (2) What I have been bugging you around here for this long time is really the
+> second
+>     problem, I'm sorry I didn't make it clearly to you and others, which is
+> below:
+> 
+>     Why using wall clock time to calculate soft/hard IPsec events when
+> xfrm_state timer
+>     out happens in its timeout handler? Because even if xfrm_state using
+> CLOCK_BOOTTIME,
+>     system wall clock time changing will surely disturb soft/hard IPsec
+> events, which
+>     you raised your concern about in (*a*).
 
+No CLOCK_BOOTTIME is not affected by wall clock time changes. It's
+basically CLOCK_MONOTONIC, it just keeps counting the suspend time as
+well. So without a suspend/resume cycle CLOCK_MONOTONIC and
+CLOCK_BOOTTIME are the same. After a suspend/resume cycle
+CLOCK_BOOTTIME will be N seconds ahead of CLOCK_MONOTONIC, where N is
+the number of seconds spent in suspend.
 
-On 09/13/2013 10:20 AM, Stephen Hemminger wrote:
-> On Fri, 13 Sep 2013 08:29:12 -0400
-> Prarit Bhargava <prarit@redhat.com> wrote:
->=20
->> Fix a unintialized variable warning.
->>
->> drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
->> drivers/net/vxlan.c:2240:11: error: =E2=80=98sock=E2=80=99 may be us=
-ed uninitialized in this function [-Werror=3Dmaybe-uninitialized]
->>   vs->sock =3D sock;
->>            ^
->> drivers/net/vxlan.c:2217:17: note: =E2=80=98sock=E2=80=99 was declar=
-ed here
->>   struct socket *sock;
->>                  ^
->>
->> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
->> Cc: jpirko@redhat.com
->> Cc: tgraf@redhat.com
->> Cc: "David S. Miller" <davem@davemloft.net>
->=20
-> Which compiler version? Gcc 4.6 is known to be stupid,
-> and I would rather not change the source if it is only caused
-> by a gcc bug fixed in a later release.
+Thanks,
 
-Hi Stephen,
-
-[root@intel-rosecity-06 ~]# gcc --version
-gcc (GCC) 4.8.1 20130603 (Red Hat 4.8.1-1)
-Copyright (C) 2013 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is=
- NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURP=
-OSE.
-
-P.
+	tglx
