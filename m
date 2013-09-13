@@ -1,113 +1,51 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v2 2/6] ipv6: just match on ICMPV6_PKT_TOOBIG in those err_handle
-Date: Fri, 13 Sep 2013 10:59:43 +0800
-Message-ID: <52327F9F.6080003@cn.fujitsu.com>
-References: <52327F00.4040802@cn.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] bonding: Make alb learning packet interval
+ configurable
+Date: Thu, 12 Sep 2013 23:01:16 -0400
+Message-ID: <20130913030116.GA15143@neilslaptop.think-freely.org>
+References: <1378822490-28667-1-git-send-email-nhorman@tuxdriver.com>
+ <1378845543-14876-1-git-send-email-nhorman@tuxdriver.com>
+ <20130912.164948.1364121695106020281.davem@davemloft.net>
+ <20130912210613.GA15224@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vfalico@redhat.com, nhorman@redhat.com, fubar@us.ibm.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:41364 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418Ab3IMDAj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Sep 2013 23:00:39 -0400
-In-Reply-To: <52327F00.4040802@cn.fujitsu.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56697 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968Ab3IMDBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Sep 2013 23:01:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20130912210613.GA15224@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-
-we don't handle NDISC_REDIRECTs here any more, and the match
-on ICMPV6_DEST_UNREACH is meaningless.
-
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv6/ah6.c     | 9 ++-------
- net/ipv6/esp6.c    | 9 ++-------
- net/ipv6/ipcomp6.c | 9 ++-------
- 3 files changed, 6 insertions(+), 21 deletions(-)
-
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 73784c3..79fb40f 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -618,19 +618,14 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	struct ip_auth_hdr *ah = (struct ip_auth_hdr*)(skb->data+offset);
- 	struct xfrm_state *x;
- 
--	if (type != ICMPV6_DEST_UNREACH &&
--	    type != ICMPV6_PKT_TOOBIG &&
--	    type != NDISC_REDIRECT)
-+	if (type != ICMPV6_PKT_TOOBIG)
- 		return;
- 
- 	x = xfrm_state_lookup(net, skb->mark, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
- 	if (!x)
- 		return;
- 
--	if (type == NDISC_REDIRECT)
--		ip6_redirect(skb, net, skb->dev->ifindex, 0);
--	else
--		ip6_update_pmtu(skb, net, info, 0, 0);
-+	ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
- }
- 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index d3618a7..6aa64e1 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -436,9 +436,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)(skb->data + offset);
- 	struct xfrm_state *x;
- 
--	if (type != ICMPV6_DEST_UNREACH &&
--	    type != ICMPV6_PKT_TOOBIG &&
--	    type != NDISC_REDIRECT)
-+	if (type != ICMPV6_PKT_TOOBIG)
- 		return;
- 
- 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
-@@ -446,10 +444,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	if (!x)
- 		return;
- 
--	if (type == NDISC_REDIRECT)
--		ip6_redirect(skb, net, skb->dev->ifindex, 0);
--	else
--		ip6_update_pmtu(skb, net, info, 0, 0);
-+	ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
- }
- 
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 5636a91..e943158 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -64,9 +64,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		(struct ip_comp_hdr *)(skb->data + offset);
- 	struct xfrm_state *x;
- 
--	if (type != ICMPV6_DEST_UNREACH &&
--	    type != ICMPV6_PKT_TOOBIG &&
--	    type != NDISC_REDIRECT)
-+	if (type != ICMPV6_PKT_TOOBIG)
- 		return;
- 
- 	spi = htonl(ntohs(ipcomph->cpi));
-@@ -75,10 +73,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	if (!x)
- 		return;
- 
--	if (type == NDISC_REDIRECT)
--		ip6_redirect(skb, net, skb->dev->ifindex, 0);
--	else
--		ip6_update_pmtu(skb, net, info, 0, 0);
-+	ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
- }
- 
--- 
-1.8.3.1
+On Thu, Sep 12, 2013 at 05:06:13PM -0400, Andy Gospodarek wrote:
+> On Thu, Sep 12, 2013 at 04:49:48PM -0400, David Miller wrote:
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Tue, 10 Sep 2013 16:39:03 -0400
+> > 
+> > > From: Neil Horman <nhorman@redhat.com>
+> > > 
+> > > running bonding in ALB mode requires that learning packets be sent periodically,
+> > > so that the switch knows where to send responding traffic.  However, depending
+> > > on switch configuration, there may not be any need to send traffic at the
+> > > default rate of 3 packets per second, which represents little more than wasted
+> > > data.  Allow the ALB learning packet interval to be made configurable via sysfs
+> > > 
+> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > I hate to be a stickler, but I'd like you to make the default value
+> > documented both in the code and in the documentation.
+> > 
+> > Use some macro for the code "#define BOND_ALB_DEFAULT_LP_INTERVAL 1" and
+> > mention the default in the bonding.txt changes.
+> > 
+> 
+> Agree with DaveM on this.  You can just keep the one that was there and
+> it should be pretty easy.
+> 
+Yeah, sure I can do that. v3 in the AM
+Neil
