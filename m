@@ -1,32 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ICMP rate limiting in IPv4 but not in IPv6
-Date: Fri, 13 Sep 2013 22:40:16 +0200
-Message-ID: <20130913204016.GC32431@order.stressinduktion.org>
-References: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com> <CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com> <20130913164404.GA32431@order.stressinduktion.org> <CAOp4FwQ6YWpMtZ9-64tVDc29RhtiUjwinQjZ32mjEu_pZfRHHA@mail.gmail.com> <20130913181712.GA29989@order.stressinduktion.org> <CAF0Lin0WvJU8W1LErQjs+ZRq8_mrwX7femuByvM3i7VhQrdbpw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Loganaden Velvindron <loganaden@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andy Johnson <johnsonzjo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56612 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754679Ab3IMUkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 16:40:17 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF0Lin0WvJU8W1LErQjs+ZRq8_mrwX7femuByvM3i7VhQrdbpw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+Subject: [PATCH 1/1] isdn: hfcpci_softirq: get func return to suppress compiler warning
+Date: Fri, 13 Sep 2013 14:44:19 -0300
+Message-ID: <1379094259-6237-1-git-send-email-antonio.alecrim@gmail.com>
+Cc: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 13, 2013 at 09:26:08PM +0300, Andy Johnson wrote:
-> Hello,
-> 
-> My question was out of pure interest and not because of any practical
-> need. However, preparing a patch for supporting rate limiting for
-> ICMPv6 is easy and I am ready to do it. I want to know before, what
-> other people think about it - is it needed ?
+Signed-off-by: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+---
+ drivers/isdn/hardware/mISDN/hfcpci.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-*shrug*
-
-I don't know. I haven't needed it yet but could think of artificial
-situations where it could be handy. :)
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index 7f910c7..5b8df75b 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -2295,7 +2295,9 @@ _hfcpci_softirq(struct device *dev, void *arg)
+ static void
+ hfcpci_softirq(void *arg)
+ {
+-	(void) driver_for_each_device(&hfc_driver.driver, NULL, arg,
++	int ret;
++
++	ret = driver_for_each_device(&hfc_driver.driver, NULL, arg,
+ 				      _hfcpci_softirq);
+ 
+ 	/* if next event would be in the past ... */
+-- 
+1.8.3.1
