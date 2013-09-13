@@ -1,99 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Inet-hashtable: Change the range of sk->hash lock to
- avoid the race condition.
-Date: Thu, 12 Sep 2013 23:12:14 -0700
-Message-ID: <1379052734.24408.33.camel@edumazet-glaptop>
-References: <1379003549.12328.6.camel@chenjun-workstation>
-	 <1378987204.24408.1.camel@edumazet-glaptop>
-	 <1379065643.3390.3.camel@chenjun-workstation>
-	 <1379050801.24408.29.camel@edumazet-glaptop>
-	 <1379080900.23597.18.camel@chenjun-workstation>
+From: Andy Johnson <johnsonzjo@gmail.com>
+Subject: ICMP rate limiting in IPv4 but not in IPv6
+Date: Fri, 13 Sep 2013 09:21:42 +0200
+Message-ID: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jun Chen <jun.d.chen@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379080900.23597.18.camel@chenjun-workstation>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:54832 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754232Ab3IMHVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 03:21:43 -0400
+Received: by mail-we0-f178.google.com with SMTP id u57so733703wes.23
+        for <netdev@vger.kernel.org>; Fri, 13 Sep 2013 00:21:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-09-13 at 10:01 -0400, Jun Chen wrote:
-> On Thu, 2013-09-12 at 22:40 -0700, Eric Dumazet wrote:
-> > On Fri, 2013-09-13 at 05:47 -0400, Jun Chen wrote:
-> > > On Thu, 2013-09-12 at 05:00 -0700, Eric Dumazet wrote:
-> > > > On Thu, 2013-09-12 at 12:32 -0400, Jun Chen wrote:
-> > > > > When try to add node to list in __inet_hash_nolisten function, first get the
-> > > > > list and then to lock for using, but in extremeness case, others can del this
-> > > > > node before locking it, then the node should be null.So this patch try to lock
-> > > > > firstly and then get the list for using to avoid this race condition.
-> > > > 
-> > > > I suspect another bug. This should not happen.
-> > > > 
-> > > > Care to describe the problem you got ?
-> > > > 
-> > > > Thanks
-> > > > 
-> > > > 
-> > > 
-> > > Ok, I just got this call stack and no more info, pls help to look it.
-> > > thanks!
-> > > 
-> > > <1>[ 88.548263] BUG: unable to handle kernel NULL pointer dereference at
-> > > 00000004
-> > > <1>[ 88.548490] IP: [] __inet_hash_nolisten+0xc1/0x140
-> > > <4>[ 88.548617] *pde = 00000000
-> > > <4>[ 88.549927] EIP is at __inet_hash_nolisten+0xc1/0x140
-> > > <4>[ 88.550008] EAX: 00000000 EBX: e08c0000 ECX: edf846e0 EDX: e08c0020
-> > > <4>[ 88.550055] ESI: c20213c0 EDI: edc12dc0 EBP: ce4bfdfc ESP: ce4bfde8
-> > > <4>[ 88.550137] DS: 007b ES: 007b FS: 00d8 GS: 003b SS: 0068
-> > > <4>[ 88.550184] CR0: 80050033 CR2: 00000004 CR3: 2b4ff000 CR4: 001007d0
-> > > <4>[ 88.550266] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-> > > <4>[ 88.550346] DR6: ffff0ff0 DR7: 00000400
-> > > <0>[ 88.550392] Process WebViewCoreThre (pid: 2137, ti=ce4be000
-> > > task=eb193c80 task.ti=ce4be000)
-> > > <0>[ 88.551746] Call Trace:
-> > > <4>[ 88.551797] [] __inet_hash_connect+0x295/0x2d0
-> > > <4>[ 88.551883] [] inet_hash_connect+0x40/0x50
-> > > <4>[ 88.551932] [] ? inet_unhash+0x90/0x90
-> > > <4>[ 88.551981] [] ? __inet_lookup_listener+0x1b0/0x1b0
-> > > <4>[ 88.552067] [] tcp_v4_connect+0x247/0x4a0
-> > > <4>[ 88.552117] [] ? lock_sock_nested+0x3e/0x50
-> > > <4>[ 88.552205] [] inet_stream_connect+0xe2/0x290
-> > > <4>[ 88.552254] [] ? _copy_from_user+0x35/0x50
-> > > <4>[ 88.552342] [] sys_connect+0xb2/0xd0
-> > > <4>[ 88.552393] [] ? alloc_file+0x20/0xa0
-> > > <4>[ 88.552441] [] ? tcp_setsockopt+0x50/0x60
-> > > <4>[ 88.552525] [] ? fget_light+0x44/0xe0
-> > > <4>[ 88.552574] [] ? sock_common_setsockopt+0x27/0x40
-> > > <4>[ 88.552659] [] ? _copy_from_user+0x35/0x50
-> > > <4>[ 88.552708] [] sys_socketcall+0xab/0x2b0
-> > > <4>[ 88.552790] [] ? trace_hardirqs_on_thunk+0xc/0x10
-> > > <4>[ 88.552840] [] syscall_call+0x7/0xb
-> > > <4>[ 88.552923] [] ? mutex_trylock+0x30/0x140
-> > > 
-> > 
-> > This makes no sense to me. This could be a random memory corruption.
-> > 
-> > Do you have disassembly of __inet_hash_nolisten ?
-> > 
-> > 
-> I had disassembled the __inet_hash_nolisten+0xc1, 
-> the corruption is located on the:  
-> 
-> __inet_hash_nolisten -->
-> __sk_nulls_add_node_rcu(sk, list); -->
-> __sk_nulls_add_node_rcu -->
-> static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
->                                         struct hlist_nulls_head *h)
-> {
-> ... 
->     if (!is_a_nulls(first))
->         first->pprev = &n->next;  (this line trigger corruption)
-> ...
-> }
+Hello,
 
-first is NULL, which is absolutely not possible.
+I am trying to understand the difference between ICMP rate limiting
+in IPv4 and in IPv6.
 
-You had a memory corruption on some sort.
+In IPv4 we have the ability to rate limit ICMPv4 while in IPv6 we do not have
+this ability.
+
+To be more code-oriented:
+The icmpv4_xrlim_allow() method does inspect the rate mask,
+(net->ipv4.sysctl_icmp_ratemask)
+whereas the icmpv6_xrlim_allow() method does not inspect the rate mask.
+
+I do not understand why, for example, we can rate limit ICMPv4 messages of
+Echo Reply and not rate limit ICMPv6 messages of Echo Reply.
+
+See: icmp_ratemask and icmp_ratelimit in Documentation/networking/ip-sysctl.txt
+
+I believe there is some reason behind it (adding checking of rate mask
+seems to me trivial). I try to figure out the reason behind this but I did not
+find anything reasonable,
+
+Does anybody happen to know ?
+
+Regards,
+Andy
