@@ -1,59 +1,121 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] bgmac: fix internal switch initialization
-Date: Sun, 15 Sep 2013 00:22:47 +0200
-Message-ID: <1379197367-19116-1-git-send-email-zajec5@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [patch 2/4] mISDN: add support for group membership check
+Date: Sun, 15 Sep 2013 00:28:56 +0100
+Message-ID: <1379201336.19779.35.camel@deadeye.wl.decadent.org.uk>
+References: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	stable@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-kG3z8p22S7D2OrsQNINH"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, isdn4linux@koppen.de,
+	isdn@linux-pingi.de, jslaby@suse.cz,
+	sergei.shtylyov@cogentembedded.com
+To: akpm@linux-foundation.org, jeffm@suse.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52656 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756791Ab3INX30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 19:29:26 -0400
+In-Reply-To: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some devices (BCM4749, BCM5357, BCM53572) have internal switch that
-requires initialization. We already have code for this, but because
-of the typo in code it was never working. This resulted in network not
-working for some routers and possibility of soft-bricking them.
 
-Use correct bit for switch initialization and fix typo in the define.
+--=-kG3z8p22S7D2OrsQNINH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-Cc: stable@vger.kernel.org
----
- drivers/net/ethernet/broadcom/bgmac.c |    2 +-
- drivers/net/ethernet/broadcom/bgmac.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Fri, 2013-09-13 at 14:52 -0700, akpm@linux-foundation.org wrote:
+> From: Jeff Mahoney <jeffm@suse.com>
+> Subject: mISDN: add support for group membership check
+>=20
+> This patch adds a module parameter to allow a group access to the mISDN
+> devices.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index eec0af4..1c6bc96 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -908,7 +908,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 		struct bcma_drv_cc *cc =3D &bgmac->core->bus->drv_cc;
- 		u8 et_swtype =3D 0;
- 		u8 sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHY |
--			     BGMAC_CHIPCTL_1_IF_TYPE_RMII;
-+			     BGMAC_CHIPCTL_1_IF_TYPE_MII;
- 		char buf[2];
-=20
- 		if (bcm47xx_nvram_getenv("et_swtype", buf, 1) > 0) {
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
-et/broadcom/bgmac.h
-index 98d4b5f..12a35cf 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -333,7 +333,7 @@
-=20
- #define BGMAC_CHIPCTL_1_IF_TYPE_MASK		0x00000030
- #define BGMAC_CHIPCTL_1_IF_TYPE_RMII		0x00000000
--#define BGMAC_CHIPCTL_1_IF_TYPE_MI		0x00000010
-+#define BGMAC_CHIPCTL_1_IF_TYPE_MII		0x00000010
- #define BGMAC_CHIPCTL_1_IF_TYPE_RGMII		0x00000020
- #define BGMAC_CHIPCTL_1_SW_TYPE_MASK		0x000000C0
- #define BGMAC_CHIPCTL_1_SW_TYPE_EPHY		0x00000000
+This doesn't just 'add support' or 'allow a group access'.  It also
+changes the default behaviour.
+
+[...]
+> --- a/drivers/isdn/mISDN/core.c~misdn-add-support-for-group-membership-ch=
+eck
+> +++ a/drivers/isdn/mISDN/core.c
+> @@ -21,10 +21,14 @@
+>  #include "core.h"
+> =20
+>  static u_int debug;
+> +static u_int gid;
+> +kgid_t misdn_permitted_gid;
+> =20
+>  MODULE_AUTHOR("Karsten Keil");
+>  MODULE_LICENSE("GPL");
+>  module_param(debug, uint, S_IRUGO | S_IWUSR);
+> +module_param(gid, uint, 0);
+
+So you can't change the privileged gid after loading, or even see what
+it is.
+
+[...]
+> --- a/drivers/isdn/mISDN/socket.c~misdn-add-support-for-group-membership-=
+check
+> +++ a/drivers/isdn/mISDN/socket.c
+> @@ -612,6 +612,11 @@ data_sock_create(struct net *net, struct
+>  {
+>  	struct sock *sk;
+> =20
+> +	if (!capable(CAP_SYS_ADMIN) &&
+> +			!gid_eq(misdn_permitted_gid, current_gid()) &&
+> +			!in_group_p(misdn_permitted_gid))
+> +		return -EPERM;
+> +
+>  	if (sock->type !=3D SOCK_DGRAM)
+>  		return -ESOCKTNOSUPPORT;
+> =20
+
+I'm pretty sure you could restrict this with LSMs, in a much more
+flexible way.
+
+> @@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns
+>  	case IMSETDEVNAME:
+>  	{
+>  		struct mISDN_devrename dn;
+> +		if (!capable(CAP_SYS_ADMIN) &&
+> +				!gid_eq(misdn_permitted_gid, current_gid()) &&
+> +				!in_group_p(misdn_permitted_gid))
+> +			return -EPERM;
+>  		if (copy_from_user(&dn, (void __user *)arg,
+>  				   sizeof(dn))) {
+>  			err =3D -EFAULT;
+
+This seems to be the important bit: renaming of devices (if allowed at
+all) ought to be limited to CAP_SYS_ADMIN or possibly CAP_NET_ADMIN.
+But why should the group that is allowed to use mISDN data sockets also
+be allowed to do this?
+
+Ben.
+
 --=20
-1.7.10.4
+Ben Hutchings
+In a hierarchy, every employee tends to rise to his level of incompetence.
+
+--=-kG3z8p22S7D2OrsQNINH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIVAwUAUjTxOOe/yOyVhhEJAQrWChAAlwzljjEfV4hud38OPcvD3s3N1Hd54cPE
+pAC7VJSSZwfXfuw1BFfbfnlLTU3pnyieJP7PdgBoWYFJirS2F0I+cN0w5otMy2Ta
+jskW8va0NDJ2mBKGU1F23SohZRx2d1rptSFtm2FEgqH0al/vrON7lYPuKm+426qH
+nTZXcCg0SkuO2cR8Z0z25txfSbklYz2C2/E5TdLgLdtT1WKIY3O7l5EZO05uBk9+
+TJ5z+C0sGlAkkPK/J1WXH0x5PeE6Y1tqMr7u5hiTrk61YdKaabozU+UC9zREqVlQ
+j8wdGTSwZ+8poa1/fuX/HPdcUvNJjqVsmrkevoBiTqjBs2T14uZ0GQkAhqCthcQ7
++WL04QFYD3l/gF4eReU4qYkAjmqt0o02NBpk472hSfXPDiLfFK3vzzkNaJd+gXF2
+lZVhuC/sJwCACn4CYyFxcDhx+Jf9bCzOK9wekXYrVh2U6tMV7wBfSlkxELRlaGE0
+AY0V0Qt62F6DqyOPXsXkUIolY6vpKtlkEYGGiYcWPyFiiOcQ3SZGo2xzIA/v6ioI
+dUoiAAF/nI5IcGQOYsqNzP4Adk219WOM6X57IHBm9k8GyA71IOweP5z0qV7XrT5K
+ONlu7NLdGCxj24QRvdKD2tMK1JJTbkglGLJ+MytwtDQMBZYVPp4QZA1tzLmxsOxu
+BLcYLa9b1FI=
+=d2ks
+-----END PGP SIGNATURE-----
+
+--=-kG3z8p22S7D2OrsQNINH--
