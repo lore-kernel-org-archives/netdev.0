@@ -1,72 +1,64 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 2/7] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
-Date: Sat, 14 Sep 2013 15:30:13 -0500
-Message-ID: <5234C755.80709@lwfinger.net>
-References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-3-git-send-email-Larry.Finger@lwfinger.net> <5234C03A.2070701@cogentembedded.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 2/4] net: Add lower dev list helpers
+Date: Sat, 14 Sep 2013 13:43:09 -0700
+Message-ID: <5234CA5D.5020603@gmail.com>
+References: <20130911184441.26914.10336.stgit@nitbit.x32> <20130911184647.26914.40440.stgit@nitbit.x32> <20130914122756.GA18327@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: stephen@networkplumber.org, bhutchings@solarflare.com,
+	ogerlitz@mellanox.com, john.ronciak@intel.com,
+	netdev@vger.kernel.org, shannon.nelson@intel.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:52839 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932353Ab3INUaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 16:30:16 -0400
-In-Reply-To: <5234C03A.2070701@cogentembedded.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:39209 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932334Ab3INUnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 16:43:39 -0400
+Received: by mail-ie0-f177.google.com with SMTP id qd12so5025644ieb.36
+        for <netdev@vger.kernel.org>; Sat, 14 Sep 2013 13:43:39 -0700 (PDT)
+In-Reply-To: <20130914122756.GA18327@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/14/2013 02:59 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 09/13/2013 09:44 PM, Larry Finger wrote:
->
->> Smatch lists the following:
->>    CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
->> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info:
->> ignoring unreachable code.
->> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info:
->> ignoring unreachable code.
->
->> Dead code is removed.
->
->     It is instead commented out, including non-dead code it seems...
->
->> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->> ---
->>   drivers/net/wireless/rtlwifi/rtl8192de/hw.c | 2 ++
->>   1 file changed, 2 insertions(+)
+On 09/14/2013 05:27 AM, Veaceslav Falico wrote:
+> On Wed, Sep 11, 2013 at 11:46:49AM -0700, John Fastabend wrote:
+>> This patch adds helpers to traverse the lower dev lists, these
+>> helpers match the upper dev list implementation.
 >>
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
->> b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
->> index 7dd8f6d..c9b0894 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
->> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
->> @@ -1194,6 +1194,7 @@ void rtl92d_linked_set_reg(struct ieee80211_hw *hw)
->>    * mac80211 will send pkt when scan */
->>   void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
->>   {
->> +/*
->>       struct rtl_priv *rtlpriv = rtl_priv(hw);
->>       rtl92d_dm_init_edca_turbo(hw);
->>       return;
+>> VSI implementers may use these to track a list of connected netdevs.
+>> This is easier then having drivers do their own accounting.
 >
->     Shouldn't the comment start here (and *return* removed)? It's also
-> better to remove the dead code than just to comment it out.
+> Just as a note (as I have quite no idea how ixgbe works) - you are aware
+> that the upper/lower lists currently include *all* upper/lower devices, and
+> not only the first-connected ones?
 
-That would leave some unused variables.
+Yep, the netif_is_vsi_port() should hopefully catch all the cases.
 
->> @@ -1213,6 +1214,7 @@ void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
->>           RT_ASSERT(false, "invalid aci: %d !\n", aci);
->>           break;
->>       }
->> + */
->>   }
+>
+> I've seen that you usually verify it, however not always, just a heads-up -
+> sorry if misread.
 
-I'm not sure what that unreachable code might do, thus I saved it as a comment 
-for possible future use. I need to do further evaluation on this fragment, and 
-probably consult with the Realtek engineers.
+I'll audit it again, maybe I missed a case.
 
-Larry
+>
+> I'm also currently trying to get the new patchset included - which would
+> split the first-tier connected devices from all the 'other' (as in - lower
+> of a lower and upper of an upper) devices, so that way, I think, it would
+> be easier/faster for you to use it. It also has a ->private field, easily
+> accessible, which you could have used instead of/in conjunction with/for
+> struct ixgbe_vsi_adapter.
+
+Yeah I saw the patch set I'll use the improved lists once I see the
+series gets applied. Although in my case the list walking only occurs in
+the configuration path so its not critical.
+
+Also the net device structure already has private space to hang the
+device dependent structure off of, so I'm not sure having another
+private field helps here.
+
+Thanks,
+John
+
+-- 
+John Fastabend         Intel Corporation
