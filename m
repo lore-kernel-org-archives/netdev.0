@@ -1,64 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 2/7] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
-Date: Sat, 14 Sep 2013 23:59:54 +0400
-Message-ID: <5234C03A.2070701@cogentembedded.com>
-References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-3-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379094304-22041-3-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+Subject: [PATCH 1/1] isdn: hfcpci_softirq: get func return to suppress compiler warning
+Date: Sat, 14 Sep 2013 14:20:40 -0300
+Message-ID: <1379179240-21927-1-git-send-email-antonio.alecrim@gmail.com>
+Cc: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Signed-off-by: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+---
+ drivers/isdn/hardware/mISDN/hfcpci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On 09/13/2013 09:44 PM, Larry Finger wrote:
-
-> Smatch lists the following:
->    CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
-
-> Dead code is removed.
-
-    It is instead commented out, including non-dead code it seems...
-
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> ---
->   drivers/net/wireless/rtlwifi/rtl8192de/hw.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> index 7dd8f6d..c9b0894 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> @@ -1194,6 +1194,7 @@ void rtl92d_linked_set_reg(struct ieee80211_hw *hw)
->    * mac80211 will send pkt when scan */
->   void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
->   {
-> +/*
->   	struct rtl_priv *rtlpriv = rtl_priv(hw);
->   	rtl92d_dm_init_edca_turbo(hw);
->   	return;
-
-    Shouldn't the comment start here (and *return* removed)? It's also
-better to remove the dead code than just to comment it out.
-
-> @@ -1213,6 +1214,7 @@ void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
->   		RT_ASSERT(false, "invalid aci: %d !\n", aci);
->   		break;
->   	}
-> + */
->   }
-
-WBR, Sergei
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index 7f910c7..3c92780 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -2295,8 +2295,8 @@ _hfcpci_softirq(struct device *dev, void *arg)
+ static void
+ hfcpci_softirq(void *arg)
+ {
+-	(void) driver_for_each_device(&hfc_driver.driver, NULL, arg,
+-				      _hfcpci_softirq);
++	WARN_ON_ONCE(driver_for_each_device(&hfc_driver.driver, NULL, arg,
++				      _hfcpci_softirq) != 0);
+ 
+ 	/* if next event would be in the past ... */
+ 	if ((s32)(hfc_jiffies + tics - jiffies) <= 0)
+-- 
+1.8.3.1
