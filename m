@@ -1,170 +1,119 @@
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Subject: [PATCH] Do not drop DNATed 6to4/6rd packets
-Date: Sat, 14 Sep 2013 13:30:47 +0300
-Message-ID: <1379154647-5781-1-git-send-email-catab@embedromix.ro>
-Cc: hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [RFC PATCH 2/4] net: Add lower dev list helpers
+Date: Sat, 14 Sep 2013 14:27:56 +0200
+Message-ID: <20130914122756.GA18327@redhat.com>
+References: <20130911184441.26914.10336.stgit@nitbit.x32>
+ <20130911184647.26914.40440.stgit@nitbit.x32>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: stephen@networkplumber.org, bhutchings@solarflare.com,
+	ogerlitz@mellanox.com, john.ronciak@intel.com,
+	netdev@vger.kernel.org, shannon.nelson@intel.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedromix.ro ([5.9.41.220]:34593 "EHLO mail.embedromix.ro"
+Received: from mx1.redhat.com ([209.132.183.28]:32817 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756664Ab3INMMl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Sep 2013 08:12:41 -0400
+	id S1752746Ab3INM3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Sep 2013 08:29:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20130911184647.26914.40440.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+On Wed, Sep 11, 2013 at 11:46:49AM -0700, John Fastabend wrote:
+>This patch adds helpers to traverse the lower dev lists, these
+>helpers match the upper dev list implementation.
+>
+>VSI implementers may use these to track a list of connected netdevs.
+>This is easier then having drivers do their own accounting.
 
-When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
-patch (218774dc) will drop them because the IPv6 address embedded
-does not match the IPv4 destination. This patch will allow them to
-pass by testing if we have an address that matches on 6to4/6rd interface.
-I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
-Also, log the dropped packets (with rate limit).
+Just as a note (as I have quite no idea how ixgbe works) - you are aware
+that the upper/lower lists currently include *all* upper/lower devices, and
+not only the first-connected ones?
 
-Signed-off-by: Catalin(ux) M. BOIE <catab@embedromix.ro>
----
- include/net/addrconf.h |  5 +++++
- net/ipv6/addrconf.c    | 28 ++++++++++++++++++++++++++++
- net/ipv6/sit.c         | 50 +++++++++++++++++++++++++++++++++++++++++++-------
- 3 files changed, 76 insertions(+), 7 deletions(-)
+I've seen that you usually verify it, however not always, just a heads-up -
+sorry if misread.
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 84a6440..49886fc 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -73,6 +73,11 @@ extern int			ipv6_chk_home_addr(struct net *net,
- 						   const struct in6_addr *addr);
- #endif
- 
-+extern bool			ipv6_chk_custom_prefix(
-+					const struct in6_addr *addr,
-+					const unsigned int prefix_len,
-+					struct net_device *dev);
-+
- extern int			ipv6_chk_prefix(const struct in6_addr *addr,
- 						struct net_device *dev);
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d1ab6ab..70ab1ba 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1527,6 +1527,34 @@ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
- 	return false;
- }
- 
-+/*
-+ * Compares an address/prefix_len with addresses on device @dev.
-+ * If one is found it returns true.
-+ */
-+bool ipv6_chk_custom_prefix(const struct in6_addr *addr,
-+	const unsigned int prefix_len, struct net_device *dev)
-+{
-+	struct inet6_dev *idev;
-+	struct inet6_ifaddr *ifa;
-+	bool ret = false;
-+
-+	rcu_read_lock();
-+	idev = __in6_dev_get(dev);
-+	if (idev) {
-+		read_lock_bh(&idev->lock);
-+		list_for_each_entry(ifa, &idev->addr_list, if_list) {
-+			ret = ipv6_prefix_equal(addr, &ifa->addr, prefix_len);
-+			if (ret)
-+				break;
-+		}
-+		read_unlock_bh(&idev->lock);
-+	}
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(ipv6_chk_custom_prefix);
-+
- int ipv6_chk_prefix(const struct in6_addr *addr, struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 3353634..fd2aba9 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -566,6 +566,33 @@ static inline bool is_spoofed_6rd(struct ip_tunnel *tunnel, const __be32 v4addr,
- 	return false;
- }
- 
-+/*
-+ * Checks if an address matches an address on the tunnel interface.
-+ * Used to detect the NAT of proto 41 packets and let them pass spoofing test.
-+ * Long story:
-+ * This function is called after we considered the packet as spoofed
-+ * in is_spoofed_6rd.
-+ * We may have a router that is doing NAT for proto 41 packets
-+ * for an internal station. Destination a.a.a.a/PREFIX:bbbb:bbbb
-+ * will be translated to n.n.n.n/PREFIX:bbbb:bbbb. And is_spoofed_6rd
-+ * function will return true, dropping the packet.
-+ * But, we can still check if is spoofed against the IP
-+ * addresses associated with the interface.
-+ */
-+static bool only_dnatted(const struct ip_tunnel *tunnel,
-+	const struct in6_addr *v6dst)
-+{
-+	int prefix_len;
-+
-+#ifdef CONFIG_IPV6_SIT_6RD
-+	prefix_len = tunnel->ip6rd.prefixlen + 32
-+		- tunnel->ip6rd.relay_prefixlen;
-+#else
-+	prefix_len = 48;
-+#endif
-+	return ipv6_chk_custom_prefix(v6dst, prefix_len, tunnel->dev);
-+}
-+
- static int ipip6_rcv(struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
-@@ -589,11 +616,20 @@ static int ipip6_rcv(struct sk_buff *skb)
- 				tunnel->dev->stats.rx_errors++;
- 				goto out;
- 			}
--		} else {
--			if (is_spoofed_6rd(tunnel, iph->saddr,
--					   &ipv6_hdr(skb)->saddr) ||
--			    is_spoofed_6rd(tunnel, iph->daddr,
--					   &ipv6_hdr(skb)->daddr)) {
-+		} else if (!(tunnel->dev->flags&IFF_POINTOPOINT)) {
-+			if (unlikely(is_spoofed_6rd(tunnel, iph->saddr,
-+				&ipv6_hdr(skb)->saddr))) {
-+				net_warn_ratelimited("Src spoofed %pI4/%pI6c\n",
-+					&iph->saddr, &ipv6_hdr(skb)->saddr);
-+				tunnel->dev->stats.rx_errors++;
-+				goto out;
-+			}
-+
-+			if (unlikely(is_spoofed_6rd(tunnel, iph->daddr,
-+				&ipv6_hdr(skb)->daddr)
-+				&& !only_dnatted(tunnel, &ipv6_hdr(skb)->daddr))) {
-+				net_warn_ratelimited("Dst spoofed %pI4/%pI6c\n",
-+					&iph->daddr, &ipv6_hdr(skb)->daddr);
- 				tunnel->dev->stats.rx_errors++;
- 				goto out;
- 			}
-@@ -713,7 +749,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
- 
- 		if (neigh == NULL) {
--			net_dbg_ratelimited("sit: nexthop == NULL\n");
-+			net_dbg_ratelimited("nexthop == NULL\n");
- 			goto tx_error;
- 		}
- 
-@@ -742,7 +778,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
- 
- 		if (neigh == NULL) {
--			net_dbg_ratelimited("sit: nexthop == NULL\n");
-+			net_dbg_ratelimited("nexthop == NULL\n");
- 			goto tx_error;
- 		}
- 
--- 
-1.8.3.1
+I'm also currently trying to get the new patchset included - which would
+split the first-tier connected devices from all the 'other' (as in - lower
+of a lower and upper of an upper) devices, so that way, I think, it would
+be easier/faster for you to use it. It also has a ->private field, easily
+accessible, which you could have used instead of/in conjunction with/for
+struct ixgbe_vsi_adapter.
+
+[PATCH v2 net-next 00/27] bonding: use neighbours instead of own lists
+
+Here's the patchset.
+
+Hope that helps.
+
+>
+>Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>---
+> include/linux/netdevice.h |    8 ++++++++
+> net/core/dev.c            |   25 +++++++++++++++++++++++++
+> 2 files changed, 33 insertions(+)
+>
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 041b42a..4d24b38 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -2813,6 +2813,8 @@ extern int		bpf_jit_enable;
+> extern bool netdev_has_upper_dev(struct net_device *dev,
+> 				 struct net_device *upper_dev);
+> extern bool netdev_has_any_upper_dev(struct net_device *dev);
+>+extern struct net_device *netdev_lower_get_next_dev_rcu(struct net_device *dev,
+>+							struct list_head **iter);
+> extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+> 							struct list_head **iter);
+>
+>@@ -2823,6 +2825,12 @@ extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+> 	     upper; \
+> 	     upper = netdev_upper_get_next_dev_rcu(dev, &(iter)))
+>
+>+#define netdev_for_each_lower_dev_rcu(dev, lower, iter) \
+>+	for (iter = &(dev)->lower_dev_list, \
+>+	     lower = netdev_lower_get_next_dev_rcu(dev, &(iter)); \
+>+	     lower; \
+>+	     lower = netdev_lower_get_next_dev_rcu(dev, &(iter)))
+>+
+> extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+> extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+> extern int netdev_upper_dev_link(struct net_device *dev,
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 5c713f2..65ed610 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -4468,6 +4468,31 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+> }
+> EXPORT_SYMBOL(netdev_master_upper_dev_get);
+>
+>+/* netdev_lower_get_next_dev_rcu - Get the next dev from lower list
+>+ * @dev: device
+>+ * @iter: list_head ** of the current position
+>+ *
+>+ * Gets the next device from the dev's lower list, starting from iter
+>+ * position. The caller must hold RTNL/RCU read lock.
+>+ */
+>+struct net_device *netdev_lower_get_next_dev_rcu(struct net_device *dev,
+>+						 struct list_head **iter)
+>+{
+>+	struct netdev_adjacent *lower;
+>+
+>+	WARN_ON_ONCE(!rcu_read_lock_held());
+>+
+>+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
+>+
+>+	if (&lower->list == &dev->lower_dev_list)
+>+		return NULL;
+>+
+>+	*iter = &lower->list;
+>+
+>+	return lower->dev;
+>+}
+>+EXPORT_SYMBOL(netdev_lower_get_next_dev_rcu);
+>+
+> /* netdev_upper_get_next_dev_rcu - Get the next dev from upper list
+>  * @dev: device
+>  * @iter: list_head ** of the current position
+>
