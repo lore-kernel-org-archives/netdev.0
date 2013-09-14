@@ -1,48 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
-Date: Sat, 14 Sep 2013 04:10:37 +0400
-Message-ID: <201309140410.38396.sergei.shtylyov@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] alx: remove redundant D0 power state set
+Date: Fri, 13 Sep 2013 20:12:17 -0400 (EDT)
+Message-ID: <20130913.201217.240090962278382294.davem@davemloft.net>
+References: <1378865220-9368-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
-	laurent.pinchart+renesas@ideasonboard.com
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org,
+	guohanjun@huawei.com
+To: wangyijing@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59714 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295Ab3INAMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 20:12:18 -0400
+In-Reply-To: <1378865220-9368-1-git-send-email-wangyijing@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY registers
-registers values of which are vital for the correct functioning of the driver.
-Unfortunately, the existing PHY platform fixup mechanism doesn't help  here as
-it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups() from
-the driver helps here. With a proper platform fixup, this fixes NFS timeouts on
-the SH-Mobile Lager board. 
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 11 Sep 2013 10:07:00 +0800
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Pci_enable_device_mem() will set device power state to D0,
+> so it's no need to do it again in alx_probe().
+> Also remove redundant PM Cap find code, because pci core
+> has been saved the pci device pm cap value.
+> 
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 
----
-This patch is against Dave Miller's 'net.git' tree.
-If desired, I can merge it with the Lager platform patch I'll post next, altho
-there's only runtime interdependency between them...
-
- drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1701,6 +1701,11 @@ static int sh_eth_phy_start(struct net_d
- 
- 	/* reset phy - this also wakes it from PDOWN */
- 	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
-+	/* some boards need their registers set to non-default state */
-+	ret = phy_scan_fixups(mdp->phydev);
-+	if (ret)
-+		return ret;
-+
- 	phy_start(mdp->phydev);
- 
- 	return 0;
+Applied, thank you.
