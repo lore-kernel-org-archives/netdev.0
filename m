@@ -1,34 +1,71 @@
-From: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
-Subject: [PATCH 1/1] isdn: hfcpci_softirq: get func return to suppress compiler warning
-Date: Sat, 14 Sep 2013 14:20:40 -0300
-Message-ID: <1379179240-21927-1-git-send-email-antonio.alecrim@gmail.com>
-Cc: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH 6/7] rtlwifi: Fix smatch warnings in usb.c
+Date: Sat, 14 Sep 2013 15:26:01 -0500
+Message-ID: <5234C659.9080307@lwfinger.net>
+References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-7-git-send-email-Larry.Finger@lwfinger.net> <5234BCB6.6050508@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5234BCB6.6050508-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
----
- drivers/isdn/hardware/mISDN/hfcpci.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 09/14/2013 02:44 PM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 09/13/2013 09:45 PM, Larry Finger wrote:
+>
+>> Smatch displays the following:
+>>    CHECK   drivers/net/wireless/rtlwifi/usb.c
+>> drivers/net/wireless/rtlwifi/usb.c:458 _rtl_usb_rx_process_agg() warn:
+>> assigning (-98) to unsigned variable 'stats.noise'
+>> drivers/net/wireless/rtlwifi/usb.c:503 _rtl_usb_rx_process_noagg() warn:
+>> assigning (-98) to unsigned variable 'stats.noise'
+>> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring
+>> unreachable code.
+>> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring
+>> unreachable code.
+>
+>> The negative number to an unsigned quantity is fixed by adding 256 to -98
+>> to get the equivalent negative number.
+>
+>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>> ---
+>>   drivers/net/wireless/rtlwifi/usb.c | 10 +++++++---
+>>   1 file changed, 7 insertions(+), 3 deletions(-)
+>
+>> diff --git a/drivers/net/wireless/rtlwifi/usb.c
+>> b/drivers/net/wireless/rtlwifi/usb.c
+>> index e56778c..9f3dcb8 100644
+>> --- a/drivers/net/wireless/rtlwifi/usb.c
+>> +++ b/drivers/net/wireless/rtlwifi/usb.c
+> [...]
+>> @@ -582,12 +582,15 @@ static void _rtl_rx_work(unsigned long param)
+>>   static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
+>>                       unsigned int len)
+>>   {
+>> +#if NET_IP_ALIGN != 0
+>>       unsigned int padding = 0;
+>> +#endif
+>>
+>>       /* make function no-op when possible */
+>> -    if (NET_IP_ALIGN == 0 || len < sizeof(*hdr))
+>> +    if (NET_IP_ALIGN == 0 || len < sizeof(struct ieee80211_hdr))
+>
+>     Why this collateral and undocumented change? What does it achieve?
+>
+>>           return 0;
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
-index 7f910c7..3c92780 100644
---- a/drivers/isdn/hardware/mISDN/hfcpci.c
-+++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -2295,8 +2295,8 @@ _hfcpci_softirq(struct device *dev, void *arg)
- static void
- hfcpci_softirq(void *arg)
- {
--	(void) driver_for_each_device(&hfc_driver.driver, NULL, arg,
--				      _hfcpci_softirq);
-+	WARN_ON_ONCE(driver_for_each_device(&hfc_driver.driver, NULL, arg,
-+				      _hfcpci_softirq) != 0);
- 
- 	/* if next event would be in the past ... */
- 	if ((s32)(hfc_jiffies + tics - jiffies) <= 0)
--- 
-1.8.3.1
+It does not change a thing. Further up the code is "struct ieee80211_hdr *hdr". 
+This change was one I tried during the fixes, and I forgot to remove it.
+
+Larry
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
