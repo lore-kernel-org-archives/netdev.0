@@ -1,75 +1,59 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [RFC PATCH 2/4] net: Add lower dev list helpers
-Date: Sat, 14 Sep 2013 23:14:37 +0200
-Message-ID: <20130914211437.GB18327@redhat.com>
-References: <20130911184441.26914.10336.stgit@nitbit.x32>
- <20130911184647.26914.40440.stgit@nitbit.x32>
- <20130914122756.GA18327@redhat.com>
- <5234CA5D.5020603@gmail.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: fix internal switch initialization
+Date: Sun, 15 Sep 2013 00:22:47 +0200
+Message-ID: <1379197367-19116-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: stephen@networkplumber.org, bhutchings@solarflare.com,
-	ogerlitz@mellanox.com, john.ronciak@intel.com,
-	netdev@vger.kernel.org, shannon.nelson@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44505 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756393Ab3INVQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Sep 2013 17:16:29 -0400
-Content-Disposition: inline
-In-Reply-To: <5234CA5D.5020603@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	stable@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 14, 2013 at 01:43:09PM -0700, John Fastabend wrote:
->On 09/14/2013 05:27 AM, Veaceslav Falico wrote:
->>On Wed, Sep 11, 2013 at 11:46:49AM -0700, John Fastabend wrote:
->>>This patch adds helpers to traverse the lower dev lists, these
->>>helpers match the upper dev list implementation.
->>>
->>>VSI implementers may use these to track a list of connected netdevs.
->>>This is easier then having drivers do their own accounting.
->>
->>Just as a note (as I have quite no idea how ixgbe works) - you are aware
->>that the upper/lower lists currently include *all* upper/lower devices, and
->>not only the first-connected ones?
->
->Yep, the netif_is_vsi_port() should hopefully catch all the cases.
->
->>
->>I've seen that you usually verify it, however not always, just a heads-up -
->>sorry if misread.
->
->I'll audit it again, maybe I missed a case.
+Some devices (BCM4749, BCM5357, BCM53572) have internal switch that
+requires initialization. We already have code for this, but because
+of the typo in code it was never working. This resulted in network not
+working for some routers and possibility of soft-bricking them.
 
-It was about lower devices, and I think I've just really misread it -
-indeed they can be only 'your' devices.
+Use correct bit for switch initialization and fix typo in the define.
 
->
->>
->>I'm also currently trying to get the new patchset included - which would
->>split the first-tier connected devices from all the 'other' (as in - lower
->>of a lower and upper of an upper) devices, so that way, I think, it would
->>be easier/faster for you to use it. It also has a ->private field, easily
->>accessible, which you could have used instead of/in conjunction with/for
->>struct ixgbe_vsi_adapter.
->
->Yeah I saw the patch set I'll use the improved lists once I see the
->series gets applied. Although in my case the list walking only occurs in
->the configuration path so its not critical.
->
->Also the net device structure already has private space to hang the
->device dependent structure off of, so I'm not sure having another
->private field helps here.
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    2 +-
+ drivers/net/ethernet/broadcom/bgmac.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Yep, it should/can be used when linking devices which might already be
-using their private space for their own structures, which is not your case,
-I suppose.
-
->
->Thanks,
->John
->
->-- 
->John Fastabend         Intel Corporation
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index eec0af4..1c6bc96 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -908,7 +908,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 		struct bcma_drv_cc *cc =3D &bgmac->core->bus->drv_cc;
+ 		u8 et_swtype =3D 0;
+ 		u8 sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHY |
+-			     BGMAC_CHIPCTL_1_IF_TYPE_RMII;
++			     BGMAC_CHIPCTL_1_IF_TYPE_MII;
+ 		char buf[2];
+=20
+ 		if (bcm47xx_nvram_getenv("et_swtype", buf, 1) > 0) {
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
+et/broadcom/bgmac.h
+index 98d4b5f..12a35cf 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -333,7 +333,7 @@
+=20
+ #define BGMAC_CHIPCTL_1_IF_TYPE_MASK		0x00000030
+ #define BGMAC_CHIPCTL_1_IF_TYPE_RMII		0x00000000
+-#define BGMAC_CHIPCTL_1_IF_TYPE_MI		0x00000010
++#define BGMAC_CHIPCTL_1_IF_TYPE_MII		0x00000010
+ #define BGMAC_CHIPCTL_1_IF_TYPE_RGMII		0x00000020
+ #define BGMAC_CHIPCTL_1_SW_TYPE_MASK		0x000000C0
+ #define BGMAC_CHIPCTL_1_SW_TYPE_EPHY		0x00000000
+--=20
+1.7.10.4
