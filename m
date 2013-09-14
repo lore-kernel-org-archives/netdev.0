@@ -1,60 +1,136 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next 2/2] bridge: fix NULL pointer deref of br_port_get_rcu
-Date: Sat, 14 Sep 2013 22:42:28 +0800
-Message-ID: <1379169748-767-3-git-send-email-zhiguohong@tencent.com>
-References: <1379169748-767-1-git-send-email-zhiguohong@tencent.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, vyasevic@redhat.com,
-	Hong Zhiguo <zhiguohong@tencent.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:55593 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932084Ab3INOoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 10:44:44 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so2384912pdj.40
-        for <netdev@vger.kernel.org>; Sat, 14 Sep 2013 07:44:44 -0700 (PDT)
-In-Reply-To: <1379169748-767-1-git-send-email-zhiguohong@tencent.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dong Zhu <bluezhudong@gmail.com>
+Subject: Re: [PATCH] ptp: add the PTP_SYS_OFFSET ioctl to the testptp
+ program clock
+Date: Sat, 14 Sep 2013 23:39:52 +0800
+Message-ID: <20130914153952.GD23682@zhudong.nay.redhat.com>
+References: <20130914080306.GC23682@zhudong.nay.redhat.com>
+ <20130914143144.GA4206@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Landley <rob@landley.net>, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130914143144.GA4206@netboy>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hong Zhiguo <zhiguohong@tencent.com>
+On Sat, Sep 14, 2013 at 04:31:46PM +0200, Richard Cochran wrote:
+> On Sat, Sep 14, 2013 at 04:03:06PM +0800, Dong Zhu wrote:
+> > This patch add a method into testptp.c to measure the time offset
+> > between phc and system clock through the ioctl PTP_SYS_OFFSET.
+> > 
+> 
+> This is a nice addition to the testptp program. I do have a few
+> comments, below.
+> 
 
-The NULL deref happens when br_handle_frame is called between these
-2 lines of del_nbp:
-	dev->priv_flags &= ~IFF_BRIDGE_PORT;
-	/* --> br_handle_frame is called at this time */
-	netdev_rx_handler_unregister(dev);
+Thanks very much for your comments, I have modified the patch as below,
+Cuold you have a look at it again ? Any comments would be appreciated.
 
-In br_handle_frame the return of br_port_get_rcu(dev) is dereferenced
-without check but br_port_get_rcu(dev) returns NULL if:
-	!(dev->priv_flags & IFF_BRIDGE_PORT)
+>From 655b45785a85599d5fff5eb3b8d9b49b72f2991f Mon Sep 17 00:00:00 2001
+From: Dong Zhu <bluezhudong@gmail.com> 
+Date: Sat, 14 Sep 2013 23:32:14 +0800
 
-Eric Dumazet pointed out the testing of IFF_BRIDGE_PORT is not necessary
-here since we're in rcu_read_lock and we have synchronize_net() in
-netdev_rx_handler_unregister. So remove the testing of IFF_BRIDGE_PORT
-and by the previous patch, make sure br_port_get_rcu is called in
-bridging code.
+This patch add a method into testptp.c to measure the time offset
+between phc and system clock through the ioctl PTP_SYS_OFFSET.
 
-Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
+Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
 ---
- net/bridge/br_private.h | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ Documentation/ptp/testptp.c | 40 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 49fb43e..1aaca0e 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -202,10 +202,7 @@ struct net_bridge_port
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index f59ded0..8acdc70 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -112,6 +112,8 @@ static void usage(char *progname)
+ 		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
+ 		" -g         get the ptp clock time\n"
+ 		" -h         prints this message\n"
++		" -k val     measure the time offset between phc and system clock "
++		"for 'val' times (Maximum 25)\n"
+ 		" -p val     enable output with a period of 'val' nanoseconds\n"
+ 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+ 		" -s         set the ptp clock time from the system time\n"
+@@ -133,8 +135,12 @@ int main(int argc, char *argv[])
+ 	struct itimerspec timeout;
+ 	struct sigevent sigevent;
  
- static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
- {
--	struct net_bridge_port *port =
--			rcu_dereference_rtnl(dev->rx_handler_data);
--
--	return br_port_exists(dev) ? port : NULL;
-+	return rcu_dereference(dev->rx_handler_data);
++	struct ptp_clock_time *pct;
++	struct ptp_sys_offset *sysoff;
++
++
+ 	char *progname;
+-	int c, cnt, fd;
++	int i, c, cnt, fd;
+ 
+ 	char *device = DEVICE;
+ 	clockid_t clkid;
+@@ -144,6 +150,8 @@ int main(int argc, char *argv[])
+ 	int extts = 0;
+ 	int gettime = 0;
+ 	int oneshot = 0;
++	int offset = 0;
++	int n_samples = 0;
+ 	int periodic = 0;
+ 	int perout = -1;
+ 	int pps = -1;
+@@ -151,7 +159,7 @@ int main(int argc, char *argv[])
+ 
+ 	progname = strrchr(argv[0], '/');
+ 	progname = progname ? 1+progname : argv[0];
+-	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghp:P:sSt:v"))) {
++	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:v"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot = atoi(optarg);
+@@ -174,6 +182,10 @@ int main(int argc, char *argv[])
+ 		case 'g':
+ 			gettime = 1;
+ 			break;
++		case 'k':
++			offset = 1;
++			n_samples = atoi(optarg);
++			break;
+ 		case 'p':
+ 			perout = atoi(optarg);
+ 			break;
+@@ -376,6 +388,30 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
++	if (offset) {
++		sysoff = calloc(1, sizeof(*sysoff));
++		if (!sysoff) {
++			perror("calloc");
++			return -1;
++		}
++		sysoff->n_samples = n_samples;
++
++		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
++			perror("PTP_SYS_OFFSET");
++		else
++			puts("phc and system clock time offset request okay");
++
++		pct = &sysoff->ts[0];
++		for (i = 0; i < sysoff->n_samples; i++, pct++) {
++			printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
++			pct++;
++			printf("phc    time: %ld.%ld\n", pct->sec, pct->nsec);
++		}
++		printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
++
++		free(sysoff);
++	}
++
+ 	close(fd);
+ 	return 0;
  }
- 
- static inline struct net_bridge_port *br_port_get_rtnl(const struct net_device *dev)
 -- 
-1.8.1.2
+1.7.11.7
+
+-- 
+Best Regards,
+Dong Zhu
