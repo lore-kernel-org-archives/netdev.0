@@ -1,92 +1,60 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] net, mellanox mlx4 Fix compile warnings
-Date: Sat, 14 Sep 2013 22:10:19 +0300
-Message-ID: <CAJZOPZLt8G8MsPxiRNySex=izThR74bXcnWTmWB2wjPys09_ig@mail.gmail.com>
-References: <1379075438-20240-1-git-send-email-prarit@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ptp: measure the time offset between PHC and system clock
+Date: Sat, 14 Sep 2013 23:21:50 +0400
+Message-ID: <5234B74E.5000402@cogentembedded.com>
+References: <20130914080306.GC23682@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Prarit Bhargava <prarit@redhat.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f51.google.com ([209.85.216.51]:63103 "EHLO
-	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756745Ab3INTKU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 15:10:20 -0400
-Received: by mail-qa0-f51.google.com with SMTP id j15so246468qaq.3
-        for <netdev@vger.kernel.org>; Sat, 14 Sep 2013 12:10:19 -0700 (PDT)
-In-Reply-To: <1379075438-20240-1-git-send-email-prarit@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Rob Landley <rob@landley.net>, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dong Zhu <bluezhudong@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130914080306.GC23682@zhudong.nay.redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 13, 2013 at 3:30 PM, Prarit Bhargava <prarit@redhat.com> wr=
-ote:
-> Fix unitialized variable warnings.
+Hello.
 
-Hi,
+On 09/14/2013 12:03 PM, Dong Zhu wrote:
 
-I'd like Jack, who is in charge on this code to take a look, added him.
+> This patch add a method into testptp.c to measure the time offset
+> between phc and system clock through the ioctl PTP_SYS_OFFSET.
 
-Or.
-
->
-> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =91=
-mlx4_HW2SW_CQ_wrapper=92:
-> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2551:16: error:=
- =91cq=92 may be used uninitialized in this function [-Werror=3Dmaybe-u=
-ninitialized]
->   atomic_dec(&cq->mtt->ref_count);
->                 ^
-> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =91=
-mlx4_HW2SW_SRQ_wrapper=92:
-> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2734:17: error:=
- =91srq=92 may be used uninitialized in this function [-Werror=3Dmaybe-=
-uninitialized]
->   atomic_dec(&srq->mtt->ref_count);
->
-> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-> Cc: dledford@redhat.com
-> Cc: Amir Vadai <amirv@mellanox.com>
-> Cc: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
 > ---
->  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>   Documentation/ptp/testptp.c | 40 ++++++++++++++++++++++++++++++++++++++--
+>   1 file changed, 38 insertions(+), 2 deletions(-)
+
+> diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+> index f59ded0..72bb030 100644
+> --- a/Documentation/ptp/testptp.c
+> +++ b/Documentation/ptp/testptp.c
+[...]
+> @@ -376,6 +387,31 @@ int main(int argc, char *argv[])
+>   		}
+>   	}
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/=
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> index dd68763..d703838 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> @@ -2563,7 +2563,7 @@ int mlx4_HW2SW_CQ_wrapper(struct mlx4_dev *dev,=
- int slave,
->  {
->         int err;
->         int cqn =3D vhcr->in_modifier;
-> -       struct res_cq *cq;
-> +       struct res_cq *uninitialized_var(cq);
->
->         err =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATE=
-D, &cq);
->         if (err)
-> @@ -2746,7 +2746,7 @@ int mlx4_HW2SW_SRQ_wrapper(struct mlx4_dev *dev=
-, int slave,
->  {
->         int err;
->         int srqn =3D vhcr->in_modifier;
-> -       struct res_srq *srq;
-> +       struct res_srq *uninitialized_var(srq);
->
->         err =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOC=
-ATED, &srq);
->         if (err)
-> --
-> 1.7.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	if (offset) {
+> +		sysoff = calloc(1, sizeof(*sysoff));
+> +		if (!sysoff) {
+> +			perror("calloc");
+> +			return -1;
+> +		}
+> +		sysoff->n_samples = n_samples;
+> +
+> +		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
+> +			perror("PTP_SYS_OFFSET");
+> +		else
+> +			puts("time offset between PHC and
+> +					 system clock request okay");
+
+    Don't break the string constant that way, there'll be all spaces between 
+"and" and "system" included in it. Do it like this:
+
+			puts("time offset between PHC and "
+			     "system clock request okay");
+
+WBR, Sergei
+
