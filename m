@@ -1,119 +1,127 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [RFC PATCH 2/4] net: Add lower dev list helpers
-Date: Sat, 14 Sep 2013 14:27:56 +0200
-Message-ID: <20130914122756.GA18327@redhat.com>
-References: <20130911184441.26914.10336.stgit@nitbit.x32>
- <20130911184647.26914.40440.stgit@nitbit.x32>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] ptp: measure the time offset between PHC and system clock
+Date: Sat, 14 Sep 2013 16:31:46 +0200
+Message-ID: <20130914143144.GA4206@netboy>
+References: <20130914080306.GC23682@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: stephen@networkplumber.org, bhutchings@solarflare.com,
-	ogerlitz@mellanox.com, john.ronciak@intel.com,
-	netdev@vger.kernel.org, shannon.nelson@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32817 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752746Ab3INM3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Sep 2013 08:29:48 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Landley <rob@landley.net>, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dong Zhu <bluezhudong@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130911184647.26914.40440.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130914080306.GC23682@zhudong.nay.redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 11, 2013 at 11:46:49AM -0700, John Fastabend wrote:
->This patch adds helpers to traverse the lower dev lists, these
->helpers match the upper dev list implementation.
->
->VSI implementers may use these to track a list of connected netdevs.
->This is easier then having drivers do their own accounting.
+On Sat, Sep 14, 2013 at 04:03:06PM +0800, Dong Zhu wrote:
+> This patch add a method into testptp.c to measure the time offset
+> between phc and system clock through the ioctl PTP_SYS_OFFSET.
+> 
 
-Just as a note (as I have quite no idea how ixgbe works) - you are aware
-that the upper/lower lists currently include *all* upper/lower devices, and
-not only the first-connected ones?
+This is a nice addition to the testptp program. I do have a few
+comments, below.
 
-I've seen that you usually verify it, however not always, just a heads-up -
-sorry if misread.
+First off, the subject line should mention testptp. How about this?
 
-I'm also currently trying to get the new patchset included - which would
-split the first-tier connected devices from all the 'other' (as in - lower
-of a lower and upper of an upper) devices, so that way, I think, it would
-be easier/faster for you to use it. It also has a ->private field, easily
-accessible, which you could have used instead of/in conjunction with/for
-struct ixgbe_vsi_adapter.
+    [PATCH] ptp: add the PTP_SYS_OFFSET ioctl to the testptp program
 
-[PATCH v2 net-next 00/27] bonding: use neighbours instead of own lists
+> Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
+> ---
+>  Documentation/ptp/testptp.c | 40 ++++++++++++++++++++++++++++++++++++++--
+>  1 file changed, 38 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+> index f59ded0..72bb030 100644
+> --- a/Documentation/ptp/testptp.c
+> +++ b/Documentation/ptp/testptp.c
+> @@ -112,6 +112,7 @@ static void usage(char *progname)
+>  		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
+>  		" -g         get the ptp clock time\n"
+>  		" -h         prints this message\n"
+> +		" -k val     measure the time offset between PHC and system clock\n"
 
-Here's the patchset.
+The help message should tell the user what 'val' is.
 
-Hope that helps.
+>  		" -p val     enable output with a period of 'val' nanoseconds\n"
+>  		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+>  		" -s         set the ptp clock time from the system time\n"
+> @@ -133,8 +134,12 @@ int main(int argc, char *argv[])
+>  	struct itimerspec timeout;
+>  	struct sigevent sigevent;
+>  
+> +	struct ptp_clock_time *pct;
+> +	struct ptp_sys_offset *sysoff;
+> +
+> +
+>  	char *progname;
+> -	int c, cnt, fd;
+> +	int i, c, cnt, fd;
+>  
+>  	char *device = DEVICE;
+>  	clockid_t clkid;
+> @@ -144,6 +149,8 @@ int main(int argc, char *argv[])
+>  	int extts = 0;
+>  	int gettime = 0;
+>  	int oneshot = 0;
+> +	int offset = 0;
+> +	int n_samples = 0;
+>  	int periodic = 0;
+>  	int perout = -1;
+>  	int pps = -1;
+> @@ -151,7 +158,7 @@ int main(int argc, char *argv[])
+>  
+>  	progname = strrchr(argv[0], '/');
+>  	progname = progname ? 1+progname : argv[0];
+> -	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghp:P:sSt:v"))) {
+> +	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:v"))) {
+>  		switch (c) {
+>  		case 'a':
+>  			oneshot = atoi(optarg);
+> @@ -174,6 +181,10 @@ int main(int argc, char *argv[])
+>  		case 'g':
+>  			gettime = 1;
+>  			break;
+> +		case 'k':
+> +			offset = 1;
+> +			n_samples = atoi(optarg);
+> +			break;
+>  		case 'p':
+>  			perout = atoi(optarg);
+>  			break;
+> @@ -376,6 +387,31 @@ int main(int argc, char *argv[])
+>  		}
+>  	}
+>  
+> +	if (offset) {
+> +		sysoff = calloc(1, sizeof(*sysoff));
+> +		if (!sysoff) {
+> +			perror("calloc");
+> +			return -1;
+> +		}
+> +		sysoff->n_samples = n_samples;
+> +
+> +		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
+> +			perror("PTP_SYS_OFFSET");
+> +		else
+> +			puts("time offset between PHC and
+> +					 system clock request okay");
+> +
+> +		pct = &sysoff->ts[0];
+> +		for (i = 0; i < sysoff->n_samples; i++, pct++) {
+> +			printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
+> +			pct++;
+> +			printf("phc    time: %ld.%ld\n\n", pct->sec, pct->nsec);
+                                                    ^^^^
+I think the output would look nicer with only one newline. After all,
+each measurement is a {sys,phc,sys} triplet and not a {sys,phc} pair.
 
->
->Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->---
-> include/linux/netdevice.h |    8 ++++++++
-> net/core/dev.c            |   25 +++++++++++++++++++++++++
-> 2 files changed, 33 insertions(+)
->
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index 041b42a..4d24b38 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -2813,6 +2813,8 @@ extern int		bpf_jit_enable;
-> extern bool netdev_has_upper_dev(struct net_device *dev,
-> 				 struct net_device *upper_dev);
-> extern bool netdev_has_any_upper_dev(struct net_device *dev);
->+extern struct net_device *netdev_lower_get_next_dev_rcu(struct net_device *dev,
->+							struct list_head **iter);
-> extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
-> 							struct list_head **iter);
->
->@@ -2823,6 +2825,12 @@ extern struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
-> 	     upper; \
-> 	     upper = netdev_upper_get_next_dev_rcu(dev, &(iter)))
->
->+#define netdev_for_each_lower_dev_rcu(dev, lower, iter) \
->+	for (iter = &(dev)->lower_dev_list, \
->+	     lower = netdev_lower_get_next_dev_rcu(dev, &(iter)); \
->+	     lower; \
->+	     lower = netdev_lower_get_next_dev_rcu(dev, &(iter)))
->+
-> extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
-> extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
-> extern int netdev_upper_dev_link(struct net_device *dev,
->diff --git a/net/core/dev.c b/net/core/dev.c
->index 5c713f2..65ed610 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -4468,6 +4468,31 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
-> }
-> EXPORT_SYMBOL(netdev_master_upper_dev_get);
->
->+/* netdev_lower_get_next_dev_rcu - Get the next dev from lower list
->+ * @dev: device
->+ * @iter: list_head ** of the current position
->+ *
->+ * Gets the next device from the dev's lower list, starting from iter
->+ * position. The caller must hold RTNL/RCU read lock.
->+ */
->+struct net_device *netdev_lower_get_next_dev_rcu(struct net_device *dev,
->+						 struct list_head **iter)
->+{
->+	struct netdev_adjacent *lower;
->+
->+	WARN_ON_ONCE(!rcu_read_lock_held());
->+
->+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
->+
->+	if (&lower->list == &dev->lower_dev_list)
->+		return NULL;
->+
->+	*iter = &lower->list;
->+
->+	return lower->dev;
->+}
->+EXPORT_SYMBOL(netdev_lower_get_next_dev_rcu);
->+
-> /* netdev_upper_get_next_dev_rcu - Get the next dev from upper list
->  * @dev: device
->  * @iter: list_head ** of the current position
->
+> +		}
+> +		printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
+> +
+> +		free(sysoff);
+> +	}
+> +
+
+Thanks,
+Richard
