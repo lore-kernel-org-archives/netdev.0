@@ -1,71 +1,72 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH 6/7] rtlwifi: Fix smatch warnings in usb.c
-Date: Sat, 14 Sep 2013 15:26:01 -0500
-Message-ID: <5234C659.9080307@lwfinger.net>
-References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-7-git-send-email-Larry.Finger@lwfinger.net> <5234BCB6.6050508@cogentembedded.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 2/7] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
+Date: Sat, 14 Sep 2013 15:30:13 -0500
+Message-ID: <5234C755.80709@lwfinger.net>
+References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-3-git-send-email-Larry.Finger@lwfinger.net> <5234C03A.2070701@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5234BCB6.6050508-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:52839 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932353Ab3INUaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Sep 2013 16:30:16 -0400
+In-Reply-To: <5234C03A.2070701@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/14/2013 02:44 PM, Sergei Shtylyov wrote:
+On 09/14/2013 02:59 PM, Sergei Shtylyov wrote:
 > Hello.
 >
-> On 09/13/2013 09:45 PM, Larry Finger wrote:
+> On 09/13/2013 09:44 PM, Larry Finger wrote:
 >
->> Smatch displays the following:
->>    CHECK   drivers/net/wireless/rtlwifi/usb.c
->> drivers/net/wireless/rtlwifi/usb.c:458 _rtl_usb_rx_process_agg() warn:
->> assigning (-98) to unsigned variable 'stats.noise'
->> drivers/net/wireless/rtlwifi/usb.c:503 _rtl_usb_rx_process_noagg() warn:
->> assigning (-98) to unsigned variable 'stats.noise'
->> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring
->> unreachable code.
->> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring
->> unreachable code.
+>> Smatch lists the following:
+>>    CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info:
+>> ignoring unreachable code.
+>> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info:
+>> ignoring unreachable code.
 >
->> The negative number to an unsigned quantity is fixed by adding 256 to -98
->> to get the equivalent negative number.
+>> Dead code is removed.
 >
->> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>     It is instead commented out, including non-dead code it seems...
+>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 >> ---
->>   drivers/net/wireless/rtlwifi/usb.c | 10 +++++++---
->>   1 file changed, 7 insertions(+), 3 deletions(-)
->
->> diff --git a/drivers/net/wireless/rtlwifi/usb.c
->> b/drivers/net/wireless/rtlwifi/usb.c
->> index e56778c..9f3dcb8 100644
->> --- a/drivers/net/wireless/rtlwifi/usb.c
->> +++ b/drivers/net/wireless/rtlwifi/usb.c
-> [...]
->> @@ -582,12 +582,15 @@ static void _rtl_rx_work(unsigned long param)
->>   static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
->>                       unsigned int len)
->>   {
->> +#if NET_IP_ALIGN != 0
->>       unsigned int padding = 0;
->> +#endif
+>>   drivers/net/wireless/rtlwifi/rtl8192de/hw.c | 2 ++
+>>   1 file changed, 2 insertions(+)
 >>
->>       /* make function no-op when possible */
->> -    if (NET_IP_ALIGN == 0 || len < sizeof(*hdr))
->> +    if (NET_IP_ALIGN == 0 || len < sizeof(struct ieee80211_hdr))
+>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>> b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>> index 7dd8f6d..c9b0894 100644
+>> --- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>> @@ -1194,6 +1194,7 @@ void rtl92d_linked_set_reg(struct ieee80211_hw *hw)
+>>    * mac80211 will send pkt when scan */
+>>   void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
+>>   {
+>> +/*
+>>       struct rtl_priv *rtlpriv = rtl_priv(hw);
+>>       rtl92d_dm_init_edca_turbo(hw);
+>>       return;
 >
->     Why this collateral and undocumented change? What does it achieve?
->
->>           return 0;
+>     Shouldn't the comment start here (and *return* removed)? It's also
+> better to remove the dead code than just to comment it out.
 
-It does not change a thing. Further up the code is "struct ieee80211_hdr *hdr". 
-This change was one I tried during the fixes, and I forgot to remove it.
+That would leave some unused variables.
+
+>> @@ -1213,6 +1214,7 @@ void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
+>>           RT_ASSERT(false, "invalid aci: %d !\n", aci);
+>>           break;
+>>       }
+>> + */
+>>   }
+
+I'm not sure what that unreachable code might do, thus I saved it as a comment 
+for possible future use. I need to do further evaluation on this fragment, and 
+probably consult with the Realtek engineers.
 
 Larry
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
