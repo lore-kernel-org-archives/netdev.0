@@ -1,26 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] be2net: missing variable initialization
-Date: Fri, 13 Sep 2013 20:08:31 -0400 (EDT)
-Message-ID: <20130913.200831.2272142797603952898.davem@davemloft.net>
-References: <1379091949-4668-1-git-send-email-antonio.alecrim@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
+Date: Sat, 14 Sep 2013 04:10:37 +0400
+Message-ID: <201309140410.38396.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: antonio.alecrim@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59627 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755295Ab3INAId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 20:08:33 -0400
-In-Reply-To: <1379091949-4668-1-git-send-email-antonio.alecrim@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
+	laurent.pinchart+renesas@ideasonboard.com
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
-Date: Fri, 13 Sep 2013 14:05:49 -0300
+Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY registers
+registers values of which are vital for the correct functioning of the driver.
+Unfortunately, the existing PHY platform fixup mechanism doesn't help  here as
+it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups() from
+the driver helps here. With a proper platform fixup, this fixes NFS timeouts on
+the SH-Mobile Lager board. 
 
-> Signed-off-by: Antonio Alecrim Jr <antonio.alecrim@gmail.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied, thanks.
+---
+This patch is against Dave Miller's 'net.git' tree.
+If desired, I can merge it with the Lager platform patch I'll post next, altho
+there's only runtime interdependency between them...
+
+ drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1701,6 +1701,11 @@ static int sh_eth_phy_start(struct net_d
+ 
+ 	/* reset phy - this also wakes it from PDOWN */
+ 	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
++	/* some boards need their registers set to non-default state */
++	ret = phy_scan_fixups(mdp->phydev);
++	if (ret)
++		return ret;
++
+ 	phy_start(mdp->phydev);
+ 
+ 	return 0;
