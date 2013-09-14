@@ -1,78 +1,117 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/1] net: race condition when removing virtual net_device
-Date: Fri, 13 Sep 2013 18:46:08 -0700
-Message-ID: <87d2ocrx9b.fsf@xmission.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	<871u4t1d9t.fsf@xmission.com>
-	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
+From: Dong Zhu <bluezhudong@gmail.com>
+Subject: [PATCH] ptp: measure the time offset between PHC and system clock
+Date: Sat, 14 Sep 2013 16:03:06 +0800
+Message-ID: <20130914080306.GC23682@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:56644 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756038Ab3INBqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Sep 2013 21:46:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>,
+	Rob Landley <rob@landley.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francesco Ruggeri <fruggeri@aristanetworks.com> writes:
+This patch add a method into testptp.c to measure the time offset
+between phc and system clock through the ioctl PTP_SYS_OFFSET.
 
-> On Thu, Sep 12, 2013 at 10:50 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
+Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
+---
+ Documentation/ptp/testptp.c | 40 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 2 deletions(-)
 
-> To summarize your proposal:
-> 1) Remove re-broadcasting of NETDEV_UNREGISTER and
-> NETDEV_UNREGISTER_FINAL from netdev_wait_allrefs.
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index f59ded0..72bb030 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -112,6 +112,7 @@ static void usage(char *progname)
+ 		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
+ 		" -g         get the ptp clock time\n"
+ 		" -h         prints this message\n"
++		" -k val     measure the time offset between PHC and system clock\n"
+ 		" -p val     enable output with a period of 'val' nanoseconds\n"
+ 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+ 		" -s         set the ptp clock time from the system time\n"
+@@ -133,8 +134,12 @@ int main(int argc, char *argv[])
+ 	struct itimerspec timeout;
+ 	struct sigevent sigevent;
+ 
++	struct ptp_clock_time *pct;
++	struct ptp_sys_offset *sysoff;
++
++
+ 	char *progname;
+-	int c, cnt, fd;
++	int i, c, cnt, fd;
+ 
+ 	char *device = DEVICE;
+ 	clockid_t clkid;
+@@ -144,6 +149,8 @@ int main(int argc, char *argv[])
+ 	int extts = 0;
+ 	int gettime = 0;
+ 	int oneshot = 0;
++	int offset = 0;
++	int n_samples = 0;
+ 	int periodic = 0;
+ 	int perout = -1;
+ 	int pps = -1;
+@@ -151,7 +158,7 @@ int main(int argc, char *argv[])
+ 
+ 	progname = strrchr(argv[0], '/');
+ 	progname = progname ? 1+progname : argv[0];
+-	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghp:P:sSt:v"))) {
++	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghk:p:P:sSt:v"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot = atoi(optarg);
+@@ -174,6 +181,10 @@ int main(int argc, char *argv[])
+ 		case 'g':
+ 			gettime = 1;
+ 			break;
++		case 'k':
++			offset = 1;
++			n_samples = atoi(optarg);
++			break;
+ 		case 'p':
+ 			perout = atoi(optarg);
+ 			break;
+@@ -376,6 +387,31 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
++	if (offset) {
++		sysoff = calloc(1, sizeof(*sysoff));
++		if (!sysoff) {
++			perror("calloc");
++			return -1;
++		}
++		sysoff->n_samples = n_samples;
++
++		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
++			perror("PTP_SYS_OFFSET");
++		else
++			puts("time offset between PHC and
++					 system clock request okay");
++
++		pct = &sysoff->ts[0];
++		for (i = 0; i < sysoff->n_samples; i++, pct++) {
++			printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
++			pct++;
++			printf("phc    time: %ld.%ld\n\n", pct->sec, pct->nsec);
++		}
++		printf("system time: %ld.%ld\n", pct->sec, pct->nsec);
++
++		free(sysoff);
++	}
++
+ 	close(fd);
+ 	return 0;
+ }
+-- 
+1.7.11.7
 
-Forget that it isn't needed.  It would be nice but since it doesn't
-solve the entire problem let's not go there.
 
-> 2) If unregistering a net_device causes unregistering of other virtual
-> devices (eg veth, macvlan, vlan) then move the virtual devices to the
-> namespace of the original net_device.
->
-> I do have some concerns about both correctness and feasibility of this approach.
->
-> About 2), namespace dependent operations triggered by unregistering
-> the virtual devices (eg rt_flush_dev, dst_dev_event/dst_ifdown and
-> probably more) would not be done in the namespaces where they should.
-
-Yes they will.  That is what dev_change_net_namespace does.
-dev_change_net_namespace would not be correct if it did not do that.
-
-Now dev_change_net_namespace is comparitively expensive so it may not be the
-best approach but it is an approach that will work.
-
-> I do urge you to take a second look at the approach that I proposed.
-> All it does is make sure that a namespace loopback_dev is not removed
-> until any devices unlisted from that namespace are also disposed of.
-> That in turn prevents non-device pernet subsystems from exiting that
-> namespace in ops_exit_list.
-
-It was worth a second look.  I can not find anything wrong with your
-patch but I can not convince myself that it is correct either.  The
-moving around the loopback device in the net dev todo list to prevent
-deadlock I can't imagine why you are doing that.
-
-I think I would prefer something more explicit and less likely to break.
-Perhaps something that keeps a network namespace from exiting while we
-delete devices.  Using the loopback device like that looks fragile.
-However it is very true that we require the loopback device to stay
-around until all of the dst_ifdown calls in a network namespace are
-made.
-
-At least my original concern that you could be incrementing the count on
-the loop back device when it had already reached zero can't be the case.
-
-It would be very nice to have something that I could think through
-easily and was robust to change.
-
-Eric
+-- 
+Best Regards,
+Dong Zhu
