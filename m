@@ -1,71 +1,50 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Sun, 15 Sep 2013 20:57:01 +0200
-Message-ID: <20130915205701.5c61a444@skate>
-References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: allow bigger et_swtype nvram variable
+Date: Sun, 15 Sep 2013 22:25:48 +0200
+Message-ID: <1379276748-13687-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Gregory =?UTF-8?B?Q2zDqW1lbnQ=?=
-	<gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>
-To: Ethan Tuttle <ethan@ethantuttle.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:52815 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751978Ab3IOS5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 14:57:11 -0400
-In-Reply-To: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:37812 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640Ab3IOU0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 16:26:21 -0400
+Received: by mail-ee0-f45.google.com with SMTP id c50so1627923eek.18
+        for <netdev@vger.kernel.org>; Sun, 15 Sep 2013 13:26:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Ethan,
+Without this patch it is impossible to read et_swtype, because the 1
+byte space is needed for the terminating null byte. The max expected
+value is 0xF, so now it should be possible to read decimal form ("15")
+and hex form ("0xF").
 
-On Sat, 14 Sep 2013 18:05:32 -0700, Ethan Tuttle wrote:
-> When I upgraded my mirabox from 3.11-rc4 to 3.11, I started seeing
-> oopses while receiving network traffic (see below).  Sending a flood
-> ping will trigger the oops within a few minutes.
-> 
-> The stack looks similar, but not identical to, the one reported
-> earlier by Jochen De Smet[1].  In my case the PC is always
-> __rcu_read_lock.
-> 
-> A git bisect found a878764 "Merge
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net" to be the
-> first bad commit... interesting, because neither of the merge parents
-> produce the oops.  I rebased the net changes onto the other merge
-> parent and bisected that series, which identified 702821f "net: revert
-> 8728c544a9c ("net: dev_pick_tx() fix")" as the first bad commit.
-> Indeed, reverting 702821f from 3.11 produces a kernel which stands up
-> to a ping flood for hours.
-> 
-> Each of the times I reproduced this, it was identified as "Unhandled
-> prefetch abort: unknown 25 (0x409) at 0xc0036ea0", except once when I
-> got "unknown 16 (0x400)".
-> 
-> I'm assuming this is an mvneta bug that was exposed by 702821f.
-> That's just a guess, and I don't have the skills to debug this any
-> further.  In any case, I figured the maintainers would want to know
-> about it.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks a lot for the report and the detailed investigation.
-Unfortunately, I don't have Armada 370 hardware with me this week, so
-I'm unable to test and reproduce the issue.
-
-However, I've added a bunch of Armada 370 people/maintainers in Cc,
-hopefully they can at least try to reproduce and confirm that reverting
-this patch makes the problem go away, which would confirm that we
-should look for a bug in the mvneta driver around this problem.
-
-Thanks!
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 1c6bc96..59f3e0c 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -909,9 +909,9 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 		u8 et_swtype =3D 0;
+ 		u8 sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHY |
+ 			     BGMAC_CHIPCTL_1_IF_TYPE_MII;
+-		char buf[2];
++		char buf[4];
+=20
+-		if (bcm47xx_nvram_getenv("et_swtype", buf, 1) > 0) {
++		if (bcm47xx_nvram_getenv("et_swtype", buf, sizeof(buf)) > 0) {
+ 			if (kstrtou8(buf, 0, &et_swtype))
+ 				bgmac_err(bgmac, "Failed to parse et_swtype (%s)\n",
+ 					  buf);
+--=20
+1.7.10.4
