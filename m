@@ -1,39 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] Do not drop DNATed 6to4/6rd packets
-Date: Sun, 15 Sep 2013 15:14:02 +0200
-Message-ID: <20130915131401.GA18477@order.stressinduktion.org>
-References: <1379154647-5781-1-git-send-email-catab@embedromix.ro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [PATCH] cxgb4: remove workqueue when driver registration fails
+Date: Sun, 15 Sep 2013 21:53:00 +0800
+Message-ID: <1379253180-10292-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, weiyang@linux.vnet.ibm.com
+To: dm@chelsio.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:58673 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756271Ab3IONOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 09:14:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1379154647-5781-1-git-send-email-catab@embedromix.ro>
+Received: from e23smtp03.au.ibm.com ([202.81.31.145]:53239 "EHLO
+	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932204Ab3IONxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 09:53:09 -0400
+Received: from /spool/local
+	by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Sun, 15 Sep 2013 23:41:23 +1000
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
+	by d23dlp03.au.ibm.com (Postfix) with ESMTP id C80DB3578050
+	for <netdev@vger.kernel.org>; Sun, 15 Sep 2013 23:53:04 +1000 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r8FDaRc310092894
+	for <netdev@vger.kernel.org>; Sun, 15 Sep 2013 23:36:27 +1000
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r8FDr3kk004311
+	for <netdev@vger.kernel.org>; Sun, 15 Sep 2013 23:53:04 +1000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 14, 2013 at 01:30:47PM +0300, Catalin(ux) M. BOIE wrote:
-> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-> 
-> When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
-> patch (218774dc) will drop them because the IPv6 address embedded
-> does not match the IPv4 destination. This patch will allow them to
-> pass by testing if we have an address that matches on 6to4/6rd interface.
-> I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
-> Also, log the dropped packets (with rate limit).
-> 
-> Signed-off-by: Catalin(ux) M. BOIE <catab@embedromix.ro>
+When driver registration fails, we need to clean up the resources allocated
+before. cxgb4 missed to destroy the workqueue allocated at the very beginning.
 
-Pretty neat idea, I think. Could you rebase the patch ontop of net or net-next
-and have a look at the warnings when you feed your patch to
-./scripts/checkpatch --strict?
+This patch destroies the workqueue when registration fails.
 
-Greetings,
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-  Hannes
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0d0665c..c73cabd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6149,8 +6149,10 @@ static int __init cxgb4_init_module(void)
+ 		pr_warn("could not create debugfs entry, continuing\n");
+ 
+ 	ret = pci_register_driver(&cxgb4_driver);
+-	if (ret < 0)
++	if (ret < 0) {
+ 		debugfs_remove(cxgb4_debugfs_root);
++		destroy_workqueue(workq);
++	}
+ 
+ 	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 
+-- 
+1.7.1
