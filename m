@@ -1,67 +1,71 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [ovs-dev] [PATCH v2.39 0/7] MPLS actions and matches
-Date: Sun, 15 Sep 2013 11:39:07 -0500
-Message-ID: <20130915163906.GC14042@verge.net.au>
-References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
- <20130912190636.GL16044@nicira.com>
- <20130912225614.GB30229@verge.net.au>
- <20130912225439.GH25242@nicira.com>
- <CAEP_g=9ji2ihWrVuoUrcZswrOCz_f2SFeYBTwPzbB7p=ONCPUA@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
+Date: Sun, 15 Sep 2013 20:57:01 +0200
+Message-ID: <20130915205701.5c61a444@skate>
+References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Pfaff <blp@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ravi K <rkerur@gmail.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Gregory =?UTF-8?B?Q2zDqW1lbnQ=?=
+	<gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>
+To: Ethan Tuttle <ethan@ethantuttle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59826 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757157Ab3IOQjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 12:39:10 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9ji2ihWrVuoUrcZswrOCz_f2SFeYBTwPzbB7p=ONCPUA@mail.gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:52815 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751978Ab3IOS5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 14:57:11 -0400
+In-Reply-To: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 13, 2013 at 03:15:17PM -0700, Jesse Gross wrote:
-> On Thu, Sep 12, 2013 at 3:54 PM, Ben Pfaff <blp@nicira.com> wrote:
-> > On Fri, Sep 13, 2013 at 07:56:14AM +0900, Simon Horman wrote:
-> >> On Thu, Sep 12, 2013 at 12:06:36PM -0700, Ben Pfaff wrote:
-> >> > I've totally lost track of the status of this patch series.  I assume it
-> >> > needs Jesse's review.  Jesse, if I'm wrong about that, let me know and
-> >> > I'll take a pass at it.
-> >>
-> >> My understanding is that you have looked over the approach
-> >> taken for the non-datapath code and were happy with it in
-> >> the context that it needed review from Jesse along with the
-> >> datapath code.
-> >>
-> >> I believe it was a few revisions ago that you looked over
-> >> the series but I don't believe the non-datapath code has changed
-> >> in a meaningful way since then.
-> >
-> > That sounds plausible, thanks for refreshing my memory.
+Hello Ethan,
+
+On Sat, 14 Sep 2013 18:05:32 -0700, Ethan Tuttle wrote:
+> When I upgraded my mirabox from 3.11-rc4 to 3.11, I started seeing
+> oopses while receiving network traffic (see below).  Sending a flood
+> ping will trigger the oops within a few minutes.
 > 
-> I haven't really reviewed the userspace code but there is one thing in
-> particular that concerns me: mpls_depth in the flow structure. We
-> obviously can't be making flow-level decisions on information that the
-> kernel doesn't include in the flow and I think that it is mostly
-> vestigial at this point. However, at best the name seems misleading
-> and at worst could result in someone trying to use information that we
-> don't really have. Can we fix this somehow? Maybe using the BoS bit?
+> The stack looks similar, but not identical to, the one reported
+> earlier by Jochen De Smet[1].  In my case the PC is always
+> __rcu_read_lock.
+> 
+> A git bisect found a878764 "Merge
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net" to be the
+> first bad commit... interesting, because neither of the merge parents
+> produce the oops.  I rebased the net changes onto the other merge
+> parent and bisected that series, which identified 702821f "net: revert
+> 8728c544a9c ("net: dev_pick_tx() fix")" as the first bad commit.
+> Indeed, reverting 702821f from 3.11 produces a kernel which stands up
+> to a ping flood for hours.
+> 
+> Each of the times I reproduced this, it was identified as "Unhandled
+> prefetch abort: unknown 25 (0x409) at 0xc0036ea0", except once when I
+> got "unknown 16 (0x400)".
+> 
+> I'm assuming this is an mvneta bug that was exposed by 702821f.
+> That's just a guess, and I don't have the skills to debug this any
+> further.  In any case, I figured the maintainers would want to know
+> about it.
 
-I believe we discussed this a long time ago.
+Thanks a lot for the report and the detailed investigation.
+Unfortunately, I don't have Armada 370 hardware with me this week, so
+I'm unable to test and reproduce the issue.
 
-The recirculation series includes a patch to allow multiple levels of pull
-and push and that patch removes the mpls_depth field from the flow
-structure. The approach taken is to track changes in the mpls depth during
-translation, without knowing what the original depth was, and to
-recirculate when the depth changes by more than one.  So in a nutshell my
-strategy was to use recirculation to resolve this problem.
+However, I've added a bunch of Armada 370 people/maintainers in Cc,
+hopefully they can at least try to reproduce and confirm that reverting
+this patch makes the problem go away, which would confirm that we
+should look for a bug in the mvneta driver around this problem.
 
-However, I do entirely agree with your concerns and I don't believe that we
-need mpls_depth at all even at this stage.  I will take a look at removing
-it by tracking the depth during translation without a dependency on
-recirculation.
+Thanks!
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
