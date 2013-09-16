@@ -1,138 +1,134 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH 1/6] ipv6: del the statements for updating route in, (dccp|tcp|sctp)_v6_err
-Date: Mon, 16 Sep 2013 19:49:19 +0800
-Message-ID: <5236F03F.5020407@cn.fujitsu.com>
+Subject: [PATCH v3 2/6] ipv6: just match on ICMPV6_PKT_TOOBIG in those err_handle
+Date: Mon, 16 Sep 2013 19:51:17 +0800
+Message-ID: <5236F0B5.4070406@cn.fujitsu.com>
 References: <5236EFEB.60106@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	linux-sctp@vger.kernel.org, vyasevic@redhat.com,
+	dborkman@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53059 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:30863 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756615Ab3IPLuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 07:50:18 -0400
+	id S932118Ab3IPLwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 07:52:19 -0400
 In-Reply-To: <5236EFEB.60106@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because we will do route updating for redirect in nidsc layer. And
-when dealing with redirect message, the dccp and sctp should like
-tcp return directly.
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+
+we don't handle NDISC_REDIRECTs here any more, and the match
+on ICMPV6_DEST_UNREACH is meaningless.
 
 Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- net/dccp/ipv6.c     | 10 +++-------
- net/ipv6/tcp_ipv6.c | 12 ++++--------
- net/sctp/input.c    | 12 ------------
- net/sctp/ipv6.c     |  6 +++---
- 4 files changed, 10 insertions(+), 30 deletions(-)
+ net/dccp/ipv6.c    | 7 -------
+ net/ipv6/ah6.c     | 9 ++-------
+ net/ipv6/esp6.c    | 9 ++-------
+ net/ipv6/ipcomp6.c | 9 ++-------
+ 4 files changed, 6 insertions(+), 28 deletions(-)
 
 diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9c61f9c..300840c 100644
+index 300840c..980cfba 100644
 --- a/net/dccp/ipv6.c
 +++ b/net/dccp/ipv6.c
-@@ -98,6 +98,9 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		return;
- 	}
- 
-+	if (type == NDISC_REDIRECT)
-+		return;
-+
- 	sk = inet6_lookup(net, &dccp_hashinfo,
- 			&hdr->daddr, dh->dccph_dport,
- 			&hdr->saddr, dh->dccph_sport, inet6_iif(skb));
-@@ -130,13 +133,6 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 
- 	np = inet6_sk(sk);
- 
--	if (type == NDISC_REDIRECT) {
--		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
--
--		if (dst)
--			dst->ops->redirect(dst, sk, skb);
--	}
--
- 	if (type == ICMPV6_PKT_TOOBIG) {
- 		struct dst_entry *dst = NULL;
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5c71501..d3ca8a4 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -346,6 +346,10 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	__u32 seq;
+@@ -91,13 +91,6 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	__u64 seq;
  	struct net *net = dev_net(skb->dev);
  
-+
-+	if (type == NDISC_REDIRECT)
-+		return;
-+
- 	sk = inet6_lookup(net, &tcp_hashinfo, &hdr->daddr,
- 			th->dest, &hdr->saddr, th->source, skb->dev->ifindex);
- 
-@@ -382,14 +386,6 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 
- 	np = inet6_sk(sk);
- 
--	if (type == NDISC_REDIRECT) {
--		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
--
--		if (dst)
--			dst->ops->redirect(dst, sk, skb);
--		goto out;
+-	if (skb->len < offset + sizeof(*dh) ||
+-	    skb->len < offset + __dccp_basic_hdr_len(dh)) {
+-		ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev),
+-				   ICMP6_MIB_INERRORS);
+-		return;
 -	}
 -
- 	if (type == ICMPV6_PKT_TOOBIG) {
- 		/* We are not interested in TCP_LISTEN and open_requests
- 		 * (SYN-ACKs send out by Linux are always <576bytes so
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 5f20686..0d2d4b7 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -413,18 +413,6 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
- 	sctp_retransmit(&asoc->outqueue, t, SCTP_RTXR_PMTUD);
+ 	if (type == NDISC_REDIRECT)
+ 		return;
+ 
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 73784c3..79fb40f 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -618,19 +618,14 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	struct ip_auth_hdr *ah = (struct ip_auth_hdr*)(skb->data+offset);
+ 	struct xfrm_state *x;
+ 
+-	if (type != ICMPV6_DEST_UNREACH &&
+-	    type != ICMPV6_PKT_TOOBIG &&
+-	    type != NDISC_REDIRECT)
++	if (type != ICMPV6_PKT_TOOBIG)
+ 		return;
+ 
+ 	x = xfrm_state_lookup(net, skb->mark, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
+ 	if (!x)
+ 		return;
+ 
+-	if (type == NDISC_REDIRECT)
+-		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+-	else
+-		ip6_update_pmtu(skb, net, info, 0, 0);
++	ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
  }
  
--void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
--			struct sk_buff *skb)
--{
--	struct dst_entry *dst;
--
--	if (!t)
--		return;
--	dst = sctp_transport_dst_check(t);
--	if (dst)
--		dst->ops->redirect(dst, sk, skb);
--}
--
- /*
-  * SCTP Implementer's Guide, 2.37 ICMP handling procedures
-  *
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index da613ce..ee12d87 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -151,6 +151,9 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	int err;
- 	struct net *net = dev_net(skb->dev);
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index d3618a7..6aa64e1 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -436,9 +436,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)(skb->data + offset);
+ 	struct xfrm_state *x;
  
-+	if (type == NDISC_REDIRECT)
-+		return;
-+
- 	idev = in6_dev_get(skb->dev);
+-	if (type != ICMPV6_DEST_UNREACH &&
+-	    type != ICMPV6_PKT_TOOBIG &&
+-	    type != NDISC_REDIRECT)
++	if (type != ICMPV6_PKT_TOOBIG)
+ 		return;
  
- 	/* Fix up skb to look at the embedded net header. */
-@@ -181,9 +184,6 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			goto out_unlock;
- 		}
- 		break;
--	case NDISC_REDIRECT:
--		sctp_icmp_redirect(sk, transport, skb);
--		break;
- 	default:
- 		break;
- 	}
+ 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
+@@ -446,10 +444,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (!x)
+ 		return;
+ 
+-	if (type == NDISC_REDIRECT)
+-		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+-	else
+-		ip6_update_pmtu(skb, net, info, 0, 0);
++	ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
+ }
+ 
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index 5636a91..e943158 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -64,9 +64,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		(struct ip_comp_hdr *)(skb->data + offset);
+ 	struct xfrm_state *x;
+ 
+-	if (type != ICMPV6_DEST_UNREACH &&
+-	    type != ICMPV6_PKT_TOOBIG &&
+-	    type != NDISC_REDIRECT)
++	if (type != ICMPV6_PKT_TOOBIG)
+ 		return;
+ 
+ 	spi = htonl(ntohs(ipcomph->cpi));
+@@ -75,10 +73,7 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (!x)
+ 		return;
+ 
+-	if (type == NDISC_REDIRECT)
+-		ip6_redirect(skb, net, skb->dev->ifindex, 0);
+-	else
+-		ip6_update_pmtu(skb, net, info, 0, 0);
++	ip6_update_pmtu(skb, net, info, 0, 0);
+ 	xfrm_state_put(x);
+ }
+ 
 -- 
 1.8.3.1
