@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 6/8 V2] rtlwifi: Fix smatch warnings in usb.c
-Date: Mon, 16 Sep 2013 13:55:20 -0500
-Message-ID: <1379357722-17687-7-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 8/8 V2] rtlwifi: Remove variable 'noise' from rtl_stats struct
+Date: Mon, 16 Sep 2013 13:55:22 -0500
+Message-ID: <1379357722-17687-9-git-send-email-Larry.Finger@lwfinger.net>
 References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
@@ -12,67 +12,78 @@ In-Reply-To: <1379357722-17687-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBk
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Smatch displays the following:
-  CHECK   drivers/net/wireless/rtlwifi/usb.c
-drivers/net/wireless/rtlwifi/usb.c:458 _rtl_usb_rx_process_agg() warn: assigning (-98) to unsigned variable 'stats.noise'
-drivers/net/wireless/rtlwifi/usb.c:503 _rtl_usb_rx_process_noagg() warn: assigning (-98) to unsigned variable 'stats.noise'
-drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
-drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
-
-The negative number to an unsigned quantity is fixed by removing the variable
-as it is no longer used. The unreachable code info is fixed by including the
-appropriate section inside #ifdef .. #endif constructions.
+All uses of this variable have been removed. Now delete it from the struct
+and from a few places that use it in commented-out lines.
 
 Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
- drivers/net/wireless/rtlwifi/usb.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8188ee/trx.c | 1 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c | 1 -
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c | 1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c | 1 -
+ drivers/net/wireless/rtlwifi/wifi.h          | 1 -
+ 5 files changed, 5 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index e56778c..60cb0b4 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -455,7 +455,6 @@ static void _rtl_usb_rx_process_agg(struct ieee80211_hw *hw,
- 	struct ieee80211_rx_status rx_status = {0};
- 	struct rtl_stats stats = {
- 		.signal = 0,
--		.noise = -98,
- 		.rate = 0,
- 	};
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
+index a8871d6..5e628ab 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
+@@ -477,7 +477,6 @@ bool rtl88ee_rx_query_desc(struct ieee80211_hw *hw,
  
-@@ -498,7 +497,6 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
- 	struct ieee80211_rx_status rx_status = {0};
- 	struct rtl_stats stats = {
- 		.signal = 0,
--		.noise = -98,
- 		.rate = 0,
- 	};
+ 	/*rx_status->qual = status->signal; */
+ 	rx_status->signal = status->recvsignalpower + 10;
+-	/*rx_status->noise = -status->noise; */
+ 	if (status->packet_report_type == TX_REPORT2) {
+ 		status->macid_valid_entry[0] =
+ 			 GET_RX_RPT2_DESC_MACID_VALID_1(pdesc);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+index 6ad23b4..52abf0a 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
+@@ -420,7 +420,6 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
  
-@@ -582,12 +580,15 @@ static void _rtl_rx_work(unsigned long param)
- static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
- 					unsigned int len)
- {
-+#if NET_IP_ALIGN != 0
- 	unsigned int padding = 0;
-+#endif
+ 	/*rx_status->qual = stats->signal; */
+ 	rx_status->signal = stats->recvsignalpower + 10;
+-	/*rx_status->noise = -stats->noise; */
  
- 	/* make function no-op when possible */
--	if (NET_IP_ALIGN == 0 || len < sizeof(*hdr))
-+	if (NET_IP_ALIGN == 0 || len < sizeof(struct ieee80211_hdr))
- 		return 0;
- 
-+#if NET_IP_ALIGN != 0
- 	/* alignment calculation as in lbtf_rx() / carl9170_rx_copy_data() */
- 	/* TODO: deduplicate common code, define helper function instead? */
- 
-@@ -608,6 +609,7 @@ static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
- 		padding ^= NET_IP_ALIGN;
- 
- 	return padding;
-+#endif
+ 	return true;
  }
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
+index c709511..222d2e7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
+@@ -330,7 +330,6 @@ bool rtl92se_rx_query_desc(struct ieee80211_hw *hw, struct rtl_stats *stats,
  
- #define __RADIO_TAP_SIZE_RSV	32
+ 	/*rx_status->qual = stats->signal; */
+ 	rx_status->signal = stats->rssi + 10;
+-	/*rx_status->noise = -stats->noise; */
+ 
+ 	return true;
+ }
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+index c72758d..e85ec21 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+@@ -359,7 +359,6 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
+ 
+ 	/*rx_status->qual = status->signal; */
+ 	rx_status->signal = status->recvsignalpower + 10;
+-	/*rx_status->noise = -status->noise; */
+ 
+ 	return true;
+ }
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index cc03e7c..284ee8d 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -1535,7 +1535,6 @@ struct rtl_stats {
+ 	u32 mac_time[2];
+ 	s8 rssi;
+ 	u8 signal;
+-	u8 noise;
+ 	u8 rate;		/* hw desc rate */
+ 	u8 received_channel;
+ 	u8 control;
 -- 
 1.8.1.4
 
