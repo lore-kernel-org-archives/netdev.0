@@ -1,93 +1,46 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 8/8 V2] rtlwifi: Remove variable 'noise' from rtl_stats struct
-Date: Mon, 16 Sep 2013 13:55:22 -0500
-Message-ID: <1379357722-17687-9-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 7/8 V2] rtlwifi: rtl8188ee: Fix smatch warning in rtl8188ee/hw.c
+Date: Mon, 16 Sep 2013 13:55:21 -0500
+Message-ID: <1379357722-17687-8-git-send-email-Larry.Finger@lwfinger.net>
 References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379357722-17687-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:44264 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043Ab3IPSz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 14:55:56 -0400
+In-Reply-To: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All uses of this variable have been removed. Now delete it from the struct
-and from a few places that use it in commented-out lines.
+Smatch lists the following:
+  CHECK   drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
+drivers/net/wireless/rtlwifi/rtl8188ee/hw.c:149 _rtl88ee_set_fw_clock_on() info: ignoring unreachable code.
+drivers/net/wireless/rtlwifi/rtl8188ee/hw.c:149 _rtl88ee_set_fw_clock_on() info: ignoring unreachable code.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+This info message is the result of a real error due to a missing break statement
+in a "while (1)" loop.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org> [3.10+]
 ---
- drivers/net/wireless/rtlwifi/rtl8188ee/trx.c | 1 -
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c | 1 -
- drivers/net/wireless/rtlwifi/rtl8192se/trx.c | 1 -
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.c | 1 -
- drivers/net/wireless/rtlwifi/wifi.h          | 1 -
- 5 files changed, 5 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-index a8871d6..5e628ab 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-@@ -477,7 +477,6 @@ bool rtl88ee_rx_query_desc(struct ieee80211_hw *hw,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
+index b68cae3..e06971b 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
+@@ -143,6 +143,7 @@ static void _rtl88ee_set_fw_clock_on(struct ieee80211_hw *hw,
+ 		} else {
+ 			rtlhal->fw_clk_change_in_progress = false;
+ 			spin_unlock_bh(&rtlpriv->locks.fw_ps_lock);
++			break;
+ 		}
+ 	}
  
- 	/*rx_status->qual = status->signal; */
- 	rx_status->signal = status->recvsignalpower + 10;
--	/*rx_status->noise = -status->noise; */
- 	if (status->packet_report_type == TX_REPORT2) {
- 		status->macid_valid_entry[0] =
- 			 GET_RX_RPT2_DESC_MACID_VALID_1(pdesc);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-index 6ad23b4..52abf0a 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-@@ -420,7 +420,6 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
- 
- 	/*rx_status->qual = stats->signal; */
- 	rx_status->signal = stats->recvsignalpower + 10;
--	/*rx_status->noise = -stats->noise; */
- 
- 	return true;
- }
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-index c709511..222d2e7 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-@@ -330,7 +330,6 @@ bool rtl92se_rx_query_desc(struct ieee80211_hw *hw, struct rtl_stats *stats,
- 
- 	/*rx_status->qual = stats->signal; */
- 	rx_status->signal = stats->rssi + 10;
--	/*rx_status->noise = -stats->noise; */
- 
- 	return true;
- }
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-index c72758d..e85ec21 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-@@ -359,7 +359,6 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
- 
- 	/*rx_status->qual = status->signal; */
- 	rx_status->signal = status->recvsignalpower + 10;
--	/*rx_status->noise = -status->noise; */
- 
- 	return true;
- }
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index cc03e7c..284ee8d 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -1535,7 +1535,6 @@ struct rtl_stats {
- 	u32 mac_time[2];
- 	s8 rssi;
- 	u8 signal;
--	u8 noise;
- 	u8 rate;		/* hw desc rate */
- 	u8 received_channel;
- 	u8 control;
 -- 
 1.8.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
