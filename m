@@ -1,124 +1,50 @@
-From: Duan Jiong <djduanjiong@gmail.com>
-Subject: Re: [PATCH  v3 0/6] ipv6: Do route updating for redirect in ndisc
- layer
-Date: Mon, 16 Sep 2013 22:08:12 +0800
-Message-ID: <523710CC.1090404@gmail.com>
-References: <5236EFEB.60106@cn.fujitsu.com> <5236F808.9050605@redhat.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
+Date: Mon, 16 Sep 2013 17:51:52 +0200
+Message-ID: <20130916175152.4e013457@skate>
+References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
+	<20130915205701.5c61a444@skate>
+	<20130916065047.GH27487@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	hannes@stressinduktion.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ethan Tuttle <ethan@ethantuttle.com>, Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Gregory =?UTF-8?B?Q2zDqW1l?= =?UTF-8?B?bnQ=?=
+	<gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:36843 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536Ab3IPOIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 10:08:21 -0400
-In-Reply-To: <5236F808.9050605@redhat.com>
+Received: from top.free-electrons.com ([176.31.233.9]:56608 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750948Ab3IPPv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 11:51:59 -0400
+In-Reply-To: <20130916065047.GH27487@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2013/9/16 20:22, Daniel Borkmann =D0=B4=B5=C0:
-> On 09/16/2013 01:47 PM, Duan Jiong wrote:
->> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->>
->> the ip6_redirect() could be replaced with
->> ip6_redirect_no_header(), we could always use ip6_redirect()
->> for route updating in ndisc layer and use the data of the
->> redirected header option just for finding the socket to be
->> notified and then notify user in protocols' err_handler.
-> If I get this right, it seems to me that this patchset actually consi=
-sts of two
-> different kind of changes:
->
-> 1) Not notifying user space on ICMP redirects (net material)
-> 2) Simplify code for updating route in ndisc layer instead of error h=
-andlers (net-next)
->
-> Also, you do the *actual* change in the very last patch, which means =
-that from
-> patch 1 to 5 we're in an inconsistent and buggy state unless we also =
-apply patch
-> number 6. It should actually be the other way around, that you first =
-do the actual
-> change and then migrate users (also commit messages are quite terse).
+Willy, Ethan,
 
-I make the patch set on net tree, not on net-next. Maybe those
-things should be done in two patch sets.
+On Mon, 16 Sep 2013 08:50:47 +0200, Willy Tarreau wrote:
 
-> Moreover, just looking at the SCTP part (sctp_err_lookup() function) =
-=2E..
->
-> /* RFC 4960, Appendix C. ICMP Handling
->  *
->  * ICMP6) An implementation MUST validate that the Verification Tag
->  * contained in the ICMP message matches the Verification Tag of
->  * the peer.  If the Verification Tag is not 0 and does NOT
->  * match, discard the ICMP message.  If it is 0 and the ICMP
->  * message contains enough bytes to verify that the chunk type is
->  * an INIT chunk and that the Initiate Tag matches the tag of the
->  * peer, continue with ICMP7.  If the ICMP message is too short
->  * or the chunk type or the Initiate Tag does not match, silently
->  * discard the packet.
->  */
-> =20
-> ... it seems to me that we would simply ignore such RFC requirements =
-with
-> your patch for the sctp_v6_err() part.
->
-> Care to elaborate? ;-)
+> I'm currently testing on 3.11.1 (which I had here) and am not getting
+> any issue after 50M packets. My kernel is running in thumb mode and
+> without SMP.
+> 
+> Ethan, we'll need your config I guess.
 
-Sorry, i didn't notice that.
+Can both of you also report the U-Boot version you're using, and the
+SoC revision (it's visible in the U-Boot output). Maybe Globalscale is
+shipping Mirabox with a different version of the bootloader, or some
+hardware difference, that is causing problems? (I'm just speculating
+here, but another user already reported having issues with his Mirabox,
+and Russell King analyzed the oops as very likely being hardware
+problems).
 
-According to the RFC requirements, it suggests that we can't update
-route for redirect in ndisc layer before calling into sctp_err_lookup()=
-,
-because we must verify the ICMP Message. Now maybe we update route for
-redirect in ndisc layer is wrong.
-
-Do you have any idea?
-
->> ---
->>   Changes for v3:
->>   1.del the ICMP6_INC_STATS_BH  error count, these are in fact
->>     no errors.
->>
->>   Changes for v2:
->>   1.handle the update of the NDISC_REDIRECT error code directly in
->>     icmpv6_err_convert.
->>   2.squash some patchs into one patch.
->>   3.modify the subject of those patchs.
->>
->> Duan Jiong (6):
->>    ipv6: del the statements for updating route in (dccp|tcp|sctp)_v6=
-_err
->>    ipv6: just match on ICMPV6_PKT_TOOBIG in those err_handle
->>    ipv6: del statements for dealing with NDISC_REDIRECT
->>    ip6tnl: move route updating for redirect to ndisc layer
->>    ipv6: modify the err to 0 when dealing with NDISC_REDIRECT
->>    ipv6: Do route updating for redirect in ndisc layer
->>
->>   include/net/ip6_route.h |  3 ---
->>   net/dccp/ipv6.c         | 13 +------------
->>   net/ipv6/ah6.c          |  9 ++-------
->>   net/ipv6/esp6.c         |  9 ++-------
->>   net/ipv6/icmp.c         |  5 +++--
->>   net/ipv6/ip6_tunnel.c   |  5 -----
->>   net/ipv6/ipcomp6.c      |  9 ++-------
->>   net/ipv6/ndisc.c        |  6 ++----
->>   net/ipv6/raw.c          |  3 +--
->>   net/ipv6/route.c        | 29 ++---------------------------
->>   net/ipv6/tcp_ipv6.c     | 12 ++++--------
->>   net/ipv6/udp.c          |  2 --
->>   net/sctp/input.c        | 12 ------------
->>   net/sctp/ipv6.c         |  6 +++---
->>   14 files changed, 22 insertions(+), 101 deletions(-)
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
