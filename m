@@ -1,45 +1,28 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] ip6_tunnels: raddr and laddr are inverted in nl msg
-Date: Mon, 16 Sep 2013 11:31:15 +0200
-Message-ID: <1379323875-3794-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Ding Zhi <zhi.ding@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Fabio Porcedda <fabio.porcedda@gmail.com>
+Subject: [PATCH 0/3] net: usb: cdc_ether: improve telit support and code cleanups
+Date: Mon, 16 Sep 2013 11:47:49 +0200
+Message-ID: <1379324872-15944-1-git-send-email-fabio.porcedda@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49003 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754507Ab3IPJbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 05:31:52 -0400
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:59120 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757247Ab3IPJr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 05:47:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Zhi <zhi.ding@6wind.com>
+Some patches to improve telit modules support and to cleanup the code.
 
-IFLA_IPTUN_LOCAL and IFLA_IPTUN_REMOTE were inverted.
+Best regards
 
-Introduced by c075b13098b3 (ip6tnl: advertise tunnel param via rtnl).
+Fabio Porcedda (3):
+  net: usb: cdc_ether: Use wwan interface for Telit modules
+  net: usb: cdc_ether: fix checkpatch errors and warnings
+  net: usb: cdc_ether: use usb.h macros whenever possible
 
-Signed-off-by: Ding Zhi <zhi.ding@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_tunnel.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/cdc_ether.c | 115 ++++++++++++++++----------------------------
+ 1 file changed, 42 insertions(+), 73 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 61355f7f4da5..2d8f4829575b 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1656,9 +1656,9 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 
- 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
- 	    nla_put(skb, IFLA_IPTUN_LOCAL, sizeof(struct in6_addr),
--		    &parm->raddr) ||
--	    nla_put(skb, IFLA_IPTUN_REMOTE, sizeof(struct in6_addr),
- 		    &parm->laddr) ||
-+	    nla_put(skb, IFLA_IPTUN_REMOTE, sizeof(struct in6_addr),
-+		    &parm->raddr) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->hop_limit) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_ENCAP_LIMIT, parm->encap_limit) ||
- 	    nla_put_be32(skb, IFLA_IPTUN_FLOWINFO, parm->flowinfo) ||
 -- 
-1.8.2.1
+1.8.4
