@@ -1,42 +1,35 @@
-From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH] mwifiex: Remove casting the return value which is a
- void pointer
-Date: Mon, 16 Sep 2013 14:26:44 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F70430F44C584A5@SC-VEXCH1.marvell.com>
-References: <004d01cead1d$3058dcf0$910a96d0$%han@samsung.com>
+From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/8 V2] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
+Date: Tue, 17 Sep 2013 00:44:39 +0300
+Message-ID: <874n9ktpa0.fsf@purkki.adurom.net>
+References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1379357722-17687-3-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jingoo Han <jg1.han-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	"'John W. Linville'" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <004d01cead1d$3058dcf0$910a96d0$%han-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Content-Language: en-US
+In-Reply-To: <1379357722-17687-3-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+	(Larry Finger's message of "Mon, 16 Sep 2013 13:55:16 -0500")
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jingoo,
+Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
 
-Thanks for the patch.
+> Smatch lists the following:
+>   CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
+> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
+>
+> Dead code is commented out. It has not been deleted in case I find a need for
+> it later.
 
-> Casting the return value which is a void pointer is redundant.
-> The conversion from void pointer to any other pointer type is
-> guaranteed by the C programming language.
-> 
-> Signed-off-by: Jingoo Han <jg1.han-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+We should not have any commented out code. It's better to remove it and
+if it's ever needed it can be found from the git history.
 
-Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-
-Thanks,
-Bing
-
-> ---
->  drivers/net/wireless/mwifiex/pcie.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-
+-- 
+Kalle Valo
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
