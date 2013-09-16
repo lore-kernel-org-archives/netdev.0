@@ -1,91 +1,82 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/8 V2] rtlwifi: rtl8192du: Fix smatch errors in /rtl8192de/dm.c
-Date: Mon, 16 Sep 2013 13:55:15 -0500
-Message-ID: <1379357722-17687-2-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 6/8 V2] rtlwifi: Fix smatch warnings in usb.c
+Date: Mon, 16 Sep 2013 13:55:20 -0500
+Message-ID: <1379357722-17687-7-git-send-email-Larry.Finger@lwfinger.net>
 References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:46008 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab3IPSzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 14:55:44 -0400
-In-Reply-To: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1379357722-17687-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Smatch lists the following:
-  CHECK   drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1054 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'ofdm_index' 2 <= 2
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1056 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'ofdm_index' 2 <= 2
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1126 rtl92d_dm_txpower_tracking_callback_thermalmeter() debug: remove_pools: nr_children over 4000 (4596). (rtlpriv->dbg.global_debuglevel merged)
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1126 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1129 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1132 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1135 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1138 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1141 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1144 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1147 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch1ch13' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1151 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1154 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1157 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1160 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1163 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1166 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1169 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
-drivers/net/wireless/rtlwifi/rtl8192de/dm.c:1172 rtl92d_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow 'cckswing_table_ch14' 33 <= 255
+Smatch displays the following:
+  CHECK   drivers/net/wireless/rtlwifi/usb.c
+drivers/net/wireless/rtlwifi/usb.c:458 _rtl_usb_rx_process_agg() warn: assigning (-98) to unsigned variable 'stats.noise'
+drivers/net/wireless/rtlwifi/usb.c:503 _rtl_usb_rx_process_noagg() warn: assigning (-98) to unsigned variable 'stats.noise'
+drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
+drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
 
-This patch fixes several off-by-one errors. It also removes a commented-out line
-referincing variable 'noise'. That variable will be removed later in this patch
-set.
+The negative number to an unsigned quantity is fixed by removing the variable
+as it is no longer used. The unreachable code info is fixed by including the
+appropriate section inside #ifdef .. #endif constructions.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
- drivers/net/wireless/rtlwifi/rtl8192de/dm.c  | 8 ++++++--
- drivers/net/wireless/rtlwifi/rtl8192de/trx.c | 1 -
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/wireless/rtlwifi/usb.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-index 47875ba..eaeee77 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-@@ -840,9 +840,9 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
- 	bool internal_pa = false;
- 	long ele_a = 0, ele_d, temp_cck, val_x, value32;
- 	long val_y, ele_c = 0;
--	u8 ofdm_index[2];
-+	u8 ofdm_index[3];
- 	s8 cck_index = 0;
--	u8 ofdm_index_old[2] = {0, 0};
-+	u8 ofdm_index_old[3] = {0, 0, 0};
- 	s8 cck_index_old = 0;
- 	u8 index;
- 	int i;
-@@ -1118,6 +1118,10 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
- 				 val_x, val_y, ele_a, ele_c, ele_d,
- 				 val_x, val_y);
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index e56778c..60cb0b4 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -455,7 +455,6 @@ static void _rtl_usb_rx_process_agg(struct ieee80211_hw *hw,
+ 	struct ieee80211_rx_status rx_status = {0};
+ 	struct rtl_stats stats = {
+ 		.signal = 0,
+-		.noise = -98,
+ 		.rate = 0,
+ 	};
  
-+			if (cck_index >= CCK_TABLE_SIZE)
-+				cck_index = CCK_TABLE_SIZE - 1;
-+			if (cck_index < 0)
-+				cck_index = 0;
- 			if (rtlhal->current_bandtype == BAND_ON_2_4G) {
- 				/* Adjust CCK according to IQK result */
- 				if (!rtlpriv->dm.cck_inch14) {
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-index b8ec718..945ddec 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-@@ -526,7 +526,6 @@ bool rtl92de_rx_query_desc(struct ieee80211_hw *hw,	struct rtl_stats *stats,
- 	}
- 	/*rx_status->qual = stats->signal; */
- 	rx_status->signal = stats->rssi + 10;
--	/*rx_status->noise = -stats->noise; */
- 	return true;
+@@ -498,7 +497,6 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
+ 	struct ieee80211_rx_status rx_status = {0};
+ 	struct rtl_stats stats = {
+ 		.signal = 0,
+-		.noise = -98,
+ 		.rate = 0,
+ 	};
+ 
+@@ -582,12 +580,15 @@ static void _rtl_rx_work(unsigned long param)
+ static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
+ 					unsigned int len)
+ {
++#if NET_IP_ALIGN != 0
+ 	unsigned int padding = 0;
++#endif
+ 
+ 	/* make function no-op when possible */
+-	if (NET_IP_ALIGN == 0 || len < sizeof(*hdr))
++	if (NET_IP_ALIGN == 0 || len < sizeof(struct ieee80211_hdr))
+ 		return 0;
+ 
++#if NET_IP_ALIGN != 0
+ 	/* alignment calculation as in lbtf_rx() / carl9170_rx_copy_data() */
+ 	/* TODO: deduplicate common code, define helper function instead? */
+ 
+@@ -608,6 +609,7 @@ static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
+ 		padding ^= NET_IP_ALIGN;
+ 
+ 	return padding;
++#endif
  }
  
+ #define __RADIO_TAP_SIZE_RSV	32
 -- 
 1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
