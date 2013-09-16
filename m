@@ -1,152 +1,106 @@
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Subject: Re: [PATCH 1/1] net: race condition when removing virtual net_device
-Date: Mon, 16 Sep 2013 13:30:50 -0700
-Message-ID: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	<871u4t1d9t.fsf@xmission.com>
-	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
-	<87d2ocrx9b.fsf@xmission.com>
-	<CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
-	<87six5kpu5.fsf@xmission.com>
+From: Noel Burton-Krahn <noel@burton-krahn.com>
+Subject: PATCH: periodictimer for mrp.c
+Date: Mon, 16 Sep 2013 13:32:37 -0700
+Message-ID: <CAB5uXS41vHwDHHcCyRbi4PZOGskTkH6nBqHTc7XVBHy+ddvoNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/mixed; boundary=001a1132f246d886a104e6861ade
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f182.google.com ([209.85.220.182]:41423 "EHLO
-	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065Ab3IPUav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 16:30:51 -0400
-Received: by mail-vc0-f182.google.com with SMTP id hf12so3248170vcb.41
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 13:30:50 -0700 (PDT)
-In-Reply-To: <87six5kpu5.fsf@xmission.com>
+Received: from mail-qc0-f177.google.com ([209.85.216.177]:49647 "EHLO
+	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948Ab3IPUci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 16:32:38 -0400
+Received: by mail-qc0-f177.google.com with SMTP id x12so2989822qcv.8
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 13:32:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 3:45 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
+--001a1132f246d886a104e6861ade
+Content-Type: text/plain; charset=ISO-8859-1
 
-> I believe the weird reordering of veth devices is solved or largely
-> solved by:
->
-> commit f45a5c267da35174e22cec955093a7513dc1623d
-
-I looked at d0e2c55e and f45a5c26 in the past and I do not think they
-are related to the problem I see, which I think is more related to the
-infrastructure. See more below.
-
->
->> and this is the sequence after pushing the loopback_devs to the tail
->> of net_todo_list:
->>
->> unregister_netdevice_queue: v0 (ns ffff8800379f8000)
->> unregister_netdevice_queue: v1 (ns ffff8800378c0b00)
->> unregister_netdevice_queue: lo (ns ffff8800379f8000)
->> unregister_netdevice_queue: v1 (ns ffff8800378c0b00)
->> unregister_netdevice_queue: v0 (ns ffff8800379f8000)
->> unregister_netdevice_queue: lo (ns ffff8800378c0b00)
->> unregister_netdevice_many: lo (ns ffff8800379f8000) v1 (ns
->> ffff8800378c0b00) v0 (ns ffff8800379f8000) lo (ns ffff8800378c0b00)
->> netdev_run_todo: v1 (ns ffff8800378c0b00) v0 (ns ffff8800379f8000) lo
->> (ns ffff8800379f8000) lo (ns ffff8800378c0b00)
->
-> I am scratching my head.  That isn't what I would expect from putting
-> loopback devices at the end of the list.
-
-The way to read it is as follows:
-unregister_netdevice_many gets the sequence lo0 v1 v0 lo1 (lo0 is the
-occurrence of "lo" with the same namespace as v0, etc.).
-As the interfaces are unlisted the loopback_devs are queued at the end
-of net_todo_list, so when netdev_run_todo executes net_todo_list is v1
-v0 lo0 lo1.
-
->
-> Even more I am not comfortable with any situation where preserving the
-> order in which the devices are unregistered is not sufficient to make
-> things work correctly.  That quickly gets into fragile layering
-> problems, and I don't know how anyone would be able to maintain that.
->
-
-I agree with your general statement, but unfortunately the order in
-which the interfaces are unregistered is not preserved even in the
-current code, since dev_close_many already rearranges them based on
-whether they are UP or not.
-
-If I delete a namespace with only lo and v0 this is the order in which
-they are released depending on their state. If lo is DOWN then it will
-be processed before v0 in netdev_run_todo.
-
-====== lo down, v0 down
-unregister_netdevice_queue: v0 (ns ffff880037bb0b00)
-unregister_netdevice_queue: lo (ns ffff880037bb0b00)
-unregister_netdevice_many: v0 (ns ffff880037bb0b00) lo (ns ffff880037bb0b00)
-netdev_run_todo: lo (ns ffff880037bb0b00) v0 (ns ffff880037bb0b00)
-
-====== lo up, v0 down
-unregister_netdevice_queue: v0 (ns ffff8800378a9600)
-unregister_netdevice_queue: lo (ns ffff8800378a9600)
-unregister_netdevice_many: v0 (ns ffff8800378a9600) lo (ns ffff8800378a9600)
-netdev_run_todo: v0 (ns ffff8800378a9600) lo (ns ffff8800378a9600)
-
-====== lo down, v0 up
-unregister_netdevice_queue: v0 (ns ffff880037bb0b00)
-unregister_netdevice_queue: lo (ns ffff880037bb0b00)
-unregister_netdevice_many: v0 (ns ffff880037bb0b00) lo (ns ffff880037bb0b00)
-netdev_run_todo: lo (ns ffff880037bb0b00) v0 (ns ffff880037bb0b00)
-
-====== lo up, v0 up
-unregister_netdevice_queue: v0 (ns ffff8800378a9600)
-unregister_netdevice_queue: lo (ns ffff8800378a9600)
-unregister_netdevice_many: v0 (ns ffff8800378a9600) lo (ns ffff8800378a9600)
-netdev_run_todo: v0 (ns ffff8800378a9600) lo (ns ffff8800378a9600)
+(originally to "David S. Miller" <davem@davemloft.net>, CC'ed to
+netdev.  Resent in text/plain)
 
 
-> I still don't see a better solution than dev_change_net_namespace,
-> for the network devices that have this problem.  Network devices are not
-> supposed to be findable after the dance at the start of cleanup_net.
->
+I ran into a problem when testing MVRP support in net/mrp.c:  MRP
+would transmit JoinIn messages before the network interface was fully
+up, the packets would be lost, and MRP would never retry.  It looks
+like the MRP implementation was missing the periodictimer defined in
+[802.1Q-2011] to retry if packets get lost.  The attached patch patch
+adds the periodictimer.
 
-I think the problem we are seeing is an infrastructure one. If I can restate it:
+Note: As far as I can tell in [802.1Q-2011], the periodic timer never
+turns off.  It fires every second, causing MRP to bounce from state QA
+to AA and back.  You might think that would stop when the registrar
+responds with an JoinIn, but there's no state in the MRP state table
+to ignore the periodic timer after getting a reply.  The result is MRP
+sends a JoinIn message every second.  This may not be desirable, but
+it's what the spec requires.
 
-1) When destroying a namespace all net_devices in it should be
-disposed of before any non-device pernet subsystems exit. The existing
-code tries to do this but it does not take into consideration
-net_devices that may have been unlisted from the namespace by another
-process which is still in the process of destroying them (specifically
-in netdev_run_todo/netdev_wait_allrefs).
+[802.1Q-2011]
+http://standards.ieee.org/findstds/standard/802.1Q-2011.html
 
-There is also another issue, separate but related (my diffs did not
-try to address it):
+Does this look OK to you?
 
-2) dev_change_net_namespace does not have the equivalent of
-netdev_wait_allrefs. If rebroadcasts are in fact needed when
-destroying a net_device then the same should apply when the net_device
-is moved out of a namespace. With existing code a net_device can be
-moved to a different namespace before its refcount drops to 0. Any
-later broadcasts will not trigger any action in the original namespace
-where they should have occurred.
+--
+Noel
 
-I suspect that this is not catastrophic but its effects could be
-subtle. This is another reason why I would avoid using
-dev_change_net_namespace as a driver level solution for 1) above,
-besides the fact that we would have to apply it to all drivers
-affected by this (veth, vlan, macvlan, maybe more).
+--001a1132f246d886a104e6861ade
+Content-Type: application/octet-stream; name="mrp-periodictimer.patch"
+Content-Disposition: attachment; filename="mrp-periodictimer.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hlo4x3000
 
-> It might be possible to actually build asynchronous network device
-> unregistration and opportunistick batching.  Aka cleanup network devices
-> much like we clean up network namespaces now, and by funnelling them all
-> into a single threaded work queue that would probably stop the races, as
-> well as improve performance.  I don't have the energy to do that right
-> now unfortunately :(
->
-
-That would probably solve it, but as you suggest it will take a
-considerable amount of work and code re-structuring.
-
-Francesco
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L21ycC5oIGIvaW5jbHVkZS9uZXQvbXJwLmgKaW5kZXgg
+NGZiZjAyYS4uMGY3NTU4YiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvbXJwLmgKKysrIGIvaW5j
+bHVkZS9uZXQvbXJwLmgKQEAgLTExMiw2ICsxMTIsNyBAQCBzdHJ1Y3QgbXJwX2FwcGxpY2FudCB7
+CiAJc3RydWN0IG1ycF9hcHBsaWNhdGlvbgkqYXBwOwogCXN0cnVjdCBuZXRfZGV2aWNlCSpkZXY7
+CiAJc3RydWN0IHRpbWVyX2xpc3QJam9pbl90aW1lcjsKKwlzdHJ1Y3QgdGltZXJfbGlzdAlwZXJp
+b2RpY190aW1lcjsKIAogCXNwaW5sb2NrX3QJCWxvY2s7CiAJc3RydWN0IHNrX2J1ZmZfaGVhZAlx
+dWV1ZTsKZGlmZiAtLWdpdCBhL25ldC84MDIvbXJwLmMgYi9uZXQvODAyL21ycC5jCmluZGV4IDFl
+YjA1ZDguLjk3NTY2ZWMgMTAwNjQ0Ci0tLSBhL25ldC84MDIvbXJwLmMKKysrIGIvbmV0LzgwMi9t
+cnAuYwpAQCAtMjQsNiArMjQsMTEgQEAKIHN0YXRpYyB1bnNpZ25lZCBpbnQgbXJwX2pvaW5fdGlt
+ZSBfX3JlYWRfbW9zdGx5ID0gMjAwOwogbW9kdWxlX3BhcmFtKG1ycF9qb2luX3RpbWUsIHVpbnQs
+IDA2NDQpOwogTU9EVUxFX1BBUk1fREVTQyhtcnBfam9pbl90aW1lLCAiSm9pbiB0aW1lIGluIG1z
+IChkZWZhdWx0IDIwMG1zKSIpOworCitzdGF0aWMgdW5zaWduZWQgaW50IG1ycF9wZXJpb2RpY190
+aW1lIF9fcmVhZF9tb3N0bHkgPSAxMDAwOworbW9kdWxlX3BhcmFtKG1ycF9wZXJpb2RpY190aW1l
+LCB1aW50LCAwNjQ0KTsKK01PRFVMRV9QQVJNX0RFU0MobXJwX3BlcmlvZGljX3RpbWUsICJQZXJp
+b2RpYyB0aW1lIGluIG1zIChkZWZhdWx0IDFzKSIpOworCiBNT0RVTEVfTElDRU5TRSgiR1BMIik7
+CiAKIHN0YXRpYyBjb25zdCB1OApAQCAtNTk1LDYgKzYwMCw0MyBAQCBzdGF0aWMgdm9pZCBtcnBf
+am9pbl90aW1lcih1bnNpZ25lZCBsb25nIGRhdGEpCiAJbXJwX2pvaW5fdGltZXJfYXJtKGFwcCk7
+CiB9CiAKK3N0YXRpYyB2b2lkIG1ycF9wZXJpb2RpY190aW1lcl9hcm0oc3RydWN0IG1ycF9hcHBs
+aWNhbnQgKmFwcCkKK3sKKwl1bnNpZ25lZCBsb25nIGRlbGF5OworCisJZGVsYXkgPSAodTY0KW1z
+ZWNzX3RvX2ppZmZpZXMobXJwX3BlcmlvZGljX3RpbWUpOworCW1vZF90aW1lcigmYXBwLT5wZXJp
+b2RpY190aW1lciwgamlmZmllcyArIGRlbGF5KTsKK30KKworCisvKgorICBBZGRlZCBwZXJpb2Rp
+YyB0aW1lciBmcm9tIFs4MDIuMVEtMjAxMV0gdG8gcmV0cnkgaWYgTVJQIGxvc2VzCisgIG1lc3Nh
+Z2VzLiAgTVJQIHVzZWQgdG8gbG9zZSBKb2luSW4gbWVzc2FnZXMgYW5kIG5ldmVyIHJldHJ5IGlm
+IGl0CisgIHNlbnQgbWVzc2FnZXMgYmVmb3JlIHRoZSBpbnRlcmZhY2UgYmVjb21lcyByZWFkeS4K
+KworICBUaGUgcGVyaW9kaWMgdGltZXIgZnJvbSB0aGUgODAyLjFRIHNwZWMgbmV2ZXIgdHVybnMg
+b2ZmLiAgSXQgZmlyZXMKKyAgZXZlcnkgc2Vjb25kLCBjYXVzaW5nIE1SUCB0byBib3VuY2UgZnJv
+bSBzdGF0ZSBRQSB0byBBQSBhbmQgYmFjay4KKyAgWW91IG1pZ2h0IHRoaW5rIHRoYXQgd291bGQg
+c3RvcCB3aGVuIHRoZSByZWdpc3RyYXIgcmVzcG9uZHMgd2l0aCBhbgorICBKb2luSW4sIGJ1dCB0
+aGVyZSdzIG5vIHN0YXRlIGluIHRoZSBNUlAgc3RhdGUgdGFibGUgdG8gaWdub3JlIHRoZQorICBw
+ZXJpb2RpYyB0aW1lciBhZnRlciBnZXR0aW5nIGEgcmVwbHkuICBUaGUgcmVzdWx0IGlzIE1SUCBz
+ZW5kcyBhCisgIEpvaW5JbiBtZXNzYWdlIGV2ZXJ5IHNlY29uZC4gIFRoaXMgbWF5IG5vdCBiZSBk
+ZXNpcmFibGUsIGJ1dCBpdCdzCisgIHdoYXQgdGhlIHNwZWMgcmVxdWlyZXMuCisgIAorICBbODAy
+LjFRLTIwMTFdCisgIGh0dHA6Ly9zdGFuZGFyZHMuaWVlZS5vcmcvZmluZHN0ZHMvc3RhbmRhcmQv
+ODAyLjFRLTIwMTEuaHRtbAorKi8KK3N0YXRpYyB2b2lkIG1ycF9wZXJpb2RpY190aW1lcih1bnNp
+Z25lZCBsb25nIGRhdGEpCit7CisJc3RydWN0IG1ycF9hcHBsaWNhbnQgKmFwcCA9IChzdHJ1Y3Qg
+bXJwX2FwcGxpY2FudCAqKWRhdGE7CisKKwlzcGluX2xvY2soJmFwcC0+bG9jayk7CisJbXJwX21h
+ZF9ldmVudChhcHAsIE1SUF9FVkVOVF9QRVJJT0RJQyk7CisJbXJwX3BkdV9xdWV1ZShhcHApOwor
+CXNwaW5fdW5sb2NrKCZhcHAtPmxvY2spOworCisJbXJwX3BlcmlvZGljX3RpbWVyX2FybShhcHAp
+OworfQorCiBzdGF0aWMgaW50IG1ycF9wZHVfcGFyc2VfZW5kX21hcmsoc3RydWN0IHNrX2J1ZmYg
+KnNrYiwgaW50ICpvZmZzZXQpCiB7CiAJX19iZTE2IGVuZG1hcms7CkBAIC04NDUsNiArODg3LDgg
+QEAgaW50IG1ycF9pbml0X2FwcGxpY2FudChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qg
+bXJwX2FwcGxpY2F0aW9uICphcHBsKQogCXJjdV9hc3NpZ25fcG9pbnRlcihkZXYtPm1ycF9wb3J0
+LT5hcHBsaWNhbnRzW2FwcGwtPnR5cGVdLCBhcHApOwogCXNldHVwX3RpbWVyKCZhcHAtPmpvaW5f
+dGltZXIsIG1ycF9qb2luX3RpbWVyLCAodW5zaWduZWQgbG9uZylhcHApOwogCW1ycF9qb2luX3Rp
+bWVyX2FybShhcHApOworCXNldHVwX3RpbWVyKCZhcHAtPnBlcmlvZGljX3RpbWVyLCBtcnBfcGVy
+aW9kaWNfdGltZXIsICh1bnNpZ25lZCBsb25nKWFwcCk7CisJbXJwX3BlcmlvZGljX3RpbWVyX2Fy
+bShhcHApOwogCXJldHVybiAwOwogCiBlcnIzOgpAQCAtODcwLDYgKzkxNCw3IEBAIHZvaWQgbXJw
+X3VuaW5pdF9hcHBsaWNhbnQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IG1ycF9hcHBs
+aWNhdGlvbiAqYXBwbCkKIAkgKiBhbGwgcGVuZGluZyBtZXNzYWdlcyBiZWZvcmUgdGhlIGFwcGxp
+Y2FudCBpcyBnb25lLgogCSAqLwogCWRlbF90aW1lcl9zeW5jKCZhcHAtPmpvaW5fdGltZXIpOwor
+CWRlbF90aW1lcl9zeW5jKCZhcHAtPnBlcmlvZGljX3RpbWVyKTsKIAogCXNwaW5fbG9ja19iaCgm
+YXBwLT5sb2NrKTsKIAltcnBfbWFkX2V2ZW50KGFwcCwgTVJQX0VWRU5UX1RYKTsK
+--001a1132f246d886a104e6861ade--
