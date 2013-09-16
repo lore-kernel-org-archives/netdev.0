@@ -1,66 +1,88 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Mon, 16 Sep 2013 18:44:12 +0200
-Message-ID: <20130916164412.GD3188@1wt.eu>
-References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
- <20130915205701.5c61a444@skate> <20130916065047.GH27487@1wt.eu>
- <20130916175152.4e013457@skate>
- <CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com>
- <20130916163937.GC3188@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- Gregory =?iso-8859-1?Q?Cl=E9ment?= <gregory.clement@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org
-To: Ethan Tuttle <ethan@ethantuttle.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20130916163937.GC3188@1wt.eu>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH RFC net] msi: free msi_desc entry only after we've released the kobject
+Date: Mon, 16 Sep 2013 19:09:56 +0200
+Message-ID: <1379351396-6458-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40375 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751025Ab3IPRJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 13:09:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 06:39:37PM +0200, Willy Tarreau wrote:
-> On Mon, Sep 16, 2013 at 09:35:16AM -0700, Ethan Tuttle wrote:
-> > On Mon, Sep 16, 2013 at 8:51 AM, Thomas Petazzoni
-> > <thomas.petazzoni@free-electrons.com> wrote:
-> > > Willy, Ethan,
-> > >
-> > > On Mon, 16 Sep 2013 08:50:47 +0200, Willy Tarreau wrote:
-> > >
-> > >> I'm currently testing on 3.11.1 (which I had here) and am not getting
-> > >> any issue after 50M packets. My kernel is running in thumb mode and
-> > >> without SMP.
-> > >>
-> > >> Ethan, we'll need your config I guess.
-> > >
-> > > Can both of you also report the U-Boot version you're using, and the
-> > > SoC revision (it's visible in the U-Boot output).
-> > 
-> > Mine says:
-> > 
-> > U-Boot 2009.08 (Sep 16 2012 - 22:50:06)Marvell version: 1.1.2 NQ
-> > SoC:   MV6710 A1
-> 
-> I just checked on my old captures and I have the same here, with more
-> details such as the CPU's revision (Rev 1) :
-> 
->    http://1wt.eu/articles/mirabox-vs-guruplug/
+Currently, we first do kobject_put(&entry->kobj) and the kfree(entry),
+however kobject_put() doesn't guarantee us that it was the last reference
+and that the kobj isn't used currently by someone else, so after we
+kfree(entry) with the struct kobject - other users will begin using the
+freed memory, instead of the actual kobject.
 
-BTW Ethan, I don't know if you have already opened your mirabox, but on the
-link above you'll find settings for trying other frequencies for the CPU. It
-could be nice to try 1 GHz with L2/DDR @500 instead of 1200/600 to see if the
-issue remains or not. If it disappears, there's also a working setting with
-CPU@1.2G, L2@800M and DDR@400M to help find if CPU, L2 or DDR is the culprit.
+Fix this by using the kobject->release callback, which is called last when
+the kobject is indeed not used and is cleaned up - it's msi_kobj_release(),
+which can do the kfree(entry) safely (kobject_put/cleanup doesn't use the
+kobj itself after ->release() was called, so we're safe).
 
-Willy
+Also, in case we've failed to create the sysfs directories - just kfree()
+it - cause we don't have the kobjects attached.
+
+CC: Neil Horman <nhorman@tuxdriver.com>
+CC: Russell King <rmk+kernel@arm.linux.org.uk>
+CC: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+
+Notes:
+    This patch is really an RFC, and I don't know for sure how to correctly
+    fix it, however it seems to work. Sorry if I've done something horribly
+    wrong, it really seems to work ok :).
+    
+    I've hit the bug with the recent CONFIG_DEBUG_KOBJECT_RELEASE - it basically
+    delays the cleanup a bit - so that the chances are a lot higher even for
+    one user to hit it.
+    
+    Or, maybe, it will be better to just add an kobject helper
+    kobject_wait_cleanup(), which will return only after it's indeed free? I'm
+    really not sure.
+
+ drivers/pci/msi.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index b35f93c..6eabf93 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -395,6 +395,7 @@ static void free_msi_irqs(struct pci_dev *dev)
+ 			if (list_is_last(&entry->list, &dev->msi_list))
+ 				iounmap(entry->mask_base);
+ 		}
++		list_del(&entry->list);
+ 
+ 		/*
+ 		 * Its possible that we get into this path
+@@ -405,10 +406,9 @@ static void free_msi_irqs(struct pci_dev *dev)
+ 		if (entry->kobj.parent) {
+ 			kobject_del(&entry->kobj);
+ 			kobject_put(&entry->kobj);
++		} else {
++			kfree(entry);
+ 		}
+-
+-		list_del(&entry->list);
+-		kfree(entry);
+ 	}
+ }
+ 
+@@ -531,6 +531,7 @@ static void msi_kobj_release(struct kobject *kobj)
+ 	struct msi_desc *entry = to_msi_desc(kobj);
+ 
+ 	pci_dev_put(entry->dev);
++	kfree(entry);
+ }
+ 
+ static struct kobj_type msi_irq_ktype = {
+-- 
+1.8.4
