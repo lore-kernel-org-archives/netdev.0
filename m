@@ -1,80 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 6/8 V2] rtlwifi: Fix smatch warnings in usb.c
-Date: Mon, 16 Sep 2013 23:07:40 +0400
-Message-ID: <523756FC.1050905@cogentembedded.com>
-References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net> <1379357722-17687-7-git-send-email-Larry.Finger@lwfinger.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/8 V2] rtlwifi: rtl8192_common: Fix smatch errors and
+ warnings in rtl8192c/dm_common.c
+Date: Mon, 16 Sep 2013 23:10:23 +0400
+Message-ID: <5237579F.3050104@cogentembedded.com>
+References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net> <1379357722-17687-5-git-send-email-Larry.Finger@lwfinger.net> <523755D1.2010003@cogentembedded.com> <523756DB.90507@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379357722-17687-7-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:54638 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750880Ab3IPTK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 15:10:26 -0400
+Received: by mail-la0-f44.google.com with SMTP id eo20so3537870lab.31
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 12:10:24 -0700 (PDT)
+In-Reply-To: <523756DB.90507@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2013 10:55 PM, Larry Finger wrote:
+Hello.
 
-> Smatch displays the following:
->    CHECK   drivers/net/wireless/rtlwifi/usb.c
-> drivers/net/wireless/rtlwifi/usb.c:458 _rtl_usb_rx_process_agg() warn: assigning (-98) to unsigned variable 'stats.noise'
-> drivers/net/wireless/rtlwifi/usb.c:503 _rtl_usb_rx_process_noagg() warn: assigning (-98) to unsigned variable 'stats.noise'
-> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
-> drivers/net/wireless/rtlwifi/usb.c:596 _rtl_rx_get_padding() info: ignoring unreachable code.
+On 09/16/2013 11:07 PM, Larry Finger wrote:
 
-> The negative number to an unsigned quantity is fixed by removing the variable
-> as it is no longer used.
+>>> Smatch lists the following:
+>>>    CHECK   drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:551 rtl92c_dm_pwdb_monitor()
+>>> info: ignoring unreachable code.
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:551 rtl92c_dm_pwdb_monitor()
+>>> info: ignoring unreachable code.
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:870
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:870
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:882
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:883
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:891
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
+>>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:892
+>>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
+>>> 'txpwr_level' 2 <= 2
 
-    You're removing only structure field initializer, not a variable.
+>>> The unreachable code message is fixed by commenting out the code that follows
+>>> a return.
 
-> The unreachable code info is fixed by including the
-> appropriate section inside #ifdef .. #endif constructions.
+>>     You've commented out the whole function body, where is the *return* you're
+>> talking about?
 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> ---
->   drivers/net/wireless/rtlwifi/usb.c | 8 +++++---
->   1 file changed, 5 insertions(+), 3 deletions(-)
+> The return is in the middle of the function body just after the variable
+> declarations. It does not show in the diff listing, but it is there. What
+> should I do?
 
-> diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-> index e56778c..60cb0b4 100644
-> --- a/drivers/net/wireless/rtlwifi/usb.c
-> +++ b/drivers/net/wireless/rtlwifi/usb.c
-> @@ -455,7 +455,6 @@ static void _rtl_usb_rx_process_agg(struct ieee80211_hw *hw,
->   	struct ieee80211_rx_status rx_status = {0};
->   	struct rtl_stats stats = {
->   		.signal = 0,
-> -		.noise = -98,
->   		.rate = 0,
->   	};
->
-> @@ -498,7 +497,6 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
->   	struct ieee80211_rx_status rx_status = {0};
->   	struct rtl_stats stats = {
->   		.signal = 0,
-> -		.noise = -98,
->   		.rate = 0,
->   	};
->
-> @@ -582,12 +580,15 @@ static void _rtl_rx_work(unsigned long param)
->   static unsigned int _rtl_rx_get_padding(struct ieee80211_hdr *hdr,
->   					unsigned int len)
->   {
-> +#if NET_IP_ALIGN != 0
->   	unsigned int padding = 0;
-> +#endif
->
->   	/* make function no-op when possible */
-> -	if (NET_IP_ALIGN == 0 || len < sizeof(*hdr))
-> +	if (NET_IP_ALIGN == 0 || len < sizeof(struct ieee80211_hdr))
+    Just describe what you really did, I guess.
 
-    Hm, I thought you were going to remove this collateral change.
-
->   		return 0;
+> Larry
 
 WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
