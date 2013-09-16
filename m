@@ -1,24 +1,30 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 2/3] net: usb: cdc_ether: fix checkpatch errors and
- warnings
-Date: Mon, 16 Sep 2013 13:21:50 +0200
-Message-ID: <1379330510.15916.28.camel@linux-fkkt.site>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: usb: cdc_ether: use usb.h macros whenever
+ possible
+Date: Mon, 16 Sep 2013 13:23:10 +0200
+Message-ID: <1379330590.15916.29.camel@linux-fkkt.site>
 References: <1379324872-15944-1-git-send-email-fabio.porcedda@gmail.com>
-	 <1379324872-15944-3-git-send-email-fabio.porcedda@gmail.com>
+	 <1379324872-15944-4-git-send-email-fabio.porcedda@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Fabio Porcedda <fabio.porcedda@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:50747 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932306Ab3IPLVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 07:21:53 -0400
-In-Reply-To: <1379324872-15944-3-git-send-email-fabio.porcedda@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1379324872-15944-4-git-send-email-fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, 2013-09-16 at 11:47 +0200, Fabio Porcedda wrote:
-> Signed-off-by: Fabio Porcedda <fabio.porcedda@gmail.com>
-Acked-by: Oliver Neukum <oliver@neukum.org>
+> Use USB_DEVICE_AND_INTERFACE_INFO and USB_VENDOR_AND_INTERFACE_INFO
+> macros to reduce boilerplate.
+> 
+> Signed-off-by: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
