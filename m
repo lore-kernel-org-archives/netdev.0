@@ -1,113 +1,57 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v3 6/6] ipv6: Do route updating for redirect in ndisc layer
-Date: Mon, 16 Sep 2013 19:53:32 +0800
-Message-ID: <5236F13C.1030108@cn.fujitsu.com>
-References: <5236EFEB.60106@cn.fujitsu.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH] net, mellanox mlx4 Fix compile warnings
+Date: Mon, 16 Sep 2013 08:14:50 -0400
+Message-ID: <5236F63A.9000202@redhat.com>
+References: <1379075438-20240-1-git-send-email-prarit@redhat.com><CAJZOPZLt8G8MsPxiRNySex=izThR74bXcnWTmWB2wjPys09_ig@mail.gmail.com> <20130915091400.49f90bc4@jpm-OptiPlex-GX620> <AE90C24D6B3A694183C094C60CF0A2F6026B733A@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+Cc: Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <or.gerlitz@gmail.com>, netdev@vger.kernel.org,
+	Doug Ledford <dledford@redhat.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49208 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753789Ab3IPLyb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 07:54:31 -0400
-In-Reply-To: <5236EFEB.60106@cn.fujitsu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37733 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756257Ab3IPMPk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 08:15:40 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B733A@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Do the whole verification and route updating in ndisc
-lay and then just call into icmpv6_notify() to notify
-the upper protocols.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- include/net/ip6_route.h |  3 ---
- net/ipv6/ndisc.c        |  6 ++----
- net/ipv6/route.c        | 29 ++---------------------------
- 3 files changed, 4 insertions(+), 34 deletions(-)
+On 09/16/2013 04:59 AM, David Laight wrote:
+>> On Sat, 14 Sep 2013 22:10:19 +0300
+>> Or Gerlitz <or.gerlitz@gmail.com> wrote:
+>>
+>>>> +       struct res_cq *uninitialized_var(cq);
+>>>>
+>>>>         err = cq_res_start_move_to(dev, slave, cqn,
+>>>> RES_CQ_ALLOCATED, &cq);
+>>
+>> I have no objection. However, I don't know if the compiler is being too
+>> clever here or too stupid.  The cq variable is initialized in
+>> cq_res_start_move_to(), but the compiler is ignoring this -- or maybe
+>> it is simply not assuming that cq will in fact be
+>> initialized by the called procedure?
+> 
+> Possibly cq_res_start_move_to() got inlined - and the analysis
+> of the inlined code found a path where it wasn't initialised.
+> 
+> Most likely one of the paths where the return value is non-zero.
+> 
+>> In any event, this change cannot hurt.
+> 
+> It could hide a real 'used but not initialised' error later on...
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index f525e70..5db259e 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -133,9 +133,6 @@ extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
- extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
- 			       __be32 mtu);
- extern void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark);
--extern void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
--				   u32 mark);
--extern void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk);
- 
- struct netlink_callback;
- 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index f8a55ff..6bd1b41 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1368,11 +1368,9 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
- 		return;
- 
--	if (!ndopts.nd_opts_rh) {
--		ip6_redirect_no_header(skb, dev_net(skb->dev),
--					skb->dev->ifindex, 0);
-+	ip6_redirect(skb, dev_net(skb->dev), skb->dev->ifindex, 0);
-+	if (!ndopts.nd_opts_rh)
- 		return;
--	}
- 
- 	hdr = (u8 *)ndopts.nd_opts_rh;
- 	hdr += 8;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c979dd9..151bd6c 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1227,27 +1227,7 @@ static struct dst_entry *ip6_route_redirect(struct net *net,
- 				flags, __ip6_route_redirect);
- }
- 
--void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
--{
--	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
--	struct dst_entry *dst;
--	struct flowi6 fl6;
--
--	memset(&fl6, 0, sizeof(fl6));
--	fl6.flowi6_oif = oif;
--	fl6.flowi6_mark = mark;
--	fl6.flowi6_flags = 0;
--	fl6.daddr = iph->daddr;
--	fl6.saddr = iph->saddr;
--	fl6.flowlabel = ip6_flowinfo(iph);
--
--	dst = ip6_route_redirect(net, &fl6, &ipv6_hdr(skb)->saddr);
--	rt6_do_redirect(dst, NULL, skb);
--	dst_release(dst);
--}
--EXPORT_SYMBOL_GPL(ip6_redirect);
--
--void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
-+void ip6_redirect(struct sk_buff *skb, struct net *net, int oif,
- 			    u32 mark)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
-@@ -1266,12 +1246,7 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
- 	rt6_do_redirect(dst, NULL, skb);
- 	dst_release(dst);
- }
--
--void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
--{
--	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
--}
--EXPORT_SYMBOL_GPL(ip6_sk_redirect);
-+EXPORT_SYMBOL_GPL(ip6_redirect);
- 
- static unsigned int ip6_default_advmss(const struct dst_entry *dst)
- {
--- 
-1.8.3.1
+Hi David,
+
+I certainly don't profess to know the code better than you do of course, but in
+terms of risk we're no better in than the original code here, and it seems that
+other places in the kernel the resolution has been to either init to NULL or
+wrap with uninitialized_var()...
+
+P.
