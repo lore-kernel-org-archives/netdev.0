@@ -1,79 +1,58 @@
-From: Ethan Tuttle <ethan@ethantuttle.com>
-Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Mon, 16 Sep 2013 10:24:05 -0700
-Message-ID: <CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com>
-References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
-	<20130915205701.5c61a444@skate>
-	<20130916065047.GH27487@1wt.eu>
-	<20130916175152.4e013457@skate>
-	<CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com>
-	<20130916163937.GC3188@1wt.eu>
-	<20130916164412.GD3188@1wt.eu>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 5/7: rtlwifi: Fix smatch warning in pci.c
+Date: Mon, 16 Sep 2013 12:39:51 -0500
+Message-ID: <52374267.9040200@lwfinger.net>
+References: <1379094304-22041-1-git-send-email-Larry.Finger@lwfinger.net> <1379094304-22041-6-git-send-email-Larry.Finger@lwfinger.net> <AE90C24D6B3A694183C094C60CF0A2F6026B733B@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	=?ISO-8859-1?Q?Gregory_Cl=E9ment?=
-	<gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f182.google.com ([74.125.82.182]:61827 "EHLO
-	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741Ab3IPRYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 13:24:06 -0400
-Received: by mail-we0-f182.google.com with SMTP id q59so4078794wes.27
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 10:24:05 -0700 (PDT)
-In-Reply-To: <20130916164412.GD3188@1wt.eu>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:49405 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751149Ab3IPRjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 13:39:54 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B733B@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 9:44 AM, Willy Tarreau <w@1wt.eu> wrote:
-> On Mon, Sep 16, 2013 at 06:39:37PM +0200, Willy Tarreau wrote:
->> On Mon, Sep 16, 2013 at 09:35:16AM -0700, Ethan Tuttle wrote:
->> > On Mon, Sep 16, 2013 at 8:51 AM, Thomas Petazzoni
->> > <thomas.petazzoni@free-electrons.com> wrote:
->> > > Willy, Ethan,
->> > >
->> > > On Mon, 16 Sep 2013 08:50:47 +0200, Willy Tarreau wrote:
->> > >
->> > >> I'm currently testing on 3.11.1 (which I had here) and am not getting
->> > >> any issue after 50M packets. My kernel is running in thumb mode and
->> > >> without SMP.
->> > >>
->> > >> Ethan, we'll need your config I guess.
->> > >
->> > > Can both of you also report the U-Boot version you're using, and the
->> > > SoC revision (it's visible in the U-Boot output).
->> >
->> > Mine says:
->> >
->> > U-Boot 2009.08 (Sep 16 2012 - 22:50:06)Marvell version: 1.1.2 NQ
->> > SoC:   MV6710 A1
+On 09/16/2013 04:26 AM, David Laight wrote:
+>> Smatch reports the following:
+>>    CHECK   drivers/net/wireless/rtlwifi/pci.c
+>> drivers/net/wireless/rtlwifi/pci.c:739 _rtl_pci_rx_interrupt() warn: assigning (-98) to unsigned
+>> variable 'stats.noise'
 >>
->> I just checked on my old captures and I have the same here, with more
->> details such as the CPU's revision (Rev 1) :
+>> This problem is fixed by changing the value to 256 - 98.
 >>
->>    http://1wt.eu/articles/mirabox-vs-guruplug/
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> ---
+>>   drivers/net/wireless/rtlwifi/pci.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+>> index 703f839..bf498f5 100644
+>> --- a/drivers/net/wireless/rtlwifi/pci.c
+>> +++ b/drivers/net/wireless/rtlwifi/pci.c
+>> @@ -736,7 +736,7 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+>>
+>>   	struct rtl_stats stats = {
+>>   		.signal = 0,
+>> -		.noise = -98,
+>> +		.noise = 158,	/* -98 dBm */
+>>   		.rate = 0,
+>>   	};
+>>   	int index = rtlpci->rx_ring[rx_queue_idx].idx;
 >
-> BTW Ethan, I don't know if you have already opened your mirabox, but on the
-> link above you'll find settings for trying other frequencies for the CPU. It
-> could be nice to try 1 GHz with L2/DDR @500 instead of 1200/600 to see if the
-> issue remains or not. If it disappears, there's also a working setting with
-> CPU@1.2G, L2@800M and DDR@400M to help find if CPU, L2 or DDR is the culprit.
->
-> Willy
->
+> That doesn't look nice at all.
+> Something like (unsigned int)-98 would be slightly better,
+> but it looks as though something is actually wrong with
+> the type of 'noise' itself.
 
-I have not opened my mirabox - but sure, I'll open it up and try those
-other settings when I get a chance.
+The type of 'noise' is probably a legacy of wireless extensions. In fact, that 
+variable is not used and will be deleted in V2 of the patches.
 
-Also, you mentioned that you have SMP disabled in your kernel.  It
-looks like it's on in my .config.  Should I run a test with SMP
-disabled?
+Thanks,
 
-I'm surprised that nobody else sees this crash given how easy it is
-for me to reproduce.  BTW, the 3.11 kernel I made with 702821f
-reverted has been humming along for days without issue.
+Larry
