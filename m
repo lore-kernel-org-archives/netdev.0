@@ -1,86 +1,79 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+From: Ethan Tuttle <ethan@ethantuttle.com>
 Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Mon, 16 Sep 2013 18:14:16 +0100
-Message-ID: <20130916171416.GM12758@n2100.arm.linux.org.uk>
-References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com> <20130915205701.5c61a444@skate> <20130916065047.GH27487@1wt.eu> <20130916175152.4e013457@skate> <20130916162209.GL12758@n2100.arm.linux.org.uk> <20130916182450.639084c6@skate>
+Date: Mon, 16 Sep 2013 10:24:05 -0700
+Message-ID: <CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com>
+References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com>
+	<20130915205701.5c61a444@skate>
+	<20130916065047.GH27487@1wt.eu>
+	<20130916175152.4e013457@skate>
+	<CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com>
+	<20130916163937.GC3188@1wt.eu>
+	<20130916164412.GD3188@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Willy Tarreau <w@1wt.eu>, Andrew Lunn <andrew@lunn.ch>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
 	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Ethan Tuttle <ethan@ethantuttle.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory =?iso-8859-1?Q?Cl=E9ment?=
+	=?ISO-8859-1?Q?Gregory_Cl=E9ment?=
 	<gregory.clement@free-electrons.com>,
 	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:54948 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653Ab3IPROw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 13:14:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20130916182450.639084c6@skate>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:61827 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741Ab3IPRYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 13:24:06 -0400
+Received: by mail-we0-f182.google.com with SMTP id q59so4078794wes.27
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 10:24:05 -0700 (PDT)
+In-Reply-To: <20130916164412.GD3188@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 06:24:50PM +0200, Thomas Petazzoni wrote:
-> Could this be caused by bitflips in the RAM due to bad timings, or
-> overheating or that kind of things?
+On Mon, Sep 16, 2013 at 9:44 AM, Willy Tarreau <w@1wt.eu> wrote:
+> On Mon, Sep 16, 2013 at 06:39:37PM +0200, Willy Tarreau wrote:
+>> On Mon, Sep 16, 2013 at 09:35:16AM -0700, Ethan Tuttle wrote:
+>> > On Mon, Sep 16, 2013 at 8:51 AM, Thomas Petazzoni
+>> > <thomas.petazzoni@free-electrons.com> wrote:
+>> > > Willy, Ethan,
+>> > >
+>> > > On Mon, 16 Sep 2013 08:50:47 +0200, Willy Tarreau wrote:
+>> > >
+>> > >> I'm currently testing on 3.11.1 (which I had here) and am not getting
+>> > >> any issue after 50M packets. My kernel is running in thumb mode and
+>> > >> without SMP.
+>> > >>
+>> > >> Ethan, we'll need your config I guess.
+>> > >
+>> > > Can both of you also report the U-Boot version you're using, and the
+>> > > SoC revision (it's visible in the U-Boot output).
+>> >
+>> > Mine says:
+>> >
+>> > U-Boot 2009.08 (Sep 16 2012 - 22:50:06)Marvell version: 1.1.2 NQ
+>> > SoC:   MV6710 A1
+>>
+>> I just checked on my old captures and I have the same here, with more
+>> details such as the CPU's revision (Rev 1) :
+>>
+>>    http://1wt.eu/articles/mirabox-vs-guruplug/
+>
+> BTW Ethan, I don't know if you have already opened your mirabox, but on the
+> link above you'll find settings for trying other frequencies for the CPU. It
+> could be nice to try 1 GHz with L2/DDR @500 instead of 1200/600 to see if the
+> issue remains or not. If it disappears, there's also a working setting with
+> CPU@1.2G, L2@800M and DDR@400M to help find if CPU, L2 or DDR is the culprit.
+>
+> Willy
+>
 
-Well, the SoC is an Armada 370, which uses Marvell's own Sheeva core.
-=46rom what I understand, this is a CPU designed entirely by Marvell, s=
-o
-the interpretation of these codes may not be correct.  This is made
-harder to diagnose in that Marvell is soo secret with their
-documentation; indeed for this CPU there is no information publically
-available (there's only the product briefs).
+I have not opened my mirabox - but sure, I'll open it up and try those
+other settings when I get a chance.
 
-Bad timings could certainly cause bitflips, as could poor routing of
-data line D8 (eg, incorrect termination or routing causing reflections
-on the data line - remember that with modern hardware, almost every
-signal is a transmission line).
+Also, you mentioned that you have SMP disabled in your kernel.  It
+looks like it's on in my .config.  Should I run a test with SMP
+disabled?
 
-Marginal or noisy power supplies could also be a problem - for example,
-if the impedance of the power supply connections is too great, it may
-work with some patterns of use but not others.
-
-There's soo many possibilities...
-
-However, if the fault codes above really do equate to what's in the ARM=
-v7
-Architecture Reference Manual, I think we can rule out the routing and
-RAM chips - because a cache parity error points to bit flips in the cac=
-he,
-or if there is no cache parity checking implemented, it means something
-is corrupting the state of the SoC - which could be due to bad power
-supplies.
-
-How do we get to the bottom of this?  That's a very good question - one
-which is going to be very difficult to solve.  Ideally, it means workin=
-g
-with the manufacturer's design team to try and work out what's going on
-at the board level, probably using logic analysers to capture the bus
-activity leading up to the failure.  Also, checking the power supplies
-at the SoC too - checking that they're within correct tolerance and
-checking the amount of noise on them.
-
-I think all we can do at the moment is to wait for further reports to r=
-oll
-in and see whether a better pattern emerges.
-
-If you want to try something - and you suspect it may be heat related,
-you could try putting the board inside a container, monitor the tempera=
-ture
-inside the container, and put it in your freezer!  Just be careful of t=
-he
-temperature of the other devices on the board getting too cold though -
-remember, most consumer electronics is only rated for an *operating*
-temperature range of 0=B0C to 70=B0C and your freezer will be something=
- like
--20=B0C - so don't let the ambient temperature inside the container go
-below 0=B0C!  If the CPU is producing lots of heat though, it may keep =
-the
-container sufficiently warm that that's not a problem.  The theory is
-that by making the ambient 15 to 20=B0C cooler, you will also lower the
-temperature of the hotter parts by a similar amount.
+I'm surprised that nobody else sees this crash given how easy it is
+for me to reproduce.  BTW, the 3.11 kernel I made with 702821f
+reverted has been humming along for days without issue.
