@@ -1,52 +1,69 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH] cxgb4: remove workqueue when driver registration fails
-Date: Mon, 16 Sep 2013 13:28:48 +0800
-Message-ID: <20130916052848.GA8238@weiyang.vnet.ibm.com>
-References: <1379253180-10292-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <20130916.005324.187580687457026092.davem@davemloft.net>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file
+ copies
+Date: Mon, 16 Sep 2013 11:13:48 +0530
+Message-ID: <52369A94.5060900@synopsys.com>
+References: <1378295235-18928-1-git-send-email-vgupta@synopsys.com> <20130905.142530.732425484460470485.davem@davemloft.net> <522EBBD2.1060003@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weiyang@linux.vnet.ibm.com, dm@chelsio.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp05.au.ibm.com ([202.81.31.147]:45992 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752464Ab3IPF3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 01:29:01 -0400
-Received: from /spool/local
-	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Mon, 16 Sep 2013 15:21:19 +1000
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [9.190.234.120])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 6D8122CE8051
-	for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 15:28:51 +1000 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r8G5CM0D14286964
-	for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 15:12:22 +1000
-Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r8G5SnYG016520
-	for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 15:28:50 +1000
-Content-Disposition: inline
-In-Reply-To: <20130916.005324.187580687457026092.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Alexey.Brodkin@synopsys.com>, <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <522EBBD2.1060003@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 16, 2013 at 12:53:24AM -0400, David Miller wrote:
->From: Wei Yang <weiyang@linux.vnet.ibm.com>
->Date: Sun, 15 Sep 2013 21:53:00 +0800
->
->> When driver registration fails, we need to clean up the resources allocated
->> before. cxgb4 missed to destroy the workqueue allocated at the very beginning.
->> 
->> This patch destroies the workqueue when registration fails.
->> 
->> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
->
->Applied.
+On 09/10/2013 11:57 AM, Vineet Gupta wrote:
+> On 09/05/2013 11:55 PM, David Miller wrote:
+>> From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+>> Date: Wed, 4 Sep 2013 17:17:15 +0530
+>>
+>>> copying large files to a NFS mounted host was taking absurdly large
+>>> time.
+>>>
+>>> Turns out that TX BD reclaim had a sublte bug.
+>>>
+>>> Loop starts off from @txbd_dirty cursor and stops when it hits a BD
+>>> still in use by controller. However when it stops it needs to keep the
+>>> cursor at that very BD to resume scanning in next iteration. However it
+>>> was erroneously incrementing the cursor, causing the next scan(s) to
+>>> fail too, unless the BD chain was completely drained out.
+>>>
+>>> [ARCLinux]$ ls -l -sh /disk/log.txt
+>>>  17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
+>>>
+>>> ========== Before =====================
+>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>>> real    31m 7.95s
+>>> user    0m 0.00s
+>>> sys     0m 0.10s
+>>>
+>>> ========== After =====================
+>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>>> real    0m 24.33s
+>>> user    0m 0.00s
+>>> sys     0m 0.19s
+>>>
+>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>>
+>> Applied.
+>>
+> 
+> Hi Greg,
+> 
+> This needs a stable backport (3.11).
+> Mainline commit 27082ee1b92f4d41e78b85
+> 
+> Thx,
+> -Vineet
 
-Thanks~
+Hi Greg,
 
--- 
-Richard Yang
-Help you, Help me
+I didn't spot this one in your stable-queue for 3.11.
+Please apply.
+
+Thx,
+Vineet
