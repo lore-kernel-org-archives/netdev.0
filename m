@@ -1,36 +1,59 @@
-From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/8 V2] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
-Date: Tue, 17 Sep 2013 00:44:39 +0300
-Message-ID: <874n9ktpa0.fsf@purkki.adurom.net>
-References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net>
-	<1379357722-17687-3-git-send-email-Larry.Finger@lwfinger.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next] net loopback: Set loopback_dev to NULL when freed
+Date: Mon, 16 Sep 2013 16:52:41 -0700
+Message-ID: <87k3iggw8m.fsf_-_@xmission.com>
+References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
+	<87txhp249u.fsf@xmission.com>
+	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
+	<871u4t1d9t.fsf@xmission.com>
+	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
+	<87d2ocrx9b.fsf@xmission.com>
+	<CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
+	<87six5kpu5.fsf@xmission.com>
+	<CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379357722-17687-3-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-	(Larry Finger's message of "Mon, 16 Sep 2013 13:55:16 -0500")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>, Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:51973 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842Ab3IPXwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 19:52:53 -0400
+In-Reply-To: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+	(Francesco Ruggeri's message of "Mon, 16 Sep 2013 13:30:50 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
 
-> Smatch lists the following:
->   CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
->
-> Dead code is commented out. It has not been deleted in case I find a need for
-> it later.
+It has recently turned up that we have a number of long standing bugs
+in the network stack cleanup code with use of the loopback device
+after it has been freed that have not turned up because in most cases
+the storage allocated to the loopback device is not reused, when those
+accesses happen.
 
-We should not have any commented out code. It's better to remove it and
-if it's ever needed it can be found from the git history.
+Set looback_dev to NULL to trigger oopses instead of silent data corrupt
+when we hit this class of bug.
 
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ drivers/net/loopback.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index fcbf680..a17d85a 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -146,6 +146,7 @@ static int loopback_dev_init(struct net_device *dev)
+ 
+ static void loopback_dev_free(struct net_device *dev)
+ {
++	dev_net(dev)->loopback_dev = NULL;
+ 	free_percpu(dev->lstats);
+ 	free_netdev(dev);
+ }
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.5.4
