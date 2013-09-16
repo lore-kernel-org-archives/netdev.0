@@ -1,46 +1,84 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Mon, 16 Sep 2013 19:47:08 +0200
-Message-ID: <20130916174708.GG3188@1wt.eu>
-References: <CACzLR4tTvt+ROEhkXUCQhV6=bPPTX4LFSkWfrEhF+OdM1Jm1Rw@mail.gmail.com> <20130915205701.5c61a444@skate> <20130916065047.GH27487@1wt.eu> <20130916175152.4e013457@skate> <CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com> <20130916163937.GC3188@1wt.eu> <20130916164412.GD3188@1wt.eu> <CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
+Date: Mon, 16 Sep 2013 13:49:26 -0400
+Message-ID: <523744A6.5090001@redhat.com>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita>  <20130912.160033.779509034953932316.davem@davemloft.net> <1379074013.1678.16.camel@localhost.localdomain>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory =?iso-8859-1?Q?Cl=E9ment?=
-	<gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Ethan Tuttle <ethan@ethantuttle.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, makita.toshiaki@lab.ntt.co.jp,
+	netdev@vger.kernel.org,
+	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
+	Patrick McHardy <kaber@trash.net>
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:39450 "EHLO 1wt.eu"
+Received: from mx1.redhat.com ([209.132.183.28]:48557 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751148Ab3IPRre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 13:47:34 -0400
-Content-Disposition: inline
-In-Reply-To: <CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com>
+	id S1751148Ab3IPRtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 13:49:51 -0400
+In-Reply-To: <1379074013.1678.16.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 10:24:05AM -0700, Ethan Tuttle wrote:
-> I have not opened my mirabox - but sure, I'll open it up and try those
-> other settings when I get a chance.
+On 09/13/2013 08:06 AM, Toshiaki Makita wrote:
+> On Thu, 2013-09-12 at 16:00 -0400, David Miller wrote:
+>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Date: Tue, 10 Sep 2013 19:27:54 +0900
+>>
+>>> There seem to be some undesirable behaviors related with PVID.
+>>> 1. It has no effect assigning PVID to a port. PVID cannot be applied
+>>> to any frame regardless of whether we set it or not.
+>>> 2. FDB entries learned via frames applied PVID are registered with
+>>> VID 0 rather than VID value of PVID.
+>>> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
+>>> This leads interoperational problems such as sending frames with VID
+>>> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
+>>> 0 as they belong to VLAN 0, which is expected to be handled as they have
+>>> no VID according to IEEE 802.1Q.
+>>>
+>>> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
+>>> is fixed, because we cannot activate PVID due to it.
+>>
+>> Please work out the issues in patch #2 with Vlad and resubmit this
+>> series.
+>>
+>> Thank you.
+>
+> I'm hovering between whether we should fix the issue by changing vlan 0
+> interface behavior in 8021q module or enabling a bridge port to sending
+> priority-tagged frames, or another better way.
+>
+> If you could comment it, I'd appreciate it :)
+>
+>
+> BTW, I think what is discussed in patch #2 is another problem about
+> handling priority-tags, and it exists without this patch set applied.
+> It looks like that we should prepare another patch set than this to fix
+> that problem.
+>
+> Should I include patches that fix the priority-tags problem in this
+> patch set and resubmit them all together?
+>
 
-OK
+I am thinking that we might need to do it in bridge and it looks like
+the simplest way to do it is to have default priority regeneration table
+(table 6-5 from 802.1Q doc).
 
-> Also, you mentioned that you have SMP disabled in your kernel.  It
-> looks like it's on in my .config.  Should I run a test with SMP
-> disabled?
+That way I think we would conform to the spec.
 
-You may want to try but I wouldn't bet on this.
+-vlad
 
-> I'm surprised that nobody else sees this crash given how easy it is
-> for me to reproduce.  BTW, the 3.11 kernel I made with 702821f
-> reverted has been humming along for days without issue.
-
-I'll have to rebuild with your config and exact 3.11 to test again.
-Can you check the packet rate of your ping flood to give an order of
-magnitude so that we're sure to be in the same conditions ?
-
-Willy
+>
+> Thanks,
+>
+> Toshiaki Makita
+>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>
