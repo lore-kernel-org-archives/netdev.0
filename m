@@ -1,7 +1,7 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v3 5/6] ipv6: modify the err to 0 when dealing with, NDISC_REDIRECT
-Date: Mon, 16 Sep 2013 19:53:04 +0800
-Message-ID: <5236F120.6070205@cn.fujitsu.com>
+Subject: [PATCH v3 6/6] ipv6: Do route updating for redirect in ndisc layer
+Date: Mon, 16 Sep 2013 19:53:32 +0800
+Message-ID: <5236F13C.1030108@cn.fujitsu.com>
 References: <5236EFEB.60106@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
@@ -9,67 +9,105 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:7469 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:49208 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757281Ab3IPLyE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 07:54:04 -0400
+	id S1753789Ab3IPLyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 07:54:31 -0400
 In-Reply-To: <5236EFEB.60106@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-when dealing with redirect message, the err shoud
-be assigned to 0, not EPROTO. And del the statements
-for updating route.
+Do the whole verification and route updating in ndisc
+lay and then just call into icmpv6_notify() to notify
+the upper protocols.
 
 Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- net/ipv6/icmp.c | 3 +++
- net/ipv6/raw.c  | 3 +--
- net/ipv6/udp.c  | 2 --
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/ip6_route.h |  3 ---
+ net/ipv6/ndisc.c        |  6 ++----
+ net/ipv6/route.c        | 29 ++---------------------------
+ 3 files changed, 4 insertions(+), 34 deletions(-)
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 4bde43c..6bcedcc 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -975,6 +975,9 @@ int icmpv6_err_convert(u8 type, u8 code, int *err)
- 	case ICMPV6_TIME_EXCEED:
- 		*err = EHOSTUNREACH;
- 		break;
-+	case NDISC_REDIRECT:
-+		*err = 0;
-+		break;
- 	}
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index f525e70..5db259e 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -133,9 +133,6 @@ extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
+ extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
+ 			       __be32 mtu);
+ extern void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark);
+-extern void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
+-				   u32 mark);
+-extern void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk);
  
- 	return fatal;
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 58916bb..baf86b8 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -335,8 +335,7 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
- 		ip6_sk_update_pmtu(skb, sk, info);
- 		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
- 	}
--	if (type == NDISC_REDIRECT)
--		ip6_sk_redirect(skb, sk);
-+
- 	if (np->recverr) {
- 		u8 *payload = skb->data;
- 		if (!inet->hdrincl)
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index f405815..a40b392 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -525,8 +525,6 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ struct netlink_callback;
  
- 	if (type == ICMPV6_PKT_TOOBIG)
- 		ip6_sk_update_pmtu(skb, sk, info);
--	if (type == NDISC_REDIRECT)
--		ip6_sk_redirect(skb, sk);
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index f8a55ff..6bd1b41 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1368,11 +1368,9 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ 	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
+ 		return;
  
- 	np = inet6_sk(sk);
+-	if (!ndopts.nd_opts_rh) {
+-		ip6_redirect_no_header(skb, dev_net(skb->dev),
+-					skb->dev->ifindex, 0);
++	ip6_redirect(skb, dev_net(skb->dev), skb->dev->ifindex, 0);
++	if (!ndopts.nd_opts_rh)
+ 		return;
+-	}
  
+ 	hdr = (u8 *)ndopts.nd_opts_rh;
+ 	hdr += 8;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c979dd9..151bd6c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1227,27 +1227,7 @@ static struct dst_entry *ip6_route_redirect(struct net *net,
+ 				flags, __ip6_route_redirect);
+ }
+ 
+-void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
+-{
+-	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
+-	struct dst_entry *dst;
+-	struct flowi6 fl6;
+-
+-	memset(&fl6, 0, sizeof(fl6));
+-	fl6.flowi6_oif = oif;
+-	fl6.flowi6_mark = mark;
+-	fl6.flowi6_flags = 0;
+-	fl6.daddr = iph->daddr;
+-	fl6.saddr = iph->saddr;
+-	fl6.flowlabel = ip6_flowinfo(iph);
+-
+-	dst = ip6_route_redirect(net, &fl6, &ipv6_hdr(skb)->saddr);
+-	rt6_do_redirect(dst, NULL, skb);
+-	dst_release(dst);
+-}
+-EXPORT_SYMBOL_GPL(ip6_redirect);
+-
+-void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
++void ip6_redirect(struct sk_buff *skb, struct net *net, int oif,
+ 			    u32 mark)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+@@ -1266,12 +1246,7 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
+ 	rt6_do_redirect(dst, NULL, skb);
+ 	dst_release(dst);
+ }
+-
+-void ip6_sk_redirect(struct sk_buff *skb, struct sock *sk)
+-{
+-	ip6_redirect(skb, sock_net(sk), sk->sk_bound_dev_if, sk->sk_mark);
+-}
+-EXPORT_SYMBOL_GPL(ip6_sk_redirect);
++EXPORT_SYMBOL_GPL(ip6_redirect);
+ 
+ static unsigned int ip6_default_advmss(const struct dst_entry *dst)
+ {
 -- 
 1.8.3.1
