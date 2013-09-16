@@ -1,9 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 4/8 V2] rtlwifi: rtl8192_common: Fix smatch errors and
- warnings in rtl8192c/dm_common.c
-Date: Mon, 16 Sep 2013 23:10:23 +0400
-Message-ID: <5237579F.3050104@cogentembedded.com>
-References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net> <1379357722-17687-5-git-send-email-Larry.Finger@lwfinger.net> <523755D1.2010003@cogentembedded.com> <523756DB.90507@lwfinger.net>
+Subject: Re: [PATCH 5/8 V2] [PATCH 5/7: rtlwifi: Fix smatch warning in pci.c
+Date: Mon, 16 Sep 2013 23:11:28 +0400
+Message-ID: <523757E0.6010903@cogentembedded.com>
+References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net> <1379357722-17687-6-git-send-email-Larry.Finger@lwfinger.net> <5237562D.4080509@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,57 +10,27 @@ Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:54638 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880Ab3IPTK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 15:10:26 -0400
-Received: by mail-la0-f44.google.com with SMTP id eo20so3537870lab.31
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 12:10:24 -0700 (PDT)
-In-Reply-To: <523756DB.90507@lwfinger.net>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:51692 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982Ab3IPTLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 15:11:31 -0400
+Received: by mail-la0-f42.google.com with SMTP id ep20so3625089lab.1
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 12:11:29 -0700 (PDT)
+In-Reply-To: <5237562D.4080509@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 09/16/2013 11:04 PM, Sergei Shtylyov wrote:
 
-On 09/16/2013 11:07 PM, Larry Finger wrote:
+>> Smatch reports the following:
+>>    CHECK   drivers/net/wireless/rtlwifi/pci.c
+>> drivers/net/wireless/rtlwifi/pci.c:739 _rtl_pci_rx_interrupt() warn:
+>> assigning (-98) to unsigned variable 'stats.noise'
 
->>> Smatch lists the following:
->>>    CHECK   drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:551 rtl92c_dm_pwdb_monitor()
->>> info: ignoring unreachable code.
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:551 rtl92c_dm_pwdb_monitor()
->>> info: ignoring unreachable code.
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:870
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:870
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:882
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:883
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:891
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
->>> drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:892
->>> rtl92c_dm_txpower_tracking_callback_thermalmeter() error: buffer overflow
->>> 'txpwr_level' 2 <= 2
+>> This variable is not used and is removed.
 
->>> The unreachable code message is fixed by commenting out the code that follows
->>> a return.
+>     It is not a variable but a structure field initializer you're removing.
 
->>     You've commented out the whole function body, where is the *return* you're
->> talking about?
-
-> The return is in the middle of the function body just after the variable
-> declarations. It does not show in the diff listing, but it is there. What
-> should I do?
-
-    Just describe what you really did, I guess.
-
-> Larry
+    Meant to also write that your subject is spoiled but forgot. :-)
 
 WBR, Sergei
