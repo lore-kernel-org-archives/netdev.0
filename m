@@ -1,90 +1,108 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
- was called
-Date: Mon, 16 Sep 2013 08:26:09 +0800
-Message-ID: <52365021.8040906@windriver.com>
-References: <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de> <20130912134409.GB21212@gondor.apana.org.au> <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de> <20130912.133252.425268707009916773.davem@davemloft.net> <52327C92.5010009@windriver.com> <alpine.DEB.2.02.1309131628250.4089@ionos.tec.linutronix.de>
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Subject: Re: [PATCH 1/1] net: race condition when removing virtual net_device
+Date: Sun, 15 Sep 2013 19:54:43 -0700
+Message-ID: <CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
+References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
+	<87txhp249u.fsf@xmission.com>
+	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
+	<871u4t1d9t.fsf@xmission.com>
+	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
+	<87d2ocrx9b.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <herbert@gondor.hengli.com.au>,
-	<steffen.klassert@secunet.com>, <dborkman@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	John Stultz <john.stultz@linaro.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1309131628250.4089@ionos.tec.linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f175.google.com ([209.85.128.175]:55910 "EHLO
+	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752538Ab3IPCyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Sep 2013 22:54:44 -0400
+Received: by mail-ve0-f175.google.com with SMTP id jy13so2492346veb.20
+        for <netdev@vger.kernel.org>; Sun, 15 Sep 2013 19:54:43 -0700 (PDT)
+In-Reply-To: <87d2ocrx9b.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Thomas
-
-On 2013=E5=B9=B409=E6=9C=8813=E6=97=A5 22:32, Thomas Gleixner wrote:
-> On Fri, 13 Sep 2013, Fan Du wrote:
->> (2) What I have been bugging you around here for this long time is r=
-eally the
->> second
->>      problem, I'm sorry I didn't make it clearly to you and others, =
-which is
->> below:
+On Fri, Sep 13, 2013 at 6:46 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Francesco Ruggeri <fruggeri@aristanetworks.com> writes:
+>
+>> On Thu, Sep 12, 2013 at 10:50 PM, Eric W. Biederman
+>> <ebiederm@xmission.com> wrote:
 >>
->>      Why using wall clock time to calculate soft/hard IPsec events w=
-hen
->> xfrm_state timer
->>      out happens in its timeout handler? Because even if xfrm_state =
-using
->> CLOCK_BOOTTIME,
->>      system wall clock time changing will surely disturb soft/hard I=
-Psec
->> events, which
->>      you raised your concern about in (*a*).
+>> I do have some concerns about both correctness and feasibility of this approach.
+>>
+>> About 2), namespace dependent operations triggered by unregistering
+>> the virtual devices (eg rt_flush_dev, dst_dev_event/dst_ifdown and
+>> probably more) would not be done in the namespaces where they should.
 >
-> No CLOCK_BOOTTIME is not affected by wall clock time changes. It's
-> basically CLOCK_MONOTONIC, it just keeps counting the suspend time as
-> well. So without a suspend/resume cycle CLOCK_MONOTONIC and
-> CLOCK_BOOTTIME are the same. After a suspend/resume cycle
-> CLOCK_BOOTTIME will be N seconds ahead of CLOCK_MONOTONIC, where N is
-> the number of seconds spent in suspend.
+> Yes they will.  That is what dev_change_net_namespace does.
 
-Sorry for the ambiguity. Yes, CLOCK_BOOTTIME is monotonic *and* countin=
-g
-suspend/resume time as well as not affected by wall clock time change.
+You are right, I don't know what I was thinking.
 
-Using CLOCK_BOOTTIME guarantees b- will timeout in a right manner, i.e.=
-, not
-affected by wall clock time change, as well as keep the timer valid whe=
-n
-suspend/resume.
-
-A classic way of using timer is:
-  a- Arm a timer with specified interval
-  b- Wait for the timer to timeout
-  c- After the timeout, notify the event to other place in the timer ha=
-ndler.
-
-IPsec key lifetime timer does its this way:
-  a- Arm a timer with specified interval
-  b- Wait for the timer to timeout
-  c- After timeout, in the timer handler, using wall clock time to calc=
-ulate
-    which kind of event to notify user(soft or hard for both key use ti=
-me,
-    and key created time). So the problem arises at this stage if wall =
-clock
-    time changed.
-
-
-
-Thanks
-
-> Thanks,
 >
-> 	tglx
+> It was worth a second look.  I can not find anything wrong with your
+> patch but I can not convince myself that it is correct either.  The
+> moving around the loopback device in the net dev todo list to prevent
+> deadlock I can't imagine why you are doing that.
 >
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+That is in order not to introduce a potential deadlock when multiple
+namespaces are destroyed in default_device_exit_batch.
+Take the same veth scenario as before:
+v0 in namespace ns0 (loopback_dev lo0) and similarly for v1, ns1 and lo1.
+Assume two processes destroy ns0 and ns1. cleanup_net is executed in a
+workqueue and the two namespaces can end up being processed in the
+same instance of cleanup_net/ops_exit_list/default_device_exit_batch.
+default_device_exit_batch traverses each namespace's dev_base list and
+unregister_netdevice_queue is executed in this order:
+v0 v1 lo0 v1 v0 lo1.
+unregister_netdevice_queue is executed twice on v0 and v1 but that is
+ok because it uses list_move_tail and only the last one sticks.
+The resulting list for unregister_netdevice_many is:
+lo0 v1 v0 lo1.
+If v0 holds a reference to lo0 there will be a deadlock in
+netdev_run_todo if v0 does not come before lo0 in net_todo_list. By
+pushing all loopback_devs to the end of net_todo_list this situation
+is avoided.
 
---fan
+This is the sequence with today's (actually 3.4) code:
+
+unregister_netdevice_queue: v0 (ns ffff880037aecd00)
+unregister_netdevice_queue: v1 (ns ffff880037aed800)
+unregister_netdevice_queue: lo (ns ffff880037aecd00)
+unregister_netdevice_queue: v1 (ns ffff880037aed800)
+unregister_netdevice_queue: v0 (ns ffff880037aecd00)
+unregister_netdevice_queue: lo (ns ffff880037aed800)
+unregister_netdevice_many: lo (ns ffff880037aecd00) v1 (ns
+ffff880037aed800) v0 (ns ffff880037aecd00) lo (ns ffff880037aed800)
+netdev_run_todo: lo (ns ffff880037aecd00) v1 (ns ffff880037aed800) v0
+(ns ffff880037aecd00) lo (ns ffff880037aed800)
+
+and this is the sequence after pushing the loopback_devs to the tail
+of net_todo_list:
+
+unregister_netdevice_queue: v0 (ns ffff8800379f8000)
+unregister_netdevice_queue: v1 (ns ffff8800378c0b00)
+unregister_netdevice_queue: lo (ns ffff8800379f8000)
+unregister_netdevice_queue: v1 (ns ffff8800378c0b00)
+unregister_netdevice_queue: v0 (ns ffff8800379f8000)
+unregister_netdevice_queue: lo (ns ffff8800378c0b00)
+unregister_netdevice_many: lo (ns ffff8800379f8000) v1 (ns
+ffff8800378c0b00) v0 (ns ffff8800379f8000) lo (ns ffff8800378c0b00)
+netdev_run_todo: v1 (ns ffff8800378c0b00) v0 (ns ffff8800379f8000) lo
+(ns ffff8800379f8000) lo (ns ffff8800378c0b00)
+
+Should we take this discussion offline?
+I do appreciate your spending time on this.
+
+Thanks,
+Francesco
+
+>
+> Eric
+>
