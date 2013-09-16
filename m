@@ -1,106 +1,100 @@
-From: Noel Burton-Krahn <noel@burton-krahn.com>
-Subject: PATCH: periodictimer for mrp.c
-Date: Mon, 16 Sep 2013 13:32:37 -0700
-Message-ID: <CAB5uXS41vHwDHHcCyRbi4PZOGskTkH6nBqHTc7XVBHy+ddvoNg@mail.gmail.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2.39 7/7] datapath: Add basic MPLS support to
+	kernel
+Date: Mon, 16 Sep 2013 15:38:21 -0500
+Message-ID: <CAEP_g=8FBQPZ=C6G39YdHRzG57m5MqfXSZFAX2S_KLHRwfzc2w@mail.gmail.com>
+References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+	<1378711207-29890-8-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1132f246d886a104e6861ade
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:49647 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948Ab3IPUci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 16:32:38 -0400
-Received: by mail-qc0-f177.google.com with SMTP id x12so2989822qcv.8
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 13:32:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>, Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1378711207-29890-8-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---001a1132f246d886a104e6861ade
-Content-Type: text/plain; charset=ISO-8859-1
+On Mon, Sep 9, 2013 at 12:20 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> diff --git a/datapath/actions.c b/datapath/actions.c
+> index 6741d81..2335014 100644
+> --- a/datapath/actions.c
+> +++ b/datapath/actions.c
+> +/* Push MPLS after the ethernet header. */
+> +static int push_mpls(struct sk_buff *skb,
+> +                    const struct ovs_action_push_mpls *mpls)
+[...]
+> +       /* update mac_len for subsequent pop_mpls actions. */
+> +       skb->mac_len += VLAN_HLEN;
 
-(originally to "David S. Miller" <davem@davemloft.net>, CC'ed to
-netdev.  Resent in text/plain)
+Is this supposed to be part of put_vlan()?
 
+[...]
 
-I ran into a problem when testing MVRP support in net/mrp.c:  MRP
-would transmit JoinIn messages before the network interface was fully
-up, the packets would be lost, and MRP would never retry.  It looks
-like the MRP implementation was missing the periodictimer defined in
-[802.1Q-2011] to retry if packets get lost.  The attached patch patch
-adds the periodictimer.
+> +       if (skb->ip_summed == CHECKSUM_COMPLETE)
+> +               skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+> +                                                            MPLS_HLEN, 0));
+> +
+> +       hdr = (struct ethhdr *)(skb_mac_header(skb));
 
-Note: As far as I can tell in [802.1Q-2011], the periodic timer never
-turns off.  It fires every second, causing MRP to bounce from state QA
-to AA and back.  You might think that would stop when the registrar
-responds with an JoinIn, but there's no state in the MRP state table
-to ignore the periodic timer after getting a reply.  The result is MRP
-sends a JoinIn message every second.  This may not be desirable, but
-it's what the spec requires.
+I think you could simplify this by using eth_hdr().
 
-[802.1Q-2011]
-http://standards.ieee.org/findstds/standard/802.1Q-2011.html
+> @@ -616,6 +736,13 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
+>                 goto out_loop;
+>         }
+>
+> +       /* Needed to initialise inner protocol on kernels older
+> +        * than v3.11 where skb->inner_protocol is not present
+> +        * and compatibility code uses the OVS_CB(skb) to store
+> +        * the inner protocol.
+> +        */
+> +       ovs_skb_set_inner_protocol(skb, skb->protocol);
 
-Does this look OK to you?
+The comment makes it sound like this code should just be deleted when
+upstreaming. However, I believe that we still need to initialize this
+field, right? Is this the best place do it or should it be conditional
+on adding a first MPLS header? (i.e. what happens if inner_protocol is
+already set and the packet simply passes through OVS?)
 
---
-Noel
+> diff --git a/datapath/vport-netdev.c b/datapath/vport-netdev.c
+> index 215a47e..69f24d1 100644
+> --- a/datapath/vport-netdev.c
+> +++ b/datapath/vport-netdev.c
+> @@ -287,8 +291,17 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
+> +       inner_protocol = ovs_skb_get_inner_protocol(skb);
+> +       if (eth_p_mpls(skb->protocol) && !eth_p_mpls(inner_protocol))
+> +               mpls = true;
+> +
+> +       if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->dev))
+> +               vlan = true;
 
---001a1132f246d886a104e6861ade
-Content-Type: application/octet-stream; name="mrp-periodictimer.patch"
-Content-Disposition: attachment; filename="mrp-periodictimer.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hlo4x3000
+A couple of thoughts on this:
+ - I'm not sure that the check on inner_protocol is right since I
+don't think it will be set to an MPLS EtherType in any real situation.
+I think you can just drop it.
+ - Can we simplify the loop by just inserting the vlan tag (if
+necessary), calling skb_gso_segment(), and sending the packet? I think
+it should be possible now that our skb_gso_segment() backport is more
+robust and it would make things easier to read.
+ - Can we have some kind of version check for MPLS, similar to what we
+do for VLAN, so that we don't call into this on kernels >= 3.11?
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L21ycC5oIGIvaW5jbHVkZS9uZXQvbXJwLmgKaW5kZXgg
-NGZiZjAyYS4uMGY3NTU4YiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvbXJwLmgKKysrIGIvaW5j
-bHVkZS9uZXQvbXJwLmgKQEAgLTExMiw2ICsxMTIsNyBAQCBzdHJ1Y3QgbXJwX2FwcGxpY2FudCB7
-CiAJc3RydWN0IG1ycF9hcHBsaWNhdGlvbgkqYXBwOwogCXN0cnVjdCBuZXRfZGV2aWNlCSpkZXY7
-CiAJc3RydWN0IHRpbWVyX2xpc3QJam9pbl90aW1lcjsKKwlzdHJ1Y3QgdGltZXJfbGlzdAlwZXJp
-b2RpY190aW1lcjsKIAogCXNwaW5sb2NrX3QJCWxvY2s7CiAJc3RydWN0IHNrX2J1ZmZfaGVhZAlx
-dWV1ZTsKZGlmZiAtLWdpdCBhL25ldC84MDIvbXJwLmMgYi9uZXQvODAyL21ycC5jCmluZGV4IDFl
-YjA1ZDguLjk3NTY2ZWMgMTAwNjQ0Ci0tLSBhL25ldC84MDIvbXJwLmMKKysrIGIvbmV0LzgwMi9t
-cnAuYwpAQCAtMjQsNiArMjQsMTEgQEAKIHN0YXRpYyB1bnNpZ25lZCBpbnQgbXJwX2pvaW5fdGlt
-ZSBfX3JlYWRfbW9zdGx5ID0gMjAwOwogbW9kdWxlX3BhcmFtKG1ycF9qb2luX3RpbWUsIHVpbnQs
-IDA2NDQpOwogTU9EVUxFX1BBUk1fREVTQyhtcnBfam9pbl90aW1lLCAiSm9pbiB0aW1lIGluIG1z
-IChkZWZhdWx0IDIwMG1zKSIpOworCitzdGF0aWMgdW5zaWduZWQgaW50IG1ycF9wZXJpb2RpY190
-aW1lIF9fcmVhZF9tb3N0bHkgPSAxMDAwOworbW9kdWxlX3BhcmFtKG1ycF9wZXJpb2RpY190aW1l
-LCB1aW50LCAwNjQ0KTsKK01PRFVMRV9QQVJNX0RFU0MobXJwX3BlcmlvZGljX3RpbWUsICJQZXJp
-b2RpYyB0aW1lIGluIG1zIChkZWZhdWx0IDFzKSIpOworCiBNT0RVTEVfTElDRU5TRSgiR1BMIik7
-CiAKIHN0YXRpYyBjb25zdCB1OApAQCAtNTk1LDYgKzYwMCw0MyBAQCBzdGF0aWMgdm9pZCBtcnBf
-am9pbl90aW1lcih1bnNpZ25lZCBsb25nIGRhdGEpCiAJbXJwX2pvaW5fdGltZXJfYXJtKGFwcCk7
-CiB9CiAKK3N0YXRpYyB2b2lkIG1ycF9wZXJpb2RpY190aW1lcl9hcm0oc3RydWN0IG1ycF9hcHBs
-aWNhbnQgKmFwcCkKK3sKKwl1bnNpZ25lZCBsb25nIGRlbGF5OworCisJZGVsYXkgPSAodTY0KW1z
-ZWNzX3RvX2ppZmZpZXMobXJwX3BlcmlvZGljX3RpbWUpOworCW1vZF90aW1lcigmYXBwLT5wZXJp
-b2RpY190aW1lciwgamlmZmllcyArIGRlbGF5KTsKK30KKworCisvKgorICBBZGRlZCBwZXJpb2Rp
-YyB0aW1lciBmcm9tIFs4MDIuMVEtMjAxMV0gdG8gcmV0cnkgaWYgTVJQIGxvc2VzCisgIG1lc3Nh
-Z2VzLiAgTVJQIHVzZWQgdG8gbG9zZSBKb2luSW4gbWVzc2FnZXMgYW5kIG5ldmVyIHJldHJ5IGlm
-IGl0CisgIHNlbnQgbWVzc2FnZXMgYmVmb3JlIHRoZSBpbnRlcmZhY2UgYmVjb21lcyByZWFkeS4K
-KworICBUaGUgcGVyaW9kaWMgdGltZXIgZnJvbSB0aGUgODAyLjFRIHNwZWMgbmV2ZXIgdHVybnMg
-b2ZmLiAgSXQgZmlyZXMKKyAgZXZlcnkgc2Vjb25kLCBjYXVzaW5nIE1SUCB0byBib3VuY2UgZnJv
-bSBzdGF0ZSBRQSB0byBBQSBhbmQgYmFjay4KKyAgWW91IG1pZ2h0IHRoaW5rIHRoYXQgd291bGQg
-c3RvcCB3aGVuIHRoZSByZWdpc3RyYXIgcmVzcG9uZHMgd2l0aCBhbgorICBKb2luSW4sIGJ1dCB0
-aGVyZSdzIG5vIHN0YXRlIGluIHRoZSBNUlAgc3RhdGUgdGFibGUgdG8gaWdub3JlIHRoZQorICBw
-ZXJpb2RpYyB0aW1lciBhZnRlciBnZXR0aW5nIGEgcmVwbHkuICBUaGUgcmVzdWx0IGlzIE1SUCBz
-ZW5kcyBhCisgIEpvaW5JbiBtZXNzYWdlIGV2ZXJ5IHNlY29uZC4gIFRoaXMgbWF5IG5vdCBiZSBk
-ZXNpcmFibGUsIGJ1dCBpdCdzCisgIHdoYXQgdGhlIHNwZWMgcmVxdWlyZXMuCisgIAorICBbODAy
-LjFRLTIwMTFdCisgIGh0dHA6Ly9zdGFuZGFyZHMuaWVlZS5vcmcvZmluZHN0ZHMvc3RhbmRhcmQv
-ODAyLjFRLTIwMTEuaHRtbAorKi8KK3N0YXRpYyB2b2lkIG1ycF9wZXJpb2RpY190aW1lcih1bnNp
-Z25lZCBsb25nIGRhdGEpCit7CisJc3RydWN0IG1ycF9hcHBsaWNhbnQgKmFwcCA9IChzdHJ1Y3Qg
-bXJwX2FwcGxpY2FudCAqKWRhdGE7CisKKwlzcGluX2xvY2soJmFwcC0+bG9jayk7CisJbXJwX21h
-ZF9ldmVudChhcHAsIE1SUF9FVkVOVF9QRVJJT0RJQyk7CisJbXJwX3BkdV9xdWV1ZShhcHApOwor
-CXNwaW5fdW5sb2NrKCZhcHAtPmxvY2spOworCisJbXJwX3BlcmlvZGljX3RpbWVyX2FybShhcHAp
-OworfQorCiBzdGF0aWMgaW50IG1ycF9wZHVfcGFyc2VfZW5kX21hcmsoc3RydWN0IHNrX2J1ZmYg
-KnNrYiwgaW50ICpvZmZzZXQpCiB7CiAJX19iZTE2IGVuZG1hcms7CkBAIC04NDUsNiArODg3LDgg
-QEAgaW50IG1ycF9pbml0X2FwcGxpY2FudChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qg
-bXJwX2FwcGxpY2F0aW9uICphcHBsKQogCXJjdV9hc3NpZ25fcG9pbnRlcihkZXYtPm1ycF9wb3J0
-LT5hcHBsaWNhbnRzW2FwcGwtPnR5cGVdLCBhcHApOwogCXNldHVwX3RpbWVyKCZhcHAtPmpvaW5f
-dGltZXIsIG1ycF9qb2luX3RpbWVyLCAodW5zaWduZWQgbG9uZylhcHApOwogCW1ycF9qb2luX3Rp
-bWVyX2FybShhcHApOworCXNldHVwX3RpbWVyKCZhcHAtPnBlcmlvZGljX3RpbWVyLCBtcnBfcGVy
-aW9kaWNfdGltZXIsICh1bnNpZ25lZCBsb25nKWFwcCk7CisJbXJwX3BlcmlvZGljX3RpbWVyX2Fy
-bShhcHApOwogCXJldHVybiAwOwogCiBlcnIzOgpAQCAtODcwLDYgKzkxNCw3IEBAIHZvaWQgbXJw
-X3VuaW5pdF9hcHBsaWNhbnQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IG1ycF9hcHBs
-aWNhdGlvbiAqYXBwbCkKIAkgKiBhbGwgcGVuZGluZyBtZXNzYWdlcyBiZWZvcmUgdGhlIGFwcGxp
-Y2FudCBpcyBnb25lLgogCSAqLwogCWRlbF90aW1lcl9zeW5jKCZhcHAtPmpvaW5fdGltZXIpOwor
-CWRlbF90aW1lcl9zeW5jKCZhcHAtPnBlcmlvZGljX3RpbWVyKTsKIAogCXNwaW5fbG9ja19iaCgm
-YXBwLT5sb2NrKTsKIAltcnBfbWFkX2V2ZW50KGFwcCwgTVJQX0VWRU5UX1RYKTsK
---001a1132f246d886a104e6861ade--
+These are all pretty targeted comments though, as was the one in the
+previous kernel patch so I am basically happy with this overall.
+
+To move forward with this:
+ - Pravin, would you mind double checking the GSO compat code?
+ - Ben, do you want to take over for the userspace portions of the
+series on the assumption that the above comments can be fixed fairly
+easily?
