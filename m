@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] qlcnic: Fix VF reset recovery
-Date: Mon, 16 Sep 2013 00:54:27 -0400 (EDT)
-Message-ID: <20130916.005427.1555320731863092876.davem@davemloft.net>
-References: <1379067227-10362-1-git-send-email-manish.chopra@qlogic.com>
+Subject: Re: [PATCH net-next 0/2] bridge: fix NULL pointer deref of
+ br_port_get_rcu
+Date: Mon, 16 Sep 2013 00:55:00 -0400 (EDT)
+Message-ID: <20130916.005500.495876508046881031.davem@davemloft.net>
+References: <1379169748-767-1-git-send-email-zhiguohong@tencent.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
-To: manish.chopra@qlogic.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	vyasevic@redhat.com, zhiguohong@tencent.com
+To: honkiko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58429 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58458 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932360Ab3IPEy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 00:54:28 -0400
-In-Reply-To: <1379067227-10362-1-git-send-email-manish.chopra@qlogic.com>
+	with ESMTP id S932350Ab3IPEzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 00:55:01 -0400
+In-Reply-To: <1379169748-767-1-git-send-email-zhiguohong@tencent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Fri, 13 Sep 2013 06:13:47 -0400
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Sat, 14 Sep 2013 22:42:26 +0800
 
-> o At the time of firmware hang "adapter->need_fw_reset" variable gets
->   set but after re-initialization of firmware OR at the time of VF
->   re-initialization that variable was not getting cleared which
->   was leading to failure in VF reset recovery.Fix it by clearing
->   this variable before re-initializing VF
-> 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> Hong Zhiguo (2):
+>   bridge: use br_port_get_rtnl within rtnl lock
+>   bridge: fix NULL pointer deref of br_port_get_rcu
 
-Applied.
+Both applied and queued up for -stable, thanks.
