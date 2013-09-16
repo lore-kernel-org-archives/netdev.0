@@ -1,41 +1,119 @@
 From: Fabio Porcedda <fabio.porcedda@gmail.com>
-Subject: [PATCH 1/3] net: usb: cdc_ether: Use wwan interface for Telit modules
-Date: Mon, 16 Sep 2013 11:47:50 +0200
-Message-ID: <1379324872-15944-2-git-send-email-fabio.porcedda@gmail.com>
+Subject: [PATCH 3/3] net: usb: cdc_ether: use usb.h macros whenever possible
+Date: Mon, 16 Sep 2013 11:47:52 +0200
+Message-ID: <1379324872-15944-4-git-send-email-fabio.porcedda@gmail.com>
 References: <1379324872-15944-1-git-send-email-fabio.porcedda@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	<stable@vger.kernel.org>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
 To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:36246 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755309Ab3IPJsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 05:48:01 -0400
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:46757 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755309Ab3IPJsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 05:48:06 -0400
 In-Reply-To: <1379324872-15944-1-git-send-email-fabio.porcedda@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use USB_DEVICE_AND_INTERFACE_INFO and USB_VENDOR_AND_INTERFACE_INFO
+macros to reduce boilerplate.
+
 Signed-off-by: Fabio Porcedda <fabio.porcedda@gmail.com>
-Cc: <stable@vger.kernel.org> # 3.0+ as far back as it applies cleanly
 ---
- drivers/net/usb/cdc_ether.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/usb/cdc_ether.c | 63 ++++++++++++---------------------------------
+ 1 file changed, 17 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 03ad4dc..98aef3b 100644
+index c36b1c3..2023f3e 100644
 --- a/drivers/net/usb/cdc_ether.c
 +++ b/drivers/net/usb/cdc_ether.c
-@@ -726,6 +726,11 @@ static const struct usb_device_id	products [] = {
- 	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
+@@ -665,58 +665,33 @@ static const struct usb_device_id	products[] = {
+  */
+ {
+ 	/* ZTE (Vodafone) K3805-Z */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = ZTE_VENDOR_ID,
+-	.idProduct		= 0x1003,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1003, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
  	.driver_info = (unsigned long)&wwan_info,
  }, {
-+	/* Telit modules */
-+	USB_VENDOR_AND_INTERFACE_INFO(0x1bc7, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = (kernel_ulong_t) &wwan_info,
-+}, {
- 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
- 			USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
+ 	/* ZTE (Vodafone) K3806-Z */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = ZTE_VENDOR_ID,
+-	.idProduct		= 0x1015,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1015, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long)&wwan_info,
+ }, {
+ 	/* ZTE (Vodafone) K4510-Z */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = ZTE_VENDOR_ID,
+-	.idProduct		= 0x1173,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1173, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long)&wwan_info,
+ }, {
+ 	/* ZTE (Vodafone) K3770-Z */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = ZTE_VENDOR_ID,
+-	.idProduct		= 0x1177,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1177, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long)&wwan_info,
+ }, {
+ 	/* ZTE (Vodafone) K3772-Z */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = ZTE_VENDOR_ID,
+-	.idProduct		= 0x1181,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1181, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long)&wwan_info,
+ }, {
+ 	/* Telit modules */
+@@ -734,12 +709,8 @@ static const struct usb_device_id	products[] = {
+ 
+ }, {
+ 	/* Various Huawei modems with a network port like the UMG1831 */
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = HUAWEI_VENDOR_ID,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= 255,
++	USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET, 255),
+ 	.driver_info = (unsigned long)&wwan_info,
+ },
+ 	{ },		/* END */
 -- 
 1.8.4
