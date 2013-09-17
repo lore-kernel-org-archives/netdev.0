@@ -1,32 +1,25 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 14/27] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
-Date: Tue, 17 Sep 2013 02:46:39 +0200
-Message-ID: <1379378812-18346-15-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 05/27] bonding: populate neighbour's private on enslave
+Date: Tue, 17 Sep 2013 02:46:30 +0200
+Message-ID: <1379378812-18346-6-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35016 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9859 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752036Ab3IQArO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:14 -0400
+	id S1752195Ab3IQAr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:59 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
-it doesn't check every slave for disrepencies between the actual
-IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
-next suitable slave.
-
-Fix this by using bond_for_each_slave() and storing the first good slave in
-*before till we find the current_arp_slave, after that we store the first good
-slave in new_slave. If new_slave is empty - use the slave stored in before,
-and if it's also empty - then we didn't find any suitable slave.
-
-Also, in the meanwhile, check for each slave status.
+Use the new provided function when attaching the lower slave to populate
+its ->private with struct slave *new_slave. Also, move it to the end to
+be able to 'find' it only after it was completely initialized, and
+deinitialize in the first place on release.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -41,82 +34,101 @@ Notes:
     No changes.
     
     RFC -> v1:
-    New patch.
+    Move the patch right after the introduction of ->private, to immediately
+    use it - easier for review and more logical.
 
- drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
- 1 file changed, 24 insertions(+), 14 deletions(-)
+ drivers/net/bonding/bond_main.c | 30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b5497e7..eedfa8f 100644
+index 72bdb8b..f862dc8 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2761,8 +2761,9 @@ do_failover:
-  */
- static void bond_ab_arp_probe(struct bonding *bond)
- {
--	struct slave *slave, *next_slave;
--	int i;
-+	struct slave *slave, *before = NULL, *new_slave = NULL;
-+	struct list_head *iter;
-+	bool found = false;
- 
- 	read_lock(&bond->curr_slave_lock);
- 
-@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 
- 	bond_set_slave_inactive_flags(bond->current_arp_slave);
- 
--	/* search for next candidate */
--	next_slave = bond_next_slave(bond, bond->current_arp_slave);
--	bond_for_each_slave_from(bond, slave, i, next_slave) {
--		if (IS_UP(slave->dev)) {
--			slave->link = BOND_LINK_BACK;
--			bond_set_slave_active_flags(slave);
--			bond_arp_send_all(bond, slave);
--			slave->jiffies = jiffies;
--			bond->current_arp_slave = slave;
--			break;
--		}
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (!found && !before && IS_UP(slave->dev))
-+			before = slave;
- 
-+		if (found && !new_slave && IS_UP(slave->dev))
-+			new_slave = slave;
- 		/* if the link state is up at this point, we
- 		 * mark it down - this can happen if we have
- 		 * simultaneous link failures and
-@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 		 * one the current slave so it is still marked
- 		 * up when it is actually down
- 		 */
--		if (slave->link == BOND_LINK_UP) {
-+		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
- 			slave->link = BOND_LINK_DOWN;
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
-@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			pr_info("%s: backup interface %s is now down.\n",
- 				bond->dev->name, slave->dev->name);
- 		}
-+		if (slave == bond->current_arp_slave)
-+			found = true;
- 	}
-+
-+	if (!new_slave && before)
-+		new_slave = before;
-+
-+	if (!new_slave)
-+		return;
-+
-+	new_slave->link = BOND_LINK_BACK;
-+	bond_set_slave_active_flags(new_slave);
-+	bond_arp_send_all(bond, new_slave);
-+	new_slave->jiffies = jiffies;
-+	bond->current_arp_slave = new_slave;
-+
+@@ -1233,11 +1233,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
  }
  
- void bond_activebackup_arp_mon(struct work_struct *work)
+ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+-				      struct net_device *slave_dev)
++				      struct net_device *slave_dev,
++				      struct slave *slave)
+ {
+ 	int err;
+ 
+-	err = netdev_master_upper_dev_link(slave_dev, bond_dev);
++	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
+ 	if (err)
+ 		return err;
+ 	slave_dev->flags |= IFF_SLAVE;
+@@ -1413,17 +1414,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
+-	res = bond_master_upper_dev_link(bond_dev, slave_dev);
+-	if (res) {
+-		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
+-		goto err_restore_mac;
+-	}
+-
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+ 		pr_debug("Opening slave %s failed\n", slave_dev->name);
+-		goto err_unset_master;
++		goto err_restore_mac;
+ 	}
+ 
+ 	new_slave->bond = bond;
+@@ -1637,6 +1632,13 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_dest_symlinks;
+ 	}
+ 
++	res = bond_master_upper_dev_link(bond_dev, slave_dev, new_slave);
++	if (res) {
++		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
++		goto err_unregister;
++	}
++
++
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+ 		bond_dev->name, slave_dev->name,
+ 		bond_is_active_slave(new_slave) ? "n active" : " backup",
+@@ -1646,6 +1648,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	return 0;
+ 
+ /* Undo stages on error */
++err_unregister:
++	netdev_rx_handler_unregister(slave_dev);
++
+ err_dest_symlinks:
+ 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
+ 
+@@ -1675,9 +1680,6 @@ err_close:
+ 	slave_dev->priv_flags &= ~IFF_BONDING;
+ 	dev_close(slave_dev);
+ 
+-err_unset_master:
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
+-
+ err_restore_mac:
+ 	if (!bond->params.fail_over_mac) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+@@ -1748,6 +1750,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	write_unlock_bh(&bond->lock);
++
++	bond_upper_dev_unlink(bond_dev, slave_dev);
+ 	/* unregister rx_handler early so bond_handle_frame wouldn't be called
+ 	 * for this slave anymore.
+ 	 */
+@@ -1866,8 +1870,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+ 	}
+ 
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
+-
+ 	slave_disable_netpoll(slave);
+ 
+ 	/* close slave before restoring its mac address */
 -- 
 1.8.4
