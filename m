@@ -1,130 +1,121 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] USBNET: fix handling padding packet
-Date: Tue, 17 Sep 2013 17:10:02 +0800
-Message-ID: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH  v3 0/6] ipv6: Do route updating for redirect in ndisc
+ layer
+Date: Tue, 17 Sep 2013 11:00:07 +0200
+Message-ID: <52381A17.7080309@redhat.com>
+References: <5236EFEB.60106@cn.fujitsu.com> <5236F808.9050605@redhat.com> <523710CC.1090404@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Duan Jiong <duanj.fnst@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, hannes@stressinduktion.org,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: Duan Jiong <djduanjiong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32130 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751584Ab3IQJT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 05:19:59 -0400
+In-Reply-To: <523710CC.1090404@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
-if the usb host controller is capable of building packet from
-discontinuous buffers, but missed handling padding packet when
-building DMA SG.
+On 09/16/2013 04:08 PM, Duan Jiong wrote:
+> =D3=DA 2013/9/16 20:22, Daniel Borkmann =D0=B4=B5=C0:
+>> On 09/16/2013 01:47 PM, Duan Jiong wrote:
+>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>
+>>> the ip6_redirect() could be replaced with
+>>> ip6_redirect_no_header(), we could always use ip6_redirect()
+>>> for route updating in ndisc layer and use the data of the
+>>> redirected header option just for finding the socket to be
+>>> notified and then notify user in protocols' err_handler.
+>> If I get this right, it seems to me that this patchset actually cons=
+ists of two
+>> different kind of changes:
+>>
+>> 1) Not notifying user space on ICMP redirects (net material)
+>> 2) Simplify code for updating route in ndisc layer instead of error =
+handlers (net-next)
+>>
+>> Also, you do the *actual* change in the very last patch, which means=
+ that from
+>> patch 1 to 5 we're in an inconsistent and buggy state unless we also=
+ apply patch
+>> number 6. It should actually be the other way around, that you first=
+ do the actual
+>> change and then migrate users (also commit messages are quite terse)=
+=2E
+>=20
+> I make the patch set on net tree, not on net-next. Maybe those
+> things should be done in two patch sets.
+>=20
+>> Moreover, just looking at the SCTP part (sctp_err_lookup() function)=
+ ...
+>>
+>> /* RFC 4960, Appendix C. ICMP Handling
+>>   *
+>>   * ICMP6) An implementation MUST validate that the Verification Tag
+>>   * contained in the ICMP message matches the Verification Tag of
+>>   * the peer.  If the Verification Tag is not 0 and does NOT
+>>   * match, discard the ICMP message.  If it is 0 and the ICMP
+>>   * message contains enough bytes to verify that the chunk type is
+>>   * an INIT chunk and that the Initiate Tag matches the tag of the
+>>   * peer, continue with ICMP7.  If the ICMP message is too short
+>>   * or the chunk type or the Initiate Tag does not match, silently
+>>   * discard the packet.
+>>   */
+>>  =20
+>> ... it seems to me that we would simply ignore such RFC requirements=
+ with
+>> your patch for the sctp_v6_err() part.
+>>
+>> Care to elaborate? ;-)
+>=20
+> Sorry, i didn't notice that.
+>=20
+> According to the RFC requirements, it suggests that we can't update
+> route for redirect in ndisc layer before calling into sctp_err_lookup=
+(),
+> because we must verify the ICMP Message. Now maybe we update route fo=
+r
+> redirect in ndisc layer is wrong.
 
-This patch attachs the pre-allocated padding packet at the
-end of the sg list, so padding packet can be sent to device
-if drivers require that.
+Looking further into RFC4960 [1] ... it says:
 
-Reported-by: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/usbnet.c   |   27 +++++++++++++++++++++------
- include/linux/usb/usbnet.h |    1 +
- 2 files changed, 22 insertions(+), 6 deletions(-)
+Appendix C.  ICMP Handling
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 7b331e6..4a9bed3 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1241,7 +1241,9 @@ static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
- 	if (num_sgs == 1)
- 		return 0;
- 
--	urb->sg = kmalloc(num_sgs * sizeof(struct scatterlist), GFP_ATOMIC);
-+	/* reserve one for zero packet */
-+	urb->sg = kmalloc((num_sgs + 1) * sizeof(struct scatterlist),
-+			  GFP_ATOMIC);
- 	if (!urb->sg)
- 		return -ENOMEM;
- 
-@@ -1305,7 +1307,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 		if (build_dma_sg(skb, urb) < 0)
- 			goto drop;
- 	}
--	entry->length = length = urb->transfer_buffer_length;
-+	length = urb->transfer_buffer_length;
- 
- 	/* don't assume the hardware handles USB_ZERO_PACKET
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
-@@ -1317,15 +1319,18 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	if (length % dev->maxpacket == 0) {
- 		if (!(info->flags & FLAG_SEND_ZLP)) {
- 			if (!(info->flags & FLAG_MULTI_PACKET)) {
--				urb->transfer_buffer_length++;
--				if (skb_tailroom(skb)) {
-+				length++;
-+				if (skb_tailroom(skb) && !dev->can_dma_sg) {
- 					skb->data[skb->len] = 0;
- 					__skb_put(skb, 1);
--				}
-+				} else if (dev->can_dma_sg)
-+					sg_set_buf(&urb->sg[urb->num_sgs++],
-+							dev->padding_pkt, 1);
- 			}
- 		} else
- 			urb->transfer_flags |= URB_ZERO_PACKET;
- 	}
-+	entry->length = urb->transfer_buffer_length = length;
- 
- 	spin_lock_irqsave(&dev->txq.lock, flags);
- 	retval = usb_autopm_get_interface_async(dev->intf);
-@@ -1509,6 +1514,7 @@ void usbnet_disconnect (struct usb_interface *intf)
- 
- 	usb_kill_urb(dev->interrupt);
- 	usb_free_urb(dev->interrupt);
-+	kfree(dev->padding_pkt);
- 
- 	free_netdev(net);
- }
-@@ -1679,9 +1685,16 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	/* initialize max rx_qlen and tx_qlen */
- 	usbnet_update_max_qlen(dev);
- 
-+	if (dev->can_dma_sg && !(info->flags & FLAG_SEND_ZLP) &&
-+		!(info->flags & FLAG_MULTI_PACKET)) {
-+		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
-+		if (!dev->padding_pkt)
-+			goto out4;
-+	}
-+
- 	status = register_netdev (net);
- 	if (status)
--		goto out4;
-+		goto out5;
- 	netif_info(dev, probe, dev->net,
- 		   "register '%s' at usb-%s-%s, %s, %pM\n",
- 		   udev->dev.driver->name,
-@@ -1699,6 +1712,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 
- 	return 0;
- 
-+out5:
-+	kfree(dev->padding_pkt);
- out4:
- 	usb_free_urb(dev->interrupt);
- out3:
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 9cb2fe8..e303eef 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -42,6 +42,7 @@ struct usbnet {
- 	struct usb_host_endpoint *status;
- 	unsigned		maxpacket;
- 	struct timer_list	delay;
-+	const char		*padding_pkt;
- 
- 	/* protocol/interface state */
- 	struct net_device	*net;
--- 
-1.7.9.5
+   Whenever an ICMP message is received by an SCTP endpoint, the
+   following procedures MUST be followed to ensure proper utilization o=
+f
+   the information being provided by layer 3.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   ICMP1) An implementation MAY ignore all ICMPv4 messages where the
+          type field is not set to "Destination Unreachable".
+
+   ICMP2) An implementation MAY ignore all ICMPv6 messages where the
+          type field is not "Destination Unreachable", "Parameter
+          Problem", or "Packet Too Big".
+   ...
+
+So this basically means that only packets in step 2 are interesting for=
+ us here,
+we *may* ignore the rest. The verification comes at step 6, so we may h=
+ave
+ignored the packet first. ;-) Therefore, I think your proposal should n=
+ot be an
+issue for SCTP.
+
+I'd however prefer that your patch handles this similarly as in sctp_v4=
+_err(),
+so that in the default switch-case, we just go to out_unlock.
+
+In any case, your commit message would need to be more elaborate and re=
+flect
+"why" it is okay/safe to change that in SCTP or other cases, preferably=
+ with
+reference to the RFC. Otherwise, looking at the Git history in future w=
+ill just be
+confusing as it won't clarify why it was reasonable doing so this way.
+
+  [1] http://tools.ietf.org/html/rfc4960#appendix-C
