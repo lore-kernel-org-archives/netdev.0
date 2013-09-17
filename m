@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [RFC PATCH v2 net-next 1/2] extended BPF
-Date: Mon, 16 Sep 2013 19:48:38 -0700
-Message-ID: <1379386119-4157-2-git-send-email-ast@plumgrid.com>
+Subject: [RFC PATCH v2 net-next 2/2] extend OVS to use BPF
+	programs on flow miss
+Date: Mon, 16 Sep 2013 19:48:39 -0700
+Message-ID: <1379386119-4157-3-git-send-email-ast@plumgrid.com>
 References: <1379386119-4157-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,1096 +32,233 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-extended BPF program = BPF insns + BPF tables
+Original OVS packet flow:
+flow_table_lookup -> flow_miss -> upcall
 
-flexible instruction set:
-- from two 32-bit registers (A and X) to ten 64-bit regs
-- add conditional jump back, signed compare, bswap
-- in addition to old load[1,2,4,8] bytes, add store[1,2,4,8] bytes
-- fixed set of function calls via simple ABI:
-  R0 - return register
-  R1-R5 - argument passing
-  R6-R9 - callee saved
-  R10 - frame pointer
-- bpf_table_lookup/bpf_table_update functions to access BPF tables
-- generic 'struct bpf_context' = input/output argument to BPF program
+Original OVS is a cache engine: controller simulates traversal of
+network topology and establishes a flow == cached result of the traversal.
 
-BPF table is defined by
-- type, id, number of elements, key size, element size
+Extended OVS:
+flow_table_lookup -> flow_miss -> BPF workflow -> upcall (optional)
 
-To use generic BPF engine other kernel components will define:
-- the body of 'bpf_context' and access permission
-- available function calls: their prototypes for BPF checker,
-  body for BPF interpreter and JIT
+BPF programs traverse a topology of BPF-bridges/routers/nats/firewalls (plums).
+If they cannot do it completely, they can upcall into controller.
+Controller can either adjust execution of BPF programs via corresponding
+BPF tables or program flows in the main cache engine.
 
-BPF programs can be written in restricted C
-GCC backend for BPF is available
+plum is a specific use case of BPF engine
+plum stands for Parse Lookup Update Modify
+'bpf_load_xxx' functions are used to read data from the packet.
+'bpf_table_lookup' to access tables
+'bpf_forward' to forward the packet
 
-BPF checker does full program validation before it is JITed or
-run in interpreter
+plums are connected to each other and to ovs-vport's
+via OVS_BPF_CMD_CONNECT_PORTS netlink command.
+
+plums can push data to userspace via 'bpf_channel_push_xxx'
+functions that utilize ovs upcall mechanism
+
+'bpf_csum_xxx' are helper functions when plum wants to modify the packet
 
 Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Signed-off-by: Wei-Chun Chao <weichunc-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- arch/x86/net/Makefile        |    2 +-
- arch/x86/net/bpf2_jit_comp.c |  610 ++++++++++++++++++++++++
- arch/x86/net/bpf_jit_comp.c  |   41 +-
- arch/x86/net/bpf_jit_comp.h  |   36 ++
- include/linux/filter.h       |   79 ++++
- include/uapi/linux/filter.h  |  125 ++++-
- net/core/Makefile            |    2 +-
- net/core/bpf_check.c         | 1043 ++++++++++++++++++++++++++++++++++++++++++
- net/core/bpf_run.c           |  412 +++++++++++++++++
- 9 files changed, 2315 insertions(+), 35 deletions(-)
- create mode 100644 arch/x86/net/bpf2_jit_comp.c
- create mode 100644 arch/x86/net/bpf_jit_comp.h
- create mode 100644 net/core/bpf_check.c
- create mode 100644 net/core/bpf_run.c
+ include/uapi/linux/openvswitch.h |  140 +++++
+ net/openvswitch/Makefile         |    7 +-
+ net/openvswitch/bpf_callbacks.c  |  295 +++++++++
+ net/openvswitch/bpf_plum.c       |  931 +++++++++++++++++++++++++++++
+ net/openvswitch/bpf_replicator.c |  155 +++++
+ net/openvswitch/bpf_table.c      |  500 ++++++++++++++++
+ net/openvswitch/datapath.c       |  102 +++-
+ net/openvswitch/datapath.h       |    5 +
+ net/openvswitch/dp_bpf.c         | 1228 ++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/dp_bpf.h         |  160 +++++
+ net/openvswitch/dp_notify.c      |    7 +
+ net/openvswitch/vport-gre.c      |   10 -
+ net/openvswitch/vport-netdev.c   |   15 +-
+ net/openvswitch/vport-netdev.h   |    1 +
+ net/openvswitch/vport.h          |   10 +
+ 15 files changed, 3539 insertions(+), 27 deletions(-)
+ create mode 100644 net/openvswitch/bpf_callbacks.c
+ create mode 100644 net/openvswitch/bpf_plum.c
+ create mode 100644 net/openvswitch/bpf_replicator.c
+ create mode 100644 net/openvswitch/bpf_table.c
+ create mode 100644 net/openvswitch/dp_bpf.c
+ create mode 100644 net/openvswitch/dp_bpf.h
 
-diff --git a/arch/x86/net/Makefile b/arch/x86/net/Makefile
-index 90568c3..54f57c9 100644
---- a/arch/x86/net/Makefile
-+++ b/arch/x86/net/Makefile
-@@ -1,4 +1,4 @@
- #
- # Arch-specific network modules
- #
--obj-$(CONFIG_BPF_JIT) += bpf_jit.o bpf_jit_comp.o
-+obj-$(CONFIG_BPF_JIT) += bpf_jit.o bpf_jit_comp.o bpf2_jit_comp.o
-diff --git a/arch/x86/net/bpf2_jit_comp.c b/arch/x86/net/bpf2_jit_comp.c
-new file mode 100644
-index 0000000..2558ed7
---- /dev/null
-+++ b/arch/x86/net/bpf2_jit_comp.c
-@@ -0,0 +1,610 @@
-+/*
-+ * Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/filter.h>
-+#include <linux/moduleloader.h>
-+#include "bpf_jit_comp.h"
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index a74d375..2c308ad7 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -495,4 +495,144 @@ enum ovs_action_attr {
+ 
+ #define OVS_ACTION_ATTR_MAX (__OVS_ACTION_ATTR_MAX - 1)
+ 
++/* BPFs. */
 +
-+static inline u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
-+{
-+	if (len == 1)
-+		*ptr = bytes;
-+	else if (len == 2)
-+		*(u16 *)ptr = bytes;
-+	else
-+		*(u32 *)ptr = bytes;
-+	return ptr + len;
-+}
++#define OVS_BPF_FAMILY "ovs_bpf"
++#define OVS_BPF_VERSION 0x1
 +
-+#define EMIT(bytes, len) (prog = emit_code(prog, (bytes), (len)))
-+
-+#define EMIT1(b1)		EMIT(b1, 1)
-+#define EMIT2(b1, b2)		EMIT((b1) + ((b2) << 8), 2)
-+#define EMIT3(b1, b2, b3)	EMIT((b1) + ((b2) << 8) + ((b3) << 16), 3)
-+#define EMIT4(b1, b2, b3, b4)   EMIT((b1) + ((b2) << 8) + ((b3) << 16) + ((b4) << 24), 4)
-+/* imm32 is sign extended by cpu */
-+#define EMIT1_off32(b1, off) \
-+	do {EMIT1(b1); EMIT(off, 4); } while (0)
-+#define EMIT2_off32(b1, b2, off) \
-+	do {EMIT2(b1, b2); EMIT(off, 4); } while (0)
-+#define EMIT3_off32(b1, b2, b3, off) \
-+	do {EMIT3(b1, b2, b3); EMIT(off, 4); } while (0)
-+#define EMIT4_off32(b1, b2, b3, b4, off) \
-+	do {EMIT4(b1, b2, b3, b4); EMIT(off, 4); } while (0)
-+
-+/* mov A, X */
-+#define EMIT_mov(A, X) \
-+	EMIT3(add_2mod(0x48, A, X), 0x89, add_2reg(0xC0, A, X))
-+
-+#define X86_JAE 0x73
-+#define X86_JE  0x74
-+#define X86_JNE 0x75
-+#define X86_JA  0x77
-+#define X86_JGE 0x7D
-+#define X86_JG  0x7F
-+
-+static inline bool is_imm8(__s32 value)
-+{
-+	return value <= 127 && value >= -128;
-+}
-+
-+static inline bool is_simm32(__s64 value)
-+{
-+	return value == (__s64)(__s32)value;
-+}
-+
-+static int bpf_size_to_x86_bytes(int bpf_size)
-+{
-+	if (bpf_size == BPF_W)
-+		return 4;
-+	else if (bpf_size == BPF_H)
-+		return 2;
-+	else if (bpf_size == BPF_B)
-+		return 1;
-+	else if (bpf_size == BPF_DW)
-+		return 4; /* imm32 */
-+	else
-+		return 0;
-+}
-+
-+#define AUX_REG 32
-+
-+/* avoid x86-64 R12 which if used as base address in memory access
-+ * always needs an extra byte for index */
-+static const int reg2hex[] = {
-+	[R0] = 0, /* rax */
-+	[R1] = 7, /* rdi */
-+	[R2] = 6, /* rsi */
-+	[R3] = 2, /* rdx */
-+	[R4] = 1, /* rcx */
-+	[R5] = 0, /* r8 */
-+	[R6] = 3, /* rbx callee saved */
-+	[R7] = 5, /* r13 callee saved */
-+	[R8] = 6, /* r14 callee saved */
-+	[R9] = 7, /* r15 callee saved */
-+	[__fp__] = 5, /* rbp readonly */
-+	[AUX_REG] = 1, /* r9 temp register */
++enum ovs_bpf_cmd {
++	OVS_BPF_CMD_UNSPEC,
++	OVS_BPF_CMD_REGISTER_PLUM,
++	OVS_BPF_CMD_UNREGISTER_PLUM,
++	OVS_BPF_CMD_CONNECT_PORTS,
++	OVS_BPF_CMD_DISCONNECT_PORTS,
++	OVS_BPF_CMD_CLEAR_TABLE_ELEMENTS,
++	OVS_BPF_CMD_DELETE_TABLE_ELEMENT,
++	OVS_BPF_CMD_READ_TABLE_ELEMENT,
++	OVS_BPF_CMD_UPDATE_TABLE_ELEMENT,
++	OVS_BPF_CMD_DEL_REPLICATOR,
++	OVS_BPF_CMD_ADD_PORT_TO_REPLICATOR,
++	OVS_BPF_CMD_DEL_PORT_FROM_REPLICATOR,
++	OVS_BPF_CMD_CHANNEL_PUSH,
++	OVS_BPF_CMD_READ_PORT_STATS,
++	__OVS_BPF_CMD_MAX
 +};
 +
-+/* is_ereg() == true if r8 <= reg <= r15,
-+ * rax,rcx,...,rbp don't need extra byte of encoding */
-+static inline bool is_ereg(u32 reg)
-+{
-+	if (reg == R5 || (reg >= R7 && reg <= R9) || reg == AUX_REG)
-+		return true;
-+	else
-+		return false;
-+}
++#define OVS_BPF_CMD_MAX (__OVS_BPF_CMD_MAX - 1)
 +
-+static inline u8 add_1mod(u8 byte, u32 reg)
-+{
-+	if (is_ereg(reg))
-+		byte |= 1;
-+	return byte;
-+}
-+static inline u8 add_2mod(u8 byte, u32 r1, u32 r2)
-+{
-+	if (is_ereg(r1))
-+		byte |= 1;
-+	if (is_ereg(r2))
-+		byte |= 4;
-+	return byte;
-+}
-+
-+static inline u8 add_1reg(u8 byte, u32 a_reg)
-+{
-+	return byte + reg2hex[a_reg];
-+}
-+static inline u8 add_2reg(u8 byte, u32 a_reg, u32 x_reg)
-+{
-+	return byte + reg2hex[a_reg] + (reg2hex[x_reg] << 3);
-+}
-+
-+static u8 *select_bpf_func(struct bpf_program *prog, int id)
-+{
-+	if (id < 0 || id >= FUNC_bpf_max_id)
-+		return NULL;
-+	return prog->cb->jit_select_func(id);
-+}
-+
-+static int do_jit(struct bpf_program *bpf_prog, int *addrs, u8 *image,
-+		  int oldproglen)
-+{
-+	struct bpf_insn *insn = bpf_prog->insns;
-+	int insn_cnt = bpf_prog->insn_cnt;
-+	u8 temp[64];
-+	int i;
-+	int proglen = 0;
-+	u8 *prog = temp;
-+	int stacksize = 512;
-+
-+	EMIT1(0x55); /* push rbp */
-+	EMIT3(0x48, 0x89, 0xE5); /* mov rbp,rsp */
-+
-+	/* sub rsp, stacksize */
-+	EMIT3_off32(0x48, 0x81, 0xEC, stacksize);
-+	/* mov qword ptr [rbp-X],rbx */
-+	EMIT3_off32(0x48, 0x89, 0x9D, -stacksize);
-+	/* mov qword ptr [rbp-X],r13 */
-+	EMIT3_off32(0x4C, 0x89, 0xAD, -stacksize + 8);
-+	/* mov qword ptr [rbp-X],r14 */
-+	EMIT3_off32(0x4C, 0x89, 0xB5, -stacksize + 16);
-+	/* mov qword ptr [rbp-X],r15 */
-+	EMIT3_off32(0x4C, 0x89, 0xBD, -stacksize + 24);
-+
-+	for (i = 0; i < insn_cnt; i++, insn++) {
-+		const __s32 K = insn->imm;
-+		__u32 a_reg = insn->a_reg;
-+		__u32 x_reg = insn->x_reg;
-+		u8 b1 = 0, b2 = 0, b3 = 0;
-+		u8 jmp_cond;
-+		__s64 jmp_offset;
-+		int ilen;
-+		u8 *func;
-+
-+		switch (insn->code) {
-+			/* ALU */
-+		case BPF_ALU | BPF_ADD | BPF_X:
-+		case BPF_ALU | BPF_SUB | BPF_X:
-+		case BPF_ALU | BPF_AND | BPF_X:
-+		case BPF_ALU | BPF_OR | BPF_X:
-+		case BPF_ALU | BPF_XOR | BPF_X:
-+			b1 = 0x48;
-+			b3 = 0xC0;
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_ADD: b2 = 0x01; break;
-+			case BPF_SUB: b2 = 0x29; break;
-+			case BPF_AND: b2 = 0x21; break;
-+			case BPF_OR: b2 = 0x09; break;
-+			case BPF_XOR: b2 = 0x31; break;
-+			}
-+			EMIT3(add_2mod(b1, a_reg, x_reg), b2,
-+			      add_2reg(b3, a_reg, x_reg));
-+			break;
-+
-+			/* mov A, X */
-+		case BPF_ALU | BPF_MOV | BPF_X:
-+			EMIT_mov(a_reg, x_reg);
-+			break;
-+
-+			/* neg A */
-+		case BPF_ALU | BPF_NEG | BPF_X:
-+			EMIT3(add_1mod(0x48, a_reg), 0xF7,
-+			      add_1reg(0xD8, a_reg));
-+			break;
-+
-+		case BPF_ALU | BPF_ADD | BPF_K:
-+		case BPF_ALU | BPF_SUB | BPF_K:
-+		case BPF_ALU | BPF_AND | BPF_K:
-+		case BPF_ALU | BPF_OR | BPF_K:
-+			b1 = add_1mod(0x48, a_reg);
-+
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_ADD: b3 = 0xC0; break;
-+			case BPF_SUB: b3 = 0xE8; break;
-+			case BPF_AND: b3 = 0xE0; break;
-+			case BPF_OR: b3 = 0xC8; break;
-+			}
-+
-+			if (is_imm8(K))
-+				EMIT4(b1, 0x83, add_1reg(b3, a_reg), K);
-+			else
-+				EMIT3_off32(b1, 0x81, add_1reg(b3, a_reg), K);
-+			break;
-+
-+		case BPF_ALU | BPF_MOV | BPF_K:
-+			/* 'mov rax, imm32' sign extends imm32.
-+			 * possible optimization: if imm32 is positive,
-+			 * use 'mov eax, imm32' (which zero-extends imm32)
-+			 * to save 2 bytes */
-+			b1 = add_1mod(0x48, a_reg);
-+			b2 = 0xC7;
-+			b3 = 0xC0;
-+			EMIT3_off32(b1, b2, add_1reg(b3, a_reg), K);
-+			break;
-+
-+			/* A %= X
-+			 * A /= X */
-+		case BPF_ALU | BPF_MOD | BPF_X:
-+		case BPF_ALU | BPF_DIV | BPF_X:
-+			EMIT1(0x50); /* push rax */
-+			EMIT1(0x52); /* push rdx */
-+
-+			/* mov r9, X */
-+			EMIT_mov(AUX_REG, x_reg);
-+
-+			/* mov rax, A */
-+			EMIT_mov(R0, a_reg);
-+
-+			/* xor rdx, rdx */
-+			EMIT3(0x48, 0x31, 0xd2);
-+
-+			/* if X==0, skip divide, make A=0 */
-+
-+			/* cmp r9, 0 */
-+			EMIT4(0x49, 0x83, 0xF9, 0x00);
-+
-+			/* je .+3 */
-+			EMIT2(X86_JE, 3);
-+
-+			/* div r9 */
-+			EMIT3(0x49, 0xF7, 0xF1);
-+
-+			if (BPF_OP(insn->code) == BPF_MOD) {
-+				/* mov r9, rdx */
-+				EMIT3(0x49, 0x89, 0xD1);
-+			} else {
-+				/* mov r9, rax */
-+				EMIT3(0x49, 0x89, 0xC1);
-+			}
-+
-+			EMIT1(0x5A); /* pop rdx */
-+			EMIT1(0x58); /* pop rax */
-+
-+			/* mov A, r9 */
-+			EMIT_mov(a_reg, AUX_REG);
-+			break;
-+
-+			/* shifts */
-+		case BPF_ALU | BPF_LSH | BPF_K:
-+		case BPF_ALU | BPF_RSH | BPF_K:
-+		case BPF_ALU | BPF_ARSH | BPF_K:
-+			b1 = add_1mod(0x48, a_reg);
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_LSH: b3 = 0xE0; break;
-+			case BPF_RSH: b3 = 0xE8; break;
-+			case BPF_ARSH: b3 = 0xF8; break;
-+			}
-+			EMIT4(b1, 0xC1, add_1reg(b3, a_reg), K);
-+			break;
-+
-+		case BPF_ALU | BPF_BSWAP32 | BPF_X:
-+			/* emit 'bswap eax' to swap lower 4-bytes */
-+			if (is_ereg(a_reg))
-+				EMIT2(0x41, 0x0F);
-+			else
-+				EMIT1(0x0F);
-+			EMIT1(add_1reg(0xC8, a_reg));
-+			break;
-+
-+		case BPF_ALU | BPF_BSWAP64 | BPF_X:
-+			/* emit 'bswap rax' to swap 8-bytes */
-+			EMIT3(add_1mod(0x48, a_reg), 0x0F, add_1reg(0xC8, a_reg));
-+			break;
-+
-+			/* ST: *(u8*)(a_reg + off) = imm */
-+		case BPF_ST | BPF_REL | BPF_B:
-+			if (is_ereg(a_reg))
-+				EMIT2(0x41, 0xC6);
-+			else
-+				EMIT1(0xC6);
-+			goto st;
-+		case BPF_ST | BPF_REL | BPF_H:
-+			if (is_ereg(a_reg))
-+				EMIT3(0x66, 0x41, 0xC7);
-+			else
-+				EMIT2(0x66, 0xC7);
-+			goto st;
-+		case BPF_ST | BPF_REL | BPF_W:
-+			if (is_ereg(a_reg))
-+				EMIT2(0x41, 0xC7);
-+			else
-+				EMIT1(0xC7);
-+			goto st;
-+		case BPF_ST | BPF_REL | BPF_DW:
-+			EMIT2(add_1mod(0x48, a_reg), 0xC7);
-+
-+st:			if (is_imm8(insn->off))
-+				EMIT2(add_1reg(0x40, a_reg), insn->off);
-+			else
-+				EMIT1_off32(add_1reg(0x80, a_reg), insn->off);
-+
-+			EMIT(K, bpf_size_to_x86_bytes(BPF_SIZE(insn->code)));
-+			break;
-+
-+			/* STX: *(u8*)(a_reg + off) = x_reg */
-+		case BPF_STX | BPF_REL | BPF_B:
-+			/* emit 'mov byte ptr [rax + off], al' */
-+			if (is_ereg(a_reg) || is_ereg(x_reg) ||
-+			    /* have to add extra byte for x86 SIL, DIL regs */
-+			    x_reg == R1 || x_reg == R2)
-+				EMIT2(add_2mod(0x40, a_reg, x_reg), 0x88);
-+			else
-+				EMIT1(0x88);
-+			goto stx;
-+		case BPF_STX | BPF_REL | BPF_H:
-+			if (is_ereg(a_reg) || is_ereg(x_reg))
-+				EMIT3(0x66, add_2mod(0x40, a_reg, x_reg), 0x89);
-+			else
-+				EMIT2(0x66, 0x89);
-+			goto stx;
-+		case BPF_STX | BPF_REL | BPF_W:
-+			if (is_ereg(a_reg) || is_ereg(x_reg))
-+				EMIT2(add_2mod(0x40, a_reg, x_reg), 0x89);
-+			else
-+				EMIT1(0x89);
-+			goto stx;
-+		case BPF_STX | BPF_REL | BPF_DW:
-+			EMIT2(add_2mod(0x48, a_reg, x_reg), 0x89);
-+stx:			if (is_imm8(insn->off))
-+				EMIT2(add_2reg(0x40, a_reg, x_reg), insn->off);
-+			else
-+				EMIT1_off32(add_2reg(0x80, a_reg, x_reg), insn->off);
-+			break;
-+
-+			/* LDX: a_reg = *(u8*)(x_reg + off) */
-+		case BPF_LDX | BPF_REL | BPF_B:
-+			/* emit 'movzx rax, byte ptr [rax + off]' */
-+			EMIT3(add_2mod(0x48, x_reg, a_reg), 0x0F, 0xB6);
-+			goto ldx;
-+		case BPF_LDX | BPF_REL | BPF_H:
-+			/* emit 'movzx rax, word ptr [rax + off]' */
-+			EMIT3(add_2mod(0x48, x_reg, a_reg), 0x0F, 0xB7);
-+			goto ldx;
-+		case BPF_LDX | BPF_REL | BPF_W:
-+			/* emit 'mov eax, dword ptr [rax+0x14]' */
-+			if (is_ereg(a_reg) || is_ereg(x_reg))
-+				EMIT2(add_2mod(0x40, x_reg, a_reg), 0x8B);
-+			else
-+				EMIT1(0x8B);
-+			goto ldx;
-+		case BPF_LDX | BPF_REL | BPF_DW:
-+			/* emit 'mov rax, qword ptr [rax+0x14]' */
-+			EMIT2(add_2mod(0x48, x_reg, a_reg), 0x8B);
-+ldx:			/* if insn->off == 0 we can save one extra byte, but
-+			 * special case of x86 R13 which always needs an offset
-+			 * is not worth the pain */
-+			if (is_imm8(insn->off))
-+				EMIT2(add_2reg(0x40, x_reg, a_reg), insn->off);
-+			else
-+				EMIT1_off32(add_2reg(0x80, x_reg, a_reg), insn->off);
-+			break;
-+
-+			/* STX XADD: lock *(u8*)(a_reg + off) += x_reg */
-+		case BPF_STX | BPF_XADD | BPF_B:
-+			/* emit 'lock add byte ptr [rax + off], al' */
-+			if (is_ereg(a_reg) || is_ereg(x_reg) ||
-+			    /* have to add extra byte for x86 SIL, DIL regs */
-+			    x_reg == R1 || x_reg == R2)
-+				EMIT3(0xF0, add_2mod(0x40, a_reg, x_reg), 0x00);
-+			else
-+				EMIT2(0xF0, 0x00);
-+			goto xadd;
-+		case BPF_STX | BPF_XADD | BPF_H:
-+			if (is_ereg(a_reg) || is_ereg(x_reg))
-+				EMIT4(0x66, 0xF0, add_2mod(0x40, a_reg, x_reg), 0x01);
-+			else
-+				EMIT3(0x66, 0xF0, 0x01);
-+			goto xadd;
-+		case BPF_STX | BPF_XADD | BPF_W:
-+			if (is_ereg(a_reg) || is_ereg(x_reg))
-+				EMIT3(0xF0, add_2mod(0x40, a_reg, x_reg), 0x01);
-+			else
-+				EMIT2(0xF0, 0x01);
-+			goto xadd;
-+		case BPF_STX | BPF_XADD | BPF_DW:
-+			EMIT3(0xF0, add_2mod(0x48, a_reg, x_reg), 0x01);
-+xadd:			if (is_imm8(insn->off))
-+				EMIT2(add_2reg(0x40, a_reg, x_reg), insn->off);
-+			else
-+				EMIT1_off32(add_2reg(0x80, a_reg, x_reg), insn->off);
-+			break;
-+
-+			/* call */
-+		case BPF_JMP | BPF_CALL:
-+			func = select_bpf_func(bpf_prog, K);
-+			jmp_offset = func - (image + addrs[i]);
-+			if (!func || !is_simm32(jmp_offset)) {
-+				pr_err("unsupported bpf func %d addr %p image %p\n",
-+				       K, func, image);
-+				return -EINVAL;
-+			}
-+			EMIT1_off32(0xE8, jmp_offset);
-+			break;
-+
-+			/* cond jump */
-+		case BPF_JMP | BPF_JEQ | BPF_X:
-+		case BPF_JMP | BPF_JNE | BPF_X:
-+		case BPF_JMP | BPF_JGT | BPF_X:
-+		case BPF_JMP | BPF_JGE | BPF_X:
-+		case BPF_JMP | BPF_JSGT | BPF_X:
-+		case BPF_JMP | BPF_JSGE | BPF_X:
-+			/* emit 'cmp a_reg, x_reg' insn */
-+			b1 = 0x48;
-+			b2 = 0x39;
-+			b3 = 0xC0;
-+			EMIT3(add_2mod(b1, a_reg, x_reg), b2,
-+			      add_2reg(b3, a_reg, x_reg));
-+			goto emit_jump;
-+		case BPF_JMP | BPF_JEQ | BPF_K:
-+		case BPF_JMP | BPF_JNE | BPF_K:
-+		case BPF_JMP | BPF_JGT | BPF_K:
-+		case BPF_JMP | BPF_JGE | BPF_K:
-+		case BPF_JMP | BPF_JSGT | BPF_K:
-+		case BPF_JMP | BPF_JSGE | BPF_K:
-+			/* emit 'cmp a_reg, imm8/32' */
-+			EMIT1(add_1mod(0x48, a_reg));
-+
-+			if (is_imm8(K))
-+				EMIT3(0x83, add_1reg(0xF8, a_reg), K);
-+			else
-+				EMIT2_off32(0x81, add_1reg(0xF8, a_reg), K);
-+
-+emit_jump:		/* convert BPF opcode to x86 */
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_JEQ:
-+				jmp_cond = X86_JE;
-+				break;
-+			case BPF_JNE:
-+				jmp_cond = X86_JNE;
-+				break;
-+			case BPF_JGT:
-+				/* GT is unsigned '>', JA in x86 */
-+				jmp_cond = X86_JA;
-+				break;
-+			case BPF_JGE:
-+				/* GE is unsigned '>=', JAE in x86 */
-+				jmp_cond = X86_JAE;
-+				break;
-+			case BPF_JSGT:
-+				/* signed '>', GT in x86 */
-+				jmp_cond = X86_JG;
-+				break;
-+			case BPF_JSGE:
-+				/* signed '>=', GE in x86 */
-+				jmp_cond = X86_JGE;
-+				break;
-+			default: /* to silence gcc warning */
-+				return -EFAULT;
-+			}
-+			jmp_offset = addrs[i + insn->off] - addrs[i];
-+			if (is_imm8(jmp_offset)) {
-+				EMIT2(jmp_cond, jmp_offset);
-+			} else if (is_simm32(jmp_offset)) {
-+				EMIT2_off32(0x0F, jmp_cond + 0x10, jmp_offset);
-+			} else {
-+				pr_err("cond_jmp gen bug %llx\n", jmp_offset);
-+				return -EFAULT;
-+			}
-+
-+			break;
-+
-+		case BPF_JMP | BPF_JA | BPF_X:
-+			jmp_offset = addrs[i + insn->off] - addrs[i];
-+			if (is_imm8(jmp_offset)) {
-+				EMIT2(0xEB, jmp_offset);
-+			} else if (is_simm32(jmp_offset)) {
-+				EMIT1_off32(0xE9, jmp_offset);
-+			} else {
-+				pr_err("jmp gen bug %llx\n", jmp_offset);
-+				return -EFAULT;
-+			}
-+
-+			break;
-+
-+		case BPF_RET | BPF_K:
-+			/* mov rbx, qword ptr [rbp-X] */
-+			EMIT3_off32(0x48, 0x8B, 0x9D, -stacksize);
-+			/* mov r13, qword ptr [rbp-X] */
-+			EMIT3_off32(0x4C, 0x8B, 0xAD, -stacksize + 8);
-+			/* mov r14, qword ptr [rbp-X] */
-+			EMIT3_off32(0x4C, 0x8B, 0xB5, -stacksize + 16);
-+			/* mov r15, qword ptr [rbp-X] */
-+			EMIT3_off32(0x4C, 0x8B, 0xBD, -stacksize + 24);
-+
-+			EMIT1(0xC9); /* leave */
-+			EMIT1(0xC3); /* ret */
-+			break;
-+
-+		default:
-+			/*pr_debug_bpf_insn(insn, NULL);*/
-+			pr_err("bpf_jit: unknown opcode %02x\n", insn->code);
-+			return -EINVAL;
-+		}
-+
-+		ilen = prog - temp;
-+		if (image) {
-+			if (proglen + ilen > oldproglen)
-+				return -2;
-+			memcpy(image + proglen, temp, ilen);
-+		}
-+		proglen += ilen;
-+		addrs[i] = proglen;
-+		prog = temp;
-+	}
-+	return proglen;
-+}
-+
-+void bpf2_jit_compile(struct bpf_program *prog)
-+{
-+	struct bpf_binary_header *header = NULL;
-+	int proglen, oldproglen = 0;
-+	int *addrs;
-+	u8 *image = NULL;
-+	int pass;
-+	int i;
-+
-+	if (!prog || !prog->cb || !prog->cb->jit_select_func)
-+		return;
-+
-+	addrs = kmalloc(prog->insn_cnt * sizeof(*addrs), GFP_KERNEL);
-+	if (!addrs)
-+		return;
-+
-+	for (proglen = 0, i = 0; i < prog->insn_cnt; i++) {
-+		proglen += 64;
-+		addrs[i] = proglen;
-+	}
-+	for (pass = 0; pass < 10; pass++) {
-+		proglen = do_jit(prog, addrs, image, oldproglen);
-+		if (proglen <= 0) {
-+			image = NULL;
-+			goto out;
-+		}
-+		if (image) {
-+			if (proglen != oldproglen)
-+				pr_err("bpf_jit: proglen=%d != oldproglen=%d\n",
-+				       proglen, oldproglen);
-+			break;
-+		}
-+		if (proglen == oldproglen) {
-+			header = bpf_alloc_binary(proglen, &image);
-+			if (!header)
-+				goto out;
-+		}
-+		oldproglen = proglen;
-+	}
-+
-+	if (image) {
-+		bpf_flush_icache(header, image + proglen);
-+		set_memory_ro((unsigned long)header, header->pages);
-+	}
-+out:
-+	kfree(addrs);
-+	prog->jit_image = (void (*)(struct bpf_context *ctx))image;
-+	return;
-+}
-+
-+
-+void bpf2_jit_free(struct bpf_program *prog)
-+{
-+	if (prog->jit_image)
-+		bpf_free_binary(prog->jit_image);
-+}
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 79c216a..37ebea8 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -13,6 +13,7 @@
- #include <linux/filter.h>
- #include <linux/if_vlan.h>
- #include <linux/random.h>
-+#include "bpf_jit_comp.h"
- 
- /*
-  * Conventions :
-@@ -112,16 +113,6 @@ do {								\
- #define SEEN_XREG    2 /* ebx is used */
- #define SEEN_MEM     4 /* use mem[] for temporary storage */
- 
--static inline void bpf_flush_icache(void *start, void *end)
--{
--	mm_segment_t old_fs = get_fs();
--
--	set_fs(KERNEL_DS);
--	smp_wmb();
--	flush_icache_range((unsigned long)start, (unsigned long)end);
--	set_fs(old_fs);
--}
--
- #define CHOOSE_LOAD_FUNC(K, func) \
- 	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
- 
-@@ -145,16 +136,8 @@ static int pkt_type_offset(void)
- 	return -1;
- }
- 
--struct bpf_binary_header {
--	unsigned int	pages;
--	/* Note : for security reasons, bpf code will follow a randomly
--	 * sized amount of int3 instructions
--	 */
--	u8		image[];
--};
--
--static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
--						  u8 **image_ptr)
-+struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
-+					   u8 **image_ptr)
- {
- 	unsigned int sz, hole;
- 	struct bpf_binary_header *header;
-@@ -772,13 +755,17 @@ out:
- 	return;
- }
- 
--void bpf_jit_free(struct sk_filter *fp)
-+void bpf_free_binary(void *bpf_func)
- {
--	if (fp->bpf_func != sk_run_filter) {
--		unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
--		struct bpf_binary_header *header = (void *)addr;
-+	unsigned long addr = (unsigned long)bpf_func & PAGE_MASK;
-+	struct bpf_binary_header *header = (void *)addr;
- 
--		set_memory_rw(addr, header->pages);
--		module_free(NULL, header);
--	}
-+	set_memory_rw(addr, header->pages);
-+	module_free(NULL, header);
-+}
-+
-+void bpf_jit_free(struct sk_filter *fp)
-+{
-+	if (fp->bpf_func != sk_run_filter)
-+		bpf_free_binary(fp->bpf_func);
- }
-diff --git a/arch/x86/net/bpf_jit_comp.h b/arch/x86/net/bpf_jit_comp.h
-new file mode 100644
-index 0000000..7b70de6
---- /dev/null
-+++ b/arch/x86/net/bpf_jit_comp.h
-@@ -0,0 +1,36 @@
-+/* bpf_jit_comp.h : BPF filter alloc/free routines
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; version 2
-+ * of the License.
-+ */
-+#ifndef __BPF_JIT_COMP_H
-+#define __BPF_JIT_COMP_H
-+
-+#include <linux/uaccess.h>
-+#include <asm/cacheflush.h>
-+
-+struct bpf_binary_header {
-+	unsigned int	pages;
-+	/* Note : for security reasons, bpf code will follow a randomly
-+	 * sized amount of int3 instructions
-+	 */
-+	u8		image[];
++enum ovs_bpf_attr {
++	OVS_BPF_ATTR_UNSPEC,
++	OVS_BPF_ATTR_PLUM,          /* struct bpf_image */
++	OVS_BPF_ATTR_UPCALL_PID,    /* u32 Netlink PID to receive upcalls */
++	OVS_BPF_ATTR_PLUM_ID,       /* u32 plum_id */
++	OVS_BPF_ATTR_PORT_ID,       /* u32 port_id */
++	OVS_BPF_ATTR_DEST_PLUM_ID,  /* u32 dest plum_id */
++	OVS_BPF_ATTR_DEST_PORT_ID,  /* u32 dest port_id */
++	OVS_BPF_ATTR_TABLE_ID,      /* u32 table_id */
++	OVS_BPF_ATTR_KEY_OBJ,       /* table key (opaque data) */
++	OVS_BPF_ATTR_LEAF_OBJ,      /* table leaf/element/value (opaque data) */
++	OVS_BPF_ATTR_REPLICATOR_ID, /* u32 replicator_id */
++	OVS_BPF_ATTR_PACKET,        /* packet (opaque data) */
++	OVS_BPF_ATTR_DIRECTION,     /* u32 direction */
++	__OVS_BPF_ATTR_MAX
 +};
 +
-+static inline void bpf_flush_icache(void *start, void *end)
-+{
-+	mm_segment_t old_fs = get_fs();
++#define OVS_BPF_ATTR_MAX (__OVS_BPF_ATTR_MAX - 1)
 +
-+	set_fs(KERNEL_DS);
-+	smp_wmb();
-+	flush_icache_range((unsigned long)start, (unsigned long)end);
-+	set_fs(old_fs);
-+}
-+
-+extern struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
-+						  u8 **image_ptr);
-+extern void bpf_free_binary(void *image_ptr);
-+
-+#endif
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index a6ac848..63b3277 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -48,6 +48,77 @@ extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
- extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
- extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
- 
-+/* type of value stored in a BPF register or
-+ * passed into function as an argument or
-+ * returned from the function */
-+enum bpf_reg_type {
-+	INVALID_PTR,  /* reg doesn't contain a valid pointer */
-+	PTR_TO_CTX,   /* reg points to bpf_context */
-+	PTR_TO_TABLE, /* reg points to table element */
-+	PTR_TO_TABLE_CONDITIONAL, /* points to table element or NULL */
-+	PTR_TO_STACK,     /* reg == frame_pointer */
-+	PTR_TO_STACK_IMM, /* reg == frame_pointer + imm */
-+	RET_INTEGER, /* function returns integer */
-+	RET_VOID,    /* function returns void */
-+	CONST_ARG    /* function expects integer constant argument */
++enum ovs_bpf_channel_push_direction {
++	OVS_BPF_OUT_DIR,
++	OVS_BPF_IN_DIR
 +};
 +
-+/* BPF function prototype */
-+struct bpf_func_proto {
-+	enum bpf_reg_type ret_type;
-+	enum bpf_reg_type arg1_type;
-+	enum bpf_reg_type arg2_type;
-+	enum bpf_reg_type arg3_type;
-+	enum bpf_reg_type arg4_type;
++struct ovs_bpf_port_stats {
++	__u64   rx_packets;		/* total packets received            */
++	__u64   rx_bytes;		/* total bytes received              */
++	__u64   rx_mcast_packets;	/* total multicast pkts received     */
++	__u64   rx_mcast_bytes;		/* total multicast bytes received    */
++	__u64   tx_packets;		/* total packets transmitted         */
++	__u64   tx_bytes;		/* total bytes transmitted           */
++	__u64   tx_mcast_packets;	/* total multicast pkts transmitted  */
++	__u64   tx_mcast_bytes;		/* total multicast bytes transmitted */
 +};
 +
-+/* struct bpf_context access type */
-+enum bpf_access_type {
-+	BPF_READ = 1,
-+	BPF_WRITE = 2
++struct bpf_ipv4_tun_key {
++	__u32 tun_id;
++	__u32 src_ip;
++	__u32 dst_ip;
++	__u8 tos;
++	__u8 ttl;
 +};
 +
-+struct bpf_context_access {
-+	int size;
-+	enum bpf_access_type type;
++struct bpf_context {
++	__u32 port_id;
++	__u32 plum_id;
++	__u32 length;
++	__u32 arg1;
++	__u32 arg2;
++	__u32 arg3;
++	__u32 arg4;
++	__u16 vlan_tag;
++	__u8 hw_csum;
++	__u8 rsvd;
++	struct bpf_ipv4_tun_key tun_key;
 +};
 +
-+struct bpf_callbacks {
-+	/* execute BPF func_id with given registers */
-+	void (*execute_func)(int id, u64 *regs);
-+
-+	/* return address of func_id suitable to be called from JITed program */
-+	void *(*jit_select_func)(int id);
-+
-+	/* return BPF function prototype for verification */
-+	const struct bpf_func_proto* (*get_func_proto)(int id);
-+
-+	/* return expected bpf_context access size and permissions
-+	 * for given byte offset within bpf_context */
-+	const struct bpf_context_access *(*get_context_access)(int off);
-+};
-+
-+struct bpf_program {
-+	u16   insn_cnt;
-+	u16   table_cnt;
-+	struct bpf_insn *insns;
-+	struct bpf_table *tables;
-+	struct bpf_callbacks *cb;
-+	void (*jit_image)(struct bpf_context *ctx);
-+};
-+/* load BPF program from user space, setup callback extensions
-+ * and run through verifier */
-+extern int bpf_load(struct bpf_image *image, struct bpf_callbacks *cb,
-+		    struct bpf_program **prog);
-+/* free BPF program */
-+extern void bpf_free(struct bpf_program *prog);
-+/* execture BPF program */
-+extern void bpf_run(struct bpf_program *prog, struct bpf_context *ctx);
-+/* verify correctness of BPF program */
-+extern int bpf_check(struct bpf_program *prog);
-+/* pr_debug one insn */
-+extern void pr_debug_bpf_insn(struct bpf_insn *insn, u64 *regs);
-+
- #ifdef CONFIG_BPF_JIT
- #include <stdarg.h>
- #include <linux/linkage.h>
-@@ -55,6 +126,8 @@ extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
- 
- extern void bpf_jit_compile(struct sk_filter *fp);
- extern void bpf_jit_free(struct sk_filter *fp);
-+extern void bpf2_jit_compile(struct bpf_program *prog);
-+extern void bpf2_jit_free(struct bpf_program *prog);
- 
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
-@@ -73,6 +146,12 @@ static inline void bpf_jit_compile(struct sk_filter *fp)
- static inline void bpf_jit_free(struct sk_filter *fp)
- {
- }
-+static inline void bpf2_jit_compile(struct bpf_program *prog)
-+{
-+}
-+static inline void bpf2_jit_free(struct bpf_program *prog)
-+{
-+}
- #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
- #endif
- 
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 8eb9cca..5783769 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -1,3 +1,4 @@
-+/* extended BPF is Copyright (c) 2011-2013, PLUMgrid, http://plumgrid.com */
- /*
-  * Linux Socket Filter Data Structures
-  */
-@@ -19,7 +20,7 @@
-  *	Try and keep these values and structures similar to BSD, especially
-  *	the BPF code definitions which need to match so you can share filters
-  */
-- 
-+
- struct sock_filter {	/* Filter block */
- 	__u16	code;   /* Actual filter code */
- 	__u8	jt;	/* Jump true */
-@@ -46,11 +47,88 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_RET         0x06
- #define         BPF_MISC        0x07
- 
-+struct bpf_insn {
-+	__u8	code;    /* opcode */
-+	__u8    a_reg:4; /* dest register*/
-+	__u8    x_reg:4; /* source register */
-+	__s16	off;     /* signed offset */
-+	__s32	imm;     /* signed immediate constant */
-+};
-+
-+struct bpf_table {
-+	__u32   id;
-+	__u32   type;
-+	__u32   key_size;
-+	__u32   elem_size;
-+	__u32   max_entries;
-+	__u32   param1;         /* meaning is table-dependent */
-+};
-+
-+enum bfp_table_type {
-+	BPF_TABLE_HASH = 1,
-+};
-+
-+struct bpf_image {
-+	/* version > 4096 to be binary compatible with original bpf */
-+	__u16   version;
-+	__u16   rsvd;
-+	__u16   insn_cnt;
-+	__u16   table_cnt;
-+	struct bpf_insn __user  *insns;
-+	struct bpf_table __user *tables;
-+};
-+
-+/* pointer to bpf_context is the first and only argument to BPF program
-+ * its definition is use-case specific */
-+struct bpf_context;
-+
-+/* bpf_add|sub|...: a += x
-+ *         bpf_mov: a = x
-+ *       bpf_bswap: bswap a */
-+#define BPF_INSN_ALU(op, a, x) \
-+	(struct bpf_insn){BPF_ALU|BPF_OP(op)|BPF_X, a, x, 0, 0}
-+
-+/* bpf_add|sub|...: a += imm
-+ *         bpf_mov: a = imm */
-+#define BPF_INSN_ALU_IMM(op, a, imm) \
-+	(struct bpf_insn){BPF_ALU|BPF_OP(op)|BPF_K, a, 0, 0, imm}
-+
-+/* a = *(uint *) (x + off) */
-+#define BPF_INSN_LD(size, a, x, off) \
-+	(struct bpf_insn){BPF_LDX|BPF_SIZE(size)|BPF_REL, a, x, off, 0}
-+
-+/* *(uint *) (a + off) = x */
-+#define BPF_INSN_ST(size, a, off, x) \
-+	(struct bpf_insn){BPF_STX|BPF_SIZE(size)|BPF_REL, a, x, off, 0}
-+
-+/* *(uint *) (a + off) = imm */
-+#define BPF_INSN_ST_IMM(size, a, off, imm) \
-+	(struct bpf_insn){BPF_ST|BPF_SIZE(size)|BPF_REL, a, 0, off, imm}
-+
-+/* lock *(uint *) (a + off) += x */
-+#define BPF_INSN_XADD(size, a, off, x) \
-+	(struct bpf_insn){BPF_STX|BPF_SIZE(size)|BPF_XADD, a, x, off, 0}
-+
-+/* if (a 'op' x) pc += off else fall through */
-+#define BPF_INSN_JUMP(op, a, x, off) \
-+	(struct bpf_insn){BPF_JMP|BPF_OP(op)|BPF_X, a, x, off, 0}
-+
-+/* if (a 'op' imm) pc += off else fall through */
-+#define BPF_INSN_JUMP_IMM(op, a, imm, off) \
-+	(struct bpf_insn){BPF_JMP|BPF_OP(op)|BPF_K, a, 0, off, imm}
-+
-+#define BPF_INSN_RET() \
-+	(struct bpf_insn){BPF_RET|BPF_K, 0, 0, 0, 0}
-+
-+#define BPF_INSN_CALL(fn_code) \
-+	(struct bpf_insn){BPF_JMP|BPF_CALL, 0, 0, 0, fn_code}
-+
- /* ld/ldx fields */
- #define BPF_SIZE(code)  ((code) & 0x18)
- #define         BPF_W           0x00
- #define         BPF_H           0x08
- #define         BPF_B           0x10
-+#define         BPF_DW          0x18
- #define BPF_MODE(code)  ((code) & 0xe0)
- #define         BPF_IMM         0x00
- #define         BPF_ABS         0x20
-@@ -58,6 +136,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_MEM         0x60
- #define         BPF_LEN         0x80
- #define         BPF_MSH         0xa0
-+#define         BPF_REL         0xc0
-+#define         BPF_XADD        0xe0 /* exclusive add */
- 
- /* alu/jmp fields */
- #define BPF_OP(code)    ((code) & 0xf0)
-@@ -68,20 +148,54 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_OR          0x40
- #define         BPF_AND         0x50
- #define         BPF_LSH         0x60
--#define         BPF_RSH         0x70
-+#define         BPF_RSH         0x70 /* logical shift right */
- #define         BPF_NEG         0x80
- #define		BPF_MOD		0x90
- #define		BPF_XOR		0xa0
-+#define		BPF_MOV		0xb0 /* mov reg to reg */
-+#define		BPF_ARSH	0xc0 /* sign extending arithmetic shift right */
-+#define		BPF_BSWAP32	0xd0 /* swap lower 4 bytes of 64-bit register */
-+#define		BPF_BSWAP64	0xe0 /* swap all 8 bytes of 64-bit register */
- 
- #define         BPF_JA          0x00
--#define         BPF_JEQ         0x10
--#define         BPF_JGT         0x20
--#define         BPF_JGE         0x30
-+#define         BPF_JEQ         0x10 /* jump == */
-+#define         BPF_JGT         0x20 /* GT is unsigned '>', JA in x86 */
-+#define         BPF_JGE         0x30 /* GE is unsigned '>=', JAE in x86 */
- #define         BPF_JSET        0x40
-+#define         BPF_JNE         0x50 /* jump != */
-+#define         BPF_JSGT        0x60 /* SGT is signed '>', GT in x86 */
-+#define         BPF_JSGE        0x70 /* SGE is signed '>=', GE in x86 */
-+#define         BPF_CALL        0x80 /* function call */
- #define BPF_SRC(code)   ((code) & 0x08)
- #define         BPF_K           0x00
- #define         BPF_X           0x08
- 
-+/* 64-bit registers */
-+#define         R0              0
-+#define         R1              1
-+#define         R2              2
-+#define         R3              3
-+#define         R4              4
-+#define         R5              5
-+#define         R6              6
-+#define         R7              7
-+#define         R8              8
-+#define         R9              9
-+#define         __fp__          10
-+
-+/* all types of BPF programs support at least two functions:
-+ * bpf_table_lookup() and bpf_table_update()
-+ * contents of bpf_context are use-case specific
-+ * BPF engine can be extended with additional functions */
 +enum {
-+	FUNC_bpf_table_lookup = 1,
-+	FUNC_bpf_table_update = 2,
-+	FUNC_bpf_max_id = 1024
++	FUNC_bpf_load_byte = 3,
++	FUNC_bpf_load_half,
++	FUNC_bpf_load_word,
++	FUNC_bpf_load_dword,
++	FUNC_bpf_load_bits,
++	FUNC_bpf_store_byte,
++	FUNC_bpf_store_half,
++	FUNC_bpf_store_word,
++	FUNC_bpf_store_dword,
++	FUNC_bpf_store_bits,
++	FUNC_bpf_channel_push_packet,
++	FUNC_bpf_channel_push_struct,
++	FUNC_bpf_forward,
++	FUNC_bpf_forward_self,
++	FUNC_bpf_forward_to_plum,
++	FUNC_bpf_clone_forward,
++	FUNC_bpf_replicate,
++	FUNC_bpf_checksum,
++	FUNC_bpf_checksum_pkt,
++	FUNC_bpf_csum_replace2,
++	FUNC_bpf_csum_replace4,
++	FUNC_bpf_pseudo_csum_replace2,
++	FUNC_bpf_pseudo_csum_replace4,
++	FUNC_bpf_get_usec_time,
++	FUNC_bpf_push_vlan,
++	FUNC_bpf_pop_vlan,
 +};
-+void *bpf_table_lookup(struct bpf_context *ctx, int table_id, const void *key);
-+int bpf_table_update(struct bpf_context *ctx, int table_id, const void *key,
-+		     const void *leaf);
 +
- /* ret - BPF_K and BPF_X also apply */
- #define BPF_RVAL(code)  ((code) & 0x18)
- #define         BPF_A           0x10
-@@ -134,5 +248,4 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
++__u8 bpf_load_byte(struct bpf_context *ctx, __u32 off);
++__u16 bpf_load_half(struct bpf_context *ctx, __u32 off);
++__u32 bpf_load_word(struct bpf_context *ctx, __u32 off);
++__u64 bpf_load_dword(struct bpf_context *ctx, __u32 off);
++int bpf_load_bits(struct bpf_context *ctx, __u32 off, void *to, __u32 len);
++void bpf_store_byte(struct bpf_context *pkt, __u32 off, __u8 val);
++void bpf_store_half(struct bpf_context *pkt, __u32 off, __u16 val);
++void bpf_store_word(struct bpf_context *pkt, __u32 off, __u32 val);
++void bpf_store_dword(struct bpf_context *pkt, __u32 off, __u64 val);
++void bpf_store_bits(struct bpf_context *pkt, __u32 off, const void *from,
++		    __u32 len);
++void bpf_channel_push_struct(struct bpf_context *pkt, __u32 struct_id,
++			     const void *entry, __u32 len);
++void bpf_channel_push_packet(struct bpf_context *pkt);
++void bpf_forward(struct bpf_context *ctx, __u32 port_id);
++void bpf_forward_self(struct bpf_context *pkt, __u32 port_id);
++void bpf_forward_to_plum(struct bpf_context *ctx, __u32 plumid);
++void bpf_clone_forward(struct bpf_context *pkt, __u32 port_id);
++void bpf_replicate(struct bpf_context *ctx, __u32 replicator, __u32 src_port);
++__u16 bpf_checksum(const __u8 *buf, __u32 len);
++__u16 bpf_checksum_pkt(struct bpf_context *ctx, __u32 off, __u32 len);
++__u16 bpf_csum_replace2(__u16 csum, __u16 from,	__u16 to);
++__u16 bpf_csum_replace4(__u16 csum, __u32 from,	__u32 to);
++__u16 bpf_pseudo_csum_replace2(__u16 csum, __u16 from, __u16 to);
++__u16 bpf_pseudo_csum_replace4(__u16 csum, __u32 from, __u32 to);
++__u64 bpf_get_usec_time(void);
++int bpf_push_vlan(struct bpf_context *ctx, __u16 proto, __u16 vlan);
++int bpf_pop_vlan(struct bpf_context *ctx);
++
+ #endif /* _LINUX_OPENVSWITCH_H */
+diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
+index ea36e99..63722c5 100644
+--- a/net/openvswitch/Makefile
++++ b/net/openvswitch/Makefile
+@@ -11,7 +11,12 @@ openvswitch-y := \
+ 	flow.o \
+ 	vport.o \
+ 	vport-internal_dev.o \
+-	vport-netdev.o
++	vport-netdev.o \
++	dp_bpf.o \
++	bpf_plum.o \
++	bpf_table.o \
++	bpf_replicator.o \
++	bpf_callbacks.o
  
--
- #endif /* _UAPI__LINUX_FILTER_H__ */
-diff --git a/net/core/Makefile b/net/core/Makefile
-index b33b996..f04e016 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
- obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
--			sock_diag.o dev_ioctl.o
-+			sock_diag.o dev_ioctl.o bpf_run.o bpf_check.o
- 
- obj-$(CONFIG_XFRM) += flow.o
- obj-y += net-sysfs.o
-diff --git a/net/core/bpf_check.c b/net/core/bpf_check.c
+ ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
+ openvswitch-y += vport-vxlan.o
+diff --git a/net/openvswitch/bpf_callbacks.c b/net/openvswitch/bpf_callbacks.c
 new file mode 100644
-index 0000000..bf2521e
+index 0000000..efecdd2
 --- /dev/null
-+++ b/net/core/bpf_check.c
-@@ -0,0 +1,1043 @@
++++ b/net/openvswitch/bpf_callbacks.c
+@@ -0,0 +1,295 @@
 +/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
@@ -1141,1035 +279,287 @@ index 0000000..bf2521e
 +#include <linux/types.h>
 +#include <linux/slab.h>
 +#include <linux/filter.h>
++#include <linux/openvswitch.h>
 +
-+/* bpf_check() is a static code analyzer that walks the BPF program
-+ * instruction by instruction and updates register/stack state.
-+ * All paths of conditional branches are analyzed until 'ret' insn.
-+ *
-+ * At the first pass depth-first-search verifies that the BPF program is a DAG.
-+ * It rejects the following programs:
-+ * - larger than 32K insns or 128 tables
-+ * - if loop is present (detected via back-edge)
-+ * - unreachable insns exist (shouldn't be a forest. program = one function)
-+ * - more than one ret insn
-+ * - ret insn is not a last insn
-+ * - out of bounds or malformed jumps
-+ * The second pass is all possible path descent from the 1st insn.
-+ * Conditional branch target insns keep a link list of verifier states.
-+ * If the state already visited, this path can be pruned.
-+ * If it wasn't a DAG, such state prunning would be incorrect, since it would
-+ * skip cycles. Since it's analyzing all pathes through the program,
-+ * the length of the analysis is limited to 64k insn, which may be hit even
-+ * if insn_cnt < 32k, but there are too many branches that change stack/regs.
-+ * Number of 'branches to be analyzed' is limited to 8k
-+ *
-+ * All registers are 64-bit (even on 32-bit arch)
-+ * R0 - return register
-+ * R1-R5 argument passing registers
-+ * R6-R9 callee saved registers
-+ * R10 - frame pointer read-only
-+ *
-+ * At the start of BPF program the register R1 contains a pointer to bpf_context
-+ * and has type PTR_TO_CTX.
-+ *
-+ * bpf_table_lookup() function returns ether pointer to table value or NULL
-+ * which is type PTR_TO_TABLE_CONDITIONAL. Once it passes through !=0 insn
-+ * the register holding that pointer in the true branch changes state to
-+ * PTR_TO_TABLE and the same register changes state to INVALID_PTR in the false
-+ * branch. See check_cond_jmp_op()
-+ *
-+ * R10 has type PTR_TO_STACK. The sequence 'mov Rx, R10; add Rx, imm' changes
-+ * Rx state to PTR_TO_STACK_IMM and immediate constant is saved for further
-+ * stack bounds checking
-+ *
-+ * registers used to pass pointers to function calls are verified against
-+ * function prototypes
-+ * Ex: before the call to bpf_table_lookup(), R1 must have type PTR_TO_CTX
-+ * R2 must contain integer constant and R3 PTR_TO_STACK_IMM
-+ * Integer constant in R2 is a table_id. It's checked that 0 <= R2 < table_cnt
-+ * and corresponding table_info->key_size fetched to check that
-+ * [R3, R3 + table_info->key_size) are within stack limits and all that stack
-+ * memory was initiliazed earlier by BPF program.
-+ * After bpf_table_lookup() call insn, R0 is set to PTR_TO_TABLE_CONDITIONAL
-+ * R1-R5 are cleared and no longer readable (but still writeable).
-+ *
-+ * load/store alignment is checked
-+ * Ex: stx [Rx + 3], (u32)Ry is rejected
-+ *
-+ * load/store to stack bounds checked and register spill is tracked
-+ * Ex: stx [R10 + 0], (u8)Rx is rejected
-+ *
-+ * load/store to table bounds checked and table_id provides table size
-+ * Ex: stx [Rx + 8], (u16)Ry is ok, if Rx is PTR_TO_TABLE and
-+ * 8 + sizeof(u16) <= table_info->elem_size
-+ *
-+ * load/store to bpf_context checked against known fields
-+ *
-+ * Future improvements:
-+ * stack size is hardcoded to 512 bytes maximum per program, relax it
-+ */
-+#define _(OP) ({ int ret = OP; if (ret < 0) return ret; })
++#define MAX_CTX_OFF sizeof(struct bpf_context)
 +
-+/* JITed code allocates 512 bytes and used bottom 4 slots
-+ * to save R6-R9
-+ */
-+#define MAX_BPF_STACK (512 - 4 * 8)
-+
-+struct reg_state {
-+	enum bpf_reg_type ptr;
-+	bool read_ok;
-+	int imm;
++static const struct bpf_context_access ctx_access[MAX_CTX_OFF] = {
++	[offsetof(struct bpf_context, port_id)] = {
++		FIELD_SIZEOF(struct bpf_context, port_id),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, plum_id)] = {
++		FIELD_SIZEOF(struct bpf_context, plum_id),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, length)] = {
++		FIELD_SIZEOF(struct bpf_context, length),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, length)] = {
++		FIELD_SIZEOF(struct bpf_context, arg1),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, length)] = {
++		FIELD_SIZEOF(struct bpf_context, arg2),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, length)] = {
++		FIELD_SIZEOF(struct bpf_context, arg3),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, length)] = {
++		FIELD_SIZEOF(struct bpf_context, arg4),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, vlan_tag)] = {
++		FIELD_SIZEOF(struct bpf_context, vlan_tag),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, hw_csum)] = {
++		FIELD_SIZEOF(struct bpf_context, hw_csum),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, tun_key.tun_id)] = {
++		FIELD_SIZEOF(struct bpf_context, tun_key.tun_id),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, tun_key.src_ip)] = {
++		FIELD_SIZEOF(struct bpf_context, tun_key.src_ip),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, tun_key.dst_ip)] = {
++		FIELD_SIZEOF(struct bpf_context, tun_key.dst_ip),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, tun_key.tos)] = {
++		FIELD_SIZEOF(struct bpf_context, tun_key.tos),
++		BPF_READ | BPF_WRITE
++	},
++	[offsetof(struct bpf_context, tun_key.ttl)] = {
++		FIELD_SIZEOF(struct bpf_context, tun_key.ttl),
++		BPF_READ | BPF_WRITE
++	},
 +};
 +
-+#define MAX_REG 11
-+
-+enum bpf_stack_slot_type {
-+	STACK_INVALID,    /* nothing was stored in this stack slot */
-+	STACK_SPILL,      /* 1st byte of register spilled into stack */
-+	STACK_SPILL_PART, /* other 7 bytes of register spill */
-+	STACK_MISC	  /* BPF program wrote some data into this slot */
-+};
-+
-+struct bpf_stack_slot {
-+	enum bpf_stack_slot_type type;
-+	enum bpf_reg_type ptr;
-+	int imm;
-+};
-+
-+/* state of the program:
-+ * type of all registers and stack info
-+ */
-+struct verifier_state {
-+	struct reg_state regs[MAX_REG];
-+	struct bpf_stack_slot stack[MAX_BPF_STACK];
-+};
-+
-+/* linked list of verifier states
-+ * used to prune search
-+ */
-+struct verifier_state_list {
-+	struct verifier_state state;
-+	struct verifier_state_list *next;
-+};
-+
-+/* verifier_state + insn_idx are pushed to stack
-+ * when branch is encountered
-+ */
-+struct verifier_stack_elem {
-+	struct verifier_state st;
-+	int insn_idx; /* at insn 'insn_idx' the program state is 'st' */
-+	struct verifier_stack_elem *next;
-+};
-+
-+/* single container for all structs
-+ * one verifier_env per bpf_check() call
-+ */
-+struct verifier_env {
-+	struct bpf_table *tables;
-+	int table_cnt;
-+	struct verifier_stack_elem *head;
-+	int stack_size;
-+	struct verifier_state cur_state;
-+	struct verifier_state_list **branch_landing;
-+	const struct bpf_func_proto* (*get_func_proto)(int id);
-+	const struct bpf_context_access *(*get_context_access)(int off);
-+};
-+
-+static int pop_stack(struct verifier_env *env)
++static const struct bpf_context_access *get_context_access(int off)
 +{
-+	int insn_idx;
-+	struct verifier_stack_elem *elem;
-+	if (env->head == NULL)
-+		return -1;
-+	memcpy(&env->cur_state, &env->head->st, sizeof(env->cur_state));
-+	insn_idx = env->head->insn_idx;
-+	elem = env->head->next;
-+	kfree(env->head);
-+	env->head = elem;
-+	env->stack_size--;
-+	return insn_idx;
-+}
-+
-+static struct verifier_state *push_stack(struct verifier_env *env, int insn_idx)
-+{
-+	struct verifier_stack_elem *elem;
-+	elem = kmalloc(sizeof(struct verifier_stack_elem), GFP_KERNEL);
-+	memcpy(&elem->st, &env->cur_state, sizeof(env->cur_state));
-+	elem->insn_idx = insn_idx;
-+	elem->next = env->head;
-+	env->head = elem;
-+	env->stack_size++;
-+	if (env->stack_size > 8192) {
-+		pr_err("BPF program is too complex\n");
-+		/* pop all elements and return */
-+		while (pop_stack(env) >= 0);
++	if (off >= MAX_CTX_OFF)
 +		return NULL;
-+	}
-+	return &elem->st;
-+}
-+
-+#define CALLER_SAVED_REGS 6
-+static const int caller_saved[CALLER_SAVED_REGS] = { R0, R1, R2, R3, R4, R5 };
-+
-+static void init_reg_state(struct reg_state *regs)
-+{
-+	struct reg_state *reg;
-+	int i;
-+	for (i = 0; i < MAX_REG; i++) {
-+		regs[i].ptr = INVALID_PTR;
-+		regs[i].read_ok = false;
-+		regs[i].imm = 0xbadbad;
-+	}
-+	reg = regs + __fp__;
-+	reg->ptr = PTR_TO_STACK;
-+	reg->read_ok = true;
-+
-+	reg = regs + R1;	/* 1st arg to a function */
-+	reg->ptr = PTR_TO_CTX;
-+	reg->read_ok = true;
-+}
-+
-+static void mark_reg_no_ptr(struct reg_state *regs, int regno)
-+{
-+	regs[regno].ptr = INVALID_PTR;
-+	regs[regno].imm = 0xbadbad;
-+	regs[regno].read_ok = true;
-+}
-+
-+static int check_reg_arg(struct reg_state *regs, int regno, bool is_src)
-+{
-+	if (is_src) {
-+		if (!regs[regno].read_ok) {
-+			pr_err("R%d !read_ok\n", regno);
-+			return -EACCES;
-+		}
-+	} else {
-+		if (regno == __fp__)
-+			/* frame pointer is read only */
-+			return -EACCES;
-+		mark_reg_no_ptr(regs, regno);
-+	}
-+	return 0;
-+}
-+
-+static int bpf_size_to_bytes(int bpf_size)
-+{
-+	if (bpf_size == BPF_W)
-+		return 4;
-+	else if (bpf_size == BPF_H)
-+		return 2;
-+	else if (bpf_size == BPF_B)
-+		return 1;
-+	else if (bpf_size == BPF_DW)
-+		return 8;
-+	else
-+		return -EACCES;
-+}
-+
-+static int check_stack_write(struct verifier_state *state, int off, int size,
-+			     int value_regno)
-+{
-+	int i;
-+	struct bpf_stack_slot *slot;
-+	if (value_regno >= 0 &&
-+	    (state->regs[value_regno].ptr == PTR_TO_TABLE ||
-+	     state->regs[value_regno].ptr == PTR_TO_CTX)) {
-+
-+		/* register containing pointer is being spilled into stack */
-+		if (size != 8) {
-+			pr_err("invalid size of register spill\n");
-+			return -EACCES;
-+		}
-+
-+		slot = &state->stack[MAX_BPF_STACK + off];
-+		slot->type = STACK_SPILL;
-+		/* save register state */
-+		slot->ptr = state->regs[value_regno].ptr;
-+		slot->imm = state->regs[value_regno].imm;
-+		for (i = 1; i < 8; i++) {
-+			slot = &state->stack[MAX_BPF_STACK + off + i];
-+			slot->type = STACK_SPILL_PART;
-+		}
-+	} else {
-+
-+		/* regular write of data into stack */
-+		for (i = 0; i < size; i++) {
-+			slot = &state->stack[MAX_BPF_STACK + off + i];
-+			slot->type = STACK_MISC;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int check_stack_read(struct verifier_state *state, int off, int size,
-+			    int value_regno)
-+{
-+	int i;
-+	struct bpf_stack_slot *slot;
-+
-+	slot = &state->stack[MAX_BPF_STACK + off];
-+
-+	if (slot->type == STACK_SPILL) {
-+		if (size != 8) {
-+			pr_err("invalid size of register spill\n");
-+			return -EACCES;
-+		}
-+		for (i = 1; i < 8; i++) {
-+			if (state->stack[MAX_BPF_STACK + off + i].type !=
-+			    STACK_SPILL_PART) {
-+				pr_err("corrupted spill memory\n");
-+				return -EACCES;
-+			}
-+		}
-+
-+		/* restore register state from stack */
-+		state->regs[value_regno].ptr = slot->ptr;
-+		state->regs[value_regno].imm = slot->imm;
-+		state->regs[value_regno].read_ok = true;
-+		return 0;
-+	} else {
-+		for (i = 0; i < size; i++) {
-+			if (state->stack[MAX_BPF_STACK + off + i].type !=
-+			    STACK_MISC) {
-+				pr_err("invalid read from stack off %d+%d size %d\n",
-+				       off, i, size);
-+				return -EACCES;
-+			}
-+		}
-+		/* have read misc data from the stack */
-+		mark_reg_no_ptr(state->regs, value_regno);
-+		return 0;
-+	}
-+}
-+
-+static int get_table_info(struct verifier_env *env, int table_id,
-+			  struct bpf_table **table)
-+{
-+	/* if BPF program contains bpf_table_lookup(ctx, 1024, key)
-+	 * the incorrect table_id will be caught here
-+	 */
-+	if (table_id < 0 || table_id >= env->table_cnt) {
-+		pr_err("invalid access to table_id=%d max_tables=%d\n",
-+		       table_id, env->table_cnt);
-+		return -EACCES;
-+	}
-+	*table = &env->tables[table_id];
-+	return 0;
-+}
-+
-+/* check read/write into table element returned by bpf_table_lookup() */
-+static int check_table_access(struct verifier_env *env, int regno, int off,
-+			      int size)
-+{
-+	struct bpf_table *table;
-+	int table_id = env->cur_state.regs[regno].imm;
-+
-+	_(get_table_info(env, table_id, &table));
-+
-+	if (off < 0 || off + size > table->elem_size) {
-+		pr_err("invalid access to table_id=%d leaf_size=%d off=%d size=%d\n",
-+		       table_id, table->elem_size, off, size);
-+		return -EACCES;
-+	}
-+	return 0;
-+}
-+
-+/* check access to 'struct bpf_context' fields */
-+static int check_ctx_access(struct verifier_env *env, int off, int size,
-+			    enum bpf_access_type t)
-+{
-+	const struct bpf_context_access *access;
-+
-+	if (off < 0 || off >= 32768/* struct bpf_context shouldn't be huge */)
-+		goto error;
-+
-+	access = env->get_context_access(off);
-+	if (!access)
-+		goto error;
-+
-+	if (access->size == size && (access->type & t))
-+		return 0;
-+error:
-+	pr_err("invalid bpf_context access off=%d size=%d\n", off, size);
-+	return -EACCES;
-+}
-+
-+static int check_mem_access(struct verifier_env *env, int regno, int off,
-+			    int bpf_size, enum bpf_access_type t,
-+			    int value_regno)
-+{
-+	struct verifier_state *state = &env->cur_state;
-+	int size;
-+	_(size = bpf_size_to_bytes(bpf_size));
-+
-+	if (off % size != 0) {
-+		pr_err("misaligned access off %d size %d\n", off, size);
-+		return -EACCES;
-+	}
-+
-+	if (state->regs[regno].ptr == PTR_TO_TABLE) {
-+		_(check_table_access(env, regno, off, size));
-+		if (t == BPF_READ)
-+			mark_reg_no_ptr(state->regs, value_regno);
-+	} else if (state->regs[regno].ptr == PTR_TO_CTX) {
-+		_(check_ctx_access(env, off, size, t));
-+		if (t == BPF_READ)
-+			mark_reg_no_ptr(state->regs, value_regno);
-+	} else if (state->regs[regno].ptr == PTR_TO_STACK) {
-+		if (off >= 0 || off < -MAX_BPF_STACK) {
-+			pr_err("invalid stack off=%d size=%d\n", off, size);
-+			return -EACCES;
-+		}
-+		if (t == BPF_WRITE)
-+			_(check_stack_write(state, off, size, value_regno));
-+		else
-+			_(check_stack_read(state, off, size, value_regno));
-+	} else {
-+		pr_err("invalid mem access %d\n", state->regs[regno].ptr);
-+		return -EACCES;
-+	}
-+	return 0;
++	return &ctx_access[off];
 +}
 +
 +static const struct bpf_func_proto funcs[] = {
-+	[FUNC_bpf_table_lookup] = {PTR_TO_TABLE_CONDITIONAL, PTR_TO_CTX,
-+				   CONST_ARG, PTR_TO_STACK_IMM},
-+	[FUNC_bpf_table_update] = {RET_INTEGER, PTR_TO_CTX, CONST_ARG,
-+				   PTR_TO_STACK_IMM, PTR_TO_STACK_IMM},
++	[FUNC_bpf_load_byte] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_load_half] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_load_word] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_load_dword] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_load_bits] = {RET_INTEGER, PTR_TO_CTX, CONST_ARG,
++				PTR_TO_STACK_IMM, CONST_ARG},
++	[FUNC_bpf_store_byte] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_store_half] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_store_word] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_store_dword] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_store_bits] = {RET_INTEGER, PTR_TO_CTX, CONST_ARG,
++				 PTR_TO_STACK_IMM, CONST_ARG},
++	[FUNC_bpf_channel_push_struct] = {RET_VOID, PTR_TO_CTX, CONST_ARG,
++					  PTR_TO_STACK_IMM, CONST_ARG},
++	[FUNC_bpf_channel_push_packet] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_forward] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_forward_self] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_forward_to_plum] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_clone_forward] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_replicate] = {RET_VOID, PTR_TO_CTX},
++	[FUNC_bpf_checksum] = {RET_INTEGER, PTR_TO_STACK_IMM, CONST_ARG},
++	[FUNC_bpf_checksum_pkt] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_csum_replace2] = {RET_INTEGER},
++	[FUNC_bpf_csum_replace4] = {RET_INTEGER},
++	[FUNC_bpf_pseudo_csum_replace2] = {RET_INTEGER},
++	[FUNC_bpf_pseudo_csum_replace4] = {RET_INTEGER},
++	[FUNC_bpf_get_usec_time] = {RET_INTEGER},
++	[FUNC_bpf_push_vlan] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_pop_vlan] = {RET_INTEGER, PTR_TO_CTX},
++	[FUNC_bpf_max_id] = {}
 +};
 +
-+static int check_func_arg(struct reg_state *regs, int regno,
-+			  enum bpf_reg_type expected_type, int *reg_values)
++static const struct bpf_func_proto *get_func_proto(int id)
 +{
-+	struct reg_state *reg = regs + regno;
-+	if (expected_type == INVALID_PTR)
-+		return 0;
-+
-+	if (!reg->read_ok) {
-+		pr_err("R%d !read_ok\n", regno);
-+		return -EACCES;
-+	}
-+
-+	if (reg->ptr != expected_type) {
-+		pr_err("R%d ptr=%d expected=%d\n", regno, reg->ptr,
-+		       expected_type);
-+		return -EACCES;
-+	} else if (expected_type == CONST_ARG) {
-+		reg_values[regno] = reg->imm;
-+	}
-+
-+	return 0;
++	return &funcs[id];
 +}
 +
-+/* when register 'regno' is passed into function that will read 'access_size'
-+ * bytes from that pointer, make sure that it's within stack boundary
-+ * and all elements of stack are initialized
-+ */
-+static int check_stack_boundary(struct verifier_state *state,
-+				struct reg_state *regs, int regno,
-+				int access_size)
++static void execute_func(s32 func, u64 *regs)
 +{
-+	int off, i;
++	regs[R0] = 0;
 +
-+	if (regs[regno].ptr != PTR_TO_STACK_IMM)
-+		return -EACCES;
-+
-+	off = regs[regno].imm;
-+	if (off >= 0 || off < -MAX_BPF_STACK || off + access_size > 0 ||
-+	    access_size <= 0) {
-+		pr_err("invalid stack ptr R%d off=%d access_size=%d\n",
-+		       regno, off, access_size);
-+		return -EACCES;
++	switch (func) {
++	case FUNC_bpf_table_lookup:
++		regs[R0] = (u64)bpf_table_lookup((struct bpf_context *)regs[R1],
++						 (int)regs[R2],
++						 (const void *)regs[R3]);
++		break;
++	case FUNC_bpf_table_update:
++		regs[R0] = bpf_table_update((struct bpf_context *)regs[R1],
++					    (int)regs[R2],
++					    (const void *)regs[R3],
++					    (const void *)regs[R4]);
++		break;
++	case FUNC_bpf_load_byte:
++		regs[R0] = bpf_load_byte((struct bpf_context *)regs[R1],
++					 (u32)regs[R2]);
++		break;
++	case FUNC_bpf_load_half:
++		regs[R0] = bpf_load_half((struct bpf_context *)regs[R1],
++					 (u32)regs[R2]);
++		break;
++	case FUNC_bpf_load_word:
++		regs[R0] = bpf_load_word((struct bpf_context *)regs[R1],
++					 (u32)regs[R2]);
++		break;
++	case FUNC_bpf_load_dword:
++		regs[R0] = bpf_load_dword((struct bpf_context *)regs[R1],
++					  (u32)regs[R2]);
++		break;
++	case FUNC_bpf_load_bits:
++		regs[R0] = bpf_load_bits((struct bpf_context *)regs[R1],
++					  (u32)regs[R2], (void *)regs[R3],
++					  (u32)regs[R4]);
++		break;
++	case FUNC_bpf_store_byte:
++		bpf_store_byte((struct bpf_context *)regs[R1], (u32)regs[R2],
++			       (u8)regs[R3]);
++		break;
++	case FUNC_bpf_store_half:
++		bpf_store_half((struct bpf_context *)regs[R1], (u32)regs[R2],
++			       (u16)regs[R3]);
++		break;
++	case FUNC_bpf_store_word:
++		bpf_store_word((struct bpf_context *)regs[R1], (u32)regs[R2],
++			       (u32)regs[R3]);
++		break;
++	case FUNC_bpf_store_dword:
++		bpf_store_dword((struct bpf_context *)regs[R1], (u32)regs[R2],
++				(u64)regs[R3]);
++		break;
++	case FUNC_bpf_store_bits:
++		bpf_store_bits((struct bpf_context *)regs[R1], (u32)regs[R2],
++			       (const void *)regs[R3], (u32)regs[R4]);
++		break;
++	case FUNC_bpf_channel_push_packet:
++		bpf_channel_push_packet((struct bpf_context *)regs[R1]);
++		break;
++	case FUNC_bpf_channel_push_struct:
++		bpf_channel_push_struct((struct bpf_context *)regs[R1],
++					(u32)regs[R2], (const void *)regs[R3],
++					(u32)regs[R4]);
++		break;
++	case FUNC_bpf_forward:
++		bpf_forward((struct bpf_context *)regs[R1], (u32)regs[R2]);
++		break;
++	case FUNC_bpf_forward_self:
++		bpf_forward_self((struct bpf_context *)regs[R1], (u32)regs[R2]);
++		break;
++	case FUNC_bpf_forward_to_plum:
++		bpf_forward_to_plum((struct bpf_context *)regs[R1],
++				    (u32)regs[R2]);
++		break;
++	case FUNC_bpf_clone_forward:
++		bpf_clone_forward((struct bpf_context *)regs[R1],
++				  (u32)regs[R2]);
++		break;
++	case FUNC_bpf_replicate:
++		bpf_replicate((struct bpf_context *)regs[R1], (u32)regs[R2],
++			      (u32)regs[R3]);
++		break;
++	case FUNC_bpf_checksum:
++		regs[R0] = bpf_checksum((const u8 *)regs[R1], (u32)regs[R2]);
++		break;
++	case FUNC_bpf_checksum_pkt:
++		regs[R0] = bpf_checksum_pkt((struct bpf_context *)regs[R1],
++					 (u32)regs[R2], (u32)regs[R3]);
++		break;
++	case FUNC_bpf_csum_replace2:
++		regs[R0] = bpf_csum_replace2((u16)regs[R1], (u16)regs[R2],
++					     (u16)regs[R3]);
++		break;
++	case FUNC_bpf_csum_replace4:
++		regs[R0] = bpf_csum_replace4((u16)regs[R1], (u32)regs[R2],
++					     (u32)regs[R3]);
++		break;
++	case FUNC_bpf_pseudo_csum_replace2:
++		regs[R0] = bpf_pseudo_csum_replace2((u16)regs[R1],
++						    (u16)regs[R2],
++						    (u16)regs[R3]);
++		break;
++	case FUNC_bpf_pseudo_csum_replace4:
++		regs[R0] = bpf_pseudo_csum_replace4((u16)regs[R1],
++						    (u32)regs[R2],
++						    (u32)regs[R3]);
++		break;
++	case FUNC_bpf_get_usec_time:
++		regs[R0] = bpf_get_usec_time();
++		break;
++	case FUNC_bpf_push_vlan:
++		regs[R0] = bpf_push_vlan((struct bpf_context *)regs[R1],
++					 (u16)regs[R2], (u16)regs[R3]);
++		break;
++	case FUNC_bpf_pop_vlan:
++		regs[R0] = bpf_pop_vlan((struct bpf_context *)regs[R1]);
++		break;
++	default:
++		pr_err("unknown FUNC_bpf_%d\n", func);
++		return;
 +	}
-+
-+	for (i = 0; i < access_size; i++) {
-+		if (state->stack[MAX_BPF_STACK + off + i].type != STACK_MISC) {
-+			pr_err("invalid indirect read from stack off %d+%d size %d\n",
-+			       off, i, access_size);
-+			return -EACCES;
-+		}
-+	}
-+	return 0;
 +}
 +
-+static int check_call(struct verifier_env *env, int func_id)
++static void *jit_funcs[] = {
++	[FUNC_bpf_table_lookup] = bpf_table_lookup,
++	[FUNC_bpf_table_update] = bpf_table_update,
++	[FUNC_bpf_load_byte] = bpf_load_byte,
++	[FUNC_bpf_load_half] = bpf_load_half,
++	[FUNC_bpf_load_word] = bpf_load_word,
++	[FUNC_bpf_load_dword] = bpf_load_dword,
++	[FUNC_bpf_load_bits] = bpf_load_bits,
++	[FUNC_bpf_store_byte] = bpf_store_byte,
++	[FUNC_bpf_store_half] = bpf_store_half,
++	[FUNC_bpf_store_word] = bpf_store_word,
++	[FUNC_bpf_store_dword] = bpf_store_dword,
++	[FUNC_bpf_store_bits] = bpf_store_bits,
++	[FUNC_bpf_channel_push_struct] = bpf_channel_push_struct,
++	[FUNC_bpf_channel_push_packet] = bpf_channel_push_packet,
++	[FUNC_bpf_forward] = bpf_forward,
++	[FUNC_bpf_forward_self] = bpf_forward_self,
++	[FUNC_bpf_forward_to_plum] = bpf_forward_to_plum,
++	[FUNC_bpf_clone_forward] = bpf_clone_forward,
++	[FUNC_bpf_replicate] = bpf_replicate,
++	[FUNC_bpf_checksum] = bpf_checksum,
++	[FUNC_bpf_checksum_pkt] = bpf_checksum_pkt,
++	[FUNC_bpf_csum_replace2] = bpf_csum_replace2,
++	[FUNC_bpf_csum_replace4] = bpf_csum_replace4,
++	[FUNC_bpf_pseudo_csum_replace2] = bpf_pseudo_csum_replace2,
++	[FUNC_bpf_pseudo_csum_replace4] = bpf_pseudo_csum_replace4,
++	[FUNC_bpf_get_usec_time] = bpf_get_usec_time,
++	[FUNC_bpf_push_vlan] = bpf_push_vlan,
++	[FUNC_bpf_pop_vlan] = bpf_pop_vlan,
++	[FUNC_bpf_max_id] = 0
++};
++
++static void *jit_select_func(int id)
 +{
-+	int reg_values[MAX_REG] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-+	struct verifier_state *state = &env->cur_state;
-+	const struct bpf_func_proto *fn = NULL;
-+	struct reg_state *regs = state->regs;
-+	struct reg_state *reg;
-+	int i;
-+
-+	/* find function prototype */
-+	if (func_id < 0 || func_id >= FUNC_bpf_max_id) {
-+		pr_err("invalid func %d\n", func_id);
-+		return -EINVAL;
-+	}
-+
-+	if (func_id == FUNC_bpf_table_lookup ||
-+	    func_id == FUNC_bpf_table_update) {
-+		fn = &funcs[func_id];
-+	} else {
-+		if (env->get_func_proto)
-+			fn = env->get_func_proto(func_id);
-+		if (!fn || (fn->ret_type != RET_INTEGER &&
-+			    fn->ret_type != RET_VOID)) {
-+			pr_err("unknown func %d\n", func_id);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* check args */
-+	_(check_func_arg(regs, R1, fn->arg1_type, reg_values));
-+	_(check_func_arg(regs, R2, fn->arg2_type, reg_values));
-+	_(check_func_arg(regs, R3, fn->arg3_type, reg_values));
-+	_(check_func_arg(regs, R4, fn->arg4_type, reg_values));
-+
-+	if (func_id == FUNC_bpf_table_lookup) {
-+		struct bpf_table *table;
-+		int table_id = reg_values[R2];
-+
-+		_(get_table_info(env, table_id, &table));
-+
-+		/* bpf_table_lookup(ctx, table_id, key) call: check that
-+		 * [key, key + table_info->key_size) are within stack limits
-+		 * and initialized
-+		 */
-+		_(check_stack_boundary(state, regs, R3, table->key_size));
-+
-+	} else if (func_id == FUNC_bpf_table_update) {
-+		struct bpf_table *table;
-+		int table_id = reg_values[R2];
-+
-+		_(get_table_info(env, table_id, &table));
-+
-+		/* bpf_table_update(ctx, table_id, key, value) check
-+		 * that key and value are valid
-+		 */
-+		_(check_stack_boundary(state, regs, R3, table->key_size));
-+		_(check_stack_boundary(state, regs, R4, table->elem_size));
-+
-+	} else if (fn->arg1_type == PTR_TO_STACK_IMM) {
-+		/* bpf_xxx(buf, len) call will access 'len' bytes
-+		 * from stack pointer 'buf'. Check it
-+		 */
-+		_(check_stack_boundary(state, regs, R1, reg_values[R2]));
-+
-+	} else if (fn->arg2_type == PTR_TO_STACK_IMM) {
-+		/* bpf_yyy(arg1, buf, len) call will access 'len' bytes
-+		 * from stack pointer 'buf'. Check it
-+		 */
-+		_(check_stack_boundary(state, regs, R2, reg_values[R3]));
-+
-+	} else if (fn->arg3_type == PTR_TO_STACK_IMM) {
-+		/* bpf_zzz(arg1, arg2, buf, len) call will access 'len' bytes
-+		 * from stack pointer 'buf'. Check it
-+		 */
-+		_(check_stack_boundary(state, regs, R3, reg_values[R4]));
-+	}
-+
-+	/* reset caller saved regs */
-+	for (i = 0; i < CALLER_SAVED_REGS; i++) {
-+		reg = regs + caller_saved[i];
-+		reg->read_ok = false;
-+		reg->ptr = INVALID_PTR;
-+		reg->imm = 0xbadbad;
-+	}
-+
-+	/* update return register */
-+	reg = regs + R0;
-+	if (fn->ret_type == RET_INTEGER) {
-+		reg->read_ok = true;
-+		reg->ptr = INVALID_PTR;
-+	} else if (fn->ret_type != RET_VOID) {
-+		reg->read_ok = true;
-+		reg->ptr = fn->ret_type;
-+		if (func_id == FUNC_bpf_table_lookup)
-+			/* when ret_type == PTR_TO_TABLE_CONDITIONAL
-+			 * remember table_id, so that check_table_access()
-+			 * can check 'elem_size' boundary of memory access
-+			 * to table element returned from bpf_table_lookup()
-+			 */
-+			reg->imm = reg_values[R2];
-+	}
-+	return 0;
++	if (id < 0 || id >= FUNC_bpf_max_id)
++		return NULL;
++	return jit_funcs[id];
 +}
 +
-+static int check_alu_op(struct reg_state *regs, struct bpf_insn *insn)
-+{
-+	u16 opcode = BPF_OP(insn->code);
-+
-+	if (opcode == BPF_BSWAP32 || opcode == BPF_BSWAP64 ||
-+	    opcode == BPF_NEG) {
-+		if (BPF_SRC(insn->code) != BPF_X)
-+			return -EINVAL;
-+		/* check src operand */
-+		_(check_reg_arg(regs, insn->a_reg, 1));
-+
-+		/* check dest operand */
-+		_(check_reg_arg(regs, insn->a_reg, 0));
-+
-+	} else if (opcode == BPF_MOV) {
-+
-+		if (BPF_SRC(insn->code) == BPF_X)
-+			/* check src operand */
-+			_(check_reg_arg(regs, insn->x_reg, 1));
-+
-+		/* check dest operand */
-+		_(check_reg_arg(regs, insn->a_reg, 0));
-+
-+		if (BPF_SRC(insn->code) == BPF_X) {
-+			/* case: R1 = R2
-+			 * copy register state to dest reg
-+			 */
-+			regs[insn->a_reg].ptr = regs[insn->x_reg].ptr;
-+			regs[insn->a_reg].imm = regs[insn->x_reg].imm;
-+		} else {
-+			/* case: R = imm
-+			 * remember the value we stored into this reg
-+			 */
-+			regs[insn->a_reg].ptr = CONST_ARG;
-+			regs[insn->a_reg].imm = insn->imm;
-+		}
-+
-+	} else {	/* all other ALU ops: and, sub, xor, add, ... */
-+
-+		int stack_relative = 0;
-+
-+		if (BPF_SRC(insn->code) == BPF_X)
-+			/* check src1 operand */
-+			_(check_reg_arg(regs, insn->x_reg, 1));
-+
-+		/* check src2 operand */
-+		_(check_reg_arg(regs, insn->a_reg, 1));
-+
-+		if (opcode == BPF_ADD &&
-+		    regs[insn->a_reg].ptr == PTR_TO_STACK &&
-+		    BPF_SRC(insn->code) == BPF_K)
-+			stack_relative = 1;
-+
-+		/* check dest operand */
-+		_(check_reg_arg(regs, insn->a_reg, 0));
-+
-+		if (stack_relative) {
-+			regs[insn->a_reg].ptr = PTR_TO_STACK_IMM;
-+			regs[insn->a_reg].imm = insn->imm;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int check_cond_jmp_op(struct verifier_env *env, struct bpf_insn *insn,
-+			     int insn_idx)
-+{
-+	struct reg_state *regs = env->cur_state.regs;
-+	struct verifier_state *other_branch;
-+	u16 opcode = BPF_OP(insn->code);
-+
-+	if (BPF_SRC(insn->code) == BPF_X)
-+		/* check src1 operand */
-+		_(check_reg_arg(regs, insn->x_reg, 1));
-+
-+	/* check src2 operand */
-+	_(check_reg_arg(regs, insn->a_reg, 1));
-+
-+	other_branch = push_stack(env, insn_idx + insn->off + 1);
-+	if (!other_branch)
-+		return -EFAULT;
-+
-+	/* detect if R == 0 where R is returned value from table_lookup() */
-+	if (BPF_SRC(insn->code) == BPF_K &&
-+	    insn->imm == 0 && (opcode == BPF_JEQ ||
-+			       opcode == BPF_JNE) &&
-+	    regs[insn->a_reg].ptr == PTR_TO_TABLE_CONDITIONAL) {
-+		if (opcode == BPF_JEQ) {
-+			/* next fallthrough insn can access memory via
-+			 * this register
-+			 */
-+			regs[insn->a_reg].ptr = PTR_TO_TABLE;
-+			/* branch targer cannot access it, since reg == 0 */
-+			other_branch->regs[insn->a_reg].ptr = INVALID_PTR;
-+		} else {
-+			other_branch->regs[insn->a_reg].ptr = PTR_TO_TABLE;
-+			regs[insn->a_reg].ptr = INVALID_PTR;
-+		}
-+	}
-+	return 0;
-+}
-+
-+
-+/* non-recursive DFS pseudo code
-+ * 1  procedure DFS-iterative(G,v):
-+ * 2      label v as discovered
-+ * 3      let S be a stack
-+ * 4      S.push(v)
-+ * 5      while S is not empty
-+ * 6            t <- S.pop()
-+ * 7            if t is what we're looking for:
-+ * 8                return t
-+ * 9            for all edges e in G.adjacentEdges(t) do
-+ * 10               if edge e is already labelled
-+ * 11                   continue with the next edge
-+ * 12               w <- G.adjacentVertex(t,e)
-+ * 13               if vertex w is not discovered and not explored
-+ * 14                   label e as tree-edge
-+ * 15                   label w as discovered
-+ * 16                   S.push(w)
-+ * 17                   continue at 5
-+ * 18               else if vertex w is discovered
-+ * 19                   label e as back-edge
-+ * 20               else
-+ * 21                   // vertex w is explored
-+ * 22                   label e as forward- or cross-edge
-+ * 23           label t as explored
-+ * 24           S.pop()
-+ *
-+ * convention:
-+ * 1 - discovered
-+ * 2 - discovered and 1st branch labelled
-+ * 3 - discovered and 1st and 2nd branch labelled
-+ * 4 - explored
-+ */
-+
-+#define STATE_END ((struct verifier_state_list *)-1)
-+
-+#define PUSH_INT(I) \
-+	do { \
-+		if (cur_stack >= insn_cnt) { \
-+			ret = -E2BIG; \
-+			goto free_st; \
-+		} \
-+		stack[cur_stack++] = I; \
-+	} while (0)
-+
-+#define PEAK_INT() \
-+	({ \
-+		int _ret; \
-+		if (cur_stack == 0) \
-+			_ret = -1; \
-+		else \
-+			_ret = stack[cur_stack - 1]; \
-+		_ret; \
-+	 })
-+
-+#define POP_INT() \
-+	({ \
-+		int _ret; \
-+		if (cur_stack == 0) \
-+			_ret = -1; \
-+		else \
-+			_ret = stack[--cur_stack]; \
-+		_ret; \
-+	 })
-+
-+#define PUSH_INSN(T, W, E) \
-+	do { \
-+		int w = W; \
-+		if (E == 1 && st[T] >= 2) \
-+			break; \
-+		if (E == 2 && st[T] >= 3) \
-+			break; \
-+		if (w >= insn_cnt) { \
-+			ret = -EACCES; \
-+			goto free_st; \
-+		} \
-+		if (E == 2) \
-+			/* mark branch target for state pruning */ \
-+			env->branch_landing[w] = STATE_END; \
-+		if (st[w] == 0) { \
-+			/* tree-edge */ \
-+			st[T] = 1 + E; \
-+			st[w] = 1; /* discovered */ \
-+			PUSH_INT(w); \
-+			goto peak_stack; \
-+		} else if (st[w] == 1 || st[w] == 2 || st[w] == 3) { \
-+			pr_err("back-edge from insn %d to %d\n", t, w); \
-+			ret = -EINVAL; \
-+			goto free_st; \
-+		} else if (st[w] == 4) { \
-+			/* forward- or cross-edge */ \
-+			st[T] = 1 + E; \
-+		} else { \
-+			pr_err("insn state internal bug\n"); \
-+			ret = -EFAULT; \
-+			goto free_st; \
-+		} \
-+	} while (0)
-+
-+/* non-recursive depth-first-search to detect loops in BPF program
-+ * loop == back-edge in directed graph
-+ */
-+static int check_cfg(struct verifier_env *env, struct bpf_insn *insns,
-+		     int insn_cnt)
-+{
-+	int cur_stack = 0;
-+	int *stack;
-+	int ret = 0;
-+	int *st;
-+	int i, t;
-+
-+	if (insns[insn_cnt - 1].code != (BPF_RET | BPF_K)) {
-+		pr_err("last insn is not a 'ret'\n");
-+		return -EINVAL;
-+	}
-+
-+	st = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
-+	if (!st)
-+		return -ENOMEM;
-+
-+	stack = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
-+	if (!stack) {
-+		kfree(st);
-+		return -ENOMEM;
-+	}
-+
-+	st[0] = 1; /* mark 1st insn as discovered */
-+	PUSH_INT(0);
-+
-+peak_stack:
-+	while ((t = PEAK_INT()) != -1) {
-+		if (t == insn_cnt - 1)
-+			goto mark_explored;
-+
-+		if (BPF_CLASS(insns[t].code) == BPF_RET) {
-+			pr_err("extraneous 'ret'\n");
-+			ret = -EINVAL;
-+			goto free_st;
-+		}
-+
-+		if (BPF_CLASS(insns[t].code) == BPF_JMP) {
-+			u16 opcode = BPF_OP(insns[t].code);
-+			if (opcode == BPF_CALL) {
-+				PUSH_INSN(t, t + 1, 1);
-+			} else if (opcode == BPF_JA) {
-+				if (BPF_SRC(insns[t].code) != BPF_X) {
-+					ret = -EINVAL;
-+					goto free_st;
-+				}
-+				PUSH_INSN(t, t + insns[t].off + 1, 1);
-+			} else {
-+				PUSH_INSN(t, t + 1, 1);
-+				PUSH_INSN(t, t + insns[t].off + 1, 2);
-+			}
-+		} else {
-+			PUSH_INSN(t, t + 1, 1);
-+		}
-+
-+mark_explored:
-+		st[t] = 4; /* explored */
-+		if (POP_INT() == -1) {
-+			pr_err("pop_int internal bug\n");
-+			ret = -EFAULT;
-+			goto free_st;
-+		}
-+	}
-+
-+
-+	for (i = 0; i < insn_cnt; i++) {
-+		if (st[i] != 4) {
-+			pr_err("unreachable insn %d\n", i);
-+			ret = -EINVAL;
-+			goto free_st;
-+		}
-+	}
-+
-+free_st:
-+	kfree(st);
-+	kfree(stack);
-+	return ret;
-+}
-+
-+static int is_state_visited(struct verifier_env *env, int insn_idx)
-+{
-+	struct verifier_state_list *sl;
-+	struct verifier_state_list *new_sl;
-+	sl = env->branch_landing[insn_idx];
-+	if (!sl)
-+		/* no branch jump to this insn, ignore it */
-+		return 0;
-+
-+	while (sl != STATE_END) {
-+		if (memcmp(&sl->state, &env->cur_state,
-+			   sizeof(env->cur_state)) == 0)
-+			/* reached the same register/stack state,
-+			 * prune the search
-+			 */
-+			return 1;
-+		sl = sl->next;
-+	}
-+	new_sl = kmalloc(sizeof(struct verifier_state_list), GFP_KERNEL);
-+
-+	if (!new_sl)
-+		/* ignore kmalloc error, since it's rare and doesn't affect
-+		 * correctness of algorithm
-+		 */
-+		return 0;
-+	/* add new state to the head of linked list */
-+	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
-+	new_sl->next = env->branch_landing[insn_idx];
-+	env->branch_landing[insn_idx] = new_sl;
-+	return 0;
-+}
-+
-+static int __bpf_check(struct verifier_env *env, struct bpf_insn *insns,
-+		       int insn_cnt)
-+{
-+	int insn_idx;
-+	int insn_processed = 0;
-+	struct verifier_state *state = &env->cur_state;
-+	struct reg_state *regs = state->regs;
-+
-+	init_reg_state(regs);
-+	insn_idx = 0;
-+	for (;;) {
-+		struct bpf_insn *insn;
-+		u16 class;
-+
-+		if (insn_idx >= insn_cnt) {
-+			pr_err("invalid insn idx %d insn_cnt %d\n",
-+			       insn_idx, insn_cnt);
-+			return -EFAULT;
-+		}
-+
-+		insn = &insns[insn_idx];
-+		class = BPF_CLASS(insn->code);
-+
-+		if (++insn_processed > 65536) {
-+			pr_err("BPF program is too large. Proccessed %d insn\n",
-+			       insn_processed);
-+			return -E2BIG;
-+		}
-+
-+		/* pr_debug_bpf_insn(insn, NULL); */
-+
-+		if (is_state_visited(env, insn_idx))
-+			goto process_ret;
-+
-+		if (class == BPF_ALU) {
-+			_(check_alu_op(regs, insn));
-+
-+		} else if (class == BPF_LDX) {
-+			if (BPF_MODE(insn->code) != BPF_REL)
-+				return -EINVAL;
-+
-+			/* check src operand */
-+			_(check_reg_arg(regs, insn->x_reg, 1));
-+
-+			_(check_mem_access(env, insn->x_reg, insn->off,
-+					   BPF_SIZE(insn->code), BPF_READ,
-+					   insn->a_reg));
-+
-+			/* dest reg state will be updated by mem_access */
-+
-+		} else if (class == BPF_STX) {
-+			/* check src1 operand */
-+			_(check_reg_arg(regs, insn->x_reg, 1));
-+			/* check src2 operand */
-+			_(check_reg_arg(regs, insn->a_reg, 1));
-+			_(check_mem_access(env, insn->a_reg, insn->off,
-+					   BPF_SIZE(insn->code), BPF_WRITE,
-+					   insn->x_reg));
-+
-+		} else if (class == BPF_ST) {
-+			if (BPF_MODE(insn->code) != BPF_REL)
-+				return -EINVAL;
-+			/* check src operand */
-+			_(check_reg_arg(regs, insn->a_reg, 1));
-+			_(check_mem_access(env, insn->a_reg, insn->off,
-+					   BPF_SIZE(insn->code), BPF_WRITE,
-+					   -1));
-+
-+		} else if (class == BPF_JMP) {
-+			u16 opcode = BPF_OP(insn->code);
-+			if (opcode == BPF_CALL) {
-+				_(check_call(env, insn->imm));
-+			} else if (opcode == BPF_JA) {
-+				if (BPF_SRC(insn->code) != BPF_X)
-+					return -EINVAL;
-+				insn_idx += insn->off + 1;
-+				continue;
-+			} else {
-+				_(check_cond_jmp_op(env, insn, insn_idx));
-+			}
-+
-+		} else if (class == BPF_RET) {
-+process_ret:
-+			insn_idx = pop_stack(env);
-+			if (insn_idx < 0)
-+				break;
-+			else
-+				continue;
-+		}
-+
-+		insn_idx++;
-+	}
-+
-+	/* pr_debug("insn_processed %d\n", insn_processed); */
-+	return 0;
-+}
-+
-+static void free_states(struct verifier_env *env, int insn_cnt)
-+{
-+	int i;
-+
-+	for (i = 0; i < insn_cnt; i++) {
-+		struct verifier_state_list *sl = env->branch_landing[i];
-+		if (sl)
-+			while (sl != STATE_END) {
-+				struct verifier_state_list *sln = sl->next;
-+				kfree(sl);
-+				sl = sln;
-+			}
-+	}
-+
-+	kfree(env->branch_landing);
-+}
-+
-+int bpf_check(struct bpf_program *prog)
-+{
-+	int ret;
-+	struct verifier_env *env;
-+
-+	if (prog->insn_cnt <= 0 || prog->insn_cnt > 32768 ||
-+	    prog->table_cnt < 0 || prog->table_cnt > 128) {
-+		pr_err("BPF program has %d insn and %d tables. Max is 32K/128\n",
-+		       prog->insn_cnt, prog->table_cnt);
-+		return -E2BIG;
-+	}
-+
-+	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
-+	if (!env)
-+		return -ENOMEM;
-+
-+	env->tables = prog->tables;
-+	env->table_cnt = prog->table_cnt;
-+	env->get_func_proto = prog->cb->get_func_proto;
-+	env->get_context_access = prog->cb->get_context_access;
-+	env->branch_landing = kzalloc(sizeof(struct verifier_state_list *) *
-+				      prog->insn_cnt, GFP_KERNEL);
-+
-+	if (!env->branch_landing) {
-+		kfree(env);
-+		return -ENOMEM;
-+	}
-+
-+	ret = check_cfg(env, prog->insns, prog->insn_cnt);
-+	if (ret)
-+		goto free_env;
-+	ret = __bpf_check(env, prog->insns, prog->insn_cnt);
-+free_env:
-+	free_states(env, prog->insn_cnt);
-+	kfree(env);
-+	return ret;
-+}
-diff --git a/net/core/bpf_run.c b/net/core/bpf_run.c
++struct bpf_callbacks bpf_plum_cb = {
++	execute_func, jit_select_func, get_func_proto, get_context_access
++};
++
+diff --git a/net/openvswitch/bpf_plum.c b/net/openvswitch/bpf_plum.c
 new file mode 100644
-index 0000000..919da4e
+index 0000000..eeb1e36
 --- /dev/null
-+++ b/net/core/bpf_run.c
-@@ -0,0 +1,412 @@
++++ b/net/openvswitch/bpf_plum.c
+@@ -0,0 +1,931 @@
 +/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
@@ -2186,401 +576,3355 @@ index 0000000..919da4e
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 + * 02110-1301, USA
 + */
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/uaccess.h>
++#include <linux/rculist.h>
 +#include <linux/filter.h>
++#include <linux/jhash.h>
++#include <linux/if_vlan.h>
++#include <net/ip_tunnels.h>
++#include "datapath.h"
 +
-+static const char *const bpf_class_string[] = {
-+	"ld", "ldx", "st", "stx", "alu", "jmp", "ret", "misc"
-+};
-+
-+static const char *const bpf_alu_string[] = {
-+	"+=", "-=", "*=", "/=", "|=", "&=", "<<=", ">>=", "neg",
-+	"%=", "^=", "=", "s>>=", "bswap32", "bswap64", "BUG"
-+};
-+
-+static const char *const bpf_ldst_string[] = {
-+	"u32", "u16", "u8", "u64"
-+};
-+
-+static const char *const bpf_jmp_string[] = {
-+	"jmp", "==", ">", ">=", "&", "!=", "s>", "s>=", "call"
-+};
-+
-+static const char *debug_reg(int regno, u64 *regs)
++static void bpf_run_wrap(struct bpf_dp_context *ctx)
 +{
-+	static char reg_value[16][32];
-+	if (!regs)
-+		return "";
-+	snprintf(reg_value[regno], sizeof(reg_value[regno]), "(0x%llx)",
-+		 regs[regno]);
-+	return reg_value[regno];
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++
++	plum = rcu_dereference(dp->plums[ctx->context.plum_id]);
++	bpf_run(plum->bpf_prog, &ctx->context);
 +}
 +
-+#define R(regno) debug_reg(regno, regs)
-+
-+void pr_debug_bpf_insn(struct bpf_insn *insn, u64 *regs)
++struct plum *bpf_dp_register_plum(struct bpf_image *image,
++				  struct plum *old_plum, u32 plum_id)
 +{
-+	u16 class = BPF_CLASS(insn->code);
-+	if (class == BPF_ALU) {
-+		if (BPF_SRC(insn->code) == BPF_X)
-+			pr_debug("code_%02x r%d%s %s r%d%s\n",
-+				 insn->code, insn->a_reg, R(insn->a_reg),
-+				 bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				 insn->x_reg, R(insn->x_reg));
-+		else
-+			pr_debug("code_%02x r%d%s %s %d\n",
-+				 insn->code, insn->a_reg, R(insn->a_reg),
-+				 bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				 insn->imm);
-+	} else if (class == BPF_STX) {
-+		if (BPF_MODE(insn->code) == BPF_REL)
-+			pr_debug("code_%02x *(%s *)(r%d%s %+d) = r%d%s\n",
-+				 insn->code,
-+				 bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				 insn->a_reg, R(insn->a_reg),
-+				 insn->off, insn->x_reg, R(insn->x_reg));
-+		else if (BPF_MODE(insn->code) == BPF_XADD)
-+			pr_debug("code_%02x lock *(%s *)(r%d%s %+d) += r%d%s\n",
-+				 insn->code,
-+				 bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				 insn->a_reg, R(insn->a_reg), insn->off,
-+				 insn->x_reg, R(insn->x_reg));
-+		else
-+			pr_debug("BUG_%02x\n", insn->code);
-+	} else if (class == BPF_ST) {
-+		if (BPF_MODE(insn->code) != BPF_REL) {
-+			pr_debug("BUG_st_%02x\n", insn->code);
-+			return;
-+		}
-+		pr_debug("code_%02x *(%s *)(r%d%s %+d) = %d\n",
-+			 insn->code,
-+			 bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			 insn->a_reg, R(insn->a_reg),
-+			 insn->off, insn->imm);
-+	} else if (class == BPF_LDX) {
-+		if (BPF_MODE(insn->code) != BPF_REL) {
-+			pr_debug("BUG_ldx_%02x\n", insn->code);
-+			return;
-+		}
-+		pr_debug("code_%02x r%d = *(%s *)(r%d%s %+d)\n",
-+			 insn->code, insn->a_reg,
-+			 bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			 insn->x_reg, R(insn->x_reg), insn->off);
-+	} else if (class == BPF_JMP) {
-+		u16 opcode = BPF_OP(insn->code);
-+		if (opcode == BPF_CALL) {
-+			pr_debug("code_%02x call %d\n", insn->code, insn->imm);
-+		} else if (insn->code == (BPF_JMP | BPF_JA | BPF_X)) {
-+			pr_debug("code_%02x goto pc%+d\n",
-+				 insn->code, insn->off);
-+		} else if (BPF_SRC(insn->code) == BPF_X) {
-+			pr_debug("code_%02x if r%d%s %s r%d%s goto pc%+d\n",
-+				 insn->code, insn->a_reg, R(insn->a_reg),
-+				 bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				 insn->x_reg, R(insn->x_reg), insn->off);
-+		} else {
-+			pr_debug("code_%02x if r%d%s %s 0x%x goto pc%+d\n",
-+				 insn->code, insn->a_reg, R(insn->a_reg),
-+				 bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				 insn->imm, insn->off);
-+		}
-+	} else {
-+		pr_debug("code_%02x %s\n", insn->code, bpf_class_string[class]);
-+	}
-+}
-+
-+void bpf_run(struct bpf_program *prog, struct bpf_context *ctx)
-+{
-+	struct bpf_insn *insn = prog->insns;
-+	u64 stack[64];
-+	u64 regs[16] = { };
-+	regs[__fp__] = (u64) &stack[64];
-+	regs[R1] = (u64) ctx;
-+
-+	for (;; insn++) {
-+		const s32 K = insn->imm;
-+		u64 *a_reg = &regs[insn->a_reg];
-+		u64 *x_reg = &regs[insn->x_reg];
-+#define A (*a_reg)
-+#define X (*x_reg)
-+		/*pr_debug_bpf_insn(insn, regs);*/
-+		switch (insn->code) {
-+			/* ALU */
-+		case BPF_ALU | BPF_ADD | BPF_X:
-+			A += X;
-+			continue;
-+		case BPF_ALU | BPF_ADD | BPF_K:
-+			A += K;
-+			continue;
-+		case BPF_ALU | BPF_SUB | BPF_X:
-+			A -= X;
-+			continue;
-+		case BPF_ALU | BPF_SUB | BPF_K:
-+			A -= K;
-+			continue;
-+		case BPF_ALU | BPF_AND | BPF_X:
-+			A &= X;
-+			continue;
-+		case BPF_ALU | BPF_AND | BPF_K:
-+			A &= K;
-+			continue;
-+		case BPF_ALU | BPF_OR | BPF_X:
-+			A |= X;
-+			continue;
-+		case BPF_ALU | BPF_OR | BPF_K:
-+			A |= K;
-+			continue;
-+		case BPF_ALU | BPF_LSH | BPF_X:
-+			A <<= X;
-+			continue;
-+		case BPF_ALU | BPF_LSH | BPF_K:
-+			A <<= K;
-+			continue;
-+		case BPF_ALU | BPF_RSH | BPF_X:
-+			A >>= X;
-+			continue;
-+		case BPF_ALU | BPF_RSH | BPF_K:
-+			A >>= K;
-+			continue;
-+		case BPF_ALU | BPF_MOV | BPF_X:
-+			A = X;
-+			continue;
-+		case BPF_ALU | BPF_MOV | BPF_K:
-+			A = K;
-+			continue;
-+		case BPF_ALU | BPF_ARSH | BPF_X:
-+			(*(s64 *) &A) >>= X;
-+			continue;
-+		case BPF_ALU | BPF_ARSH | BPF_K:
-+			(*(s64 *) &A) >>= K;
-+			continue;
-+		case BPF_ALU | BPF_BSWAP32 | BPF_X:
-+			A = __builtin_bswap32(A);
-+			continue;
-+		case BPF_ALU | BPF_BSWAP64 | BPF_X:
-+			A = __builtin_bswap64(A);
-+			continue;
-+		case BPF_ALU | BPF_MOD | BPF_X:
-+			A %= X;
-+			continue;
-+		case BPF_ALU | BPF_MOD | BPF_K:
-+			A %= K;
-+			continue;
-+
-+			/* CALL */
-+		case BPF_JMP | BPF_CALL:
-+			prog->cb->execute_func(K, regs);
-+			continue;
-+
-+			/* JMP */
-+		case BPF_JMP | BPF_JA | BPF_X:
-+			insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JEQ | BPF_X:
-+			if (A == X)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JEQ | BPF_K:
-+			if (A == K)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JNE | BPF_X:
-+			if (A != X)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JNE | BPF_K:
-+			if (A != K)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JGT | BPF_X:
-+			if (A > X)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JGT | BPF_K:
-+			if (A > K)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JGE | BPF_X:
-+			if (A >= X)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JGE | BPF_K:
-+			if (A >= K)
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JSGT | BPF_X:
-+			if (((s64)A) > ((s64)X))
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JSGT | BPF_K:
-+			if (((s64)A) > ((s64)K))
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JSGE | BPF_X:
-+			if (((s64)A) >= ((s64)X))
-+				insn += insn->off;
-+			continue;
-+		case BPF_JMP | BPF_JSGE | BPF_K:
-+			if (((s64)A) >= ((s64)K))
-+				insn += insn->off;
-+			continue;
-+
-+			/* STX */
-+		case BPF_STX | BPF_REL | BPF_B:
-+			*(u8 *)(A + insn->off) = X;
-+			continue;
-+		case BPF_STX | BPF_REL | BPF_H:
-+			*(u16 *)(A + insn->off) = X;
-+			continue;
-+		case BPF_STX | BPF_REL | BPF_W:
-+			*(u32 *)(A + insn->off) = X;
-+			continue;
-+		case BPF_STX | BPF_REL | BPF_DW:
-+			*(u64 *)(A + insn->off) = X;
-+			continue;
-+
-+			/* ST */
-+		case BPF_ST | BPF_REL | BPF_B:
-+			*(u8 *)(A + insn->off) = K;
-+			continue;
-+		case BPF_ST | BPF_REL | BPF_H:
-+			*(u16 *)(A + insn->off) = K;
-+			continue;
-+		case BPF_ST | BPF_REL | BPF_W:
-+			*(u32 *)(A + insn->off) = K;
-+			continue;
-+		case BPF_ST | BPF_REL | BPF_DW:
-+			*(u64 *)(A + insn->off) = K;
-+			continue;
-+
-+			/* LDX */
-+		case BPF_LDX | BPF_REL | BPF_B:
-+			A = *(u8 *)(X + insn->off);
-+			continue;
-+		case BPF_LDX | BPF_REL | BPF_H:
-+			A = *(u16 *)(X + insn->off);
-+			continue;
-+		case BPF_LDX | BPF_REL | BPF_W:
-+			A = *(u32 *)(X + insn->off);
-+			continue;
-+		case BPF_LDX | BPF_REL | BPF_DW:
-+			A = *(u64 *)(X + insn->off);
-+			continue;
-+
-+			/* STX XADD */
-+		case BPF_STX | BPF_XADD | BPF_B:
-+			__sync_fetch_and_add((u8 *)(A + insn->off), (u8)X);
-+			continue;
-+		case BPF_STX | BPF_XADD | BPF_H:
-+			__sync_fetch_and_add((u16 *)(A + insn->off), (u16)X);
-+			continue;
-+		case BPF_STX | BPF_XADD | BPF_W:
-+			__sync_fetch_and_add((u32 *)(A + insn->off), (u32)X);
-+			continue;
-+		case BPF_STX | BPF_XADD | BPF_DW:
-+			__sync_fetch_and_add((u64 *)(A + insn->off), (u64)X);
-+			continue;
-+
-+			/* RET */
-+		case BPF_RET | BPF_K:
-+			return;
-+		default:
-+			/* bpf_check() will guarantee that
-+			 * we never reach here
-+			 */
-+			pr_err("unknown opcode %02x\n", insn->code);
-+			return;
-+		}
-+	}
-+}
-+EXPORT_SYMBOL(bpf_run);
-+
-+int bpf_load(struct bpf_image *image, struct bpf_callbacks *cb,
-+	     struct bpf_program **p_prog)
-+{
-+	struct bpf_program *prog;
 +	int ret;
++	struct bpf_program *bpf_prog;
++	struct plum *plum;
++	int i;
 +
-+	if (!image || !cb || !cb->execute_func || !cb->get_func_proto ||
-+	    !cb->get_context_access)
-+		return -EINVAL;
-+
-+	if (image->insn_cnt <= 0 || image->insn_cnt > 32768 ||
-+	    image->table_cnt < 0 || image->table_cnt > 128) {
-+		pr_err("BPF program has %d insn and %d tables. Max is 32K/128\n",
-+		       image->insn_cnt, image->table_cnt);
-+		return -E2BIG;
++	ret = bpf_load(image, &bpf_plum_cb, &bpf_prog);
++	if (ret < 0) {
++		pr_err("BPF load failed %d\n", ret);
++		return ERR_PTR(ret);
 +	}
 +
-+	prog = kzalloc(sizeof(struct bpf_program), GFP_KERNEL);
-+	if (!prog)
++	ret = -ENOMEM;
++	plum = kzalloc(sizeof(*plum), GFP_KERNEL);
++	if (!plum)
++		goto err_free_bpf_prog;
++
++	plum->bpf_prog = bpf_prog;
++
++	plum->tables = kzalloc(bpf_prog->table_cnt * sizeof(struct plum_table),
++			       GFP_KERNEL);
++	if (!plum->tables)
++		goto err_free_plum;
++
++	plum->num_tables = bpf_prog->table_cnt;
++
++	for (i = 0; i < bpf_prog->table_cnt; i++) {
++		memcpy(&plum->tables[i].info, &bpf_prog->tables[i],
++		       sizeof(struct bpf_table));
++	}
++
++	if (init_plum_tables(plum, plum_id) < 0)
++		goto err_free_table_array;
++
++	plum->replicators = kzalloc(PLUM_MAX_REPLICATORS *
++				    sizeof(struct hlist_head), GFP_KERNEL);
++	if (!plum->replicators)
++		goto err_free_tables;
++
++	for (i = 0; i < PLUM_MAX_REPLICATORS; i++)
++		INIT_HLIST_HEAD(&plum->replicators[i]);
++
++	if (bpf_prog->jit_image)
++		plum->run = (void (*)(struct bpf_dp_context *ctx))bpf_prog->jit_image;
++	else
++		plum->run = bpf_run_wrap;
++
++	return plum;
++
++err_free_tables:
++	free_plum_tables(plum);
++err_free_table_array:
++	kfree(plum->tables);
++err_free_plum:
++	kfree(plum);
++err_free_bpf_prog:
++	bpf_free(bpf_prog);
++	return ERR_PTR(ret);
++}
++
++static void free_plum_rcu(struct rcu_head *rcu)
++{
++	struct plum *plum = container_of(rcu, struct plum, rcu);
++	int i;
++
++	for (i = 0; i < PLUM_MAX_PORTS; i++)
++		free_percpu(plum->stats[i]);
++
++	free_plum_tables(plum);
++	kfree(plum->replicators);
++	bpf_free(plum->bpf_prog);
++	kfree(plum);
++}
++
++void bpf_dp_unregister_plum(struct plum *plum)
++{
++	if (plum) {
++		cleanup_plum_replicators(plum);
++		cleanup_plum_tables(plum);
++		call_rcu(&plum->rcu, free_plum_rcu);
++	}
++}
++
++/* Called with ovs_mutex. */
++void bpf_dp_disconnect_port(struct vport *p)
++{
++	struct datapath *dp = p->dp;
++	struct plum *plum, *dest_plum;
++	u32 dest;
++
++	plum = ovsl_dereference(dp->plums[0]);
++
++	dest = atomic_read(&plum->ports[p->port_no]);
++	if (dest) {
++		dest_plum = ovsl_dereference(dp->plums[dest >> 16]);
++		atomic_set(&dest_plum->ports[dest & 0xffff], 0);
++	}
++	atomic_set(&plum->ports[p->port_no], 0);
++	smp_wmb();
++
++	/* leave the stats allocated until plum is freed */
++}
++
++static int bpf_dp_ctx_init(struct bpf_dp_context *ctx)
++{
++	struct ovs_key_ipv4_tunnel *tun_key = OVS_CB(ctx->skb)->tun_key;
++
++	if (skb_headroom(ctx->skb) < 64) {
++		if (pskb_expand_head(ctx->skb, 64, 0, GFP_ATOMIC))
++			return -ENOMEM;
++	}
++	ctx->context.length = ctx->skb->len;
++	ctx->context.vlan_tag = vlan_tx_tag_present(ctx->skb) ?
++			vlan_tx_tag_get(ctx->skb) : 0;
++	ctx->context.hw_csum = (ctx->skb->ip_summed == CHECKSUM_PARTIAL);
++	if (tun_key) {
++		ctx->context.tun_key.tun_id =
++				be32_to_cpu(be64_get_low32(tun_key->tun_id));
++		ctx->context.tun_key.src_ip = be32_to_cpu(tun_key->ipv4_src);
++		ctx->context.tun_key.dst_ip = be32_to_cpu(tun_key->ipv4_dst);
++		ctx->context.tun_key.tos = tun_key->ipv4_tos;
++		ctx->context.tun_key.ttl = tun_key->ipv4_ttl;
++	} else {
++		memset(&ctx->context.tun_key, 0,
++		       sizeof(struct bpf_ipv4_tun_key));
++	}
++
++	return 0;
++}
++
++static int bpf_dp_ctx_copy(struct bpf_dp_context *ctx,
++			   struct bpf_dp_context *orig_ctx)
++{
++	struct sk_buff *skb = skb_copy(orig_ctx->skb, GFP_ATOMIC);
++	if (!skb)
 +		return -ENOMEM;
 +
-+	prog->insn_cnt = image->insn_cnt;
-+	prog->table_cnt = image->table_cnt;
-+	prog->cb = cb;
++	ctx->context = orig_ctx->context;
++	ctx->skb = skb;
++	ctx->dp = orig_ctx->dp;
++	ctx->stack = orig_ctx->stack;
 +
-+	prog->insns = kmalloc(sizeof(struct bpf_insn) * prog->insn_cnt,
-+			      GFP_KERNEL);
-+	if (!prog->insns) {
-+		ret = -ENOMEM;
-+		goto free_prog;
++	return 0;
++}
++
++void plum_update_stats(struct plum *plum, u32 port_id, struct sk_buff *skb,
++			 bool rx)
++{
++	struct pcpu_port_stats *stats;
++	struct ethhdr *eh = eth_hdr(skb);
++
++	if (unlikely(!plum->stats[port_id])) /* forward on disconnected port */
++		return;
++
++	stats = this_cpu_ptr(plum->stats[port_id]);
++	u64_stats_update_begin(&stats->syncp);
++	if (rx) {
++		if (is_multicast_ether_addr(eh->h_dest)) {
++			stats->rx_mcast_packets++;
++			stats->rx_mcast_bytes += skb->len;
++		} else {
++			stats->rx_packets++;
++			stats->rx_bytes += skb->len;
++		}
++	} else {
++		if (is_multicast_ether_addr(eh->h_dest)) {
++			stats->tx_mcast_packets++;
++			stats->tx_mcast_bytes += skb->len;
++		} else {
++			stats->tx_packets++;
++			stats->tx_bytes += skb->len;
++		}
++	}
++	u64_stats_update_end(&stats->syncp);
++}
++
++/* called by execute_plums() to execute BPF program
++ * or send it out of vport if destination plum_id is zero
++ * It's called with rcu_read_lock.
++ */
++static void __bpf_forward(struct bpf_dp_context *ctx, u32 dest)
++{
++	struct datapath *dp = ctx->dp;
++	u32 plum_id = dest >> 16;
++	u32 port_id = dest & 0xffff;
++	struct plum *plum;
++	struct vport *vport;
++	struct ovs_key_ipv4_tunnel tun_key;
++
++	plum = rcu_dereference(dp->plums[plum_id]);
++	if (unlikely(!plum)) {
++		kfree_skb(ctx->skb);
++		return;
++	}
++	if (plum_id == 0) {
++		if (ctx->context.tun_key.dst_ip) {
++			tun_key.tun_id =
++				cpu_to_be64(ctx->context.tun_key.tun_id);
++			tun_key.ipv4_src =
++				cpu_to_be32(ctx->context.tun_key.src_ip);
++			tun_key.ipv4_dst =
++				cpu_to_be32(ctx->context.tun_key.dst_ip);
++			tun_key.ipv4_tos = ctx->context.tun_key.tos;
++			tun_key.ipv4_ttl = ctx->context.tun_key.ttl;
++			tun_key.tun_flags = TUNNEL_KEY;
++			OVS_CB(ctx->skb)->tun_key = &tun_key;
++		} else {
++			OVS_CB(ctx->skb)->tun_key = NULL;
++		}
++
++		plum_update_stats(plum, port_id, ctx->skb, false);
++
++		vport = ovs_vport_rcu(dp, port_id);
++		if (unlikely(!vport)) {
++			kfree_skb(ctx->skb);
++			return;
++		}
++		ovs_vport_send(vport, ctx->skb);
++	} else {
++		ctx->context.port_id = port_id;
++		ctx->context.plum_id = plum_id;
++		BUG_ON(plum->run == NULL);
++		plum_update_stats(plum, port_id, ctx->skb, true);
++		/* execute BPF program */
++		plum->run(ctx);
++		consume_skb(ctx->skb);
++	}
++}
++
++
++/* plum_stack_push() is called to enqueue plum_id|port_id pair into
++ * stack of plums to be executed
++ */
++void plum_stack_push(struct bpf_dp_context *ctx, u32 dest, int copy)
++{
++	struct plum_stack *stack;
++	struct plum_stack_frame *frame;
++
++	stack = ctx->stack;
++
++	if (stack->push_cnt > 1024)
++		/* number of frames to execute is too high, ignore
++		 * all further bpf_*_forward() calls
++		 *
++		 * this can happen if connections between plums make a loop:
++		 * three bridge-plums in a loop is a valid network
++		 * topology if STP is working, but kernel needs to make sure
++		 * that packet doesn't loop forever
++		 */
++		return;
++
++	stack->push_cnt++;
++
++	if (!copy) {
++		frame = stack->curr_frame;
++		if (!frame) /* bpf_*_forward() is called 2nd time. ignore it */
++			return;
++
++		BUG_ON(&frame->ctx != ctx);
++		stack->curr_frame = NULL;
++
++		skb_get(ctx->skb);
++	} else {
++		frame = kmem_cache_alloc(plum_stack_cache, GFP_ATOMIC);
++		if (!frame)
++			return;
++		frame->kmem = 1;
++		if (bpf_dp_ctx_copy(&frame->ctx, ctx)) {
++			kmem_cache_free(plum_stack_cache, frame);
++			return;
++		}
 +	}
 +
-+	prog->tables = kmalloc(sizeof(struct bpf_table) * prog->table_cnt,
-+			       GFP_KERNEL);
-+	if (!prog->tables) {
-+		ret = -ENOMEM;
-+		goto free_insns;
++	frame->dest = dest;
++	list_add(&frame->link, &stack->list);
++}
++
++/* execute_plums() pops the stack and execute plums until stack is empty */
++static void execute_plums(struct plum_stack *stack)
++{
++	struct plum_stack_frame *frame;
++
++	while (!list_empty(&stack->list)) {
++		frame = list_first_entry(&stack->list, struct plum_stack_frame,
++					 link);
++		list_del(&frame->link);
++
++		/* let plum_stack_push() know which frame is current
++		 * plum_stack_push() will be called by bpf_*_forward()
++		 * functions from BPF program
++		 */
++		stack->curr_frame = frame;
++
++		/* execute BPF program or forward skb out */
++		__bpf_forward(&frame->ctx, frame->dest);
++
++		/* when plum_stack_push() reuses the current frame while
++		 * pushing it to the stack, it will set curr_frame to NULL
++		 * kmem flag indicates whether frame was allocated or
++		 * it's the first_frame from bpf_process_received_packet() stack
++		 * free it here if it was allocated
++		 */
++		if (stack->curr_frame && stack->curr_frame->kmem)
++			kmem_cache_free(plum_stack_cache, stack->curr_frame);
++	}
++}
++
++/* packet arriving on vport processed here
++ * must be called with rcu_read_lock
++ */
++void bpf_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
++{
++	struct datapath *dp = p->dp;
++	struct plum *plum;
++	u32 dest;
++	struct plum_stack stack = {};
++	struct plum_stack_frame first_frame;
++	struct plum_stack_frame *frame;
++	struct bpf_dp_context *ctx;
++
++	plum = rcu_dereference(dp->plums[0]);
++	dest = atomic_read(&plum->ports[p->port_no]);
++
++	if (dest) {
++		frame = &first_frame;
++		frame->kmem = 0;
++
++		INIT_LIST_HEAD(&stack.list);
++		ctx = &frame->ctx;
++		ctx->stack = &stack;
++		ctx->context.port_id = p->port_no;
++		ctx->context.plum_id = 0;
++		ctx->skb = skb;
++		ctx->dp = dp;
++		bpf_dp_ctx_init(ctx);
++
++		plum_update_stats(plum, p->port_no, skb, true);
++
++		frame->dest = dest;
++		stack.curr_frame = NULL;
++		list_add(&frame->link, &stack.list);
++		execute_plums(&stack);
++	} else {
++		consume_skb(skb);
++	}
++}
++
++/* userspace injects packet into plum */
++int bpf_dp_channel_push_on_plum(struct datapath *dp, u32 plum_id, u32 port_id,
++				struct sk_buff *skb, u32 direction)
++{
++	struct plum_stack stack = {};
++	struct plum_stack_frame first_frame;
++	struct plum_stack_frame *frame;
++	struct bpf_dp_context *ctx;
++	u32 dest;
++
++	frame = &first_frame;
++	frame->kmem = 0;
++
++	INIT_LIST_HEAD(&stack.list);
++	ctx = &frame->ctx;
++	ctx->stack = &stack;
++	ctx->context.port_id = 0;
++	ctx->context.plum_id = 0;
++	ctx->skb = skb;
++	ctx->dp = dp;
++	bpf_dp_ctx_init(ctx);
++
++	rcu_read_lock();
++
++	if (direction == OVS_BPF_OUT_DIR) {
++		ctx->context.plum_id = plum_id;
++		stack.curr_frame = frame;
++		bpf_forward(&ctx->context, port_id);
++	} else {
++		dest = MUX(plum_id, port_id);
++		frame->dest = dest;
++		stack.curr_frame = NULL;
++		list_add(&frame->link, &stack.list);
++	}
++	execute_plums(&stack);
++
++	rcu_read_unlock();
++
++	return 0;
++}
++
++/* from current_plum_id:port_id find next_plum_id:next_port_id
++ * and queue the packet to that plum
++ *
++ * plum can still modify the packet, but it's not recommended
++ * all subsequent bpf_forward()/bpf_forward_self()/bpf_forward_to_plum()
++ * calls from this plum will be ignored
++ */
++void bpf_forward(struct bpf_context *pctx, u32 port_id)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++	u32 dest;
++
++	if (unlikely(!ctx->skb) || port_id >= PLUM_MAX_PORTS)
++		return;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++	if (unlikely(!plum)) /* plum was unregistered while running */
++		return;
++
++	dest = atomic_read(&plum->ports[port_id]);
++	if (dest) {
++		plum_update_stats(plum, port_id, ctx->skb, false);
++		plum_stack_push(ctx, dest, 0);
++	}
++}
++
++/* from current_plum_id:port_id find next_plum_id:next_port_id
++ * copy the packet and queue the copy to that plum
++ *
++ * later plum can modify the packet and potentially forward it other port
++ * bpf_clone_forward() can be called any number of times
++ */
++void bpf_clone_forward(struct bpf_context *pctx, u32 port_id)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++	u32 dest;
++
++	if (unlikely(!ctx->skb) || port_id >= PLUM_MAX_PORTS)
++		return;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++	if (unlikely(!plum))
++		return;
++
++	dest = atomic_read(&plum->ports[port_id]);
++	if (dest)
++		plum_stack_push(ctx, dest, 1);
++}
++
++/* re-queue the packet to plum's own port
++ *
++ * all subsequent bpf_forward()/bpf_forward_self()/bpf_forward_to_plum()
++ * calls from this plum will be ignored
++ */
++void bpf_forward_self(struct bpf_context *pctx, u32 port_id)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++	u32 dest;
++
++	if (unlikely(!ctx->skb) || port_id >= PLUM_MAX_PORTS)
++		return;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++	if (unlikely(!plum))
++		return;
++
++	dest = MUX(pctx->plum_id, port_id);
++	if (dest) {
++		plum_update_stats(plum, port_id, ctx->skb, false);
++		plum_stack_push(ctx, dest, 0);
++	}
++}
++
++/* queue the packet to port zero of different plum
++ *
++ * all subsequent bpf_forward()/bpf_forward_self()/bpf_forward_to_plum()
++ * calls from this plum will be ignored
++ */
++void bpf_forward_to_plum(struct bpf_context *pctx, u32 plum_id)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	u32 dest;
++
++	if (unlikely(!ctx->skb) || plum_id >= DP_MAX_PLUMS)
++		return;
++
++	dest = MUX(plum_id, 0);
++	if (dest)
++		plum_stack_push(ctx, dest, 0);
++}
++
++/* called from BPF program, therefore rcu_read_lock is held
++ * bpf_check() verified that pctx is a valid pointer
++ */
++u8 bpf_load_byte(struct bpf_context *pctx, u32 off)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return 0;
++	if (!pskb_may_pull(skb, off + 1))
++		return 0;
++	return *(u8 *)(skb->data + off);
++}
++
++u16 bpf_load_half(struct bpf_context *pctx, u32 off)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return 0;
++	if (!pskb_may_pull(skb, off + 2))
++		return 0;
++	return *(u16 *)(skb->data + off);
++}
++
++u32 bpf_load_word(struct bpf_context *pctx, u32 off)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return 0;
++	if (!pskb_may_pull(skb, off + 4))
++		return 0;
++	return *(u32 *)(skb->data + off);
++}
++
++u64 bpf_load_dword(struct bpf_context *pctx, u32 off)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return 0;
++	if (!pskb_may_pull(skb, off + 8))
++		return 0;
++	return *(u64 *)(skb->data + off);
++}
++
++int bpf_load_bits(struct bpf_context *pctx, u32 off, void *to, u32 len)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return -EFAULT;
++	if (!pskb_may_pull(skb, off + len))
++		return -EFAULT;
++	memcpy(to, skb->data + off, len);
++
++	return 0;
++}
++
++static void update_skb_csum(struct sk_buff *skb, u32 from, u32 to)
++{
++	u32 diff[] = { ~from, to };
++
++	skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
++}
++
++void bpf_store_byte(struct bpf_context *pctx, u32 off, u8 val)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++	u8 old = 0;
++	u16 from, to;
++
++	if (unlikely(!skb))
++		return;
++	if (!pskb_may_pull(skb, off + 1))
++		return;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		old = *(u8 *)(skb->data + off);
++
++	*(u8 *)(skb->data + off) = val;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		from = (off & 0x1) ? htons(old) : htons(old << 8);
++		to = (off & 0x1) ? htons(val) : htons(val << 8);
++		update_skb_csum(skb, (u32)from, (u32)to);
++	}
++}
++
++void bpf_store_half(struct bpf_context *pctx, u32 off, u16 val)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++	u16 old = 0;
++
++	if (unlikely(!skb))
++		return;
++	if (!pskb_may_pull(skb, off + 2))
++		return;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		old = *(u16 *)(skb->data + off);
++
++	*(u16 *)(skb->data + off) = val;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		update_skb_csum(skb, (u32)old, (u32)val);
++}
++
++void bpf_store_word(struct bpf_context *pctx, u32 off, u32 val)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++	u32 old = 0;
++
++	if (unlikely(!skb))
++		return;
++	if (!pskb_may_pull(skb, off + 4))
++		return;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		old = *(u32 *)(skb->data + off);
++
++	*(u32 *)(skb->data + off) = val;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		update_skb_csum(skb, old, val);
++}
++
++void bpf_store_dword(struct bpf_context *pctx, u32 off, u64 val)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++	u64 old = 0;
++	u32 *from, *to;
++	u32 diff[4];
++
++	if (unlikely(!skb))
++		return;
++	if (!pskb_may_pull(skb, off + 8))
++		return;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		old = *(u64 *)(skb->data + off);
++
++	*(u64 *)(skb->data + off) = val;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		from = (u32 *)&old;
++		to = (u32 *)&val;
++		diff[0] = ~from[0],
++		diff[1] = ~from[1],
++		diff[2] = to[0],
++		diff[3] = to[0],
++		skb->csum = ~csum_partial(diff, sizeof(diff), ~skb->csum);
++	}
++}
++
++void bpf_store_bits(struct bpf_context *pctx, u32 off, const void *from,
++		    u32 len)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return;
++	if (!pskb_may_pull(skb, off + len))
++		return;
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_sub(skb->csum,
++				     csum_partial(skb->data + off, len, 0));
++
++	memcpy(skb->data + off, from, len);
++
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum,
++				     csum_partial(skb->data + off, len, 0));
++}
++
++/* return time in microseconds */
++u64 bpf_get_usec_time(void)
++{
++	struct timespec now;
++	getnstimeofday(&now);
++	return (((uint64_t)now.tv_sec) * 1000000) + now.tv_nsec / 1000;
++}
++
++/* called from BPF program, therefore rcu_read_lock is held
++ * bpf_check() verified that 'buf' pointer to BPF's stack
++ * and it has 'len' bytes for us to read
++ */
++void bpf_channel_push_struct(struct bpf_context *pctx, u32 struct_id,
++			     const void *buf, u32 len)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct dp_upcall_info upcall;
++	struct plum *plum;
++	struct nlattr *nla;
++
++	if (unlikely(!ctx->skb))
++		return;
++
++	plum = rcu_dereference(ctx->dp->plums[pctx->plum_id]);
++	if (unlikely(!plum))
++		return;
++
++	/* allocate temp nlattr to pass it into ovs_dp_upcall */
++	nla = kzalloc(nla_total_size(4 + len), GFP_ATOMIC);
++	if (unlikely(!nla))
++		return;
++
++	nla->nla_type = OVS_PACKET_ATTR_USERDATA;
++	nla->nla_len = nla_attr_size(4 + len);
++	memcpy(nla_data(nla), &struct_id, 4);
++	memcpy(nla_data(nla) + 4, buf, len);
++
++	upcall.cmd = OVS_PACKET_CMD_ACTION;
++	upcall.key = NULL;
++	upcall.userdata = nla;
++	upcall.portid = plum->upcall_pid;
++	ovs_dp_upcall(ctx->dp, NULL, &upcall);
++	kfree(nla);
++}
++
++/* called from BPF program, therefore rcu_read_lock is held */
++void bpf_channel_push_packet(struct bpf_context *pctx)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct dp_upcall_info upcall;
++	struct sk_buff *nskb;
++	struct plum *plum;
++
++	if (unlikely(!ctx->skb))
++		return;
++
++	plum = rcu_dereference(ctx->dp->plums[pctx->plum_id]);
++	if (unlikely(!plum))
++		return;
++
++	/* queue_gso_packets() inside ovs_dp_upcall() changes skb,
++	 * so copy it here, since BPF program might still be using it
++	 */
++	nskb = skb_clone(ctx->skb, GFP_ATOMIC);
++	if (unlikely(!nskb))
++		return;
++
++	upcall.cmd = OVS_PACKET_CMD_ACTION;
++	upcall.key = NULL;
++	upcall.userdata = NULL;
++	upcall.portid = plum->upcall_pid;
++	/* don't exit earlier even if upcall_pid is invalid,
++	 * since we want 'lost' count to be incremented
++	 */
++	ovs_dp_upcall(ctx->dp, nskb, &upcall);
++	consume_skb(nskb);
++}
++
++int bpf_push_vlan(struct bpf_context *pctx, u16 proto, u16 vlan)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++	u16 current_tag;
++
++	if (unlikely(!skb))
++		return -EINVAL;
++
++	if (vlan_tx_tag_present(skb)) {
++		current_tag = vlan_tx_tag_get(skb);
++
++		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag)) {
++			ctx->skb = NULL;
++			return -ENOMEM;
++		}
++
++		if (skb->ip_summed == CHECKSUM_COMPLETE)
++			skb->csum = csum_add(skb->csum, csum_partial(skb->data
++					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++		ctx->context.length = skb->len;
++	}
++	__vlan_hwaccel_put_tag(skb, proto, vlan);
++	ctx->context.vlan_tag = vlan;
++
++	return 0;
++}
++
++int bpf_pop_vlan(struct bpf_context *pctx)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct sk_buff *skb = ctx->skb;
++
++	if (unlikely(!skb))
++		return -EINVAL;
++
++	ctx->context.vlan_tag = 0;
++	if (vlan_tx_tag_present(skb)) {
++		skb->vlan_tci = 0;
++	} else {
++		if (skb->protocol != htons(ETH_P_8021Q) ||
++		    skb->len < VLAN_ETH_HLEN)
++			return 0;
++
++		if (!pskb_may_pull(skb, ETH_HLEN))
++			return 0;
++
++		__skb_pull(skb, ETH_HLEN);
++		skb = vlan_untag(skb);
++		if (!skb) {
++			ctx->skb = NULL;
++			return -ENOMEM;
++		}
++		__skb_push(skb, ETH_HLEN);
++
++		skb->vlan_tci = 0;
++		ctx->context.length = skb->len;
++		ctx->skb = skb;
++	}
++	/* move next vlan tag to hw accel tag */
++	if (skb->protocol != htons(ETH_P_8021Q) ||
++	    skb->len < VLAN_ETH_HLEN)
++		return 0;
++
++	if (!pskb_may_pull(skb, ETH_HLEN))
++		return 0;
++
++	__skb_pull(skb, ETH_HLEN);
++	skb = vlan_untag(skb);
++	if (!skb) {
++		ctx->skb = NULL;
++		return -ENOMEM;
++	}
++	__skb_push(skb, ETH_HLEN);
++
++	ctx->context.vlan_tag = vlan_tx_tag_get(skb);
++	ctx->context.length = skb->len;
++	ctx->skb = skb;
++
++	return 0;
++}
++
++u16 bpf_checksum(const u8 *buf, u32 len)
++{
++	/* if 'buf' points to BPF program stack, bpf_check()
++	 * verified that 'len' bytes of it are valid
++	 * len/4 rounds the length down, so that memory is safe to access
++	 */
++	return ip_fast_csum(buf, len/4);
++}
++
++u16 bpf_checksum_pkt(struct bpf_context *pctx, u32 off, u32 len)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	if (!ctx->skb)
++		return 0;
++	if (!pskb_may_pull(ctx->skb, off + len))
++		return 0;
++	/* linearized all the way till 'off + len' byte of the skb
++	 * can compute checksum now
++	 */
++	return bpf_checksum(ctx->skb->data + off, len);
++}
++
++u16 bpf_csum_replace2(u16 csum, u16 from, u16 to)
++{
++	return bpf_csum_replace4(csum, (u32)from, (u32)to);
++}
++
++u16 bpf_csum_replace4(u16 csum, u32 from, u32 to)
++{
++	csum_replace4(&csum, from, to);
++	return csum;
++}
++
++u16 bpf_pseudo_csum_replace2(u16 csum, u16 from, u16 to)
++{
++	return bpf_pseudo_csum_replace4(csum, (u32)from, (u32)to);
++}
++
++u16 bpf_pseudo_csum_replace4(u16 csum, u32 from, u32 to)
++{
++	u32 diff[] = { ~from, to };
++	return ~csum_fold(csum_partial(diff, sizeof(diff),
++			  csum_unfold(csum)));
++}
++
+diff --git a/net/openvswitch/bpf_replicator.c b/net/openvswitch/bpf_replicator.c
+new file mode 100644
+index 0000000..51631b3
+--- /dev/null
++++ b/net/openvswitch/bpf_replicator.c
+@@ -0,0 +1,155 @@
++/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++#include <linux/rculist.h>
++#include "datapath.h"
++
++static struct hlist_head *replicator_hash_bucket(const struct plum *plum,
++						 u32 replicator_id)
++{
++	return &plum->replicators[replicator_id & (PLUM_MAX_REPLICATORS - 1)];
++}
++
++/* Must be called with rcu_read_lock. */
++static
++struct plum_replicator_elem *replicator_lookup_port(const struct plum *plum,
++						    u32 replicator_id,
++						    u32 port_id)
++{
++	struct hlist_head *head;
++	struct plum_replicator_elem *elem;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	head = replicator_hash_bucket(plum, replicator_id);
++	hlist_for_each_entry_rcu(elem, head, hash_node) {
++		if (elem->replicator_id == replicator_id &&
++		    elem->port_id == port_id)
++			return elem;
++	}
++	return NULL;
++}
++
++int bpf_dp_replicator_del_all(struct plum *plum, u32 replicator_id)
++{
++	struct hlist_head *head;
++	struct hlist_node *n;
++	struct plum_replicator_elem *elem;
++
++	head = replicator_hash_bucket(plum, replicator_id);
++	hlist_for_each_entry_safe(elem, n, head, hash_node) {
++		if (elem->replicator_id == replicator_id) {
++			hlist_del_rcu(&elem->hash_node);
++			kfree_rcu(elem, rcu);
++		}
 +	}
 +
-+	if (copy_from_user(prog->insns, image->insns,
-+			   sizeof(struct bpf_insn) * prog->insn_cnt)) {
-+		ret = -EFAULT;
-+		goto free_tables;
++	return 0;
++}
++
++int bpf_dp_replicator_add_port(struct plum *plum, u32 replicator_id,
++			       u32 port_id)
++{
++	struct hlist_head *head;
++	struct plum_replicator_elem *elem;
++
++	rcu_read_lock();
++	elem = replicator_lookup_port(plum, replicator_id, port_id);
++	if (elem) {
++		rcu_read_unlock();
++		return -EEXIST;
++	}
++	rcu_read_unlock();
++
++	elem = kzalloc(sizeof(*elem), GFP_KERNEL);
++	if (!elem)
++		return -ENOMEM;
++
++	elem->replicator_id = replicator_id;
++	elem->port_id = port_id;
++
++	head = replicator_hash_bucket(plum, replicator_id);
++	hlist_add_head_rcu(&elem->hash_node, head);
++
++	return 0;
++}
++
++int bpf_dp_replicator_del_port(struct plum *plum, u32 replicator_id,
++			       u32 port_id)
++{
++	struct plum_replicator_elem *elem;
++
++	rcu_read_lock();
++	elem = replicator_lookup_port(plum, replicator_id, port_id);
++	if (!elem) {
++		rcu_read_unlock();
++		return -ENODEV;
 +	}
 +
-+	if (copy_from_user(prog->tables, image->tables,
-+			   sizeof(struct bpf_table) * prog->table_cnt)) {
-+		ret = -EFAULT;
-+		goto free_tables;
++	hlist_del_rcu(&elem->hash_node);
++	kfree_rcu(elem, rcu);
++	rcu_read_unlock();
++
++	return 0;
++}
++
++void cleanup_plum_replicators(struct plum *plum)
++{
++	int i;
++
++	if (!plum->replicators)
++		return;
++
++	for (i = 0; i < PLUM_MAX_REPLICATORS; i++)
++		bpf_dp_replicator_del_all(plum, i);
++}
++
++/* Must be called with rcu_read_lock. */
++static void replicator_for_each(struct plum *plum, struct bpf_dp_context *ctx,
++				u32 replicator_id, u32 src_port)
++{
++	struct hlist_head *head;
++	struct plum_replicator_elem *elem;
++	u32 dest;
++
++	head = replicator_hash_bucket(plum, replicator_id);
++	hlist_for_each_entry_rcu(elem, head, hash_node) {
++		if (elem->replicator_id == replicator_id &&
++		    elem->port_id != src_port) {
++			dest = atomic_read(&plum->ports[elem->port_id]);
++			if (dest) {
++				plum_update_stats(plum, elem->port_id, ctx->skb,
++						  false);
++				plum_stack_push(ctx, dest, 1);
++			}
++		}
++	}
++}
++
++void bpf_replicate(struct bpf_context *pctx, u32 replicator_id, u32 src_port)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++
++	if (!ctx->skb ||
++	    ctx->context.plum_id >= DP_MAX_PLUMS)
++		return;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++	replicator_for_each(plum, ctx, replicator_id, src_port);
++}
+diff --git a/net/openvswitch/bpf_table.c b/net/openvswitch/bpf_table.c
+new file mode 100644
+index 0000000..6ff2c6a
+--- /dev/null
++++ b/net/openvswitch/bpf_table.c
+@@ -0,0 +1,500 @@
++/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++#include <linux/rculist.h>
++#include <linux/filter.h>
++#include <linux/jhash.h>
++#include <linux/workqueue.h>
++#include "datapath.h"
++
++static inline u32 hash_table_hash(const void *key, u32 key_len)
++{
++	return jhash(key, key_len, 0);
++}
++
++static inline
++struct hlist_head *hash_table_find_bucket(struct plum_hash_table *table,
++					  u32 hash)
++{
++	return &table->buckets[hash & (table->n_buckets - 1)];
++}
++
++/* Must be called with rcu_read_lock. */
++static struct plum_hash_elem *hash_table_lookup(struct plum_hash_table *table,
++						const void *key, u32 key_len,
++						u32 hit_cnt)
++{
++	struct plum_hash_elem *l;
++	struct hlist_head *head;
++	u32 hash;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	if (!key)
++		return NULL;
++
++	hash = hash_table_hash(key, key_len);
++
++	head = hash_table_find_bucket(table, hash);
++	hlist_for_each_entry_rcu(l, head, hash_node) {
++		if (l->hash == hash && !memcmp(&l->key, key, key_len)) {
++			if (hit_cnt)
++				atomic_inc(&l->hit_cnt);
++			return l;
++		}
++	}
++	return NULL;
++}
++
++static
++struct plum_hash_elem *hash_table_alloc_element(struct plum_hash_table *table)
++{
++	struct plum_hash_elem *l;
++	l = kmem_cache_alloc(table->leaf_cache, GFP_ATOMIC);
++	if (!l)
++		return ERR_PTR(-ENOMEM);
++	return l;
++}
++
++static void free_hash_table_element_rcu(struct rcu_head *rcu)
++{
++	struct plum_hash_elem *elem = container_of(rcu, struct plum_hash_elem,
++						   rcu);
++
++	kmem_cache_free(elem->table->leaf_cache, elem);
++}
++
++static void hash_table_release_element(struct plum_hash_table *table,
++				       struct plum_hash_elem *l)
++{
++	if (!l)
++		return;
++
++	l->table = table;
++	call_rcu(&l->rcu, free_hash_table_element_rcu);
++}
++
++static void hash_table_clear_elements(struct plum_hash_table *table)
++{
++	int i;
++
++	spin_lock_bh(&table->lock);
++	for (i = 0; i < table->n_buckets; i++) {
++		struct plum_hash_elem *l;
++		struct hlist_head *head = hash_table_find_bucket(table, i);
++		struct hlist_node *n;
++
++		hlist_for_each_entry_safe(l, n, head, hash_node) {
++			hlist_del_rcu(&l->hash_node);
++			table->count--;
++			hash_table_release_element(table, l);
++		}
++	}
++	spin_unlock_bh(&table->lock);
++	WARN_ON(table->count != 0);
++}
++
++static struct plum_hash_elem *hash_table_find(struct plum_hash_table *table,
++					      const void *key, u32 key_len)
++{
++	return hash_table_lookup(table, key, key_len, 0);
++}
++
++static struct plum_table *get_table(struct plum *plum, u32 table_id)
++{
++	int i;
++	struct plum_table *table;
++
++	for (i = 0; i < plum->num_tables; i++) {
++		table = &plum->tables[i];
++
++		if (table->info.id == table_id)
++			return table;
 +	}
 +
-+	/* verify BPF program */
-+	ret = bpf_check(prog);
-+	if (ret)
-+		goto free_tables;
++	return NULL;
++}
 +
-+	/* JIT it */
-+	bpf2_jit_compile(prog);
++static void hash_table_remove(struct plum_hash_table *table,
++			      struct plum_hash_elem *l)
++{
++	if (!l)
++		return;
 +
-+	*p_prog = prog;
++	spin_lock_bh(&table->lock);
++	hlist_del_rcu(&l->hash_node);
++	table->count--;
++	hash_table_release_element(table, l);
++	spin_unlock_bh(&table->lock);
++	WARN_ON(table->count < 0);
++}
++
++int bpf_dp_clear_table_elements(struct plum *plum, u32 table_id)
++{
++	struct plum_table *table;
++
++	table = get_table(plum, table_id);
++	if (!table)
++		return -EINVAL;
++
++	if (table->info.type == BPF_TABLE_HASH)
++		hash_table_clear_elements(table->base);
++
++	return 0;
++}
++
++int bpf_dp_update_table_element(struct plum *plum, u32 table_id,
++				const char *key_data, const char *leaf_data)
++{
++	struct plum_table *table;
++	struct plum_hash_table *htable;
++	struct plum_hash_elem *l_new;
++	struct plum_hash_elem *l_old;
++	struct hlist_head *head;
++	u32 key_size, leaf_size;
++
++	table = get_table(plum, table_id);
++	if (!table)
++		return -EINVAL;
++
++	key_size = table->info.key_size;
++	leaf_size = table->info.elem_size;
++
++	if (table->info.type == BPF_TABLE_HASH) {
++		htable = table->base;
++		l_new = hash_table_alloc_element(htable);
++		if (IS_ERR(l_new))
++			return -ENOMEM;
++		atomic_set(&l_new->hit_cnt, 0);
++		memcpy(&l_new->key, key_data, key_size);
++		memcpy(&l_new->key[key_size], leaf_data, leaf_size);
++		l_new->hash = hash_table_hash(&l_new->key, key_size);
++		head = hash_table_find_bucket(htable, l_new->hash);
++
++		rcu_read_lock();
++		l_old = hash_table_find(htable, key_data, key_size);
++
++		spin_lock_bh(&htable->lock);
++		if (!l_old && htable->count >= htable->max_entries) {
++			spin_unlock_bh(&htable->lock);
++			rcu_read_unlock();
++			return -EFBIG;
++		}
++		hlist_add_head_rcu(&l_new->hash_node, head);
++		if (l_old) {
++			hlist_del_rcu(&l_old->hash_node);
++			hash_table_release_element(htable, l_old);
++		} else {
++			htable->count++;
++		}
++		spin_unlock_bh(&htable->lock);
++
++		rcu_read_unlock();
++	}
++
++	return 0;
++}
++
++int bpf_dp_delete_table_element(struct plum *plum, u32 table_id,
++				const char *key_data)
++{
++	struct plum_table *table;
++	struct plum_hash_elem *l;
++	u32 key_size;
++
++	table = get_table(plum, table_id);
++	if (!table)
++		return -EINVAL;
++
++	key_size = table->info.key_size;
++
++	if (table->info.type == BPF_TABLE_HASH) {
++		rcu_read_lock();
++		l = hash_table_find(table->base, key_data, key_size);
++		if (l)
++			hash_table_remove(table->base, l);
++		rcu_read_unlock();
++	}
++
++	return 0;
++}
++
++/* Must be called with rcu_read_lock. */
++void *bpf_dp_read_table_element(struct plum *plum, u32 table_id,
++				const char *key_data, u32 *elem_size)
++{
++	struct plum_table *table;
++	struct plum_hash_elem *l;
++	u32 key_size;
++
++	table = get_table(plum, table_id);
++	if (!table)
++		return ERR_PTR(-EINVAL);
++
++	key_size = table->info.key_size;
++
++	if (table->info.type == BPF_TABLE_HASH) {
++		l = hash_table_find(table->base, key_data, key_size);
++		if (l) {
++			*elem_size = key_size + table->info.elem_size +
++				     sizeof(int);
++			return &l->hit_cnt.counter;
++		}
++	}
++
++	return ERR_PTR(-ESRCH);
++}
++
++/* Must be called with rcu_read_lock. */
++void *bpf_dp_read_table_element_next(struct plum *plum, u32 table_id,
++				     u32 *row, u32 *last, u32 *elem_size)
++{
++	struct plum_table *table;
++	struct plum_hash_table *htable;
++	struct hlist_head *head;
++	struct plum_hash_elem *l;
++	u32 key_size;
++	int i;
++
++	table = get_table(plum, table_id);
++	if (!table)
++		return ERR_PTR(-EINVAL);
++
++	key_size = table->info.key_size;
++
++	if (table->info.type == BPF_TABLE_HASH) {
++		htable = table->base;
++		*elem_size = key_size + table->info.elem_size + sizeof(int);
++		while (*row < htable->n_buckets) {
++			i = 0;
++			head = &htable->buckets[*row];
++			hlist_for_each_entry_rcu(l, head, hash_node) {
++				if (i < *last) {
++					i++;
++					continue;
++				}
++				*last = i + 1;
++				return &l->hit_cnt.counter;
++			}
++			(*row)++;
++			*last = 0;
++		}
++	}
++
++	return NULL;
++}
++
++static void free_hash_table_work(struct work_struct *work)
++{
++	struct plum_hash_table *table = container_of(work,
++						struct plum_hash_table, work);
++	kmem_cache_destroy(table->leaf_cache);
++	kfree(table);
++}
++
++static void free_hash_table(struct plum_hash_table *table)
++{
++	kfree(table->buckets);
++	schedule_work(&table->work);
++}
++
++static int init_hash_table(struct plum_table *table, u32 plum_id)
++{
++	int ret;
++	int i;
++	u32 n_buckets = table->info.max_entries;
++	u32 leaf_size;
++	struct plum_hash_table *htable;
++
++	/* hash table size must be power of 2 */
++	if ((n_buckets & (n_buckets - 1)) != 0) {
++		pr_err("pg_hash_table_init size %d is not power of 2\n",
++		       n_buckets);
++		return -EINVAL;
++	}
++
++	leaf_size = sizeof(struct plum_hash_elem) + table->info.key_size +
++		    table->info.elem_size;
++
++	ret = -ENOMEM;
++	htable = kzalloc(sizeof(*htable), GFP_KERNEL);
++	if (!htable)
++		goto err;
++
++	snprintf(htable->slab_name, sizeof(htable->slab_name),
++		 "plum_%u_hashtab_%u", plum_id, table->info.elem_size);
++
++	spin_lock_init(&htable->lock);
++	htable->max_entries = table->info.max_entries;
++	htable->n_buckets = n_buckets;
++	htable->key_size = table->info.key_size;
++	htable->leaf_size = leaf_size;
++	htable->leaf_cache = kmem_cache_create(htable->slab_name, leaf_size, 0,
++					       0, NULL);
++	if (!htable->leaf_cache)
++		goto err_free_table;
++
++	htable->buckets = kmalloc(n_buckets * sizeof(struct hlist_head),
++				 GFP_KERNEL);
++	if (!htable->buckets)
++		goto err_destroy_cache;
++
++	for (i = 0; i < n_buckets; i++)
++		INIT_HLIST_HEAD(&htable->buckets[i]);
++
++	table->base = htable;
++
++	INIT_WORK(&htable->work, free_hash_table_work);
 +
 +	return 0;
 +
-+free_tables:
-+	kfree(prog->tables);
-+free_insns:
-+	kfree(prog->insns);
-+free_prog:
-+	kfree(prog);
++err_destroy_cache:
++	kmem_cache_destroy(htable->leaf_cache);
++err_free_table:
++	kfree(htable);
++err:
 +	return ret;
 +}
-+EXPORT_SYMBOL(bpf_load);
 +
-+void bpf_free(struct bpf_program *prog)
++int init_plum_tables(struct plum *plum, u32 plum_id)
 +{
-+	if (!prog)
-+		return;
-+	bpf2_jit_free(prog);
-+	kfree(prog->tables);
-+	kfree(prog->insns);
-+	kfree(prog);
-+}
-+EXPORT_SYMBOL(bpf_free);
++	int ret;
++	int i;
++	struct plum_table *table;
 +
++	for (i = 0; i < plum->num_tables; i++) {
++		table = &plum->tables[i];
++		if (table->info.id > PLUM_MAX_TABLES) {
++			pr_err("table_id %d is too large\n", table->info.id);
++			continue;
++		}
++
++		if (table->info.type == BPF_TABLE_HASH) {
++			ret = init_hash_table(table, plum_id);
++			if (ret)
++				goto err_cleanup;
++		} else {
++			pr_err("table_type %d is unknown\n", table->info.type);
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++
++err_cleanup:
++	for (i = 0; i < plum->num_tables; i++) {
++		table = &plum->tables[i];
++		if (!table->base)
++			continue;
++		if (table->info.type == BPF_TABLE_HASH)
++			free_hash_table(table->base);
++	}
++
++	return ret;
++}
++
++void cleanup_plum_tables(struct plum *plum)
++{
++	int i;
++	struct plum_table *table;
++
++	for (i = 0; i < plum->num_tables; i++) {
++		table = &plum->tables[i];
++
++		if (table->info.type == BPF_TABLE_HASH)
++			hash_table_clear_elements(table->base);
++	}
++}
++
++void free_plum_tables(struct plum *plum)
++{
++	int i;
++	struct plum_table *table;
++
++	for (i = 0; i < plum->num_tables; i++) {
++		table = &plum->tables[i];
++
++		if (table->info.type == BPF_TABLE_HASH)
++			free_hash_table(table->base);
++	}
++
++	kfree(plum->tables);
++}
++
++/* bpf_check() verified that 'pctx' is a valid pointer, table_id is a valid
++ * table_id and 'key' points to valid region inside BPF program stack
++ */
++void *bpf_table_lookup(struct bpf_context *pctx, int table_id, const void *key)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++	struct plum_table *table;
++	struct plum_hash_table *htable;
++	struct plum_hash_elem *helem;
++
++	if (!ctx->skb ||
++	    ctx->context.plum_id >= DP_MAX_PLUMS)
++		return NULL;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++
++	table = get_table(plum, table_id);
++	if (!table) {
++		pr_err("table_lookup plumg_id:table_id %d:%d not found\n",
++		       ctx->context.plum_id, table_id);
++		return NULL;
++	}
++
++	switch (table->info.type) {
++	case BPF_TABLE_HASH:
++		htable = table->base;
++		if (!htable) {
++			pr_err("table_lookup plumg_id:table_id %d:%d empty\n",
++			       ctx->context.plum_id, table_id);
++			return NULL;
++		}
++
++		helem = hash_table_lookup(htable, key, htable->key_size, 1);
++		if (helem)
++			return helem->key + htable->key_size;
++		break;
++	default:
++		break;
++	}
++
++	return NULL;
++}
++
++int bpf_table_update(struct bpf_context *pctx, int table_id, const void *key,
++		     const void *leaf)
++{
++	struct bpf_dp_context *ctx = container_of(pctx, struct bpf_dp_context,
++						  context);
++	struct datapath *dp = ctx->dp;
++	struct plum *plum;
++	int ret;
++
++	if (!ctx->skb ||
++	    ctx->context.plum_id >= DP_MAX_PLUMS)
++		return -EINVAL;
++
++	plum = rcu_dereference(dp->plums[pctx->plum_id]);
++	ret = bpf_dp_update_table_element(plum, table_id, key, leaf);
++
++	return ret;
++}
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 2aa13bd..785ba71 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -119,7 +119,7 @@ static int queue_userspace_packet(struct net *, int dp_ifindex,
+ 				  const struct dp_upcall_info *);
+ 
+ /* Must be called with rcu_read_lock or ovs_mutex. */
+-static struct datapath *get_dp(struct net *net, int dp_ifindex)
++struct datapath *get_dp(struct net *net, int dp_ifindex)
+ {
+ 	struct datapath *dp = NULL;
+ 	struct net_device *dev;
+@@ -168,6 +168,7 @@ static void destroy_dp_rcu(struct rcu_head *rcu)
+ 	ovs_flow_tbl_destroy((__force struct flow_table *)dp->table, false);
+ 	free_percpu(dp->stats_percpu);
+ 	release_net(ovs_dp_get_net(dp));
++	kfree(dp->plums);
+ 	kfree(dp->ports);
+ 	kfree(dp);
+ }
+@@ -210,6 +211,9 @@ void ovs_dp_detach_port(struct vport *p)
+ {
+ 	ASSERT_OVSL();
+ 
++	/* Disconnect port from BPFs */
++	bpf_dp_disconnect_port(p);
++
+ 	/* First drop references to device. */
+ 	hlist_del_rcu(&p->dp_hash_node);
+ 
+@@ -240,6 +244,16 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+ 	flow = ovs_flow_lookup(rcu_dereference(dp->table), &key);
+ 	if (unlikely(!flow)) {
+ 		struct dp_upcall_info upcall;
++		struct plum *plum;
++
++		stats_counter = &stats->n_missed;
++
++		/* BPF enabled */
++		plum = rcu_dereference(dp->plums[0]);
++		if (atomic_read(&plum->ports[p->port_no])) {
++			bpf_dp_process_received_packet(p, skb);
++			goto out;
++		}
+ 
+ 		upcall.cmd = OVS_PACKET_CMD_MISS;
+ 		upcall.key = &key;
+@@ -247,7 +261,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+ 		upcall.portid = p->upcall_portid;
+ 		ovs_dp_upcall(dp, skb, &upcall);
+ 		consume_skb(skb);
+-		stats_counter = &stats->n_missed;
+ 		goto out;
+ 	}
+ 
+@@ -275,6 +288,32 @@ static struct genl_family dp_packet_genl_family = {
+ 	.parallel_ops = true,
+ };
+ 
++static int queue_userdata(struct net *net, int dp_ifindex,
++			  const struct dp_upcall_info *upcall_info)
++{
++	const struct nlattr *userdata = upcall_info->userdata;
++	struct ovs_header *ovs_header;
++	struct sk_buff *user_skb;
++
++	if (!userdata)
++		return -EINVAL;
++
++	user_skb = genlmsg_new(NLMSG_ALIGN(sizeof(struct ovs_header)) +
++			       NLA_ALIGN(userdata->nla_len), GFP_ATOMIC);
++	if (!user_skb)
++		return -ENOMEM;
++
++	ovs_header = genlmsg_put(user_skb, 0, 0, &dp_packet_genl_family, 0,
++				 upcall_info->cmd);
++	ovs_header->dp_ifindex = dp_ifindex;
++
++	__nla_put(user_skb, OVS_PACKET_ATTR_USERDATA,
++		  nla_len(userdata), nla_data(userdata));
++
++	genlmsg_end(user_skb, ovs_header);
++	return genlmsg_unicast(net, user_skb, upcall_info->portid);
++}
++
+ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		  const struct dp_upcall_info *upcall_info)
+ {
+@@ -293,7 +332,9 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		goto err;
+ 	}
+ 
+-	if (!skb_is_gso(skb))
++	if (!skb)
++		err = queue_userdata(ovs_dp_get_net(dp), dp_ifindex, upcall_info);
++	else if (!skb_is_gso(skb))
+ 		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
+ 	else
+ 		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
+@@ -338,12 +379,14 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
+ 			 * in this case is for a first fragment, so we need to
+ 			 * properly mark later fragments.
+ 			 */
+-			later_key = *upcall_info->key;
+-			later_key.ip.frag = OVS_FRAG_TYPE_LATER;
++			if (upcall_info->key) {
++				later_key = *upcall_info->key;
++				later_key.ip.frag = OVS_FRAG_TYPE_LATER;
+ 
+-			later_info = *upcall_info;
+-			later_info.key = &later_key;
+-			upcall_info = &later_info;
++				later_info = *upcall_info;
++				later_info.key = &later_key;
++				upcall_info = &later_info;
++			}
+ 		}
+ 	} while ((skb = skb->next));
+ 
+@@ -434,9 +477,12 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 			     0, upcall_info->cmd);
+ 	upcall->dp_ifindex = dp_ifindex;
+ 
+-	nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
+-	ovs_flow_to_nlattrs(upcall_info->key, upcall_info->key, user_skb);
+-	nla_nest_end(user_skb, nla);
++	if (upcall_info->key) {
++		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
++		ovs_flow_to_nlattrs(upcall_info->key, upcall_info->key,
++				    user_skb);
++		nla_nest_end(user_skb, nla);
++	}
+ 
+ 	if (upcall_info->userdata)
+ 		__nla_put(user_skb, OVS_PACKET_ATTR_USERDATA,
+@@ -1708,6 +1754,19 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
+ 		INIT_HLIST_HEAD(&dp->ports[i]);
+ 
++	/* Allocate BPF table. */
++	dp->plums = kzalloc(DP_MAX_PLUMS * sizeof(struct plum *), GFP_KERNEL);
++	if (!dp->plums) {
++		err = -ENOMEM;
++		goto err_destroy_ports_array;
++	}
++
++	dp->plums[0] = kzalloc(sizeof(struct plum), GFP_KERNEL);
++	if (!dp->plums[0]) {
++		err = -ENOMEM;
++		goto err_destroy_plums_array;
++	}
++
+ 	/* Set up our datapath device. */
+ 	parms.name = nla_data(a[OVS_DP_ATTR_NAME]);
+ 	parms.type = OVS_VPORT_TYPE_INTERNAL;
+@@ -1722,7 +1781,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		if (err == -EBUSY)
+ 			err = -EEXIST;
+ 
+-		goto err_destroy_ports_array;
++		goto err_destroy_plum0;
+ 	}
+ 
+ 	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+@@ -1741,6 +1800,10 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 
+ err_destroy_local_port:
+ 	ovs_dp_detach_port(ovs_vport_ovsl(dp, OVSP_LOCAL));
++err_destroy_plum0:
++	kfree(dp->plums[0]);
++err_destroy_plums_array:
++	kfree(dp->plums);
+ err_destroy_ports_array:
+ 	kfree(dp->ports);
+ err_destroy_percpu:
+@@ -1772,6 +1835,9 @@ static void __dp_destroy(struct datapath *dp)
+ 
+ 	list_del_rcu(&dp->list_node);
+ 
++	for (i = 0; i < DP_MAX_PLUMS; i++)
++		bpf_dp_unregister_plum(dp->plums[i]);
++
+ 	/* OVSP_LOCAL is datapath internal port. We need to make sure that
+ 	 * all port in datapath are destroyed first before freeing datapath.
+ 	 */
+@@ -2296,6 +2362,9 @@ static const struct genl_family_and_ops dp_genl_families[] = {
+ 	{ &dp_packet_genl_family,
+ 	  dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),
+ 	  NULL },
++	{ &dp_bpf_genl_family,
++	  dp_bpf_genl_ops, ARRAY_SIZE(dp_bpf_genl_ops),
++	  NULL },
+ };
+ 
+ static void dp_unregister_genl(int n_families)
+@@ -2407,10 +2476,14 @@ static int __init dp_init(void)
+ 	if (err)
+ 		goto error_flow_exit;
+ 
+-	err = register_pernet_device(&ovs_net_ops);
++	err = ovs_bpf_init();
+ 	if (err)
+ 		goto error_vport_exit;
+ 
++	err = register_pernet_device(&ovs_net_ops);
++	if (err)
++		goto error_bpf_exit;
++
+ 	err = register_netdevice_notifier(&ovs_dp_device_notifier);
+ 	if (err)
+ 		goto error_netns_exit;
+@@ -2427,6 +2500,8 @@ error_unreg_notifier:
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ error_netns_exit:
+ 	unregister_pernet_device(&ovs_net_ops);
++error_bpf_exit:
++	ovs_bpf_exit();
+ error_vport_exit:
+ 	ovs_vport_exit();
+ error_flow_exit:
+@@ -2442,6 +2517,7 @@ static void dp_cleanup(void)
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ 	unregister_pernet_device(&ovs_net_ops);
+ 	rcu_barrier();
++	ovs_bpf_exit();
+ 	ovs_vport_exit();
+ 	ovs_flow_exit();
+ }
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 4d109c1..c2923a4 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -28,6 +28,7 @@
+ 
+ #include "flow.h"
+ #include "vport.h"
++#include "dp_bpf.h"
+ 
+ #define DP_MAX_PORTS           USHRT_MAX
+ #define DP_VPORT_HASH_BUCKETS  1024
+@@ -83,6 +84,9 @@ struct datapath {
+ 	/* Network namespace ref. */
+ 	struct net *net;
+ #endif
++
++	/* BPF extension */
++	struct plum **plums;
+ };
+ 
+ /**
+@@ -130,6 +134,7 @@ struct ovs_net {
+ extern int ovs_net_id;
+ void ovs_lock(void);
+ void ovs_unlock(void);
++struct datapath *get_dp(struct net *net, int dp_ifindex);
+ 
+ #ifdef CONFIG_LOCKDEP
+ int lockdep_ovsl_is_held(void);
+diff --git a/net/openvswitch/dp_bpf.c b/net/openvswitch/dp_bpf.c
+new file mode 100644
+index 0000000..d638616
+--- /dev/null
++++ b/net/openvswitch/dp_bpf.c
+@@ -0,0 +1,1228 @@
++/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++#include <linux/openvswitch.h>
++#include "datapath.h"
++
++struct kmem_cache *plum_stack_cache;
++
++struct genl_family dp_bpf_genl_family = {
++	.id = GENL_ID_GENERATE,
++	.hdrsize = sizeof(struct ovs_header),
++	.name = OVS_BPF_FAMILY,
++	.version = OVS_BPF_VERSION,
++	.maxattr = OVS_BPF_ATTR_MAX,
++	.netnsok = true,
++	.parallel_ops = true,
++};
++
++static const struct nla_policy bpf_policy[OVS_BPF_ATTR_MAX + 1] = {
++	[OVS_BPF_ATTR_PLUM] = { .type = NLA_UNSPEC },
++	[OVS_BPF_ATTR_PLUM_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_PORT_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_UPCALL_PID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_DEST_PLUM_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_DEST_PORT_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_TABLE_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_KEY_OBJ] = { .type = NLA_UNSPEC },
++	[OVS_BPF_ATTR_LEAF_OBJ] = { .type = NLA_UNSPEC },
++	[OVS_BPF_ATTR_REPLICATOR_ID] = { .type = NLA_U32 },
++	[OVS_BPF_ATTR_PACKET] = { .type = NLA_UNSPEC },
++	[OVS_BPF_ATTR_DIRECTION] = { .type = NLA_U32 }
++};
++
++static struct sk_buff *gen_reply_u32(u32 pid, u32 value)
++{
++	struct sk_buff *skb;
++	int ret;
++	void *data;
++
++	skb = genlmsg_new(nla_total_size(sizeof(u32)), GFP_KERNEL);
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
++
++	data = genlmsg_put(skb, pid, 0, &dp_bpf_genl_family, 0, 0);
++	if (!data) {
++		ret = -EMSGSIZE;
++		goto error;
++	}
++
++	ret = nla_put_u32(skb, OVS_BPF_ATTR_UNSPEC, value);
++	if (ret < 0)
++		goto error;
++
++	genlmsg_end(skb, data);
++
++	return skb;
++
++error:
++	kfree_skb(skb);
++	return ERR_PTR(ret);
++}
++
++static struct sk_buff *gen_reply_unspec(u32 pid, u32 len, void *ptr)
++{
++	struct sk_buff *skb;
++	int ret;
++	void *data;
++
++	skb = genlmsg_new(nla_total_size(len), GFP_ATOMIC);
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
++
++	data = genlmsg_put(skb, pid, 0, &dp_bpf_genl_family, 0, 0);
++	if (!data) {
++		ret = -EMSGSIZE;
++		goto error;
++	}
++
++	ret = nla_put(skb, OVS_BPF_ATTR_UNSPEC, len, ptr);
++	if (ret < 0)
++		goto error;
++
++	genlmsg_end(skb, data);
++
++	return skb;
++
++error:
++	kfree_skb(skb);
++	return ERR_PTR(ret);
++}
++
++static void reset_port_stats(struct plum *plum, u32 port_id)
++{
++	int i;
++	struct pcpu_port_stats *stats;
++
++	for_each_possible_cpu(i) {
++		stats = per_cpu_ptr(plum->stats[port_id], i);
++		u64_stats_update_begin(&stats->syncp);
++		stats->rx_packets = 0;
++		stats->rx_bytes = 0;
++		stats->rx_mcast_packets = 0;
++		stats->rx_mcast_bytes = 0;
++		stats->tx_packets = 0;
++		stats->tx_bytes = 0;
++		stats->tx_mcast_packets = 0;
++		stats->tx_mcast_bytes = 0;
++		u64_stats_update_end(&stats->syncp);
++	}
++}
++
++static int get_port_stats(struct plum *plum, u32 port_id,
++			  struct ovs_bpf_port_stats *stats)
++{
++	int i;
++	const struct pcpu_port_stats *pstats;
++	struct pcpu_port_stats local_pstats;
++	int start;
++
++	if (!plum->stats[port_id])
++		return -EINVAL;
++
++	memset(stats, 0, sizeof(*stats));
++
++	for_each_possible_cpu(i) {
++		pstats = per_cpu_ptr(plum->stats[port_id], i);
++
++		do {
++			start = u64_stats_fetch_begin_bh(&pstats->syncp);
++			local_pstats = *pstats;
++		} while (u64_stats_fetch_retry_bh(&pstats->syncp, start));
++
++		stats->rx_packets += local_pstats.rx_packets;
++		stats->rx_bytes += local_pstats.rx_bytes;
++		stats->rx_mcast_packets += local_pstats.rx_mcast_packets;
++		stats->rx_mcast_bytes += local_pstats.rx_mcast_bytes;
++		stats->tx_packets += local_pstats.tx_packets;
++		stats->tx_bytes += local_pstats.tx_bytes;
++		stats->tx_mcast_packets += local_pstats.tx_mcast_packets;
++		stats->tx_mcast_bytes += local_pstats.tx_mcast_bytes;
++	}
++
++	return 0;
++}
++
++static int ovs_bpf_cmd_register_plum(struct sk_buff *skb,
++				     struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	int ret;
++	u32 plum_id = -EINVAL;
++	struct plum *plum;
++	u32 upcall_pid;
++	struct bpf_image *image;
++
++	if (!a[OVS_BPF_ATTR_PLUM] || !a[OVS_BPF_ATTR_UPCALL_PID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	image = nla_data(a[OVS_BPF_ATTR_PLUM]);
++
++	if (nla_len(a[OVS_BPF_ATTR_PLUM]) != sizeof(struct bpf_image)) {
++		pr_err("unsupported plum size %d\n",
++		       nla_len(a[OVS_BPF_ATTR_PLUM]));
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	upcall_pid = nla_get_u32(a[OVS_BPF_ATTR_UPCALL_PID]);
++
++	for (plum_id = 1;; plum_id++) {
++		if (plum_id >= DP_MAX_PLUMS) {
++			ret = -EFBIG;
++			goto exit_unlock;
++		}
++		plum = ovsl_dereference(dp->plums[plum_id]);
++		if (!plum)
++			break;
++	}
++
++	plum = bpf_dp_register_plum(image, NULL, plum_id);
++	ret = PTR_ERR(plum);
++	if (IS_ERR(plum))
++		goto exit_unlock;
++
++	plum->upcall_pid = upcall_pid;
++	rcu_assign_pointer(dp->plums[plum_id], plum);
++
++	reply = gen_reply_u32(info->snd_portid, plum_id);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++static int ovs_bpf_cmd_unregister_plum(struct sk_buff *skb,
++				       struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	u32 plum_id;
++	struct plum *plum;
++	struct plum *dest_plum;
++	u32 dest;
++	int ret;
++	int i;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	for (i = 0; i < PLUM_MAX_PORTS; i++) {
++		dest = atomic_read(&plum->ports[i]);
++		if (dest) {
++			dest_plum = ovsl_dereference(dp->plums[dest >> 16]);
++			if (!dest_plum)
++				continue;
++			atomic_set(&dest_plum->ports[dest & 0xffff], 0);
++		}
++	}
++
++	rcu_assign_pointer(dp->plums[plum_id], NULL);
++
++	bpf_dp_unregister_plum(plum);
++
++	reply = gen_reply_u32(info->snd_portid, plum_id);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++static int validate_ports(struct datapath *dp, u32 plum_id, u32 port_id,
++			  u32 dest_plum_id, u32 dest_port_id)
++{
++	if (plum_id >= DP_MAX_PLUMS || dest_plum_id >= DP_MAX_PLUMS) {
++		pr_err("validate_ports(%d, %d, %d, %d): plum_id is too large",
++		       plum_id, port_id, dest_plum_id, dest_port_id);
++		return -EFBIG;
++	} else if (MUX(plum_id, port_id) == 0 ||
++		   MUX(dest_plum_id, dest_port_id) == 0 ||
++		   plum_id == dest_plum_id) {
++		pr_err("validate_ports(%d, %d, %d, %d): plum/port combination is invalid\n",
++		       plum_id, port_id, dest_plum_id, dest_port_id);
++		return -EINVAL;
++	} else if (port_id >= PLUM_MAX_PORTS ||
++		   dest_port_id >= PLUM_MAX_PORTS) {
++		pr_err("validate_ports(%d, %d, %d, %d): port_id is too large\n",
++		       plum_id, port_id, dest_plum_id, dest_port_id);
++		return -EFBIG;
++	}
++	if (plum_id == 0) {
++		struct vport *vport;
++		vport = ovs_vport_ovsl_rcu(dp, port_id);
++		if (!vport) {
++			pr_err("validate_ports(%d, %d, %d, %d): vport doesn't exist\n",
++			       plum_id, port_id, dest_plum_id, dest_port_id);
++			return -EINVAL;
++		}
++	}
++	if (dest_plum_id == 0) {
++		struct vport *dest_vport;
++		dest_vport = ovs_vport_ovsl_rcu(dp, dest_port_id);
++		if (!dest_vport) {
++			pr_err("validate_ports(%d, %d, %d, %d): vport doesn't exist\n",
++			       plum_id, port_id, dest_plum_id, dest_port_id);
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
++/* connect_ports(src_plum_id, src_port_id, dest_plum_id, dest_port_id)
++ * establishes bi-directional virtual wire between two plums
++ */
++static int ovs_bpf_cmd_connect_ports(struct sk_buff *skb,
++				     struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	u32 plum_id, port_id, dest_plum_id, dest_port_id;
++	struct plum *plum, *dest_plum;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID] ||
++	    !a[OVS_BPF_ATTR_DEST_PLUM_ID] || !a[OVS_BPF_ATTR_DEST_PORT_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	dest_plum_id = nla_get_u32(a[OVS_BPF_ATTR_DEST_PLUM_ID]);
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	dest_port_id = nla_get_u32(a[OVS_BPF_ATTR_DEST_PORT_ID]);
++
++	ret = validate_ports(dp, plum_id, port_id, dest_plum_id, dest_port_id);
++	if (ret != 0)
++		goto exit_unlock;
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	dest_plum = ovsl_dereference(dp->plums[dest_plum_id]);
++	if (!plum || !dest_plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	if (atomic_read(&plum->ports[port_id]) != 0 ||
++	    atomic_read(&dest_plum->ports[dest_port_id]) != 0) {
++		ret = -EBUSY;
++		goto exit_unlock;
++	}
++
++	if (!plum->stats[port_id]) {
++		plum->stats[port_id] = alloc_percpu(struct pcpu_port_stats);
++		if (!plum->stats[port_id]) {
++			ret = -ENOMEM;
++			goto exit_unlock;
++		}
++	} else {
++		reset_port_stats(plum, port_id);
++	}
++
++	if (!dest_plum->stats[dest_port_id]) {
++		dest_plum->stats[dest_port_id] =
++			alloc_percpu(struct pcpu_port_stats);
++		if (!dest_plum->stats[dest_port_id]) {
++			ret = -ENOMEM;
++			goto exit_unlock;
++		}
++	} else {
++		reset_port_stats(dest_plum, dest_port_id);
++	}
++
++	atomic_set(&plum->ports[port_id], MUX(dest_plum_id, dest_port_id));
++	atomic_set(&dest_plum->ports[dest_port_id], MUX(plum_id, port_id));
++	smp_wmb();
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* disconnect_ports(src_plum_id, src_port_id, dest_plum_id, dest_port_id)
++ * removes virtual wire between two plums
++ */
++static int ovs_bpf_cmd_disconnect_ports(struct sk_buff *skb,
++					struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	u32 plum_id, port_id, dest_plum_id, dest_port_id;
++	struct plum *plum, *dest_plum;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID] ||
++	    !a[OVS_BPF_ATTR_DEST_PLUM_ID] || !a[OVS_BPF_ATTR_DEST_PORT_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	dest_plum_id = nla_get_u32(a[OVS_BPF_ATTR_DEST_PLUM_ID]);
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	dest_port_id = nla_get_u32(a[OVS_BPF_ATTR_DEST_PORT_ID]);
++
++	ret = validate_ports(dp, plum_id, port_id, dest_plum_id, dest_port_id);
++	if (ret != 0)
++		goto exit_unlock;
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	dest_plum = ovsl_dereference(dp->plums[dest_plum_id]);
++
++	if (plum)
++		atomic_set(&plum->ports[port_id], 0);
++	if (dest_plum)
++		atomic_set(&dest_plum->ports[dest_port_id], 0);
++	smp_wmb();
++
++	/* leave the stats allocated until plum is freed */
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* update_table_element(plum_id, table_id, key, value) */
++static int ovs_bpf_cmd_update_table_element(struct sk_buff *skb,
++					    struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, table_id;
++	char *key_data, *leaf_data;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_TABLE_ID] ||
++	    !a[OVS_BPF_ATTR_KEY_OBJ] || !a[OVS_BPF_ATTR_LEAF_OBJ])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	table_id = nla_get_u32(a[OVS_BPF_ATTR_TABLE_ID]);
++	if (table_id >= plum->num_tables) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	key_data = nla_data(a[OVS_BPF_ATTR_KEY_OBJ]);
++	leaf_data = nla_data(a[OVS_BPF_ATTR_LEAF_OBJ]);
++
++	ret = bpf_dp_update_table_element(plum, table_id, key_data, leaf_data);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* clear_table_elements(plum_id, table_id) */
++static int ovs_bpf_cmd_clear_table_elements(struct sk_buff *skb,
++					    struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, table_id;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_TABLE_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	table_id = nla_get_u32(a[OVS_BPF_ATTR_TABLE_ID]);
++	if (table_id >= plum->num_tables) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	ret = bpf_dp_clear_table_elements(plum, table_id);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* delete_table_element(plum_id, table_id, key) */
++static int ovs_bpf_cmd_delete_table_element(struct sk_buff *skb,
++					    struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, table_id;
++	char *key_data;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_TABLE_ID] ||
++	    !a[OVS_BPF_ATTR_KEY_OBJ])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	table_id = nla_get_u32(a[OVS_BPF_ATTR_TABLE_ID]);
++	if (table_id >= plum->num_tables) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	key_data = nla_data(a[OVS_BPF_ATTR_KEY_OBJ]);
++
++	ret = bpf_dp_delete_table_element(plum, table_id, key_data);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* read_table_element(plum_id, table_id, key) */
++static int ovs_bpf_cmd_read_table_element(struct sk_buff *skb,
++					  struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, table_id;
++	char *key_data;
++	void *elem_data;
++	u32 elem_size;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_TABLE_ID] ||
++	    !a[OVS_BPF_ATTR_KEY_OBJ])
++		return -EINVAL;
++
++	rcu_read_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = rcu_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	table_id = nla_get_u32(a[OVS_BPF_ATTR_TABLE_ID]);
++	if (table_id >= plum->num_tables) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	key_data = nla_data(a[OVS_BPF_ATTR_KEY_OBJ]);
++
++	elem_data = bpf_dp_read_table_element(plum, table_id, key_data,
++					      &elem_size);
++	if (IS_ERR(elem_data)) {
++		ret = PTR_ERR(elem_data);
++		goto exit_unlock;
++	}
++
++	reply = gen_reply_unspec(info->snd_portid, elem_size, elem_data);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	rcu_read_unlock();
++
++	return ret;
++}
++
++/* read_table_elements(plum_id, table_id) via dumpit */
++static int ovs_bpf_cmd_read_table_elements(struct sk_buff *skb,
++					   struct netlink_callback *cb)
++{
++	struct nlattr *nla_plum_id, *nla_table_id;
++	struct ovs_header *ovs_header = genlmsg_data(nlmsg_data(cb->nlh));
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, table_id;
++	u32 row, obj;
++	void *data;
++	void *elem_data;
++	u32 elem_size;
++	int ret = 0;
++
++	nla_plum_id = nlmsg_find_attr(cb->nlh, GENL_HDRLEN +
++				      sizeof(struct ovs_header),
++				      OVS_BPF_ATTR_PLUM_ID);
++	nla_table_id = nlmsg_find_attr(cb->nlh, GENL_HDRLEN +
++				       sizeof(struct ovs_header),
++				       OVS_BPF_ATTR_TABLE_ID);
++	if (!nla_plum_id || !nla_table_id)
++		return -EINVAL;
++
++	rcu_read_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(nla_plum_id);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = rcu_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	table_id = nla_get_u32(nla_table_id);
++	if (table_id >= plum->num_tables) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	for (;;) {
++		row = cb->args[0];
++		obj = cb->args[1];
++
++		elem_data = bpf_dp_read_table_element_next(plum, table_id,
++							   &row, &obj,
++							   &elem_size);
++		if (IS_ERR(elem_data)) {
++			ret = PTR_ERR(elem_data);
++			goto exit_unlock;
++		}
++
++		if (!elem_data)
++			goto exit_unlock;
++
++		data = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, 0,
++				   &dp_bpf_genl_family, NLM_F_MULTI, 0);
++		if (!data)
++			goto exit_unlock;
++
++		ret = nla_put(skb, OVS_BPF_ATTR_UNSPEC, elem_size, elem_data);
++		if (ret < 0) {
++			genlmsg_cancel(skb, data);
++			ret = 0;
++			goto exit_unlock;
++		}
++
++		genlmsg_end(skb, data);
++
++		cb->args[0] = row;
++		cb->args[1] = obj;
++	}
++
++exit_unlock:
++	rcu_read_unlock();
++
++	return ret < 0 ? ret : skb->len;
++}
++
++/* del_replicator(plum_id, replicator_id) */
++static int ovs_bpf_cmd_del_replicator(struct sk_buff *skb,
++				      struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, replicator_id;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_REPLICATOR_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	replicator_id = nla_get_u32(a[OVS_BPF_ATTR_REPLICATOR_ID]);
++	if (replicator_id >= PLUM_MAX_REPLICATORS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	ret = bpf_dp_replicator_del_all(plum, replicator_id);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* add_port_to_replicator(plum_id, replicator_id, port_id) */
++static int ovs_bpf_cmd_add_port_to_replicator(struct sk_buff *skb,
++					      struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, port_id, replicator_id;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID] ||
++	    !a[OVS_BPF_ATTR_REPLICATOR_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	if (port_id >= PLUM_MAX_PORTS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	replicator_id = nla_get_u32(a[OVS_BPF_ATTR_REPLICATOR_ID]);
++	if (replicator_id >= PLUM_MAX_REPLICATORS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	ret = bpf_dp_replicator_add_port(plum, replicator_id, port_id);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* del_port_from_replicator(plum_id, replicator_id, port_id) */
++static int ovs_bpf_cmd_del_port_from_replicator(struct sk_buff *skb,
++						struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, port_id, replicator_id;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID] ||
++	    !a[OVS_BPF_ATTR_REPLICATOR_ID])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = ovsl_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	if (port_id >= PLUM_MAX_PORTS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	replicator_id = nla_get_u32(a[OVS_BPF_ATTR_REPLICATOR_ID]);
++	if (replicator_id >= PLUM_MAX_REPLICATORS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	ret = bpf_dp_replicator_del_port(plum, replicator_id, port_id);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* channel_push(plum_id, port_id, packet, direction) */
++static int ovs_bpf_cmd_channel_push(struct sk_buff *skb,
++				    struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	u32 plum_id, port_id, dir;
++	struct sk_buff *packet;
++	struct ethhdr *eth;
++	struct plum *plum;
++	int len;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID] ||
++	    !a[OVS_BPF_ATTR_PACKET] || !a[OVS_BPF_ATTR_DIRECTION])
++		return -EINVAL;
++
++	ovs_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = rcu_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	if (port_id >= PLUM_MAX_PORTS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	dir = nla_get_u32(a[OVS_BPF_ATTR_DIRECTION]);
++
++	len = nla_len(a[OVS_BPF_ATTR_PACKET]);
++	packet = __dev_alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
++	if (!packet) {
++		ret = -ENOMEM;
++		goto exit_unlock;
++	}
++	skb_reserve(packet, NET_IP_ALIGN);
++
++	nla_memcpy(__skb_put(packet, len), a[OVS_BPF_ATTR_PACKET], len);
++
++	skb_reset_mac_header(packet);
++
++	eth = eth_hdr(packet);
++	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
++		packet->protocol = eth->h_proto;
++	else
++		packet->protocol = htons(ETH_P_802_2);
++
++	ret = bpf_dp_channel_push_on_plum(dp, plum_id, port_id, packet, dir);
++
++	reply = gen_reply_u32(info->snd_portid, ret);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	ovs_unlock();
++
++	return ret;
++}
++
++/* read_port_stats(plum_id, port_id) */
++static int ovs_bpf_cmd_read_port_stats(struct sk_buff *skb,
++				       struct genl_info *info)
++{
++	struct nlattr **a = info->attrs;
++	struct ovs_header *ovs_header = info->userhdr;
++	struct sk_buff *reply;
++	struct datapath *dp;
++	struct plum *plum;
++	u32 plum_id, port_id;
++	struct ovs_bpf_port_stats stats;
++	int ret;
++
++	if (!a[OVS_BPF_ATTR_PLUM_ID] || !a[OVS_BPF_ATTR_PORT_ID])
++		return -EINVAL;
++
++	rcu_read_lock();
++	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	if (!dp) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	plum_id = nla_get_u32(a[OVS_BPF_ATTR_PLUM_ID]);
++	if (plum_id >= DP_MAX_PLUMS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	plum = rcu_dereference(dp->plums[plum_id]);
++	if (!plum) {
++		ret = -EINVAL;
++		goto exit_unlock;
++	}
++
++	port_id = nla_get_u32(a[OVS_BPF_ATTR_PORT_ID]);
++	if (port_id >= PLUM_MAX_PORTS) {
++		ret = -EFBIG;
++		goto exit_unlock;
++	}
++
++	ret = get_port_stats(plum, port_id, &stats);
++	if (ret < 0)
++		goto exit_unlock;
++
++	reply = gen_reply_unspec(info->snd_portid, sizeof(stats), &stats);
++
++	if (IS_ERR(reply)) {
++		ret = PTR_ERR(reply);
++		goto exit_unlock;
++	}
++
++	ret = genlmsg_unicast(sock_net(skb->sk), reply, info->snd_portid);
++
++exit_unlock:
++	rcu_read_unlock();
++
++	return ret;
++}
++
++struct genl_ops dp_bpf_genl_ops[] = {
++	{ .cmd = OVS_BPF_CMD_REGISTER_PLUM,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_register_plum
++	},
++	{ .cmd = OVS_BPF_CMD_UNREGISTER_PLUM,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_unregister_plum
++	},
++	{ .cmd = OVS_BPF_CMD_CONNECT_PORTS,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_connect_ports
++	},
++	{ .cmd = OVS_BPF_CMD_DISCONNECT_PORTS,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_disconnect_ports
++	},
++	{ .cmd = OVS_BPF_CMD_CLEAR_TABLE_ELEMENTS,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_clear_table_elements
++	},
++	{ .cmd = OVS_BPF_CMD_DELETE_TABLE_ELEMENT,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_delete_table_element
++	},
++	{ .cmd = OVS_BPF_CMD_READ_TABLE_ELEMENT,
++	  .flags = 0,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_read_table_element,
++	  .dumpit = ovs_bpf_cmd_read_table_elements
++	},
++	{ .cmd = OVS_BPF_CMD_UPDATE_TABLE_ELEMENT,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_update_table_element
++	},
++	{ .cmd = OVS_BPF_CMD_DEL_REPLICATOR,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_del_replicator
++	},
++	{ .cmd = OVS_BPF_CMD_ADD_PORT_TO_REPLICATOR,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_add_port_to_replicator
++	},
++	{ .cmd = OVS_BPF_CMD_DEL_PORT_FROM_REPLICATOR,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_del_port_from_replicator
++	},
++	{ .cmd = OVS_BPF_CMD_CHANNEL_PUSH,
++	  .flags = GENL_ADMIN_PERM,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_channel_push
++	},
++	{ .cmd = OVS_BPF_CMD_READ_PORT_STATS,
++	  .flags = 0,
++	  .policy = bpf_policy,
++	  .doit = ovs_bpf_cmd_read_port_stats
++	},
++};
++
++/* Initializes the BPF module.
++ * Returns zero if successful or a negative error code.
++ */
++int ovs_bpf_init(void)
++{
++	plum_stack_cache = kmem_cache_create("plum_stack",
++					     sizeof(struct plum_stack_frame), 0,
++					     0, NULL);
++	if (plum_stack_cache == NULL)
++		return -ENOMEM;
++
++	return 0;
++}
++
++/* Uninitializes the BPF module. */
++void ovs_bpf_exit(void)
++{
++	kmem_cache_destroy(plum_stack_cache);
++}
+diff --git a/net/openvswitch/dp_bpf.h b/net/openvswitch/dp_bpf.h
+new file mode 100644
+index 0000000..4550434
+--- /dev/null
++++ b/net/openvswitch/dp_bpf.h
+@@ -0,0 +1,160 @@
++/* Copyright (c) 2011-2013 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++#ifndef DP_BPF_H
++#define DP_BPF_H 1
++
++#include <net/genetlink.h>
++#include <linux/openvswitch.h>
++#include <linux/filter.h>
++
++#define DP_MAX_PLUMS 1024
++#define PLUM_MAX_PORTS 1000
++#define PLUM_MAX_TABLES 128
++#define PLUM_MAX_REPLICATORS 256
++
++/* PLUM is short of Packet Lookup Update Modify.
++ * It is using BPF program as core execution engine
++ * one plum = one BPF program
++ * BPF program can run BPF insns, call functions and access BPF tables
++ * PLUM provides the functions that BPF can call and semantics behind it
++ */
++
++struct pcpu_port_stats {
++	u64 rx_packets;
++	u64 rx_bytes;
++	u64 tx_packets;
++	u64 tx_bytes;
++	u64 rx_mcast_packets;
++	u64 rx_mcast_bytes;
++	u64 tx_mcast_packets;
++	u64 tx_mcast_bytes;
++	struct u64_stats_sync syncp;
++};
++
++/* 'bpf_context' is passed into BPF programs
++ * 'bpf_dp_context' encapsulates it
++ */
++struct bpf_dp_context {
++	struct bpf_context context;
++	struct sk_buff *skb;
++	struct datapath *dp;
++	struct plum_stack *stack;
++};
++
++struct plum_stack_frame {
++	struct bpf_dp_context ctx;
++	u32 dest; /* destination plum_id|port_id */
++	u32 kmem; /* if true this stack frame came from kmem_cache_alloc */
++	struct list_head link;
++};
++
++struct plum_stack {
++	struct list_head list; /* link list of plum_stack_frame's */
++	struct plum_stack_frame *curr_frame; /* current frame */
++	int push_cnt; /* number of frames pushed */
++};
++
++struct plum_hash_elem {
++	struct rcu_head rcu;
++	struct hlist_node hash_node;
++	struct plum_hash_table *table;
++	u32 hash;
++	atomic_t hit_cnt;
++	char key[0];
++};
++
++struct plum_hash_table {
++	spinlock_t lock;
++	struct kmem_cache *leaf_cache;
++	struct hlist_head *buckets;
++	u32 leaf_size;
++	u32 key_size;
++	u32 count;
++	u32 n_buckets;
++	u32 max_entries;
++	char slab_name[32];
++	struct work_struct work;
++};
++
++struct plum_table {
++	struct bpf_table info;
++	void *base;
++};
++
++struct plum_replicator_elem {
++	struct rcu_head rcu;
++	struct hlist_node hash_node;
++	u32 replicator_id;
++	u32 port_id;
++};
++
++struct plum {
++	struct rcu_head rcu;
++	struct bpf_program *bpf_prog;
++	struct plum_table *tables;
++	struct hlist_head *replicators;
++	u32 num_tables;
++	atomic_t ports[PLUM_MAX_PORTS];
++	u32 version;
++	u32 upcall_pid;
++	struct pcpu_port_stats __percpu *stats[PLUM_MAX_PORTS];
++	void (*run)(struct bpf_dp_context *ctx);
++};
++
++#define MUX(plum, port) ((((u32)plum) << 16) | (((u32)port) & 0xffff))
++
++extern struct kmem_cache *plum_stack_cache;
++
++extern struct genl_family dp_bpf_genl_family;
++extern struct genl_ops dp_bpf_genl_ops[OVS_BPF_CMD_MAX];
++
++int ovs_bpf_init(void);
++void ovs_bpf_exit(void);
++
++void bpf_dp_process_received_packet(struct vport *p, struct sk_buff *skb);
++struct plum *bpf_dp_register_plum(struct bpf_image *image,
++				  struct plum *old_plum, u32 plum_id);
++void bpf_dp_unregister_plum(struct plum *plum);
++void bpf_dp_disconnect_port(struct vport *p);
++int bpf_dp_channel_push_on_plum(struct datapath *, u32 plum_id, u32 port_id,
++				struct sk_buff *skb, u32 direction);
++void plum_stack_push(struct bpf_dp_context *ctx, u32 dest, int copy);
++void plum_update_stats(struct plum *plum, u32 port_id, struct sk_buff *skb,
++		       bool rx);
++
++int init_plum_tables(struct plum *plum, u32 plum_id);
++void cleanup_plum_tables(struct plum *plum);
++void free_plum_tables(struct plum *plum);
++int bpf_dp_clear_table_elements(struct plum *plum, u32 table_id);
++int bpf_dp_delete_table_element(struct plum *plum, u32 table_id,
++				const char *key_data);
++void *bpf_dp_read_table_element(struct plum *plum, u32 table_id,
++				const char *key_data, u32 *elem_size);
++void *bpf_dp_read_table_element_next(struct plum *plum, u32 table_id,
++				     u32 *row, u32 *last, u32 *elem_size);
++int bpf_dp_update_table_element(struct plum *plum, u32 table_id,
++				const char *key_data, const char *leaf_data);
++
++int bpf_dp_replicator_del_all(struct plum *plum, u32 replicator_id);
++int bpf_dp_replicator_add_port(struct plum *plum, u32 replicator_id,
++			       u32 port_id);
++int bpf_dp_replicator_del_port(struct plum *plum, u32 replicator_id,
++			       u32 port_id);
++void cleanup_plum_replicators(struct plum *plum);
++extern struct bpf_callbacks bpf_plum_cb;
++
++#endif /* dp_bpf.h */
+diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
+index c323567..e601f64 100644
+--- a/net/openvswitch/dp_notify.c
++++ b/net/openvswitch/dp_notify.c
+@@ -88,6 +88,13 @@ static int dp_device_event(struct notifier_block *unused, unsigned long event,
+ 		return NOTIFY_DONE;
+ 
+ 	if (event == NETDEV_UNREGISTER) {
++		/* unlink dev now, otherwise rollback_registered_many()
++		 * will complain of lack of upper_dev cleanup
++		 */
++		if (dev->reg_state == NETREG_UNREGISTERING)
++			ovs_netdev_unlink_dev(vport);
++
++		/* schedule vport destroy, dev_put and genl notification */
+ 		ovs_net = net_generic(dev_net(dev), ovs_net_id);
+ 		queue_work(system_wq, &ovs_net->dp_notify_work);
+ 	}
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index c99dea5..4c03dd9 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -47,16 +47,6 @@
+ #include "datapath.h"
+ #include "vport.h"
+ 
+-/* Returns the least-significant 32 bits of a __be64. */
+-static __be32 be64_get_low32(__be64 x)
+-{
+-#ifdef __BIG_ENDIAN
+-	return (__force __be32)x;
+-#else
+-	return (__force __be32)((__force u64)x >> 32);
+-#endif
+-}
+-
+ static __be16 filter_tnl_flags(__be16 flags)
+ {
+ 	return flags & (TUNNEL_CSUM | TUNNEL_KEY);
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 09d93c1..5505c5e 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -79,7 +79,7 @@ static struct net_device *get_dpdev(struct datapath *dp)
+ {
+ 	struct vport *local;
+ 
+-	local = ovs_vport_ovsl(dp, OVSP_LOCAL);
++	local = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
+ 	BUG_ON(!local);
+ 	return netdev_vport_priv(local)->dev;
+ }
+@@ -150,15 +150,24 @@ static void free_port_rcu(struct rcu_head *rcu)
+ 	ovs_vport_free(vport_from_priv(netdev_vport));
+ }
+ 
+-static void netdev_destroy(struct vport *vport)
++void ovs_netdev_unlink_dev(struct vport *vport)
+ {
+ 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
+ 
+-	rtnl_lock();
++	ASSERT_RTNL();
+ 	netdev_vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
+ 	netdev_rx_handler_unregister(netdev_vport->dev);
+ 	netdev_upper_dev_unlink(netdev_vport->dev, get_dpdev(vport->dp));
+ 	dev_set_promiscuity(netdev_vport->dev, -1);
++}
++
++static void netdev_destroy(struct vport *vport)
++{
++	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
++
++	rtnl_lock();
++	if (netdev_vport->dev->reg_state != NETREG_UNREGISTERING)
++		ovs_netdev_unlink_dev(vport);
+ 	rtnl_unlock();
+ 
+ 	call_rcu(&netdev_vport->rcu, free_port_rcu);
+diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+index dd298b5..21e3770 100644
+--- a/net/openvswitch/vport-netdev.h
++++ b/net/openvswitch/vport-netdev.h
+@@ -39,5 +39,6 @@ netdev_vport_priv(const struct vport *vport)
+ }
+ 
+ const char *ovs_netdev_get_name(const struct vport *);
++void ovs_netdev_unlink_dev(struct vport *);
+ 
+ #endif /* vport_netdev.h */
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 1a9fbce..0aedebc 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -208,4 +208,14 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ 		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
+ }
+ 
++/* Returns the least-significant 32 bits of a __be64. */
++static inline __be32 be64_get_low32(__be64 x)
++{
++#ifdef __BIG_ENDIAN
++	return (__force __be32)x;
++#else
++	return (__force __be32)((__force u64)x >> 32);
++#endif
++}
++
+ #endif /* vport.h */
 -- 
 1.7.9.5
