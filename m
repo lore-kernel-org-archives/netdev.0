@@ -1,29 +1,35 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 21/27] net: add a function to get the next private
-Date: Tue, 17 Sep 2013 02:46:46 +0200
-Message-ID: <1379378812-18346-22-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 14/27] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
+Date: Tue, 17 Sep 2013 02:46:39 +0200
+Message-ID: <1379378812-18346-15-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51813 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35016 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752126Ab3IQAr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:28 -0400
+	id S1752036Ab3IQArO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:14 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It searches for the provided private and returns the next one. If private
-is not found or next list element is list head - returns NULL.
+Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
+it doesn't check every slave for disrepencies between the actual
+IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
+next suitable slave.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
+Fix this by using bond_for_each_slave() and storing the first good slave in
+*before till we find the current_arp_slave, after that we store the first good
+slave in new_slave. If new_slave is empty - use the slave stored in before,
+and if it's also empty - then we didn't find any suitable slave.
+
+Also, in the meanwhile, check for each slave status.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -35,63 +41,82 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Drop the bool switch - it only goes to ->next now, and rework it so
-    that it doesn't go over the head, but rather returns NULL.
+    New patch.
 
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            | 27 +++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+ drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 72d1631..b487302 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2866,6 +2866,8 @@ extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
- 					      struct net_device *lower_dev);
- extern void *netdev_lower_dev_get_private(struct net_device *dev,
- 					  struct net_device *lower_dev);
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private);
- extern int skb_checksum_help(struct sk_buff *skb);
- extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 24c7d17..d58ca53 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_lower_dev_get_private);
- 
-+/* netdev_lower_dev_get_next_private - return the ->private of the list
-+ *				       element whos ->private == private.
-+ * @dev - device to search
-+ * @private - private pointer to search for.
-+ *
-+ * Returns the next ->private pointer, if ->next is not head and private is
-+ * found.
-+ */
-+extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-+					       void *private)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	list_for_each_entry(lower, &dev->adj_list.lower, list) {
-+		if (lower->private == private) {
-+			lower = list_entry(lower->list.next,
-+					   struct netdev_adjacent, list);
-+			if (&lower->list == &dev->adj_list.lower)
-+				return NULL;
-+			return lower->private;
-+		}
-+	}
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b5497e7..eedfa8f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2761,8 +2761,9 @@ do_failover:
+  */
+ static void bond_ab_arp_probe(struct bonding *bond)
  {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+-	struct slave *slave, *next_slave;
+-	int i;
++	struct slave *slave, *before = NULL, *new_slave = NULL;
++	struct list_head *iter;
++	bool found = false;
+ 
+ 	read_lock(&bond->curr_slave_lock);
+ 
+@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	bond_set_slave_inactive_flags(bond->current_arp_slave);
+ 
+-	/* search for next candidate */
+-	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+-		if (IS_UP(slave->dev)) {
+-			slave->link = BOND_LINK_BACK;
+-			bond_set_slave_active_flags(slave);
+-			bond_arp_send_all(bond, slave);
+-			slave->jiffies = jiffies;
+-			bond->current_arp_slave = slave;
+-			break;
+-		}
++	bond_for_each_slave(bond, slave, iter) {
++		if (!found && !before && IS_UP(slave->dev))
++			before = slave;
+ 
++		if (found && !new_slave && IS_UP(slave->dev))
++			new_slave = slave;
+ 		/* if the link state is up at this point, we
+ 		 * mark it down - this can happen if we have
+ 		 * simultaneous link failures and
+@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 		 * one the current slave so it is still marked
+ 		 * up when it is actually down
+ 		 */
+-		if (slave->link == BOND_LINK_UP) {
++		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
+ 			slave->link = BOND_LINK_DOWN;
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 			pr_info("%s: backup interface %s is now down.\n",
+ 				bond->dev->name, slave->dev->name);
+ 		}
++		if (slave == bond->current_arp_slave)
++			found = true;
+ 	}
++
++	if (!new_slave && before)
++		new_slave = before;
++
++	if (!new_slave)
++		return;
++
++	new_slave->link = BOND_LINK_BACK;
++	bond_set_slave_active_flags(new_slave);
++	bond_arp_send_all(bond, new_slave);
++	new_slave->jiffies = jiffies;
++	bond->current_arp_slave = new_slave;
++
+ }
+ 
+ void bond_activebackup_arp_mon(struct work_struct *work)
 -- 
 1.8.4
