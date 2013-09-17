@@ -1,59 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next] net loopback: Set loopback_dev to NULL when freed
-Date: Mon, 16 Sep 2013 16:52:41 -0700
-Message-ID: <87k3iggw8m.fsf_-_@xmission.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	<871u4t1d9t.fsf@xmission.com>
-	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
-	<87d2ocrx9b.fsf@xmission.com>
-	<CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
-	<87six5kpu5.fsf@xmission.com>
-	<CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc 2013-09-17
+Date: Tue, 17 Sep 2013 01:10:11 +0100
+Message-ID: <1379376611.1945.11.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <edumazet@google.com>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51973 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842Ab3IPXwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 19:52:53 -0400
-In-Reply-To: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
-	(Francesco Ruggeri's message of "Mon, 16 Sep 2013 13:30:50 -0700")
+Received: from webmail.solarflare.com ([12.187.104.25]:29314 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216Ab3IQAKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 20:10:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The following changes since commit ba39767288661c01ac7797b6b981f73b6513cf55:
 
-It has recently turned up that we have a number of long standing bugs
-in the network stack cleanup code with use of the loopback device
-after it has been freed that have not turned up because in most cases
-the storage allocated to the loopback device is not reused, when those
-accesses happen.
+  Merge branch 'qlcnic' (2013-08-31 22:35:26 -0400)
 
-Set looback_dev to NULL to trigger oopses instead of silent data corrupt
-when we hit this class of bug.
+are available in the git repository at:
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- drivers/net/loopback.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.12
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index fcbf680..a17d85a 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -146,6 +146,7 @@ static int loopback_dev_init(struct net_device *dev)
- 
- static void loopback_dev_free(struct net_device *dev)
- {
-+	dev_net(dev)->loopback_dev = NULL;
- 	free_percpu(dev->lstats);
- 	free_netdev(dev);
- }
+for you to fetch changes up to a915ccc9f2c80aa4c329262d89f93ea16d8792c9:
+
+  sfc: Reinitialise and re-validate datapath caps after MC reboot (2013-09-11 15:29:53 +0100)
+
+Some bug fixes and future-proofing for the recently added SFC9120
+support:
+
+1. Minimal support for the 40G configuration.
+2. Disable the incomplete PTP/hardware timestamping support.
+3. Reset MAC stats properly after a firmware upgrade.
+4. Re-check the datapath firmware capabilities after the controller is
+reset.
+
+Ben.
+
+----------------------------------------------------------------
+Ben Hutchings (5):
+      sfc: Minimal support for 40G link speed
+      sfc: Disable PTP on EF10 until we're ready to handle inline RX timestamps
+      sfc: Reset derived rx_bad_bytes statistic when EF10 MC is rebooted
+      sfc: Clean up validation of datapath capabilities
+      sfc: Reinitialise and re-validate datapath caps after MC reboot
+
+ drivers/net/ethernet/sfc/Kconfig     |  2 +-
+ drivers/net/ethernet/sfc/ef10.c      | 58 +++++++++++++++++++++++-------------
+ drivers/net/ethernet/sfc/mcdi_port.c |  2 ++
+ drivers/net/ethernet/sfc/nic.h       |  3 ++
+ 4 files changed, 43 insertions(+), 22 deletions(-)
+
 -- 
-1.7.5.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
