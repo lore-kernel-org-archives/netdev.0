@@ -1,114 +1,108 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Why we discard all rtt samples when only some of the acked skbs
- have been retransmited in processing ack?
-Date: Tue, 17 Sep 2013 09:31:58 -0400
-Message-ID: <CADVnQykjm8nxVYzFu7=RfdcOH-cdARarSoRyBwj9Rp0m-+VKEw@mail.gmail.com>
-References: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
-	<1379394682.29845.2.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH  v3 0/6] ipv6: Do route updating for redirect in ndisc layer
+Date: Tue, 17 Sep 2013 15:52:32 +0200
+Message-ID: <20130917135232.GG13408@order.stressinduktion.org>
+References: <5236EFEB.60106@cn.fujitsu.com> <5236F808.9050605@redhat.com> <523710CC.1090404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LovelyLich <lovelylich@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Duan Jiong <duanj.fnst@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: Duan Jiong <djduanjiong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:43088 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683Ab3IQNcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 09:32:00 -0400
-Received: by mail-ee0-f53.google.com with SMTP id b15so2761900eek.12
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 06:31:59 -0700 (PDT)
-In-Reply-To: <1379394682.29845.2.camel@edumazet-glaptop>
+Received: from order.stressinduktion.org ([87.106.68.36]:34320 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888Ab3IQNwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 09:52:33 -0400
+Content-Disposition: inline
+In-Reply-To: <523710CC.1090404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 17, 2013 at 1:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-09-17 at 12:01 +0800, LovelyLich wrote:
->> Hi Eric,
->>
->> In tcp_clean_rtx_queue(), we set the flag FLAG_RETRANS_DATA_ACKED when we
->>
->> encounter one ever retransmited skb A. But if there is one( or more) skb B
->>
->> after this retransmited skb, and we calculate the rtt for skb B. The question
->>
->> is because we have set the flag FLAG_RETRANS_DATA_ACKED, and we will just
->>
->> return in tcp_ack_no_tstamp() !
->>
->> Two questions:
->>
->> 1. if we will just ignore all packets in this ack, we do not need to calculate
->>
->> skb B's rtt sample.
->>
->> 2. what I want to know, even if A's rtt sample is not reliable, but B's rtt
->>
->> sample can be trusted. Why we discard it ?
->>
->>
->>
->> Thanks in advanced.
->>
->
-> Good point !
->
-> Yuchung, what do you think of following patch ?
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 25a89ea..7f12b96 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2971,7 +2971,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->         struct sk_buff *skb;
->         u32 now = tcp_time_stamp;
->         int fully_acked = true;
-> -       int flag = 0;
-> +       int flag = FLAG_RETRANS_DATA_ACKED;
->         u32 pkts_acked = 0;
->         u32 reord = tp->packets_out;
->         u32 prior_sacked = tp->sacked_out;
-> @@ -3002,7 +3002,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->                 if (sacked & TCPCB_RETRANS) {
->                         if (sacked & TCPCB_SACKED_RETRANS)
->                                 tp->retrans_out -= acked_pcount;
-> -                       flag |= FLAG_RETRANS_DATA_ACKED;
->                 } else {
->                         ca_seq_rtt = now - scb->when;
->                         last_ackt = skb->tstamp;
-> @@ -3013,6 +3012,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->                                 reord = min(pkts_acked, reord);
->                         if (!after(scb->end_seq, tp->high_seq))
->                                 flag |= FLAG_ORIG_SACK_ACKED;
-> +                       flag &= ~FLAG_RETRANS_DATA_ACKED;
->                 }
->
->                 if (sacked & TCPCB_SACKED_ACKED)
+On Mon, Sep 16, 2013 at 10:08:12PM +0800, Duan Jiong wrote:
+> =E4=BA=8E 2013/9/16 20:22, Daniel Borkmann =E5=86=99=E9=81=93:
+> > On 09/16/2013 01:47 PM, Duan Jiong wrote:
+> >> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> >>
+> >> the ip6_redirect() could be replaced with
+> >> ip6_redirect_no_header(), we could always use ip6_redirect()
+> >> for route updating in ndisc layer and use the data of the
+> >> redirected header option just for finding the socket to be
+> >> notified and then notify user in protocols' err_handler.
+> > If I get this right, it seems to me that this patchset actually con=
+sists of two
+> > different kind of changes:
+> >
+> > 1) Not notifying user space on ICMP redirects (net material)
+> > 2) Simplify code for updating route in ndisc layer instead of error=
+ handlers (net-next)
+> >
+> > Also, you do the *actual* change in the very last patch, which mean=
+s that from
+> > patch 1 to 5 we're in an inconsistent and buggy state unless we als=
+o apply patch
+> > number 6. It should actually be the other way around, that you firs=
+t do the actual
+> > change and then migrate users (also commit messages are quite terse=
+).
+>=20
+> I make the patch set on net tree, not on net-next. Maybe those
+> things should be done in two patch sets.
 
-I think the existing logic is better than the patch. If we get a
-cumulative ACK that covers a retransmitted packet, then any RTT sample
-we try to extract is suspect, and likely to be at least 2x too high.
+I have thought about going the other direction. Just make it one patch
+and update the whole logic atomically in the git tree. So we won't have
+any partial logic updates in the tree.
 
-Consider the following common scenario:
+Please also rebase your series onto net from today, because Daniel's
+patch regarding updating sk->sk_err in sctp went in yesterday.
 
-t=0: send pkts 1, 2, 3, 4
-t=1*RTT: receive dupack with SACK for pkts 2,3,4; fast retransmit  pkt 1
-t=2*RTT: receive cumulative ack for all pkts through 4
+> > Moreover, just looking at the SCTP part (sctp_err_lookup() function=
+) ...
+> >
+> > /* RFC 4960, Appendix C. ICMP Handling
+> >  *
+> >  * ICMP6) An implementation MUST validate that the Verification Tag
+> >  * contained in the ICMP message matches the Verification Tag of
+> >  * the peer.  If the Verification Tag is not 0 and does NOT
+> >  * match, discard the ICMP message.  If it is 0 and the ICMP
+> >  * message contains enough bytes to verify that the chunk type is
+> >  * an INIT chunk and that the Initiate Tag matches the tag of the
+> >  * peer, continue with ICMP7.  If the ICMP message is too short
+> >  * or the chunk type or the Initiate Tag does not match, silently
+> >  * discard the packet.
+> >  */
+> > =20
+> > ... it seems to me that we would simply ignore such RFC requirement=
+s with
+> > your patch for the sctp_v6_err() part.
+> >
+> > Care to elaborate? ;-)
+>=20
+> Sorry, i didn't notice that.
+>=20
+> According to the RFC requirements, it suggests that we can't update
+> route for redirect in ndisc layer before calling into sctp_err_lookup=
+(),
+> because we must verify the ICMP Message. Now maybe we update route fo=
+r
+> redirect in ndisc layer is wrong.
+>=20
+> Do you have any idea?
 
-With the existing logic, because the ACK we get at t=2*RTT covers the
-retransmitted pkt 1, we do not attempt to take an RTT sample.
+IMO updating of routes in ndisc layer is fine. We already accept redire=
+cts
+(and also change routes) for sctp connections where the redirect packet=
+ does
+not contain any tag. Also it is debatable if redirects are counted as
+icmp packets or merely just belong to the kind of neighbour discovery
+packets which just use icmp framing (and so the sctp rfc would not say
+anything about them).
 
-With that proposed patch, when we get the ACK at t=2*RTT we see that
-there are non-retransmitted pkts 2,3,4 being ACKed, so we clear the
-FLAG_RETRANS_DATA_ACKED bit and take an RTT sample of 2*RTT. But this
-is 2x too big, and will distort our RTT sample.
+As Daniel already said, it would be better to update the commit message
+to clarify the reasons why this is ok (with some pointers to RFCs).
 
-Note that with Yuchung's recent patch to gather RTT samples from
-SACKed packets (59c9af4234b0c21a1ed05cf65bf014d0c1a67bfd "tcp: measure
-RTT from new SACK"), we will already be extracting essentially all the
-RTT samples that we possibly can out of such scenarios with
-retransmitted packets (for OSes that support SACK, which is basically
-everyone). In the example above, Yuchung's new SACK-based RTT scheme
-will correctly take RTT samples at t=1*RTT for the SACKed packets.
+Greetings,
 
-neal
+  Hannes
