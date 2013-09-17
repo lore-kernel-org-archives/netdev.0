@@ -1,105 +1,114 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v3 net-next 07/27] net: add for_each iterators through
- neighbour lower link's private
-Date: Tue, 17 Sep 2013 14:29:17 +0200
-Message-ID: <20130917122917.GB2929@redhat.com>
-References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
- <1379378812-18346-8-git-send-email-vfalico@redhat.com>
- <1379381203.23881.22.camel@deadeye.wl.decadent.org.uk>
- <20130917073618.GC18195@redhat.com>
- <1379418182.3457.2.camel@edumazet-glaptop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Why we discard all rtt samples when only some of the acked skbs
+ have been retransmited in processing ack?
+Date: Tue, 17 Sep 2013 09:31:58 -0400
+Message-ID: <CADVnQykjm8nxVYzFu7=RfdcOH-cdARarSoRyBwj9Rp0m-+VKEw@mail.gmail.com>
+References: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
+	<1379394682.29845.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	jiri@resnulli.us, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: LovelyLich <lovelylich@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4977 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752205Ab3IQMbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Sep 2013 08:31:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1379418182.3457.2.camel@edumazet-glaptop>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:43088 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752683Ab3IQNcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 09:32:00 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b15so2761900eek.12
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 06:31:59 -0700 (PDT)
+In-Reply-To: <1379394682.29845.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 17, 2013 at 04:43:02AM -0700, Eric Dumazet wrote:
->On Tue, 2013-09-17 at 09:36 +0200, Veaceslav Falico wrote:
->> On Tue, Sep 17, 2013 at 02:26:43AM +0100, Ben Hutchings wrote:
->> >On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
->> >[...]
->> >> --- a/net/core/dev.c
->> >> +++ b/net/core/dev.c
->> >> @@ -4537,6 +4537,72 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
->> >>  }
->> >>  EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
->> >>
->> >> +/* netdev_lower_get_next_private - Get the next ->private from the
->> >> + *				   lower neighbour list
->> >[...]
->> >
->> >This is not correct kernel-doc syntax.  You must begin the comment like
->> >this:
->> >
->> >/**
->> > * function_name - summary on one physical line, no wrapping allowed
+On Tue, Sep 17, 2013 at 1:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2013-09-17 at 12:01 +0800, LovelyLich wrote:
+>> Hi Eric,
 >>
->> I've thought that netdev specifically requires that type of comments*. But
->> I don't have any strong opinion on that, so if needed - can change easily
->> in the next version.
+>> In tcp_clean_rtx_queue(), we set the flag FLAG_RETRANS_DATA_ACKED when we
 >>
->> Thanks a lot!
+>> encounter one ever retransmited skb A. But if there is one( or more) skb B
 >>
->> *Documentation/networking/netdev-FAQ.txt
+>> after this retransmited skb, and we calculate the rtt for skb B. The question
 >>
->> Q: Someone said that the comment style and coding convention is different
->>     for the networking content.  Is this true?
+>> is because we have set the flag FLAG_RETRANS_DATA_ACKED, and we will just
 >>
->> A: Yes, in a largely trivial way.  Instead of this:
+>> return in tcp_ack_no_tstamp() !
 >>
->>          /*
->>           * foobar blah blah blah
->>           * another line of text
->>           */
+>> Two questions:
 >>
->>     it is requested that you make it look like this:
+>> 1. if we will just ignore all packets in this ack, we do not need to calculate
 >>
->>          /* foobar blah blah blah
->>           * another line of text
->>           */
+>> skb B's rtt sample.
 >>
+>> 2. what I want to know, even if A's rtt sample is not reliable, but B's rtt
+>>
+>> sample can be trusted. Why we discard it ?
+>>
+>>
+>>
+>> Thanks in advanced.
 >>
 >
->Thats for comments, not kernel-doc sections.
+> Good point !
 >
->You provided :
+> Yuchung, what do you think of following patch ?
 >
->+/* netdev_lower_get_next_private - Get the next ->private from the
->+ *                                lower neighbour list
->+ * @dev: device
->+ * @iter: list_head ** of the current position
->+ *
->+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
->+ * list, starting from iter position. The caller must hold either hold the
->+ * RTNL lock or its own locking that guarantees that the neighbour lower
->+ * list will remain unchainged. If iter is NULL - return the first private.
->+ */
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 25a89ea..7f12b96 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2971,7 +2971,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>         struct sk_buff *skb;
+>         u32 now = tcp_time_stamp;
+>         int fully_acked = true;
+> -       int flag = 0;
+> +       int flag = FLAG_RETRANS_DATA_ACKED;
+>         u32 pkts_acked = 0;
+>         u32 reord = tp->packets_out;
+>         u32 prior_sacked = tp->sacked_out;
+> @@ -3002,7 +3002,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>                 if (sacked & TCPCB_RETRANS) {
+>                         if (sacked & TCPCB_SACKED_RETRANS)
+>                                 tp->retrans_out -= acked_pcount;
+> -                       flag |= FLAG_RETRANS_DATA_ACKED;
+>                 } else {
+>                         ca_seq_rtt = now - scb->when;
+>                         last_ackt = skb->tstamp;
+> @@ -3013,6 +3012,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>                                 reord = min(pkts_acked, reord);
+>                         if (!after(scb->end_seq, tp->high_seq))
+>                                 flag |= FLAG_ORIG_SACK_ACKED;
+> +                       flag &= ~FLAG_RETRANS_DATA_ACKED;
+>                 }
 >
->Which really looks like a kernel-doc section,
->but misses the proper delimiter which is :
+>                 if (sacked & TCPCB_SACKED_ACKED)
 
-Ok, got it - will fix in the next version.
+I think the existing logic is better than the patch. If we get a
+cumulative ACK that covers a retransmitted packet, then any RTT sample
+we try to extract is suspect, and likely to be at least 2x too high.
 
-Thanks all!
+Consider the following common scenario:
 
->
->/**
->
->Not
->
->/*
->
->
->
+t=0: send pkts 1, 2, 3, 4
+t=1*RTT: receive dupack with SACK for pkts 2,3,4; fast retransmit  pkt 1
+t=2*RTT: receive cumulative ack for all pkts through 4
+
+With the existing logic, because the ACK we get at t=2*RTT covers the
+retransmitted pkt 1, we do not attempt to take an RTT sample.
+
+With that proposed patch, when we get the ACK at t=2*RTT we see that
+there are non-retransmitted pkts 2,3,4 being ACKed, so we clear the
+FLAG_RETRANS_DATA_ACKED bit and take an RTT sample of 2*RTT. But this
+is 2x too big, and will distort our RTT sample.
+
+Note that with Yuchung's recent patch to gather RTT samples from
+SACKed packets (59c9af4234b0c21a1ed05cf65bf014d0c1a67bfd "tcp: measure
+RTT from new SACK"), we will already be extracting essentially all the
+RTT samples that we possibly can out of such scenarios with
+retransmitted packets (for OSes that support SACK, which is basically
+everyone). In the example above, Yuchung's new SACK-based RTT scheme
+will correctly take RTT samples at t=1*RTT for the SACKed packets.
+
+neal
