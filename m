@@ -1,53 +1,85 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/7] netfilter: nf_conntrack: use RCU safe kfree for conntrack extensions
-Date: Wed, 18 Sep 2013 00:07:28 +0200
-Message-ID: <1379455654-3905-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/7] netfilter: ipset: Fix serious failure in CIDR tracking
+Date: Wed, 18 Sep 2013 00:07:33 +0200
+Message-ID: <1379455654-3905-7-git-send-email-pablo@netfilter.org>
 References: <1379455654-3905-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34732 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754068Ab3IQWIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 18:08:07 -0400
 In-Reply-To: <1379455654-3905-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Michal Kube=C4=8Dek <mkubecek@suse.cz>
+From: Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>
 
-Commit 68b80f11 (netfilter: nf_nat: fix RCU races) introduced
-RCU protection for freeing extension data when reallocation
-moves them to a new location. We need the same protection when
-freeing them in nf_ct_ext_free() in order to prevent a
-use-after-free by other threads referencing a NAT extension data
-via bysource list.
+This fixes a serious bug affecting all hash types with a net element -
+specifically, if a CIDR value is deleted such that none of the same size
+exist any more, all larger (less-specific) values will then fail to
+match. Adding back any prefix with a CIDR equal to or more specific than
+the one deleted will fix it.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Steps to reproduce:
+ipset -N test hash:net
+ipset -A test 1.1.0.0/16
+ipset -A test 2.2.2.0/24
+ipset -T test 1.1.1.1           #1.1.1.1 IS in set
+ipset -D test 2.2.2.0/24
+ipset -T test 1.1.1.1           #1.1.1.1 IS NOT in set
+
+This is due to the fact that the nets counter was unconditionally
+decremented prior to the iteration that shifts up the entries. Now, we
+first check if there is a proceeding entry and if not, decrement it and
+return. Otherwise, we proceed to iterate and then zero the last element,
+which, in most cases, will already be zero.
+
+Signed-off-by: Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/net/netfilter/nf_conntrack_extend.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/ipset/ip_set_hash_gen.h |   28 ++++++++++++++++------------
+ 1 file changed, 16 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/=
-netfilter/nf_conntrack_extend.h
-index ff95434..88a1d40 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -86,7 +86,7 @@ static inline void nf_ct_ext_destroy(struct nf_conn *=
-ct)
- static inline void nf_ct_ext_free(struct nf_conn *ct)
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 57beb17..707bc52 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -325,18 +325,22 @@ mtype_add_cidr(struct htype *h, u8 cidr, u8 nets_length)
+ static void
+ mtype_del_cidr(struct htype *h, u8 cidr, u8 nets_length)
  {
- 	if (ct->ext)
--		kfree(ct->ext);
-+		kfree_rcu(ct->ext, rcu);
+-	u8 i, j;
+-
+-	for (i = 0; i < nets_length - 1 && h->nets[i].cidr != cidr; i++)
+-		;
+-	h->nets[i].nets--;
+-
+-	if (h->nets[i].nets != 0)
+-		return;
+-
+-	for (j = i; j < nets_length - 1 && h->nets[j].nets; j++) {
+-		h->nets[j].cidr = h->nets[j + 1].cidr;
+-		h->nets[j].nets = h->nets[j + 1].nets;
++	u8 i, j, net_end = nets_length - 1;
++
++	for (i = 0; i < nets_length; i++) {
++	        if (h->nets[i].cidr != cidr)
++	                continue;
++                if (h->nets[i].nets > 1 || i == net_end ||
++                    h->nets[i + 1].nets == 0) {
++                        h->nets[i].nets--;
++                        return;
++                }
++                for (j = i; j < net_end && h->nets[j].nets; j++) {
++		        h->nets[j].cidr = h->nets[j + 1].cidr;
++		        h->nets[j].nets = h->nets[j + 1].nets;
++                }
++                h->nets[j].nets = 0;
++                return;
+ 	}
  }
-=20
- /* Add this type, returns pointer to data or NULL. */
---=20
+ #endif
+-- 
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
