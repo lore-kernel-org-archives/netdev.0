@@ -1,118 +1,51 @@
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no
- devices are unregistering
-Date: Mon, 16 Sep 2013 23:54:41 -0700
-Message-ID: <CA+HUmGjg9jE1fjSMgkfVtiWVRD3d2DuwfbPU3Owrk_cTCe0FQA@mail.gmail.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	<871u4t1d9t.fsf@xmission.com>
-	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
-	<87d2ocrx9b.fsf@xmission.com>
-	<CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
-	<87six5kpu5.fsf@xmission.com>
-	<CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
-	<87mwncaz04.fsf_-_@xmission.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: Guard IPsec anti replay window against replay
+ bitmap
+Date: Tue, 17 Sep 2013 08:56:47 +0200
+Message-ID: <20130917065647.GO7660@secunet.com>
+References: <1379399165-8955-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f179.google.com ([209.85.128.179]:33915 "EHLO
-	mail-ve0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594Ab3IQGym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 02:54:42 -0400
-Received: by mail-ve0-f179.google.com with SMTP id c14so3746679vea.38
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 23:54:41 -0700 (PDT)
-In-Reply-To: <87mwncaz04.fsf_-_@xmission.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:51882 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751420Ab3IQG4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 02:56:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1379399165-8955-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 8:49 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
->
-> The implementation is a little rough but the logic should be right.
->
-> Device registration and unregistration is serialized with the rtnl_lock.
-> The final pieces of device unregistration do not happen under the
-> rtnl_lock resulting in the possibility that while we wait for the
-> refcount of a device to drop to zero the network namespace is
-> unregistered while no locks are held.
->
-> Prevent that by keeping a count of the network devices that are being
-> unregistered and before we make the final pass through a network
-> namespace to flush out all of the network devices, wait for the count of
-> network devices being unregistered to drop to zero.
->
-> Reported-by: Francesco Ruggeri <fruggeri@aristanetworks.com>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->
-> Francesco could you take a look at this.  I am about 99% certain this is
-> right but I am starting to fade.  So it is entirely possible I missed
-> something.
+On Tue, Sep 17, 2013 at 02:26:05PM +0800, Fan Du wrote:
+> 
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 9d58537..911ef03 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -1098,7 +1098,8 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+>  
+>  	x->id.proto = proto;
+>  	x->id.spi = sa->sadb_sa_spi;
+> -	x->props.replay_window = sa->sadb_sa_replay;
+> +	x->props.replay_window = min_t(unsigned int, sa->sadb_sa_replay,
+> +					(sizeof(x->replay.bitmap) * 8));
+>  	if (sa->sadb_sa_flags & SADB_SAFLAGS_NOECN)
+>  		x->props.flags |= XFRM_STATE_NOECN;
+>  	if (sa->sadb_sa_flags & SADB_SAFLAGS_DECAP_DSCP)
+> diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+> index 8dafe6d3..eeca388 100644
+> --- a/net/xfrm/xfrm_replay.c
+> +++ b/net/xfrm/xfrm_replay.c
+> @@ -129,8 +129,7 @@ static int xfrm_replay_check(struct xfrm_state *x,
+>  		return 0;
+>  
+>  	diff = x->replay.seq - seq;
+> -	if (diff >= min_t(unsigned int, x->props.replay_window,
+> -			  sizeof(x->replay.bitmap) * 8)) {
+> +	if (diff >= x->props.replay_window) {
 
-Same here ...
-The logic looks right to me and I think it should address the original
-issue I ran into.
-Would it make sense to have netdev_unregistering and
-netdev_unregistering_wait be per-namespace, and have
-default_device_exit_batch only wait for the namespaces in net_list? It
-would require some extra loops and locking, but it may help avoid
-unnecessary waits.
-
-Francesco
-
->
->  net/core/dev.c |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 5d702fe..c25e6f3 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5002,10 +5002,13 @@ static int dev_new_index(struct net *net)
->
->  /* Delayed registration/unregisteration */
->  static LIST_HEAD(net_todo_list);
-> +static atomic_t netdev_unregistering = ATOMIC_INIT(0);
-> +static DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wait);
->
->  static void net_set_todo(struct net_device *dev)
->  {
->         list_add_tail(&dev->todo_list, &net_todo_list);
-> +       atomic_inc(&netdev_unregistering);
->  }
->
->  static void rollback_registered_many(struct list_head *head)
-> @@ -5673,6 +5676,9 @@ void netdev_run_todo(void)
->                 if (dev->destructor)
->                         dev->destructor(dev);
->
-> +               if (atomic_dec_and_test(&netdev_unregistering))
-> +                       wake_up(&netdev_unregistering_wait);
-> +
->                 /* Free network device */
->                 kobject_put(&dev->dev.kobj);
->         }
-> @@ -6369,7 +6375,13 @@ static void __net_exit default_device_exit_batch(struct list_head *net_list)
->         struct net *net;
->         LIST_HEAD(dev_kill_list);
->
-> +retry:
-> +       wait_event(netdev_unregistering_wait, (atomic_read(&netdev_unregistering) == 0));
->         rtnl_lock();
-> +       if (atomic_read(&netdev_unregistering) != 0) {
-> +               __rtnl_unlock();
-> +               goto retry;
-> +       }
->         list_for_each_entry(net, net_list, exit_list) {
->                 for_each_netdev_reverse(net, dev) {
->                         if (dev->rtnl_link_ops)
-> --
-> 1.7.5.4
->
+So x->props.replay_window will be valid if the state was added with the
+pfkey interface, but what if the netlink interface was used? You should
+also update the netlink part to always hold a valid replay window.
