@@ -1,188 +1,35 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH v4] Don't destroy the netdev until the vif is shut down
-Date: Tue, 17 Sep 2013 16:45:23 +0100
-Message-ID: <1379432723-24384-1-git-send-email-paul.durrant@citrix.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] bridge: change the order of actions in
+ addif/delif
+Date: Tue, 17 Sep 2013 09:24:08 -0700
+Message-ID: <20130917092408.19a329b2@nehalam.linuxnetplumber.net>
+References: <1379403883-16219-1-git-send-email-zhiguohong@tencent.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, vyasevic@redhat.com,
+	Hong Zhiguo <zhiguohong@tencent.com>
+To: Hong Zhiguo <honkiko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:57518 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752751Ab3IQPpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Sep 2013 11:45:31 -0400
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:50219 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753007Ab3IQQYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 12:24:13 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so5779163pdj.26
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 09:24:12 -0700 (PDT)
+In-Reply-To: <1379403883-16219-1-git-send-email-zhiguohong@tencent.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch, if a frontend cycles through states Closing
-and Closed (which Windows frontends need to do) then the netdev
-will be destroyed and requires re-invocation of hotplug scripts
-to restore state before the frontend can move to Connected. Thus
-when udev is not in use the backend gets stuck in InitWait.
+On Tue, 17 Sep 2013 15:44:43 +0800
+Hong Zhiguo <honkiko@gmail.com> wrote:
 
-With this patch, the netdev is left alone whilst the backend is
-still online and is only de-registered and freed just prior to
-destroying the vif (which is also nicely symmetrical with the
-netdev allocation and registration being done during probe) so
-no re-invocation of hotplug scripts is required.
+> -	/* Device is already being bridged */
+> -	if (br_port_exists(dev))
+> +	/* Device is already being bridged or registered with other handler */
+> +	if (br_port_exists(dev) || dev->rx_handler)
+>  		return -EBUSY;
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
----
-v2:
- - Modify netback_remove() - bug only seemed to manifest with linux guest
-
-v3:
- - Move __module_get() and module_put() calls
-
-v4:
- - Clear tx_irq in xenvif_disconnect() to make sure that a subsequent
-   call to xenvif_connect() doesn't get nop-ed.
-
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |   26 ++++++++++----------------
- drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
- 3 files changed, 23 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index a197743..5715318 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -184,6 +184,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
- 		   unsigned int rx_evtchn);
- void xenvif_disconnect(struct xenvif *vif);
-+void xenvif_free(struct xenvif *vif);
- 
- int xenvif_xenbus_init(void);
- void xenvif_xenbus_fini(void);
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 625c6f4..0465e0f 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -353,6 +353,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	}
- 
- 	netdev_dbg(dev, "Successfully created xenvif\n");
-+
-+	__module_get(THIS_MODULE);
-+
- 	return vif;
- }
- 
-@@ -366,8 +369,6 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	if (vif->tx_irq)
- 		return 0;
- 
--	__module_get(THIS_MODULE);
--
- 	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
- 	if (err < 0)
- 		goto err;
-@@ -452,12 +453,6 @@ void xenvif_carrier_off(struct xenvif *vif)
- 
- void xenvif_disconnect(struct xenvif *vif)
- {
--	/* Disconnect funtion might get called by generic framework
--	 * even before vif connects, so we need to check if we really
--	 * need to do a module_put.
--	 */
--	int need_module_put = 0;
--
- 	if (netif_carrier_ok(vif->dev))
- 		xenvif_carrier_off(vif);
- 
-@@ -468,23 +463,22 @@ void xenvif_disconnect(struct xenvif *vif)
- 			unbind_from_irqhandler(vif->tx_irq, vif);
- 			unbind_from_irqhandler(vif->rx_irq, vif);
- 		}
--		/* vif->irq is valid, we had a module_get in
--		 * xenvif_connect.
--		 */
--		need_module_put = 1;
-+		vif->tx_irq = 0;
- 	}
- 
- 	if (vif->task)
- 		kthread_stop(vif->task);
- 
-+	xenvif_unmap_frontend_rings(vif);
-+}
-+
-+void xenvif_free(struct xenvif *vif)
-+{
- 	netif_napi_del(&vif->napi);
- 
- 	unregister_netdev(vif->dev);
- 
--	xenvif_unmap_frontend_rings(vif);
--
- 	free_netdev(vif->dev);
- 
--	if (need_module_put)
--		module_put(THIS_MODULE);
-+	module_put(THIS_MODULE);
- }
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 1fe48fe3..a53782e 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
- 	if (be->vif) {
- 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- 	kfree(be);
-@@ -213,9 +213,18 @@ static void disconnect_backend(struct xenbus_device *dev)
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
-+	if (be->vif)
-+		xenvif_disconnect(be->vif);
-+}
-+
-+static void destroy_backend(struct xenbus_device *dev)
-+{
-+	struct backend_info *be = dev_get_drvdata(&dev->dev);
-+
- 	if (be->vif) {
-+		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_disconnect(be->vif);
-+		xenvif_free(be->vif);
- 		be->vif = NULL;
- 	}
- }
-@@ -246,14 +255,11 @@ static void frontend_changed(struct xenbus_device *dev,
- 	case XenbusStateConnected:
- 		if (dev->state == XenbusStateConnected)
- 			break;
--		backend_create_xenvif(be);
- 		if (be->vif)
- 			connect(be);
- 		break;
- 
- 	case XenbusStateClosing:
--		if (be->vif)
--			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
- 		disconnect_backend(dev);
- 		xenbus_switch_state(dev, XenbusStateClosing);
- 		break;
-@@ -262,6 +268,7 @@ static void frontend_changed(struct xenbus_device *dev,
- 		xenbus_switch_state(dev, XenbusStateClosed);
- 		if (xenbus_dev_is_online(dev))
- 			break;
-+		destroy_backend(dev);
- 		/* fall through if not online */
- 	case XenbusStateUnknown:
- 		device_unregister(&dev->dev);
--- 
-1.7.10.4
+Direct access to dev->rx_handler should be avoided.
+The error check should be in netdev_rx_handler_register.
