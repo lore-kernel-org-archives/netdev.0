@@ -1,50 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net loopback: Set loopback_dev to NULL when
- freed
-Date: Mon, 16 Sep 2013 17:50:51 -0700
-Message-ID: <1379379051.4751.0.camel@edumazet-glaptop>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	 <87txhp249u.fsf@xmission.com>
-	 <CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	 <871u4t1d9t.fsf@xmission.com>
-	 <CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
-	 <87d2ocrx9b.fsf@xmission.com>
-	 <CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
-	 <87six5kpu5.fsf@xmission.com>
-	 <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
-	 <87k3iggw8m.fsf_-_@xmission.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [PATCH net RFC 0/2] Series short description
+Date: Mon, 16 Sep 2013 17:59:16 -0700
+Message-ID: <20130917005703.13357.70276.stgit@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:43334 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416Ab3IQAux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 20:50:53 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so4829282pdj.17
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 17:50:53 -0700 (PDT)
-In-Reply-To: <87k3iggw8m.fsf_-_@xmission.com>
+Received: from mga14.intel.com ([143.182.124.37]:56628 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751525Ab3IQA7R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:59:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-16 at 16:52 -0700, Eric W. Biederman wrote:
-> It has recently turned up that we have a number of long standing bugs
-> in the network stack cleanup code with use of the loopback device
-> after it has been freed that have not turned up because in most cases
-> the storage allocated to the loopback device is not reused, when those
-> accesses happen.
-> 
-> Set looback_dev to NULL to trigger oopses instead of silent data corrupt
-> when we hit this class of bug.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
+This series contains patches which help resolve a 'sleeping function called
+from invalid context' bug introduced by the busy polling code. The first patch
+simply adds a might_sleep() call to napi_disable. The second patch provides the
+actual fix for the sleeping during a local_bh_disable()d section of code. I
+tried to Cc everyone that might be interested in the solution, as I am unsure
+if my solution of moving the local_bh_disable() call is correct.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+---
+
+Jacob Keller (2):
+      netdevice: add might_sleep() call to napi_disable
+      ixgbe: fix sleep bug caused by napi_disable inside local_bh_disable()d context
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ include/linux/netdevice.h                     |    2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+--
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
