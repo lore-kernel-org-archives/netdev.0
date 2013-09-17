@@ -1,37 +1,27 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 26/27] net: expose the master link to sysfs, and remove it from bond
-Date: Tue, 17 Sep 2013 02:46:51 +0200
-Message-ID: <1379378812-18346-27-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 24/27] vlan: link the upper neighbour only after registering
+Date: Tue, 17 Sep 2013 02:46:49 +0200
+Message-ID: <1379378812-18346-25-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55424 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63166 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576Ab3IQArh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:37 -0400
+	id S1752136Ab3IQAra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:30 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we can have only one master upper neighbour, so it would be
-useful to create a symlink to it in the sysfs device directory, the way
-that bonding now does it, for every device. Lower devices from
-bridge/team/etc will automagically get it, so we could rely on it.
+Otherwise users might access it without being fully registered, as per
+sysfs - it only inits in register_netdevice(), so is unusable till it is
+called.
 
-Also, remove the same functionality from bonding.
-
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
 CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -45,77 +35,42 @@ Notes:
     RFC -> v1:
     No changes.
 
- drivers/net/bonding/bond_sysfs.c | 12 +-----------
- net/core/dev.c                   |  9 +++++++++
- 2 files changed, 10 insertions(+), 11 deletions(-)
+ net/8021q/vlan.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 5d40889..fd178a4 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -174,20 +174,11 @@ int bond_create_slave_symlinks(struct net_device *master,
- 	char linkname[IFNAMSIZ+7];
- 	int ret = 0;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 61fc573..69b4a35 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -169,13 +169,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_mvrp;
  
--	/* first, create a link from the slave back to the master */
--	ret = sysfs_create_link(&(slave->dev.kobj), &(master->dev.kobj),
--				"master");
--	if (ret)
--		return ret;
--	/* next, create a link from the master to the slave */
-+	/* create a link from the master to the slave */
- 	sprintf(linkname, "slave_%s", slave->name);
- 	ret = sysfs_create_link(&(master->dev.kobj), &(slave->dev.kobj),
- 				linkname);
- 
--	/* free the master link created earlier in case of error */
--	if (ret)
--		sysfs_remove_link(&(slave->dev.kobj), "master");
+-	err = netdev_upper_dev_link(real_dev, dev);
+-	if (err)
+-		goto out_uninit_mvrp;
 -
- 	return ret;
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_upper_dev_unlink;
++		goto out_uninit_mvrp;
++
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_unregister_netdev;
  
- }
-@@ -197,7 +188,6 @@ void bond_destroy_slave_symlinks(struct net_device *master,
- {
- 	char linkname[IFNAMSIZ+7];
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -191,8 +191,8 @@ int register_vlan_dev(struct net_device *dev)
  
--	sysfs_remove_link(&(slave->dev.kobj), "master");
- 	sprintf(linkname, "slave_%s", slave->name);
- 	sysfs_remove_link(&(master->dev.kobj), linkname);
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d58ca53..27ca03f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4638,6 +4638,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					bool upper, void *private)
- {
- 	struct netdev_adjacent *adj, *neigh = NULL;
-+	int ret;
+ 	return 0;
  
- 	adj = __netdev_find_adj(dev, adj_dev, upper, false);
- 
-@@ -4693,6 +4694,12 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- 	/* Ensure that master upper link is always the first item in list. */
- 	if (master) {
-+		ret = sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj), "master");
-+		if (ret) {
-+			kfree(neigh);
-+			kfree(adj);
-+			return ret;
-+		}
- 		if (neigh)
- 			list_add_rcu(&neigh->list,
- 				     &dev->adj_list.upper);
-@@ -4749,6 +4756,8 @@ void __netdev_adjacent_dev_remove(struct net_device *dev,
- 		pr_debug("dev_put for %s, because of %s link removed from %s to %s (neighbour)\n",
- 			 adj_dev->name, upper ? "upper" : "lower", dev->name,
- 			 adj_dev->name);
-+		if (neighbour->master && upper)
-+			sysfs_remove_link(&(dev->dev.kobj), "master");
- 		list_del_rcu(&neighbour->list);
- 		dev_put(adj_dev);
- 		kfree_rcu(neighbour, rcu);
+-out_upper_dev_unlink:
+-	netdev_upper_dev_unlink(real_dev, dev);
++out_unregister_netdev:
++	unregister_netdevice(dev);
+ out_uninit_mvrp:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_mvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
