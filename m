@@ -1,39 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix RTO calculated from cached RTT
-Date: Tue, 17 Sep 2013 19:08:56 -0400 (EDT)
-Message-ID: <20130917.190856.2130564126373837332.davem@davemloft.net>
-References: <1379382260-29303-1-git-send-email-ncardwell@google.com>
-	<CAK6E8=f5uMe6LQ5StCtaWt7D7PfaM2it0muxiW+gAZ4ngQwVbw@mail.gmail.com>
+Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no
+ devices are unregistering
+Date: Tue, 17 Sep 2013 19:21:58 -0400 (EDT)
+Message-ID: <20130917.192158.941189471705765317.davem@davemloft.net>
+References: <87six5kpu5.fsf@xmission.com>
+	<CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+	<87mwncaz04.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com
-To: ycheng@google.com
+Cc: fruggeri@aristanetworks.com, edumazet@google.com, jiri@resnulli.us,
+	alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43443 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43691 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754343Ab3IQXJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 19:09:02 -0400
-In-Reply-To: <CAK6E8=f5uMe6LQ5StCtaWt7D7PfaM2it0muxiW+gAZ4ngQwVbw@mail.gmail.com>
+	with ESMTP id S1753371Ab3IQXWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 19:22:00 -0400
+In-Reply-To: <87mwncaz04.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Tue, 17 Sep 2013 07:32:38 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 16 Sep 2013 20:49:31 -0700
 
-> On Mon, Sep 16, 2013 at 6:44 PM, Neal Cardwell <ncardwell@google.com> wrote:
->> Commit 1b7fdd2ab5852 ("tcp: do not use cached RTT for RTT estimation")
->> did not correctly account for the fact that crtt is the RTT shifted
->> left 3 bits. Fix the calculation to consistently reflect this fact.
->>
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Yuchung Cheng <ycheng@google.com>
->> ---
->>  net/ipv4/tcp_metrics.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
-> Acked-By: Yuchung Cheng <ycheng@google.com>
-> 
-> Thanks for discovering and fixing it!
+>  /* Delayed registration/unregisteration */
+>  static LIST_HEAD(net_todo_list);
+> +static atomic_t netdev_unregistering = ATOMIC_INIT(0);
+> +static DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wait);
 
-Applied, thanks everyone.
+I think you don't need this atomic.
+
+Something like this should work and seems much simpler:
+
+1) Still use the netdev_unregistering_wait queue, that's fine.
+
+2) In netdev_run_todo(), unconditionally wake it up at the end of
+   the while() loop.
+
+3) In default_device_exit_batch() use the same retry logic but
+   your tests are on list_empty(&net_todo_list() rather than the
+   new atomic count.
+
+I think with this simplification I'm fine to apply this patch after
+it has been tested properly.
+
+Long term I'd like to see a per-namespace todo list, as seems to
+have been suggested and discussed already.
+
+Thanks.
