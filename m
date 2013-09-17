@@ -1,100 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [CFT][PATCH] net: Delay default_device_exit_batch until no devices are unregistering
-Date: Mon, 16 Sep 2013 20:49:31 -0700
-Message-ID: <87mwncaz04.fsf_-_@xmission.com>
-References: <1379008796-2121-1-git-send-email-fruggeri@aristanetworks.com>
-	<87txhp249u.fsf@xmission.com>
-	<CA+HUmGgyCsc-er6iB_mqg9whMyaquGWinkHOQEuEHbFCYVrXBw@mail.gmail.com>
-	<871u4t1d9t.fsf@xmission.com>
-	<CA+HUmGjEC8eXT7BHm20uVOagJQbsqO9VZjmGSgmUvnrtEH-JYw@mail.gmail.com>
-	<87d2ocrx9b.fsf@xmission.com>
-	<CA+HUmGifVOs+d=hs2rTUmMyyK17xfBFFbO8sY=rjS2D=RxFLZg@mail.gmail.com>
-	<87six5kpu5.fsf@xmission.com>
-	<CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why we discard all rtt samples when only some of the acked skbs
+ have been retransmited in processing ack?
+Date: Mon, 16 Sep 2013 22:11:22 -0700
+Message-ID: <1379394682.29845.2.camel@edumazet-glaptop>
+References: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: LovelyLich <lovelylich@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43373 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511Ab3IQFK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 01:10:57 -0400
-In-Reply-To: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
-	(Francesco Ruggeri's message of "Mon, 16 Sep 2013 13:30:50 -0700")
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:44950 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739Ab3IQFLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 01:11:24 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so5089924pdj.3
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 22:11:24 -0700 (PDT)
+In-Reply-To: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-09-17 at 12:01 +0800, LovelyLich wrote:
+> Hi Eric,
+> 
+> In tcp_clean_rtx_queue(), we set the flag FLAG_RETRANS_DATA_ACKED when we
+> 
+> encounter one ever retransmited skb A. But if there is one( or more) skb B
+> 
+> after this retransmited skb, and we calculate the rtt for skb B. The question
+> 
+> is because we have set the flag FLAG_RETRANS_DATA_ACKED, and we will just
+> 
+> return in tcp_ack_no_tstamp() !
+> 
+> Two questions:
+> 
+> 1. if we will just ignore all packets in this ack, we do not need to calculate
+> 
+> skb B's rtt sample.
+> 
+> 2. what I want to know, even if A's rtt sample is not reliable, but B's rtt
+> 
+> sample can be trusted. Why we discard it ?
+> 
+> 
+> 
+> Thanks in advanced.
+> 
 
-The implementation is a little rough but the logic should be right.
+Good point !
 
-Device registration and unregistration is serialized with the rtnl_lock.
-The final pieces of device unregistration do not happen under the
-rtnl_lock resulting in the possibility that while we wait for the
-refcount of a device to drop to zero the network namespace is
-unregistered while no locks are held.
+Yuchung, what do you think of following patch ?
 
-Prevent that by keeping a count of the network devices that are being
-unregistered and before we make the final pass through a network
-namespace to flush out all of the network devices, wait for the count of
-network devices being unregistered to drop to zero.
-
-Reported-by: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
-
-Francesco could you take a look at this.  I am about 99% certain this is
-right but I am starting to fade.  So it is entirely possible I missed
-something.
-
- net/core/dev.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5d702fe..c25e6f3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5002,10 +5002,13 @@ static int dev_new_index(struct net *net)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 25a89ea..7f12b96 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2971,7 +2971,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 	struct sk_buff *skb;
+ 	u32 now = tcp_time_stamp;
+ 	int fully_acked = true;
+-	int flag = 0;
++	int flag = FLAG_RETRANS_DATA_ACKED;
+ 	u32 pkts_acked = 0;
+ 	u32 reord = tp->packets_out;
+ 	u32 prior_sacked = tp->sacked_out;
+@@ -3002,7 +3002,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		if (sacked & TCPCB_RETRANS) {
+ 			if (sacked & TCPCB_SACKED_RETRANS)
+ 				tp->retrans_out -= acked_pcount;
+-			flag |= FLAG_RETRANS_DATA_ACKED;
+ 		} else {
+ 			ca_seq_rtt = now - scb->when;
+ 			last_ackt = skb->tstamp;
+@@ -3013,6 +3012,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 				reord = min(pkts_acked, reord);
+ 			if (!after(scb->end_seq, tp->high_seq))
+ 				flag |= FLAG_ORIG_SACK_ACKED;
++			flag &= ~FLAG_RETRANS_DATA_ACKED;
+ 		}
  
- /* Delayed registration/unregisteration */
- static LIST_HEAD(net_todo_list);
-+static atomic_t netdev_unregistering = ATOMIC_INIT(0);
-+static DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wait);
- 
- static void net_set_todo(struct net_device *dev)
- {
- 	list_add_tail(&dev->todo_list, &net_todo_list);
-+	atomic_inc(&netdev_unregistering);
- }
- 
- static void rollback_registered_many(struct list_head *head)
-@@ -5673,6 +5676,9 @@ void netdev_run_todo(void)
- 		if (dev->destructor)
- 			dev->destructor(dev);
- 
-+		if (atomic_dec_and_test(&netdev_unregistering))
-+			wake_up(&netdev_unregistering_wait);
-+
- 		/* Free network device */
- 		kobject_put(&dev->dev.kobj);
- 	}
-@@ -6369,7 +6375,13 @@ static void __net_exit default_device_exit_batch(struct list_head *net_list)
- 	struct net *net;
- 	LIST_HEAD(dev_kill_list);
- 
-+retry:
-+	wait_event(netdev_unregistering_wait, (atomic_read(&netdev_unregistering) == 0));
- 	rtnl_lock();
-+	if (atomic_read(&netdev_unregistering) != 0) {
-+		__rtnl_unlock();
-+		goto retry;
-+	}
- 	list_for_each_entry(net, net_list, exit_list) {
- 		for_each_netdev_reverse(net, dev) {
- 			if (dev->rtnl_link_ops)
--- 
-1.7.5.4
+ 		if (sacked & TCPCB_SACKED_ACKED)
