@@ -1,100 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 net-next 21/27] net: add a function to get the next
- private
-Date: Tue, 17 Sep 2013 02:50:01 +0100
-Message-ID: <1379382601.23881.36.camel@deadeye.wl.decadent.org.uk>
-References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
-	 <1379378812-18346-22-git-send-email-vfalico@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] net loopback: Set loopback_dev to NULL when freed
+Date: Mon, 16 Sep 2013 18:52:27 -0700
+Message-ID: <87k3igcizo.fsf@xmission.com>
+References: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+	<87k3iggw8m.fsf_-_@xmission.com>
+	<1379379051.4751.0.camel@edumazet-glaptop>
+	<20130916.213435.1508866100258405440.davem@davemloft.net>
+	<1379382102.4751.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	jiri@resnulli.us, alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org, fruggeri@aristanetworks.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32114 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409Ab3IQBuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:50:06 -0400
-In-Reply-To: <1379378812-18346-22-git-send-email-vfalico@redhat.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:38770 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793Ab3IQBwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:52:37 -0400
+In-Reply-To: <1379382102.4751.2.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Mon, 16 Sep 2013 18:41:42 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
-> It searches for the provided private and returns the next one. If private
-> is not found or next list element is list head - returns NULL.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-This is going to take linear time, which is probably OK for a bond that
-has only a very few devices.  But it would likely be a really bad idea
-for, say, a bridge device that could have tens or hundreds of lower
-devices.  So it's not a generically useful function.
+> On Mon, 2013-09-16 at 21:34 -0400, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 16 Sep 2013 17:50:51 -0700
+>> 
+>> > On Mon, 2013-09-16 at 16:52 -0700, Eric W. Biederman wrote:
+>> >> It has recently turned up that we have a number of long standing bugs
+>> >> in the network stack cleanup code with use of the loopback device
+>> >> after it has been freed that have not turned up because in most cases
+>> >> the storage allocated to the loopback device is not reused, when those
+>> >> accesses happen.
+>> >> 
+>> >> Set looback_dev to NULL to trigger oopses instead of silent data corrupt
+>> >> when we hit this class of bug.
+>> >> 
+>> >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> >> ---
+>> > 
+>> > Acked-by: Eric Dumazet <edumazet@google.com>
+>> 
+>> I'd like to apply this to 'net', any objections?
+>
+> No objections from me.
 
-I think the bonding driver can implement this:
+No objects from me I just hadn't seen it as a bug fix, but I guess it
+sort of is.
 
-[...]
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
->  }
->  EXPORT_SYMBOL(netdev_lower_dev_get_private);
->  
-> +/* netdev_lower_dev_get_next_private - return the ->private of the list
-> + *				       element whos ->private == private.
-> + * @dev - device to search
-> + * @private - private pointer to search for.
-> + *
-> + * Returns the next ->private pointer, if ->next is not head and private is
-> + * found.
-> + */
-> +extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
-> +					       void *private)
-> +{
-> +	struct netdev_adjacent *lower;
-> +
-> +	list_for_each_entry(lower, &dev->adj_list.lower, list) {
-> +		if (lower->private == private) {
-> +			lower = list_entry(lower->list.next,
-> +					   struct netdev_adjacent, list);
-> +			if (&lower->list == &dev->adj_list.lower)
-> +				return NULL;
-> +			return lower->private;
-> +		}
-> +	}
-> +
-> +	return NULL;
-> +}
-> +EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
-
-using only the functions already exported:
-
-static void *__bond_next_slave(struct net_device *dev, void *private)
-{
-	struct list_head *iter;
-	struct net_device *lower;
-	bool found = false;
-
-	netdev_for_each_lower_dev(dev, lower, iter) {
-		if (found)
-			return netdev_adjacent_get_private(iter);
-		if (netdev_adjacent_get_private(iter) == private)
-			found = true;
-	}
-
-	return NULL;
-}
-
-(not that I've tested it :-).
-
-Ben.
-
-> +
->  static void dev_change_rx_flags(struct net_device *dev, int flags)
->  {
->  	const struct net_device_ops *ops = dev->netdev_ops;
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Eric
