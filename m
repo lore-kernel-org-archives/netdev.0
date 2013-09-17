@@ -1,119 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost/scsi: use vmalloc for order-10 allocation
-Date: Tue, 17 Sep 2013 10:21:07 +0300
-Message-ID: <1379401998-5131-1-git-send-email-mst@redhat.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v3 net-next 02/27] net: add RCU variant to search for
+ netdev_adjacent link
+Date: Tue, 17 Sep 2013 09:34:08 +0200
+Message-ID: <20130917073408.GB18195@redhat.com>
+References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
+ <1379378812-18346-3-git-send-email-vfalico@redhat.com>
+ <1379380998.23881.20.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Dan Aloni <alonid@stratoscale.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55692 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751392Ab3IQHdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 03:33:49 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1379380998.23881.20.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As vhost scsi device struct is large, if the device is
-created on a busy system, kzalloc() might fail, so this patch does a
-fallback to vzalloc().
+On Tue, Sep 17, 2013 at 02:23:18AM +0100, Ben Hutchings wrote:
+>On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
+>> Currently we have only the RTNL flavour, however we can traverse it while
+>> holding only RCU, so add the RCU search. Add only one function that will be
+>> used further, other functions can be added easily afterwards, if anyone
+>> would need them.
+>[...]
+>> +static struct netdev_adjacent *__netdev_find_adj_rcu(struct net_device *dev,
+>> +						     struct net_device *adj_dev,
+>> +						     bool upper, bool neighbour)
+>> +{
+>> +	struct netdev_adjacent *adj;
+>> +	struct list_head *adj_list;
+>> +
+>> +	if (neighbour)
+>> +		adj_list = upper ? &dev->adj_list.upper :
+>> +				   &dev->adj_list.lower;
+>> +	else
+>> +		adj_list = upper ? &dev->all_adj_list.upper :
+>> +				   &dev->all_adj_list.lower;
+>
+>I think it would be clearer to make adj_list a parameter, rather than
+>taking the dev and a pair of booleans.
 
-As vmalloc() adds overhead on data-path, add __GFP_REPEAT
-to kzalloc() flags to do this fallback only when really needed.
+Hm, true, indeed, will try to change in the next version.
 
-Reported-by: Dan Aloni <alonid@stratoscale.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+Thank you!
 
-I put this on my vhost fixes branch, intend to merge for 3.12.
-Dan, could you please confirm this works for you?
-
- drivers/vhost/scsi.c | 41 +++++++++++++++++++++++++++--------------
- 1 file changed, 27 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index 4b79a1f..2c30bb0 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -1373,21 +1373,30 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
- 	return 0;
- }
- 
-+static void vhost_scsi_free(struct vhost_scsi *vs)
-+{
-+        if (is_vmalloc_addr(vs))
-+                vfree(vs);
-+        else
-+                kfree(vs);
-+}
-+
- static int vhost_scsi_open(struct inode *inode, struct file *f)
- {
- 	struct vhost_scsi *vs;
- 	struct vhost_virtqueue **vqs;
--	int r, i;
-+	int r = -ENOMEM, i;
- 
--	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
--	if (!vs)
--		return -ENOMEM;
-+        vs = kzalloc(sizeof(*vs), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-+	if (!vs) {
-+		vs = vzalloc(sizeof(*vs));
-+		if (!vs)
-+			goto err_vs;
-+	}
- 
- 	vqs = kmalloc(VHOST_SCSI_MAX_VQ * sizeof(*vqs), GFP_KERNEL);
--	if (!vqs) {
--		kfree(vs);
--		return -ENOMEM;
--	}
-+	if (!vqs)
-+		goto err_vqs;
- 
- 	vhost_work_init(&vs->vs_completion_work, vhost_scsi_complete_cmd_work);
- 	vhost_work_init(&vs->vs_event_work, tcm_vhost_evt_work);
-@@ -1407,14 +1416,18 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
- 
- 	tcm_vhost_init_inflight(vs, NULL);
- 
--	if (r < 0) {
--		kfree(vqs);
--		kfree(vs);
--		return r;
--	}
-+	if (r < 0)
-+		goto err_init;
- 
- 	f->private_data = vs;
- 	return 0;
-+
-+err_init:
-+	kfree(vqs);
-+err_vqs:
-+	vhost_scsi_free(vs);
-+err_vs:
-+	return r;
- }
- 
- static int vhost_scsi_release(struct inode *inode, struct file *f)
-@@ -1431,7 +1444,7 @@ static int vhost_scsi_release(struct inode *inode, struct file *f)
- 	/* Jobs can re-queue themselves in evt kick handler. Do extra flush. */
- 	vhost_scsi_flush(vs);
- 	kfree(vs->dev.vqs);
--	kfree(vs);
-+	vhost_scsi_free(vs);
- 	return 0;
- }
- 
--- 
-MST
+>
+>Ben.
+>
+>> +	list_for_each_entry_rcu(adj, adj_list, list) {
+>> +		if (adj->dev == adj_dev)
+>> +			return adj;
+>> +	}
+>> +	return NULL;
+>> +}
+>> +
+>> +static struct netdev_adjacent *__netdev_lower_find_rcu(struct net_device *dev,
+>> +							struct net_device *ldev)
+>> +{
+>> +	return __netdev_find_adj_rcu(dev, ldev, false, true);
+>> +}
+>> +
+>>  static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
+>>  						 struct net_device *adj_dev,
+>>  						 bool upper, bool neighbour)
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
