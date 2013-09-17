@@ -1,44 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Potential out-of-bounds access in ip6_finish_output2
-Date: Wed, 18 Sep 2013 00:48:51 +0200
-Message-ID: <20130917224851.GB8947@order.stressinduktion.org>
-References: <CACT4Y+ZXqoixvCyN5703+sVhCV4ND-vNwash2Z1vSDoLgKNyVg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net loopback: Set loopback_dev to NULL when
+ freed
+Date: Tue, 17 Sep 2013 19:05:27 -0400 (EDT)
+Message-ID: <20130917.190527.1991946387265699150.davem@davemloft.net>
+References: <20130916.213435.1508866100258405440.davem@davemloft.net>
+	<1379382102.4751.2.camel@edumazet-glaptop>
+	<87k3igcizo.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	Paul Turner <pjt@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, edumazet@google.com, jiri@resnulli.us,
+	alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org, fruggeri@aristanetworks.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35123 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003Ab3IQWsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 18:48:52 -0400
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+ZXqoixvCyN5703+sVhCV4ND-vNwash2Z1vSDoLgKNyVg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753379Ab3IQXFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 19:05:30 -0400
+In-Reply-To: <87k3igcizo.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 10:13:10PM -0700, Dmitry Vyukov wrote:
-> Hi,
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 16 Sep 2013 18:52:27 -0700
+
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
 > 
-> I am working on AddressSanitizer -- a tool that detects use-after-free
-> and out-of-bounds bugs
-> (https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel).
+>> On Mon, 2013-09-16 at 21:34 -0400, David Miller wrote:
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Mon, 16 Sep 2013 17:50:51 -0700
+>>> 
+>>> > On Mon, 2013-09-16 at 16:52 -0700, Eric W. Biederman wrote:
+>>> >> It has recently turned up that we have a number of long standing bugs
+>>> >> in the network stack cleanup code with use of the loopback device
+>>> >> after it has been freed that have not turned up because in most cases
+>>> >> the storage allocated to the loopback device is not reused, when those
+>>> >> accesses happen.
+>>> >> 
+>>> >> Set looback_dev to NULL to trigger oopses instead of silent data corrupt
+>>> >> when we hit this class of bug.
+>>> >> 
+>>> >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>>> >> ---
+>>> > 
+>>> > Acked-by: Eric Dumazet <edumazet@google.com>
+>>> 
+>>> I'd like to apply this to 'net', any objections?
+>>
+>> No objections from me.
 > 
-> I've got a dozen of reports in ip6_finish_output2. Below are 2 of
-> them. They are always followed by kernel crash. Unfortunately I don't
-> have a reproducer because I am using trinity fuzzer. I would
-> appreciate if somebody familiar with the code look at sources and
-> maybe spot the bug.
+> No objects from me I just hadn't seen it as a bug fix, but I guess it
+> sort of is.
 
-Thanks for the report!
-
-I tried reproducing the bug and hit some other bugs nearby. I'll try to fix
-them, but this could take some time.
-
-Greetings,
-
-  Hannes
+Ok, done.
