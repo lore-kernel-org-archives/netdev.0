@@ -1,46 +1,128 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 8/8 V2] rtlwifi: Remove variable 'noise' from rtl_stats struct
-Date: Tue, 17 Sep 2013 09:48:22 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7340@saturn3.aculab.com>
-References: <1379357722-17687-1-git-send-email-Larry.Finger@lwfinger.net> <1379357722-17687-9-git-send-email-Larry.Finger@lwfinger.net>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost/scsi: use vmalloc for order-10 allocation
+Date: Tue, 17 Sep 2013 16:55:25 +0800
+Message-ID: <20130917085525.GB11609@hj.localdomain>
+References: <1379401998-5131-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Larry Finger" <Larry.Finger@lwfinger.net>,
-	<linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40073 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752441Ab3IQIuo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 04:50:44 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01924-09 for <netdev@vger.kernel.org>;
- Tue, 17 Sep 2013 09:50:43 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1379357722-17687-9-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Dan Aloni <alonid@stratoscale.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1379401998-5131-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-> index cc03e7c..284ee8d 100644
-> --- a/drivers/net/wireless/rtlwifi/wifi.h
-> +++ b/drivers/net/wireless/rtlwifi/wifi.h
-> @@ -1535,7 +1535,6 @@ struct rtl_stats {
->  	u32 mac_time[2];
->  	s8 rssi;
->  	u8 signal;
-> -	u8 noise;
->  	u8 rate;		/* hw desc rate */
->  	u8 received_channel;
->  	u8 control;
-> --
+On Tue, Sep 17, 2013 at 10:21:07AM +0300, Michael S. Tsirkin wrote:
+> As vhost scsi device struct is large, if the device is
+> created on a busy system, kzalloc() might fail, so this patch does a
+> fallback to vzalloc().
+> 
+> As vmalloc() adds overhead on data-path, add __GFP_REPEAT
+> to kzalloc() flags to do this fallback only when really needed.
+> 
+> Reported-by: Dan Aloni <alonid@stratoscale.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Is 'struct rtl_stats' exposed to userspace?
-(or even to loadable drivers)
-If so you probably ought to replace 'noise' with an explicit
-pad in order to avoid changing the offsets of the other fields.
+Reviewed-by: Asias He <asias@redhat.com>
 
-	David
+> ---
+> 
+> I put this on my vhost fixes branch, intend to merge for 3.12.
+> Dan, could you please confirm this works for you?
+> 
+>  drivers/vhost/scsi.c | 41 +++++++++++++++++++++++++++--------------
+>  1 file changed, 27 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> index 4b79a1f..2c30bb0 100644
+> --- a/drivers/vhost/scsi.c
+> +++ b/drivers/vhost/scsi.c
+> @@ -1373,21 +1373,30 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
+>  	return 0;
+>  }
+>  
+> +static void vhost_scsi_free(struct vhost_scsi *vs)
+> +{
+> +        if (is_vmalloc_addr(vs))
+> +                vfree(vs);
+> +        else
+> +                kfree(vs);
+> +}
+> +
+>  static int vhost_scsi_open(struct inode *inode, struct file *f)
+>  {
+>  	struct vhost_scsi *vs;
+>  	struct vhost_virtqueue **vqs;
+> -	int r, i;
+> +	int r = -ENOMEM, i;
+>  
+> -	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
+> -	if (!vs)
+> -		return -ENOMEM;
+> +        vs = kzalloc(sizeof(*vs), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> +	if (!vs) {
+> +		vs = vzalloc(sizeof(*vs));
+> +		if (!vs)
+> +			goto err_vs;
+> +	}
+>  
+>  	vqs = kmalloc(VHOST_SCSI_MAX_VQ * sizeof(*vqs), GFP_KERNEL);
+> -	if (!vqs) {
+> -		kfree(vs);
+> -		return -ENOMEM;
+> -	}
+> +	if (!vqs)
+> +		goto err_vqs;
+>  
+>  	vhost_work_init(&vs->vs_completion_work, vhost_scsi_complete_cmd_work);
+>  	vhost_work_init(&vs->vs_event_work, tcm_vhost_evt_work);
+> @@ -1407,14 +1416,18 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
+>  
+>  	tcm_vhost_init_inflight(vs, NULL);
+>  
+> -	if (r < 0) {
+> -		kfree(vqs);
+> -		kfree(vs);
+> -		return r;
+> -	}
+> +	if (r < 0)
+> +		goto err_init;
+>  
+>  	f->private_data = vs;
+>  	return 0;
+> +
+> +err_init:
+> +	kfree(vqs);
+> +err_vqs:
+> +	vhost_scsi_free(vs);
+> +err_vs:
+> +	return r;
+>  }
+>  
+>  static int vhost_scsi_release(struct inode *inode, struct file *f)
+> @@ -1431,7 +1444,7 @@ static int vhost_scsi_release(struct inode *inode, struct file *f)
+>  	/* Jobs can re-queue themselves in evt kick handler. Do extra flush. */
+>  	vhost_scsi_flush(vs);
+>  	kfree(vs->dev.vqs);
+> -	kfree(vs);
+> +	vhost_scsi_free(vs);
+>  	return 0;
+>  }
+>  
+> -- 
+> MST
+
+-- 
+Asias
