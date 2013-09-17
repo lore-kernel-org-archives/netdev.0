@@ -1,46 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: rfc4443: do not report ICMP redirects
- to user space
-Date: Mon, 16 Sep 2013 21:40:54 -0400 (EDT)
-Message-ID: <20130916.214054.1994711412361848197.davem@davemloft.net>
-References: <1379327762-4638-1-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net loopback: Set loopback_dev to NULL when
+ freed
+Date: Mon, 16 Sep 2013 18:41:42 -0700
+Message-ID: <1379382102.4751.2.camel@edumazet-glaptop>
+References: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+	 <87k3iggw8m.fsf_-_@xmission.com> <1379379051.4751.0.camel@edumazet-glaptop>
+	 <20130916.213435.1508866100258405440.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	hannes@stressinduktion.org
-To: dborkman@redhat.com
+Cc: ebiederm@xmission.com, edumazet@google.com, jiri@resnulli.us,
+	alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org, fruggeri@aristanetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43851 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437Ab3IQBk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:40:56 -0400
-In-Reply-To: <1379327762-4638-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:61279 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722Ab3IQBlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:41:44 -0400
+Received: by mail-pd0-f176.google.com with SMTP id q10so4828684pdj.7
+        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 18:41:43 -0700 (PDT)
+In-Reply-To: <20130916.213435.1508866100258405440.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 16 Sep 2013 12:36:02 +0200
+On Mon, 2013-09-16 at 21:34 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 16 Sep 2013 17:50:51 -0700
+> 
+> > On Mon, 2013-09-16 at 16:52 -0700, Eric W. Biederman wrote:
+> >> It has recently turned up that we have a number of long standing bugs
+> >> in the network stack cleanup code with use of the loopback device
+> >> after it has been freed that have not turned up because in most cases
+> >> the storage allocated to the loopback device is not reused, when those
+> >> accesses happen.
+> >> 
+> >> Set looback_dev to NULL to trigger oopses instead of silent data corrupt
+> >> when we hit this class of bug.
+> >> 
+> >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> >> ---
+> > 
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> I'd like to apply this to 'net', any objections?
 
-> Adapt the same behaviour for SCTP as present in TCP for ICMP redirect
-> messages. For IPv6, RFC4443, section 2.4. says:
-> 
->   ...
->   (e) An ICMPv6 error message MUST NOT be originated as a result of
->       receiving the following:
->   ...
->        (e.2) An ICMPv6 redirect message [IPv6-DISC].
->   ...
-> 
-> Therefore, do not report an error to user space, just invoke dst's redirect
-> callback and leave, same for IPv4 as done in TCP as well. The implication
-> w/o having this patch could be that the reception of such packets would
-> generate a poll notification and in worst case it could even tear down the
-> whole connection. Therefore, stop updating sk_err on redirects.
-> 
-> Reported-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-
-Applied and queued up for -stable, thanks Daniel.
+No objections from me.
