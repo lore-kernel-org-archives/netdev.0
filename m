@@ -1,46 +1,100 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] tcp: fix RTO calculated from cached RTT
-Date: Mon, 16 Sep 2013 21:44:20 -0400
-Message-ID: <1379382260-29303-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 net-next 21/27] net: add a function to get the next
+ private
+Date: Tue, 17 Sep 2013 02:50:01 +0100
+Message-ID: <1379382601.23881.36.camel@deadeye.wl.decadent.org.uk>
+References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
+	 <1379378812-18346-22-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:37381 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751583Ab3IQBte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:49:34 -0400
-Received: by mail-qa0-f73.google.com with SMTP id cm18so333466qab.2
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 18:49:33 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:32114 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409Ab3IQBuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:50:06 -0400
+In-Reply-To: <1379378812-18346-22-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 1b7fdd2ab5852 ("tcp: do not use cached RTT for RTT estimation")
-did not correctly account for the fact that crtt is the RTT shifted
-left 3 bits. Fix the calculation to consistently reflect this fact.
+On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
+> It searches for the provided private and returns the next one. If private
+> is not found or next list element is list head - returns NULL.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_metrics.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+This is going to take linear time, which is probably OK for a bond that
+has only a very few devices.  But it would likely be a really bad idea
+for, say, a bridge device that could have tens or hundreds of lower
+devices.  So it's not a generically useful function.
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 4a22f3e..52f3c6b 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -502,7 +502,9 @@ reset:
- 	 * ACKs, wait for troubles.
- 	 */
- 	if (crtt > tp->srtt) {
--		inet_csk(sk)->icsk_rto = crtt + max(crtt >> 2, tcp_rto_min(sk));
-+		/* Set RTO like tcp_rtt_estimator(), but from cached RTT. */
-+		crtt >>= 3;
-+		inet_csk(sk)->icsk_rto = crtt + max(2 * crtt, tcp_rto_min(sk));
- 	} else if (tp->srtt == 0) {
- 		/* RFC6298: 5.7 We've failed to get a valid RTT sample from
- 		 * 3WHS. This is most likely due to retransmission,
+I think the bonding driver can implement this:
+
+[...]
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+>  }
+>  EXPORT_SYMBOL(netdev_lower_dev_get_private);
+>  
+> +/* netdev_lower_dev_get_next_private - return the ->private of the list
+> + *				       element whos ->private == private.
+> + * @dev - device to search
+> + * @private - private pointer to search for.
+> + *
+> + * Returns the next ->private pointer, if ->next is not head and private is
+> + * found.
+> + */
+> +extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
+> +					       void *private)
+> +{
+> +	struct netdev_adjacent *lower;
+> +
+> +	list_for_each_entry(lower, &dev->adj_list.lower, list) {
+> +		if (lower->private == private) {
+> +			lower = list_entry(lower->list.next,
+> +					   struct netdev_adjacent, list);
+> +			if (&lower->list == &dev->adj_list.lower)
+> +				return NULL;
+> +			return lower->private;
+> +		}
+> +	}
+> +
+> +	return NULL;
+> +}
+> +EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
+
+using only the functions already exported:
+
+static void *__bond_next_slave(struct net_device *dev, void *private)
+{
+	struct list_head *iter;
+	struct net_device *lower;
+	bool found = false;
+
+	netdev_for_each_lower_dev(dev, lower, iter) {
+		if (found)
+			return netdev_adjacent_get_private(iter);
+		if (netdev_adjacent_get_private(iter) == private)
+			found = true;
+	}
+
+	return NULL;
+}
+
+(not that I've tested it :-).
+
+Ben.
+
+> +
+>  static void dev_change_rx_flags(struct net_device *dev, int flags)
+>  {
+>  	const struct net_device_ops *ops = dev->netdev_ops;
+
 -- 
-1.8.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
