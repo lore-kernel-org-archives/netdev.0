@@ -1,34 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: implement unaligned addressing for DMA rings
- that support it
-Date: Mon, 16 Sep 2013 21:31:35 -0400 (EDT)
-Message-ID: <20130916.213135.1916519693990322668.davem@davemloft.net>
-References: <1379279598-25274-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net-next] net loopback: Set loopback_dev to NULL when
+ freed
+Date: Mon, 16 Sep 2013 21:34:35 -0400 (EDT)
+Message-ID: <20130916.213435.1508866100258405440.davem@davemloft.net>
+References: <CA+HUmGih9akzhpRrb_0WEapi4jGcuSV8qO==QeRWHoqnxzFyng@mail.gmail.com>
+	<87k3iggw8m.fsf_-_@xmission.com>
+	<1379379051.4751.0.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, edumazet@google.com, jiri@resnulli.us,
+	alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org, fruggeri@aristanetworks.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43684 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43719 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946Ab3IQBbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:31:36 -0400
-In-Reply-To: <1379279598-25274-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1751437Ab3IQBeh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:34:37 -0400
+In-Reply-To: <1379379051.4751.0.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Sun, 15 Sep 2013 23:13:18 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 Sep 2013 17:50:51 -0700
 
-> This is important patch for new devices that support unaligned
-> addressing. That devices suffer from the backward-compatibility bug i=
-n
-> DMA engine. In theory we should be able to use old mechanism, but in
-> practice DMA address seems to be randomly copied into status register
-> when hardware reaches end of a ring. This breaks reading slot number
-> from status register and we can't use DMA anymore.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> On Mon, 2013-09-16 at 16:52 -0700, Eric W. Biederman wrote:
+>> It has recently turned up that we have a number of long standing bugs
+>> in the network stack cleanup code with use of the loopback device
+>> after it has been freed that have not turned up because in most cases
+>> the storage allocated to the loopback device is not reused, when those
+>> accesses happen.
+>> 
+>> Set looback_dev to NULL to trigger oopses instead of silent data corrupt
+>> when we hit this class of bug.
+>> 
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+I'd like to apply this to 'net', any objections?
