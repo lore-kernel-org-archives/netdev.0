@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net, vxlan Fix compile warning
-Date: Mon, 16 Sep 2013 21:23:58 -0400 (EDT)
-Message-ID: <20130916.212358.1356743853860170770.davem@davemloft.net>
-References: <1379075352-20051-1-git-send-email-prarit@redhat.com>
+Subject: Re: [PATCH] net, mellanox mlx4 Fix compile warnings
+Date: Mon, 16 Sep 2013 21:25:59 -0400 (EDT)
+Message-ID: <20130916.212559.252825159014181091.davem@davemloft.net>
+References: <1379075438-20240-1-git-send-email-prarit@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jpirko@redhat.com, tgraf@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dledford@redhat.com, amirv@mellanox.com,
+	ogerlitz@mellanox.com
 To: prarit@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43470 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43511 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822Ab3IQBYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:24:05 -0400
-In-Reply-To: <1379075352-20051-1-git-send-email-prarit@redhat.com>
+	with ESMTP id S1751793Ab3IQB0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:26:01 -0400
+In-Reply-To: <1379075438-20240-1-git-send-email-prarit@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUHJhcml0IEJoYXJnYXZhIDxwcmFyaXRAcmVkaGF0LmNvbT4NCkRhdGU6IEZyaSwgMTMg
-U2VwIDIwMTMgMDg6Mjk6MTIgLTA0MDANCg0KPiBGaXggYSB1bmludGlhbGl6ZWQgdmFyaWFibGUg
-d2FybmluZy4NCj4gDQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6IEluIGZ1bmN0aW9uIKF2eGxhbl9z
-b2NrX2FkZKI6DQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6MjI0MDoxMTogZXJyb3I6IKFzb2NroiBt
-YXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XZXJyb3I9bWF5YmUt
-dW5pbml0aWFsaXplZF0NCj4gICB2cy0+c29jayA9IHNvY2s7DQo+ICAgICAgICAgICAgXg0KPiBk
-cml2ZXJzL25ldC92eGxhbi5jOjIyMTc6MTc6IG5vdGU6IKFzb2NroiB3YXMgZGVjbGFyZWQgaGVy
-ZQ0KPiAgIHN0cnVjdCBzb2NrZXQgKnNvY2s7DQo+ICAgICAgICAgICAgICAgICAgXg0KPiANCj4g
-U2lnbmVkLW9mZi1ieTogUHJhcml0IEJoYXJnYXZhIDxwcmFyaXRAcmVkaGF0LmNvbT4NCg0KTWFr
-ZSBjcmVhdGVfdns0LDZ9X3NvY2soKSByZXR1cm4gYW4gZXJyIHBvaW50ZXIuDQoNClByb2JsZW0g
-c29sdmVkIGFuZCBubyBpbmNyZWRpYmx5IHVnbHksIHVubmVjZXNzYXJ5LCBhbm5vdGF0aW9ucy4N
-Cg0KVGhlIGVycm9yIGNvZGUgcmV0dXJuIGZyb20gdGhlc2UgZnVuY3Rpb25zIGFscmVhZHkgZ2V0
-cyB0dXJuZWQgaW50bw0KYW5kIGVycm9yIHBvaW50ZXIgYXQgdGhlIGNhbGwgc2l0ZSwgd2hpY2gg
-bWFrZXMgdGhpcyBzaXR1YXRpb24gZXZlbg0KbW9yZSByZWRpY3Vsb3VzLg0KDQo=
+From: Prarit Bhargava <prarit@redhat.com>
+Date: Fri, 13 Sep 2013 08:30:38 -0400
+
+> @@ -2563,7 +2563,7 @@ int mlx4_HW2SW_CQ_wrapper(struct mlx4_dev *dev, int slave,
+>  {
+>  	int err;
+>  	int cqn = vhcr->in_modifier;
+> -	struct res_cq *cq;
+> +	struct res_cq *uninitialized_var(cq);
+>  
+>  	err = cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED, &cq);
+>  	if (err)
+
+This gross annotation is not necessary.
+
+Make cq_res_start_move_to() return 'cq' as an error pointer instead of
+setting 'cq' by reference.
