@@ -1,29 +1,23 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 12/27] bonding: rework rlb_next_rx_slave() to use bond_for_each_slave()
-Date: Tue, 17 Sep 2013 02:46:37 +0200
-Message-ID: <1379378812-18346-13-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 08/27] bonding: remove bond_for_each_slave_continue_reverse()
+Date: Tue, 17 Sep 2013 02:46:33 +0200
+Message-ID: <1379378812-18346-9-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45730 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27573 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752046Ab3IQAsK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:48:10 -0400
+	id S1751751Ab3IQArE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:04 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we're using bond_for_each_slave_from(), which is really hard to
-implement under RCU and/or neighbour list.
-
-Remove it and use bond_for_each_slave() instead, taking care of the last
-used slave.
-
-Also, rename next_rx_slave to rx_slave and store the current (last)
-rx_slave.
+We only use it in rollback scenarios and can easily use the standart
+bond_for_each_dev() instead.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -32,96 +26,162 @@ Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
 Notes:
     v2  -> v3:
-    No change.
+    Add the forgotten _continue to the subject.
     
     v1  -> v2:
     No changes.
     
     RFC -> v1:
-    New patch.
+    Move the patch right before we change bond_for_each_slave() conversion,
+    so that we don't have to convert bond_for_each_slave_reverse() too.
 
- drivers/net/bonding/bond_alb.c | 41 +++++++++++++++++++++--------------------
- drivers/net/bonding/bond_alb.h |  4 +---
- 2 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/net/bonding/bond_alb.c  | 14 ++++++++------
+ drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++------------
+ drivers/net/bonding/bonding.h   | 10 ----------
+ 3 files changed, 30 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index caa437d..1172474 100644
+index c3dcc6b..46f6b40 100644
 --- a/drivers/net/bonding/bond_alb.c
 +++ b/drivers/net/bonding/bond_alb.c
-@@ -383,30 +383,31 @@ out:
- static struct slave *rlb_next_rx_slave(struct bonding *bond)
+@@ -1246,9 +1246,9 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+  */
+ static int alb_set_mac_address(struct bonding *bond, void *addr)
  {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
--	struct slave *rx_slave, *slave, *start_at;
--	int i = 0;
--
--	if (bond_info->next_rx_slave)
--		start_at = bond_info->next_rx_slave;
--	else
--		start_at = bond_first_slave(bond);
--
--	rx_slave = NULL;
-+	struct slave *before = NULL, *rx_slave = NULL, *slave;
-+	struct list_head *iter;
-+	bool found = false;
+-	char tmp_addr[ETH_ALEN];
+-	struct slave *slave;
++	struct slave *slave, *rollback_slave;
+ 	struct sockaddr sa;
++	char tmp_addr[ETH_ALEN];
+ 	int res;
  
--	bond_for_each_slave_from(bond, slave, i, start_at) {
--		if (SLAVE_IS_OK(slave)) {
--			if (!rx_slave) {
--				rx_slave = slave;
--			} else if (slave->speed > rx_slave->speed) {
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (!SLAVE_IS_OK(slave))
-+			continue;
-+		if (!found) {
-+			if (!before || before->speed < slave->speed)
-+				before = slave;
-+		} else {
-+			if (!rx_slave || rx_slave->speed < slave->speed)
- 				rx_slave = slave;
--			}
+ 	if (bond->alb_info.rlb_enabled)
+@@ -1274,10 +1274,12 @@ unwind:
+ 	sa.sa_family = bond->dev->type;
+ 
+ 	/* unwind from head to the slave that failed */
+-	bond_for_each_slave_continue_reverse(bond, slave) {
+-		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
+-		dev_set_mac_address(slave->dev, &sa);
+-		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
++	bond_for_each_slave(bond, rollback_slave) {
++		if (rollback_slave == slave)
++			break;
++		memcpy(tmp_addr, rollback_slave->dev->dev_addr, ETH_ALEN);
++		dev_set_mac_address(rollback_slave->dev, &sa);
++		memcpy(rollback_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
+ 	}
+ 
+ 	return res;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f862dc8..3956478 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -332,7 +332,7 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
+ 				__be16 proto, u16 vid)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave;
++	struct slave *slave, *rollback_slave;
+ 	int res;
+ 
+ 	bond_for_each_slave(bond, slave) {
+@@ -344,9 +344,13 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
+ 	return 0;
+ 
+ unwind:
+-	/* unwind from the slave that failed */
+-	bond_for_each_slave_continue_reverse(bond, slave)
+-		vlan_vid_del(slave->dev, proto, vid);
++	/* unwind to the slave that failed */
++	bond_for_each_slave(bond, rollback_slave) {
++		if (rollback_slave == slave)
++			break;
++
++		vlan_vid_del(rollback_slave->dev, proto, vid);
++	}
+ 
+ 	return res;
+ }
+@@ -3468,7 +3472,7 @@ static int bond_neigh_setup(struct net_device *dev,
+ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave;
++	struct slave *slave, *rollback_slave;
+ 	int res = 0;
+ 
+ 	pr_debug("bond=%p, name=%s, new_mtu=%d\n", bond,
+@@ -3517,13 +3521,16 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
+ 
+ unwind:
+ 	/* unwind from head to the slave that failed */
+-	bond_for_each_slave_continue_reverse(bond, slave) {
++	bond_for_each_slave(bond, rollback_slave) {
+ 		int tmp_res;
+ 
+-		tmp_res = dev_set_mtu(slave->dev, bond_dev->mtu);
++		if (rollback_slave == slave);
++			break;
++
++		tmp_res = dev_set_mtu(rollback_slave->dev, bond_dev->mtu);
+ 		if (tmp_res) {
+ 			pr_debug("unwind err %d dev %s\n",
+-				 tmp_res, slave->dev->name);
++				 tmp_res, rollback_slave->dev->name);
  		}
-+		if (slave == bond_info->rx_slave)
-+			found = true;
  	}
-+	/* we didn't find anything after the current or we have something
-+	 * better before and up to the current slave
-+	 */
-+	if (!rx_slave || (before && rx_slave->speed < before->speed))
-+		rx_slave = before;
  
--	if (rx_slave) {
--		slave = bond_next_slave(bond, rx_slave);
--		bond_info->next_rx_slave = slave;
--	}
-+	if (rx_slave)
-+		bond_info->rx_slave = rx_slave;
+@@ -3540,8 +3547,8 @@ unwind:
+ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave, *rollback_slave;
+ 	struct sockaddr *sa = addr, tmp_sa;
+-	struct slave *slave;
+ 	int res = 0;
  
- 	return rx_slave;
- }
-@@ -1611,7 +1612,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
- 	tlb_clear_slave(bond, slave, 0);
+ 	if (bond->params.mode == BOND_MODE_ALB)
+@@ -3607,13 +3614,16 @@ unwind:
+ 	tmp_sa.sa_family = bond_dev->type;
  
- 	if (bond->alb_info.rlb_enabled) {
--		bond->alb_info.next_rx_slave = NULL;
-+		bond->alb_info.rx_slave = NULL;
- 		rlb_clear_slave(bond, slave);
+ 	/* unwind from head to the slave that failed */
+-	bond_for_each_slave_continue_reverse(bond, slave) {
++	bond_for_each_slave(bond, rollback_slave) {
+ 		int tmp_res;
+ 
+-		tmp_res = dev_set_mac_address(slave->dev, &tmp_sa);
++		if (rollback_slave == slave)
++			break;
++
++		tmp_res = dev_set_mac_address(rollback_slave->dev, &tmp_sa);
+ 		if (tmp_res) {
+ 			pr_debug("unwind err %d dev %s\n",
+-				 tmp_res, slave->dev->name);
++				 tmp_res, rollback_slave->dev->name);
+ 		}
  	}
- }
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index 28d8e4c..7736ce2 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -153,9 +153,7 @@ struct alb_bond_info {
- 	u8			rx_ntt;	/* flag - need to transmit
- 					 * to all rx clients
- 					 */
--	struct slave		*next_rx_slave;/* next slave to be assigned
--						* to a new rx client for
--						*/
-+	struct slave		*rx_slave;/* last slave to xmit from */
- 	u8			primary_is_promisc;	   /* boolean */
- 	u32			rlb_promisc_timeout_counter;/* counts primary
- 							     * promiscuity time
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 6d1a893..141ddc3 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -120,16 +120,6 @@
+ #define bond_for_each_slave_rcu(bond, pos) \
+ 	list_for_each_entry_rcu(pos, &(bond)->slave_list, list)
+ 
+-/**
+- * bond_for_each_slave_reverse - iterate in reverse from a given position
+- * @bond:	the bond holding this list
+- * @pos:	slave to continue from
+- *
+- * Caller must hold bond->lock
+- */
+-#define bond_for_each_slave_continue_reverse(bond, pos) \
+-	list_for_each_entry_continue_reverse(pos, &(bond)->slave_list, list)
+-
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ extern atomic_t netpoll_block_tx;
+ 
 -- 
 1.8.4
