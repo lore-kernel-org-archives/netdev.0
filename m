@@ -1,30 +1,28 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 25/27] vlan: unlink the upper neighbour before unregistering
-Date: Tue, 17 Sep 2013 02:46:50 +0200
-Message-ID: <1379378812-18346-26-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 18/27] net: add a possibility to get private from netdev_adjacent->list
+Date: Tue, 17 Sep 2013 02:46:43 +0200
+Message-ID: <1379378812-18346-19-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32484 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26390 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752089Ab3IQAra (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:30 -0400
+	id S1752089Ab3IQArT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:19 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On netdev unregister we're removing also all of its sysfs-associated stuff,
-including the sysfs symlinks that are controlled by netdev neighbour code.
-Also, it's a subtle race condition - cause we can still access it after
-unregistering.
+It will be useful to get first/last element.
 
-Move the unlinking right before the unregistering to fix both.
-
-CC: Patrick McHardy <kaber@trash.net>
 CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -35,32 +33,45 @@ Notes:
     v1  -> v2:
     No changes.
     
-    RFC -> v2:
-    New patch.
+    RFC -> v1:
+    No changes.
 
- net/8021q/vlan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 69b4a35..b3d17d1 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -98,14 +98,14 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
- 		vlan_gvrp_request_leave(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 48431f0..72d1631 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
- 	vlan_group_set_device(grp, vlan->vlan_proto, vlan_id, NULL);
++extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11284c8..24c7d17 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4512,6 +4512,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
+ 
++void *netdev_adjacent_get_private(struct list_head *adj_list)
++{
++	struct netdev_adjacent *adj;
 +
-+	netdev_upper_dev_unlink(real_dev, dev);
- 	/* Because unregister_netdevice_queue() makes sure at least one rcu
- 	 * grace period is respected before device freeing,
- 	 * we dont need to call synchronize_net() here.
- 	 */
- 	unregister_netdevice_queue(dev, head);
- 
--	netdev_upper_dev_unlink(real_dev, dev);
--
- 	if (grp->nr_vlan_devs == 0) {
- 		vlan_mvrp_uninit_applicant(real_dev);
- 		vlan_gvrp_uninit_applicant(real_dev);
++	adj = list_entry(adj_list, struct netdev_adjacent, list);
++
++	return adj->private;
++}
++EXPORT_SYMBOL(netdev_adjacent_get_private);
++
+ /* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
+  * @iter: list_head ** of the current position
 -- 
 1.8.4
