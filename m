@@ -1,122 +1,188 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Why we discard all rtt samples when only some of the acked skbs
- have been retransmited in processing ack?
-Date: Tue, 17 Sep 2013 07:53:31 -0700
-Message-ID: <CAK6E8=cY77JDkHE3Z_rZCO=FComk1YmkiKvqnBcMnf+wXY5xzg@mail.gmail.com>
-References: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
- <1379394682.29845.2.camel@edumazet-glaptop> <CADVnQykjm8nxVYzFu7=RfdcOH-cdARarSoRyBwj9Rp0m-+VKEw@mail.gmail.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH v4] Don't destroy the netdev until the vif is shut down
+Date: Tue, 17 Sep 2013 16:45:23 +0100
+Message-ID: <1379432723-24384-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	LovelyLich <lovelylich@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:35182 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689Ab3IQOxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 10:53:52 -0400
-Received: by mail-ie0-f178.google.com with SMTP id to1so9987203ieb.23
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 07:53:51 -0700 (PDT)
-In-Reply-To: <CADVnQykjm8nxVYzFu7=RfdcOH-cdARarSoRyBwj9Rp0m-+VKEw@mail.gmail.com>
+Received: from smtp.citrix.com ([66.165.176.89]:57518 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752751Ab3IQPpb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 11:45:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 17, 2013 at 6:31 AM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Tue, Sep 17, 2013 at 1:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Tue, 2013-09-17 at 12:01 +0800, LovelyLich wrote:
->>> Hi Eric,
->>>
->>> In tcp_clean_rtx_queue(), we set the flag FLAG_RETRANS_DATA_ACKED when we
->>>
->>> encounter one ever retransmited skb A. But if there is one( or more) skb B
->>>
->>> after this retransmited skb, and we calculate the rtt for skb B. The question
->>>
->>> is because we have set the flag FLAG_RETRANS_DATA_ACKED, and we will just
->>>
->>> return in tcp_ack_no_tstamp() !
->>>
->>> Two questions:
->>>
->>> 1. if we will just ignore all packets in this ack, we do not need to calculate
->>>
->>> skb B's rtt sample.
->>>
->>> 2. what I want to know, even if A's rtt sample is not reliable, but B's rtt
->>>
->>> sample can be trusted. Why we discard it ?
->>>
->>>
->>>
->>> Thanks in advanced.
->>>
->>
->> Good point !
->>
->> Yuchung, what do you think of following patch ?
->>
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 25a89ea..7f12b96 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -2971,7 +2971,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->>         struct sk_buff *skb;
->>         u32 now = tcp_time_stamp;
->>         int fully_acked = true;
->> -       int flag = 0;
->> +       int flag = FLAG_RETRANS_DATA_ACKED;
->>         u32 pkts_acked = 0;
->>         u32 reord = tp->packets_out;
->>         u32 prior_sacked = tp->sacked_out;
->> @@ -3002,7 +3002,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->>                 if (sacked & TCPCB_RETRANS) {
->>                         if (sacked & TCPCB_SACKED_RETRANS)
->>                                 tp->retrans_out -= acked_pcount;
->> -                       flag |= FLAG_RETRANS_DATA_ACKED;
->>                 } else {
->>                         ca_seq_rtt = now - scb->when;
->>                         last_ackt = skb->tstamp;
->> @@ -3013,6 +3012,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->>                                 reord = min(pkts_acked, reord);
->>                         if (!after(scb->end_seq, tp->high_seq))
->>                                 flag |= FLAG_ORIG_SACK_ACKED;
->> +                       flag &= ~FLAG_RETRANS_DATA_ACKED;
->>                 }
->>
->>                 if (sacked & TCPCB_SACKED_ACKED)
->
-> I think the existing logic is better than the patch. If we get a
-> cumulative ACK that covers a retransmitted packet, then any RTT sample
-> we try to extract is suspect, and likely to be at least 2x too high.
->
-> Consider the following common scenario:
->
-> t=0: send pkts 1, 2, 3, 4
-> t=1*RTT: receive dupack with SACK for pkts 2,3,4; fast retransmit  pkt 1
-> t=2*RTT: receive cumulative ack for all pkts through 4
->
-> With the existing logic, because the ACK we get at t=2*RTT covers the
-> retransmitted pkt 1, we do not attempt to take an RTT sample.
->
-> With that proposed patch, when we get the ACK at t=2*RTT we see that
-> there are non-retransmitted pkts 2,3,4 being ACKed, so we clear the
-> FLAG_RETRANS_DATA_ACKED bit and take an RTT sample of 2*RTT. But this
-> is 2x too big, and will distort our RTT sample.
+Without this patch, if a frontend cycles through states Closing
+and Closed (which Windows frontends need to do) then the netdev
+will be destroyed and requires re-invocation of hotplug scripts
+to restore state before the frontend can move to Connected. Thus
+when udev is not in use the backend gets stuck in InitWait.
 
-Yes I completely agree with Neal's analysis. In fact I've considered
-the proposed change when I implement the patch quoted below, and later
-realized it actually breaks Karn's algorithm: to properly take an RTT
-sample w/o ambiguity, all, not just some, of the packets cumulatively
-acked must not been retransmitted.
+With this patch, the netdev is left alone whilst the backend is
+still online and is only de-registered and freed just prior to
+destroying the vif (which is also nicely symmetrical with the
+netdev allocation and registration being done during probe) so
+no re-invocation of hotplug scripts is required.
 
->
-> Note that with Yuchung's recent patch to gather RTT samples from
-> SACKed packets (59c9af4234b0c21a1ed05cf65bf014d0c1a67bfd "tcp: measure
-> RTT from new SACK"), we will already be extracting essentially all the
-> RTT samples that we possibly can out of such scenarios with
-> retransmitted packets (for OSes that support SACK, which is basically
-> everyone). In the example above, Yuchung's new SACK-based RTT scheme
-> will correctly take RTT samples at t=1*RTT for the SACKed packets.
->
-> neal
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+---
+v2:
+ - Modify netback_remove() - bug only seemed to manifest with linux guest
+
+v3:
+ - Move __module_get() and module_put() calls
+
+v4:
+ - Clear tx_irq in xenvif_disconnect() to make sure that a subsequent
+   call to xenvif_connect() doesn't get nop-ed.
+
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |   26 ++++++++++----------------
+ drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
+ 3 files changed, 23 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index a197743..5715318 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -184,6 +184,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+ 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
+ 		   unsigned int rx_evtchn);
+ void xenvif_disconnect(struct xenvif *vif);
++void xenvif_free(struct xenvif *vif);
+ 
+ int xenvif_xenbus_init(void);
+ void xenvif_xenbus_fini(void);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 625c6f4..0465e0f 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -353,6 +353,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	}
+ 
+ 	netdev_dbg(dev, "Successfully created xenvif\n");
++
++	__module_get(THIS_MODULE);
++
+ 	return vif;
+ }
+ 
+@@ -366,8 +369,6 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+ 	if (vif->tx_irq)
+ 		return 0;
+ 
+-	__module_get(THIS_MODULE);
+-
+ 	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
+ 	if (err < 0)
+ 		goto err;
+@@ -452,12 +453,6 @@ void xenvif_carrier_off(struct xenvif *vif)
+ 
+ void xenvif_disconnect(struct xenvif *vif)
+ {
+-	/* Disconnect funtion might get called by generic framework
+-	 * even before vif connects, so we need to check if we really
+-	 * need to do a module_put.
+-	 */
+-	int need_module_put = 0;
+-
+ 	if (netif_carrier_ok(vif->dev))
+ 		xenvif_carrier_off(vif);
+ 
+@@ -468,23 +463,22 @@ void xenvif_disconnect(struct xenvif *vif)
+ 			unbind_from_irqhandler(vif->tx_irq, vif);
+ 			unbind_from_irqhandler(vif->rx_irq, vif);
+ 		}
+-		/* vif->irq is valid, we had a module_get in
+-		 * xenvif_connect.
+-		 */
+-		need_module_put = 1;
++		vif->tx_irq = 0;
+ 	}
+ 
+ 	if (vif->task)
+ 		kthread_stop(vif->task);
+ 
++	xenvif_unmap_frontend_rings(vif);
++}
++
++void xenvif_free(struct xenvif *vif)
++{
+ 	netif_napi_del(&vif->napi);
+ 
+ 	unregister_netdev(vif->dev);
+ 
+-	xenvif_unmap_frontend_rings(vif);
+-
+ 	free_netdev(vif->dev);
+ 
+-	if (need_module_put)
+-		module_put(THIS_MODULE);
++	module_put(THIS_MODULE);
+ }
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 1fe48fe3..a53782e 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
+ 	if (be->vif) {
+ 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+-		xenvif_disconnect(be->vif);
++		xenvif_free(be->vif);
+ 		be->vif = NULL;
+ 	}
+ 	kfree(be);
+@@ -213,9 +213,18 @@ static void disconnect_backend(struct xenbus_device *dev)
+ {
+ 	struct backend_info *be = dev_get_drvdata(&dev->dev);
+ 
++	if (be->vif)
++		xenvif_disconnect(be->vif);
++}
++
++static void destroy_backend(struct xenbus_device *dev)
++{
++	struct backend_info *be = dev_get_drvdata(&dev->dev);
++
+ 	if (be->vif) {
++		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+-		xenvif_disconnect(be->vif);
++		xenvif_free(be->vif);
+ 		be->vif = NULL;
+ 	}
+ }
+@@ -246,14 +255,11 @@ static void frontend_changed(struct xenbus_device *dev,
+ 	case XenbusStateConnected:
+ 		if (dev->state == XenbusStateConnected)
+ 			break;
+-		backend_create_xenvif(be);
+ 		if (be->vif)
+ 			connect(be);
+ 		break;
+ 
+ 	case XenbusStateClosing:
+-		if (be->vif)
+-			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		disconnect_backend(dev);
+ 		xenbus_switch_state(dev, XenbusStateClosing);
+ 		break;
+@@ -262,6 +268,7 @@ static void frontend_changed(struct xenbus_device *dev,
+ 		xenbus_switch_state(dev, XenbusStateClosed);
+ 		if (xenbus_dev_is_online(dev))
+ 			break;
++		destroy_backend(dev);
+ 		/* fall through if not online */
+ 	case XenbusStateUnknown:
+ 		device_unregister(&dev->dev);
+-- 
+1.7.10.4
