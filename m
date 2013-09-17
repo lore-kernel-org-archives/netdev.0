@@ -1,53 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] Re: net, mellanox mlx4 Fix compile warnings
-Date: Tue, 17 Sep 2013 15:28:55 -0400 (EDT)
-Message-ID: <20130917.152855.203757088566537811.davem@davemloft.net>
-References: <20130916.212559.252825159014181091.davem@davemloft.net>
-	<1379445223-28550-1-git-send-email-prarit@redhat.com>
-	<CAJZOPZJ5kBW3_NQiw3S-DvDkYonzrW-EgxXdAqRcS1KGUrQu=w@mail.gmail.com>
+Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
+Date: Tue, 17 Sep 2013 15:44:46 -0400 (EDT)
+Message-ID: <20130917.154446.554384673039269498.davem@davemloft.net>
+References: <201309140410.38396.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: prarit@redhat.com, jackm@dev.mellanox.co.il,
-	netdev@vger.kernel.org, dledford@redhat.com, amirv@mellanox.com,
-	ogerlitz@mellanox.com
-To: or.gerlitz@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38197 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753589Ab3IQT27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 15:28:59 -0400
-In-Reply-To: <CAJZOPZJ5kBW3_NQiw3S-DvDkYonzrW-EgxXdAqRcS1KGUrQu=w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201309140410.38396.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogT3IgR2VybGl0eiA8b3IuZ2VybGl0ekBnbWFpbC5jb20+DQpEYXRlOiBUdWUsIDE3IFNl
-cCAyMDEzIDIyOjI1OjU3ICswMzAwDQoNCj4gT24gVHVlLCBTZXAgMTcsIDIwMTMgYXQgMTA6MTMg
-UE0sIFByYXJpdCBCaGFyZ2F2YSA8cHJhcml0QHJlZGhhdC5jb20+IHdyb3RlOg0KPj4gRml4IHVu
-aXRpYWxpemVkIHZhcmlhYmxlIHdhcm5pbmdzLg0KPj4NCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0
-L21lbGxhbm94L21seDQvcmVzb3VyY2VfdHJhY2tlci5jOiBJbiBmdW5jdGlvbiChbWx4NF9IVzJT
-V19DUV93cmFwcGVyojoNCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcmVz
-b3VyY2VfdHJhY2tlci5jOjI1NTE6MTY6IGVycm9yOiChY3GiIG1heSBiZSB1c2VkIHVuaW5pdGlh
-bGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdlcnJvcj1tYXliZS11bmluaXRpYWxpemVkXQ0KPj4g
-ICBhdG9taWNfZGVjKCZjcS0+bXR0LT5yZWZfY291bnQpOw0KPj4gICAgICAgICAgICAgICAgIF4N
-Cj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcmVzb3VyY2VfdHJhY2tlci5j
-OiBJbiBmdW5jdGlvbiChbWx4NF9IVzJTV19TUlFfd3JhcHBlcqI6DQo+PiBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9tZWxsYW5veC9tbHg0L3Jlc291cmNlX3RyYWNrZXIuYzoyNzM0OjE3OiBlcnJvcjog
-oXNycaIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV2Vycm9y
-PW1heWJlLXVuaW5pdGlhbGl6ZWRdDQo+PiAgIGF0b21pY19kZWMoJnNycS0+bXR0LT5yZWZfY291
-bnQpOw0KPj4NCj4+IFt2Ml06IGRhdmVtIHN1Z2dlc3RlZCBtYWtpbmcgY3FfcmVzX3N0YXJ0X21v
-dmVfdG8oKSByZXR1cm4gJ2NxJyBhcyBhbiBlcnJvcg0KPj4gcG9pbnRlciBpbnN0ZWFkIG9mIHNl
-dHRpbmcgJ2NxJyBieSByZWZlcmVuY2UuICBJIGFsc28gZGlkIHRoZSBzYW1lIGZvciBzcnEuDQo+
-IA0KPiBQcmF2aXQsIGFzIEkgd3JvdGUgeW91IGVhcmxpZXIgb24gdGhpcyB0aHJlYWQsIEphY2sg
-ZnJvbSBvdXIgdGVhbQ0KPiBtYWludGFpbnMgdGhpcyBwaWVjZSAoU1JJT1YgcmVzb3VyY2UgdHJh
-Y2tlcikgb2YgdGhlIG1seDQgY29yZSBkcml2ZXINCj4gY29kZSwgc28gSSBhbSBhZGRpbmcgaGlt
-LiBEYXZlLCBhcyBtYW55IG9mIHVzIGhlcmUgaGUgbWlnaHQgYmUgT09PIGZvcg0KPiB0aGUgY29t
-aW5nIHRlbiBkYXlzIGZvciBob2xpZGF5IHZhY2F0aW9uLCBzbyB3b3VsZCBhc2sgeW91IHRvIHBs
-ZWFzZQ0KPiB3YWl0IHBhdGllbnRseSBmb3IgaGlzIGFjay9uYWsuLi4NCg0KSSBhbHJlYWR5IHN0
-YXRlZCB0aGF0IEkgd2FudGVkIHRoaXMgaXNzdWUgZml4ZWQgZGlmZmVyZW50bHkuDQoNClNwZWNp
-ZmljYWxseSBJIHNhaWQgdGhhdCB0aGVzZSBmdW5jdGlvbnMgc2hvdWxkIHJldHVybiBlcnJvciBw
-b2ludGVycywNCmluc3RlYWQgb2YgdHJ5aW5nIHRvIHJldHVybiBhbiBpbnRlZ2VyIGVycm9yIHdo
-aWxzdCBzZXR0aW5nIHRoZSBjcQ0KcG9pbnRlciBieSByZWZlcmVuY2UuDQoNClRoaXMgaXMgYSBt
-ZXRob2Qgd2hpY2ggaXMgaWRpb21hdGljIGFuZCBjb21tb24gYWNyb3NzIHRoZSBrZXJuZWwsIGFu
-ZA0KaXMgdGhlIHByZWZlcnJlZCB3YXkgdG8gaGFuZGxlIHRoaXMga2luZCBvZiBzaXR1YXRpb24u
-DQo=
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 14 Sep 2013 04:10:37 +0400
+
+> Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY registers
+> registers values of which are vital for the correct functioning of the driver.
+> Unfortunately, the existing PHY platform fixup mechanism doesn't help  here as
+> it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups() from
+> the driver helps here. With a proper platform fixup, this fixes NFS timeouts on
+> the SH-Mobile Lager board. 
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+The PHY layer is designed to naturally already take care of this kind of
+thing.  I think that part of the problem is that you're fighting the
+natural control flow the PHY layer provides.
+
+When the phy_connect() is performed, what we end up doing is calling
+phy_attach_direct() which invokes the ->probe() method of the driver
+and then afterwards we do phy_init_hw() which takes care of doing
+the fixup calls.
+
+So if you really need to do a BMCR reset then run the fixups I'd like
+you to look into making that happen within the provided control
+flow rather than with an exceptional explicit call to run the fixups.
+
+I'm willing to be convinced that this is a better or necessary approach
+but you'll need to explain it to me.
+
+Thanks.
