@@ -1,108 +1,115 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH  v3 0/6] ipv6: Do route updating for redirect in ndisc layer
-Date: Tue, 17 Sep 2013 15:52:32 +0200
-Message-ID: <20130917135232.GG13408@order.stressinduktion.org>
-References: <5236EFEB.60106@cn.fujitsu.com> <5236F808.9050605@redhat.com> <523710CC.1090404@gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v3 net-next 21/27] net: add a function to get the next
+ private
+Date: Tue, 17 Sep 2013 15:55:07 +0200
+Message-ID: <20130917135507.GD2929@redhat.com>
+References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
+ <1379378812-18346-22-git-send-email-vfalico@redhat.com>
+ <1379382601.23881.36.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Duan Jiong <djduanjiong@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34320 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752888Ab3IQNwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 09:52:33 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:10110 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752683Ab3IQN45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Sep 2013 09:56:57 -0400
 Content-Disposition: inline
-In-Reply-To: <523710CC.1090404@gmail.com>
+In-Reply-To: <1379382601.23881.36.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 16, 2013 at 10:08:12PM +0800, Duan Jiong wrote:
-> =E4=BA=8E 2013/9/16 20:22, Daniel Borkmann =E5=86=99=E9=81=93:
-> > On 09/16/2013 01:47 PM, Duan Jiong wrote:
-> >> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >>
-> >> the ip6_redirect() could be replaced with
-> >> ip6_redirect_no_header(), we could always use ip6_redirect()
-> >> for route updating in ndisc layer and use the data of the
-> >> redirected header option just for finding the socket to be
-> >> notified and then notify user in protocols' err_handler.
-> > If I get this right, it seems to me that this patchset actually con=
-sists of two
-> > different kind of changes:
-> >
-> > 1) Not notifying user space on ICMP redirects (net material)
-> > 2) Simplify code for updating route in ndisc layer instead of error=
- handlers (net-next)
-> >
-> > Also, you do the *actual* change in the very last patch, which mean=
-s that from
-> > patch 1 to 5 we're in an inconsistent and buggy state unless we als=
-o apply patch
-> > number 6. It should actually be the other way around, that you firs=
-t do the actual
-> > change and then migrate users (also commit messages are quite terse=
-).
->=20
-> I make the patch set on net tree, not on net-next. Maybe those
-> things should be done in two patch sets.
+On Tue, Sep 17, 2013 at 02:50:01AM +0100, Ben Hutchings wrote:
+>On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
+>> It searches for the provided private and returns the next one. If private
+>> is not found or next list element is list head - returns NULL.
+>
+>This is going to take linear time, which is probably OK for a bond that
+>has only a very few devices.  But it would likely be a really bad idea
+>for, say, a bridge device that could have tens or hundreds of lower
+>devices.  So it's not a generically useful function.
 
-I have thought about going the other direction. Just make it one patch
-and update the whole logic atomically in the git tree. So we won't have
-any partial logic updates in the tree.
+Indeed, you're right. I've tried searching or trying to figure out why
+others could need it - with no luck. It's really bonding-specific. And, in
+any case, if there will be more users of it - it can be changed in the
+future.
 
-Please also rebase your series onto net from today, because Daniel's
-patch regarding updating sk->sk_err in sctp went in yesterday.
+>
+>I think the bonding driver can implement this:
+>
+>[...]
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+>>  }
+>>  EXPORT_SYMBOL(netdev_lower_dev_get_private);
+>>
+>> +/* netdev_lower_dev_get_next_private - return the ->private of the list
+>> + *				       element whos ->private == private.
+>> + * @dev - device to search
+>> + * @private - private pointer to search for.
+>> + *
+>> + * Returns the next ->private pointer, if ->next is not head and private is
+>> + * found.
+>> + */
+>> +extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
+>> +					       void *private)
+>> +{
+>> +	struct netdev_adjacent *lower;
+>> +
+>> +	list_for_each_entry(lower, &dev->adj_list.lower, list) {
+>> +		if (lower->private == private) {
+>> +			lower = list_entry(lower->list.next,
+>> +					   struct netdev_adjacent, list);
+>> +			if (&lower->list == &dev->adj_list.lower)
+>> +				return NULL;
+>> +			return lower->private;
+>> +		}
+>> +	}
+>> +
+>> +	return NULL;
+>> +}
+>> +EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
+>
+>using only the functions already exported:
+>
+>static void *__bond_next_slave(struct net_device *dev, void *private)
+>{
+>	struct list_head *iter;
+>	struct net_device *lower;
+>	bool found = false;
+>
+>	netdev_for_each_lower_dev(dev, lower, iter) {
+>		if (found)
+>			return netdev_adjacent_get_private(iter);
+>		if (netdev_adjacent_get_private(iter) == private)
+>			found = true;
+>	}
+>
+>	return NULL;
+>}
+>
+>(not that I've tested it :-).
 
-> > Moreover, just looking at the SCTP part (sctp_err_lookup() function=
-) ...
-> >
-> > /* RFC 4960, Appendix C. ICMP Handling
-> >  *
-> >  * ICMP6) An implementation MUST validate that the Verification Tag
-> >  * contained in the ICMP message matches the Verification Tag of
-> >  * the peer.  If the Verification Tag is not 0 and does NOT
-> >  * match, discard the ICMP message.  If it is 0 and the ICMP
-> >  * message contains enough bytes to verify that the chunk type is
-> >  * an INIT chunk and that the Initiate Tag matches the tag of the
-> >  * peer, continue with ICMP7.  If the ICMP message is too short
-> >  * or the chunk type or the Initiate Tag does not match, silently
-> >  * discard the packet.
-> >  */
-> > =20
-> > ... it seems to me that we would simply ignore such RFC requirement=
-s with
-> > your patch for the sctp_v6_err() part.
-> >
-> > Care to elaborate? ;-)
->=20
-> Sorry, i didn't notice that.
->=20
-> According to the RFC requirements, it suggests that we can't update
-> route for redirect in ndisc layer before calling into sctp_err_lookup=
-(),
-> because we must verify the ICMP Message. Now maybe we update route fo=
-r
-> redirect in ndisc layer is wrong.
->=20
-> Do you have any idea?
+Yep, I'll think of something like that and send it in the next version,
+dropping the current netdev_ variant.
 
-IMO updating of routes in ndisc layer is fine. We already accept redire=
-cts
-(and also change routes) for sctp connections where the redirect packet=
- does
-not contain any tag. Also it is debatable if redirects are counted as
-icmp packets or merely just belong to the kind of neighbour discovery
-packets which just use icmp framing (and so the sctp rfc would not say
-anything about them).
+Thanks a lot!
 
-As Daniel already said, it would be better to update the commit message
-to clarify the reasons why this is ok (with some pointers to RFCs).
-
-Greetings,
-
-  Hannes
+>
+>Ben.
+>
+>> +
+>>  static void dev_change_rx_flags(struct net_device *dev, int flags)
+>>  {
+>>  	const struct net_device_ops *ops = dev->netdev_ops;
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
