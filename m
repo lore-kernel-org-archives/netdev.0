@@ -1,27 +1,30 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 19/27] bonding: convert first/last slave logic to use neighbours
-Date: Tue, 17 Sep 2013 02:46:44 +0200
-Message-ID: <1379378812-18346-20-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 25/27] vlan: unlink the upper neighbour before unregistering
+Date: Tue, 17 Sep 2013 02:46:50 +0200
+Message-ID: <1379378812-18346-26-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15444 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32484 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752114Ab3IQArV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:21 -0400
+	id S1752089Ab3IQAra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:30 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For that, use netdev_adjacent_get_private(list_head) on bond's lower
-neighbour list members. Also, add a small macro - bond_slave_list(bond),
-which returns the bond list via neighbour list.
+On netdev unregister we're removing also all of its sysfs-associated stuff,
+including the sysfs symlinks that are controlled by netdev neighbour code.
+Also, it's a subtle race condition - cause we can still access it after
+unregistering.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+Move the unlinking right before the unregistering to fix both.
+
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -32,46 +35,32 @@ Notes:
     v1  -> v2:
     No changes.
     
-    RFC -> v1:
-    Rename neieghour_dev_list to adj_list.
+    RFC -> v2:
+    New patch.
 
- drivers/net/bonding/bonding.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ net/8021q/vlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 8176842..b82474d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -72,19 +72,24 @@
- 	res; })
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 69b4a35..b3d17d1 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -98,14 +98,14 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 		vlan_gvrp_request_leave(dev);
  
- /* slave list primitives */
--#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
-+#define bond_slave_list(bond) (&(bond)->dev->adj_list.lower)
+ 	vlan_group_set_device(grp, vlan->vlan_proto, vlan_id, NULL);
 +
-+#define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
++	netdev_upper_dev_unlink(real_dev, dev);
+ 	/* Because unregister_netdevice_queue() makes sure at least one rcu
+ 	 * grace period is respected before device freeing,
+ 	 * we dont need to call synchronize_net() here.
+ 	 */
+ 	unregister_netdevice_queue(dev, head);
  
- #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
- 
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
--	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
-+		NULL)
- #define bond_last_slave(bond) \
--	(list_empty(&(bond)->slave_list) ? NULL : \
--					   bond_to_slave((bond)->slave_list.prev))
-+	(bond_has_slaves(bond) ? \
-+		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
-+		NULL)
- 
--#define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
--#define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
-+#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
-+#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
- 
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
- #define bond_next_slave(bond, pos) \
+-	netdev_upper_dev_unlink(real_dev, dev);
+-
+ 	if (grp->nr_vlan_devs == 0) {
+ 		vlan_mvrp_uninit_applicant(real_dev);
+ 		vlan_gvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
