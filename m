@@ -1,88 +1,26 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file
  copies
-Date: Tue, 17 Sep 2013 04:07:23 +0000
-Message-ID: <C2D7FE5348E1B147BCA15975FBA2307514C1F4@IN01WEMBXA.internal.synopsys.com>
-References: <1378295235-18928-1-git-send-email-vgupta@synopsys.com>
- <20130905.142530.732425484460470485.davem@davemloft.net>
- <522EBBD2.1060003@synopsys.com> <52369A94.5060900@synopsys.com>
- <20130916194012.GA23656@kroah.com>
+Date: Tue, 17 Sep 2013 00:17:00 -0400 (EDT)
+Message-ID: <20130917.001700.583366017350321523.davem@davemloft.net>
+References: <52369A94.5060900@synopsys.com>
+	<20130916194012.GA23656@kroah.com>
+	<C2D7FE5348E1B147BCA15975FBA2307514C1F4@IN01WEMBXA.internal.synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Alexey.Brodkin@synopsys.com" <Alexey.Brodkin@synopsys.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alvesta.synopsys.com ([198.182.60.77]:62986 "EHLO
-	alvesta.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125Ab3IQEHc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 00:07:32 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	Alexey.Brodkin@synopsys.com, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: Vineet.Gupta1@synopsys.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <C2D7FE5348E1B147BCA15975FBA2307514C1F4@IN01WEMBXA.internal.synopsys.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/17/2013 01:10 AM, greg Kroah-Hartman wrote:
-> On Mon, Sep 16, 2013 at 11:13:48AM +0530, Vineet Gupta wrote:
->> On 09/10/2013 11:57 AM, Vineet Gupta wrote:
->>> On 09/05/2013 11:55 PM, David Miller wrote:
->>>> From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
->>>> Date: Wed, 4 Sep 2013 17:17:15 +0530
->>>>
->>>>> copying large files to a NFS mounted host was taking absurdly large
->>>>> time.
->>>>>
->>>>> Turns out that TX BD reclaim had a sublte bug.
->>>>>
->>>>> Loop starts off from @txbd_dirty cursor and stops when it hits a BD
->>>>> still in use by controller. However when it stops it needs to keep the
->>>>> cursor at that very BD to resume scanning in next iteration. However it
->>>>> was erroneously incrementing the cursor, causing the next scan(s) to
->>>>> fail too, unless the BD chain was completely drained out.
->>>>>
->>>>> [ARCLinux]$ ls -l -sh /disk/log.txt
->>>>>  17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
->>>>>
->>>>> ========== Before =====================
->>>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
->>>>> real    31m 7.95s
->>>>> user    0m 0.00s
->>>>> sys     0m 0.10s
->>>>>
->>>>> ========== After =====================
->>>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
->>>>> real    0m 24.33s
->>>>> user    0m 0.00s
->>>>> sys     0m 0.19s
->>>>>
->>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
->>>> Applied.
->>>>
->>> Hi Greg,
->>>
->>> This needs a stable backport (3.11).
->>> Mainline commit 27082ee1b92f4d41e78b85
->>>
->>> Thx,
->>> -Vineet
->> Hi Greg,
->>
->> I didn't spot this one in your stable-queue for 3.11.
->> Please apply.
-> Network patches for the stable tree needs to go through the networking
-> maintainer.  Please let them know about this and they will forward it on
-> to me if needed.
->
-> thanks,
->
-> greg k-h
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Tue, 17 Sep 2013 04:07:23 +0000
 
-Hi David,
+> Can you please do the needful for stable 3.11 backport of this patch.
 
-Can you please do the needful for stable 3.11 backport of this patch.
-
-Thx,
--Vineet
+Queued up for -stable.
