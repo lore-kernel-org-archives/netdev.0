@@ -1,35 +1,29 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 13/27] bonding: rework bond_find_best_slave() to use bond_for_each_slave()
-Date: Tue, 17 Sep 2013 02:46:38 +0200
-Message-ID: <1379378812-18346-14-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 21/27] net: add a function to get the next private
+Date: Tue, 17 Sep 2013 02:46:46 +0200
+Message-ID: <1379378812-18346-22-git-send-email-vfalico@redhat.com>
 References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28779 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51813 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751903Ab3IQArN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Sep 2013 20:47:13 -0400
+	id S1752126Ab3IQAr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Sep 2013 20:47:28 -0400
 In-Reply-To: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_find_best_slave() does not have to be balanced - i.e. return the slave
-that is *after* some other slave, but rather return the best slave that
-suits, except of bond->primary_slave - in which case we just return it if
-it's suitable.
+It searches for the provided private and returns the next one. If private
+is not found or next list element is list head - returns NULL.
 
-After that we just look through all the slaves and return either first up
-slave or the slave whose link came back earliest.
-
-We also don't care about curr_active_slave lock cause we use it in
-bond_should_change_active() only and there we take it right away - i.e. it
-won't go away.
-
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -41,70 +35,63 @@ Notes:
     No changes.
     
     RFC -> v1:
-    New patch.
+    Drop the bool switch - it only goes to ->next now, and rework it so
+    that it doesn't go over the head, but rather returns NULL.
 
- drivers/net/bonding/bond_main.c | 43 ++++++++++++-----------------------------
- 1 file changed, 12 insertions(+), 31 deletions(-)
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 27 +++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2075321..b5497e7 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -785,43 +785,24 @@ static bool bond_should_change_active(struct bonding *bond)
- /**
-  * find_best_interface - select the best available slave to be the active one
-  * @bond: our bonding struct
-- *
-- * Warning: Caller must hold curr_slave_lock for writing.
-  */
- static struct slave *bond_find_best_slave(struct bonding *bond)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 72d1631..b487302 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2866,6 +2866,8 @@ extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
+ 					      struct net_device *lower_dev);
+ extern void *netdev_lower_dev_get_private(struct net_device *dev,
+ 					  struct net_device *lower_dev);
++extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
++					       void *private);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features, bool tx_path);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 24c7d17..d58ca53 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5055,6 +5055,33 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_lower_dev_get_private);
+ 
++/* netdev_lower_dev_get_next_private - return the ->private of the list
++ *				       element whos ->private == private.
++ * @dev - device to search
++ * @private - private pointer to search for.
++ *
++ * Returns the next ->private pointer, if ->next is not head and private is
++ * found.
++ */
++extern void *netdev_lower_dev_get_next_private(struct net_device *dev,
++					       void *private)
++{
++	struct netdev_adjacent *lower;
++
++	list_for_each_entry(lower, &dev->adj_list.lower, list) {
++		if (lower->private == private) {
++			lower = list_entry(lower->list.next,
++					   struct netdev_adjacent, list);
++			if (&lower->list == &dev->adj_list.lower)
++				return NULL;
++			return lower->private;
++		}
++	}
++
++	return NULL;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_next_private);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
  {
--	struct slave *new_active, *old_active;
--	struct slave *bestslave = NULL;
-+	struct slave *slave, *bestslave = NULL;
-+	struct list_head *iter;
- 	int mintime = bond->params.updelay;
--	int i;
- 
--	new_active = bond->curr_active_slave;
--
--	if (!new_active) { /* there were no active slaves left */
--		new_active = bond_first_slave(bond);
--		if (!new_active)
--			return NULL; /* still no slave, return NULL */
--	}
-+	if (bond->primary_slave && bond->primary_slave->link == BOND_LINK_UP &&
-+	    bond_should_change_active(bond))
-+		return bond->primary_slave;
- 
--	if ((bond->primary_slave) &&
--	    bond->primary_slave->link == BOND_LINK_UP &&
--	    bond_should_change_active(bond)) {
--		new_active = bond->primary_slave;
--	}
--
--	/* remember where to stop iterating over the slaves */
--	old_active = new_active;
--
--	bond_for_each_slave_from(bond, new_active, i, old_active) {
--		if (new_active->link == BOND_LINK_UP) {
--			return new_active;
--		} else if (new_active->link == BOND_LINK_BACK &&
--			   IS_UP(new_active->dev)) {
--			/* link up, but waiting for stabilization */
--			if (new_active->delay < mintime) {
--				mintime = new_active->delay;
--				bestslave = new_active;
--			}
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (slave->link == BOND_LINK_UP)
-+			return slave;
-+		if (slave->link == BOND_LINK_BACK && IS_UP(slave->dev) &&
-+		    slave->delay < mintime) {
-+			mintime = slave->delay;
-+			bestslave = slave;
- 		}
- 	}
- 
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.8.4
