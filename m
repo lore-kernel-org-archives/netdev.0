@@ -1,109 +1,106 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv3 linux-next] hrtimer: Add notifier when clock_was_set
- was called
-Date: Tue, 17 Sep 2013 15:47:26 +0800
-Message-ID: <5238090E.9000703@windriver.com>
-References: <alpine.DEB.2.02.1309121441420.4089@ionos.tec.linutronix.de> <20130912134409.GB21212@gondor.apana.org.au> <alpine.DEB.2.02.1309121636010.4089@ionos.tec.linutronix.de> <20130912.133252.425268707009916773.davem@davemloft.net> <52327C92.5010009@windriver.com> <alpine.DEB.2.02.1309131628250.4089@ionos.tec.linutronix.de> <52365021.8040906@windriver.com> <alpine.DEB.2.02.1309161059220.4089@ionos.tec.linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <herbert@gondor.hengli.com.au>,
-	<steffen.klassert@secunet.com>, <dborkman@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	John Stultz <john.stultz@linaro.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] bridge: change the order of actions in addif/delif
+Date: Tue, 17 Sep 2013 15:44:43 +0800
+Message-ID: <1379403883-16219-1-git-send-email-zhiguohong@tencent.com>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, vyasevic@redhat.com,
+	Hong Zhiguo <zhiguohong@tencent.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45216 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644Ab3IQHrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 03:47:45 -0400
-In-Reply-To: <alpine.DEB.2.02.1309161059220.4089@ionos.tec.linutronix.de>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:64361 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475Ab3IQHsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 03:48:12 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr4so5136900pbb.20
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 00:48:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Hong Zhiguo <zhiguohong@tencent.com>
 
+netdev_rx_handler_register turns on the bridge traffic. It should
+be the last action of br_add_if, after the installation of fdb and
+stp staff. _Maybe_ traffic coming in before preparation of fdb and
+stp is taken care of, but we could make it easier.
 
-On 2013=E5=B9=B409=E6=9C=8816=E6=97=A5 17:01, Thomas Gleixner wrote:
-> On Mon, 16 Sep 2013, Fan Du wrote:
->> On 2013=E5=B9=B409=E6=9C=8813=E6=97=A5 22:32, Thomas Gleixner wrote:
->>> On Fri, 13 Sep 2013, Fan Du wrote:
->>>> (2) What I have been bugging you around here for this long time is=
- really
->>>> the
->>>> second
->>>>       problem, I'm sorry I didn't make it clearly to you and other=
-s, which
->>>> is
->>>> below:
->>>>
->>>>       Why using wall clock time to calculate soft/hard IPsec event=
-s when
->>>> xfrm_state timer
->>>>       out happens in its timeout handler? Because even if xfrm_sta=
-te using
->>>> CLOCK_BOOTTIME,
->>>>       system wall clock time changing will surely disturb soft/har=
-d IPsec
->>>> events, which
->>>>       you raised your concern about in (*a*).
->>>
->>> No CLOCK_BOOTTIME is not affected by wall clock time changes. It's
->>> basically CLOCK_MONOTONIC, it just keeps counting the suspend time =
-as
->>> well. So without a suspend/resume cycle CLOCK_MONOTONIC and
->>> CLOCK_BOOTTIME are the same. After a suspend/resume cycle
->>> CLOCK_BOOTTIME will be N seconds ahead of CLOCK_MONOTONIC, where N =
-is
->>> the number of seconds spent in suspend.
->>
->> Sorry for the ambiguity. Yes, CLOCK_BOOTTIME is monotonic *and* coun=
-ting
->> suspend/resume time as well as not affected by wall clock time chang=
-e.
->>
->> Using CLOCK_BOOTTIME guarantees b- will timeout in a right manner, i=
-=2Ee., not
->> affected by wall clock time change, as well as keep the timer valid =
-when
->> suspend/resume.
->>
->> A classic way of using timer is:
->>   a- Arm a timer with specified interval
->>   b- Wait for the timer to timeout
->>   c- After the timeout, notify the event to other place in the timer=
- handler.
->>
->> IPsec key lifetime timer does its this way:
->>   a- Arm a timer with specified interval
->>   b- Wait for the timer to timeout
->>   c- After timeout, in the timer handler, using wall clock time to c=
-alculate
->>     which kind of event to notify user(soft or hard for both key use=
- time,
->>     and key created time). So the problem arises at this stage if wa=
-ll clock
->>     time changed.
->
-> And why on earth must it use wall clock time for selecting the event
-> type?
+Vise versa, netdev_rx_handler_unregister actually turns off bridge
+traffic from the dev. It should be the first action of br_del_if,
+before fdb and stp staff is uninstalled.
 
-/*shivering... sorry to bother you again.*/
+Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
+---
+ net/bridge/br_if.c | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-Yep, it's a bit twisted. This parts of codes come a long way from v2.5.=
-67
-Beyond this fact, I barely know its original design goal by doing so.
-The first version of this patch is to remove the wall clock time things
-by myself, it's a pity that the feedback is not very welcome at the end=
-=2E
-So later on adding notifier at clock_was_set is suggested by David.
-
-> Thanks,
->
-> 	tglx
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c41d5fb..6544154 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -133,6 +133,8 @@ static void del_nbp(struct net_bridge_port *p)
+ 
+ 	sysfs_remove_link(br->ifobj, p->dev->name);
+ 
++	netdev_rx_handler_unregister(dev);
++
+ 	dev_set_promiscuity(dev, -1);
+ 
+ 	spin_lock_bh(&br->lock);
+@@ -148,8 +150,6 @@ static void del_nbp(struct net_bridge_port *p)
+ 
+ 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+ 
+-	netdev_rx_handler_unregister(dev);
+-
+ 	netdev_upper_dev_unlink(dev, br->dev);
+ 
+ 	br_multicast_del_port(p);
+@@ -336,8 +336,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (dev->netdev_ops->ndo_start_xmit == br_dev_xmit)
+ 		return -ELOOP;
+ 
+-	/* Device is already being bridged */
+-	if (br_port_exists(dev))
++	/* Device is already being bridged or registered with other handler */
++	if (br_port_exists(dev) || dev->rx_handler)
+ 		return -EBUSY;
+ 
+ 	/* No bridging devices that dislike that (e.g. wireless) */
+@@ -371,10 +371,6 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (err)
+ 		goto err4;
+ 
+-	err = netdev_rx_handler_register(dev, br_handle_frame, p);
+-	if (err)
+-		goto err5;
+-
+ 	dev->priv_flags |= IFF_BRIDGE_PORT;
+ 
+ 	dev_disable_lro(dev);
+@@ -394,8 +390,6 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 		br_stp_enable_port(p);
+ 	spin_unlock_bh(&br->lock);
+ 
+-	br_ifinfo_notify(RTM_NEWLINK, p);
+-
+ 	if (changed_addr)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+ 
+@@ -404,12 +398,14 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
+ 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
+ 
++	/* rx_handler is already tested, no fail here */
++	netdev_rx_handler_register(dev, br_handle_frame, p);
++
++	br_ifinfo_notify(RTM_NEWLINK, p);
+ 	kobject_uevent(&p->kobj, KOBJ_ADD);
+ 
+ 	return 0;
+ 
+-err5:
+-	netdev_upper_dev_unlink(dev, br->dev);
+ err4:
+ 	br_netpoll_disable(p);
+ err3:
+-- 
+1.8.1.2
