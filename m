@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: fix internal switch initialization
-Date: Mon, 16 Sep 2013 21:31:24 -0400 (EDT)
-Message-ID: <20130916.213124.1147335768452041793.davem@davemloft.net>
-References: <1379197367-19116-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH V2] bgmac: allow bigger et_swtype nvram variable
+Date: Mon, 16 Sep 2013 21:31:30 -0400 (EDT)
+Message-ID: <20130916.213130.349125823544006415.davem@davemloft.net>
+References: <1379276748-13687-1-git-send-email-zajec5@gmail.com>
+	<1379278148-6966-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, stable@vger.kernel.org
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de
 To: zajec5@gmail.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1379197367-19116-1-git-send-email-zajec5@gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43682 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751925Ab3IQBbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:31:31 -0400
+In-Reply-To: <1379278148-6966-1-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 =46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Sun, 15 Sep 2013 00:22:47 +0200
+Date: Sun, 15 Sep 2013 22:49:08 +0200
 
-> Some devices (BCM4749, BCM5357, BCM53572) have internal switch that
-> requires initialization. We already have code for this, but because
-> of the typo in code it was never working. This resulted in network no=
-t
-> working for some routers and possibility of soft-bricking them.
+> From: Hauke Mehrtens <hauke@hauke-m.de>
 >=20
-> Use correct bit for switch initialization and fix typo in the define.
+> Without this patch it is impossible to read et_swtype, because the 1
+> byte space is needed for the terminating null byte. The max expected
+> value is 0xF, so now it should be possible to read decimal form ("15"=
+)
+> and hex form ("0xF").
 >=20
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 > Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
 Applied.
