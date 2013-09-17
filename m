@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net 3/5] sfc: Reset derived rx_bad_bytes statistic when EF10
- MC is rebooted
-Date: Tue, 17 Sep 2013 01:12:27 +0100
-Message-ID: <1379376747.1945.14.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net 4/5] sfc: Clean up validation of datapath capabilities
+Date: Tue, 17 Sep 2013 01:13:03 +0100
+Message-ID: <1379376783.1945.15.camel@bwh-desktop.uk.level5networks.com>
 References: <1379376611.1945.11.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,42 +9,102 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21862 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:21870 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352Ab3IQAMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 20:12:31 -0400
+	with ESMTP id S1751787Ab3IQANH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 20:13:07 -0400
 In-Reply-To: <1379376611.1945.11.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the MC reboots then the stats it reports to us will have been
-reset.  We need to reset ours to get efx_update_diff_stat() working
-properly.
+Rename efx_ef10_init_capabilities() to the more specific
+efx_ef10_init_datapath_caps().
 
-(This is a re-run of commit 876be083b669 'sfc: Reset driver's
-MAC stats after MC reboot seen'.)
+Stop accepting short responses to MC_CMD_GET_CAPABILITIES; we
+don't need to support pre-production firmware.
+
+Move the check for RX prefix support from efx_ef10_probe() into
+efx_ef10_init_datapath_caps() and use consistent error messages
+for missing TSO support and missing RX prefix support.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/sfc/ef10.c | 41 ++++++++++++++++++++++-------------------
+ 1 file changed, 22 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 357a6e5..80a6eea 100644
+index 80a6eea..a4956b8 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -708,6 +708,11 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
- 	nic_data->must_restore_filters = true;
- 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
- 
-+	/* MAC statistics have been cleared on the NIC; clear the local
-+	 * statistic that we update with efx_update_diff_stat().
-+	 */
-+	nic_data->stats[EF10_STAT_rx_bad_bytes] = 0;
-+
- 	return -EIO;
+@@ -94,7 +94,7 @@ static unsigned int efx_ef10_mem_map_size(struct efx_nic *efx)
+ 	return resource_size(&efx->pci_dev->resource[EFX_MEM_BAR]);
  }
  
+-static int efx_ef10_init_capabilities(struct efx_nic *efx)
++static int efx_ef10_init_datapath_caps(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_CAPABILITIES_OUT_LEN);
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+@@ -107,16 +107,27 @@ static int efx_ef10_init_capabilities(struct efx_nic *efx)
+ 			  outbuf, sizeof(outbuf), &outlen);
+ 	if (rc)
+ 		return rc;
++	if (outlen < sizeof(outbuf)) {
++		netif_err(efx, drv, efx->net_dev,
++			  "unable to read datapath firmware capabilities\n");
++		return -EIO;
++	}
+ 
+-	if (outlen >= sizeof(outbuf)) {
+-		nic_data->datapath_caps =
+-			MCDI_DWORD(outbuf, GET_CAPABILITIES_OUT_FLAGS1);
+-		if (!(nic_data->datapath_caps &
+-		     (1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN))) {
+-			netif_err(efx, drv, efx->net_dev,
+-				  "Capabilities don't indicate TSO support.\n");
+-			return -ENODEV;
+-		}
++	nic_data->datapath_caps =
++		MCDI_DWORD(outbuf, GET_CAPABILITIES_OUT_FLAGS1);
++
++	if (!(nic_data->datapath_caps &
++	      (1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN))) {
++		netif_err(efx, drv, efx->net_dev,
++			  "current firmware does not support TSO\n");
++		return -ENODEV;
++	}
++
++	if (!(nic_data->datapath_caps &
++	      (1 << MC_CMD_GET_CAPABILITIES_OUT_RX_PREFIX_LEN_14_LBN))) {
++		netif_err(efx, probe, efx->net_dev,
++			  "current firmware does not support an RX prefix\n");
++		return -ENODEV;
+ 	}
+ 
+ 	return 0;
+@@ -217,21 +228,13 @@ static int efx_ef10_probe(struct efx_nic *efx)
+ 	if (rc)
+ 		goto fail3;
+ 
+-	rc = efx_ef10_init_capabilities(efx);
++	rc = efx_ef10_init_datapath_caps(efx);
+ 	if (rc < 0)
+ 		goto fail3;
+ 
+ 	efx->rx_packet_len_offset =
+ 		ES_DZ_RX_PREFIX_PKTLEN_OFST - ES_DZ_RX_PREFIX_SIZE;
+ 
+-	if (!(nic_data->datapath_caps &
+-	      (1 << MC_CMD_GET_CAPABILITIES_OUT_RX_PREFIX_LEN_14_LBN))) {
+-		netif_err(efx, probe, efx->net_dev,
+-			  "current firmware does not support an RX prefix\n");
+-		rc = -ENODEV;
+-		goto fail3;
+-	}
+-
+ 	rc = efx_mcdi_port_get_number(efx);
+ 	if (rc < 0)
+ 		goto fail3;
 
 
 -- 
