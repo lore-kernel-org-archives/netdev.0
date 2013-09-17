@@ -1,60 +1,66 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] gen_estimator: change the lock order for better perfermance
-Date: Tue, 17 Sep 2013 16:38:21 +0800
-Message-ID: <1379407101-18933-1-git-send-email-zhiguohong@tencent.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	Hong Zhiguo <zhiguohong@tencent.com>
-To: netdev@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH v2 net-next 0/2] BPF and OVS extensions
+Date: Tue, 17 Sep 2013 09:40:20 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B733F@saturn3.aculab.com>
+References: <1379386119-4157-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "Alexei Starovoitov" <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Eric Dumazet" <edumazet@google.com>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+	"James Morris" <jmorris@namei.org>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"Ingo Molnar" <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>,
+	"Daniel Borkmann" <dborkman@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Xi Wang" <xi.wang@gmail.com>,
+	"David Howells" <dhowells@redhat.com>,
+	"Cong Wang" <xiyou.wangcong@gmail.com>,
+	"Jesse Gross" <jesse@nicira.com>,
+	"Pravin B Shelar" <pshelar@nicira.com>,
+	"Ben Pfaff" <blp@nicira.com>, "Thomas Graf" <tgraf@suug.ch>,
+	<dev@openvswitch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:50896 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536Ab3IQIkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 04:40:39 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so5196833pbb.5
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 01:40:39 -0700 (PDT)
+Received: from mx0.aculab.com ([213.249.233.131]:39959 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751434Ab3IQIlk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 04:41:40 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01922-04 for <netdev@vger.kernel.org>;
+ Tue, 17 Sep 2013 09:41:38 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1379386119-4157-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hong Zhiguo <zhiguohong@tencent.com>
+> Patch 1/2: generic BPF extension
+> Original A and X 32-bit BPF registers are replaced with ten 64-bit registers.
+> bpf opcode encoding kept the same. load/store were generalized to access stack,
+> bpf_tables and bpf_context.
+> BPF program interfaces to outside world via tables that it can read and write,
+> and via bpf_context which is in/out blob of data.
+> Other kernel components can provide callbacks to tailor BPF to specific needs.
 
-e->stats_lock is usually taken by fast path to update stats.
-In the old order, fast path should wait for write_lock(&est_lock).
-Even though it's only one line inside the write_lock(&est_lock),
-but if there's interrupt or page fault, a lot of spin on
-e->stats_lock will be wasted in fast path.
+As has been recently pointed out on some of the NetBSD lists
+one of the points about BPF is that the filters are deterministic
+and easily proven to both terminate and have no unwanted side effects.
 
-Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
----
- net/core/gen_estimator.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The functionality you are proposing breaks both of these assumptions.
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 6b5b6e7..bad7f5f 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -120,11 +120,11 @@ static void est_timer(unsigned long arg)
- 		u32 npackets;
- 		u32 rate;
- 
--		spin_lock(e->stats_lock);
- 		read_lock(&est_lock);
- 		if (e->bstats == NULL)
- 			goto skip;
- 
-+		spin_lock(e->stats_lock);
- 		nbytes = e->bstats->bytes;
- 		npackets = e->bstats->packets;
- 		brate = (nbytes - e->last_bytes)<<(7 - idx);
-@@ -136,9 +136,9 @@ static void est_timer(unsigned long arg)
- 		e->last_packets = npackets;
- 		e->avpps += (rate >> e->ewma_log) - (e->avpps >> e->ewma_log);
- 		e->rate_est->pps = (e->avpps+0x1FF)>>10;
-+		spin_unlock(e->stats_lock);
- skip:
- 		read_unlock(&est_lock);
--		spin_unlock(e->stats_lock);
- 	}
- 
- 	if (!list_empty(&elist[idx].list))
--- 
-1.8.1.2
+It is understood that parsing IPv6 headers is currently impossible
+(needs loops of some form) but a specific helper instruction is
+probably a better solution.
+
+What you seem to be proposing is a completely different beast,
+so you should call it something else - it isn't BPF.
+
+Whether the Linux kernel needs a (another?) byte code interpreter
+is a separate issue.
+
+	David
