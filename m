@@ -1,48 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 net-next 07/27] net: add for_each iterators through
- neighbour lower link's private
-Date: Tue, 17 Sep 2013 02:26:43 +0100
-Message-ID: <1379381203.23881.22.camel@deadeye.wl.decadent.org.uk>
-References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
-	 <1379378812-18346-8-git-send-email-vfalico@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/4] drivers/net/ethernet/ibm/ehea/ehea_main.c: add
+ alias entry for portN properties
+Date: Mon, 16 Sep 2013 21:29:46 -0400 (EDT)
+Message-ID: <20130916.212946.2006011829000966313.davem@davemloft.net>
+References: <20130913.195857.1842211951469893139.davem@davemloft.net>
+	<20130916205543.GA14221@oc0268524204.ibm.com>
+	<20130916210141.GB14221@oc0268524204.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	ohering@suse.com, jeffm@suse.com, jslaby@suse.cz
+To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31090 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577Ab3IQB0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:26:48 -0400
-In-Reply-To: <1379378812-18346-8-git-send-email-vfalico@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43607 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525Ab3IQB3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Sep 2013 21:29:48 -0400
+In-Reply-To: <20130916210141.GB14221@oc0268524204.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
-[...]
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4537,6 +4537,72 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
->  }
->  EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
->  
-> +/* netdev_lower_get_next_private - Get the next ->private from the
-> + *				   lower neighbour list
-[...]
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Mon, 16 Sep 2013 18:01:41 -0300
 
-This is not correct kernel-doc syntax.  You must begin the comment like
-this:
+> Sorry for the noise. I just checked again the bug, and had to read
+> between the lines that this issue might happen with the generation of
+> initrd, when the scripts check for /sys/class/net/eth0/device/modalias,
+> which links to the port device at
+> /sys/devices/ibmebus/23c00400.lhea/port0/.
+> 
+> I think that should be clarified in the log message. Besides that, since
+> this has also been in the field for a long time:
+> 
+> Acked-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 
-/**
- * function_name - summary on one physical line, no wrapping allowed
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I adjusted the commit message and applied this, thanks.
