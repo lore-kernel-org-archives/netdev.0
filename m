@@ -1,114 +1,97 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] tc: support TCA_STATS_RATE_EST64
-Date: Tue, 17 Sep 2013 04:19:03 -0700
-Message-ID: <1379416743.29845.15.camel@edumazet-glaptop>
+Subject: Re: [PATCH v3 net-next 07/27] net: add for_each iterators through
+ neighbour lower link's private
+Date: Tue, 17 Sep 2013 04:43:02 -0700
+Message-ID: <1379418182.3457.2.camel@edumazet-glaptop>
+References: <1379378812-18346-1-git-send-email-vfalico@redhat.com>
+	 <1379378812-18346-8-git-send-email-vfalico@redhat.com>
+	 <1379381203.23881.22.camel@deadeye.wl.decadent.org.uk>
+	 <20130917073618.GC18195@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	jiri@resnulli.us, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:47382 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393Ab3IQLTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 07:19:06 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kq13so6620764pab.39
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 04:19:05 -0700 (PDT)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:42481 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752748Ab3IQLnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 07:43:04 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so5439742pde.38
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 04:43:03 -0700 (PDT)
+In-Reply-To: <20130917073618.GC18195@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, 2013-09-17 at 09:36 +0200, Veaceslav Falico wrote:
+> On Tue, Sep 17, 2013 at 02:26:43AM +0100, Ben Hutchings wrote:
+> >On Tue, 2013-09-17 at 02:46 +0200, Veaceslav Falico wrote:
+> >[...]
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -4537,6 +4537,72 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+> >>  }
+> >>  EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
+> >>
+> >> +/* netdev_lower_get_next_private - Get the next ->private from the
+> >> + *				   lower neighbour list
+> >[...]
+> >
+> >This is not correct kernel-doc syntax.  You must begin the comment like
+> >this:
+> >
+> >/**
+> > * function_name - summary on one physical line, no wrapping allowed
+> 
+> I've thought that netdev specifically requires that type of comments*. But
+> I don't have any strong opinion on that, so if needed - can change easily
+> in the next version.
+> 
+> Thanks a lot!
+> 
+> *Documentation/networking/netdev-FAQ.txt
+> 
+> Q: Someone said that the comment style and coding convention is different
+>     for the networking content.  Is this true?
+> 
+> A: Yes, in a largely trivial way.  Instead of this:
+> 
+>          /*
+>           * foobar blah blah blah
+>           * another line of text
+>           */
+> 
+>     it is requested that you make it look like this:
+> 
+>          /* foobar blah blah blah
+>           * another line of text
+>           */
+> 
+> 
 
-Since linux-3.11, rate estimator can provide TCA_STATS_RATE_EST64
-when rate (bytes per second) is above 2^32 (~34 Mbits)
+Thats for comments, not kernel-doc sections.
 
-Change tc to use this attribute for high rates.
+You provided :
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- tc/tc_util.c |   26 ++++++++++++++++++++------
- tc/tc_util.h |    4 ++--
- 2 files changed, 22 insertions(+), 8 deletions(-)
++/* netdev_lower_get_next_private - Get the next ->private from the
++ *                                lower neighbour list
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent->private from the dev's lower neighbour
++ * list, starting from iter position. The caller must hold either hold the
++ * RTNL lock or its own locking that guarantees that the neighbour lower
++ * list will remain unchainged. If iter is NULL - return the first private.
++ */
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 8114c97..be3ed07 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -171,20 +171,24 @@ int get_rate(unsigned *rate, const char *str)
- 	return 0;
- }
- 
--void print_rate(char *buf, int len, __u32 rate)
-+void print_rate(char *buf, int len, __u64 rate)
- {
- 	double tmp = (double)rate*8;
- 	extern int use_iec;
- 
- 	if (use_iec) {
--		if (tmp >= 1000.0*1024.0*1024.0)
-+		if (tmp >= 1000.0*1024.0*1024.0*1024.0)
-+			snprintf(buf, len, "%.0fGibit", tmp/(1024.0*1024.0*1024.0));
-+		else if (tmp >= 1000.0*1024.0*1024.0)
- 			snprintf(buf, len, "%.0fMibit", tmp/(1024.0*1024.0));
- 		else if (tmp >= 1000.0*1024)
- 			snprintf(buf, len, "%.0fKibit", tmp/1024);
- 		else
- 			snprintf(buf, len, "%.0fbit", tmp);
- 	} else {
--		if (tmp >= 1000.0*1000000.0)
-+		if (tmp >= 1000.0*1000000000.0)
-+			snprintf(buf, len, "%.0fGbit", tmp/1000000000.0);
-+		else if (tmp >= 1000.0*1000000.0)
- 			snprintf(buf, len, "%.0fMbit", tmp/1000000.0);
- 		else if (tmp >= 1000.0 * 1000.0)
- 			snprintf(buf, len, "%.0fKbit", tmp/1000.0);
-@@ -193,7 +197,7 @@ void print_rate(char *buf, int len, __u32 rate)
- 	}
- }
- 
--char * sprint_rate(__u32 rate, char *buf)
-+char * sprint_rate(__u64 rate, char *buf)
- {
- 	print_rate(buf, SPRINT_BSIZE-1, rate);
- 	return buf;
-@@ -460,9 +464,19 @@ void print_tcstats2_attr(FILE *fp, struct rtattr *rta, char *prefix, struct rtat
- 			q.drops, q.overlimits, q.requeues);
- 	}
- 
--	if (tbs[TCA_STATS_RATE_EST]) {
-+	if (tbs[TCA_STATS_RATE_EST64]) {
-+		struct gnet_stats_rate_est64 re = {0};
-+
-+		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST64]),
-+		       MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST64]),
-+			   sizeof(re)));
-+		fprintf(fp, "\n%srate %s %llupps ",
-+			prefix, sprint_rate(re.bps, b1), re.pps);
-+	} else if (tbs[TCA_STATS_RATE_EST]) {
- 		struct gnet_stats_rate_est re = {0};
--		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST]), sizeof(re)));
-+
-+		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST]),
-+		       MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST]), sizeof(re)));
- 		fprintf(fp, "\n%srate %s %upps ",
- 			prefix, sprint_rate(re.bps, b1), re.pps);
- 	}
-diff --git a/tc/tc_util.h b/tc/tc_util.h
-index 4f54436..7c3709f 100644
---- a/tc/tc_util.h
-+++ b/tc/tc_util.h
-@@ -63,12 +63,12 @@ extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
- extern int get_time(unsigned *time, const char *str);
- extern int get_linklayer(unsigned *val, const char *arg);
- 
--extern void print_rate(char *buf, int len, __u32 rate);
-+extern void print_rate(char *buf, int len, __u64 rate);
- extern void print_size(char *buf, int len, __u32 size);
- extern void print_qdisc_handle(char *buf, int len, __u32 h);
- extern void print_time(char *buf, int len, __u32 time);
- extern void print_linklayer(char *buf, int len, unsigned linklayer);
--extern char * sprint_rate(__u32 rate, char *buf);
-+extern char * sprint_rate(__u64 rate, char *buf);
- extern char * sprint_size(__u32 size, char *buf);
- extern char * sprint_qdisc_handle(__u32 h, char *buf);
- extern char * sprint_tc_classid(__u32 h, char *buf);
+Which really looks like a kernel-doc section,
+but misses the proper delimiter which is :
+
+/**
+
+Not 
+
+/*
