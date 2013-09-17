@@ -1,52 +1,88 @@
-From: LovelyLich <lovelylich@gmail.com>
-Subject: Why we discard all rtt samples when only some of the acked skbs have
- been retransmited in processing ack?
-Date: Tue, 17 Sep 2013 12:01:28 +0800
-Message-ID: <CAAA3+BpsxtyM2uAvX6B4ys73ZC6fX5K1ib3Acsk0fp5cQBNgWg@mail.gmail.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH] ethernet/arc/arc_emac: Fix huge delays in large file
+ copies
+Date: Tue, 17 Sep 2013 04:07:23 +0000
+Message-ID: <C2D7FE5348E1B147BCA15975FBA2307514C1F4@IN01WEMBXA.internal.synopsys.com>
+References: <1378295235-18928-1-git-send-email-vgupta@synopsys.com>
+ <20130905.142530.732425484460470485.davem@davemloft.net>
+ <522EBBD2.1060003@synopsys.com> <52369A94.5060900@synopsys.com>
+ <20130916194012.GA23656@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Alexey.Brodkin@synopsys.com" <Alexey.Brodkin@synopsys.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f180.google.com ([209.85.220.180]:35637 "EHLO
-	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab3IQEB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 00:01:29 -0400
-Received: by mail-vc0-f180.google.com with SMTP id ld13so1370735vcb.11
-        for <netdev@vger.kernel.org>; Mon, 16 Sep 2013 21:01:28 -0700 (PDT)
+Received: from alvesta.synopsys.com ([198.182.60.77]:62986 "EHLO
+	alvesta.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125Ab3IQEHc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 00:07:32 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On 09/17/2013 01:10 AM, greg Kroah-Hartman wrote:
+> On Mon, Sep 16, 2013 at 11:13:48AM +0530, Vineet Gupta wrote:
+>> On 09/10/2013 11:57 AM, Vineet Gupta wrote:
+>>> On 09/05/2013 11:55 PM, David Miller wrote:
+>>>> From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+>>>> Date: Wed, 4 Sep 2013 17:17:15 +0530
+>>>>
+>>>>> copying large files to a NFS mounted host was taking absurdly large
+>>>>> time.
+>>>>>
+>>>>> Turns out that TX BD reclaim had a sublte bug.
+>>>>>
+>>>>> Loop starts off from @txbd_dirty cursor and stops when it hits a BD
+>>>>> still in use by controller. However when it stops it needs to keep the
+>>>>> cursor at that very BD to resume scanning in next iteration. However it
+>>>>> was erroneously incrementing the cursor, causing the next scan(s) to
+>>>>> fail too, unless the BD chain was completely drained out.
+>>>>>
+>>>>> [ARCLinux]$ ls -l -sh /disk/log.txt
+>>>>>  17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
+>>>>>
+>>>>> ========== Before =====================
+>>>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>>>>> real    31m 7.95s
+>>>>> user    0m 0.00s
+>>>>> sys     0m 0.10s
+>>>>>
+>>>>> ========== After =====================
+>>>>> [ARCLinux]$ time cp /disk/log.txt /mnt/.
+>>>>> real    0m 24.33s
+>>>>> user    0m 0.00s
+>>>>> sys     0m 0.19s
+>>>>>
+>>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>>>> Applied.
+>>>>
+>>> Hi Greg,
+>>>
+>>> This needs a stable backport (3.11).
+>>> Mainline commit 27082ee1b92f4d41e78b85
+>>>
+>>> Thx,
+>>> -Vineet
+>> Hi Greg,
+>>
+>> I didn't spot this one in your stable-queue for 3.11.
+>> Please apply.
+> Network patches for the stable tree needs to go through the networking
+> maintainer.  Please let them know about this and they will forward it on
+> to me if needed.
+>
+> thanks,
+>
+> greg k-h
 
-In tcp_clean_rtx_queue(), we set the flag FLAG_RETRANS_DATA_ACKED when we
+Hi David,
 
-encounter one ever retransmited skb A. But if there is one( or more) skb B
+Can you please do the needful for stable 3.11 backport of this patch.
 
-after this retransmited skb, and we calculate the rtt for skb B. The question
-
-is because we have set the flag FLAG_RETRANS_DATA_ACKED, and we will just
-
-return in tcp_ack_no_tstamp() !
-
-Two questions:
-
-1. if we will just ignore all packets in this ack, we do not need to calculate
-
-skb B's rtt sample.
-
-2. what I want to know, even if A's rtt sample is not reliable, but B's rtt
-
-sample can be trusted. Why we discard it ?
-
-
-
-Thanks in advanced.
-
-
-
-
-
-regards,
-
-Yi
+Thx,
+-Vineet
