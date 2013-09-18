@@ -1,204 +1,55 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 1/5] ipvs: fix overflow on dest weight multiply
-Date: Wed, 18 Sep 2013 14:45:38 -0500
-Message-ID: <1379533542-9891-2-git-send-email-horms@verge.net.au>
-References: <1379533542-9891-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Kirby <sim@hostway.ca>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:37871 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550Ab3IRTpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 15:45:49 -0400
-In-Reply-To: <1379533542-9891-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 0/8 V3] rtlwifi: Patches to fix problems shown by smatch
+Date: Wed, 18 Sep 2013 14:57:32 -0500
+Message-ID: <1379534260-14841-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Kirby <sim@hostway.ca>
+Fix smatch warnings and errors in the rtlwifi family of drivers.
 
-Schedulers such as lblc and lblcr require the weight to be as high as the
-maximum number of active connections. In commit b552f7e3a9524abcbcdf
-("ipvs: unify the formula to estimate the overhead of processing
-connections"), the consideration of inactconns and activeconns was cleaned
-up to always count activeconns as 256 times more important than inactconns.
-In cases where 3000 or more connections are expected, a weight of 3000 *
-256 * 3000 connections overflows the 32-bit signed result used to determine
-if rescheduling is required.
+V2 addresses comments by David Laight and Sergei Shtylyov.
+V3 addresses further comments by David, Sergei, and Kalle Valo. The
+   dead code is removed, and the variable is left in the struct.
 
-On amd64, this merely changes the multiply and comparison instructions to
-64-bit. On x86, a 64-bit result is already present from imull, so only
-a few more comparison instructions are emitted.
-
-Signed-off-by: Simon Kirby <sim@hostway.ca>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
- include/net/ip_vs.h              |  2 +-
- net/netfilter/ipvs/ip_vs_lblc.c  |  4 ++--
- net/netfilter/ipvs/ip_vs_lblcr.c | 12 ++++++------
- net/netfilter/ipvs/ip_vs_nq.c    |  8 ++++----
- net/netfilter/ipvs/ip_vs_sed.c   |  8 ++++----
- net/netfilter/ipvs/ip_vs_wlc.c   |  6 +++---
- 6 files changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index f0d70f0..fe782ed 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1649,7 +1649,7 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
- /* CONFIG_IP_VS_NFCT */
- #endif
- 
--static inline unsigned int
-+static inline int
- ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
- {
- 	/*
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 1383b0e..eb814bf 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -443,8 +443,8 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
- 			continue;
- 
- 		doh = ip_vs_dest_conn_overhead(dest);
--		if (loh * atomic_read(&dest->weight) >
--		    doh * atomic_read(&least->weight)) {
-+		if ((__s64)loh * atomic_read(&dest->weight) >
-+		    (__s64)doh * atomic_read(&least->weight)) {
- 			least = dest;
- 			loh = doh;
- 		}
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 5199448..e65f7c5 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -200,8 +200,8 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- 			continue;
- 
- 		doh = ip_vs_dest_conn_overhead(dest);
--		if ((loh * atomic_read(&dest->weight) >
--		     doh * atomic_read(&least->weight))
-+		if (((__s64)loh * atomic_read(&dest->weight) >
-+		     (__s64)doh * atomic_read(&least->weight))
- 		    && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
- 			least = dest;
- 			loh = doh;
-@@ -246,8 +246,8 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- 		dest = rcu_dereference_protected(e->dest, 1);
- 		doh = ip_vs_dest_conn_overhead(dest);
- 		/* moh/mw < doh/dw ==> moh*dw < doh*mw, where mw,dw>0 */
--		if ((moh * atomic_read(&dest->weight) <
--		     doh * atomic_read(&most->weight))
-+		if (((__s64)moh * atomic_read(&dest->weight) <
-+		     (__s64)doh * atomic_read(&most->weight))
- 		    && (atomic_read(&dest->weight) > 0)) {
- 			most = dest;
- 			moh = doh;
-@@ -611,8 +611,8 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
- 			continue;
- 
- 		doh = ip_vs_dest_conn_overhead(dest);
--		if (loh * atomic_read(&dest->weight) >
--		    doh * atomic_read(&least->weight)) {
-+		if ((__s64)loh * atomic_read(&dest->weight) >
-+		    (__s64)doh * atomic_read(&least->weight)) {
- 			least = dest;
- 			loh = doh;
- 		}
-diff --git a/net/netfilter/ipvs/ip_vs_nq.c b/net/netfilter/ipvs/ip_vs_nq.c
-index d8d9860..961a6de 100644
---- a/net/netfilter/ipvs/ip_vs_nq.c
-+++ b/net/netfilter/ipvs/ip_vs_nq.c
-@@ -40,7 +40,7 @@
- #include <net/ip_vs.h>
- 
- 
--static inline unsigned int
-+static inline int
- ip_vs_nq_dest_overhead(struct ip_vs_dest *dest)
- {
- 	/*
-@@ -59,7 +59,7 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		  struct ip_vs_iphdr *iph)
- {
- 	struct ip_vs_dest *dest, *least = NULL;
--	unsigned int loh = 0, doh;
-+	int loh = 0, doh;
- 
- 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
- 
-@@ -92,8 +92,8 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		}
- 
- 		if (!least ||
--		    (loh * atomic_read(&dest->weight) >
--		     doh * atomic_read(&least->weight))) {
-+		    ((__s64)loh * atomic_read(&dest->weight) >
-+		     (__s64)doh * atomic_read(&least->weight))) {
- 			least = dest;
- 			loh = doh;
- 		}
-diff --git a/net/netfilter/ipvs/ip_vs_sed.c b/net/netfilter/ipvs/ip_vs_sed.c
-index a5284cc..e446b9f 100644
---- a/net/netfilter/ipvs/ip_vs_sed.c
-+++ b/net/netfilter/ipvs/ip_vs_sed.c
-@@ -44,7 +44,7 @@
- #include <net/ip_vs.h>
- 
- 
--static inline unsigned int
-+static inline int
- ip_vs_sed_dest_overhead(struct ip_vs_dest *dest)
- {
- 	/*
-@@ -63,7 +63,7 @@ ip_vs_sed_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		   struct ip_vs_iphdr *iph)
- {
- 	struct ip_vs_dest *dest, *least;
--	unsigned int loh, doh;
-+	int loh, doh;
- 
- 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
- 
-@@ -99,8 +99,8 @@ ip_vs_sed_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		doh = ip_vs_sed_dest_overhead(dest);
--		if (loh * atomic_read(&dest->weight) >
--		    doh * atomic_read(&least->weight)) {
-+		if ((__s64)loh * atomic_read(&dest->weight) >
-+		    (__s64)doh * atomic_read(&least->weight)) {
- 			least = dest;
- 			loh = doh;
- 		}
-diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
-index 6dc1fa1..b5b4650 100644
---- a/net/netfilter/ipvs/ip_vs_wlc.c
-+++ b/net/netfilter/ipvs/ip_vs_wlc.c
-@@ -35,7 +35,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		   struct ip_vs_iphdr *iph)
- {
- 	struct ip_vs_dest *dest, *least;
--	unsigned int loh, doh;
-+	int loh, doh;
- 
- 	IP_VS_DBG(6, "ip_vs_wlc_schedule(): Scheduling...\n");
- 
-@@ -71,8 +71,8 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		doh = ip_vs_dest_conn_overhead(dest);
--		if (loh * atomic_read(&dest->weight) >
--		    doh * atomic_read(&least->weight)) {
-+		if ((__s64)loh * atomic_read(&dest->weight) >
-+		    (__s64)doh * atomic_read(&least->weight)) {
- 			least = dest;
- 			loh = doh;
- 		}
+Larry Finger (8):
+  rtlwifi: rtl8192du: Fix smatch errors in /rtl8192de/dm.c
+  rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
+  rtlwifi: rtl8192cu: Fix smatch warning in rtl8192cu/trx.c
+  rtlwifi: rtl8192_common: Fix smatch errors and warnings in
+    rtl8192c/dm_common.c
+  rtlwifi: Fix smatch warning in pci.c
+  rtlwifi: Fix smatch warnings in usb.c
+  rtlwifi: rtl8188ee: Fix smatch warning in rtl8188ee/hw.c
+  rtlwifi: Remove all remaining references to variable 'noise'
+    in rtl_stats struct
+
+ drivers/net/wireless/rtlwifi/pci.c                | 1 -
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c       | 1 +
+ drivers/net/wireless/rtlwifi/rtl8188ee/trx.c      | 1 -
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 4 +++-
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c      | 1 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/trx.c      | 2 --
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.c       | 8 ++++++--
+ drivers/net/wireless/rtlwifi/rtl8192de/hw.c       | 2 ++
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c      | 1 -
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c      | 1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c      | 1 -
+ drivers/net/wireless/rtlwifi/usb.c                | 6 ++++--
+ drivers/net/wireless/rtlwifi/wifi.h               | 1 -
+ 13 files changed, 16 insertions(+), 14 deletions(-)
+
 -- 
-1.8.4
+1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
