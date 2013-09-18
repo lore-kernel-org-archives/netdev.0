@@ -1,48 +1,58 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] USBNET: fix handling padding packet
-Date: Wed, 18 Sep 2013 20:33:16 +0200
-Message-ID: <878uyu56ab.fsf@nemi.mork.no>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
-	<878uyu6xjm.fsf@nemi.mork.no>
-	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
-	<87zjra5dpx.fsf@nemi.mork.no>
-	<CACVXFVNp5Qj-EV+L=FezwFqRnFa7uRFca7Ju9=iTqU+DS1r-fg@mail.gmail.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [RFC PATCH 0/4] cpsw: support for control module register
+Date: Wed, 18 Sep 2013 11:49:32 -0700
+Message-ID: <20130918184931.GA9994@atomide.com>
+References: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com>
+ <522D8DB8.5050305@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Oliver Neukum <oliver@neukum.org>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bcousson@baylibre.com,
+	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org
+To: Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:59673 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751635Ab3IRSd3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 14:33:29 -0400
-In-Reply-To: <CACVXFVNp5Qj-EV+L=FezwFqRnFa7uRFca7Ju9=iTqU+DS1r-fg@mail.gmail.com>
-	(Ming Lei's message of "Thu, 19 Sep 2013 01:03:31 +0800")
+Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:18043 "EHLO
+	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751793Ab3IRSth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 14:49:37 -0400
+Content-Disposition: inline
+In-Reply-To: <522D8DB8.5050305@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <ming.lei@canonical.com> writes:
-> On Wed, Sep 18, 2013 at 11:52 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wro=
-te:
->
->> Why don't you test it on the device you tested the SG patch with?  I=
- am
->> pretty sure it works just fine using proper ZLP transfer termination=
-=2E
->
-> I should have planned to test it, but didn't know how to build TCP TS=
-O
-> to make the whole frame length plus 8 dividable by 1024.
+* Daniel Mack <zonque@gmail.com> [130909 02:06]:
+> On 08.09.2013 13:23, Mugunthan V N wrote:
+> > This patch series adds the support for configuring GMII_SEL register
+> > of control module to select the phy mode type and also to configure
+> > the clock source for RMII phy mode whether to use internal clock or
+> > the external clock from the phy itself.
+> > 
+> > Till now CPSW works as this configuration is done in U-Boot and carried
+> > over to the kernel. But during suspend/resume Control module tends to
+> > lose its configured value for GMII_SEL register in AM33xx PG1.0, so
+> > if CPSW is used in RMII or RGMII mode, on resume cpsw is not working
+> > as GMII_SEL register lost its configuration values.
+> > 
+> > The initial version of the patch is done by Daniel Mack but as per
+> > Tony's comment he wants it as a seperate driver as it is done in USB
+> > control module. I have created a seperate driver for the same and as
+> > the merge window is open now and no feature request is accepted I am
+> > submitting it as RFC for reviews.
+> 
+> Thanks for doing this. It's a somehow expensive approach of writing a
+> single 32bit register, but I agree it's cleaner to not have this code in
+> the cpsw driver directly.
 
-You could test this without enabling TSO and just send IP packets of th=
-e
-appriopriate size, taking any additional framing into account
+The main reason for doing that is because this register is in a
+separate omap SCM (System Control Module) and may need to be
+eventually a child of a SCM core driver. This is to avoid invalid
+PM dependencies between separate hardware modules as they can
+be clocked separately.
 
+Most of the SCM registers can be already handled by using
+pinctrl-single driver, but it's not intended for using for
+transceivers etc that are not strictly pinctrl related.
 
-Bj=C3=B8rn
+Regards,
+
+Tony
