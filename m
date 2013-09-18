@@ -1,42 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
- shut down
-Date: Tue, 17 Sep 2013 20:30:56 -0400 (EDT)
-Message-ID: <20130917.203056.560938568772547630.davem@davemloft.net>
-References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Tue, 17 Sep 2013 20:33:22 -0400 (EDT)
+Message-ID: <20130917.203322.312299980751609267.davem@davemloft.net>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	david.vrabel@citrix.com, wei.liu2@citrix.com,
-	ian.campbell@citrix.com
-To: paul.durrant@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45301 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043Ab3IRAbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 20:31:04 -0400
-In-Reply-To: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1379409002-7698-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Tue, 17 Sep 2013 17:46:08 +0100
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Tue, 17 Sep 2013 17:10:02 +0800
 
-> Without this patch, if a frontend cycles through states Closing
-> and Closed (which Windows frontends need to do) then the netdev
-> will be destroyed and requires re-invocation of hotplug scripts
-> to restore state before the frontend can move to Connected. Thus
-> when udev is not in use the backend gets stuck in InitWait.
+> Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
+> if the usb host controller is capable of building packet from
+> discontinuous buffers, but missed handling padding packet when
+> building DMA SG.
 > 
-> With this patch, the netdev is left alone whilst the backend is
-> still online and is only de-registered and freed just prior to
-> destroying the vif (which is also nicely symmetrical with the
-> netdev allocation and registration being done during probe) so
-> no re-invocation of hotplug scripts is required.
+> This patch attachs the pre-allocated padding packet at the
+> end of the sg list, so padding packet can be sent to device
+> if drivers require that.
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Reported-by: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
+> Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Can a xen driver expert please review and give an Acked-by:?
-
-Thanks.
+Some reviews and ACKs would be appreciated on this one, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
