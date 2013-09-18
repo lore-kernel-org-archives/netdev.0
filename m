@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no
- devices are unregistering
-Date: Tue, 17 Sep 2013 20:15:15 -0400 (EDT)
-Message-ID: <20130917.201515.1404443973169590392.davem@davemloft.net>
-References: <87mwncaz04.fsf_-_@xmission.com>
-	<20130917.192158.941189471705765317.davem@davemloft.net>
-	<e652a11e-b23d-4a83-aaac-00c469a416f1@email.android.com>
+Subject: Re: [PATCH] vxlan: Avoid creating fdb entry with NULL destination
+Date: Tue, 17 Sep 2013 20:20:00 -0400 (EDT)
+Message-ID: <20130917.202000.1535219653178049055.davem@davemloft.net>
+References: <1379445160.21109.29.camel@sridhar.usor.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fruggeri@aristanetworks.com, edumazet@google.com, jiri@resnulli.us,
-	alexander.h.duyck@intel.com, amwang@redhat.com,
-	netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	mike.rapoport@ravellosystems.com
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44856 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44910 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752890Ab3IRAPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 20:15:17 -0400
-In-Reply-To: <e652a11e-b23d-4a83-aaac-00c469a416f1@email.android.com>
+	with ESMTP id S1753457Ab3IRAUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 20:20:02 -0400
+In-Reply-To: <1379445160.21109.29.camel@sridhar.usor.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue, 17 Sep 2013 16:41:37 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Tue, 17 Sep 2013 12:12:40 -0700
 
-> List/count I don't much care but currently we don't have a list of
-> all of the devices that are unregistering.
+> Commit afbd8bae9c798c5cdbe4439d3a50536b5438247c 
+>    vxlan: add implicit fdb entry for default destination
+> creates an implicit fdb entry for default destination. This results 
+> in an invalid fdb entry if default destination is not specified.
+> For ex: 
+>   ip link add vxlan1 type vxlan id 100
+> creates the following fdb entry
+>   00:00:00:00:00:00 dev vxlan1 dst 0.0.0.0 self permanent
 > 
-> The problem with this is that netdev_run_todo moves all of the
-> devices to a local list, so they are only visible from a list_head
-> on the stack.  Which makes sense as we run this all in the context
-> of rtnl_unlock.
+> This patch fixes this issue by creating an fdb entry only if a
+> valid default destination is specified.
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-And when that local list is processed (the while loop completes and
-has iterated over the entire list), either the global todo list is
-empty, or it is not empty.
-
-And the waked up code will check for this.
-
-I really don't see what the problem is.
+Looks reasonable, applied, thanks.
