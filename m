@@ -1,57 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -net] netpoll: fix NULL pointer dereference in
- netpoll_cleanup
-Date: Wed, 18 Sep 2013 12:15:39 -0400 (EDT)
-Message-ID: <20130918.121539.1213515779326200577.davem@davemloft.net>
-References: <1379427155-8561-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH net] ip: generate unique IP identificator if local
+ fragmentation is allowed
+Date: Wed, 18 Sep 2013 12:20:18 -0400 (EDT)
+Message-ID: <20130918.122018.1088822749792394509.davem@davemloft.net>
+References: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: nikolay@redhat.com
+To: aatteka@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35400 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35479 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635Ab3IRQPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:15:41 -0400
-In-Reply-To: <1379427155-8561-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1752918Ab3IRQUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:20:20 -0400
+In-Reply-To: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Tue, 17 Sep 2013 16:12:35 +0200
+From: Ansis Atteka <aatteka@nicira.com>
+Date: Tue, 17 Sep 2013 15:25:00 -0700
 
-> @@ -1284,15 +1284,15 @@ EXPORT_SYMBOL_GPL(__netpoll_free_async);
+> @@ -1317,6 +1317,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+>  		ttl = ip_select_ttl(inet, &rt->dst);
 >  
->  void netpoll_cleanup(struct netpoll *np)
->  {
-> -	if (!np->dev)
-> -		return;
-> -
->  	rtnl_lock();
-> +	if (!np->dev) {
-> +		rtnl_unlock();
-> +		return;
-> +	}
->  	__netpoll_cleanup(np);
-> -	rtnl_unlock();
-> -
->  	dev_put(np->dev);
->  	np->dev = NULL;
-> +	rtnl_unlock();
->  }
->  EXPORT_SYMBOL(netpoll_cleanup);
+>  	iph = (struct iphdr *)skb->data;
+> +
+>  	iph->version = 4;
+>  	iph->ihl = 5;
+>  	iph->tos = inet->tos;
+> @@ -1324,7 +1325,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+>  	iph->ttl = ttl;
+>  	iph->protocol = sk->sk_protocol;
+>  	ip_copy_addrs(iph, fl4);
+> -	ip_select_ident(iph, &rt->dst, sk);
+> +	ip_select_ident(skb, &rt->dst, sk);
+>  
+>  	if (opt) {
+>  		iph->ihl += opt->optlen>>2;
 
-I know it seems arbitrary, but please do this like:
+This transformation is not equivalent.
 
-	lock();
-	if (condition) {
-		...
-	}
-	unlock();
+ip_select_ident() is going to use ip_hdr() which obtains the header
+pointer via skb_network_header().
 
-rather than having multiple return/unlock code paths.
-
-This style I am suggesting is easier to audit for locking problems.
-
-Thanks.
+But here, the code is using skb->data for this, which is different.
