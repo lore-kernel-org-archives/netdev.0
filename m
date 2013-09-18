@@ -1,58 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC] b44: use phylib
-Date: Wed, 18 Sep 2013 16:29:01 +0100
-Message-ID: <CAGVrzca_jpNKohDuz5fTvXdCsyV7F7c5TbrQwb-suEqiKZkT5g@mail.gmail.com>
-References: <1377298608-18016-1-git-send-email-hauke@hauke-m.de> <1379517545.1787.20.camel@joe-AO722>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 002/007] WAN Drivers: Update farsync driver and
+ introduce fsflex driver
+Date: Wed, 18 Sep 2013 16:30:32 +0100
+Message-ID: <1379518232.1522.15.camel@bwh-desktop.uk.level5networks.com>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA1@SOLO.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hauke Mehrtens <hauke@hauke-m.de>, zambrano@broadcom.com,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:38722 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007Ab3IRP3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:29:42 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so7149329pbc.31
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 08:29:41 -0700 (PDT)
-In-Reply-To: <1379517545.1787.20.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"Dermot Smith" <dermot.smith@farsite.com>
+To: Kevin Curtis <Kevin.Curtis@farsite.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA1@SOLO.hq.farsitecommunications.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/9/18 Joe Perches <joe@perches.com>:
-> On Sat, 2013-08-24 at 00:56 +0200, Hauke Mehrtens wrote:
->> This splits the driver into the mac and a phy driver. On routers where
->> this driver is used we have a switch which implements a phy and can be
->> controlled by a phy driver.
->
-> One more trivial note:
->
->> diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-> []
->> +static void b44_adjust_link(struct net_device *dev)
->> +{
-> []
->> +     if (status_changed) {
->> +             pr_info("%s: link %s", dev->name, phydev->link ?
->> +                     "UP" : "DOWN");
->> +             if (phydev->link)
->> +                     pr_cont(" - %d/%s", phydev->speed,
->> +                     phydev->duplex == DUPLEX_FULL ? "full" : "half");
->> +             pr_cont("\n");
->> +     }
->
-> This bit would be better as:
->
->         if (status_change) {
->                 if (phydev->link)
->                         netdev_info(dev, "link UP - %d/%s\n",
->                                     phydev->speed,
->                                     phydev->duplex == DUPLEX_FULL
->                                     ? "full" : "half");
->                 else
->                         netdev_info(dev, "link DOWN\n");
->         }
+On Wed, 2013-09-18 at 11:11 +0100, Kevin Curtis wrote:
+> Farsite Communications FarSync driver update
+> 
+> Patch 2 of 7
+> 
+> Introduce a new include file required by the fsflex driver.
+> 
+> Signed-off-by: Kevin Curtis <kevin.curtis@farsite.com>
+> 
+> ---
+> 
+> diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/drivers/net/wan/uss_cmn.h linux-3.10.1_new/drivers/net/wan/uss_cmn.h
+> --- linux-3.10.1/drivers/net/wan/uss_cmn.h      1970-01-01 01:00:00.000000000 +0100
+> +++ linux-3.10.1_new/drivers/net/wan/uss_cmn.h  2013-08-30 11:30:36.766167447 +0100
+> @@ -0,0 +1,492 @@
+> +/*
+> + *      FarSync driver for Linux
+> + *
+> + *      Copyright (C) 2001-2013 FarSite Communications Ltd.
+> + *      www.farsite.com
+> + *
+> + *      This program is free software; you can redistribute it and/or
+> + *      modify it under the terms of the GNU General Public License
+> + *      as published by the Free Software Foundation; either version
+> + *      2 of the License, or (at your option) any later version.
+> + *
+> + * File        : uss_cmn.h
+> + *
+> + * Description : FarSync Flex common header file, shared between oncard code
+> + *               and Windows and Linux drivers.
+> + *
+> + *               NOTE: all parameters are in Little Endian format
 
-There is a helper function provided by phylib for this: phy_print_status().
+Then they should be declared as __le32 or similar.
+
+[...]
+> +typedef enum _USS_COMMANDS 
+[...]
+> +} USS_COMMANDS;
+
+Adding typedefs for user-defined types is deprecated.  And please use
+lower-case type names.
+
+[...]
+> +/*****************************************************************************/
+> +/* InterfaceRecord definition                                                */
+> +/*                                                                           */
+> +/* For use with:                                                             */
+> +/*                                                                           */
+> +/*   IoctlCodeReadInterfaceRecord,                                           */
+> +/*   IoctlCodeFarSyncReadInterfaceRecord                                     */
+> +/*                                                                           */
+> +/*****************************************************************************/
+> +typedef struct _INTERFACE_RECORD {
+> +       int rx_frame_count;     /* incremented after each frame rx'd */
+> +       int tx_max_fr_size_now; /* max available frame size av. now  */
+> +       /* (changes after each Tx DevIoctl   */
+> +       /* to DD or after Tx completed)      */
+> +       int status_count;       /* How many status events have been  */
+> +       /* triggered.                        */
+> +       u8 v24_in;              /* Last 'getv24 i/p' value got       */
+> +       u8 v24_out;             /* Last 'setv24 o/p' value set       */
+[...]
+
+I think explicit padding is needed between v24_out and status_array.
+Not all architectures require 32-bit words to be 32-bit aligned.
+
+Ben.
+
 -- 
-Florian
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
