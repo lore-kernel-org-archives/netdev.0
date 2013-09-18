@@ -1,74 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH -net] netpoll: fix NULL pointer dereference in netpoll_cleanup
-Date: Wed, 18 Sep 2013 23:09:11 +0200
-Message-ID: <523A1677.2090602@redhat.com>
-References: <1379427155-8561-1-git-send-email-nikolay@redhat.com>  <20130918.121539.1213515779326200577.davem@davemloft.net> <1379521524.1787.44.camel@joe-AO722>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [REGRESSION][BISECTED] skge: add dma_mapping check
+Date: Thu, 19 Sep 2013 00:08:19 +0200
+Message-ID: <20130918220819.GA11989@electric-eye.fr.zoreil.com>
+References: <1379494844.2294.12.camel@ThinkPad-X230.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35211 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753816Ab3IRVJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 17:09:16 -0400
-In-Reply-To: <1379521524.1787.44.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mirko Lindner <mlindner@marvell.com>, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	member graysky <graysky@archlinux.us>
+To: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1379494844.2294.12.camel@ThinkPad-X230.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/18/2013 06:25 PM, Joe Perches wrote:
-> On Wed, 2013-09-18 at 12:15 -0400, David Miller wrote:
->> From: Nikolay Aleksandrov <nikolay@redhat.com>
->> Date: Tue, 17 Sep 2013 16:12:35 +0200
->>
->>> @@ -1284,15 +1284,15 @@ EXPORT_SYMBOL_GPL(__netpoll_free_async);
->>>  
->>>  void netpoll_cleanup(struct netpoll *np)
->>>  {
->>> -     if (!np->dev)
->>> -             return;
->>> -
->>>       rtnl_lock();
->>> +     if (!np->dev) {
->>> +             rtnl_unlock();
->>> +             return;
->>> +     }
->>>       __netpoll_cleanup(np);
->>> -     rtnl_unlock();
->>> -
->>>       dev_put(np->dev);
->>>       np->dev = NULL;
->>> +     rtnl_unlock();
->>>  }
->>>  EXPORT_SYMBOL(netpoll_cleanup);
->>
->> I know it seems arbitrary, but please do this like:
->>
->>         lock();
->>         if (condition) {
->>                 ...
->>         }
->>         unlock();
->>
->> rather than having multiple return/unlock code paths.
->>
->> This style I am suggesting is easier to audit for locking problems.
+Igor Gnatenko <i.gnatenko.brain@gmail.com> :
+> Since 136d8f377e1575463b47840bc5f1b22d94bf8f63 commit we have kernel
+> panic on:
+> 01:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
 > 
-> Another alternative is:
+> Screen: https://www.dropbox.com/s/mu3t3wxpxbn4ou5/IMAG0507.jpg
 > 
-> 	lock();
-> 
-> 	if (!condition)
-> 		goto out;
-> 
-> 	...
-> 
-> out:
-> 	unlock();
-> 	return ...;
-> }
-> 
-Yup, this is the alternative I plan to use :-)
+> RHBZ: https://bugzilla.redhat.com/show_bug.cgi?id=1008323
 
-Thanks Joe
+Does the ugly stuff below against mainline make a difference ?
+
+Note to testers: use a size argument above 500 for 'ping' to
+exercize the relevant code path.
+
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index ef94a59..aa85a3f 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3086,6 +3086,7 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+ 					       PCI_DMA_FROMDEVICE);
+ 		skge_rx_reuse(e, skge->rx_buf_size);
+ 	} else {
++		struct skge_element ee = *e;
+ 		struct sk_buff *nskb;
+ 
+ 		nskb = netdev_alloc_skb_ip_align(dev, skge->rx_buf_size);
+@@ -3098,10 +3099,10 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+ 		}
+ 
+ 		pci_unmap_single(skge->hw->pdev,
+-				 dma_unmap_addr(e, mapaddr),
+-				 dma_unmap_len(e, maplen),
++				 dma_unmap_addr(&ee, mapaddr),
++				 dma_unmap_len(&ee, maplen),
+ 				 PCI_DMA_FROMDEVICE);
+-		skb = e->skb;
++		skb = ee.skb;
+ 		prefetch(skb->data);
+ 	}
+ 
