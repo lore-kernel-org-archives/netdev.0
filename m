@@ -1,59 +1,46 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v4] Don't destroy the netdev until the vif is
- shut down
-Date: Wed, 18 Sep 2013 16:04:11 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD010D0DB@AMSPEX01CL01.citrite.net>
-References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
-	 <20130918103704.GA511@zion.uk.xensource.com>
- <1379519895.11304.268.camel@hastur.hellion.org.uk>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source
+ through dts file
+Date: Wed, 18 Sep 2013 18:08:46 +0200
+Message-ID: <20130918160846.GA4397@netboy>
+References: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:13618 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751627Ab3IRQGS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 12:06:18 -0400
-In-Reply-To: <1379519895.11304.268.camel@hastur.hellion.org.uk>
-Content-Language: en-US
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:56939 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752215Ab3IRQJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:09:04 -0400
+Received: by mail-ea0-f178.google.com with SMTP id a15so3601529eae.9
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 09:09:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMTggU2VwdGVtYmVyIDIwMTMgMTY6
-NTgNCj4gVG86IFdlaSBMaXUNCj4gQ2M6IFBhdWwgRHVycmFudDsgeGVuLWRldmVsQGxpc3RzLnhl
-bi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkDQo+IFZyYWJlbA0KPiBTdWJqZWN0
-OiBSZTogW1BBVENIIG5ldC1uZXh0IHY0XSBEb24ndCBkZXN0cm95IHRoZSBuZXRkZXYgdW50aWwg
-dGhlIHZpZiBpcw0KPiBzaHV0IGRvd24NCj4gDQo+IE9uIFdlZCwgMjAxMy0wOS0xOCBhdCAxMToz
-NyArMDEwMCwgV2VpIExpdSB3cm90ZToNCj4gPiBPbiBUdWUsIFNlcCAxNywgMjAxMyBhdCAwNTo0
-NjowOFBNICswMTAwLCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+ID4gPiBXaXRob3V0IHRoaXMgcGF0
-Y2gsIGlmIGEgZnJvbnRlbmQgY3ljbGVzIHRocm91Z2ggc3RhdGVzIENsb3NpbmcNCj4gPiA+IGFu
-ZCBDbG9zZWQgKHdoaWNoIFdpbmRvd3MgZnJvbnRlbmRzIG5lZWQgdG8gZG8pIHRoZW4gdGhlIG5l
-dGRldg0KPiA+ID4gd2lsbCBiZSBkZXN0cm95ZWQgYW5kIHJlcXVpcmVzIHJlLWludm9jYXRpb24g
-b2YgaG90cGx1ZyBzY3JpcHRzDQo+ID4gPiB0byByZXN0b3JlIHN0YXRlIGJlZm9yZSB0aGUgZnJv
-bnRlbmQgY2FuIG1vdmUgdG8gQ29ubmVjdGVkLiBUaHVzDQo+ID4gPiB3aGVuIHVkZXYgaXMgbm90
-IGluIHVzZSB0aGUgYmFja2VuZCBnZXRzIHN0dWNrIGluIEluaXRXYWl0Lg0KPiA+ID4NCj4gPiA+
-IFdpdGggdGhpcyBwYXRjaCwgdGhlIG5ldGRldiBpcyBsZWZ0IGFsb25lIHdoaWxzdCB0aGUgYmFj
-a2VuZCBpcw0KPiA+ID4gc3RpbGwgb25saW5lIGFuZCBpcyBvbmx5IGRlLXJlZ2lzdGVyZWQgYW5k
-IGZyZWVkIGp1c3QgcHJpb3IgdG8NCj4gPiA+IGRlc3Ryb3lpbmcgdGhlIHZpZiAod2hpY2ggaXMg
-YWxzbyBuaWNlbHkgc3ltbWV0cmljYWwgd2l0aCB0aGUNCj4gPiA+IG5ldGRldiBhbGxvY2F0aW9u
-IGFuZCByZWdpc3RyYXRpb24gYmVpbmcgZG9uZSBkdXJpbmcgcHJvYmUpIHNvDQo+ID4gPiBubyBy
-ZS1pbnZvY2F0aW9uIG9mIGhvdHBsdWcgc2NyaXB0cyBpcyByZXF1aXJlZC4NCj4gPiA+DQo+ID4g
-PiBTaWduZWQtb2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBhdWwuZHVycmFudEBjaXRyaXguY29tPg0K
-PiA+ID4gQ2M6IERhdmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJpeC5jb20+DQo+ID4gPiBD
-YzogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4NCj4gPiA+IENjOiBJYW4gQ2FtcGJlbGwg
-PGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiA+DQo+ID4gQWNrZWQtYnk6IFdlaSBMaXUgPHdl
-aS5saXUyQGNpdHJpeC5jb20+DQo+IA0KPiB5ZWFoLCBsb29rcyBnb29kLCB0aGFua3MuDQo+IA0K
-PiBQYXVsLCBkaWQgeW91IHRlc3QgdGhpcyB3aXRoIG5vbi1XaW5kb3dzIGZyb250ZW5kcyB0b28/
-IGFuZCBkbyB0aGluZ3MNCj4gbGlrZSB2aWYgaG90KHVuKXBsdWcgc3RpbGwgd29yaz8NCj4gDQoN
-CklhbiwNCg0KSSB0ZXN0ZWQgd2l0aCBhIGRlYmlhbiAod2hlZXp5KSBQViBndWVzdCBidXQgSSBk
-aWRuJ3QgdGVzdCB1bnBsdWcuIEkgY3ljbGVkIGEgd2luZG93cyBmcm9udGVuZCBzZXZlcmFsIHRp
-bWVzICh3aGljaCBpcyBob3cgSSBzcG90dGVkIHRoZSB0eF9pcnEgdGhpbmcpLCBhbmQgc2h1dGRv
-d24gYW5kIGJyb3VnaHQgdXAgYm90aCB0aGUgZGViaWFuIGFuZCB3aW5kb3dzIGd1ZXN0cyBzZXZl
-cmFsIHRpbWVzLiBJIGNhbiB0ZXN0IHVucGx1ZyB0b28gaWYgeW91J2QgbGlrZS4NCg0KICBQYXVs
-DQo=
+On Wed, Sep 18, 2013 at 05:21:04PM +0400, Aida Mynzhasova wrote:
+> IEEE 1588 timer reference clock source is determined through hard-coded
+> value in gianfar_ptp driver by default. This patch allows to select ptp
+> clock source by means of device tree file node.
+> 
+> For instance:
+> 
+> 	fsl,cksel = <0>;
+> 
+> for using external (TSEC_TMR_CLK input) high precision timer
+> reference clock.
+> 
+> Other acceptable values:
+> 
+> 	<1> : eTSEC system clock
+> 	<2> : eTSEC1 transmit clock
+> 	<3> : RTC clock input
+
+Do the other clock sources even work at all?
+
+We were not able to get them working.
+
+Thanks,
+Richard
