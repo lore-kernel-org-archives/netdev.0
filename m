@@ -1,29 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tsi108: Prevent compiler warning
-Date: Wed, 18 Sep 2013 12:38:53 -0400 (EDT)
-Message-ID: <20130918.123853.1464055976885078627.davem@davemloft.net>
-References: <1379508595-30252-1-git-send-email-treding@nvidia.com>
+From: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
+Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source through
+ dts file
+Date: Wed, 18 Sep 2013 20:39:43 +0400
+Message-ID: <5239D74F.5030801@skitlab.ru>
+References: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru> <5239CA4F.9000600@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: thierry.reding@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379508595-30252-1-git-send-email-treding@nvidia.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.skitlab.ru ([217.65.220.135]:37418 "EHLO mail.skitlab.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752951Ab3IRQjq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 12:39:46 -0400
+In-Reply-To: <5239CA4F.9000600@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Reding <thierry.reding@gmail.com>
-Date: Wed, 18 Sep 2013 14:49:55 +0200
+On 18.09.2013 19:44, Claudiu Manoil wrote:
+>
+> On 9/18/2013 4:21 PM, Aida Mynzhasova wrote:
+>> IEEE 1588 timer reference clock source is determined through hard-coded
+>> value in gianfar_ptp driver by default. This patch allows to select ptp
+>> clock source by means of device tree file node.
+>>
+>> For instance:
+>>
+>>     fsl,cksel = <0>;
+>>
+>
+> Has this device tree binding been defined? (Where?)
+> I don't see this property in the net-next.git tree at least.
+>
+> Claudiu
+>
+>
 
-> The dump_eth_one() function is only used if DEBUG is enabled, so protect
-> it by a corresponding #ifdef DEBUG block.
-> 
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
+Hi Claudiu,
 
-I would prefer that this function and the one call site is simply
-removed instead.
+actually, I don't know where I should define this binding, my only idea 
+is to add "cksel" property description in 
+/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt. Am I right or I 
+need to do some additional changes?
 
-This kind of thing can be provided via ethtool register dumps
-and therefore without all of the ugliness this ad-hoc stuff
-presents.
+Thanks.
