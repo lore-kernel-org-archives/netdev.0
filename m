@@ -1,37 +1,56 @@
 From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: [PATCH net RFC 0/2] net: BUG napi_disable sleep while atomic
-Date: Wed, 18 Sep 2013 13:19:43 -0700
-Message-ID: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
+Subject: [PATCH net RFC 1/2] netdevice: add might_sleep() call to
+ napi_disable
+Date: Wed, 18 Sep 2013 13:20:10 -0700
+Message-ID: <20130918201949.8697.50700.stgit@jekeller-desk1.amr.corp.intel.com>
+References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
+Cc: Alex Duyck <alexander.h.duyck@intel.com>,
+	Hyong-Youb Kim <hykim@myri.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3385 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:43884 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751627Ab3IRUTo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 16:19:44 -0400
+	id S1753195Ab3IRUUM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 16:20:12 -0400
+In-Reply-To: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series implements a fix for a possible sleep while atomic bug in
-the ixgbe driver, caused because napi_disable might sleep. The first patch adds
-a might_sleep() call in order to make future sleep while atomic bugs easier to
-discover, (as napi_disable does not always sleep!). The second patch is my best
-guess at an actual fix for the bug. There is likely a similar bug in every
-driver which implemented NET_RX_BUSY_POLL similar to ixgbe. The first patch
-will likely cause BUG splats to appear in those drivers unless they are fixed.
+napi_disable potentially calls msleep(1) if the NAPI_STATE_SCHED bit is
+previously set by something else. Because it does not always call msleep, it
+was difficult to track down a bug related to calling napi_disable within
+local_bh_disable()d context. This patch adds a might_sleep() call to the
+napi_disable routine in order to aid in the future debugging of similar issues.
+This will cause a BUG in drivers which have implemented busy polling in a
+similar fashion to ixgbe, and which call napi_disable inside the
+local_bh_disable()d section where the vector napi lock is taken.
 
----
-
-Jacob Keller (2):
-      netdevice: add might_sleep() call to napi_disable
-      ixgbe: fix sleep bug caused by napi_disable inside local_bh_disable()d context
-
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- include/linux/netdevice.h                     |    2 ++
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
---
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Cc: Alex Duyck <alexander.h.duyck@intel.com>
+Cc: Hyong-Youb Kim <hykim@myri.com>
+Cc: Amir Vadai <amirv@mellanox.com>
+Cc: Dmitry Kravkov <dmitry@broadcom.com>
+---
+ include/linux/netdevice.h |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3de49ac..81dab00 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -483,6 +483,8 @@ extern void napi_hash_del(struct napi_struct *napi);
+  */
+ static inline void napi_disable(struct napi_struct *n)
+ {
++	might_sleep();
++
+ 	set_bit(NAPI_STATE_DISABLE, &n->state);
+ 	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+ 		msleep(1);
