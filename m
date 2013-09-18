@@ -1,46 +1,72 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source
- through dts file
-Date: Wed, 18 Sep 2013 18:08:46 +0200
-Message-ID: <20130918160846.GA4397@netboy>
-References: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [RFC PATCHv2 3/4] of: provide a binding for fixed link PHYs
+Date: Wed, 18 Sep 2013 18:11:12 +0200
+Message-ID: <20130918181112.56c10dde@skate>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<1378480701-12908-4-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20130918042923.5D845C42CF7@trevor.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:56939 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215Ab3IRQJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:09:04 -0400
-Received: by mail-ea0-f178.google.com with SMTP id a15so3601529eae.9
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 09:09:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130918042923.5D845C42CF7-WNowdnHR2B42iJbIjFUEsiwD8/FfD2ys@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 18, 2013 at 05:21:04PM +0400, Aida Mynzhasova wrote:
-> IEEE 1588 timer reference clock source is determined through hard-coded
-> value in gianfar_ptp driver by default. This patch allows to select ptp
-> clock source by means of device tree file node.
-> 
-> For instance:
-> 
-> 	fsl,cksel = <0>;
-> 
-> for using external (TSEC_TMR_CLK input) high precision timer
-> reference clock.
-> 
-> Other acceptable values:
-> 
-> 	<1> : eTSEC system clock
-> 	<2> : eTSEC1 transmit clock
-> 	<3> : RTC clock input
+Dear Grant Likely,
 
-Do the other clock sources even work at all?
+On Tue, 17 Sep 2013 23:29:23 -0500, Grant Likely wrote:
 
-We were not able to get them working.
+> I understand what you're trying to do here, but it causes a troublesome
+> leakage of implementation detail into the binding, making the whole
+> thing look very odd. This binding tries to make a fixed link look
+> exactly like a real PHY even to the point of including a phandle to the
+> phy. But having a phandle to a node which is *always* a direct child of
+> the MAC node is redundant and a rather looney. Yes, doing it that way
+> makes it easy for of_phy_find_device() to be transparent for fixed link,
+> but that should *not* drive bindings, especially when that makes the
+> binding really rather weird.
+> 
+> Second, this new binding doesn't provide anything over and above the
+> existing fixed-link binding. It may not be pretty, but it is
+> estabilshed.
+
+Have you followed the past discussions about this patch set? Basically
+the *only* feedback I received on RFCv1 is that the fixed-link property
+sucks, and everybody (including the known Device Tree binding
+maintainer Mark Rutland) suggested to not use the fixed-link mechanism.
+See http://article.gmane.org/gmane.linux.network/276932, where Mark
+said:
+
+""
+I'm not sure grouping these values together is the best way of handling
+this. It's rather opaque, and inflexible for future extension.
+""
+
+So, please DT maintainers, tell me what you want. I honestly don't care
+whether fixed-link or a separate node is chosen. However, I do care
+about being dragged around between two solutions just because the
+former DT maintainer and the new DT maintainers do not agree.
 
 Thanks,
-Richard
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
