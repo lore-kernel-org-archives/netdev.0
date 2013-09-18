@@ -1,53 +1,89 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] USBNET: fix handling padding packet
-Date: Wed, 18 Sep 2013 16:43:18 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7349@saturn3.aculab.com>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com> <878uyu6xjm.fsf@nemi.mork.no>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Wed, 18 Sep 2013 17:52:42 +0200
+Message-ID: <87zjra5dpx.fsf@nemi.mork.no>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
+	<878uyu6xjm.fsf@nemi.mork.no>
+	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	"Oliver Neukum" <oneukum@suse.de>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, "Oliver Neukum" <oliver@neukum.org>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"Ming Lei" <ming.lei@canonical.com>
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Oliver Neukum <oliver@neukum.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35542 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752189Ab3IRPpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 11:45:55 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 00807-10 for <netdev@vger.kernel.org>;
- Wed, 18 Sep 2013 16:45:52 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <878uyu6xjm.fsf@nemi.mork.no>
+Received: from canardo.mork.no ([148.122.252.1]:56604 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751218Ab3IRPwv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:52:51 -0400
+In-Reply-To: <CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
+	(Ming Lei's message of "Wed, 18 Sep 2013 23:09:26 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBJIGFsc28gYmVsaWV2ZSBpdCB3b3VsZCBiZSBuaWNlIHRvIG1vdmUgdGhlIGluaXRpYWxpc2F0
-aW9uIG9mIGNhbl9kbWFfc2cNCj4gYXdheSBmcm9tIHRoZSBtaW5pZHJpdmVyIGFuZCBpbnRvIHVz
-Ym5ldF9wcm9iZS4gIEl0J3MgY29uZnVzaW5nIHRoYXQNCj4gdGhpcyBmaWVsZCBpcyB1c2VkICJ1
-bmluaXRpYWxpemVkIiAod2VsbCwgZGVmYXVsdGluZyB0byB6ZXJvKSBpbiBhbGwgYnV0DQo+IG9u
-ZSBtaW5pZHJpdmVyLiAgSXQgd291bGQgbXVjaCBuaWNlciBpZiB0aGUgbG9naWMgd2FzIG1vcmUg
-bGlrZQ0KPiANCj4gdXNibmV0X3Byb2JlOg0KPiAgaWYgKC4uLikNCj4gICAgIGRldi0+Y2FuX2Rt
-YV9zZyA9IDE7DQo+IA0KPiBtaW5pZHJpdmVyX2JpbmQ6DQo+ICAgaWYgKGRldi0+Y2FuX2RtYV9z
-Zykgew0KPiAgICAgIGRldi0+bmV0LT5mZWF0dXJlcyB8PSBORVRJRl9GX1NHIHwgTkVUSUZfRl9U
-U087DQo+ICAgICAgZGV2LT5uZXQtPmh3X2ZlYXR1cmVzIHw9IE5FVElGX0ZfU0cgfCBORVRJRl9G
-X1RTTzsNCj4gICB9DQoNCkFjdHVhbGx5IGl0IHdvdWxkIHByb2JhYmx5IGJlIG5pY2VyIGlmIHRo
-ZSBtaW5pZHJpdmVyIHNldA0KYSBmbGFnIHRvIGluZGljYXRlIHRoYXQgaXQgY291bGQgc3VwcG9y
-dCBmcmFnbWVudGVkIHNrYg0KKGEgbG90IGNhbid0IGJlY2F1c2Ugb2YgdGhlIHdheSB0aGV5IGFk
-ZCB0cmFpbGVycykNCmFuZCBhbHNvIHByb3ZpZGVkIHRoZSBsZW5ndGggb2YgdGhlIGhlYWRlciBp
-dCB3aWxsIGFkZC4NCg0KVGhlIHVzYm5ldCBjb2RlIGNvdWxkIHRoZW4gYWxsb2NhdGUgdGhlIGhl
-YWRlciBzcGFjZS4NCklmIHNjYXR0ZXItZ2F0aGVyIGRtYSBpcyBhdmFpbGFibGUgKGEgaG9zdCBm
-ZWF0dXJlKSB0aGVuDQp0aGUgaGVhZGVyIGNhbiBiZSBhbGxvY2F0ZWQgb3V0c2lkZSB0aGUgc2ti
-IGRhdGEgYXJlYQ0KdG8gYXZvaWQgaGF2aW5nIHRvIGNvcHkgdGhlIGVudGlyZSBza2IgZGF0YS4N
-ClRoZSBjaGVjayBmb3IgWkxQIGF2b2lkYW5jZSBjb3VsZCB0aGVuIGJlIGRvbmUgb25jZSBvbmx5
-DQoobm90IHN1cmUgaG93IHRoZSBpbmZvIHdvdWxkIGJlIHBhc3NlZCB0byB0ZWggbWluaWRyaXZl
-ciBhcGFydA0KZnJvbSBhZGRpbmcgbW9yZSBhZGRpdGlvbmFsIHBhcmFtZXRlcnMgdG8gdGVoIHR4
-X2ZpeHVwIGZ1bmN0aW9uKS4NCg0KSSBkaWQgYSBxdWljayBzY2FuIG9mIHRoZSBtaW5pZHJpdmVy
-cywgc29tZSBvZiB0aGVtIGRvbid0DQpzZWVtIHRvIGhhdmUgdGhlIGNvcnJlY3QgY2hlY2tzIGZv
-ciBmcmFnbWVudGVkIHNrYiAoZXRjKS4NCg0KTW9zdCBvZiB0aGVtIG9ubHkgYWRkIGEgaGVhZGVy
-Lg0KDQoJRGF2aWQNCg0KDQo=
+Ming Lei <ming.lei@canonical.com> writes:
+
+>> Are you really sure that the one driver/device using this really nee=
+d
+>> the padding byte?  If you could just make FLAG_SEND_ZLP part of the
+>> condition for enabling can_dma_sg, then all this extra complexity wo=
+uld
+>> be unnecessary.  As the comment in front of the padding code says:
+>
+> At least for the effected driver of ax88179, the padding packet is ne=
+eded
+> since the driver does set the padding flag in the header, see
+> ax88179_tx_fixup().
+
+Yes, I noticed that the driver doesn't set the flag. I just didn't put
+too much into that.  I don't think that necessarily means that the
+padding is needed. It probably just means that the driver worked with
+the default padding enabled, so the author left it there.
+
+This flag should really have been inverted.  ZLP should be the default
+for all new usbnet drivers.
+
+Why don't you test it on the device you tested the SG patch with?  I am
+pretty sure it works just fine using proper ZLP transfer termination.
+
+>>   "strictly conforming cdc-ether devices should expect the ZLP here"
+>>
+>> There shouldn't be any problems requiring this conformance as a
+>> precondition for allowing SG.  The requirements are already strict.
+>
+> There is no reason to forbid DMA SG for one driver which requires
+> padding, right?
+
+Yes there is: Added complexity for everybody, based on a combination of
+features which just does not make any sense.
+
+No modern device should need the padding.  No old device will be able t=
+o
+use the SG feature as implemented. You only enable it on USB3, don't
+you? If this feature is restricted to USB3 capable devices, then it mos=
+t
+certainly can be restricted to ZLP capable devices with absolutely no
+difference in the resulting set of supported devices.
+
+Anyway, if you want to keep the padding for SG then maybe this will wor=
+k
+and allow you to drop the extra struct usbnet field and allocation:
+
+                        if (skb_tailroom(skb) && !dev->can_dma_sg) {
+                               skb->data[skb->len] =3D 0;
+                               __skb_put(skb, 1);
+                        } else if (dev->can_dma_sg) {
+                              sg_set_buf(&urb->sg[urb->num_sgs++], skb-=
+>data, 1);
+                        }
+
+I.e. cheat and use the skb->data buffer twice, if that is allowed?  The
+actual value of the padding byte should not matter, I believe?
+
+
+
+Bj=C3=B8rn
