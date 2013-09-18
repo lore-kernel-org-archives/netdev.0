@@ -1,106 +1,90 @@
-From: Noel Burton-Krahn <noel@burton-krahn.com>
-Subject: [PATCH 1/1] mrp: add periodictimer to allow retries when packets get lost
-Date: Wed, 18 Sep 2013 12:24:40 -0700
-Message-ID: <1379532280-11047-1-git-send-email-noel@burton-krahn.com>
-References: <1379528419.1787.50.camel@joe-AO722>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Noel Burton-Krahn <noel@burton-krahn.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:43641 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562Ab3IRTZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 15:25:24 -0400
-Received: by mail-pd0-f180.google.com with SMTP id y10so7423905pdj.25
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 12:25:23 -0700 (PDT)
-In-Reply-To: <1379528419.1787.50.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL 0/5] IPVS fixes for v3.12
+Date: Wed, 18 Sep 2013 14:45:37 -0500
+Message-ID: <1379533542-9891-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MRP doesn't implement the periodictimer in 802.1Q, so it never retries
-if packets get lost.  I ran into this problem when MRP sent a MVRP
-JoinIn before the interface was fully up.  The JoinIn was lost, MRP
-didn't retry, and MVRP registration failed.
+Hi Pablo,
 
-Tested against Juniper QFabric switches
+please consider the following fixes for IPVS for v3.12.
 
-Signed-off-by: Noel Burton-Krahn <noel@burton-krahn.com>
----
- include/net/mrp.h |    1 +
- net/802/mrp.c     |   27 +++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
 
-diff --git a/include/net/mrp.h b/include/net/mrp.h
-index 4fbf02a..0f7558b 100644
---- a/include/net/mrp.h
-+++ b/include/net/mrp.h
-@@ -112,6 +112,7 @@ struct mrp_applicant {
- 	struct mrp_application	*app;
- 	struct net_device	*dev;
- 	struct timer_list	join_timer;
-+	struct timer_list	periodic_timer;
- 
- 	spinlock_t		lock;
- 	struct sk_buff_head	queue;
-diff --git a/net/802/mrp.c b/net/802/mrp.c
-index 1eb05d8..3ed6162 100644
---- a/net/802/mrp.c
-+++ b/net/802/mrp.c
-@@ -24,6 +24,11 @@
- static unsigned int mrp_join_time __read_mostly = 200;
- module_param(mrp_join_time, uint, 0644);
- MODULE_PARM_DESC(mrp_join_time, "Join time in ms (default 200ms)");
-+
-+static unsigned int mrp_periodic_time __read_mostly = 1000;
-+module_param(mrp_periodic_time, uint, 0644);
-+MODULE_PARM_DESC(mrp_periodic_time, "Periodic time in ms (default 1s)");
-+
- MODULE_LICENSE("GPL");
- 
- static const u8
-@@ -595,6 +600,24 @@ static void mrp_join_timer(unsigned long data)
- 	mrp_join_timer_arm(app);
- }
- 
-+static void mrp_periodic_timer_arm(struct mrp_applicant *app)
-+{
-+	mod_timer(&app->periodic_timer,
-+		  jiffies + msecs_to_jiffies(mrp_periodic_time));
-+}
-+
-+static void mrp_periodic_timer(unsigned long data)
-+{
-+	struct mrp_applicant *app = (struct mrp_applicant *)data;
-+
-+	spin_lock(&app->lock);
-+	mrp_mad_event(app, MRP_EVENT_PERIODIC);
-+	mrp_pdu_queue(app);
-+	spin_unlock(&app->lock);
-+
-+	mrp_periodic_timer_arm(app);
-+}
-+
- static int mrp_pdu_parse_end_mark(struct sk_buff *skb, int *offset)
- {
- 	__be16 endmark;
-@@ -845,6 +868,9 @@ int mrp_init_applicant(struct net_device *dev, struct mrp_application *appl)
- 	rcu_assign_pointer(dev->mrp_port->applicants[appl->type], app);
- 	setup_timer(&app->join_timer, mrp_join_timer, (unsigned long)app);
- 	mrp_join_timer_arm(app);
-+	setup_timer(&app->periodic_timer, mrp_periodic_timer,
-+		    (unsigned long)app);
-+	mrp_periodic_timer_arm(app);
- 	return 0;
- 
- err3:
-@@ -870,6 +896,7 @@ void mrp_uninit_applicant(struct net_device *dev, struct mrp_application *appl)
- 	 * all pending messages before the applicant is gone.
- 	 */
- 	del_timer_sync(&app->join_timer);
-+	del_timer_sync(&app->periodic_timer);
- 
- 	spin_lock_bh(&app->lock);
- 	mrp_mad_event(app, MRP_EVENT_TX);
--- 
-1.7.9.5
+The following changes since commit 61c5923a2f2d8ab98a1e3c76f17e0f4a871ec75b:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2013-09-17 20:22:53 -0400)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.12
+
+for you to fetch changes up to d1ee4fea0b6946dd8bc61b46db35ea80af7af34b:
+
+  ipvs: stats should not depend on CPU 0 (2013-09-18 14:40:20 -0500)
+
+----------------------------------------------------------------
+Fixes for IPVS for v3.12
+
+* Fix overflow in LBLC and LBLCR schedulers.
+
+  This resolves a regression introduced by commit b552f7e3a9524abcbcdf
+  ("ipvs: unify the formula to estimate the overhead of processing
+  connections").
+
+  This problem was introduced in v2.6.38
+
+* Correct stats calculation in the absence of CPU 0 in the possible mask
+
+  This resolves a regression introduced by commit 17fc9963f837ef1
+  ("IPVS: netns, ip_vs_stats and its procfs").
+
+  This problem was introduced in v2.6.38
+
+* Make the service replacement more robust
+
+  This resolves a regression introduced by commit 578bc3ef1e473a
+  ("ipvs: reorganize dest trash")
+
+  This problem was introduced in 3.9
+
+* Do not use dest after ip_vs_dest_put in LBLCR
+
+  This resolves a regression introduced by commit c5549571f975ab
+  ("ipvs: convert lblcr scheduler to rcu")
+
+  This problem was introduced in 3.9
+
+* Do not use dest after ip_vs_dest_put in LBLC
+
+  This resolves a regression introduced by commit 2a4ffb70eef39
+  ("ipvs: convert lblc scheduler to rcu")
+
+  This problem was introduced in 3.9
+
+----------------------------------------------------------------
+Julian Anastasov (4):
+      ipvs: make the service replacement more robust
+      ipvs: do not use dest after ip_vs_dest_put in LBLC
+      ipvs: do not use dest after ip_vs_dest_put in LBLCR
+      ipvs: stats should not depend on CPU 0
+
+Simon Kirby (1):
+      ipvs: fix overflow on dest weight multiply
+
+ include/net/ip_vs.h              |  9 ++---
+ net/netfilter/ipvs/ip_vs_core.c  | 12 +++++-
+ net/netfilter/ipvs/ip_vs_ctl.c   | 86 ++++++++++++++++------------------------
+ net/netfilter/ipvs/ip_vs_est.c   |  4 +-
+ net/netfilter/ipvs/ip_vs_lblc.c  | 72 +++++++++++++++------------------
+ net/netfilter/ipvs/ip_vs_lblcr.c | 62 ++++++++++++-----------------
+ net/netfilter/ipvs/ip_vs_nq.c    |  8 ++--
+ net/netfilter/ipvs/ip_vs_sed.c   |  8 ++--
+ net/netfilter/ipvs/ip_vs_wlc.c   |  6 +--
+ 9 files changed, 121 insertions(+), 146 deletions(-)
