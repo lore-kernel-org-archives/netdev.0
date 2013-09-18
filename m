@@ -1,89 +1,111 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] USBNET: fix handling padding packet
-Date: Wed, 18 Sep 2013 17:52:42 +0200
-Message-ID: <87zjra5dpx.fsf@nemi.mork.no>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
-	<878uyu6xjm.fsf@nemi.mork.no>
-	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 006/007] WAN Drivers: Update farsync driver and
+ introduce fsflex driver
+Date: Wed, 18 Sep 2013 16:56:50 +0100
+Message-ID: <1379519810.1522.36.camel@bwh-desktop.uk.level5networks.com>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA5@SOLO.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Oliver Neukum <oliver@neukum.org>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:56604 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751218Ab3IRPwv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:52:51 -0400
-In-Reply-To: <CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
-	(Ming Lei's message of "Wed, 18 Sep 2013 23:09:26 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"Dermot Smith" <dermot.smith@farsite.com>
+To: Kevin Curtis <Kevin.Curtis@farsite.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA5@SOLO.hq.farsitecommunications.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ming Lei <ming.lei@canonical.com> writes:
+On Wed, 2013-09-18 at 11:12 +0100, Kevin Curtis wrote:
+> Farsite Communications FarSync driver update
+> 
+> Patch 6 of 7
+> 
+> Introduce the fsflex driver.
+> This driver is functionally equivalent to the farsync driver, and so
+> can be used with the Generic HDLC, and ppp daemon.
+> 
+> Signed-off-by: Kevin Curtis <kevin.curtis@farsite.com>
+> 
+> ---
+> diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/drivers/net/wan/fsflex.c linux-3.10.1_new/drivers/net/wan/fsflex.c
+> --- linux-3.10.1/drivers/net/wan/fsflex.c       1970-01-01 01:00:00.000000000 +0100
+> +++ linux-3.10.1_new/drivers/net/wan/fsflex.c   2013-09-16 16:30:06.651104873 +0100
+> @@ -0,0 +1,5693 @@
+> +/*
+> + *      FarSync Flex driver for Linux (2.6.x kernel version)
 
->> Are you really sure that the one driver/device using this really nee=
-d
->> the padding byte?  If you could just make FLAG_SEND_ZLP part of the
->> condition for enabling can_dma_sg, then all this extra complexity wo=
-uld
->> be unnecessary.  As the comment in front of the padding code says:
->
-> At least for the effected driver of ax88179, the padding packet is ne=
-eded
-> since the driver does set the padding flag in the header, see
-> ax88179_tx_fixup().
+Not exactly...
 
-Yes, I noticed that the driver doesn't set the flag. I just didn't put
-too much into that.  I don't think that necessarily means that the
-padding is needed. It probably just means that the driver worked with
-the default padding enabled, so the author left it there.
+[...]
+> +#define FST_MAX_CARDS           32
 
-This flag should really have been inverted.  ZLP should be the default
-for all new usbnet drivers.
+I don't think it's acceptable to set a static limit on number of devices
+in a new driver.
 
-Why don't you test it on the device you tested the SG patch with?  I am
-pretty sure it works just fine using proper ZLP transfer termination.
+[...]
+> +int fst_txq_low = FST_LOW_WATER_MARK;
+> +int fst_txq_high = FST_HIGH_WATER_MARK;
+> +int fst_min_dma_len = FST_MIN_DMA_LEN;
+> +int fst_dmathr = 0xdd00dd00;
+> +int fst_iocinfo_version = FST_VERSION_CURRENT;
+> +int fst_max_reads = 7;
+> +int fst_excluded_cards;
+> +int fst_excluded_list[FST_MAX_CARDS];
+> +int fst_num_serials;
+> +char *fst_serials[FST_MAX_CARDS];
 
->>   "strictly conforming cdc-ether devices should expect the ZLP here"
->>
->> There shouldn't be any problems requiring this conformance as a
->> precondition for allowing SG.  The requirements are already strict.
->
-> There is no reason to forbid DMA SG for one driver which requires
-> padding, right?
+All of which should be declared static, not implicitly extern.  As
+should all static variables and functions in this source file, as it's a
+self-contained driver.
 
-Yes there is: Added complexity for everybody, based on a combination of
-features which just does not make any sense.
+> +module_param(fst_txq_low, int, S_IRUGO);
+> +module_param(fst_txq_high, int, S_IRUGO);
+> +module_param(fst_min_dma_len, int, S_IRUGO);
+> +module_param(fst_dmathr, int, S_IRUGO);
+> +module_param(fst_iocinfo_version, int, S_IRUGO);
+> +module_param(fst_max_reads, int, S_IRUGO);
+> +module_param(fst_excluded_cards, int, S_IRUGO);
+> +module_param_array(fst_excluded_list, int, NULL, S_IRUGO);
+> +module_param_array(fst_serials, charp, &fst_num_serials, S_IRUGO);
 
-No modern device should need the padding.  No old device will be able t=
-o
-use the SG feature as implemented. You only enable it on USB3, don't
-you? If this feature is restricted to USB3 capable devices, then it mos=
-t
-certainly can be restricted to ZLP capable devices with absolutely no
-difference in the resulting set of supported devices.
+Device configuration should be exposed through sysfs or ioctls, not
+through module parameters.
 
-Anyway, if you want to keep the padding for SG then maybe this will wor=
-k
-and allow you to drop the extra struct usbnet field and allocation:
+[...]
+> +#ifdef ARPHRD_RAWHDLC
+> +#define ARPHRD_MYTYPE   ARPHRD_RAWHDLC /* Raw frames */
+> +#else
+> +#define ARPHRD_MYTYPE   ARPHRD_HDLC    /* Cisco-HDLC (keepalives etc) */
+> +#endif
 
-                        if (skb_tailroom(skb) && !dev->can_dma_sg) {
-                               skb->data[skb->len] =3D 0;
-                               __skb_put(skb, 1);
-                        } else if (dev->can_dma_sg) {
-                              sg_set_buf(&urb->sg[urb->num_sgs++], skb-=
->data, 1);
-                        }
+#ifdef is not necessary in-tree.
 
-I.e. cheat and use the skb->data buffer twice, if that is allowed?  The
-actual value of the padding byte should not matter, I believe?
+[...]
+> +#define usb_buffer_alloc usb_alloc_coherent
+> +#define usb_buffer_free usb_free_coherent
 
+Don't make up your own names for USB functions.
 
+[...]
+> +static int __init fst_init(void)
+> +{
+[...]
+> +       /* Create the /proc entry for /proc/fsflex
+> +        */
+> +       proc_create("fsflex", 0, NULL, &farsync_proc_fops);
+[...]
 
-Bj=C3=B8rn
+Drivers should not be adding to the top level of /proc, and generally
+should be adding any magic files under sysfs (per-device) or debugfs.
+
+There is a /proc/driver directory if this information really doesn't fit
+into either of those filesystems.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
