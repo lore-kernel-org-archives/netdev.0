@@ -1,54 +1,73 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
-Date: Wed, 18 Sep 2013 18:49:48 +0200
-Message-ID: <20130918164948.GA18754@1wt.eu>
-References: <CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com> <20130916163937.GC3188@1wt.eu> <20130916164412.GD3188@1wt.eu> <CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com> <20130916174708.GG3188@1wt.eu> <20130916182807.GO12758@n2100.arm.linux.org.uk> <CACzLR4suLD90p=sEhB-qg1u35t66zKfrGQref1jX42fEfu3D8g@mail.gmail.com> <20130917060111.GB9325@1wt.eu> <CACzLR4t2ABZdRk40VUhLtDKXX2PQiSVoQZQ4coQkNkvETnY6Rw@mail.gmail.com> <20130918183549.3e7b8f4c@skate>
+From: Ansis Atteka <aatteka@nicira.com>
+Subject: Re: [PATCH net] ip: generate unique IP identificator if local
+ fragmentation is allowed
+Date: Wed, 18 Sep 2013 09:50:31 -0700
+Message-ID: <CAA=3Oq=Kxfe8KKnWV7QjLnT1Art3UEMJBTE=tXBLZPa6diug6g@mail.gmail.com>
+References: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
+	<20130918.122018.1088822749792394509.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ethan Tuttle <ethan@ethantuttle.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory =?iso-8859-1?Q?Cl=E9ment?=
-	<gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:40066 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752055Ab3IRQuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 12:50:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20130918183549.3e7b8f4c@skate>
+Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:53912 "HELO
+	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752937Ab3IRQuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:50:32 -0400
+Received: by mail-ie0-f169.google.com with SMTP id tp5so13675159ieb.0
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 09:50:31 -0700 (PDT)
+In-Reply-To: <20130918.122018.1088822749792394509.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 18, 2013 at 06:35:49PM +0200, Thomas Petazzoni wrote:
-> Dear Ethan Tuttle,
-> 
-> On Tue, 17 Sep 2013 23:30:56 -0700, Ethan Tuttle wrote:
-> > On Mon, Sep 16, 2013 at 11:01 PM, Willy Tarreau <w@1wt.eu> wrote:
-> > > Next step should be that you test both kernels to be sure.
-> > 
-> > Thanks for the kernel images, Willy.  I'm still experimenting but
-> > initial results are strange: I haven't seen a crash from the -ethan
-> > image you provided, nor by a kernel with that config that I built
-> > myself.  The config is only different from my crashing config by a few
-> > options.  So perhaps some combination of options prevents the crash.
-> > I'll see if I can narrow it down.
-> 
-> A toolchain generating some crappy code maybe? Ethan, Willy, comparing
-> your toolchain (compiler version, origin of the toolchain) could be
-> interesting.
+On Wed, Sep 18, 2013 at 9:20 AM, David Miller <davem@davemloft.net> wrote:
+> From: Ansis Atteka <aatteka@nicira.com>
+> Date: Tue, 17 Sep 2013 15:25:00 -0700
+>
+>> @@ -1317,6 +1317,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+>>               ttl = ip_select_ttl(inet, &rt->dst);
+>>
+>>       iph = (struct iphdr *)skb->data;
+>> +
+>>       iph->version = 4;
+>>       iph->ihl = 5;
+>>       iph->tos = inet->tos;
+>> @@ -1324,7 +1325,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+>>       iph->ttl = ttl;
+>>       iph->protocol = sk->sk_protocol;
+>>       ip_copy_addrs(iph, fl4);
+>> -     ip_select_ident(iph, &rt->dst, sk);
+>> +     ip_select_ident(skb, &rt->dst, sk);
+>>
+>>       if (opt) {
+>>               iph->ihl += opt->optlen>>2;
+>
+> This transformation is not equivalent.
+>
+> ip_select_ident() is going to use ip_hdr() which obtains the header
+> pointer via skb_network_header().
+>
+> But here, the code is using skb->data for this, which is different.
 
-I thought about this but it looks suspicious, I don't see why the toolchain
-would produce random bitflips.
+I dared to do that because three lines below ip_options_build() seems
+to be already doing the same thing, if IP options are present:
 
-My toolchain is a linaro 4.7 gcc into which I have added support for a
-"pj4b" CPU target which is essentially the same as cortex-a9 plus support
-for the IDIV instruction in thumb mode.
+struct sk_buff *__ip_make_skb() {
+    ...
+    ip_select_ident(skb, &rt->dst, sk);
+    if (opt) {
+        iph->ihl += opt->optlen>>2;
+        ip_options_build(skb, opt, cork->addr, rt, 0);
+    }
 
-But I can send it to Ethan if that helps.
+and
 
-Willy
+void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
+__be32 daddr, struct rtable *rt, int is_frag) {
+    unsigned char *iph = skb_network_header(skb);
+    ....
+
+
+Another solution would be to pass local fragmentation flag as fourth
+argument to ip_select_ident(). If you think that would be cleaner,
+then I can reimplement it that way?
