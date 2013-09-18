@@ -1,47 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip: generate unique IP identificator if local
- fragmentation is allowed
-Date: Wed, 18 Sep 2013 12:20:18 -0400 (EDT)
-Message-ID: <20130918.122018.1088822749792394509.davem@davemloft.net>
-References: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
+Subject: Re: [PATCH Resend 1/3] net: cdc-phonet: Staticize usbpn_probe
+Date: Wed, 18 Sep 2013 12:21:24 -0400 (EDT)
+Message-ID: <20130918.122124.464642242992278820.davem@davemloft.net>
+References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: aatteka@nicira.com
+Cc: netdev@vger.kernel.org, remi@remlab.net
+To: sachin.kamat@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35479 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35540 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918Ab3IRQUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:20:20 -0400
-In-Reply-To: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
+	with ESMTP id S1751627Ab3IRQV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:21:26 -0400
+In-Reply-To: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ansis Atteka <aatteka@nicira.com>
-Date: Tue, 17 Sep 2013 15:25:00 -0700
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Wed, 18 Sep 2013 08:59:59 +0530
 
-> @@ -1317,6 +1317,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
->  		ttl = ip_select_ttl(inet, &rt->dst);
+> @@ -328,7 +328,8 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
 >  
->  	iph = (struct iphdr *)skb->data;
-> +
->  	iph->version = 4;
->  	iph->ihl = 5;
->  	iph->tos = inet->tos;
-> @@ -1324,7 +1325,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
->  	iph->ttl = ttl;
->  	iph->protocol = sk->sk_protocol;
->  	ip_copy_addrs(iph, fl4);
-> -	ip_select_ident(iph, &rt->dst, sk);
-> +	ip_select_ident(skb, &rt->dst, sk);
+>  static struct usb_driver usbpn_driver;
 >  
->  	if (opt) {
->  		iph->ihl += opt->optlen>>2;
+> -int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
+> +static int
+> +usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
-This transformation is not equivalent.
-
-ip_select_ident() is going to use ip_hdr() which obtains the header
-pointer via skb_network_header().
-
-But here, the code is using skb->data for this, which is different.
+Please keep it to one line, it's 82 columns which is fine.
