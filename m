@@ -1,74 +1,186 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no devices are unregistering
-Date: Wed, 18 Sep 2013 01:19:58 -0700
-Message-ID: <871u4mh781.fsf@tw-ebiederman.twitter.com>
-References: <e652a11e-b23d-4a83-aaac-00c469a416f1@email.android.com>
-	<20130917.201515.1404443973169590392.davem@davemloft.net>
-	<CA+HUmGgg3-0UNgfKS6Hpnczzi6PUeztk8TZ7p_97kcvtfMacJQ@mail.gmail.com>
-	<20130917.235247.344101545141336143.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net 1/2] bnx2x, cnic, bnx2i, bnx2fc: Fix bnx2i and
+ bnx2fc regressions.
+Date: Wed, 18 Sep 2013 01:50:38 -0700
+Message-ID: <1379494239-5481-2-git-send-email-mchan@broadcom.com>
+References: <1379494239-5481-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: fruggeri@aristanetworks.com, edumazet@google.com, jiri@resnulli.us,
-	alexander.h.duyck@intel.com, amwang@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eddie Wai" <eddie.wai@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59245 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582Ab3IRIW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 04:22:29 -0400
-In-Reply-To: <20130917.235247.344101545141336143.davem@davemloft.net> (David
-	Miller's message of "Tue, 17 Sep 2013 23:52:47 -0400 (EDT)")
+Received: from mms3.broadcom.com ([216.31.210.19]:2742 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751965Ab3IRIaj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 04:30:39 -0400
+In-Reply-To: <1379494239-5481-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+commit b9871bcfd211d316adee317608dab44c58d6ea2d
+    bnx2x: VF RSS support - PF side
 
-> From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-> Date: Tue, 17 Sep 2013 20:50:41 -0700
+changed the configuration of the doorbell HW and it broke iSCSI and FCoE.
+We fix this by making compatible changes to the doorbell address in bnx2i
+and bnx2fc.  For the userspace driver, we need to pass a modified CID
+so that the existing userspace driver will calculate the correct doorbell
+address and continue to work.
 
->> I am not sure that would work.
->> list_empty(&net_todo_list) does not guarantee that there are no
->> unregistering devices still in flight.
->> Another process may have copied net_todo_run into its local list, left
->> net_todo_list empty and still be in the middle of processing
->> unregistering devices (without the rtnl lock) when
->> default_device_exit_batch starts executing.
->
-> Ok, now I understand.
->
-> Eric B., when you get a chance can you resubmit your patch and perhaps
-> elaborate on the situation in the commit message.
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   36 ++++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++
+ drivers/net/ethernet/broadcom/cnic.c             |    3 +-
+ drivers/scsi/bnx2fc/bnx2fc.h                     |    2 +-
+ drivers/scsi/bnx2fc/bnx2fc_hwi.c                 |    3 +-
+ drivers/scsi/bnx2i/bnx2i.h                       |    2 +-
+ drivers/scsi/bnx2i/bnx2i_hwi.c                   |    3 +-
+ 7 files changed, 43 insertions(+), 10 deletions(-)
 
-The code is on my computer at home so I won't be able to get back to
-this until Sunday or Monday.  This should give Francesco time to verify
-I really have closed the holes he is seeing.
-
-> If I was confused I'm sure other people will be if they look into
-> this in the future.
-
-Agreed.  It is easy to get confused with this issue.  And I was in a
-rush so I expect my wording could be improved.
-
-
-
-There is still the other part of this issue that dev_close reorders
-devices in default_device_exit_batch.
-
-With that reordering we can get the call chain:
-  netdev_run_todo
-    call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL,...)
-      dst_dev_event
-        dst_ifdown(..., unregister == 1)
-          dst->dev = dev_net(dst->dev)->loopback_dev;
-	  dev_hold(dst->dev);
-
-With dev_net(dst->dev)->loopback_dev == NULL;
-
-So my patch to split the close_list out of the unreg_list is also needed
-(or something else to address that issue). 
-
-Hopefully my exaspearation with dev_close_many didn't obscure what is
-happening there.
-
-Eric
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 70b6a05..97b3d32 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -246,8 +246,37 @@ enum {
+ 	BNX2X_MAX_CNIC_ETH_CL_ID_IDX,
+ };
+ 
+-#define BNX2X_CNIC_START_ETH_CID(bp)	(BNX2X_NUM_NON_CNIC_QUEUES(bp) *\
++/* use a value high enough to be above all the PFs, which has least significant
++ * nibble as 8, so when cnic needs to come up with a CID for UIO to use to
++ * calculate doorbell address according to old doorbell configuration scheme
++ * (db_msg_sz 1 << 7 * cid + 0x40 DPM offset) it can come up with a valid number
++ * We must avoid coming up with cid 8 for iscsi since according to this method
++ * the designated UIO cid will come out 0 and it has a special handling for that
++ * case which doesn't suit us. Therefore will will cieling to closes cid which
++ * has least signigifcant nibble 8 and if it is 8 we will move forward to 0x18.
++ */
++
++#define BNX2X_1st_NON_L2_ETH_CID(bp)	(BNX2X_NUM_NON_CNIC_QUEUES(bp) * \
+ 					 (bp)->max_cos)
++/* amount of cids traversed by UIO's DPM addition to doorbell */
++#define UIO_DPM				8
++/* roundup to DPM offset */
++#define UIO_ROUNDUP(bp)			(roundup(BNX2X_1st_NON_L2_ETH_CID(bp), \
++					 UIO_DPM))
++/* offset to nearest value which has lsb nibble matching DPM */
++#define UIO_CID_OFFSET(bp)		((UIO_ROUNDUP(bp) + UIO_DPM) % \
++					 (UIO_DPM * 2))
++/* add offset to rounded-up cid to get a value which could be used with UIO */
++#define UIO_DPM_ALIGN(bp)		(UIO_ROUNDUP(bp) + UIO_CID_OFFSET(bp))
++/* but wait - avoid UIO special case for cid 0 */
++#define UIO_DPM_CID0_OFFSET(bp)		((UIO_DPM * 2) * \
++					 (UIO_DPM_ALIGN(bp) == UIO_DPM))
++/* Properly DPM aligned CID dajusted to cid 0 secal case */
++#define BNX2X_CNIC_START_ETH_CID(bp)	(UIO_DPM_ALIGN(bp) + \
++					 (UIO_DPM_CID0_OFFSET(bp)))
++/* how many cids were wasted  - need this value for cid allocation */
++#define UIO_CID_PAD(bp)			(BNX2X_CNIC_START_ETH_CID(bp) - \
++					 BNX2X_1st_NON_L2_ETH_CID(bp))
+ 	/* iSCSI L2 */
+ #define	BNX2X_ISCSI_ETH_CID(bp)		(BNX2X_CNIC_START_ETH_CID(bp))
+ 	/* FCoE L2 */
+@@ -1680,10 +1709,11 @@ struct bnx2x {
+  * Maximum CID count that might be required by the bnx2x:
+  * Max RSS * Max_Tx_Multi_Cos + FCoE + iSCSI
+  */
++
+ #define BNX2X_L2_CID_COUNT(bp)	(BNX2X_NUM_ETH_QUEUES(bp) * BNX2X_MULTI_TX_COS \
+-				+ 2 * CNIC_SUPPORT(bp))
++				+ CNIC_SUPPORT(bp) * (2 + UIO_CID_PAD(bp)))
+ #define BNX2X_L2_MAX_CID(bp)	(BNX2X_MAX_RSS_COUNT(bp) * BNX2X_MULTI_TX_COS \
+-				+ 2 * CNIC_SUPPORT(bp))
++				+ CNIC_SUPPORT(bp) * (2 + UIO_CID_PAD(bp)))
+ #define L2_ILT_LINES(bp)	(DIV_ROUND_UP(BNX2X_L2_CID_COUNT(bp),\
+ 					ILT_PAGE_CIDS))
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 62c59ed..a6704b5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13632,6 +13632,10 @@ void bnx2x_setup_cnic_info(struct bnx2x *bp)
+ 	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID(bp);
+ 	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID(bp);
+ 
++	DP(NETIF_MSG_IFUP, "BNX2X_1st_NON_L2_ETH_CID(bp) %x, cp->starting_cid %x, cp->fcoe_init_cid %x, cp->iscsi_l2_cid %x\n",
++	   BNX2X_1st_NON_L2_ETH_CID(bp), cp->starting_cid, cp->fcoe_init_cid,
++	   cp->iscsi_l2_cid);
++
+ 	if (NO_ISCSI_OOO(bp))
+ 		cp->drv_state |= CNIC_DRV_STATE_NO_ISCSI_OOO;
+ }
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 8142480..93da16b 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5217,7 +5217,8 @@ static void cnic_init_rings(struct cnic_dev *dev)
+ 				"iSCSI CLIENT_SETUP did not complete\n");
+ 		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
+ 		cnic_ring_ctl(dev, cid, cli, 1);
+-		*cid_ptr = cid;
++		*cid_ptr = cid >> 4;
++		*(cid_ptr + 1) = cid * bp->db_size;
+ 	}
+ }
+ 
+diff --git a/drivers/scsi/bnx2fc/bnx2fc.h b/drivers/scsi/bnx2fc/bnx2fc.h
+index 08b22a9..cadac9d 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc.h
++++ b/drivers/scsi/bnx2fc/bnx2fc.h
+@@ -105,7 +105,7 @@
+ #define BNX2FC_RQ_WQE_SIZE		(BNX2FC_RQ_BUF_SZ)
+ #define BNX2FC_XFERQ_WQE_SIZE		(sizeof(struct fcoe_xfrqe))
+ #define BNX2FC_CONFQ_WQE_SIZE		(sizeof(struct fcoe_confqe))
+-#define BNX2FC_5771X_DB_PAGE_SIZE	128
++#define BNX2X_DB_SHIFT			3
+ 
+ #define BNX2FC_TASK_SIZE		128
+ #define	BNX2FC_TASKS_PER_PAGE		(PAGE_SIZE/BNX2FC_TASK_SIZE)
+diff --git a/drivers/scsi/bnx2fc/bnx2fc_hwi.c b/drivers/scsi/bnx2fc/bnx2fc_hwi.c
+index c0d035a..df96ee6 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc_hwi.c
++++ b/drivers/scsi/bnx2fc/bnx2fc_hwi.c
+@@ -1421,8 +1421,7 @@ int bnx2fc_map_doorbell(struct bnx2fc_rport *tgt)
+ 
+ 	reg_base = pci_resource_start(hba->pcidev,
+ 					BNX2X_DOORBELL_PCI_BAR);
+-	reg_off = BNX2FC_5771X_DB_PAGE_SIZE *
+-			(context_id & 0x1FFFF) + DPM_TRIGER_TYPE;
++	reg_off = (1 << BNX2X_DB_SHIFT) * (context_id & 0x1FFFF);
+ 	tgt->ctx_base = ioremap_nocache(reg_base + reg_off, 4);
+ 	if (!tgt->ctx_base)
+ 		return -ENOMEM;
+diff --git a/drivers/scsi/bnx2i/bnx2i.h b/drivers/scsi/bnx2i/bnx2i.h
+index 6940f09..742a8c6 100644
+--- a/drivers/scsi/bnx2i/bnx2i.h
++++ b/drivers/scsi/bnx2i/bnx2i.h
+@@ -64,7 +64,7 @@
+ #define MAX_PAGES_PER_CTRL_STRUCT_POOL	8
+ #define BNX2I_RESERVED_SLOW_PATH_CMD_SLOTS	4
+ 
+-#define BNX2I_5771X_DBELL_PAGE_SIZE	128
++#define BNX2X_DB_SHIFT			3
+ 
+ /* 5706/08 hardware has limit on maximum buffer size per BD it can handle */
+ #define MAX_BD_LENGTH			65535
+diff --git a/drivers/scsi/bnx2i/bnx2i_hwi.c b/drivers/scsi/bnx2i/bnx2i_hwi.c
+index af3e675..6a6e17f 100644
+--- a/drivers/scsi/bnx2i/bnx2i_hwi.c
++++ b/drivers/scsi/bnx2i/bnx2i_hwi.c
+@@ -2738,8 +2738,7 @@ int bnx2i_map_ep_dbell_regs(struct bnx2i_endpoint *ep)
+ 	if (test_bit(BNX2I_NX2_DEV_57710, &ep->hba->cnic_dev_type)) {
+ 		reg_base = pci_resource_start(ep->hba->pcidev,
+ 					      BNX2X_DOORBELL_PCI_BAR);
+-		reg_off = BNX2I_5771X_DBELL_PAGE_SIZE * (cid_num & 0x1FFFF) +
+-			  DPM_TRIGER_TYPE;
++		reg_off = (1 << BNX2X_DB_SHIFT) * (cid_num & 0x1FFFF);
+ 		ep->qp.ctx_base = ioremap_nocache(reg_base + reg_off, 4);
+ 		goto arm_cq;
+ 	}
+-- 
+1.7.1
