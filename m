@@ -1,48 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 002/007] WAN Drivers: Update farsync driver and
- introduce fsflex driver
-Date: Wed, 18 Sep 2013 08:25:21 -0700
-Message-ID: <1379517921.1787.24.camel@joe-AO722>
-References: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA1@SOLO.hq.farsitecommunications.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC] b44: use phylib
+Date: Wed, 18 Sep 2013 16:29:01 +0100
+Message-ID: <CAGVrzca_jpNKohDuz5fTvXdCsyV7F7c5TbrQwb-suEqiKZkT5g@mail.gmail.com>
+References: <1377298608-18016-1-git-send-email-hauke@hauke-m.de> <1379517545.1787.20.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Dermot Smith <dermot.smith@farsite.com>
-To: Kevin Curtis <Kevin.Curtis@farsite.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA1@SOLO.hq.farsitecommunications.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hauke Mehrtens <hauke@hauke-m.de>, zambrano@broadcom.com,
+	netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:38722 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007Ab3IRP3m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:29:42 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so7149329pbc.31
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 08:29:41 -0700 (PDT)
+In-Reply-To: <1379517545.1787.20.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-18 at 11:11 +0100, Kevin Curtis wrote:
-> Farsite Communications FarSync driver update
-[]
-> diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/drivers/net/wan/uss_cmn.h linux-3.10.1_new/drivers/net/wan/uss_cmn.h
+2013/9/18 Joe Perches <joe@perches.com>:
+> On Sat, 2013-08-24 at 00:56 +0200, Hauke Mehrtens wrote:
+>> This splits the driver into the mac and a phy driver. On routers where
+>> this driver is used we have a switch which implements a phy and can be
+>> controlled by a phy driver.
+>
+> One more trivial note:
+>
+>> diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+> []
+>> +static void b44_adjust_link(struct net_device *dev)
+>> +{
+> []
+>> +     if (status_changed) {
+>> +             pr_info("%s: link %s", dev->name, phydev->link ?
+>> +                     "UP" : "DOWN");
+>> +             if (phydev->link)
+>> +                     pr_cont(" - %d/%s", phydev->speed,
+>> +                     phydev->duplex == DUPLEX_FULL ? "full" : "half");
+>> +             pr_cont("\n");
+>> +     }
+>
+> This bit would be better as:
+>
+>         if (status_change) {
+>                 if (phydev->link)
+>                         netdev_info(dev, "link UP - %d/%s\n",
+>                                     phydev->speed,
+>                                     phydev->duplex == DUPLEX_FULL
+>                                     ? "full" : "half");
+>                 else
+>                         netdev_info(dev, "link DOWN\n");
+>         }
 
-> +typedef enum _USS_COMMANDS {
-
-I think this code would be more linux style
-without all the typedefs
-
-> +typedef struct {
-[]
-> +} FLEX_SERCONF, *PFLEX_SERCONF;
-
-> +typedef struct {
-[]
-> +} FLEX_CARD_INFO, *PFLEX_CARD_INFO;    /* sizeof(FLEX_CARD_INFO) = 128 */
-
-> +typedef struct {
-[]
-> +} FLEX_USB_STATS, *PFLEX_USB_STATS;
-
-> +typedef struct _INTERFACE_RECORD {
-[]
-> +} IR, *PIR;
-
-> +typedef struct _INTERFACE_RECORD_EX {
-[]
-> +} IREX, *PIREX;
+There is a helper function provided by phylib for this: phy_print_status().
+-- 
+Florian
