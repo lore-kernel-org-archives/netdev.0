@@ -1,38 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] USBNET: fix handling padding packet
-Date: Tue, 17 Sep 2013 20:33:22 -0400 (EDT)
-Message-ID: <20130917.203322.312299980751609267.davem@davemloft.net>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] ipv4: IP_TOS and IP_TTL can be
+ specified as ancillary data
+Date: Tue, 17 Sep 2013 20:46:48 -0400 (EDT)
+Message-ID: <20130917.204648.339747836268253489.davem@davemloft.net>
+References: <aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com>
+	<20130827.145649.1682045616049011855.davem@davemloft.net>
+	<521DAD30.1010903@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379409002-7698-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ffusco@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45656 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741Ab3IRAqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 20:46:50 -0400
+In-Reply-To: <521DAD30.1010903@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Tue, 17 Sep 2013 17:10:02 +0800
+From: Francesco Fusco <ffusco@redhat.com>
+Date: Wed, 28 Aug 2013 09:56:32 +0200
 
-> Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
-> if the usb host controller is capable of building packet from
-> discontinuous buffers, but missed handling padding packet when
-> building DMA SG.
+> On 08/27/2013 08:56 PM, David Miller wrote:
+>> From: Francesco Fusco <ffusco@redhat.com>
+>> Date: Fri, 23 Aug 2013 14:19:32 +0200
+>>
+>>>    - changed the icmp_cookie ttl field from __s16 to __u8.
+>>>      A value of 0 means that the TTL has not been specified
+>>
+>> Sorry, I have to ask you to change the ttl field type back to __s16
+>> and use "-1" to mean not-specified.
+>>
+>> Zero is a valid TTL setting and it means to not allow the
+>> packet to leave this host.
 > 
-> This patch attachs the pre-allocated padding packet at the
-> end of the sg list, so padding packet can be sent to device
-> if drivers require that.
+> Actually setsockopt() does not allow a TTL value of zero:
 > 
-> Reported-by: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
-> Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> From net/ipv4/ip_sockglue.c::do_ip_setsockopt()
 
-Some reviews and ACKs would be appreciated on this one, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Indeed, you are right.
+
+Please resubmit these patches for the next merge window.
+
+Thank you.
