@@ -1,72 +1,61 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH Resend 3/3] net: cxgb4vf: Staticize local symbols
-Date: Wed, 18 Sep 2013 09:00:01 +0530
-Message-ID: <1379475001-24505-3-git-send-email-sachin.kamat@linaro.org>
-References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	Casey Leedom <leedom@chelsio.com>
-To: netdev@vger.kernel.org
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no
+ devices are unregistering
+Date: Tue, 17 Sep 2013 20:50:41 -0700
+Message-ID: <CA+HUmGgg3-0UNgfKS6Hpnczzi6PUeztk8TZ7p_97kcvtfMacJQ@mail.gmail.com>
+References: <87mwncaz04.fsf_-_@xmission.com>
+	<20130917.192158.941189471705765317.davem@davemloft.net>
+	<e652a11e-b23d-4a83-aaac-00c469a416f1@email.android.com>
+	<20130917.201515.1404443973169590392.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <edumazet@google.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:49673 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020Ab3IRDs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:29 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lf1so7674817pab.24
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:28 -0700 (PDT)
-In-Reply-To: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
+Received: from mail-vc0-f169.google.com ([209.85.220.169]:43914 "EHLO
+	mail-vc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609Ab3IRDul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:50:41 -0400
+Received: by mail-vc0-f169.google.com with SMTP id ib11so4905066vcb.14
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:50:41 -0700 (PDT)
+In-Reply-To: <20130917.201515.1404443973169590392.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Local symbols used only in this file are made static.
+>> List/count I don't much care but currently we don't have a list of
+>> all of the devices that are unregistering.
+>>
+>> The problem with this is that netdev_run_todo moves all of the
+>> devices to a local list, so they are only visible from a list_head
+>> on the stack.  Which makes sense as we run this all in the context
+>> of rtnl_unlock.
+>
+> And when that local list is processed (the while loop completes and
+> has iterated over the entire list), either the global todo list is
+> empty, or it is not empty.
+>
+> And the waked up code will check for this.
+>
+> I really don't see what the problem is.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: Casey Leedom <leedom@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+I am not sure that would work.
+list_empty(&net_todo_list) does not guarantee that there are no
+unregistering devices still in flight.
+Another process may have copied net_todo_run into its local list, left
+net_todo_list empty and still be in the middle of processing
+unregistering devices (without the rtnl lock) when
+default_device_exit_batch starts executing.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index df296af..8475c4c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1396,8 +1396,9 @@ static inline void copy_frags(struct sk_buff *skb,
-  *	Builds an sk_buff from the given packet gather list.  Returns the
-  *	sk_buff or %NULL if sk_buff allocation failed.
-  */
--struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
--				  unsigned int skb_len, unsigned int pull_len)
-+static struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
-+					 unsigned int skb_len,
-+					 unsigned int pull_len)
- {
- 	struct sk_buff *skb;
- 
-@@ -1443,7 +1444,7 @@ out:
-  *	Releases the pages of a packet gather list.  We do not own the last
-  *	page on the list and do not free it.
-  */
--void t4vf_pktgl_free(const struct pkt_gl *gl)
-+static void t4vf_pktgl_free(const struct pkt_gl *gl)
- {
- 	int frag;
- 
-@@ -1640,7 +1641,7 @@ static inline void rspq_next(struct sge_rspq *rspq)
-  *	on this queue.  If the system is under memory shortage use a fairly
-  *	long delay to help recovery.
-  */
--int process_responses(struct sge_rspq *rspq, int budget)
-+static int process_responses(struct sge_rspq *rspq, int budget)
- {
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
- 	int budget_left = budget;
-@@ -1893,7 +1894,7 @@ static unsigned int process_intrq(struct adapter *adapter)
-  * The MSI interrupt handler handles data events from SGE response queues as
-  * well as error and other async events as they all use the same MSI vector.
-  */
--irqreturn_t t4vf_intr_msi(int irq, void *cookie)
-+static irqreturn_t t4vf_intr_msi(int irq, void *cookie)
- {
- 	struct adapter *adapter = cookie;
- 
--- 
-1.7.9.5
+> The count doesn't necessarily need to be atomic as it can be protected
+> by the rtnl_lock.
+
+If we use the rtnl_lock then we could have per-net wait queues. While
+not strictly needed (since only one instance of
+default_device_exit_batch can execute at a time) it would avoid
+unnecessarily waking up the waiting code.
+
+Francesco
