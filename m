@@ -1,58 +1,105 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net] xfrm: Guard IPsec anti replay window against
- replay bitmap
-Date: Wed, 18 Sep 2013 13:16:46 +0200
-Message-ID: <20130918111646.GQ7660@secunet.com>
-References: <1379402053-19653-1-git-send-email-fan.du@windriver.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v2 6/6] ipv6: Do route updating for redirect in ndisc
+ layer
+Date: Wed, 18 Sep 2013 19:57:53 +0800
+Message-ID: <52399541.3060807@cn.fujitsu.com>
+References: <52327F00.4040802@cn.fujitsu.com> <5232806B.6050601@cn.fujitsu.com> <20130917.202936.2080212548361553334.davem@davemloft.net> <20130918013903.GC8947@order.stressinduktion.org> <5239076A.4080406@cn.fujitsu.com> <20130918041337.GD8947@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:58466 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751819Ab3IRLQt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 07:16:49 -0400
-Content-Disposition: inline
-In-Reply-To: <1379402053-19653-1-git-send-email-fan.du@windriver.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:54846 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752065Ab3IRL65 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 07:58:57 -0400
+In-Reply-To: <20130918041337.GD8947@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 17, 2013 at 03:14:13PM +0800, Fan Du wrote:
-> For legacy IPsec anti replay mechanism:
-> 
-> bitmap in struct xfrm_replay_state could only provide a 32 bits
-> window size limit in current design, thus user level parameter
-> sadb_sa_replay should honor this limit, otherwise misleading
-> outputs("replay=244") by setkey -D will be:
-> 
-> 192.168.25.2 192.168.22.2
-> 	esp mode=transport spi=147561170(0x08cb9ad2) reqid=0(0x00000000)
-> 	E: aes-cbc  9a8d7468 7655cf0b 719d27be b0ddaac2
-> 	A: hmac-sha1  2d2115c2 ebf7c126 1c54f186 3b139b58 264a7331
-> 	seq=0x00000000 replay=244 flags=0x00000000 state=mature
-> 	created: Sep 17 14:00:00 2013	current: Sep 17 14:00:22 2013
-> 	diff: 22(s)	hard: 30(s)	soft: 26(s)
-> 	last: Sep 17 14:00:00 2013	hard: 0(s)	soft: 0(s)
-> 	current: 1408(bytes)	hard: 0(bytes)	soft: 0(bytes)
-> 	allocated: 22	hard: 0	soft: 0
-> 	sadb_seq=1 pid=4854 refcnt=0
-> 192.168.22.2 192.168.25.2
-> 	esp mode=transport spi=255302123(0x0f3799eb) reqid=0(0x00000000)
-> 	E: aes-cbc  6485d990 f61a6bd5 e5660252 608ad282
-> 	A: hmac-sha1  0cca811a eb4fa893 c47ae56c 98f6e413 87379a88
-> 	seq=0x00000000 replay=244 flags=0x00000000 state=mature
-> 	created: Sep 17 14:00:00 2013	current: Sep 17 14:00:22 2013
-> 	diff: 22(s)	hard: 30(s)	soft: 26(s)
-> 	last: Sep 17 14:00:00 2013	hard: 0(s)	soft: 0(s)
-> 	current: 1408(bytes)	hard: 0(bytes)	soft: 0(bytes)
-> 	allocated: 22	hard: 0	soft: 0
-> 	sadb_seq=0 pid=4854 refcnt=0
-> 
-> And also, optimizing xfrm_replay_check window checking by setting the
-> desirable x->props.replay_window with only doing the comparison once
-> for all when xfrm_state is first born.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
+=E4=BA=8E 2013=E5=B9=B409=E6=9C=8818=E6=97=A5 12:13, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Wed, Sep 18, 2013 at 09:52:42AM +0800, Duan Jiong wrote:
+>> =E4=BA=8E 2013=E5=B9=B409=E6=9C=8818=E6=97=A5 09:39, Hannes Frederic=
+ Sowa =E5=86=99=E9=81=93:
+>>> On Tue, Sep 17, 2013 at 08:29:36PM -0400, David Miller wrote:
+>>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>> Date: Fri, 13 Sep 2013 11:03:07 +0800
+>>>>
+>>>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>>>
+>>>>> Do the whole verification and route updating in ndisc
+>>>>> lay and then just call into icmpv6_notify() to notify
+>>>>> the upper protocols.
+>>>>>
+>>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>>
+>>>> This is completely broken, and I believe your patch set fundamenta=
+lly
+>>>> is too.
+>>>>
+>>>> We absolutely _must_ handle the redirect at the socket level when
+>>>> we are able to, otherwise we cannot specify the mark properly and
+>>>> the mark is an essential part of the key used to find the correct
+>>>> route to work with.
+>>>>
+>>>> I am not applying this patch series until you deal with this
+>>>> deficiency.  I am not willing to consider changes which stop using=
+ the
+>>>> more precise keying information available from a socket.
+>>>
+>>> Oh, Duan, I am very sorry for not catching this earlier. We use the
+>>> sk->mark to select the proper routing table where we clone the rt6_=
+info into.
+>>> And we only get that value out of the sockets. I missed that. We sh=
+ould leave
+>>> the redirect logic in the socket layer where it is possible.
+>>>
+>>> But parts of this series are still valid. We need to fix redirects =
+for tunnels
+>>> and I do think we can still simplify some code in the error handler=
+s.
+>>>
+>>
+>> I got it.
+>=20
+> I gave it a bit more thought:
+>=20
+> RFC 4861 8.3:
+> "
+>    Redirect messages apply to all flows that are being sent to a give=
+n
+>    destination.  That is, upon receipt of a Redirect for a Destinatio=
+n
+>    Address, all Destination Cache entries to that address should be
+>    updated to use the specified next-hop, regardless of the contents =
+of
+>    the Flow Label field that appears in the Redirected Header option.
+> "
+>=20
+> Especially because redirects also help in the on-link determination (=
+same
+> RFC, section 8), I changed my mind and am still in favour of updating=
+ it
+> in the ndisc layer. In my opinion we just have to consider all routin=
+g
+> tables and apply the update to every one which carries a valid next h=
+op
+> to the source of the redirect (under consideration of the destination=
+).
+>=20
+> This will be important if we actually try to get linux to correctly
+> implement the ipv6 subnet model (RFC 5942, Section 4 Rule 1). In that
+> case we are not allowed to assume nodes on-link even if they would ma=
+tch
+> the same prefix as a locally configured address.
+>=20
 
-Applied to ipsec, thanks!
+I think this need a little time to discuss with David Miller, so i will=
+ send
+the other patchs to fix redirects for tunnels and to fix the sk->sk_err
+problems in udpv6_err()/rawv6_err().
+
+Thanks,
+  Duan
