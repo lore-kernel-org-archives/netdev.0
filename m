@@ -1,48 +1,59 @@
 From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH Resend 1/3] net: cdc-phonet: Staticize usbpn_probe
-Date: Wed, 18 Sep 2013 08:59:59 +0530
-Message-ID: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH v2 2/3] net: bnx2x: Staticize local symbols
+Date: Wed, 18 Sep 2013 09:00:00 +0530
+Message-ID: <1379475001-24505-2-git-send-email-sachin.kamat@linaro.org>
+References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+	Eilon Greenstein <eilong@broadcom.com>,
+	Ariel Elior <ariele@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:58023 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020Ab3IRDsX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:23 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so6460225pde.24
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:22 -0700 (PDT)
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:56474 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab3IRDs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:26 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so6437976pbb.41
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:26 -0700 (PDT)
+In-Reply-To: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'usbpn_probe' is referenced only in this file. Make it static.
+Local symbols used only in this file are made static.
 
 Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Acked-by: R=C3=A9mi Denis-Courmont <remi@remlab.net>
-Cc: R=C3=A9mi Denis-Courmont <remi@remlab.net>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+Cc: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/usb/cdc-phonet.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Changes since v1:
+Changed the coding style as suggested by Ariel Elior.
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
-c
-index 7d78669..8c44f86 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -328,7 +328,8 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
-=20
- static struct usb_driver usbpn_driver;
-=20
--int usbpn_probe(struct usb_interface *intf, const struct usb_device_id=
- *id)
-+static int
-+usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id=
-)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 2604b62..7991f10 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2802,7 +2802,7 @@ struct set_vf_state_cookie {
+ 	u8 state;
+ };
+ 
+-void bnx2x_set_vf_state(void *cookie)
++static void bnx2x_set_vf_state(void *cookie)
  {
- 	static const char ifname[] =3D "usbpn%d";
- 	const struct usb_cdc_union_desc *union_header =3D NULL;
---=20
+ 	struct set_vf_state_cookie *p = (struct set_vf_state_cookie *)cookie;
+ 
+@@ -3222,8 +3222,9 @@ void bnx2x_disable_sriov(struct bnx2x *bp)
+ 	pci_disable_sriov(bp->pdev);
+ }
+ 
+-int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
+-			struct pf_vf_bulletin_content **bulletin)
++static int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx,
++			     struct bnx2x_virtf **vf,
++			     struct pf_vf_bulletin_content **bulletin)
+ {
+ 	if (bp->state != BNX2X_STATE_OPEN) {
+ 		BNX2X_ERR("vf ndo called though PF is down\n");
+-- 
 1.7.9.5
