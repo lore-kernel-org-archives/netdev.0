@@ -1,74 +1,106 @@
-From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] USBNET: fix handling padding packet
-Date: Wed, 18 Sep 2013 20:56:15 +0200
-Message-ID: <be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com> <878uyu6xjm.fsf@nemi.mork.no> <CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com> <87zjra5dpx.fsf@nemi.mork.no> <1379523984.2430.3.camel@linux-fkkt.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.de>
+From: Noel Burton-Krahn <noel@burton-krahn.com>
+Subject: [PATCH 1/1] mrp: add periodictimer to allow retries when packets get lost
+Date: Wed, 18 Sep 2013 12:24:40 -0700
+Message-ID: <1379532280-11047-1-git-send-email-noel@burton-krahn.com>
+References: <1379528419.1787.50.camel@joe-AO722>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Noel Burton-Krahn <noel@burton-krahn.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:59986 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751494Ab3IRS4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 14:56:25 -0400
-In-Reply-To: <1379523984.2430.3.camel@linux-fkkt.site>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:43641 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562Ab3IRTZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 15:25:24 -0400
+Received: by mail-pd0-f180.google.com with SMTP id y10so7423905pdj.25
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 12:25:23 -0700 (PDT)
+In-Reply-To: <1379528419.1787.50.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.de> wrote:
->On Wed, 2013-09-18 at 17:52 +0200, Bj=C3=B8rn Mork wrote:
->
->> No modern device should need the padding.  No old device will be abl=
-e
->to
->> use the SG feature as implemented. You only enable it on USB3, don't
->
->On XHCI.
->
->> you? If this feature is restricted to USB3 capable devices, then it
->most
->> certainly can be restricted to ZLP capable devices with absolutely n=
-o
->> difference in the resulting set of supported devices.
->
->No, USB 3.0 uses no companion controllers, so you can have devices
->of any speed connected to it.
->
+MRP doesn't implement the periodictimer in 802.1Q, so it never retries
+if packets get lost.  I ran into this problem when MRP sent a MVRP
+JoinIn before the interface was fully up.  The JoinIn was lost, MRP
+didn't retry, and MVRP registration failed.
 
-Ah, right. I don't own such modern hardware, but I should have known th=
-is anyway.=20
+Tested against Juniper QFabric switches
 
-This still doesn't change the fact that the driver is brand new for bra=
-nd new devices. I believe we should assume such devices will support ZL=
-Ps unless we have documentation stating anything else.
+Signed-off-by: Noel Burton-Krahn <noel@burton-krahn.com>
+---
+ include/net/mrp.h |    1 +
+ net/802/mrp.c     |   27 +++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
->> Anyway, if you want to keep the padding for SG then maybe this will
->work
->> and allow you to drop the extra struct usbnet field and allocation:
->>=20
->>                         if (skb_tailroom(skb) && !dev->can_dma_sg) {
->>                                skb->data[skb->len] =3D 0;
->>                                __skb_put(skb, 1);
->>                         } else if (dev->can_dma_sg) {
->>                               sg_set_buf(&urb->sg[urb->num_sgs++],
->skb->data, 1);
->>                         }
->>=20
->> I.e. cheat and use the skb->data buffer twice, if that is allowed?=20
->The
->> actual value of the padding byte should not matter, I believe?
->
->That makes me immediately suspect a violation of the DMA rules.
-
-Sounds likely. And it's an ugly hack in any case. Probably not a good i=
-dea. Just one of the many random thoughts I should have kept to myself =
-:-)
-
-
-Bj=C3=B8rn=20
+diff --git a/include/net/mrp.h b/include/net/mrp.h
+index 4fbf02a..0f7558b 100644
+--- a/include/net/mrp.h
++++ b/include/net/mrp.h
+@@ -112,6 +112,7 @@ struct mrp_applicant {
+ 	struct mrp_application	*app;
+ 	struct net_device	*dev;
+ 	struct timer_list	join_timer;
++	struct timer_list	periodic_timer;
+ 
+ 	spinlock_t		lock;
+ 	struct sk_buff_head	queue;
+diff --git a/net/802/mrp.c b/net/802/mrp.c
+index 1eb05d8..3ed6162 100644
+--- a/net/802/mrp.c
++++ b/net/802/mrp.c
+@@ -24,6 +24,11 @@
+ static unsigned int mrp_join_time __read_mostly = 200;
+ module_param(mrp_join_time, uint, 0644);
+ MODULE_PARM_DESC(mrp_join_time, "Join time in ms (default 200ms)");
++
++static unsigned int mrp_periodic_time __read_mostly = 1000;
++module_param(mrp_periodic_time, uint, 0644);
++MODULE_PARM_DESC(mrp_periodic_time, "Periodic time in ms (default 1s)");
++
+ MODULE_LICENSE("GPL");
+ 
+ static const u8
+@@ -595,6 +600,24 @@ static void mrp_join_timer(unsigned long data)
+ 	mrp_join_timer_arm(app);
+ }
+ 
++static void mrp_periodic_timer_arm(struct mrp_applicant *app)
++{
++	mod_timer(&app->periodic_timer,
++		  jiffies + msecs_to_jiffies(mrp_periodic_time));
++}
++
++static void mrp_periodic_timer(unsigned long data)
++{
++	struct mrp_applicant *app = (struct mrp_applicant *)data;
++
++	spin_lock(&app->lock);
++	mrp_mad_event(app, MRP_EVENT_PERIODIC);
++	mrp_pdu_queue(app);
++	spin_unlock(&app->lock);
++
++	mrp_periodic_timer_arm(app);
++}
++
+ static int mrp_pdu_parse_end_mark(struct sk_buff *skb, int *offset)
+ {
+ 	__be16 endmark;
+@@ -845,6 +868,9 @@ int mrp_init_applicant(struct net_device *dev, struct mrp_application *appl)
+ 	rcu_assign_pointer(dev->mrp_port->applicants[appl->type], app);
+ 	setup_timer(&app->join_timer, mrp_join_timer, (unsigned long)app);
+ 	mrp_join_timer_arm(app);
++	setup_timer(&app->periodic_timer, mrp_periodic_timer,
++		    (unsigned long)app);
++	mrp_periodic_timer_arm(app);
+ 	return 0;
+ 
+ err3:
+@@ -870,6 +896,7 @@ void mrp_uninit_applicant(struct net_device *dev, struct mrp_application *appl)
+ 	 * all pending messages before the applicant is gone.
+ 	 */
+ 	del_timer_sync(&app->join_timer);
++	del_timer_sync(&app->periodic_timer);
+ 
+ 	spin_lock_bh(&app->lock);
+ 	mrp_mad_event(app, MRP_EVENT_TX);
+-- 
+1.7.9.5
