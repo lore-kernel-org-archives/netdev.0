@@ -1,50 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] mrp: add periodictimer to retry lost packets
-Date: Wed, 18 Sep 2013 11:20:19 -0700
-Message-ID: <1379528419.1787.50.camel@joe-AO722>
-References: <CAB5uXS7b2CGjF=1OTzCmEeduGHSO_SOmMDv6=-bZU2VzaEQNfA@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Wed, 18 Sep 2013 20:33:16 +0200
+Message-ID: <878uyu56ab.fsf@nemi.mork.no>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
+	<878uyu6xjm.fsf@nemi.mork.no>
+	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
+	<87zjra5dpx.fsf@nemi.mork.no>
+	<CACVXFVNp5Qj-EV+L=FezwFqRnFa7uRFca7Ju9=iTqU+DS1r-fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Noel Burton-Krahn <noel@burton-krahn.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Oliver Neukum <oliver@neukum.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0076.hostedemail.com ([216.40.44.76]:57044 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753334Ab3IRSUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 14:20:22 -0400
-In-Reply-To: <CAB5uXS7b2CGjF=1OTzCmEeduGHSO_SOmMDv6=-bZU2VzaEQNfA@mail.gmail.com>
+Received: from canardo.mork.no ([148.122.252.1]:59673 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751635Ab3IRSd3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 14:33:29 -0400
+In-Reply-To: <CACVXFVNp5Qj-EV+L=FezwFqRnFa7uRFca7Ju9=iTqU+DS1r-fg@mail.gmail.com>
+	(Ming Lei's message of "Thu, 19 Sep 2013 01:03:31 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-18 at 10:09 -0700, Noel Burton-Krahn wrote:
-> MRP doesn't implement the periodictimer in 802.1Q, so it never retries
-> if packets get lost.  I ran into this problem when MRP sent a MVRP
-> JoinIn before the interface was fully up.  The JoinIn was lost, MRP
-> didn't retry, and MVRP registration failed.
+Ming Lei <ming.lei@canonical.com> writes:
+> On Wed, Sep 18, 2013 at 11:52 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wro=
+te:
+>
+>> Why don't you test it on the device you tested the SG patch with?  I=
+ am
+>> pretty sure it works just fine using proper ZLP transfer termination=
+=2E
+>
+> I should have planned to test it, but didn't know how to build TCP TS=
+O
+> to make the whole frame length plus 8 dividable by 1024.
 
-Beyond the whitespace errors that make this not apply:
+You could test this without enabling TSO and just send IP packets of th=
+e
+appriopriate size, taking any additional framing into account
 
-> diff --git a/net/802/mrp.c b/net/802/mrp.c
-[]
-> @@ -595,6 +600,26 @@ static void mrp_join_timer(unsigned long data)
->      mrp_join_timer_arm(app);
->  }
-> 
-> +static void mrp_periodic_timer_arm(struct mrp_applicant *app)
-> +{
-> +    unsigned long delay;
-> +
-> +    delay = (u64)msecs_to_jiffies(mrp_periodic_time);
 
-Useless cast to u64
-
-> +    mod_timer(&app->periodic_timer, jiffies + delay);
-
-This might also be neater without the temporary
-
-static void mrp_periodic_timer_arm(struct mrp_applicant *app)
-{
-	mod_timer(&app->periodic_timer,
-		  jiffies + msecs_to_jiffies(mrp_periodic_timer));
-}
+Bj=C3=B8rn
