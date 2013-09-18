@@ -1,19 +1,18 @@
 From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH v2 2/3] net: bnx2x: Staticize local symbols
-Date: Wed, 18 Sep 2013 09:00:00 +0530
-Message-ID: <1379475001-24505-2-git-send-email-sachin.kamat@linaro.org>
+Subject: [PATCH Resend 3/3] net: cxgb4vf: Staticize local symbols
+Date: Wed, 18 Sep 2013 09:00:01 +0530
+Message-ID: <1379475001-24505-3-git-send-email-sachin.kamat@linaro.org>
 References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
+	Casey Leedom <leedom@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:56474 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020Ab3IRDs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:26 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro12so6437976pbb.41
-        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:26 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:49673 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab3IRDs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:29 -0400
+Received: by mail-pa0-f51.google.com with SMTP id lf1so7674817pab.24
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:28 -0700 (PDT)
 In-Reply-To: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,39 +20,53 @@ List-ID: <netdev.vger.kernel.org>
 Local symbols used only in this file are made static.
 
 Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: Eilon Greenstein <eilong@broadcom.com>
-Cc: Ariel Elior <ariele@broadcom.com>
+Cc: Casey Leedom <leedom@chelsio.com>
 ---
-Changes since v1:
-Changed the coding style as suggested by Ariel Elior.
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 2604b62..7991f10 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -2802,7 +2802,7 @@ struct set_vf_state_cookie {
- 	u8 state;
- };
- 
--void bnx2x_set_vf_state(void *cookie)
-+static void bnx2x_set_vf_state(void *cookie)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index df296af..8475c4c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -1396,8 +1396,9 @@ static inline void copy_frags(struct sk_buff *skb,
+  *	Builds an sk_buff from the given packet gather list.  Returns the
+  *	sk_buff or %NULL if sk_buff allocation failed.
+  */
+-struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
+-				  unsigned int skb_len, unsigned int pull_len)
++static struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
++					 unsigned int skb_len,
++					 unsigned int pull_len)
  {
- 	struct set_vf_state_cookie *p = (struct set_vf_state_cookie *)cookie;
+ 	struct sk_buff *skb;
  
-@@ -3222,8 +3222,9 @@ void bnx2x_disable_sriov(struct bnx2x *bp)
- 	pci_disable_sriov(bp->pdev);
- }
- 
--int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx, struct bnx2x_virtf **vf,
--			struct pf_vf_bulletin_content **bulletin)
-+static int bnx2x_vf_ndo_prep(struct bnx2x *bp, int vfidx,
-+			     struct bnx2x_virtf **vf,
-+			     struct pf_vf_bulletin_content **bulletin)
+@@ -1443,7 +1444,7 @@ out:
+  *	Releases the pages of a packet gather list.  We do not own the last
+  *	page on the list and do not free it.
+  */
+-void t4vf_pktgl_free(const struct pkt_gl *gl)
++static void t4vf_pktgl_free(const struct pkt_gl *gl)
  {
- 	if (bp->state != BNX2X_STATE_OPEN) {
- 		BNX2X_ERR("vf ndo called though PF is down\n");
+ 	int frag;
+ 
+@@ -1640,7 +1641,7 @@ static inline void rspq_next(struct sge_rspq *rspq)
+  *	on this queue.  If the system is under memory shortage use a fairly
+  *	long delay to help recovery.
+  */
+-int process_responses(struct sge_rspq *rspq, int budget)
++static int process_responses(struct sge_rspq *rspq, int budget)
+ {
+ 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
+ 	int budget_left = budget;
+@@ -1893,7 +1894,7 @@ static unsigned int process_intrq(struct adapter *adapter)
+  * The MSI interrupt handler handles data events from SGE response queues as
+  * well as error and other async events as they all use the same MSI vector.
+  */
+-irqreturn_t t4vf_intr_msi(int irq, void *cookie)
++static irqreturn_t t4vf_intr_msi(int irq, void *cookie)
+ {
+ 	struct adapter *adapter = cookie;
+ 
 -- 
 1.7.9.5
