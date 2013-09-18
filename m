@@ -1,103 +1,78 @@
-From: Noel Burton-Krahn <noel@burton-krahn.com>
-Subject: [PATCH] mrp: add periodictimer to retry lost packets
-Date: Wed, 18 Sep 2013 10:09:25 -0700
-Message-ID: <CAB5uXS7b2CGjF=1OTzCmEeduGHSO_SOmMDv6=-bZU2VzaEQNfA@mail.gmail.com>
+From: Duan Jiong <djduanjiong@gmail.com>
+Subject: Re: [PATCH ] ip6tnl: do route updating for redirect in ip6_tnl_err()
+Date: Thu, 19 Sep 2013 01:17:27 +0800
+Message-ID: <5239E027.9080507@gmail.com>
+References: <5239970F.8000105@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:37474 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741Ab3IRRJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 13:09:26 -0400
-Received: by mail-qc0-f169.google.com with SMTP id c9so4785520qcz.0
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 10:09:25 -0700 (PDT)
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:39344 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812Ab3IRRRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 13:17:36 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so7240152pbb.5
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 10:17:35 -0700 (PDT)
+In-Reply-To: <5239970F.8000105@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MRP doesn't implement the periodictimer in 802.1Q, so it never retries
-if packets get lost.  I ran into this problem when MRP sent a MVRP
-JoinIn before the interface was fully up.  The JoinIn was lost, MRP
-didn't retry, and MVRP registration failed.
+=D3=DA 2013/9/18 20:05, Duan Jiong =D0=B4=B5=C0:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>
+> After the ip6_tnl_err() is called, the rel_msg is assigned
+> to 0, and the ip4ip6_err()will return directly, the instruction
+> below will not be executed.
+>
+> In rfc2473, we can know that the tunnel ICMP redirect
+> message should not be reported to the source of the
+> original packet, so we can handle it in ip4ip6_err().
+>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/ipv6/ip6_tunnel.c | 8 +++-----
+>  1 file changed, 3 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 2d8f482..35c4b70 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -529,6 +529,9 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, st=
+ruct inet6_skb_parm *opt,
+>  			rel_msg =3D 1;
+>  		}
+>  		break;
+> +	case NDISC_REDIRECT:
+> +		ip6_redirect(skb, net, 0, 0);
+sorry, it should be
 
-(Sorry for the repost, my earlier message wasn't formatted correctly)
-
-Cheers,
---
-Noel
-
-diff --git a/include/net/mrp.h b/include/net/mrp.h
-index 4fbf02a..0f7558b 100644
---- a/include/net/mrp.h
-+++ b/include/net/mrp.h
-@@ -112,6 +112,7 @@ struct mrp_applicant {
-     struct mrp_application    *app;
-     struct net_device    *dev;
-     struct timer_list    join_timer;
-+    struct timer_list    periodic_timer;
-
-     spinlock_t        lock;
-     struct sk_buff_head    queue;
-diff --git a/net/802/mrp.c b/net/802/mrp.c
-index 1eb05d8..edcd458 100644
---- a/net/802/mrp.c
-+++ b/net/802/mrp.c
-@@ -24,6 +24,11 @@
- static unsigned int mrp_join_time __read_mostly = 200;
- module_param(mrp_join_time, uint, 0644);
- MODULE_PARM_DESC(mrp_join_time, "Join time in ms (default 200ms)");
-+
-+static unsigned int mrp_periodic_time __read_mostly = 1000;
-+module_param(mrp_periodic_time, uint, 0644);
-+MODULE_PARM_DESC(mrp_periodic_time, "Periodic time in ms (default 1s)");
-+
- MODULE_LICENSE("GPL");
-
- static const u8
-@@ -595,6 +600,26 @@ static void mrp_join_timer(unsigned long data)
-     mrp_join_timer_arm(app);
- }
-
-+static void mrp_periodic_timer_arm(struct mrp_applicant *app)
-+{
-+    unsigned long delay;
-+
-+    delay = (u64)msecs_to_jiffies(mrp_periodic_time);
-+    mod_timer(&app->periodic_timer, jiffies + delay);
-+}
-+
-+static void mrp_periodic_timer(unsigned long data)
-+{
-+    struct mrp_applicant *app = (struct mrp_applicant *)data;
-+
-+    spin_lock(&app->lock);
-+    mrp_mad_event(app, MRP_EVENT_PERIODIC);
-+    mrp_pdu_queue(app);
-+    spin_unlock(&app->lock);
-+
-+    mrp_periodic_timer_arm(app);
-+}
-+
- static int mrp_pdu_parse_end_mark(struct sk_buff *skb, int *offset)
- {
-     __be16 endmark;
-@@ -845,6 +870,9 @@ int mrp_init_applicant(struct net_device *dev,
-struct mrp_application *appl)
-     rcu_assign_pointer(dev->mrp_port->applicants[appl->type], app);
-     setup_timer(&app->join_timer, mrp_join_timer, (unsigned long)app);
-     mrp_join_timer_arm(app);
-+    setup_timer(&app->periodic_timer, mrp_periodic_timer,
-+            (unsigned long)app);
-+    mrp_periodic_timer_arm(app);
-     return 0;
-
- err3:
-@@ -870,6 +898,7 @@ void mrp_uninit_applicant(struct net_device *dev,
-struct mrp_application *appl)
-      * all pending messages before the applicant is gone.
-      */
-     del_timer_sync(&app->join_timer);
-+    del_timer_sync(&app->periodic_timer);
-
-     spin_lock_bh(&app->lock);
-     mrp_mad_event(app, MRP_EVENT_TX);
+ip6_redirect(skb, dev_net(skb->dev), skb->dev->ifindex, 0);
+> +		break;
+>  	}
+> =20
+>  	*type =3D rel_type;
+> @@ -576,9 +579,6 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_=
+parm *opt,
+>  		rel_type =3D ICMP_DEST_UNREACH;
+>  		rel_code =3D ICMP_FRAG_NEEDED;
+>  		break;
+> -	case NDISC_REDIRECT:
+> -		rel_type =3D ICMP_REDIRECT;
+> -		rel_code =3D ICMP_REDIR_HOST;
+>  	default:
+>  		return 0;
+>  	}
+> @@ -637,8 +637,6 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_=
+parm *opt,
+> =20
+>  		skb_dst(skb2)->ops->update_pmtu(skb_dst(skb2), NULL, skb2, rel_inf=
+o);
+>  	}
+> -	if (rel_type =3D=3D ICMP_REDIRECT)
+> -		skb_dst(skb2)->ops->redirect(skb_dst(skb2), NULL, skb2);
+> =20
+>  	icmp_send(skb2, rel_type, rel_code, htonl(rel_info));
+> =20
