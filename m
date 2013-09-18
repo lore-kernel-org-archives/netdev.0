@@ -1,63 +1,48 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH v2 6/6] ipv6: Do route updating for redirect in ndisc
- layer
-Date: Wed, 18 Sep 2013 09:52:42 +0800
-Message-ID: <5239076A.4080406@cn.fujitsu.com>
-References: <52327F00.4040802@cn.fujitsu.com> <5232806B.6050601@cn.fujitsu.com> <20130917.202936.2080212548361553334.davem@davemloft.net> <20130918013903.GC8947@order.stressinduktion.org>
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH Resend 1/3] net: cdc-phonet: Staticize usbpn_probe
+Date: Wed, 18 Sep 2013 08:59:59 +0530
+Message-ID: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: davem@davemloft.net, sachin.kamat@linaro.org,
+	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:36613 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750942Ab3IRBxo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 21:53:44 -0400
-In-Reply-To: <20130918013903.GC8947@order.stressinduktion.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:58023 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab3IRDsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Sep 2013 23:48:23 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so6460225pde.24
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 20:48:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B409=E6=9C=8818=E6=97=A5 09:39, Hannes Frederic So=
-wa =E5=86=99=E9=81=93:
-> On Tue, Sep 17, 2013 at 08:29:36PM -0400, David Miller wrote:
->> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->> Date: Fri, 13 Sep 2013 11:03:07 +0800
->>
->>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->>>
->>> Do the whole verification and route updating in ndisc
->>> lay and then just call into icmpv6_notify() to notify
->>> the upper protocols.
->>>
->>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->>
->> This is completely broken, and I believe your patch set fundamentall=
-y
->> is too.
->>
->> We absolutely _must_ handle the redirect at the socket level when
->> we are able to, otherwise we cannot specify the mark properly and
->> the mark is an essential part of the key used to find the correct
->> route to work with.
->>
->> I am not applying this patch series until you deal with this
->> deficiency.  I am not willing to consider changes which stop using t=
-he
->> more precise keying information available from a socket.
->=20
-> Oh, Duan, I am very sorry for not catching this earlier. We use the
-> sk->mark to select the proper routing table where we clone the rt6_in=
-fo into.
-> And we only get that value out of the sockets. I missed that. We shou=
-ld leave
-> the redirect logic in the socket layer where it is possible.
->=20
-> But parts of this series are still valid. We need to fix redirects fo=
-r tunnels
-> and I do think we can still simplify some code in the error handlers.
->=20
+'usbpn_probe' is referenced only in this file. Make it static.
 
-I got it.
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Acked-by: R=C3=A9mi Denis-Courmont <remi@remlab.net>
+Cc: R=C3=A9mi Denis-Courmont <remi@remlab.net>
+---
+ drivers/net/usb/cdc-phonet.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-  Duan
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
+c
+index 7d78669..8c44f86 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -328,7 +328,8 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
+=20
+ static struct usb_driver usbpn_driver;
+=20
+-int usbpn_probe(struct usb_interface *intf, const struct usb_device_id=
+ *id)
++static int
++usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id=
+)
+ {
+ 	static const char ifname[] =3D "usbpn%d";
+ 	const struct usb_cdc_union_desc *union_header =3D NULL;
+--=20
+1.7.9.5
