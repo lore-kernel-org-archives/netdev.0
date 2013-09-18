@@ -1,92 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 6/6] ipv6: Do route updating for redirect in ndisc layer
-Date: Wed, 18 Sep 2013 06:13:37 +0200
-Message-ID: <20130918041337.GD8947@order.stressinduktion.org>
-References: <52327F00.4040802@cn.fujitsu.com> <5232806B.6050601@cn.fujitsu.com> <20130917.202936.2080212548361553334.davem@davemloft.net> <20130918013903.GC8947@order.stressinduktion.org> <5239076A.4080406@cn.fujitsu.com>
+From: =?utf-8?B?emhpZ3VvaG9uZyjmtKrlv5flm70p?= <zhiguohong@tencent.com>
+Subject: =?utf-8?B?562U5aSNOiBbUEFUQ0ggbmV0LW5leHRdIGdlbl9lc3RpbWF0b3I6IGNoYW5n?=
+ =?utf-8?B?ZSB0aGUgbG9jayBvcmRlciBmb3IgYmV0dGVyIHBlcmZlcm1hbmNlKEludGVy?=
+ =?utf-8?Q?net_mail)?=
+Date: Wed, 18 Sep 2013 05:41:09 +0000
+Message-ID: <AB938A889364E64588F76D2320FE2F400383B6@EXMBX-BJ002.tencent.com>
+References: <1379407101-18933-1-git-send-email-zhiguohong@tencent.com>
+ <1379416308.29845.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hong Zhiguo <honkiko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35425 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab3IRENj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 00:13:39 -0400
-Content-Disposition: inline
-In-Reply-To: <5239076A.4080406@cn.fujitsu.com>
+Received: from MAIL4.TENCENT.COM ([119.147.32.46]:38195 "EHLO
+	mail4.tencent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706Ab3IRFuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 01:50:46 -0400
+In-Reply-To: <1379416308.29845.11.camel@edumazet-glaptop>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 18, 2013 at 09:52:42AM +0800, Duan Jiong wrote:
-> =E4=BA=8E 2013=E5=B9=B409=E6=9C=8818=E6=97=A5 09:39, Hannes Frederic =
-Sowa =E5=86=99=E9=81=93:
-> > On Tue, Sep 17, 2013 at 08:29:36PM -0400, David Miller wrote:
-> >> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >> Date: Fri, 13 Sep 2013 11:03:07 +0800
-> >>
-> >>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >>>
-> >>> Do the whole verification and route updating in ndisc
-> >>> lay and then just call into icmpv6_notify() to notify
-> >>> the upper protocols.
-> >>>
-> >>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >>
-> >> This is completely broken, and I believe your patch set fundamenta=
-lly
-> >> is too.
-> >>
-> >> We absolutely _must_ handle the redirect at the socket level when
-> >> we are able to, otherwise we cannot specify the mark properly and
-> >> the mark is an essential part of the key used to find the correct
-> >> route to work with.
-> >>
-> >> I am not applying this patch series until you deal with this
-> >> deficiency.  I am not willing to consider changes which stop using=
- the
-> >> more precise keying information available from a socket.
-> >=20
-> > Oh, Duan, I am very sorry for not catching this earlier. We use the
-> > sk->mark to select the proper routing table where we clone the rt6_=
-info into.
-> > And we only get that value out of the sockets. I missed that. We sh=
-ould leave
-> > the redirect logic in the socket layer where it is possible.
-> >=20
-> > But parts of this series are still valid. We need to fix redirects =
-for tunnels
-> > and I do think we can still simplify some code in the error handler=
-s.
-> >=20
->=20
-> I got it.
-
-I gave it a bit more thought:
-
-RFC 4861 8.3:
-"
-   Redirect messages apply to all flows that are being sent to a given
-   destination.  That is, upon receipt of a Redirect for a Destination
-   Address, all Destination Cache entries to that address should be
-   updated to use the specified next-hop, regardless of the contents of
-   the Flow Label field that appears in the Redirected Header option.
-"
-
-Especially because redirects also help in the on-link determination (sa=
-me
-RFC, section 8), I changed my mind and am still in favour of updating i=
-t
-in the ndisc layer. In my opinion we just have to consider all routing
-tables and apply the update to every one which carries a valid next hop
-to the source of the redirect (under consideration of the destination).
-
-This will be important if we actually try to get linux to correctly
-implement the ipv6 subnet model (RFC 5942, Section 4 Rule 1). In that
-case we are not allowed to assume nodes on-link even if they would matc=
-h
-the same prefix as a locally configured address.
-
-Greetings,
-
-  Hannes
+QWN0dWFsbHkgSSBkaWQgdHJ5IExPQ0tERVAgYW5kIGRpZG4ndCBnZXQgYW55IHdhcm5pbmcuDQoN
+CkNvdWxkIHlvdSBwb2ludGVkIG91dCB3aHkgaXQncyB3cm9uZz8NCg0KLS0tLS3pgq7ku7bljp/k
+u7YtLS0tLQ0K5Y+R5Lu25Lq6OiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21h
+aWwuY29tXSANCuWPkemAgeaXtumXtDogMjAxM+W5tDnmnIgxN+aXpSAxOToxMg0K5pS25Lu25Lq6
+OiBIb25nIFpoaWd1bw0K5oqE6YCBOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZl
+bWxvZnQubmV0OyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZzsgemhpZ3VvaG9uZyjmtKrlv5fl
+m70pDQrkuLvpopg6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIGdlbl9lc3RpbWF0b3I6IGNoYW5nZSB0
+aGUgbG9jayBvcmRlciBmb3IgYmV0dGVyIHBlcmZlcm1hbmNlKEludGVybmV0IG1haWwpDQoNCk9u
+IFR1ZSwgMjAxMy0wOS0xNyBhdCAxNjozOCArMDgwMCwgSG9uZyBaaGlndW8gd3JvdGU6DQo+IEZy
+b206IEhvbmcgWmhpZ3VvIDx6aGlndW9ob25nQHRlbmNlbnQuY29tPg0KPiANCj4gZS0+c3RhdHNf
+bG9jayBpcyB1c3VhbGx5IHRha2VuIGJ5IGZhc3QgcGF0aCB0byB1cGRhdGUgc3RhdHMuDQo+IElu
+IHRoZSBvbGQgb3JkZXIsIGZhc3QgcGF0aCBzaG91bGQgd2FpdCBmb3Igd3JpdGVfbG9jaygmZXN0
+X2xvY2spLg0KPiBFdmVuIHRob3VnaCBpdCdzIG9ubHkgb25lIGxpbmUgaW5zaWRlIHRoZSB3cml0
+ZV9sb2NrKCZlc3RfbG9jayksIGJ1dCANCj4gaWYgdGhlcmUncyBpbnRlcnJ1cHQgb3IgcGFnZSBm
+YXVsdCwgYSBsb3Qgb2Ygc3BpbiBvbg0KPiBlLT5zdGF0c19sb2NrIHdpbGwgYmUgd2FzdGVkIGlu
+IGZhc3QgcGF0aC4NCg0KMSkgbmV0LW5leHQgaXMgbm90IG9wZW4NCg0KMikgVGhlcmUgaXMgbm8g
+d2F5IGEgcGFnZSBmYXVsdCBjYW4gaGFwcGVuIGluIHRoaXMgcGF0aC4NCg0KMykgVGhpcyBwYXRj
+aCBpcyB3cm9uZy4NCg0KQ3VycmVudCBvcmRlciBpcyB0aGVyZSBmb3IgZ29vZCByZWFzb25zLg0K
+DQpIYXZlIHlvdSByZWFsbHkgdHJpZWQgTE9DS0RFUCwgYmVmb3JlIHNlbmRpbmcgYSBwYXRjaCBj
+aGFuZ2luZyBsb2NrIG9yZGVyID8NCg0KDQoNCg0K
