@@ -1,54 +1,74 @@
-From: Francesco Fusco <ffusco@redhat.com>
-Subject: Re: [PATCH net-next v2 1/2] ipv4: IP_TOS and IP_TTL can be specified
- as ancillary data
-Date: Wed, 18 Sep 2013 10:16:00 +0200
-Message-ID: <52396140.7010107@redhat.com>
-References: <aaa7e0af2fe535ea5216e438b5f65db88dcef8b2.1377257704.git.ffusco@redhat.com> <20130827.145649.1682045616049011855.davem@davemloft.net> <521DAD30.1010903@redhat.com> <20130917.204648.339747836268253489.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [CFT][PATCH] net: Delay default_device_exit_batch until no devices are unregistering
+Date: Wed, 18 Sep 2013 01:19:58 -0700
+Message-ID: <871u4mh781.fsf@tw-ebiederman.twitter.com>
+References: <e652a11e-b23d-4a83-aaac-00c469a416f1@email.android.com>
+	<20130917.201515.1404443973169590392.davem@davemloft.net>
+	<CA+HUmGgg3-0UNgfKS6Hpnczzi6PUeztk8TZ7p_97kcvtfMacJQ@mail.gmail.com>
+	<20130917.235247.344101545141336143.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: fruggeri@aristanetworks.com, edumazet@google.com, jiri@resnulli.us,
+	alexander.h.duyck@intel.com, amwang@redhat.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43821 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751591Ab3IRIQF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 04:16:05 -0400
-In-Reply-To: <20130917.204648.339747836268253489.davem@davemloft.net>
+Received: from out01.mta.xmission.com ([166.70.13.231]:59245 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab3IRIW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 04:22:29 -0400
+In-Reply-To: <20130917.235247.344101545141336143.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 Sep 2013 23:52:47 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks David.
-I will resubmit the patches as they are as soon as the merge window 
-opens again.
+David Miller <davem@davemloft.net> writes:
 
-Best,
-Francesco
+> From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+> Date: Tue, 17 Sep 2013 20:50:41 -0700
 
-On 09/18/2013 02:46 AM, David Miller wrote:
-> From: Francesco Fusco <ffusco@redhat.com>
-> Date: Wed, 28 Aug 2013 09:56:32 +0200
+>> I am not sure that would work.
+>> list_empty(&net_todo_list) does not guarantee that there are no
+>> unregistering devices still in flight.
+>> Another process may have copied net_todo_run into its local list, left
+>> net_todo_list empty and still be in the middle of processing
+>> unregistering devices (without the rtnl lock) when
+>> default_device_exit_batch starts executing.
 >
->> On 08/27/2013 08:56 PM, David Miller wrote:
->>> From: Francesco Fusco <ffusco@redhat.com>
->>> Date: Fri, 23 Aug 2013 14:19:32 +0200
->>>
->>>>     - changed the icmp_cookie ttl field from __s16 to __u8.
->>>>       A value of 0 means that the TTL has not been specified
->>>
->>> Sorry, I have to ask you to change the ttl field type back to __s16
->>> and use "-1" to mean not-specified.
->>>
->>> Zero is a valid TTL setting and it means to not allow the
->>> packet to leave this host.
->>
->> Actually setsockopt() does not allow a TTL value of zero:
->>
->>  From net/ipv4/ip_sockglue.c::do_ip_setsockopt()
+> Ok, now I understand.
 >
-> Indeed, you are right.
->
-> Please resubmit these patches for the next merge window.
->
-> Thank you.
->
+> Eric B., when you get a chance can you resubmit your patch and perhaps
+> elaborate on the situation in the commit message.
+
+The code is on my computer at home so I won't be able to get back to
+this until Sunday or Monday.  This should give Francesco time to verify
+I really have closed the holes he is seeing.
+
+> If I was confused I'm sure other people will be if they look into
+> this in the future.
+
+Agreed.  It is easy to get confused with this issue.  And I was in a
+rush so I expect my wording could be improved.
+
+
+
+There is still the other part of this issue that dev_close reorders
+devices in default_device_exit_batch.
+
+With that reordering we can get the call chain:
+  netdev_run_todo
+    call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL,...)
+      dst_dev_event
+        dst_ifdown(..., unregister == 1)
+          dst->dev = dev_net(dst->dev)->loopback_dev;
+	  dev_hold(dst->dev);
+
+With dev_net(dst->dev)->loopback_dev == NULL;
+
+So my patch to split the close_list out of the unreg_list is also needed
+(or something else to address that issue). 
+
+Hopefully my exaspearation with dev_close_many didn't obscure what is
+happening there.
+
+Eric
