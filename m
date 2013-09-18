@@ -1,61 +1,56 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH] batman-adv: set the TAG flag for the vid passed to BLA
-Date: Wed, 18 Sep 2013 08:27:38 +0200
-Message-ID: <1379485658-2317-2-git-send-email-ordex@autistici.org>
-References: <1379485658-2317-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Antonio Quartulli <antonio@open-mesh.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
+From: Ethan Tuttle <ethan@ethantuttle.com>
+Subject: Re: mvneta: oops in __rcu_read_lock on mirabox
+Date: Tue, 17 Sep 2013 23:30:56 -0700
+Message-ID: <CACzLR4t2ABZdRk40VUhLtDKXX2PQiSVoQZQ4coQkNkvETnY6Rw@mail.gmail.com>
+References: <20130915205701.5c61a444@skate>
+	<20130916065047.GH27487@1wt.eu>
+	<20130916175152.4e013457@skate>
+	<CACzLR4twTNjzU8hK3L1cYUXnEH1ydwY6jnYoOG+9vLB3-4uQ4w@mail.gmail.com>
+	<20130916163937.GC3188@1wt.eu>
+	<20130916164412.GD3188@1wt.eu>
+	<CACzLR4ssOPsmYaEh2ohe4HL5j+67keDYnmR4YezNB=aO7Pj5kA@mail.gmail.com>
+	<20130916174708.GG3188@1wt.eu>
+	<20130916182807.GO12758@n2100.arm.linux.org.uk>
+	<CACzLR4suLD90p=sEhB-qg1u35t66zKfrGQref1jX42fEfu3D8g@mail.gmail.com>
+	<20130917060111.GB9325@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	=?ISO-8859-1?Q?Gregory_Cl=E9ment?=
+	<gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:27569 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751645Ab3IRG15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 02:27:57 -0400
-In-Reply-To: <1379485658-2317-1-git-send-email-ordex@autistici.org>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:49715 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804Ab3IRGa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 02:30:57 -0400
+Received: by mail-wg0-f50.google.com with SMTP id f12so6003618wgh.17
+        for <netdev@vger.kernel.org>; Tue, 17 Sep 2013 23:30:56 -0700 (PDT)
+In-Reply-To: <20130917060111.GB9325@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+On Mon, Sep 16, 2013 at 11:01 PM, Willy Tarreau <w@1wt.eu> wrote:
+> Next step should be that you test both kernels to be sure.
 
-When receiving or sending a packet a packet on a VLAN, the
-vid has to be marked with the TAG flag in order to make any
-component in batman-adv understand that the packet is coming
-from a really tagged network.
+Thanks for the kernel images, Willy.  I'm still experimenting but
+initial results are strange: I haven't seen a crash from the -ethan
+image you provided, nor by a kernel with that config that I built
+myself.  The config is only different from my crashing config by a few
+options.  So perhaps some combination of options prevents the crash.
+I'll see if I can narrow it down.
 
-This fix the Bridge Loop Avoidance behaviour which was not
-able to send announces over VLAN interfaces.
+For a moment I thought I found a likely culprit: all along I've been
+loading my kernel in to 0x02000000 in uboot, while the stock uboot env
+(and Willy) uses 0x6400000.  But I've seen at least one
+__rcu_read_lock oops since switching to 0x6400000.  So I guess I can
+rule that out.
 
-Introduced by 0b1da1765fdb00ca5d53bc95c9abc70dfc9aae5b
-("batman-adv: change VID semantic in the BLA code")
+Thanks,
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.org>
-Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/soft-interface.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 4493913..813db4e 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -168,6 +168,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 	case ETH_P_8021Q:
- 		vhdr = (struct vlan_ethhdr *)skb->data;
- 		vid = ntohs(vhdr->h_vlan_TCI) & VLAN_VID_MASK;
-+		vid |= BATADV_VLAN_HAS_TAG;
- 
- 		if (vhdr->h_vlan_encapsulated_proto != ethertype)
- 			break;
-@@ -331,6 +332,7 @@ void batadv_interface_rx(struct net_device *soft_iface,
- 	case ETH_P_8021Q:
- 		vhdr = (struct vlan_ethhdr *)skb->data;
- 		vid = ntohs(vhdr->h_vlan_TCI) & VLAN_VID_MASK;
-+		vid |= BATADV_VLAN_HAS_TAG;
- 
- 		if (vhdr->h_vlan_encapsulated_proto != ethertype)
- 			break;
--- 
-1.8.1.5
+Ethan
