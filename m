@@ -1,62 +1,140 @@
-From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
-Subject: [REGRESSION][BISECTED] skge: add dma_mapping check
-Date: Wed, 18 Sep 2013 13:00:44 +0400
-Message-ID: <1379494844.2294.12.camel@ThinkPad-X230.localdomain>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCHv2 3/4] of: provide a binding for fixed link PHYs
+Date: Wed, 18 Sep 2013 10:21:11 +0100
+Message-ID: <CAGVrzcbVTenhVC4tQznJFqVpO08ruxLyy1ZiLmw6Bu1=3zbGZg@mail.gmail.com>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1378480701-12908-4-git-send-email-thomas.petazzoni@free-electrons.com> <20130918042923.5D845C42CF7@trevor.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Mirko Lindner <mlindner@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130918042923.5D845C42CF7-WNowdnHR2B42iJbIjFUEsiwD8/FfD2ys@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Since 136d8f377e1575463b47840bc5f1b22d94bf8f63 commit we have kernel
-panic on:
-01:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+Hello,
 
-Screen: https://www.dropbox.com/s/mu3t3wxpxbn4ou5/IMAG0507.jpg
+2013/9/18 Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>:
+> On Fri,  6 Sep 2013 17:18:20 +0200, Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+>> Some Ethernet MACs have a "fixed link", and are not connected to a
+>> normal MDIO-managed PHY device. For those situations, a Device Tree
+>> binding allows to describe a "fixed link" using a special PHY node.
+>>
+>> This patch adds:
+>>
+>>  * A documentation for the fixed PHY Device Tree binding.
+>>
+>>  * An of_phy_is_fixed_link() function that an Ethernet driver can call
+>>    on its PHY phandle to find out whether it's a fixed link PHY or
+>>    not. It should typically be used to know if
+>>    of_phy_register_fixed_link() should be called.
+>>
+>>  * An of_phy_register_fixed_link() function that instantiates the
+>>    fixed PHY into the PHY subsystem, so that when the driver calls
+>>    of_phy_connect(), the PHY device associated to the OF node will be
+>>    found.
+>>
+>> Signed-off-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+>
+> Hi Thomas,
+>
+> The implemenation in this series looks like it is in good shape, so I'll
+> restrict my comments to be binding...
+>
+>> ---
+>>  .../devicetree/bindings/net/fixed-link.txt         | 34 ++++++++++++++++++++++
+>>  drivers/of/of_mdio.c                               | 24 +++++++++++++++
+>>  include/linux/of_mdio.h                            | 15 ++++++++++
+>>  3 files changed, 73 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
+>> new file mode 100644
+>> index 0000000..9f2a1a50
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
+>> @@ -0,0 +1,34 @@
+>> +Fixed link Device Tree binding
+>> +------------------------------
+>> +
+>> +Some Ethernet MACs have a "fixed link", and are not connected to a
+>> +normal MDIO-managed PHY device. For those situations, a Device Tree
+>> +binding allows to describe a "fixed link".
+>> +
+>> +Such a fixed link situation is described by creating a PHY node as a
+>> +sub-node of an Ethernet device, with the following properties:
+>> +
+>> +* 'fixed-link' (boolean, mandatory), to indicate that this PHY is a
+>> +  fixed link PHY.
+>> +* 'speed' (integer, mandatory), to indicate the link speed. Accepted
+>> +  values are 10, 100 and 1000
+>> +* 'full-duplex' (boolean, optional), to indicate that full duplex is
+>> +  used. When absent, half duplex is assumed.
+>> +* 'pause' (boolean, optional), to indicate that pause should be
+>> +  enabled.
+>> +* 'asym-pause' (boolean, optional), to indicate that asym_pause should
+>> +  be enabled.
+>
+> I understand what you're trying to do here, but it causes a troublesome
+> leakage of implementation detail into the binding, making the whole
+> thing look very odd. This binding tries to make a fixed link look
+> exactly like a real PHY even to the point of including a phandle to the
+> phy. But having a phandle to a node which is *always* a direct child of
+> the MAC node is redundant and a rather looney. Yes, doing it that way
+> makes it easy for of_phy_find_device() to be transparent for fixed link,
+> but that should *not* drive bindings, especially when that makes the
+> binding really rather weird.
 
-RHBZ: https://bugzilla.redhat.com/show_bug.cgi?id=1008323
+This is not exactly true in the sense that the "new" binding just
+re-shuffles the properties representation into something that is
+clearer and more extendible but there is not much difference in the
+semantics.
 
+>
+> Second, this new binding doesn't provide anything over and above the
+> existing fixed-link binding. It may not be pretty, but it is
+> estabilshed.
 
-01:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-88E8001 Gigabit Ethernet Controller [11ab:4320] (rev 13)
-        Subsystem: ASUSTeK Computer Inc. Marvell 88E8001 Gigabit
-Ethernet Controller (Asus) [1043:811a]
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
-ParErr- Stepping- SERR- FastB2B- DisINTx-
-        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 64 (5750ns min, 7750ns max), Cache Line Size: 16 bytes
-        Interrupt: pin A routed to IRQ 21
-        Region 0: Memory at ddcfc000 (32-bit, non-prefetchable)
-[size=16K]
-        Region 1: I/O ports at a800 [size=256]
-        Expansion ROM at ddcc0000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1
-+,D2+,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=7 DScale=1 PME-
-        Capabilities: [50] Vital Product Data
-                Product Name: Yukon Gigabit Ethernet 10/100/1000Base-T
-Adapter
-                Read-only fields:
-                        [PN] Part number: Yukon 88E8001
-                        [EC] Engineering changes: Rev. 1.3
-                        [MN] Manufacture ID: 4d 61 72 76 65 6c 6c
-                        [SN] Serial number: AbCdEfG000002
-                        [CP] Extended capability: 01 10 cc 03
-                        [RV] Reserved: checksum good, 10 byte(s)
-reserved
-                Read/write fields:
-                        [RW] Read-write area: 121 byte(s) free
-                End
-        Kernel driver in use: skge
+In fact it does, the old one is obscure and not easily extendable
+because we rely on an integer array to represent the various
+properties, so at least this new one makes it easy to extend the
+binding to support a possibly new fixed-link property. Being able to
+deprecate a fundamentaly badly designed binding should still be a
+prerogative, software is flexible and can deal with both with little
+cost.
 
+>
+> That said, I do agree that the current Linux implementation is not good
+> because it cannot handle a fixed-link property transparently. That's a
+> deficiency in the Linux implementation and it should be fixed.
+> of_phy_connect() currently requires the phy phandle to be passed in.
+> Part of the reason it was done this way is that some drivers connect to
+> multiple 'phys'. A soulition could be to make the phy handle optional.
+> If it is empty then go looking for either a phy-device or fixed-link
+> property. Otherwise use the provided node.
+
+I do not quite follow you on this one, and I fear we might be leaking
+some Linux probing heuristic into Device Tree bindings by implicitely
+saying "not including a PHY phandle means connecting to a fixed-PHY
+link." This would also dramatically change the current behavior for
+most drivers where they might refuse probing if no corresponding PHY
+device node is present and they are not designed to connect to a fixed
+PHY one.
 -- 
-Igor Gnatenko
-Fedora release 20 (Heisenbug)
-Linux 3.11.1-300.fc20.x86_64
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
