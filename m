@@ -1,58 +1,74 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [RFC PATCH 0/4] cpsw: support for control module register
-Date: Wed, 18 Sep 2013 11:49:32 -0700
-Message-ID: <20130918184931.GA9994@atomide.com>
-References: <1378639438-27686-1-git-send-email-mugunthanvnm@ti.com>
- <522D8DB8.5050305@gmail.com>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Wed, 18 Sep 2013 20:56:15 +0200
+Message-ID: <be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com> <878uyu6xjm.fsf@nemi.mork.no> <CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com> <87zjra5dpx.fsf@nemi.mork.no> <1379523984.2430.3.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bcousson@baylibre.com,
-	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <ming.lei@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:18043 "EHLO
-	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751793Ab3IRSth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 14:49:37 -0400
-Content-Disposition: inline
-In-Reply-To: <522D8DB8.5050305@gmail.com>
+Received: from canardo.mork.no ([148.122.252.1]:59986 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751494Ab3IRS4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 14:56:25 -0400
+In-Reply-To: <1379523984.2430.3.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Daniel Mack <zonque@gmail.com> [130909 02:06]:
-> On 08.09.2013 13:23, Mugunthan V N wrote:
-> > This patch series adds the support for configuring GMII_SEL register
-> > of control module to select the phy mode type and also to configure
-> > the clock source for RMII phy mode whether to use internal clock or
-> > the external clock from the phy itself.
-> > 
-> > Till now CPSW works as this configuration is done in U-Boot and carried
-> > over to the kernel. But during suspend/resume Control module tends to
-> > lose its configured value for GMII_SEL register in AM33xx PG1.0, so
-> > if CPSW is used in RMII or RGMII mode, on resume cpsw is not working
-> > as GMII_SEL register lost its configuration values.
-> > 
-> > The initial version of the patch is done by Daniel Mack but as per
-> > Tony's comment he wants it as a seperate driver as it is done in USB
-> > control module. I have created a seperate driver for the same and as
-> > the merge window is open now and no feature request is accepted I am
-> > submitting it as RFC for reviews.
-> 
-> Thanks for doing this. It's a somehow expensive approach of writing a
-> single 32bit register, but I agree it's cleaner to not have this code in
-> the cpsw driver directly.
+Oliver Neukum <oneukum@suse.de> wrote:
+>On Wed, 2013-09-18 at 17:52 +0200, Bj=C3=B8rn Mork wrote:
+>
+>> No modern device should need the padding.  No old device will be abl=
+e
+>to
+>> use the SG feature as implemented. You only enable it on USB3, don't
+>
+>On XHCI.
+>
+>> you? If this feature is restricted to USB3 capable devices, then it
+>most
+>> certainly can be restricted to ZLP capable devices with absolutely n=
+o
+>> difference in the resulting set of supported devices.
+>
+>No, USB 3.0 uses no companion controllers, so you can have devices
+>of any speed connected to it.
+>
 
-The main reason for doing that is because this register is in a
-separate omap SCM (System Control Module) and may need to be
-eventually a child of a SCM core driver. This is to avoid invalid
-PM dependencies between separate hardware modules as they can
-be clocked separately.
+Ah, right. I don't own such modern hardware, but I should have known th=
+is anyway.=20
 
-Most of the SCM registers can be already handled by using
-pinctrl-single driver, but it's not intended for using for
-transceivers etc that are not strictly pinctrl related.
+This still doesn't change the fact that the driver is brand new for bra=
+nd new devices. I believe we should assume such devices will support ZL=
+Ps unless we have documentation stating anything else.
 
-Regards,
+>> Anyway, if you want to keep the padding for SG then maybe this will
+>work
+>> and allow you to drop the extra struct usbnet field and allocation:
+>>=20
+>>                         if (skb_tailroom(skb) && !dev->can_dma_sg) {
+>>                                skb->data[skb->len] =3D 0;
+>>                                __skb_put(skb, 1);
+>>                         } else if (dev->can_dma_sg) {
+>>                               sg_set_buf(&urb->sg[urb->num_sgs++],
+>skb->data, 1);
+>>                         }
+>>=20
+>> I.e. cheat and use the skb->data buffer twice, if that is allowed?=20
+>The
+>> actual value of the padding byte should not matter, I believe?
+>
+>That makes me immediately suspect a violation of the DMA rules.
 
-Tony
+Sounds likely. And it's an ugly hack in any case. Probably not a good i=
+dea. Just one of the many random thoughts I should have kept to myself =
+:-)
+
+
+Bj=C3=B8rn=20
