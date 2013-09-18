@@ -1,45 +1,58 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
- shut down
-Date: Wed, 18 Sep 2013 11:37:04 +0100
-Message-ID: <20130918103704.GA511@zion.uk.xensource.com>
-References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 net] xfrm: Guard IPsec anti replay window against
+ replay bitmap
+Date: Wed, 18 Sep 2013 13:16:46 +0200
+Message-ID: <20130918111646.GQ7660@secunet.com>
+References: <1379402053-19653-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:18392 "EHLO SMTP.CITRIX.COM"
+Received: from a.mx.secunet.com ([195.81.216.161]:58466 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751551Ab3IRKhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Sep 2013 06:37:07 -0400
+	id S1751819Ab3IRLQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 07:16:49 -0400
 Content-Disposition: inline
-In-Reply-To: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+In-Reply-To: <1379402053-19653-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 17, 2013 at 05:46:08PM +0100, Paul Durrant wrote:
-> Without this patch, if a frontend cycles through states Closing
-> and Closed (which Windows frontends need to do) then the netdev
-> will be destroyed and requires re-invocation of hotplug scripts
-> to restore state before the frontend can move to Connected. Thus
-> when udev is not in use the backend gets stuck in InitWait.
+On Tue, Sep 17, 2013 at 03:14:13PM +0800, Fan Du wrote:
+> For legacy IPsec anti replay mechanism:
 > 
-> With this patch, the netdev is left alone whilst the backend is
-> still online and is only de-registered and freed just prior to
-> destroying the vif (which is also nicely symmetrical with the
-> netdev allocation and registration being done during probe) so
-> no re-invocation of hotplug scripts is required.
+> bitmap in struct xfrm_replay_state could only provide a 32 bits
+> window size limit in current design, thus user level parameter
+> sadb_sa_replay should honor this limit, otherwise misleading
+> outputs("replay=244") by setkey -D will be:
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
+> 192.168.25.2 192.168.22.2
+> 	esp mode=transport spi=147561170(0x08cb9ad2) reqid=0(0x00000000)
+> 	E: aes-cbc  9a8d7468 7655cf0b 719d27be b0ddaac2
+> 	A: hmac-sha1  2d2115c2 ebf7c126 1c54f186 3b139b58 264a7331
+> 	seq=0x00000000 replay=244 flags=0x00000000 state=mature
+> 	created: Sep 17 14:00:00 2013	current: Sep 17 14:00:22 2013
+> 	diff: 22(s)	hard: 30(s)	soft: 26(s)
+> 	last: Sep 17 14:00:00 2013	hard: 0(s)	soft: 0(s)
+> 	current: 1408(bytes)	hard: 0(bytes)	soft: 0(bytes)
+> 	allocated: 22	hard: 0	soft: 0
+> 	sadb_seq=1 pid=4854 refcnt=0
+> 192.168.22.2 192.168.25.2
+> 	esp mode=transport spi=255302123(0x0f3799eb) reqid=0(0x00000000)
+> 	E: aes-cbc  6485d990 f61a6bd5 e5660252 608ad282
+> 	A: hmac-sha1  0cca811a eb4fa893 c47ae56c 98f6e413 87379a88
+> 	seq=0x00000000 replay=244 flags=0x00000000 state=mature
+> 	created: Sep 17 14:00:00 2013	current: Sep 17 14:00:22 2013
+> 	diff: 22(s)	hard: 30(s)	soft: 26(s)
+> 	last: Sep 17 14:00:00 2013	hard: 0(s)	soft: 0(s)
+> 	current: 1408(bytes)	hard: 0(bytes)	soft: 0(bytes)
+> 	allocated: 22	hard: 0	soft: 0
+> 	sadb_seq=0 pid=4854 refcnt=0
+> 
+> And also, optimizing xfrm_replay_check window checking by setting the
+> desirable x->props.replay_window with only doing the comparison once
+> for all when xfrm_state is first born.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-
-Thanks!
-Wei.
+Applied to ipsec, thanks!
