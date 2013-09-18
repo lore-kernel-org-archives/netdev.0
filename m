@@ -1,35 +1,75 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source through
- dts file
-Date: Wed, 18 Sep 2013 18:44:15 +0300
-Message-ID: <5239CA4F.9000600@freescale.com>
-References: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 005/007] WAN Drivers: Update farsync driver and
+ introduce fsflex driver
+Date: Wed, 18 Sep 2013 16:44:52 +0100
+Message-ID: <1379519092.1522.27.camel@bwh-desktop.uk.level5networks.com>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA4@SOLO.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <richardcochran@gmail.com>, <netdev@vger.kernel.org>
-To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:6544 "EHLO
-	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751218Ab3IRPo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:44:27 -0400
-In-Reply-To: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"Dermot Smith" <dermot.smith@farsite.com>
+To: Kevin Curtis <Kevin.Curtis@farsite.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA4@SOLO.hq.farsitecommunications.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 2013-09-18 at 11:12 +0100, Kevin Curtis wrote:
+> Farsite Communications FarSync driver update
+> 
+> Patch 5 of 7
+> Note that this patch must be applied with patch 4 (farsync_include_patch)
+> 
+> Update the current farsync driver to support all of the PCI and PCI X
+> cards manufactured by Farsite Communications.
+> 
+> Add a tty interface so that the ports can also be used by the ppp daemon.
+> 
+> Add support for big endian systems (the FarSite cards have a little endian
+> processor on board).
+[...]
 
-On 9/18/2013 4:21 PM, Aida Mynzhasova wrote:
-> IEEE 1588 timer reference clock source is determined through hard-coded
-> value in gianfar_ptp driver by default. This patch allows to select ptp
-> clock source by means of device tree file node.
->
-> For instance:
->
-> 	fsl,cksel = <0>;
->
+Should all be separate patches.  This is just doing way too much in one
+go.
 
-Has this device tree binding been defined? (Where?)
-I don't see this property in the net-next.git tree at least.
+And there are regressions in here like:
 
-Claudiu
+>  static struct pci_driver fst_driver = {
+> -        .name          = FST_NAME,
+> -        .id_table      = fst_pci_dev_id,
+> -        .probe         = fst_add_one,
+> -        .remove        = fst_remove_one,
+> -        .suspend       = NULL,
+> -        .resume        = NULL,
+> +name: FST_NAME,
+> +id_table : fst_pci_dev_id,
+> +probe : fst_add_one,
+> +remove : fst_remove_one,
+> +suspend : NULL,
+> +resume : NULL,
+> +};
+
+And the addition of a file in procfs (at the top level, even!) as if
+it's still 2001 and sysfs doesn't exist:
+
+> +static int farsync_proc_open(struct inode *inode, struct file *file)
+> +{
+> +       return single_open(file, fst_proc_info, NULL);
+> +}
+> +
+> +static const struct file_operations farsync_proc_fops = {
+> +       .open = farsync_proc_open,
+> +       .read = seq_read,
+> +       .llseek = seq_lseek,
+> +       .release = single_release,
+>  };
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
