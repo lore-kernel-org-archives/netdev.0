@@ -1,76 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip: generate unique IP identificator if local
- fragmentation is allowed
-Date: Wed, 18 Sep 2013 12:55:13 -0400 (EDT)
-Message-ID: <20130918.125513.1767844012534596974.davem@davemloft.net>
-References: <1379456700-8033-1-git-send-email-aatteka@nicira.com>
-	<20130918.122018.1088822749792394509.davem@davemloft.net>
-	<CAA=3Oq=Kxfe8KKnWV7QjLnT1Art3UEMJBTE=tXBLZPa6diug6g@mail.gmail.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Thu, 19 Sep 2013 01:03:31 +0800
+Message-ID: <CACVXFVNp5Qj-EV+L=FezwFqRnFa7uRFca7Ju9=iTqU+DS1r-fg@mail.gmail.com>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
+	<878uyu6xjm.fsf@nemi.mork.no>
+	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
+	<87zjra5dpx.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: aatteka@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36608 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460Ab3IRQzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:55:15 -0400
-In-Reply-To: <CAA=3Oq=Kxfe8KKnWV7QjLnT1Art3UEMJBTE=tXBLZPa6diug6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87zjra5dpx.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ansis Atteka <aatteka@nicira.com>
-Date: Wed, 18 Sep 2013 09:50:31 -0700
-
-> On Wed, Sep 18, 2013 at 9:20 AM, David Miller <davem@davemloft.net> wrote:
->> From: Ansis Atteka <aatteka@nicira.com>
->> Date: Tue, 17 Sep 2013 15:25:00 -0700
+On Wed, Sep 18, 2013 at 11:52 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+> Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
+>
+>>> Are you really sure that the one driver/device using this really ne=
+ed
+>>> the padding byte?  If you could just make FLAG_SEND_ZLP part of the
+>>> condition for enabling can_dma_sg, then all this extra complexity w=
+ould
+>>> be unnecessary.  As the comment in front of the padding code says:
 >>
->>> @@ -1317,6 +1317,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
->>>               ttl = ip_select_ttl(inet, &rt->dst);
+>> At least for the effected driver of ax88179, the padding packet is n=
+eeded
+>> since the driver does set the padding flag in the header, see
+>> ax88179_tx_fixup().
+>
+> Yes, I noticed that the driver doesn't set the flag. I just didn't pu=
+t
+> too much into that.  I don't think that necessarily means that the
+> padding is needed. It probably just means that the driver worked with
+> the default padding enabled, so the author left it there.
+>
+> This flag should really have been inverted.  ZLP should be the defaul=
+t
+> for all new usbnet drivers.
+
+In theory, it is, but who knows the reality.
+
+>
+> Why don't you test it on the device you tested the SG patch with?  I =
+am
+> pretty sure it works just fine using proper ZLP transfer termination.
+
+I should have planned to test it, but didn't know how to build TCP TSO
+to make the whole frame length plus 8 dividable by 1024.
+
+Could you or other guys share how to build such packet so that I can
+do the test?
+
+Once we can confirm the padding isn't needed, we can remove the
+padding flag. But if the padding flag is still there, this patch should=
+ be
+dropped.
+
+>
+>>>   "strictly conforming cdc-ether devices should expect the ZLP here=
+"
 >>>
->>>       iph = (struct iphdr *)skb->data;
->>> +
->>>       iph->version = 4;
->>>       iph->ihl = 5;
->>>       iph->tos = inet->tos;
->>> @@ -1324,7 +1325,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
->>>       iph->ttl = ttl;
->>>       iph->protocol = sk->sk_protocol;
->>>       ip_copy_addrs(iph, fl4);
->>> -     ip_select_ident(iph, &rt->dst, sk);
->>> +     ip_select_ident(skb, &rt->dst, sk);
->>>
->>>       if (opt) {
->>>               iph->ihl += opt->optlen>>2;
+>>> There shouldn't be any problems requiring this conformance as a
+>>> precondition for allowing SG.  The requirements are already strict.
 >>
->> This transformation is not equivalent.
->>
->> ip_select_ident() is going to use ip_hdr() which obtains the header
->> pointer via skb_network_header().
->>
->> But here, the code is using skb->data for this, which is different.
-> 
-> I dared to do that because three lines below ip_options_build() seems
-> to be already doing the same thing, if IP options are present:
-> 
-> struct sk_buff *__ip_make_skb() {
->     ...
->     ip_select_ident(skb, &rt->dst, sk);
->     if (opt) {
->         iph->ihl += opt->optlen>>2;
->         ip_options_build(skb, opt, cork->addr, rt, 0);
->     }
-> 
-> and
-> 
-> void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
-> __be32 daddr, struct rtable *rt, int is_frag) {
->     unsigned char *iph = skb_network_header(skb);
->     ....
+>> There is no reason to forbid DMA SG for one driver which requires
+>> padding, right?
+>
+> Yes there is: Added complexity for everybody, based on a combination =
+of
+> features which just does not make any sense.
+>
+> No modern device should need the padding.  No old device will be able=
+ to
+> use the SG feature as implemented. You only enable it on USB3, don't
+> you? If this feature is restricted to USB3 capable devices, then it m=
+ost
+> certainly can be restricted to ZLP capable devices with absolutely no
+> difference in the resulting set of supported devices.
 
-Then change the first hunk to use ip_hdr() if you are so confident.
+See above, if we can prove that padding isn't needed, we can remove
+the padding, then the patch can be dropped. If we can't, the patch is n=
+eeded.
 
-Having inconsistent calculations of the ip header pointer is just
-asking for trouble.
+>
+> Anyway, if you want to keep the padding for SG then maybe this will w=
+ork
+> and allow you to drop the extra struct usbnet field and allocation:
+>
+>                         if (skb_tailroom(skb) && !dev->can_dma_sg) {
+>                                skb->data[skb->len] =3D 0;
+>                                __skb_put(skb, 1);
+>                         } else if (dev->can_dma_sg) {
+>                               sg_set_buf(&urb->sg[urb->num_sgs++], sk=
+b->data, 1);
+>                         }
+>
+> I.e. cheat and use the skb->data buffer twice, if that is allowed?  T=
+he
+> actual value of the padding byte should not matter, I believe?
+
+If so, we can remove the assignment of zero to skb->data[skb->len],
+but probably it might cause regression, that is why I wouldn't like to
+do that.  Also looks introducing one extra dev->padding_frame doesn't
+cause much complexity.
+
+Thanks
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
