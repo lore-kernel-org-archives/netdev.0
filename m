@@ -1,41 +1,46 @@
-From: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
-Subject: [PATCH] net/lapb: re-send packets on timeout
-Date: Wed, 18 Sep 2013 12:00:35 +0200
-Message-ID: <1379498435-28860-1-git-send-email-josselin.costanzi@mobile-devices.fr>
-Cc: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>,
-	Maxime Jayat <maxime.jayat@mobile-devices.fr>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:42932 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab3IRKA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 06:00:57 -0400
-Received: by mail-wg0-f44.google.com with SMTP id b13so6206299wgh.23
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 03:00:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kevin Curtis <Kevin.Curtis@farsite.com>
+Subject: [PATCH 001/007] WAN Drivers: Update farsync driver and introduce
+ fsflex driver
+Date: Wed, 18 Sep 2013 11:11:41 +0100
+Message-ID: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA0@SOLO.hq.farsitecommunications.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Dermot Smith <dermot.smith@farsite.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Actually re-send packets when the T1 timer runs out. This fixes a bug
-where packets are waiting on the write queue until disconnection when
-no other traffic is outstanding.
+Farsite Communications FarSync driver update
 
-Signed-off-by: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
-Signed-off-by: Maxime Jayat <maxime.jayat@mobile-devices.fr>
+Patch 1 of 7
+
+Add new FarSite PCI ID's to the pci_ids.h file
+
+
+Signed-off-by: Kevin Curtis <kevin.curtis@farsite.com>
+
 ---
- net/lapb/lapb_timer.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/lapb/lapb_timer.c b/net/lapb/lapb_timer.c
-index 54563ad..355cc3b 100644
---- a/net/lapb/lapb_timer.c
-+++ b/net/lapb/lapb_timer.c
-@@ -154,6 +154,7 @@ static void lapb_t1timer_expiry(unsigned long param)
- 			} else {
- 				lapb->n2count++;
- 				lapb_requeue_frames(lapb);
-+				lapb_kick(lapb);
- 			}
- 			break;
+diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/include/linux/pci_ids.h linux-3.10.1_new/include/linux/pci_ids.h
+--- linux-3.10.1/include/linux/pci_ids.h	2013-07-13 19:42:41.000000000 +0100
++++ linux-3.10.1_new/include/linux/pci_ids.h	2013-07-26 11:18:39.821065185 +0100
+@@ -2284,6 +2284,14 @@
+ #define PCI_DEVICE_ID_FARSITE_T4U       0x0640
+ #define PCI_DEVICE_ID_FARSITE_TE1       0x1610
+ #define PCI_DEVICE_ID_FARSITE_TE1C      0x1612
++#define PCI_DEVICE_ID_FARSITE_DSL_S1    0x2610
++#define PCI_DEVICE_ID_FARSITE_T4E       0x3640
++#define PCI_DEVICE_ID_FARSITE_T4UE      0x4640
++#define PCI_DEVICE_ID_FARSITE_T2UE      0x4620
++#define PCI_DEVICE_ID_FARSITE_T2U_PMC   0x6620
++#define PCI_DEVICE_ID_FARSITE_T2Ee      0x5621
++#define PCI_DEVICE_ID_FARSITE_T4Ee      0x5641
++
  
--- 
-1.7.5.4
+ #define PCI_VENDOR_ID_ARIMA		0x161f
+
