@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ] ipv6: handle the update of the NDISC_REDIRECT error
- code in icmpv6_err_convert
-Date: Wed, 18 Sep 2013 12:36:13 -0400 (EDT)
-Message-ID: <20130918.123613.61436246160249555.davem@davemloft.net>
-References: <523996E0.9080702@cn.fujitsu.com>
+Subject: Re: [PATCH] net: tsi108: Prevent compiler warning
+Date: Wed, 18 Sep 2013 12:38:53 -0400 (EDT)
+Message-ID: <20130918.123853.1464055976885078627.davem@davemloft.net>
+References: <1379508595-30252-1-git-send-email-treding@nvidia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36018 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751612Ab3IRQgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 12:36:15 -0400
-In-Reply-To: <523996E0.9080702@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: thierry.reding@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1379508595-30252-1-git-send-email-treding@nvidia.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 18 Sep 2013 20:04:48 +0800
+From: Thierry Reding <thierry.reding@gmail.com>
+Date: Wed, 18 Sep 2013 14:49:55 +0200
 
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> The dump_eth_one() function is only used if DEBUG is enabled, so protect
+> it by a corresponding #ifdef DEBUG block.
 > 
-> when dealing with redirect message in udpv6_err() and
-> rawv6_err() the err shoud be assigned to 0, not EPROTO.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
 
-No, you should fix this the same way you handled DCCP, but skipping
-the whole socket error setting path for NDISC_REDIRECT.
+I would prefer that this function and the one call site is simply
+removed instead.
 
-Clearing the socket error to zero is not correct, it means you will
-lose any existing error setting.
+This kind of thing can be provided via ethtool register dumps
+and therefore without all of the ugliness this ad-hoc stuff
+presents.
