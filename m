@@ -1,40 +1,53 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH] net: tsi108: Prevent compiler warning
-Date: Wed, 18 Sep 2013 14:49:55 +0200
-Message-ID: <1379508595-30252-1-git-send-email-treding@nvidia.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
+Subject: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source through dts file
+Date: Wed, 18 Sep 2013 17:21:04 +0400
+Message-ID: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru>
+Cc: netdev@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.skitlab.ru ([217.65.220.135]:36437 "EHLO mail.skitlab.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942Ab3IRN3n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Sep 2013 09:29:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dump_eth_one() function is only used if DEBUG is enabled, so protect
-it by a corresponding #ifdef DEBUG block.
+IEEE 1588 timer reference clock source is determined through hard-coded
+value in gianfar_ptp driver by default. This patch allows to select ptp
+clock source by means of device tree file node.
 
-Signed-off-by: Thierry Reding <treding@nvidia.com>
+For instance:
+
+	fsl,cksel = <0>;
+
+for using external (TSEC_TMR_CLK input) high precision timer
+reference clock.
+
+Other acceptable values:
+
+	<1> : eTSEC system clock
+	<2> : eTSEC1 transmit clock
+	<3> : RTC clock input
+
+Signed-off-by: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
 ---
- drivers/net/ethernet/tundra/tsi108_eth.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/freescale/gianfar_ptp.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
-index c4dbf98..a452d93 100644
---- a/drivers/net/ethernet/tundra/tsi108_eth.c
-+++ b/drivers/net/ethernet/tundra/tsi108_eth.c
-@@ -168,6 +168,7 @@ static struct platform_driver tsi_eth_driver = {
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index 098f133..e006a09 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -452,7 +452,9 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 	err = -ENODEV;
  
- static void tsi108_timed_checker(unsigned long dev_ptr);
+ 	etsects->caps = ptp_gianfar_caps;
+-	etsects->cksel = DEFAULT_CKSEL;
++
++	if (get_of_u32(node, "fsl,cksel", &etsects->cksel))
++		etsects->cksel = DEFAULT_CKSEL;
  
-+#ifdef DEBUG
- static void dump_eth_one(struct net_device *dev)
- {
- 	struct tsi108_prv_data *data = netdev_priv(dev);
-@@ -192,6 +193,7 @@ static void dump_eth_one(struct net_device *dev)
- 	       TSI_READ(TSI108_EC_RXESTAT),
- 	       TSI_READ(TSI108_EC_RXERR), data->rxpending);
- }
-+#endif
- 
- /* Synchronization is needed between the thread and up/down events.
-  * Note that the PHY is accessed through the same registers for both
+ 	if (get_of_u32(node, "fsl,tclk-period", &etsects->tclk_period) ||
+ 	    get_of_u32(node, "fsl,tmr-prsc", &etsects->tmr_prsc) ||
 -- 
-1.8.4
+1.8.1.2
