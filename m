@@ -1,75 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 007/007] WAN Drivers: Update farsync driver and
- introduce fsflex driver
-Date: Wed, 18 Sep 2013 16:57:45 +0100
-Message-ID: <1379519865.1522.37.camel@bwh-desktop.uk.level5networks.com>
-References: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA6@SOLO.hq.farsitecommunications.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
+ shut down
+Date: Wed, 18 Sep 2013 16:58:15 +0100
+Message-ID: <1379519895.11304.268.camel@hastur.hellion.org.uk>
+References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+	 <20130918103704.GA511@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"Dermot Smith" <dermot.smith@farsite.com>
-To: Kevin Curtis <Kevin.Curtis@farsite.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAAAA787DA6@SOLO.hq.farsitecommunications.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Paul Durrant <paul.durrant@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, David Vrabel <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:28602 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072Ab3IRP6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 11:58:20 -0400
+In-Reply-To: <20130918103704.GA511@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-09-18 at 11:12 +0100, Kevin Curtis wrote:
-> Farsite Communications FarSync driver update
+On Wed, 2013-09-18 at 11:37 +0100, Wei Liu wrote:
+> On Tue, Sep 17, 2013 at 05:46:08PM +0100, Paul Durrant wrote:
+> > Without this patch, if a frontend cycles through states Closing
+> > and Closed (which Windows frontends need to do) then the netdev
+> > will be destroyed and requires re-invocation of hotplug scripts
+> > to restore state before the frontend can move to Connected. Thus
+> > when udev is not in use the backend gets stuck in InitWait.
+> > 
+> > With this patch, the netdev is left alone whilst the backend is
+> > still online and is only de-registered and freed just prior to
+> > destroying the vif (which is also nicely symmetrical with the
+> > netdev allocation and registration being done during probe) so
+> > no re-invocation of hotplug scripts is required.
+> > 
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> > Cc: David Vrabel <david.vrabel@citrix.com>
+> > Cc: Wei Liu <wei.liu2@citrix.com>
+> > Cc: Ian Campbell <ian.campbell@citrix.com>
 > 
-> Patch 7 of 7
-> 
-> Update the help text and description for farsync configuration in the Kernel.
-> Build farsync and fsflex when the farsync driver is selected.
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-fsflex seems to be an entirely independent module and should have its
-own config option.
+yeah, looks good, thanks.
 
-Ben.
+Paul, did you test this with non-Windows frontends too? and do things
+like vif hot(un)plug still work?
 
-> Signed-off-by: Kevin Curtis <kevin.curtis@farsite.com>
-> 
-> ---
-> 
-> diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/drivers/net/wan/Kconfig linux-3.10.1_new/drivers/net/wan/Kconfig
-> --- linux-3.10.1/drivers/net/wan/Kconfig	2013-07-13 19:42:41.000000000 +0100
-> +++ linux-3.10.1_new/drivers/net/wan/Kconfig	2013-07-31 14:11:05.792775800 +0100
-> @@ -248,11 +248,11 @@ config C101
->  	  If unsure, say N.
->  
->  config FARSYNC
-> -	tristate "FarSync T-Series support"
-> +	tristate "FarSync T-Series and Flex support"
->  	depends on HDLC && PCI
->  	---help---
-> -	  Support for the FarSync T-Series X.21 (and V.35/V.24) cards by
-> -	  FarSite Communications Ltd.
-> +	  Support for the FarSync T-Series and FarSync Flex X.21 (and
-> +          V.35/V.24) ports by FarSite Communications Ltd.
->  
->  	  Synchronous communication is supported on all ports at speeds up to
->  	  8Mb/s (128K on V.24) using synchronous PPP, Cisco HDLC, raw HDLC,
-> diff -uprN -X linux-3.10.1/Documentation/dontdiff linux-3.10.1/drivers/net/wan/Makefile linux-3.10.1_new/drivers/net/wan/Makefile
-> --- linux-3.10.1/drivers/net/wan/Makefile	2013-07-13 19:42:41.000000000 +0100
-> +++ linux-3.10.1_new/drivers/net/wan/Makefile	2013-07-26 09:14:15.345354002 +0100
-> @@ -16,7 +16,7 @@ obj-$(CONFIG_HDLC_X25)		+= hdlc_x25.o
->  obj-$(CONFIG_HOSTESS_SV11)	+= z85230.o	hostess_sv11.o
->  obj-$(CONFIG_SEALEVEL_4021)	+= z85230.o	sealevel.o
->  obj-$(CONFIG_COSA)		+= cosa.o
-> -obj-$(CONFIG_FARSYNC)		+= farsync.o
-> +obj-$(CONFIG_FARSYNC)		+= farsync.o fsflex.o
->  obj-$(CONFIG_DSCC4)             += dscc4.o
->  obj-$(CONFIG_X25_ASY)		+= x25_asy.o
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Ian.
