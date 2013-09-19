@@ -1,69 +1,70 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: Re: [PATCH net 1/3] slip/slcan: added locking in wakeup function
-Date: Thu, 19 Sep 2013 06:43:16 -0400
-Message-ID: <523AD544.7030100@hurleysoftware.com>
-References: <1379093833-4949-1-git-send-email-nautsch2@gmail.com> <1379093833-4949-2-git-send-email-nautsch2@gmail.com> <523AC589.5040006@pengutronix.de> <523AD21C.8030102@gmail.com> <523AD356.70607@pengutronix.de>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: Re: [PATCH] net: tsi108: Prevent compiler warning
+Date: Thu, 19 Sep 2013 13:14:06 +0200
+Message-ID: <20130919111405.GA10852@ulmo>
+References: <1379508595-30252-1-git-send-email-treding@nvidia.com>
+ <20130918.123853.1464055976885078627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andre Naujoks <nautsch2@gmail.com>, davem@davemloft.net,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <523AD356.70607@pengutronix.de>
+Content-Disposition: inline
+In-Reply-To: <20130918.123853.1464055976885078627.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ +cc Greg Kroah-Hartman]
 
-On 09/19/2013 06:35 AM, Marc Kleine-Budde wrote:
-> On 09/19/2013 12:29 PM, Andre Naujoks wrote:
->> On 19.09.2013 11:36, schrieb Marc Kleine-Budde:
->>> On 09/13/2013 07:37 PM, Andre Naujoks wrote:
->>>> The locking is needed, since the the internal buffer for the CAN
->>>> frames is changed during the wakeup call. This could cause buffer
->>>> inconsistencies under high loads, especially for the outgoing
->>>> short CAN packet skbuffs.
->>>>
->>>> The needed locks led to deadlocks before commit
->>>> "5ede52538ee2b2202d9dff5b06c33bfde421e6e4 tty: Remove extra
->>>> wakeup from pty write() path", which removed the direct callback
->>>> to the wakeup function from the tty layer.
->>>
->>> What does that mean for older kernels? (<
->>> 5ede52538ee2b2202d9dff5b06c33bfde421e6e4)
->>
->> It seems the slcan (and slip) driver is broken for older kernels. See
->> this thread for a discussion about the patch in pty.c.
->>
->> http://marc.info/?l=linux-kernel&m=137269017002789&w=2
->
-> Thanks for the info.
->
->> The patch from Peter Hurley was actually already in the queue, when I
->> ran into the problem, and is now in kernel 3.12.
->>
->> Without the pty patch and slow CAN traffic, the driver works, because
->> the wakeup is called directly from the pty driver. That is also the
->> reason why there was no locking. It would just deadlock.
->>
->> When the pty driver defers the wakeup, we ran into synchronisation
->> problems (which should be fixed by the locking) and eventually into a
->> kernel panic because of a recursive loop (which should be fixed by the
->> pty.c patch).
->>
->> Maybe it is possible to get both patches back into the stable branches?
->
-> Sounds reasonable. You might get in touch with Peter Hurley, if his
-> patch is scheduled for stable. Documentation/stable_kernel_rules.txt
-> suggests a procedure if your patch depends on others to be cherry picked.
+--LQksG6bCIzRHxTLp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Already following along.
+On Wed, Sep 18, 2013 at 12:38:53PM -0400, David Miller wrote:
+> From: Thierry Reding <thierry.reding@gmail.com>
+> Date: Wed, 18 Sep 2013 14:49:55 +0200
+>=20
+> > The dump_eth_one() function is only used if DEBUG is enabled, so protect
+> > it by a corresponding #ifdef DEBUG block.
+> >=20
+> > Signed-off-by: Thierry Reding <treding@nvidia.com>
+>=20
+> I would prefer that this function and the one call site is simply
+> removed instead.
+>=20
+> This kind of thing can be provided via ethtool register dumps
+> and therefore without all of the ugliness this ad-hoc stuff
+> presents.
 
-I'd like to wait for 3.12 release before the pty patch goes to -stable
-(so that it gets more in-the-wild testing).
+I just noticed the warning during some test builds I was doing due to
+some unrelated patches and thought I'd clean it up along the way.
 
-Regards,
-Peter Hurley
+I'll send a patch to remove the functionality completely if that's what
+you prefer, but I won't be able to reimplement it using ethtool. Perhaps
+someone with actual hardware can do that.
+
+Thierry
+
+--LQksG6bCIzRHxTLp
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.21 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSOtx9AAoJEN0jrNd/PrOhnT4QAIelrNP+MLJmxaxZq7wfGqcZ
+FViGIYuYfKPUjCYJ+jsihfyYJaLrpFsiYensrivPqEpdwRqOfYVY2jEw1AVRfwa8
+x9oVRbnylRJlxY8ztBpY2vm1TEpBQn8aXa1YReELWtEe2f4yEmYWBIm6NpjoHlnn
+Sc9UCtU0LMSaAY3/NRCutCEeEWYGF1I7b9ML4fPVYV61d+3hNAy+3vbZCugGUpM/
+WtaXrFn0XRGsa5yS5uDCwUQEscTOFfqtvj9mxkxNrLy2BJyhUPMgvQzUqfFsAnAk
+i1q1k++E9f4M4BDCfCQWB26oy92FC9K/hXQVtimQmIPM0vdLtq/cPm/67HY3+A84
+avzN+XKPNHtMpQcxSrIUQnh0juLIoOlGBJD9tRGUbqOQS52pE10/AKlcjYWChNAb
+3zZng+lkW2ug06nCpkPf8wlpO3KQz1Hw9LhCnAa6Vy6YYpPkLY76r32yEawHcs0z
+Oc28mEqaFVCw7sUoCECnuV+0ZYSYO4SDGynEeouD+c/3yo3U3WcgQsh1L2gAtq2n
+nN4HO7d7cJmC5u0DHkNff96IoRjcIT2XLdij2NbLYMzqV5N43BfyS0OQhuz9T6OM
+xzLPsCqoNPBPJmZm/ljNrxNuOR0vlzJ9YJWfgxCq2lnc2KYtoeS2LSLCIIQd8I67
+4U/jajMZbg9Pgi+r1Wcf
+=SUIx
+-----END PGP SIGNATURE-----
+
+--LQksG6bCIzRHxTLp--
