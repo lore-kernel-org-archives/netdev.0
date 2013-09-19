@@ -1,34 +1,45 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] skge: fix broken driver
-Date: Thu, 19 Sep 2013 23:32:18 +0200
-Message-ID: <20130919213218.GA31672@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from stable
+ rules
+Date: Thu, 19 Sep 2013 23:32:41 +0200
+Message-ID: <20130919213241.GB31672@electric-eye.fr.zoreil.com>
 References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
  <20130919.135628.1201613770803318193.davem@davemloft.net>
  <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
- <1379614608.2331.0.camel@ThinkPad-X230.localdomain>
- <alpine.LRH.2.02.1309191427420.15640@file01.intranet.prod.int.rdu2.redhat.com>
+ <1379615474.22168.13.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Igor Gnatenko <i.gnatenko.brain@gmail.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: Mikulas Patocka <mpatocka@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52258 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797Ab3ISVc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 17:32:29 -0400
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, Mikulas Patocka <mpatocka@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rob Landley <rob@landley.net>, linux-doc@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.02.1309191427420.15640@file01.intranet.prod.int.rdu2.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1379615474.22168.13.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mikulas Patocka <mpatocka@redhat.com> :
+Joe Perches <joe@perches.com> :
 [...]
-> I see. My patch is a bit simpler - it doesn't allocate the structure 
-> skge_element on the stack.
+> diff --git a/Documentation/stable_kernel_rules.txt b/Documentation/stable_kernel_rules.txt
+> index b0714d8..a2d6da0 100644
+> --- a/Documentation/stable_kernel_rules.txt
+> +++ b/Documentation/stable_kernel_rules.txt
+> @@ -29,6 +29,11 @@ Rules on what kind of patches are accepted, and which ones are not, into the
+>  
+>  Procedure for submitting patches to the -stable tree:
+>  
+> + - The networking tree (net/ and drivers/net/) is 'special' and doesn't
+> +   follow the rules below.  Don't send or cc: patches for the -stable tree to
+> +   stable@vger.kernel.org.  Don't mark them stable.  Just send the patches to
+> +   netdev@vger.kernel.org and let the networking maintainer decide what to do
+> +   with them.
 
-Both patches don't behave exactly the same wrt pci_unmap_single.
+David said "simply ask me to queue them up for -stable explicitly".
+
+He did not say "send the patches and let me decide what to do with them".
 
 -- 
 Ueimor
