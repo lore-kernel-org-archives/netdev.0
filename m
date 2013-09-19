@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy/micrel: Add suspend/resume support to Micrel PHYs
-Date: Thu, 19 Sep 2013 14:08:29 -0400 (EDT)
-Message-ID: <20130919.140829.372011462903870193.davem@davemloft.net>
-References: <1379612448-20805-1-git-send-email-nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net v2 1/2] ip: use ip_hdr() in __ip_make_skb() to
+ retrieve IP header
+Date: Thu, 19 Sep 2013 14:11:30 -0400 (EDT)
+Message-ID: <20130919.141130.1213345571099136917.davem@davemloft.net>
+References: <1379543393-7446-1-git-send-email-aatteka@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.brezillon@overkiz.com,
-	f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, patrice.vilchez@atmel.com,
-	david.choi@micrel.com
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379612448-20805-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: aatteka@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752417Ab3ISSLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:11:32 -0400
+In-Reply-To: <1379543393-7446-1-git-send-email-aatteka@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Thu, 19 Sep 2013 19:40:48 +0200
+From: Ansis Atteka <aatteka@nicira.com>
+Date: Wed, 18 Sep 2013 15:29:52 -0700
 
-> From: Patrice Vilchez <patrice.vilchez@atmel.com>
+> skb->data already points to IP header, but for the sake of
+> consistency we can also use ip_hdr() to retrieve it.
 > 
-> All supported Micrel PHYs implement the standard "power down" bit 11 of BMCR,
-> so this patch adds support using the generic genphy_{suspend,resume} functions.
-> 
-> Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
-> [b.brezillon@overkiz.com: adapt to newer kernel and generalize to other phys]
-> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
-> [nicolas.ferre@atmel.com: commit message modification]
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: David J. Choi <david.choi@micrel.com>
+> Signed-off-by: Ansis Atteka <aatteka@nicira.com>
 
-What's the difference between this patch and the one you sent 60
-seconds beforehand?
+Applied.
