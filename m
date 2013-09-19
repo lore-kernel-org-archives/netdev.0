@@ -1,70 +1,75 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: Re: [PATCH] net: tsi108: Prevent compiler warning
-Date: Thu, 19 Sep 2013 13:14:06 +0200
-Message-ID: <20130919111405.GA10852@ulmo>
-References: <1379508595-30252-1-git-send-email-treding@nvidia.com>
- <20130918.123853.1464055976885078627.davem@davemloft.net>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v4] Don't destroy the netdev until the vif is
+ shut down
+Date: Thu, 19 Sep 2013 11:55:37 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD010DCCE@AMSPEX01CL01.citrite.net>
+References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+	 <20130918103704.GA511@zion.uk.xensource.com>
+	 <1379519895.11304.268.camel@hastur.hellion.org.uk>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD010D0DB@AMSPEX01CL01.citrite.net>
+ <1379521517.11304.274.camel@hastur.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130918.123853.1464055976885078627.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:47679 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753228Ab3ISLzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 07:55:40 -0400
+In-Reply-To: <1379521517.11304.274.camel@hastur.hellion.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Sep 18, 2013 at 12:38:53PM -0400, David Miller wrote:
-> From: Thierry Reding <thierry.reding@gmail.com>
-> Date: Wed, 18 Sep 2013 14:49:55 +0200
->=20
-> > The dump_eth_one() function is only used if DEBUG is enabled, so protect
-> > it by a corresponding #ifdef DEBUG block.
-> >=20
-> > Signed-off-by: Thierry Reding <treding@nvidia.com>
->=20
-> I would prefer that this function and the one call site is simply
-> removed instead.
->=20
-> This kind of thing can be provided via ethtool register dumps
-> and therefore without all of the ugliness this ad-hoc stuff
-> presents.
-
-I just noticed the warning during some test builds I was doing due to
-some unrelated patches and thought I'd clean it up along the way.
-
-I'll send a patch to remove the functionality completely if that's what
-you prefer, but I won't be able to reimplement it using ethtool. Perhaps
-someone with actual hardware can do that.
-
-Thierry
-
---LQksG6bCIzRHxTLp
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.21 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSOtx9AAoJEN0jrNd/PrOhnT4QAIelrNP+MLJmxaxZq7wfGqcZ
-FViGIYuYfKPUjCYJ+jsihfyYJaLrpFsiYensrivPqEpdwRqOfYVY2jEw1AVRfwa8
-x9oVRbnylRJlxY8ztBpY2vm1TEpBQn8aXa1YReELWtEe2f4yEmYWBIm6NpjoHlnn
-Sc9UCtU0LMSaAY3/NRCutCEeEWYGF1I7b9ML4fPVYV61d+3hNAy+3vbZCugGUpM/
-WtaXrFn0XRGsa5yS5uDCwUQEscTOFfqtvj9mxkxNrLy2BJyhUPMgvQzUqfFsAnAk
-i1q1k++E9f4M4BDCfCQWB26oy92FC9K/hXQVtimQmIPM0vdLtq/cPm/67HY3+A84
-avzN+XKPNHtMpQcxSrIUQnh0juLIoOlGBJD9tRGUbqOQS52pE10/AKlcjYWChNAb
-3zZng+lkW2ug06nCpkPf8wlpO3KQz1Hw9LhCnAa6Vy6YYpPkLY76r32yEawHcs0z
-Oc28mEqaFVCw7sUoCECnuV+0ZYSYO4SDGynEeouD+c/3yo3U3WcgQsh1L2gAtq2n
-nN4HO7d7cJmC5u0DHkNff96IoRjcIT2XLdij2NbLYMzqV5N43BfyS0OQhuz9T6OM
-xzLPsCqoNPBPJmZm/ljNrxNuOR0vlzJ9YJWfgxCq2lnc2KYtoeS2LSLCIIQd8I67
-4U/jajMZbg9Pgi+r1Wcf
-=SUIx
------END PGP SIGNATURE-----
-
---LQksG6bCIzRHxTLp--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
+bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMTggU2VwdGVtYmVyIDIwMTMgMTc6
+MjUNCj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogV2VpIExpdTsgeGVuLWRldmVsQGxpc3RzLnhl
+bi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFZyYWJlbA0KPiBTdWJqZWN0OiBS
+ZTogW1BBVENIIG5ldC1uZXh0IHY0XSBEb24ndCBkZXN0cm95IHRoZSBuZXRkZXYgdW50aWwgdGhl
+IHZpZiBpcw0KPiBzaHV0IGRvd24NCj4gDQo+IE9uIFdlZCwgMjAxMy0wOS0xOCBhdCAxNzowNCAr
+MDEwMCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCj4gPiA+IEZyb206IElhbiBDYW1wYmVsbCBbbWFpbHRvOmlhbi5jYW1wYmVsbEBjaXRyaXgu
+Y29tXQ0KPiA+ID4gU2VudDogMTggU2VwdGVtYmVyIDIwMTMgMTY6NTgNCj4gPiA+IFRvOiBXZWkg
+TGl1DQo+ID4gPiBDYzogUGF1bCBEdXJyYW50OyB4ZW4tZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gRGF2aWQNCj4gPiA+IFZyYWJlbA0KPiA+ID4gU3ViamVj
+dDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2NF0gRG9uJ3QgZGVzdHJveSB0aGUgbmV0ZGV2IHVudGls
+IHRoZSB2aWYgaXMNCj4gPiA+IHNodXQgZG93bg0KPiA+ID4NCj4gPiA+IE9uIFdlZCwgMjAxMy0w
+OS0xOCBhdCAxMTozNyArMDEwMCwgV2VpIExpdSB3cm90ZToNCj4gPiA+ID4gT24gVHVlLCBTZXAg
+MTcsIDIwMTMgYXQgMDU6NDY6MDhQTSArMDEwMCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4g
+PiA+IFdpdGhvdXQgdGhpcyBwYXRjaCwgaWYgYSBmcm9udGVuZCBjeWNsZXMgdGhyb3VnaCBzdGF0
+ZXMgQ2xvc2luZw0KPiA+ID4gPiA+IGFuZCBDbG9zZWQgKHdoaWNoIFdpbmRvd3MgZnJvbnRlbmRz
+IG5lZWQgdG8gZG8pIHRoZW4gdGhlIG5ldGRldg0KPiA+ID4gPiA+IHdpbGwgYmUgZGVzdHJveWVk
+IGFuZCByZXF1aXJlcyByZS1pbnZvY2F0aW9uIG9mIGhvdHBsdWcgc2NyaXB0cw0KPiA+ID4gPiA+
+IHRvIHJlc3RvcmUgc3RhdGUgYmVmb3JlIHRoZSBmcm9udGVuZCBjYW4gbW92ZSB0byBDb25uZWN0
+ZWQuIFRodXMNCj4gPiA+ID4gPiB3aGVuIHVkZXYgaXMgbm90IGluIHVzZSB0aGUgYmFja2VuZCBn
+ZXRzIHN0dWNrIGluIEluaXRXYWl0Lg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gV2l0aCB0aGlzIHBh
+dGNoLCB0aGUgbmV0ZGV2IGlzIGxlZnQgYWxvbmUgd2hpbHN0IHRoZSBiYWNrZW5kIGlzDQo+ID4g
+PiA+ID4gc3RpbGwgb25saW5lIGFuZCBpcyBvbmx5IGRlLXJlZ2lzdGVyZWQgYW5kIGZyZWVkIGp1
+c3QgcHJpb3IgdG8NCj4gPiA+ID4gPiBkZXN0cm95aW5nIHRoZSB2aWYgKHdoaWNoIGlzIGFsc28g
+bmljZWx5IHN5bW1ldHJpY2FsIHdpdGggdGhlDQo+ID4gPiA+ID4gbmV0ZGV2IGFsbG9jYXRpb24g
+YW5kIHJlZ2lzdHJhdGlvbiBiZWluZyBkb25lIGR1cmluZyBwcm9iZSkgc28NCj4gPiA+ID4gPiBu
+byByZS1pbnZvY2F0aW9uIG9mIGhvdHBsdWcgc2NyaXB0cyBpcyByZXF1aXJlZC4NCj4gPiA+ID4g
+Pg0KPiA+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNp
+dHJpeC5jb20+DQo+ID4gPiA+ID4gQ2M6IERhdmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJp
+eC5jb20+DQo+ID4gPiA+ID4gQ2M6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+DQo+ID4g
+PiA+ID4gQ2M6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+ID4gPiA+
+DQo+ID4gPiA+IEFja2VkLWJ5OiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+ID4N
+Cj4gPiA+IHllYWgsIGxvb2tzIGdvb2QsIHRoYW5rcy4NCj4gPiA+DQo+ID4gPiBQYXVsLCBkaWQg
+eW91IHRlc3QgdGhpcyB3aXRoIG5vbi1XaW5kb3dzIGZyb250ZW5kcyB0b28/IGFuZCBkbyB0aGlu
+Z3MNCj4gPiA+IGxpa2UgdmlmIGhvdCh1bilwbHVnIHN0aWxsIHdvcms/DQo+ID4gPg0KPiA+DQo+
+ID4gSWFuLA0KPiA+DQo+ID4gSSB0ZXN0ZWQgd2l0aCBhIGRlYmlhbiAod2hlZXp5KSBQViBndWVz
+dCBidXQgSSBkaWRuJ3QgdGVzdCB1bnBsdWcuIEkNCj4gPiBjeWNsZWQgYSB3aW5kb3dzIGZyb250
+ZW5kIHNldmVyYWwgdGltZXMgKHdoaWNoIGlzIGhvdyBJIHNwb3R0ZWQgdGhlDQo+ID4gdHhfaXJx
+IHRoaW5nKSwgYW5kIHNodXRkb3duIGFuZCBicm91Z2h0IHVwIGJvdGggdGhlIGRlYmlhbiBhbmQg
+d2luZG93cw0KPiA+IGd1ZXN0cyBzZXZlcmFsIHRpbWVzLiBJIGNhbiB0ZXN0IHVucGx1ZyB0b28g
+aWYgeW91J2QgbGlrZS4NCj4gDQo+IEkgZG9uJ3QgdGhpbmsgaXQgbmVlZHMgdG8gYmUgYSBibG9j
+a2VyIGZvciBhY2NlcHRpbmcgdGhpcyBwYXRjaCBidXQgaXQNCj4gd291bGQgYmUgZ29vZCB0byB0
+cnkgaXQsIGl0J3MgdGhlIHNvcnQgb2YgYXJlYSB3aGljaCBoaXN0b3JpY2FsbHkgZ2V0cw0KPiBi
+cm9rZW4gYnkgdGhpcyBzb3J0IG9mIGNoYW5nZS4NCj4gDQoNCkZXSVcgSSBqdXN0IGNoZWNrZWQg
+bmV0d29yay1kZXRhY2ggd2l0aCBhIHdpbmRvd3MgZnJvbnRlbmQgYW5kIGl0IHdvcmtlZCBvay4N
+Cg0KICBQYXVsDQo=
