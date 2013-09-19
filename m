@@ -1,71 +1,173 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH] USBNET: fix handling padding packet
-Date: Thu, 19 Sep 2013 09:18:08 +0200
-Message-ID: <87wqmd46vj.fsf@nemi.mork.no>
-References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
-	<878uyu6xjm.fsf@nemi.mork.no>
-	<CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
-	<87zjra5dpx.fsf@nemi.mork.no>
-	<1379523984.2430.3.camel@linux-fkkt.site>
-	<be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com>
-	<1379573843.8608.7.camel@linux-fkkt.site>
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Subject: [PATCH] iproute2: bridge: document mdb
+Date: Thu, 19 Sep 2013 10:15:43 +0200
+Message-ID: <1379578543-31358-1-git-send-email-ppisar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379573843.8608.7.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org> (Oliver Neukum's
-	message of "Thu, 19 Sep 2013 08:57:23 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <shemminger@vyatta.com>,
+	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4302 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752256Ab3ISIQO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Sep 2013 04:16:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
-> On Wed, 2013-09-18 at 20:56 +0200, Bj=C3=B8rn Mork wrote:
->> Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
->
->> >No, USB 3.0 uses no companion controllers, so you can have devices
->> >of any speed connected to it.
->> >
->>=20
->> Ah, right. I don't own such modern hardware, but I should have known
->> this anyway.
->>=20
->> This still doesn't change the fact that the driver is brand new for
->> brand new devices. I believe we should assume such devices will
->> support ZLPs unless we have documentation stating anything else.
->
-> For such devices we might assume it. But how does that matter for
-> generic code?
+This augments bridge(8) manual page with `bridge mdb' and `bridge
+monitor mdb' commands which have been added recently.
 
-The code isn't generic yet.  Most of it is placed inside the
-ax88179_178a minidriver.
+Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+---
+ man/man8/bridge.8 | 88 +++++++++++++++++++++++++++++++++++++++++++++++=
+++++++--
+ 1 file changed, 85 insertions(+), 3 deletions(-)
 
-But I do agree that adding this padding support can be seen as one step
-towards making the code generic.  So if you really anticipate this bein=
-g
-enabled for e.g. the ECM class driver, then yes, padding must be
-supported.
-
-I would have had less trouble understanding the value if this patch was
-part of a generalisation series, though...
-
-> As any kind of device may be connected to XHCI, the sg
-> code is relevant for every driver. And I certainly don't want trouble
-> for older devices' drivers converted to sg.
-
-I wonder what the gain of that really is?  Yes, I can see the advantage
-of making the class drivers more effective.  But padding is only
-relevant for the ECM class, isn't it? And are there any ECM class
-devices where SG support matters?
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 66678b5..635e801 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -13,7 +13,7 @@ bridge \- show / manipulate bridge addresses and devi=
+ces
+=20
+ .ti -8
+ .IR OBJECT " :=3D { "
+-.BR link " | " fdb " | " vlan " | " monitor " }"
++.BR link " | " fdb " | " mdb " | " vlan " | " monitor " }"
+ .sp
+=20
+ .ti -8
+@@ -65,6 +65,21 @@ bridge \- show / manipulate bridge addresses and dev=
+ices
+ .IR DEV " ]"
+=20
+ .ti -8
++.BR "bridge mdb" " { " add " | " del " } "
++.B  dev
++.IR DEV=20
++.B port
++.IR PORT
++.B grp
++.IR GROUP " [ "
++.BR permanent " | " temp " ]"
++
++.ti -8
++.BR "bridge mdb show " [ "
++.B  dev
++.IR DEV " ]"
++
++.ti -8
+ .BR "bridge vlan" " { " add " | " del " } "
+ .B  dev
+ .IR DEV
+@@ -79,7 +94,7 @@ bridge \- show / manipulate bridge addresses and devi=
+ces
+ .IR DEV " ]"
+=20
+ .ti -8
+-.BR "bridge monitor" " [ " all " | " neigh " | " link " ]"
++.BR "bridge monitor" " [ " all " | " neigh " | " link " | " mdb " ]"
+=20
+ .SH OPTIONS
+=20
+@@ -110,6 +125,10 @@ As a rule, the information is statistics or some t=
+ime values.
+ - Forwarding Database entry.
+=20
+ .TP
++.B mdb=20
++- Multicast group database entry.
++
++.TP
+ .B vlan
+ - VLAN filter list.
+=20
+@@ -326,6 +345,69 @@ With the
+ option, the command becomes verbose.  It prints out the last updated
+ and last used time for each entry.
+=20
++.SH bridge mdb - multicast group database management
++
++.B mdb
++objects contain known IP multicast group addresses on a link.
++
++.P
++The corresponding commands display mdb entries, add new entries,
++and delete old ones.
++
++.SS bridge mdb add - add a new multicast group database entry
++
++This command creates a new mdb entry.
++
++.TP
++.BI dev " DEV"
++the interface where this group address is associated.
++
++.TP
++.BI port " PORT"
++the port whose link is known to have members of this multicast group.
++
++.TP
++.BI grp " GROUP"
++the IP multicast group address whose members reside on the link connec=
+ted to
++the port.
++
++.B permanent
++- the mdb entry is permanent
++.sp
++
++.B temp
++- the mdb entry is temporary (default)
++.sp
++
++.in -8
++.SS bridge mdb delete - delete a multicast group database entry
++This command removes an existing mdb entry.
++
++.PP
++The arguments are the same as with
++.BR "bridge mdb add" .
++
++.SS bridge mdb show - list multicast group database entries
++
++This command displays the current multicast group membership table. Th=
+e table
++is populated by IGMP and MLD snooping in the bridge driver automatical=
+ly. It
++can be altered by
++.B bridge mdb add
++and
++.B bridge mdb del
++commands manually too.
++
++.TP
++.BI dev " DEV"
++the interface only whose entries should be listed. Default is to list =
+all
++bridge interfaces.
++
++.PP
++With the
++.B -details
++option, the command becomes verbose.  It prints out the ports known to=
+ have
++a connected router.
++
+ .SH bridge vlan - VLAN filter list
+=20
+ .B vlan
+@@ -395,7 +477,7 @@ command is the first in the command line and then t=
+he object list follows:
+ .I OBJECT-LIST
+ is the list of object types that we want to monitor.
+ It may contain
+-.BR link ",  and " fdb "."
++.BR link ",  " fdb ", and " mdb "."
+ If no
+ .B file
+ argument is given,
+--=20
+1.8.3.1
