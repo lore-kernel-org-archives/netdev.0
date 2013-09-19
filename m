@@ -1,39 +1,37 @@
-From: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: [PATCH 11/51] DMA-API: net: emulex/benet: replace
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH 13/51] DMA-API: net: sfc/efx.c: replace
  dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:36:00 +0100
-Message-ID: <E1VMltI-0007gK-2r@rmk-PC.arm.linux.org.uk>
+Date: Thu, 19 Sep 2013 22:38:00 +0100
+Message-ID: <E1VMlvE-0007gc-B5@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sathya Perla <sathya.perla-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>,
- Subbu Seetharaman <subbu.seetharaman-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>,
- Ajit Khaparde <ajit.khaparde-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>
-To: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
- uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20130919212235.GD12758-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
+ devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
+ linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org,
+ linux-doc@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ linux-ide@vger.kernel.org, linux-media@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-nvme@lists.infradead.org,
+ linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
+ linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+ Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+ uclinux-dist-devel@blackfin.uclinux.org
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
 Replace the following sequence:
@@ -43,36 +41,40 @@ Replace the following sequence:
 
 with a call to the new helper dma_set_mask_and_coherent().
 
-Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   12 ++----------
- 1 files changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sfc/efx.c |   12 +-----------
+ 1 files changed, 1 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3224d28..2084151 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4335,19 +4335,11 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 	adapter->netdev = netdev;
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 07c9bc4..2e27837 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1121,7 +1121,7 @@ static int efx_init_io(struct efx_nic *efx)
+ 	 */
+ 	while (dma_mask > 0x7fffffffUL) {
+ 		if (dma_supported(&pci_dev->dev, dma_mask)) {
+-			rc = dma_set_mask(&pci_dev->dev, dma_mask);
++			rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
+ 			if (rc == 0)
+ 				break;
+ 		}
+@@ -1134,16 +1134,6 @@ static int efx_init_io(struct efx_nic *efx)
+ 	}
+ 	netif_dbg(efx, probe, efx->net_dev,
+ 		  "using DMA mask %llx\n", (unsigned long long) dma_mask);
+-	rc = dma_set_coherent_mask(&pci_dev->dev, dma_mask);
+-	if (rc) {
+-		/* dma_set_coherent_mask() is not *allowed* to
+-		 * fail with a mask that dma_set_mask() accepted,
+-		 * but just in case...
+-		 */
+-		netif_err(efx, probe, efx->net_dev,
+-			  "failed to set consistent DMA mask\n");
+-		goto fail2;
+-	}
  
--	status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
-+	status = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
- 	if (!status) {
--		status = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
--		if (status < 0) {
--			dev_err(&pdev->dev, "dma_set_coherent_mask failed\n");
--			goto free_netdev;
--		}
- 		netdev->features |= NETIF_F_HIGHDMA;
- 	} else {
--		status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
--		if (!status)
--			status = dma_set_coherent_mask(&pdev->dev,
--						       DMA_BIT_MASK(32));
-+		status = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
- 		if (status) {
- 			dev_err(&pdev->dev, "Could not set PCI DMA Mask\n");
- 			goto free_netdev;
+ 	efx->membase_phys = pci_resource_start(efx->pci_dev, EFX_MEM_BAR);
+ 	rc = pci_request_region(pci_dev, EFX_MEM_BAR, "sfc");
 -- 
 1.7.4.4
