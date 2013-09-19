@@ -1,146 +1,37 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] phy/micrel: Add suspend/resume support to Micrel PHYs
-Date: Thu, 19 Sep 2013 19:40:48 +0200
-Message-ID: <1379612448-20805-1-git-send-email-nicolas.ferre@atmel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sfc: Fix efx_rx_buf_offset() for recycled
+ pages
+Date: Thu, 19 Sep 2013 13:43:44 -0400 (EDT)
+Message-ID: <20130919.134344.567275739975628700.davem@davemloft.net>
+References: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <b.brezillon@overkiz.com>, <f.fainelli@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Patrice Vilchez <patrice.vilchez@atmel.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"David J. Choi" <david.choi@micrel.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrice Vilchez <patrice.vilchez@atmel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 19 Sep 2013 17:13:51 +0100
 
-All supported Micrel PHYs implement the standard "power down" bit 11 of BMCR,
-so this patch adds support using the generic genphy_{suspend,resume} functions.
+> This bug fix is only for stable branches older than 3.10.  The bug was
+> fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
+> mapping/unmapping costs'), but that change is totally unsuitable for
+> stable.
+> 
+> Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
+> swiotlb') added an explicit page_offset member to struct
+> efx_rx_buffer, which must be set consistently with the u.page and
+> dma_addr fields.  However, it failed to add the necessary assignment
+> in efx_resurrect_rx_buffer().  It also did not correct the calculation
+> of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
+> that DMA-mapping a page will result in a page-aligned DMA address
+> (exactly what swiotlb violates).
+> 
+> Add the assignment of efx_rx_buffer::page_offset and change the
+> calculation of dma_addr to make use of it.
 
-Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
-[b.brezillon@overkiz.com: adapt to newer kernel and generalize to other phys]
-Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
-[nicolas.ferre@atmel.com: commit message modification]
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Cc: David J. Choi <david.choi@micrel.com>
----
- drivers/net/phy/micrel.c | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
-
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index c31aad0..3ae28f4 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -287,6 +287,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= ks8737_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8021,
-@@ -300,6 +302,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8031,
-@@ -313,6 +317,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8041,
-@@ -326,6 +332,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8051,
-@@ -339,6 +347,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8001,
-@@ -351,6 +361,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8081,
-@@ -363,6 +375,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ8061,
-@@ -375,6 +389,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= kszphy_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= PHY_ID_KSZ9021,
-@@ -387,6 +403,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= ksz9021_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
- }, {
- 	.phy_id		= PHY_ID_KSZ9031,
-@@ -400,6 +418,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
- 	.config_intr	= ksz9021_config_intr,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
- }, {
- 	.phy_id		= PHY_ID_KSZ8873MLL,
-@@ -410,6 +430,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= ksz8873mll_config_aneg,
- 	.read_status	= ksz8873mll_read_status,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
- }, {
- 	.phy_id		= PHY_ID_KSZ886X,
-@@ -420,6 +442,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- 	.driver		= { .owner = THIS_MODULE, },
- } };
- 
--- 
-1.8.2.2
+No objections.
