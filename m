@@ -1,40 +1,47 @@
 From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: Re: [PATCH Resend 1/3] net: cdc-phonet: Staticize usbpn_probe
-Date: Thu, 19 Sep 2013 12:14:19 +0530
-Message-ID: <CAK9yfHx30AH6z+99ZE19PLWb+yBo4C8jaRh1udeZ-pF8cjQVSQ@mail.gmail.com>
-References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
-	<20130918.122124.464642242992278820.davem@davemloft.net>
+Subject: [PATCH v2 1/1] net: cdc-phonet: Staticize usbpn_probe
+Date: Thu, 19 Sep 2013 12:15:26 +0530
+Message-ID: <1379573126-4879-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, remi@remlab.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, sachin.kamat@linaro.org,
+	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:63264 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606Ab3ISGoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 02:44:20 -0400
-Received: by mail-ob0-f176.google.com with SMTP id uy5so8930707obc.21
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 23:44:19 -0700 (PDT)
-In-Reply-To: <20130918.122124.464642242992278820.davem@davemloft.net>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:35883 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606Ab3ISGpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 02:45:14 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so8060865pbb.28
+        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 23:45:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18 September 2013 21:51, David Miller <davem@davemloft.net> wrote:
-> From: Sachin Kamat <sachin.kamat@linaro.org>
-> Date: Wed, 18 Sep 2013 08:59:59 +0530
->
->> @@ -328,7 +328,8 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
->>
->>  static struct usb_driver usbpn_driver;
->>
->> -int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
->> +static int
->> +usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
->
-> Please keep it to one line, it's 82 columns which is fine.
+'usbpn_probe' is referenced only in this file. Make it static.
 
-OK. Will re-send.
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Acked-by: R=C3=A9mi Denis-Courmont <remi@remlab.net>
+Cc: R=C3=A9mi Denis-Courmont <remi@remlab.net>
+---
+ drivers/net/usb/cdc-phonet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-With warm regards,
-Sachin
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
+c
+index 7d78669..6358d42 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -328,7 +328,7 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
+=20
+ static struct usb_driver usbpn_driver;
+=20
+-int usbpn_probe(struct usb_interface *intf, const struct usb_device_id=
+ *id)
++static int usbpn_probe(struct usb_interface *intf, const struct usb_de=
+vice_id *id)
+ {
+ 	static const char ifname[] =3D "usbpn%d";
+ 	const struct usb_cdc_union_desc *union_header =3D NULL;
+--=20
+1.7.9.5
