@@ -1,14 +1,12 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 16/51] DMA-API: ppc: vio.c: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:41:00 +0100
-Message-ID: <E1VMly8-0007gy-Ru@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 34/51] DMA-API: net: octeon: use
+ dma_coerce_mask_and_coherent()
+Date: Thu, 19 Sep 2013 22:59:03 +0100
+Message-ID: <E1VMmFb-0007jO-50@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Paul Mackerras <paulus@samba.org>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -35,31 +33,33 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Replace the following sequence:
-
-	dma_set_mask(dev, mask);
-	dma_set_coherent_mask(dev, mask);
-
-with a call to the new helper dma_set_mask_and_coherent().
+The code sequence:
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+bypasses the architectures check on the DMA mask.  It can be replaced
+with dma_coerce_mask_and_coherent(), avoiding the direct initialization
+of this mask.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- arch/powerpc/kernel/vio.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/octeon/octeon_mgmt.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/kernel/vio.c b/arch/powerpc/kernel/vio.c
-index 78a3506..96b6c97 100644
---- a/arch/powerpc/kernel/vio.c
-+++ b/arch/powerpc/kernel/vio.c
-@@ -1413,8 +1413,7 @@ struct vio_dev *vio_register_device_node(struct device_node *of_node)
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index 622aa75..2006a07 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -1552,8 +1552,9 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
  
- 		/* needed to ensure proper operation of coherent allocations
- 		 * later, in case driver doesn't set it explicitly */
--		dma_set_mask(&viodev->dev, DMA_BIT_MASK(64));
--		dma_set_coherent_mask(&viodev->dev, DMA_BIT_MASK(64));
-+		dma_set_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
- 	}
+ 	p->phy_np = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
  
- 	/* register with generic device framework */
+-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+-	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
++	result = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
++	if (result)
++		goto err;
+ 
+ 	netif_carrier_off(netdev);
+ 	result = register_netdev(netdev);
 -- 
 1.7.4.4
