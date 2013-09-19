@@ -1,116 +1,29 @@
-From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
-Subject: Re: [PATCH] skge: fix broken driver
-Date: Thu, 19 Sep 2013 22:16:48 +0400
-Message-ID: <1379614608.2331.0.camel@ThinkPad-X230.localdomain>
-References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
-	 <20130919.135628.1201613770803318193.davem@davemloft.net>
-	 <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -net v2 0/2] net: netpoll and netconsole fixes
+Date: Thu, 19 Sep 2013 14:16:53 -0400 (EDT)
+Message-ID: <20130919.141653.1263304026565052808.davem@davemloft.net>
+References: <1379595756-3527-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: Mikulas Patocka <mpatocka@redhat.com>
+Cc: netdev@vger.kernel.org
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:53922 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752417Ab3ISSQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:16:52 -0400
-Received: by mail-la0-f49.google.com with SMTP id ev20so7040329lab.8
-        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 11:16:51 -0700 (PDT)
-In-Reply-To: <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752716Ab3ISSQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:16:54 -0400
+In-Reply-To: <1379595756-3527-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-19 at 14:04 -0400, Mikulas Patocka wrote:
-> 
-> 
-> On Thu, 19 Sep 2013, David Miller wrote:
-> 
-> > From: Mikulas Patocka <mpatocka@redhat.com>
-> > Date: Thu, 19 Sep 2013 12:33:30 -0400 (EDT)
-> > 
-> > > Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> > > Cc: stable@kernel.org # 3.11
-> > 
-> > First, this is missing the reported-by and tested-by tags provided
-> > by people who tested this patch.
-> 
-> I noticed the problem and tested the patch on my own machine. So I added 
-> myself to these tags.
-> 
-> > Secondly, CC:'ing stable is not the correct way to submit networking
-> > patches for -stable inclusion.  You simply ask me to queue them up
-> > for -stable explicitly instead.
-> > 
-> > Please re-submit this with the currect signoffs, thank you.
-> 
-> Here I'm re-submitting it.
-> 
-> ---
-> 
-> skge: fix broken driver
-> 
-> The patch 136d8f377e1575463b47840bc5f1b22d94bf8f63 broke the skge driver.
-> Note this part of the patch:
-> +               if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
-> +                       dev_kfree_skb(nskb);
-> +                       goto resubmit;
-> +               }
-> +
->                 pci_unmap_single(skge->hw->pdev,
->                                  dma_unmap_addr(e, mapaddr),
->                                  dma_unmap_len(e, maplen),
->                                  PCI_DMA_FROMDEVICE);
->                 skb = e->skb;
->                 prefetch(skb->data);
-> -               skge_rx_setup(skge, e, nskb, skge->rx_buf_size);
-> 
-> The function skge_rx_setup modifies e->skb to point to the new skb. Thus,
-> after this change, the new buffer, not the old, is returned to the
-> networking stack.
-> 
-> This bug is present in kernels 3.11, 3.11.1 and 3.12-rc1. The patch should 
-> be queued for 3.11-stable.
-> 
-> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> Reported-by: Mikulas Patocka <mpatocka@redhat.com>
-> Tested-by: Mikulas Patocka <mpatocka@redhat.com>
-> 
-> ---
->  drivers/net/ethernet/marvell/skge.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> Index: linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c
-> ===================================================================
-> --- linux-3.11.1-fast.orig/drivers/net/ethernet/marvell/skge.c  2013-09-10 19:46:58.000000000 +0200
-> +++ linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c       2013-09-19 18:20:43.000000000 +0200
-> @@ -3092,6 +3092,9 @@ static struct sk_buff *skge_rx_get(struc
->                 if (!nskb)
->                         goto resubmit;
->  
-> +               skb = e->skb;
-> +               prefetch(skb->data);
-> +
->                 if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
->                         dev_kfree_skb(nskb);
->                         goto resubmit;
-> @@ -3101,8 +3104,6 @@ static struct sk_buff *skge_rx_get(struc
->                                  dma_unmap_addr(e, mapaddr),
->                                  dma_unmap_len(e, maplen),
->                                  PCI_DMA_FROMDEVICE);
-> -               skb = e->skb;
-> -               prefetch(skb->data);
->         }
->  
->         skb_put(skb, len);
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Thu, 19 Sep 2013 15:02:34 +0200
 
-Hey Mikulas! See https://lkml.org/lkml/2013/9/19/38 , plz.
--- 
-Igor Gnatenko
-Fedora release 20 (Heisenbug)
-Linux 3.11.1-300.fc20.x86_64
+> This small patchset fixes a possible race condition in netpoll_cleanup
+> which can lead to a NULL pointer dereference because the check and
+> manipulation of np->dev are done outside of the rtnl lock (patch 01).
+> The second patch fixes a deadlock in netconsole and does a trivial comment
+> style fix.
+
+Both applied and queued up for -stable, thanks.
