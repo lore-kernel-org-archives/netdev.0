@@ -1,13 +1,15 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 29/51] DMA-API: ata: pata_octeon_cf: convert to
- use dma_coerce_mask_and_coherent()
-Date: Thu, 19 Sep 2013 22:54:02 +0100
-Message-ID: <E1VMmAk-0007iq-IU@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 30/51] DMA-API: dma: dw_dmac.c: convert to use
+ dma_coerce_mask_and_coherent()
+Date: Thu, 19 Sep 2013 22:55:02 +0100
+Message-ID: <E1VMmBi-0007iw-MP@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>
+Cc: Vinod Koul <vinod.koul@intel.com>, Dan Williams <dan.j.williams@intel.com>,
+ Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+ Viresh Kumar <viresh.linux@gmail.com>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -34,32 +36,38 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Convert this code sequence:
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
-	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-to use dma_coerce_mask_and_coherent() to avoid bypassing the architecture
-check on the DMA mask.
+This code sequence:
+	if (!pdev->dev.dma_mask) {
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	}
+bypasses the architectures check on the DMA mask.  It can be replaced
+with dma_coerce_mask_and_coherent(), avoiding the direct initialization
+of this mask.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/ata/pata_octeon_cf.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/dma/dw/platform.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/ata/pata_octeon_cf.c b/drivers/ata/pata_octeon_cf.c
-index c51bbb9..6231d43 100644
---- a/drivers/ata/pata_octeon_cf.c
-+++ b/drivers/ata/pata_octeon_cf.c
-@@ -1014,8 +1014,9 @@ static int octeon_cf_probe(struct platform_device *pdev)
- 	}
- 	cf_port->c0 = ap->ioaddr.ctl_addr;
+diff --git a/drivers/dma/dw/platform.c b/drivers/dma/dw/platform.c
+index e35d975..453822c 100644
+--- a/drivers/dma/dw/platform.c
++++ b/drivers/dma/dw/platform.c
+@@ -191,11 +191,9 @@ static int dw_probe(struct platform_device *pdev)
+ 	if (IS_ERR(chip->regs))
+ 		return PTR_ERR(chip->regs);
  
--	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
--	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-+	rv = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-+	if (rv)
-+		return ret;
+-	/* Apply default dma_mask if needed */
+-	if (!dev->dma_mask) {
+-		dev->dma_mask = &dev->coherent_dma_mask;
+-		dev->coherent_dma_mask = DMA_BIT_MASK(32);
+-	}
++	err = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
++	if (err)
++		return err;
  
- 	ata_port_desc(ap, "cmd %p ctl %p", base, ap->ioaddr.ctl_addr);
- 
+ 	pdata = dev_get_platdata(dev);
+ 	if (!pdata)
 -- 
 1.7.4.4
