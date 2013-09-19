@@ -1,100 +1,46 @@
-From: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: [PATCH 04/51] DMA-API: net: intel/igb: fix 32-bit DMA mask handling
-Date: Thu, 19 Sep 2013 22:28:59 +0100
-Message-ID: <E1VMlmV-0007fU-75@rmk-PC.arm.linux.org.uk>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-Cc: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jesse Brandeburg <jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Bruce Allan <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Carolyn Wyborny <carolyn.wyborny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Don Skidmore <donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Greg Rose <gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Alex Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	John Ronciak <john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Tushar Dave <tushar.n.dave-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130919212235.GD12758-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net RFC 2/2] ixgbe: fix sleep bug caused by napi_disable
+ inside local_bh_disable()d context
+Date: Thu, 19 Sep 2013 23:32:54 +0200
+Message-ID: <20130919213254.GC31672@electric-eye.fr.zoreil.com>
+References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
+ <20130918202016.8697.56423.stgit@jekeller-desk1.amr.corp.intel.com>
+ <20130918230943.GB11989@electric-eye.fr.zoreil.com>
+ <02874ECE860811409154E81DA85FBB58565F1520@ORSMSX104.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Hyong-Youb Kim <hykim@myri.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52277 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753885Ab3ISVdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 17:33:44 -0400
+Content-Disposition: inline
+In-Reply-To: <02874ECE860811409154E81DA85FBB58565F1520@ORSMSX104.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The fallback to 32-bit DMA mask is rather odd:
-	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
-	if (!err) {
-		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-		if (!err)
-			pci_using_dac = 1;
-	} else {
-		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-		if (err) {
-			err = dma_set_coherent_mask(&pdev->dev,
-						    DMA_BIT_MASK(32));
-			if (err) {
-				dev_err(&pdev->dev,
-					"No usable DMA configuration, aborting\n");
-				goto err_dma;
-			}
-		}
-	}
-This means we only set the coherent DMA mask in the fallback path if
-the DMA mask set failed, which is silly.  This fixes it to set the
-coherent DMA mask only if dma_set_mask() succeeded, and to error out
-if either fails.
+Keller, Jacob E <jacob.e.keller@intel.com> :
+[...]
+> I know that we need local_bh_disable around the qv_lock_napi code because
+> it uses spin_lock instead of spin_lock_bh. I believe the reason we need bh
+> disabled around the entire context is so that the small window between
+> failed calls to qv_lock_napi don't get interrupted and continue to have
+> busy_poll lock the q_vector over and over.
 
-Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
----
- drivers/net/ethernet/intel/igb/igb_main.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+Thanks for explaining the intent. I'll do my homework.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8cf44f2..7579383 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2034,21 +2034,15 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		return err;
- 
- 	pci_using_dac = 0;
--	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
-+	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
- 	if (!err) {
--		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
--		if (!err)
--			pci_using_dac = 1;
-+		pci_using_dac = 1;
- 	} else {
--		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
- 		if (err) {
--			err = dma_set_coherent_mask(&pdev->dev,
--						    DMA_BIT_MASK(32));
--			if (err) {
--				dev_err(&pdev->dev,
--					"No usable DMA configuration, aborting\n");
--				goto err_dma;
--			}
-+			dev_err(&pdev->dev,
-+				"No usable DMA configuration, aborting\n");
-+			goto err_dma;
- 		}
- 	}
- 
--- 
-1.7.4.4
+> I have to move the local_bh_disable in order to put napi_disable outside
+> of the call since napi_disable could sleep, causing a scheduling while
+> atomic BUG.
+
+I am in violent agreement with this part.
 
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ueimor
