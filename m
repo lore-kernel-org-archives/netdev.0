@@ -1,99 +1,215 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/2] net_sched: htb: support of 64bit rates
-Date: Thu, 19 Sep 2013 09:10:20 -0700
-Message-ID: <1379607020.3282.14.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [stable] [PATCH] sfc: Fix efx_rx_buf_offset() for recycled pages
+Date: Thu, 19 Sep 2013 17:13:51 +0100
+Message-ID: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=-VdRUIrNGifcbcTa4uuNg"
+Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f48.google.com ([209.85.212.48]:61461 "EHLO
-	mail-vb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072Ab3ISQKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 12:10:22 -0400
-Received: by mail-vb0-f48.google.com with SMTP id w16so6611336vbf.35
-        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 09:10:22 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:51826 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753464Ab3ISQNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 12:13:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+--=-VdRUIrNGifcbcTa4uuNg
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-HTB already can deal with 64bit rates, we only have to add two new
-attributes so that tc can use them to break the current 32bit ABI
-barrier.
+[Re-sending with cc to the current stable address.  I still had the old
+address in contacts, though I've definitely sent to the current address
+previously...]
 
-TCA_HTB_RATE64 : class rate  (in bytes per second)
-TCA_HTB_CEIL64 : class ceil  (in bytes per second)
+This bug fix is only for stable branches older than 3.10.  The bug was
+fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
+mapping/unmapping costs'), but that change is totally unsuitable for
+stable.
 
-This allows us to setup HTB on 40Gbps links, as 32bit limit is
-actually ~34Gbps
+Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
+swiotlb') added an explicit page_offset member to struct
+efx_rx_buffer, which must be set consistently with the u.page and
+dma_addr fields.  However, it failed to add the necessary assignment
+in efx_resurrect_rx_buffer().  It also did not correct the calculation
+of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
+that DMA-mapping a page will result in a page-aligned DMA address
+(exactly what swiotlb violates).
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Add the assignment of efx_rx_buffer::page_offset and change the
+calculation of dma_addr to make use of it.
+
+I'm attaching the patches for 3.0.y, 3.2.y and 3.4.y (the last of which
+should also be applicable to the later unofficial stable branches).
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+--=-VdRUIrNGifcbcTa4uuNg
+Content-Disposition: attachment;
+	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.0.patch"
+Content-Type: text/x-patch;
+	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.0.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From d4e70d42eff6938c12d7d0b12f657b10d06a156d Mon Sep 17 00:00:00 2001
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 6 Sep 2013 22:39:20 +0100
+Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
+
+This bug fix is only for stable branches older than 3.10.  The bug was
+fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
+mapping/unmapping costs'), but that change is totally unsuitable for
+stable.
+
+Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
+swiotlb') added an explicit page_offset member to struct
+efx_rx_buffer, which must be set consistently with the u.page and
+dma_addr fields.  However, it failed to add the necessary assignment
+in efx_resurrect_rx_buffer().  It also did not correct the calculation
+of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
+that DMA-mapping a page will result in a page-aligned DMA address
+(exactly what swiotlb violates).
+
+Add the assignment of efx_rx_buffer::page_offset and change the
+calculation of dma_addr to make use of it.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/uapi/linux/pkt_sched.h |    2 ++
- net/sched/sch_htb.c            |   17 +++++++++++++++--
- 2 files changed, 17 insertions(+), 2 deletions(-)
+ drivers/net/sfc/rx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 9b82913..f2624b5 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -357,6 +357,8 @@ enum {
- 	TCA_HTB_CTAB,
- 	TCA_HTB_RTAB,
- 	TCA_HTB_DIRECT_QLEN,
-+	TCA_HTB_RATE64,
-+	TCA_HTB_CEIL64,
- 	__TCA_HTB_MAX,
- };
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index d429f0a..26e4cca 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -311,8 +311,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
  
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 6b126f6..0e1e38b 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -997,6 +997,8 @@ static const struct nla_policy htb_policy[TCA_HTB_MAX + 1] = {
- 	[TCA_HTB_CTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_HTB_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_HTB_DIRECT_QLEN] = { .type = NLA_U32 },
-+	[TCA_HTB_RATE64] = { .type = NLA_U64 },
-+	[TCA_HTB_CEIL64] = { .type = NLA_U64 },
- };
+ 	index = rx_queue->added_count & rx_queue->ptr_mask;
+ 	new_buf = efx_rx_buffer(rx_queue, index);
+-	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
+ 	new_buf->u.page = rx_buf->u.page;
++	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
++	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
+ 	new_buf->len = rx_buf->len;
+ 	new_buf->is_page = true;
+ 	++rx_queue->added_count;
+-- 
+1.8.1.4
+
+
+--=-VdRUIrNGifcbcTa4uuNg
+Content-Disposition: attachment;
+	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.2.patch"
+Content-Type: text/x-patch;
+	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.2.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From 43587737635de32882d9f69df36562e0d5b0e0bd Mon Sep 17 00:00:00 2001
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 6 Sep 2013 22:39:20 +0100
+Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
+
+This bug fix is only for stable branches older than 3.10.  The bug was
+fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
+mapping/unmapping costs'), but that change is totally unsuitable for
+stable.
+
+Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
+swiotlb') added an explicit page_offset member to struct
+efx_rx_buffer, which must be set consistently with the u.page and
+dma_addr fields.  However, it failed to add the necessary assignment
+in efx_resurrect_rx_buffer().  It also did not correct the calculation
+of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
+that DMA-mapping a page will result in a page-aligned DMA address
+(exactly what swiotlb violates).
+
+Add the assignment of efx_rx_buffer::page_offset and change the
+calculation of dma_addr to make use of it.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/rx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 9ce8665..c231b3f 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -312,8 +312,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
  
- static void htb_work_func(struct work_struct *work)
-@@ -1114,6 +1116,12 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
- 	opt.level = cl->level;
- 	if (nla_put(skb, TCA_HTB_PARMS, sizeof(opt), &opt))
- 		goto nla_put_failure;
-+	if ((cl->rate.rate_bytes_ps >= (1ULL << 32)) &&
-+	    nla_put_u64(skb, TCA_HTB_RATE64, cl->rate.rate_bytes_ps))
-+		goto nla_put_failure;
-+	if ((cl->ceil.rate_bytes_ps >= (1ULL << 32)) &&
-+	    nla_put_u64(skb, TCA_HTB_CEIL64, cl->ceil.rate_bytes_ps))
-+		goto nla_put_failure;
+ 	index = rx_queue->added_count & rx_queue->ptr_mask;
+ 	new_buf = efx_rx_buffer(rx_queue, index);
+-	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
+ 	new_buf->u.page = rx_buf->u.page;
++	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
++	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
+ 	new_buf->len = rx_buf->len;
+ 	new_buf->is_page = true;
+ 	++rx_queue->added_count;
+-- 
+1.8.1.4
+
+
+--=-VdRUIrNGifcbcTa4uuNg
+Content-Disposition: attachment;
+	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.4.patch"
+Content-Type: text/x-patch;
+	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.4.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From 55961f9a914e637f143da275da42154a49c9743a Mon Sep 17 00:00:00 2001
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 6 Sep 2013 22:39:20 +0100
+Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
+
+This bug fix is only for stable branches older than 3.10.  The bug was
+fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
+mapping/unmapping costs'), but that change is totally unsuitable for
+stable.
+
+Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
+swiotlb') added an explicit page_offset member to struct
+efx_rx_buffer, which must be set consistently with the u.page and
+dma_addr fields.  However, it failed to add the necessary assignment
+in efx_resurrect_rx_buffer().  It also did not correct the calculation
+of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
+that DMA-mapping a page will result in a page-aligned DMA address
+(exactly what swiotlb violates).
+
+Add the assignment of efx_rx_buffer::page_offset and change the
+calculation of dma_addr to make use of it.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/rx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 7b3c068..62311ad3 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -311,8 +311,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
  
- 	nla_nest_end(skb, nest);
- 	spin_unlock_bh(root_lock);
-@@ -1332,6 +1340,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	struct qdisc_rate_table *rtab = NULL, *ctab = NULL;
- 	struct nlattr *tb[TCA_HTB_MAX + 1];
- 	struct tc_htb_opt *hopt;
-+	u64 rate64, ceil64;
- 
- 	/* extract all subattrs from opt attr */
- 	if (!opt)
-@@ -1491,8 +1500,12 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
- 	}
- 
--	psched_ratecfg_precompute(&cl->rate, &hopt->rate, 0);
--	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, 0);
-+	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-+
-+	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-+
-+	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-+	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
- 
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
+ 	index = rx_queue->added_count & rx_queue->ptr_mask;
+ 	new_buf = efx_rx_buffer(rx_queue, index);
+-	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
+ 	new_buf->u.page = rx_buf->u.page;
++	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
++	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
+ 	new_buf->len = rx_buf->len;
+ 	new_buf->flags = EFX_RX_BUF_PAGE;
+ 	++rx_queue->added_count;
+-- 
+1.8.1.4
+
+
+--=-VdRUIrNGifcbcTa4uuNg--
