@@ -1,14 +1,14 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 40/51] DMA-API: crypto: fix ixp4xx crypto
- platform device support
-Date: Fri, 20 Sep 2013 00:12:38 +0100
-Message-ID: <E1VMnOo-0007sC-Li@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 22/51] DMA-API: amba: get rid of separate
+	dma_mask
+Date: Thu, 19 Sep 2013 22:47:01 +0100
+Message-ID: <E1VMm3x-0007hp-Lv@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
- "David S. Miller" <davem@davemloft.net>
+Cc: Grant Likely <grant.likely@linaro.org>,
+ Rob Herring <rob.herring@calxeda.com>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -35,90 +35,80 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Don't statically allocate struct device's in modules, and shut the
-warning up with an empty release() function.  There's a reason that
-warning is there and that's not for people to hide in this way.  It's
-there to persuade people to use the correct APIs to allocate platform
-devices.
+AMBA Primecell devices always treat streaming and coherent DMA exactly
+the same, so there's no point in having the masks separated.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/crypto/ixp4xx_crypto.c |   37 +++++++++++++++++--------------------
- 1 files changed, 17 insertions(+), 20 deletions(-)
+ drivers/amba/bus.c       |    6 +-----
+ drivers/of/platform.c    |    3 ---
+ include/linux/amba/bus.h |    2 --
+ 3 files changed, 1 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/crypto/ixp4xx_crypto.c b/drivers/crypto/ixp4xx_crypto.c
-index 21180d6..8306185 100644
---- a/drivers/crypto/ixp4xx_crypto.c
-+++ b/drivers/crypto/ixp4xx_crypto.c
-@@ -218,23 +218,10 @@ static dma_addr_t crypt_phys;
+diff --git a/drivers/amba/bus.c b/drivers/amba/bus.c
+index c670727..c4876ac 100644
+--- a/drivers/amba/bus.c
++++ b/drivers/amba/bus.c
+@@ -552,7 +552,6 @@ amba_aphb_device_add(struct device *parent, const char *name,
+ 	if (!dev)
+ 		return ERR_PTR(-ENOMEM);
  
- static int support_aes = 1;
- 
--static void dev_release(struct device *dev)
--{
--	return;
--}
--
- #define DRIVER_NAME "ixp4xx_crypto"
--static struct platform_device pseudo_dev = {
--	.name = DRIVER_NAME,
--	.id   = 0,
--	.num_resources = 0,
--	.dev  = {
--		.coherent_dma_mask = DMA_BIT_MASK(32),
--		.release = dev_release,
--	}
--};
- 
--static struct device *dev = &pseudo_dev.dev;
-+static struct platform_device *pdev;
-+static struct device *dev;
- 
- static inline dma_addr_t crypt_virt2phys(struct crypt_ctl *virt)
- {
-@@ -1418,20 +1405,30 @@ static struct ixp_alg ixp4xx_algos[] = {
- } };
- 
- #define IXP_POSTFIX "-ixp4xx"
-+
-+static const struct platform_device_info ixp_dev_info __initdata = {
-+	.name		= DRIVER_NAME,
-+	.id		= 0,
-+	.dma_mask	= DMA_BIT_MASK(32),
-+};
-+
- static int __init ixp_module_init(void)
- {
- 	int num = ARRAY_SIZE(ixp4xx_algos);
--	int i,err ;
-+	int i, err ;
- 
--	if (platform_device_register(&pseudo_dev))
--		return -ENODEV;
-+	pdev = platform_device_register_full(&ixp_dev_info);
-+	if (IS_ERR(pdev))
-+		return PTR_ERR(pdev);
-+
-+	dev = &pdev->dev;
- 
- 	spin_lock_init(&desc_lock);
- 	spin_lock_init(&emerg_lock);
- 
- 	err = init_ixp_crypto();
- 	if (err) {
--		platform_device_unregister(&pseudo_dev);
-+		platform_device_unregister(pdev);
- 		return err;
- 	}
- 	for (i=0; i< num; i++) {
-@@ -1496,7 +1493,7 @@ static void __exit ixp_module_exit(void)
- 			crypto_unregister_alg(&ixp4xx_algos[i].crypto);
- 	}
- 	release_ixp_crypto();
--	platform_device_unregister(&pseudo_dev);
-+	platform_device_unregister(pdev);
+-	dev->dma_mask = dma_mask;
+ 	dev->dev.coherent_dma_mask = dma_mask;
+ 	dev->irq[0] = irq1;
+ 	dev->irq[1] = irq2;
+@@ -619,7 +618,7 @@ static void amba_device_initialize(struct amba_device *dev, const char *name)
+ 		dev_set_name(&dev->dev, "%s", name);
+ 	dev->dev.release = amba_device_release;
+ 	dev->dev.bus = &amba_bustype;
+-	dev->dev.dma_mask = &dev->dma_mask;
++	dev->dev.dma_mask = &dev->dev.coherent_dma_mask;
+ 	dev->res.name = dev_name(&dev->dev);
  }
  
- module_init(ixp_module_init);
+@@ -663,9 +662,6 @@ int amba_device_register(struct amba_device *dev, struct resource *parent)
+ 	amba_device_initialize(dev, dev->dev.init_name);
+ 	dev->dev.init_name = NULL;
+ 
+-	if (!dev->dev.coherent_dma_mask && dev->dma_mask)
+-		dev_warn(&dev->dev, "coherent dma mask is unset\n");
+-
+ 	return amba_device_add(dev, parent);
+ }
+ 
+diff --git a/drivers/of/platform.c b/drivers/of/platform.c
+index 9b439ac..54382ba 100644
+--- a/drivers/of/platform.c
++++ b/drivers/of/platform.c
+@@ -284,9 +284,6 @@ static struct amba_device *of_amba_device_create(struct device_node *node,
+ 	else
+ 		of_device_make_bus_id(&dev->dev);
+ 
+-	/* setup amba-specific device info */
+-	dev->dma_mask = ~0;
+-
+ 	/* Allow the HW Peripheral ID to be overridden */
+ 	prop = of_get_property(node, "arm,primecell-periphid", NULL);
+ 	if (prop)
+diff --git a/include/linux/amba/bus.h b/include/linux/amba/bus.h
+index 43ec7e2..682df0e 100644
+--- a/include/linux/amba/bus.h
++++ b/include/linux/amba/bus.h
+@@ -30,7 +30,6 @@ struct amba_device {
+ 	struct device		dev;
+ 	struct resource		res;
+ 	struct clk		*pclk;
+-	u64			dma_mask;
+ 	unsigned int		periphid;
+ 	unsigned int		irq[AMBA_NR_IRQS];
+ };
+@@ -131,7 +130,6 @@ struct amba_device name##_device = {				\
+ struct amba_device name##_device = {				\
+ 	.dev = __AMBA_DEV(busid, data, ~0ULL),			\
+ 	.res = DEFINE_RES_MEM(base, SZ_4K),			\
+-	.dma_mask = ~0ULL,					\
+ 	.irq = irqs,						\
+ 	.periphid = id,						\
+ }
 -- 
 1.7.4.4
