@@ -1,75 +1,164 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v4] Don't destroy the netdev until the vif is
- shut down
-Date: Thu, 19 Sep 2013 11:55:37 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD010DCCE@AMSPEX01CL01.citrite.net>
-References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
-	 <20130918103704.GA511@zion.uk.xensource.com>
-	 <1379519895.11304.268.camel@hastur.hellion.org.uk>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD010D0DB@AMSPEX01CL01.citrite.net>
- <1379521517.11304.274.camel@hastur.hellion.org.uk>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH 1/2] net, vxlan Fix compile warning [v3]
+Date: Thu, 19 Sep 2013 09:04:54 -0400
+Message-ID: <1379595894-23200-1-git-send-email-prarit@redhat.com>
+References: <1379449581.1644.17.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Prarit Bhargava <prarit@redhat.com>, jpirko@redhat.com,
+	davem@davemloft.net, stephen@networkplumber.org,
+	bhutchings@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:47679 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753228Ab3ISLzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 07:55:40 -0400
-In-Reply-To: <1379521517.11304.274.camel@hastur.hellion.org.uk>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:54676 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753391Ab3ISNFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Sep 2013 09:05:12 -0400
+In-Reply-To: <1379449581.1644.17.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMTggU2VwdGVtYmVyIDIwMTMgMTc6
-MjUNCj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogV2VpIExpdTsgeGVuLWRldmVsQGxpc3RzLnhl
-bi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFZyYWJlbA0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIG5ldC1uZXh0IHY0XSBEb24ndCBkZXN0cm95IHRoZSBuZXRkZXYgdW50aWwgdGhl
-IHZpZiBpcw0KPiBzaHV0IGRvd24NCj4gDQo+IE9uIFdlZCwgMjAxMy0wOS0xOCBhdCAxNzowNCAr
-MDEwMCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCj4gPiA+IEZyb206IElhbiBDYW1wYmVsbCBbbWFpbHRvOmlhbi5jYW1wYmVsbEBjaXRyaXgu
-Y29tXQ0KPiA+ID4gU2VudDogMTggU2VwdGVtYmVyIDIwMTMgMTY6NTgNCj4gPiA+IFRvOiBXZWkg
-TGl1DQo+ID4gPiBDYzogUGF1bCBEdXJyYW50OyB4ZW4tZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gRGF2aWQNCj4gPiA+IFZyYWJlbA0KPiA+ID4gU3ViamVj
-dDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2NF0gRG9uJ3QgZGVzdHJveSB0aGUgbmV0ZGV2IHVudGls
-IHRoZSB2aWYgaXMNCj4gPiA+IHNodXQgZG93bg0KPiA+ID4NCj4gPiA+IE9uIFdlZCwgMjAxMy0w
-OS0xOCBhdCAxMTozNyArMDEwMCwgV2VpIExpdSB3cm90ZToNCj4gPiA+ID4gT24gVHVlLCBTZXAg
-MTcsIDIwMTMgYXQgMDU6NDY6MDhQTSArMDEwMCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4g
-PiA+IFdpdGhvdXQgdGhpcyBwYXRjaCwgaWYgYSBmcm9udGVuZCBjeWNsZXMgdGhyb3VnaCBzdGF0
-ZXMgQ2xvc2luZw0KPiA+ID4gPiA+IGFuZCBDbG9zZWQgKHdoaWNoIFdpbmRvd3MgZnJvbnRlbmRz
-IG5lZWQgdG8gZG8pIHRoZW4gdGhlIG5ldGRldg0KPiA+ID4gPiA+IHdpbGwgYmUgZGVzdHJveWVk
-IGFuZCByZXF1aXJlcyByZS1pbnZvY2F0aW9uIG9mIGhvdHBsdWcgc2NyaXB0cw0KPiA+ID4gPiA+
-IHRvIHJlc3RvcmUgc3RhdGUgYmVmb3JlIHRoZSBmcm9udGVuZCBjYW4gbW92ZSB0byBDb25uZWN0
-ZWQuIFRodXMNCj4gPiA+ID4gPiB3aGVuIHVkZXYgaXMgbm90IGluIHVzZSB0aGUgYmFja2VuZCBn
-ZXRzIHN0dWNrIGluIEluaXRXYWl0Lg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gV2l0aCB0aGlzIHBh
-dGNoLCB0aGUgbmV0ZGV2IGlzIGxlZnQgYWxvbmUgd2hpbHN0IHRoZSBiYWNrZW5kIGlzDQo+ID4g
-PiA+ID4gc3RpbGwgb25saW5lIGFuZCBpcyBvbmx5IGRlLXJlZ2lzdGVyZWQgYW5kIGZyZWVkIGp1
-c3QgcHJpb3IgdG8NCj4gPiA+ID4gPiBkZXN0cm95aW5nIHRoZSB2aWYgKHdoaWNoIGlzIGFsc28g
-bmljZWx5IHN5bW1ldHJpY2FsIHdpdGggdGhlDQo+ID4gPiA+ID4gbmV0ZGV2IGFsbG9jYXRpb24g
-YW5kIHJlZ2lzdHJhdGlvbiBiZWluZyBkb25lIGR1cmluZyBwcm9iZSkgc28NCj4gPiA+ID4gPiBu
-byByZS1pbnZvY2F0aW9uIG9mIGhvdHBsdWcgc2NyaXB0cyBpcyByZXF1aXJlZC4NCj4gPiA+ID4g
-Pg0KPiA+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNp
-dHJpeC5jb20+DQo+ID4gPiA+ID4gQ2M6IERhdmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJp
-eC5jb20+DQo+ID4gPiA+ID4gQ2M6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+DQo+ID4g
-PiA+ID4gQ2M6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+ID4gPiA+
-DQo+ID4gPiA+IEFja2VkLWJ5OiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+ID4N
-Cj4gPiA+IHllYWgsIGxvb2tzIGdvb2QsIHRoYW5rcy4NCj4gPiA+DQo+ID4gPiBQYXVsLCBkaWQg
-eW91IHRlc3QgdGhpcyB3aXRoIG5vbi1XaW5kb3dzIGZyb250ZW5kcyB0b28/IGFuZCBkbyB0aGlu
-Z3MNCj4gPiA+IGxpa2UgdmlmIGhvdCh1bilwbHVnIHN0aWxsIHdvcms/DQo+ID4gPg0KPiA+DQo+
-ID4gSWFuLA0KPiA+DQo+ID4gSSB0ZXN0ZWQgd2l0aCBhIGRlYmlhbiAod2hlZXp5KSBQViBndWVz
-dCBidXQgSSBkaWRuJ3QgdGVzdCB1bnBsdWcuIEkNCj4gPiBjeWNsZWQgYSB3aW5kb3dzIGZyb250
-ZW5kIHNldmVyYWwgdGltZXMgKHdoaWNoIGlzIGhvdyBJIHNwb3R0ZWQgdGhlDQo+ID4gdHhfaXJx
-IHRoaW5nKSwgYW5kIHNodXRkb3duIGFuZCBicm91Z2h0IHVwIGJvdGggdGhlIGRlYmlhbiBhbmQg
-d2luZG93cw0KPiA+IGd1ZXN0cyBzZXZlcmFsIHRpbWVzLiBJIGNhbiB0ZXN0IHVucGx1ZyB0b28g
-aWYgeW91J2QgbGlrZS4NCj4gDQo+IEkgZG9uJ3QgdGhpbmsgaXQgbmVlZHMgdG8gYmUgYSBibG9j
-a2VyIGZvciBhY2NlcHRpbmcgdGhpcyBwYXRjaCBidXQgaXQNCj4gd291bGQgYmUgZ29vZCB0byB0
-cnkgaXQsIGl0J3MgdGhlIHNvcnQgb2YgYXJlYSB3aGljaCBoaXN0b3JpY2FsbHkgZ2V0cw0KPiBi
-cm9rZW4gYnkgdGhpcyBzb3J0IG9mIGNoYW5nZS4NCj4gDQoNCkZXSVcgSSBqdXN0IGNoZWNrZWQg
-bmV0d29yay1kZXRhY2ggd2l0aCBhIHdpbmRvd3MgZnJvbnRlbmQgYW5kIGl0IHdvcmtlZCBvay4N
-Cg0KICBQYXVsDQo=
+=46ix a unintialized variable warning.
+
+drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
+drivers/net/vxlan.c:2240:11: error: =E2=80=98sock=E2=80=99 may be used =
+uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+  vs->sock =3D sock;
+           ^
+drivers/net/vxlan.c:2217:17: note: =E2=80=98sock=E2=80=99 was declared =
+here
+  struct socket *sock;
+                 ^
+[v2]: davem suggested resolving this by making create_v{4,6}_sock() ret=
+urn an err
+pointer.
+[v3]: Ben Hutchings pointed out a missed conversion
+
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Cc: jpirko@redhat.com
+Cc: davem@davemloft.net
+Cc: stephen@networkplumber.org
+Cc: bhutchings@solarflare.com
+---
+ drivers/net/vxlan.c |   31 ++++++++++++++-----------------
+ 1 file changed, 14 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index bf64b41..0583d45 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2184,7 +2184,7 @@ static void vxlan_del_work(struct work_struct *wo=
+rk)
+  * could be used for both IPv4 and IPv6 communications, but
+  * users may set bindv6only=3D1.
+  */
+-static int create_v6_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v6_sock(struct net *net, __be16 port)
+ {
+ 	struct sock *sk;
+ 	struct socket *sock;
+@@ -2197,7 +2197,7 @@ static int create_v6_sock(struct net *net, __be16=
+ port, struct socket **psock)
+ 	rc =3D sock_create_kern(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (rc < 0) {
+ 		pr_debug("UDPv6 socket create failed\n");
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+ 	/* Put in proper namespace */
+@@ -2212,28 +2212,27 @@ static int create_v6_sock(struct net *net, __be=
+16 port, struct socket **psock)
+ 		pr_debug("bind for UDPv6 socket %pI6:%u (%d)\n",
+ 			 &vxlan_addr.sin6_addr, ntohs(vxlan_addr.sin6_port), rc);
+ 		sk_release_kernel(sk);
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+ 	/* At this point, IPv6 module should have been loaded in
+ 	 * sock_create_kern().
+ 	 */
+ 	BUG_ON(!ipv6_stub);
+=20
+-	*psock =3D sock;
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop =3D 0;
+-	return 0;
++	return sock;
+ }
+=20
+ #else
+=20
+-static int create_v6_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v6_sock(struct net *net, __be16 port)
+ {
+-		return -EPFNOSUPPORT;
++		return ERR_PTR(-EPFNOSUPPORT);
+ }
+ #endif
+=20
+-static int create_v4_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v4_sock(struct net *net, __be16 port)
+ {
+ 	struct sock *sk;
+ 	struct socket *sock;
+@@ -2248,7 +2247,7 @@ static int create_v4_sock(struct net *net, __be16=
+ port, struct socket **psock)
+ 	rc =3D sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (rc < 0) {
+ 		pr_debug("UDP socket create failed\n");
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+ 	/* Put in proper namespace */
+@@ -2261,13 +2260,12 @@ static int create_v4_sock(struct net *net, __be=
+16 port, struct socket **psock)
+ 		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
+ 			 &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
+ 		sk_release_kernel(sk);
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+-	*psock =3D sock;
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop =3D 0;
+-	return 0;
++	return sock;
+ }
+=20
+ /* Create new listen socket if needed */
+@@ -2278,7 +2276,6 @@ static struct vxlan_sock *vxlan_socket_create(str=
+uct net *net, __be16 port,
+ 	struct vxlan_sock *vs;
+ 	struct socket *sock;
+ 	struct sock *sk;
+-	int rc =3D 0;
+ 	unsigned int h;
+=20
+ 	vs =3D kmalloc(sizeof(*vs), GFP_KERNEL);
+@@ -2291,12 +2288,12 @@ static struct vxlan_sock *vxlan_socket_create(s=
+truct net *net, __be16 port,
+ 	INIT_WORK(&vs->del_work, vxlan_del_work);
+=20
+ 	if (ipv6)
+-		rc =3D create_v6_sock(net, port, &sock);
++		sock =3D create_v6_sock(net, port);
+ 	else
+-		rc =3D create_v4_sock(net, port, &sock);
+-	if (rc < 0) {
++		sock =3D create_v4_sock(net, port);
++	if (IS_ERR(sock)) {
+ 		kfree(vs);
+-		return ERR_PTR(rc);
++		return ERR_CAST(sock);
+ 	}
+=20
+ 	vs->sock =3D sock;
+--=20
+1.7.9.3
