@@ -1,69 +1,215 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: [PATCH] skge: fix broken driver
-Date: Thu, 19 Sep 2013 12:33:30 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: add ip to interface as primary ip address, not secondary ip when
+ there is alreadly primary ip?
+Date: Thu, 19 Sep 2013 09:54:53 -0700
+Message-ID: <CAK3+h2yWjswp6qrToMPbrQyuyCKkh5Yuuo6TeX8VhGQCGpCecw@mail.gmail.com>
+References: <CAK3+h2zPYYLaVs-WhHFaDhOsnLBB7m8vDvkTj5a16FUJ02i4KA@mail.gmail.com>
+	<l1as5j$7cs$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13234 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752417Ab3ISQdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Sep 2013 12:33:33 -0400
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:54957 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660Ab3ISQyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 12:54:53 -0400
+Received: by mail-ob0-f172.google.com with SMTP id gq1so10353304obb.3
+        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 09:54:53 -0700 (PDT)
+In-Reply-To: <l1as5j$7cs$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch 136d8f377e1575463b47840bc5f1b22d94bf8f63 broke the skge driver.
+thanks for the pointer
 
-Note this part of the patch:
-+               if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
-+                       dev_kfree_skb(nskb);
-+                       goto resubmit;
-+               }
-+
-                pci_unmap_single(skge->hw->pdev,
-                                 dma_unmap_addr(e, mapaddr),
-                                 dma_unmap_len(e, maplen),
-                                 PCI_DMA_FROMDEVICE);
-                skb = e->skb;
-                prefetch(skb->data);
--               skge_rx_setup(skge, e, nskb, skge->rx_buf_size);
+'ip addr' indeed has flag IFA_F_SECONDARY for this, but it is not
+available for 'ip addr add', so I made a simple patch for iproute2
+ip/ipaddress.c as below:
 
-The function skge_rx_setup modifies e->skb to point to the new skb. Thus,
-after this change, the new buffer, not the old, is returned to the
-networking stack.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 1c3e4da..b5aa96a 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1307,6 +1307,11 @@ static int ipaddr_modify(int cmd, int flags,
+int argc, char **argv)
+                                invarg("invalid scope value.", *argv);
+                        req.ifa.ifa_scope = scope;
+                        scoped = 1;
++                } else if (strcmp(*argv, "secondary") == 0 ||
++                           strcmp(*argv, "temporary") == 0) {
++                        req.ifa.ifa_flags |= IFA_F_SECONDARY;
++                } else if (strcmp(*argv, "primary") == 0) {
++                        req.ifa.ifa_flags &= ~IFA_F_SECONDARY;
+                } else if (strcmp(*argv, "dev") == 0) {
+                        NEXT_ARG();
+                        d = *argv;
 
-This bug is present in kernels 3.11, 3.11.1 and 3.12-rc1.
+I also found that I need to patch up the kernel and here is the kernel
+patch, it might look silly, but it works as I tested
 
-Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-Cc: stable@kernel.org # 3.11
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcb..2a1d61b 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -440,14 +440,18 @@ static int __inet_insert_ifa(struct in_ifaddr
+*ifa, struct nlmsghdr *nlh,
+                return 0;
+        }
 
----
- drivers/net/ethernet/marvell/skge.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+-       ifa->ifa_flags &= ~IFA_F_SECONDARY;
+        last_primary = &in_dev->ifa_list;
 
-Index: linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c
-===================================================================
---- linux-3.11.1-fast.orig/drivers/net/ethernet/marvell/skge.c	2013-09-10 19:46:58.000000000 +0200
-+++ linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c	2013-09-19 18:20:43.000000000 +0200
-@@ -3092,6 +3092,9 @@ static struct sk_buff *skge_rx_get(struc
- 		if (!nskb)
- 			goto resubmit;
- 
-+		skb = e->skb;
-+		prefetch(skb->data);
-+
- 		if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
- 			dev_kfree_skb(nskb);
- 			goto resubmit;
-@@ -3101,8 +3104,6 @@ static struct sk_buff *skge_rx_get(struc
- 				 dma_unmap_addr(e, mapaddr),
- 				 dma_unmap_len(e, maplen),
- 				 PCI_DMA_FROMDEVICE);
--		skb = e->skb;
--		prefetch(skb->data);
- 	}
- 
- 	skb_put(skb, len);
+        for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
+             ifap = &ifa1->ifa_next) {
+                if (!(ifa1->ifa_flags & IFA_F_SECONDARY) &&
+-                   ifa->ifa_scope <= ifa1->ifa_scope)
+-                       last_primary = &ifa1->ifa_next;
++                   ifa->ifa_scope <= ifa1->ifa_scope) {
++                        if (ifa->ifa_flags & IFA_F_SECONDARY) {
++                                last_primary = &ifa1->ifa_next;
++                        } else {
++                                ifa1->ifa_flags |= IFA_F_SECONDARY;
++                        }
++                }
+                if (ifa1->ifa_mask == ifa->ifa_mask &&
+                    inet_ifa_match(ifa1->ifa_address, ifa)) {
+                        if (ifa1->ifa_local == ifa->ifa_local) {
+@@ -458,7 +462,11 @@ static int __inet_insert_ifa(struct in_ifaddr
+*ifa, struct nlmsghdr *nlh,
+                                inet_free_ifa(ifa);
+                                return -EINVAL;
+                        }
+-                       ifa->ifa_flags |= IFA_F_SECONDARY;
++                        if (ifa->ifa_flags & IFA_F_SECONDARY) {
++                                ifa->ifa_flags |= IFA_F_SECONDARY;
++                        } else {
++                                ifa->ifa_flags &= ~IFA_F_SECONDARY;
++                        }
+                }
+        }
+
+my test steps:
+
+1
+ ./ip/ip addr add 192.168.1.1/24 scope global secondary dev eth0
+./ip/ip adrr show eth0 >> /tmp/ipaddr.txt
+
+2
+./ip/ip addr add 192.168.1.2/24 scope global primary dev eth0
+./ip/ip addr show eth0 >> /tmp/ipaddr.txt
+
+3
+./ip/ip addr add 192.168.1.3/24 scope global primary dev eth0
+./ip/ip addr show eth0 >> /tmp/ipaddr.txt
+
+4
+./ip/ip addr add 192.168.1.4/24 scope global secondary dev eth0
+./ip/ip addr show eth0 >> /tmp/ipaddr.txt
+
+5
+./ip/ip addr add 192.168.1.5/24 scope global  dev eth0
+./ip/ip addr show eth0 >> /tmp/ipaddr.txt
+
+6
+./ip/ip addr del 192.168.1.5/24  dev eth0
+./ip/ip addr show eth0 >> /tmp/ipaddr.txt
+
+test result for each step
+
+result 1
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.1/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+result 2
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.1/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+result 3
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.3/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.2/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.1/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+result 4
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.3/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.2/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.1/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.4/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+result 5
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.5/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.3/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.2/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.1/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.4/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+result 6
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP group default qlen 1000
+    link/ether 52:54:00:e3:8f:33 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::5054:ff:fee3:8f33/64 scope link
+       valid_lft forever preferred_lft forever
+
+it does seems to achieve what I wanted, any comment on this?
+
+
+
+On Tue, Sep 17, 2013 at 5:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Tue, 17 Sep 2013 at 22:31 GMT, Vincent Li <vincent.mc.li@gmail.com> wrote:
+>>
+>> ideally though, we would like to have the capability in
+>> kernel/userspace  to specify a flag or something to add any ip as
+>> primary even if there is already existing primary ip address (could
+>> downgrade the existing primary to secondary ip). does this make sense
+>> ?
+>
+> 'ip addr' already has flags for this.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
