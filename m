@@ -1,173 +1,70 @@
-From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-Subject: [PATCH] iproute2: bridge: document mdb
-Date: Thu, 19 Sep 2013 10:15:43 +0200
-Message-ID: <1379578543-31358-1-git-send-email-ppisar@redhat.com>
+From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Subject: Re: [REGRESSION][BISECTED] skge: add dma_mapping check
+Date: Thu, 19 Sep 2013 12:18:52 +0400
+Message-ID: <1379578732.2403.4.camel@ThinkPad-X230.localdomain>
+References: <1379494844.2294.12.camel@ThinkPad-X230.localdomain>
+	 <20130918220819.GA11989@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <shemminger@vyatta.com>,
-	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4302 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752256Ab3ISIQO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Sep 2013 04:16:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mirko Lindner <mlindner@marvell.com>, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	member graysky <graysky@archlinux.us>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130918220819.GA11989@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This augments bridge(8) manual page with `bridge mdb' and `bridge
-monitor mdb' commands which have been added recently.
+On Thu, 2013-09-19 at 00:08 +0200, Francois Romieu wrote:
+> Igor Gnatenko <i.gnatenko.brain@gmail.com> :
+> > Since 136d8f377e1575463b47840bc5f1b22d94bf8f63 commit we have kernel
+> > panic on:
+> > 01:05.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+> > 
+> > Screen: https://www.dropbox.com/s/mu3t3wxpxbn4ou5/IMAG0507.jpg
+> > 
+> > RHBZ: https://bugzilla.redhat.com/show_bug.cgi?id=1008323
+> 
+> Does the ugly stuff below against mainline make a difference ?
+> 
+> Note to testers: use a size argument above 500 for 'ping' to
+> exercize the relevant code path.
+Reported-and-tested-by: Vasiliy Glazov <vascom2@gmail.com>
+Bisected-by: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+> 
+> diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+> index ef94a59..aa85a3f 100644
+> --- a/drivers/net/ethernet/marvell/skge.c
+> +++ b/drivers/net/ethernet/marvell/skge.c
+> @@ -3086,6 +3086,7 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+>  					       PCI_DMA_FROMDEVICE);
+>  		skge_rx_reuse(e, skge->rx_buf_size);
+>  	} else {
+> +		struct skge_element ee = *e;
+>  		struct sk_buff *nskb;
+>  
+>  		nskb = netdev_alloc_skb_ip_align(dev, skge->rx_buf_size);
+> @@ -3098,10 +3099,10 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+>  		}
+>  
+>  		pci_unmap_single(skge->hw->pdev,
+> -				 dma_unmap_addr(e, mapaddr),
+> -				 dma_unmap_len(e, maplen),
+> +				 dma_unmap_addr(&ee, mapaddr),
+> +				 dma_unmap_len(&ee, maplen),
+>  				 PCI_DMA_FROMDEVICE);
+> -		skb = e->skb;
+> +		skb = ee.skb;
+>  		prefetch(skb->data);
+>  	}
+>  
+Yes. This patch fixes problem. ping www.ru -s 500 works fine.
 
-Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
----
- man/man8/bridge.8 | 88 +++++++++++++++++++++++++++++++++++++++++++++++=
-++++++--
- 1 file changed, 85 insertions(+), 3 deletions(-)
 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 66678b5..635e801 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -13,7 +13,7 @@ bridge \- show / manipulate bridge addresses and devi=
-ces
-=20
- .ti -8
- .IR OBJECT " :=3D { "
--.BR link " | " fdb " | " vlan " | " monitor " }"
-+.BR link " | " fdb " | " mdb " | " vlan " | " monitor " }"
- .sp
-=20
- .ti -8
-@@ -65,6 +65,21 @@ bridge \- show / manipulate bridge addresses and dev=
-ices
- .IR DEV " ]"
-=20
- .ti -8
-+.BR "bridge mdb" " { " add " | " del " } "
-+.B  dev
-+.IR DEV=20
-+.B port
-+.IR PORT
-+.B grp
-+.IR GROUP " [ "
-+.BR permanent " | " temp " ]"
-+
-+.ti -8
-+.BR "bridge mdb show " [ "
-+.B  dev
-+.IR DEV " ]"
-+
-+.ti -8
- .BR "bridge vlan" " { " add " | " del " } "
- .B  dev
- .IR DEV
-@@ -79,7 +94,7 @@ bridge \- show / manipulate bridge addresses and devi=
-ces
- .IR DEV " ]"
-=20
- .ti -8
--.BR "bridge monitor" " [ " all " | " neigh " | " link " ]"
-+.BR "bridge monitor" " [ " all " | " neigh " | " link " | " mdb " ]"
-=20
- .SH OPTIONS
-=20
-@@ -110,6 +125,10 @@ As a rule, the information is statistics or some t=
-ime values.
- - Forwarding Database entry.
-=20
- .TP
-+.B mdb=20
-+- Multicast group database entry.
-+
-+.TP
- .B vlan
- - VLAN filter list.
-=20
-@@ -326,6 +345,69 @@ With the
- option, the command becomes verbose.  It prints out the last updated
- and last used time for each entry.
-=20
-+.SH bridge mdb - multicast group database management
-+
-+.B mdb
-+objects contain known IP multicast group addresses on a link.
-+
-+.P
-+The corresponding commands display mdb entries, add new entries,
-+and delete old ones.
-+
-+.SS bridge mdb add - add a new multicast group database entry
-+
-+This command creates a new mdb entry.
-+
-+.TP
-+.BI dev " DEV"
-+the interface where this group address is associated.
-+
-+.TP
-+.BI port " PORT"
-+the port whose link is known to have members of this multicast group.
-+
-+.TP
-+.BI grp " GROUP"
-+the IP multicast group address whose members reside on the link connec=
-ted to
-+the port.
-+
-+.B permanent
-+- the mdb entry is permanent
-+.sp
-+
-+.B temp
-+- the mdb entry is temporary (default)
-+.sp
-+
-+.in -8
-+.SS bridge mdb delete - delete a multicast group database entry
-+This command removes an existing mdb entry.
-+
-+.PP
-+The arguments are the same as with
-+.BR "bridge mdb add" .
-+
-+.SS bridge mdb show - list multicast group database entries
-+
-+This command displays the current multicast group membership table. Th=
-e table
-+is populated by IGMP and MLD snooping in the bridge driver automatical=
-ly. It
-+can be altered by
-+.B bridge mdb add
-+and
-+.B bridge mdb del
-+commands manually too.
-+
-+.TP
-+.BI dev " DEV"
-+the interface only whose entries should be listed. Default is to list =
-all
-+bridge interfaces.
-+
-+.PP
-+With the
-+.B -details
-+option, the command becomes verbose.  It prints out the ports known to=
- have
-+a connected router.
-+
- .SH bridge vlan - VLAN filter list
-=20
- .B vlan
-@@ -395,7 +477,7 @@ command is the first in the command line and then t=
-he object list follows:
- .I OBJECT-LIST
- is the list of object types that we want to monitor.
- It may contain
--.BR link ",  and " fdb "."
-+.BR link ",  " fdb ", and " mdb "."
- If no
- .B file
- argument is given,
---=20
-1.8.3.1
+-- 
+Igor Gnatenko
+Fedora release 20 (Heisenbug)
+Linux 3.11.1-300.fc20.x86_64
