@@ -1,65 +1,40 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net RFC 2/2] ixgbe: fix sleep bug caused by napi_disable
- inside local_bh_disable()d context
-Date: Thu, 19 Sep 2013 22:28:48 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB58565F5E52@ORSMSX104.amr.corp.intel.com>
-References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
- <20130918202016.8697.56423.stgit@jekeller-desk1.amr.corp.intel.com>
- <20130918230943.GB11989@electric-eye.fr.zoreil.com>
- <02874ECE860811409154E81DA85FBB58565F1520@ORSMSX104.amr.corp.intel.com>
- <20130919213254.GC31672@electric-eye.fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from stable
+ rules
+Date: Fri, 20 Sep 2013 00:37:59 +0200
+Message-ID: <20130919223759.GA581@electric-eye.fr.zoreil.com>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+ <20130919.135628.1201613770803318193.davem@davemloft.net>
+ <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+ <1379615474.22168.13.camel@joe-AO722>
+ <20130919213241.GB31672@electric-eye.fr.zoreil.com>
+ <1379627130.5862.2.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Hyong-Youb Kim <hykim@myri.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:25295 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752183Ab3ISW2x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 18:28:53 -0400
-In-Reply-To: <20130919213254.GC31672@electric-eye.fr.zoreil.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, Mikulas Patocka <mpatocka@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rob Landley <rob@landley.net>, linux-doc@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1379627130.5862.2.camel@joe-AO722>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Thursday, September 19, 2013 2:33 PM
-> To: Keller, Jacob E
-> Cc: netdev@vger.kernel.org; Duyck, Alexander H; Hyong-Youb Kim;
-> Dmitry Kravkov; Amir Vadai; Eliezer Tamir
-> Subject: Re: [PATCH net RFC 2/2] ixgbe: fix sleep bug caused by
-> napi_disable inside local_bh_disable()d context
+Joe Perches <joe@perches.com> :
+[...]
+> David selects them regardless.
 > 
-> Keller, Jacob E <jacob.e.keller@intel.com> :
-> [...]
-> > I know that we need local_bh_disable around the qv_lock_napi code
-> because
-> > it uses spin_lock instead of spin_lock_bh. I believe the reason we need
-> bh
-> > disabled around the entire context is so that the small window between
-> > failed calls to qv_lock_napi don't get interrupted and continue to have
-> > busy_poll lock the q_vector over and over.
-> 
-> Thanks for explaining the intent. I'll do my homework.
-> 
+> from Documentation/networking/netdev-FAQ.txt:
 
-Thanks. Again, I am not entirely sure this is the right solution, (hence the RFC) because I am not that familiar with the code here.
+I don't believe that those who read Documentation/stable_kernel_rules.txt
+will magically read networking/netdev-FAQ.txt as well nor figure that
+while they should not mark the patches stables (skr.txt), they are
+expected to apply some extra rules as well (nF.txt).
 
-> > I have to move the local_bh_disable in order to put napi_disable
-> outside
-> > of the call since napi_disable could sleep, causing a scheduling while
-> > atomic BUG.
-> 
-> I am in violent agreement with this part.
-> --
-> Ueimor
+It's fine if you disagree. I won't argue.
 
-Regards,
-Jake
+-- 
+Ueimor
