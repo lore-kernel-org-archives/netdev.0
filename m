@@ -1,13 +1,14 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 20/51] DMA-API: usb: bcma: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:45:01 +0100
-Message-ID: <E1VMm21-0007hW-Dd@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 25/51] DMA-API: video: clcd: add
+ dma_set_mask_and_coherent() call
+Date: Thu, 19 Sep 2013 22:50:02 +0100
+Message-ID: <E1VMm6s-0007iD-2R@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>,
+ Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -34,31 +35,37 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Replace the following sequence:
-
-	dma_set_mask(dev, mask);
-	dma_set_coherent_mask(dev, mask);
-
-with a call to the new helper dma_set_mask_and_coherent().
+The DMA API requires drivers to call the appropriate dma_set_mask()
+functions before doing any DMA mapping.  Add this required call to
+the AMBA PL08x driver.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/usb/host/bcma-hcd.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/video/amba-clcd.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/usb/host/bcma-hcd.c b/drivers/usb/host/bcma-hcd.c
-index df13d42..205f4a3 100644
---- a/drivers/usb/host/bcma-hcd.c
-+++ b/drivers/usb/host/bcma-hcd.c
-@@ -227,8 +227,7 @@ static int bcma_hcd_probe(struct bcma_device *dev)
+diff --git a/drivers/video/amba-clcd.c b/drivers/video/amba-clcd.c
+index 0a2cce7..afe4702 100644
+--- a/drivers/video/amba-clcd.c
++++ b/drivers/video/amba-clcd.c
+@@ -10,6 +10,7 @@
+  *
+  *  ARM PrimeCell PL110 Color LCD Controller
+  */
++#include <linux/dma-mapping.h>
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+@@ -551,6 +552,10 @@ static int clcdfb_probe(struct amba_device *dev, const struct amba_id *id)
+ 	if (!board)
+ 		return -EINVAL;
  
- 	/* TODO: Probably need checks here; is the core connected? */
- 
--	if (dma_set_mask(dev->dma_dev, DMA_BIT_MASK(32)) ||
--	    dma_set_coherent_mask(dev->dma_dev, DMA_BIT_MASK(32)))
-+	if (dma_set_mask_and_coherent(dev->dma_dev, DMA_BIT_MASK(32)))
- 		return -EOPNOTSUPP;
- 
- 	usb_dev = kzalloc(sizeof(struct bcma_hcd_device), GFP_KERNEL);
++	ret = dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(32));
++	if (ret)
++		goto out;
++
+ 	ret = amba_request_regions(dev, NULL);
+ 	if (ret) {
+ 		printk(KERN_ERR "CLCD: unable to reserve regs region\n");
 -- 
 1.7.4.4
