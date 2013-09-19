@@ -1,40 +1,31 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: Align private space in rtl_priv struct
-Date: Wed, 18 Sep 2013 21:21:35 -0500
-Message-ID: <1379557295-18484-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <NathanRijckmans@rufyrily.onmicrosoft.com>
+Subject: All in one place. Visit today!
+Date: Thu, 19 Sep 2013 03:11:27 +0000
+Message-ID: <f74d2da1-8196-49d3-9fb2-e24852e72587@DB3PR03MB057.eurprd03.prod.outlook.com>
+Mime-Version: 1.1
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.100]:55748
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752636Ab3ISDLc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Sep 2013 23:11:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The private array at the end of the rtl_priv struct is not aligned.
-On ARM architecture, this causes an alignment trap and is fixed by aligning
-that array with __align(sizeof(void *)). That should properly align that
-space according to the requirements of all architectures.
 
-Reported-by: Jason Andrews <jasona@cadence.com>
-Tested-by: Jason Andrews <jasona@cadence.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/net/wireless/rtlwifi/wifi.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+		Dear Customer,
 
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index cc03e7c..7032587 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -2057,7 +2057,7 @@ struct rtl_priv {
- 	   that it points to the data allocated
- 	   beyond  this structure like:
- 	   rtl_pci_priv or rtl_usb_priv */
--	u8 priv[0];
-+	u8 priv[0] __aligned(sizeof(void *));
- };
- 
- #define rtl_priv(hw)		(((struct rtl_priv *)(hw)->priv))
--- 
-1.8.1.4
+There is a lot of people in this world who spend so much time 
+watching their health that they have not the time to enjoy it.
+
+No doctor visits
+Lowest price World Wide 
+Discreet Packaging
+
+http://onlinestore20.yolasite.com/shop
+
+Best Regards,
+		
