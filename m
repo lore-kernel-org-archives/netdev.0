@@ -1,77 +1,90 @@
 From: Jesse Gross <jesse@nicira.com>
 Subject: Re: [PATCH v2.39 7/7] datapath: Add basic MPLS support to kernel
-Date: Thu, 19 Sep 2013 12:21:33 -0500
-Message-ID: <CAEP_g=_Eds_XvPLUOhAAMZbxkzmBJEtSR9vVG2kkuRLehrfbDg@mail.gmail.com>
+Date: Thu, 19 Sep 2013 12:31:51 -0500
+Message-ID: <CAEP_g=8+osWcHjj6pkGkid6djK9=CDf4U4qC97bY=GP0j=K3iw@mail.gmail.com>
 References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
- <1378711207-29890-8-git-send-email-horms@verge.net.au> <CAEP_g=8FBQPZ=C6G39YdHRzG57m5MqfXSZFAX2S_KLHRwfzc2w@mail.gmail.com>
- <20130919155732.GC24919@verge.net.au>
+ <1378711207-29890-8-git-send-email-horms@verge.net.au> <CALnjE+p9g+GO71yjcNVG+y9ZzvT_==SLSqAAqGHU_jg=sx7Ynw@mail.gmail.com>
+ <20130918220756.GA24919@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ben Pfaff <blp@nicira.com>, Pravin Shelar <pshelar@nicira.com>,
+Cc: Pravin Shelar <pshelar@nicira.com>,
 	"dev@openvswitch.org" <dev@openvswitch.org>,
 	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
 	Isaku Yamahata <yamahata@valinux.co.jp>,
 	Joe Stringer <joe@wand.net.nz>
 To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:60951 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752323Ab3ISRWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 13:22:08 -0400
-Received: by mail-ie0-f178.google.com with SMTP id to1so15335764ieb.23
-        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 10:21:57 -0700 (PDT)
-In-Reply-To: <20130919155732.GC24919@verge.net.au>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:59127 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751157Ab3ISRcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 13:32:19 -0400
+Received: by mail-ie0-f175.google.com with SMTP id e14so15578561iej.20
+        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 10:32:12 -0700 (PDT)
+In-Reply-To: <20130918220756.GA24919@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 19, 2013 at 10:57 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Mon, Sep 16, 2013 at 03:38:21PM -0500, Jesse Gross wrote:
+On Wed, Sep 18, 2013 at 5:07 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Sep 17, 2013 at 11:38:18AM -0700, Pravin Shelar wrote:
 >> On Mon, Sep 9, 2013 at 12:20 AM, Simon Horman <horms@verge.net.au> wrote:
->> > @@ -616,6 +736,13 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
->> >                 goto out_loop;
->> >         }
+>> > diff --git a/datapath/datapath.h b/datapath/datapath.h
+>> > index 5d50dd4..babae3b 100644
+>> > --- a/datapath/datapath.h
+>> > +++ b/datapath/datapath.h
+>> > @@ -36,6 +36,10 @@
 >> >
->> > +       /* Needed to initialise inner protocol on kernels older
->> > +        * than v3.11 where skb->inner_protocol is not present
->> > +        * and compatibility code uses the OVS_CB(skb) to store
->> > +        * the inner protocol.
->> > +        */
->> > +       ovs_skb_set_inner_protocol(skb, skb->protocol);
->>
->> The comment makes it sound like this code should just be deleted when
->> upstreaming. However, I believe that we still need to initialize this
->> field, right? Is this the best place do it or should it be conditional
->> on adding a first MPLS header? (i.e. what happens if inner_protocol is
->> already set and the packet simply passes through OVS?)
+>> >  #define SAMPLE_ACTION_DEPTH 3
+>> >
+>> > +#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
+>> > +#define HAVE_INNER_PROTOCOL
+>> > +#endif
+>> > +
+>> >  /**
+>> >   * struct dp_stats_percpu - per-cpu packet processing statistics for a given
+>> >   * datapath.
+>> > @@ -93,11 +97,16 @@ struct datapath {
+>> >   * @pkt_key: The flow information extracted from the packet.  Must be nonnull.
+>> >   * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
+>> >   * packet is not being tunneled.
+>> > + * @inner_protocol: Provides a substitute for the skb->inner_protocol field on
+>> > + * kernels before 3.11.
+>> >   */
+>> >  struct ovs_skb_cb {
+>> >         struct sw_flow          *flow;
+>> >         struct sw_flow_key      *pkt_key;
+>> >         struct ovs_key_ipv4_tunnel  *tun_key;
+>> > +#ifndef HAVE_INNER_PROTOCOL
+>> > +       __be16                  inner_protocol;
+>> > +#endif
+>> >  };
+>> >  #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
+>> >
+>> Can you move this to compat struct ovs_gso_cb {}
 >
-> I believe there are several problems here.
+> I think that you are correct and inner_protocol needs
+> to be in struct ovs_gso_cb so that it can
+> be accessed via skb_network_protocol() from
+> rpl___skb_gso_segment().
 >
-> The first one, which my comment was written around is that I think that if
-> inner_protocol is a field of struct sk_buff then we can rely on it already
-> being initialised.  However, if we are using compatibility code, where
-> inner_protcol is called in the callback field of struct sk_buff then I
-> think that OVS needs to initialise it.
-
-I'm not sure that it's true that inner_protocol is already initialized
-- I grepped the tree and the only assignment that I found is in
-skbuff.c in __copy_skb_header().
-
-> A second problem is one that you raise which I had not considered
-> which is how to handle things if inner_protocol is already set.
+> However I think it may also need to be present in struct ovs_cb
+> so that it can be set correctly.
 >
-> I believe this should only occur in the case where inner_protocol
-> is a field of struct sk_buff and I think it would be most convenient
-> to set it conditionally in ovs_skb_reset_inner_protocol().
-> I think that if it is not set it should be zero but it should be
-> safe to check for values less than ETH_P_802_3_MIN.
+> Currently it is set unconditionally
+> in ovs_execute_actions() and Jesse has suggested setting
+> it conditionally in pop_mpls() (which is called by do_execute_actions()).
+> But regardless it seems to me that the field would need to be available
+> in struct ovs_cb.
 
-It's probably OK to check for values less than ETH_P_802_3_MIN but I'm
-not sure that it's the most correct thing to do since skb->protocol
-could contain these values (such as ETH_P_802_2). It's unlikely that
-they will be GSO packets but it seems better to use the more strict
-check against zero.
+Since the helper functions are also in the compat code, I think they
+should have access to ovs_gso_cb.
 
-One other consideration in the OVS case - with recirculation we may
-hit this code multiple times and the difference in behavior could be
-surprising. However, on the other hand, we need to be careful because
-skb->cb is not guaranteed to be initialized to zero.
+>> I think we can simplify code by pushing vlan and then segmenting skb,
+>> the way we do it for MPLS.
+>
+> Are you thinking of something like the following which applies
+> prior to the MPLS code.
+
+This is basically what I was thinking about. We might actually be able
+to move all of this to compat code by having a replacement for
+dev_queue_xmit() similar to what we have for ip_local_out() in the
+tunnel code.
