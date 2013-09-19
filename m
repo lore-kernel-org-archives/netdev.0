@@ -1,14 +1,13 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 19/51] DMA-API: media: dt3155v4l: replace
+Subject: [PATCH 10/51] DMA-API: net: broadcom/bnx2x: replace
  dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:44:01 +0100
-Message-ID: <E1VMm13-0007hO-9l@rmk-PC.arm.linux.org.uk>
+Date: Thu, 19 Sep 2013 22:34:59 +0100
+Message-ID: <E1VMlsJ-0007g8-UO@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Mauro Carvalho Chehab <m.chehab@samsung.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -44,24 +43,28 @@ with a call to the new helper dma_set_mask_and_coherent().
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/staging/media/dt3155v4l/dt3155v4l.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/staging/media/dt3155v4l/dt3155v4l.c b/drivers/staging/media/dt3155v4l/dt3155v4l.c
-index 90d6ac4..081407b 100644
---- a/drivers/staging/media/dt3155v4l/dt3155v4l.c
-+++ b/drivers/staging/media/dt3155v4l/dt3155v4l.c
-@@ -901,10 +901,7 @@ dt3155_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	int err;
- 	struct dt3155_priv *pd;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 2f8dbbb..e6c3e66 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12072,13 +12072,9 @@ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+ {
+ 	struct device *dev = &bp->pdev->dev;
  
--	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
--	if (err)
--		return -ENODEV;
--	err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-+	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
- 	if (err)
- 		return -ENODEV;
- 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+-	if (dma_set_mask(dev, DMA_BIT_MASK(64)) == 0) {
++	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)) == 0) {
+ 		bp->flags |= USING_DAC_FLAG;
+-		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64)) != 0) {
+-			dev_err(dev, "dma_set_coherent_mask failed, aborting\n");
+-			return -EIO;
+-		}
+-	} else if (dma_set_mask(dev, DMA_BIT_MASK(32)) != 0) {
++	} else if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32)) != 0) {
+ 		dev_err(dev, "System does not support DMA, aborting\n");
+ 		return -EIO;
+ 	}
 -- 
 1.7.4.4
