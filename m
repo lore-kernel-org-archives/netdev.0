@@ -1,64 +1,43 @@
-From: Andre Naujoks <nautsch2@gmail.com>
-Subject: Re: [PATCH net 1/3] slip/slcan: added locking in wakeup function
-Date: Thu, 19 Sep 2013 12:29:48 +0200
-Message-ID: <523AD21C.8030102@gmail.com>
-References: <1379093833-4949-1-git-send-email-nautsch2@gmail.com> <1379093833-4949-2-git-send-email-nautsch2@gmail.com> <523AC589.5040006@pengutronix.de>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: xmm registers in amd64 drivers
+Date: Thu, 19 Sep 2013 11:31:46 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B734B@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <523AC589.5040006@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Network Development" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45389 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752136Ab3ISKdu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 06:33:50 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15141-03 for <netdev@vger.kernel.org>;
+ Thu, 19 Sep 2013 11:33:47 +0100 (BST)
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19.09.2013 11:36, schrieb Marc Kleine-Budde:
-> On 09/13/2013 07:37 PM, Andre Naujoks wrote:
->> The locking is needed, since the the internal buffer for the CAN
->> frames is changed during the wakeup call. This could cause buffer
->> inconsistencies under high loads, especially for the outgoing
->> short CAN packet skbuffs.
->> 
->> The needed locks led to deadlocks before commit 
->> "5ede52538ee2b2202d9dff5b06c33bfde421e6e4 tty: Remove extra
->> wakeup from pty write() path", which removed the direct callback
->> to the wakeup function from the tty layer.
-> 
-> What does that mean for older kernels? (<
-> 5ede52538ee2b2202d9dff5b06c33bfde421e6e4)
+I realise this isn't quite the right list for this question.
+But I suspect someone will know the answer!
 
-It seems the slcan (and slip) driver is broken for older kernels. See
-this thread for a discussion about the patch in pty.c.
+I've just compiled one of our drivers (an ss7 protocol stack)
+on a much newer system than the one we usually use
+(ubunto 13.04 with gcc 4.7.3 rather than debian lenny).
 
-http://marc.info/?l=linux-kernel&m=137269017002789&w=2
+I've bodged around some strict-aliasing and const-cast warnings
+- the usage all look safe.
 
-The patch from Peter Hurley was actually already in the queue, when I
-ran into the problem, and is now in kernel 3.12.
+Looking at the object code I noticed that all the stdarg
+functions now contain code to conditionally save the xmm
+registers.
 
-Without the pty patch and slow CAN traffic, the driver works, because
-the wakeup is called directly from the pty driver. That is also the
-reason why there was no locking. It would just deadlock.
+Is this now considered 'normal' or am I missing a compiler flag?
 
-When the pty driver defers the wakeup, we ran into synchronisation
-problems (which should be fixed by the locking) and eventually into a
-kernel panic because of a recursive loop (which should be fixed by the
-pty.c patch).
+I know I've looked at the code before since I tried adding
+enough fixed parameters to one of the functions to get all
+the variable ones on-stack hoping that would optimise the
+accesses - it didn't.
 
-Maybe it is possible to get both patches back into the stable branches?
-
-Regards
-  Andre
-
-> 
->> As slcan.c is based on slip.c the issue in the original code is
->> fixed, too.
->> 
->> Signed-off-by: Andre Naujoks <nautsch2@gmail.com>
-> Acked-by: Marc Kleine-Budde  <mkl@pengutronix.de>
-> 
-> Marc
-> 
-
+	David
