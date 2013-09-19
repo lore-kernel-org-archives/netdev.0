@@ -1,215 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [stable] [PATCH] sfc: Fix efx_rx_buf_offset() for recycled pages
-Date: Thu, 19 Sep 2013 17:13:51 +0100
-Message-ID: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source through
+ dts file
+Date: Thu, 19 Sep 2013 19:30:02 +0300
+Message-ID: <523B268A.2010805@freescale.com>
+References: <1379510464-25420-1-git-send-email-aida.mynzhasova@skitlab.ru> <5239CA4F.9000600@freescale.com> <5239D74F.5030801@skitlab.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-VdRUIrNGifcbcTa4uuNg"
-Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <richardcochran@gmail.com>, <netdev@vger.kernel.org>
+To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51826 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753464Ab3ISQNz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 12:13:55 -0400
+Received: from [216.32.181.185] ([216.32.181.185]:54733 "EHLO
+	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831Ab3ISQbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 12:31:25 -0400
+In-Reply-To: <5239D74F.5030801@skitlab.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-VdRUIrNGifcbcTa4uuNg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-[Re-sending with cc to the current stable address.  I still had the old
-address in contacts, though I've definitely sent to the current address
-previously...]
-
-This bug fix is only for stable branches older than 3.10.  The bug was
-fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
-mapping/unmapping costs'), but that change is totally unsuitable for
-stable.
-
-Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
-swiotlb') added an explicit page_offset member to struct
-efx_rx_buffer, which must be set consistently with the u.page and
-dma_addr fields.  However, it failed to add the necessary assignment
-in efx_resurrect_rx_buffer().  It also did not correct the calculation
-of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
-that DMA-mapping a page will result in a page-aligned DMA address
-(exactly what swiotlb violates).
-
-Add the assignment of efx_rx_buffer::page_offset and change the
-calculation of dma_addr to make use of it.
-
-I'm attaching the patches for 3.0.y, 3.2.y and 3.4.y (the last of which
-should also be applicable to the later unofficial stable branches).
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
 
---=-VdRUIrNGifcbcTa4uuNg
-Content-Disposition: attachment;
-	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.0.patch"
-Content-Type: text/x-patch;
-	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.0.patch";
-	charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
->From d4e70d42eff6938c12d7d0b12f657b10d06a156d Mon Sep 17 00:00:00 2001
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 6 Sep 2013 22:39:20 +0100
-Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
-
-This bug fix is only for stable branches older than 3.10.  The bug was
-fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
-mapping/unmapping costs'), but that change is totally unsuitable for
-stable.
-
-Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
-swiotlb') added an explicit page_offset member to struct
-efx_rx_buffer, which must be set consistently with the u.page and
-dma_addr fields.  However, it failed to add the necessary assignment
-in efx_resurrect_rx_buffer().  It also did not correct the calculation
-of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
-that DMA-mapping a page will result in a page-aligned DMA address
-(exactly what swiotlb violates).
-
-Add the assignment of efx_rx_buffer::page_offset and change the
-calculation of dma_addr to make use of it.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/rx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index d429f0a..26e4cca 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -311,8 +311,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
- 
- 	index = rx_queue->added_count & rx_queue->ptr_mask;
- 	new_buf = efx_rx_buffer(rx_queue, index);
--	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
- 	new_buf->u.page = rx_buf->u.page;
-+	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
-+	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
- 	new_buf->len = rx_buf->len;
- 	new_buf->is_page = true;
- 	++rx_queue->added_count;
--- 
-1.8.1.4
+On 9/18/2013 7:39 PM, Aida Mynzhasova wrote:
+> On 18.09.2013 19:44, Claudiu Manoil wrote:
+>>
+>> On 9/18/2013 4:21 PM, Aida Mynzhasova wrote:
+>>> IEEE 1588 timer reference clock source is determined through hard-coded
+>>> value in gianfar_ptp driver by default. This patch allows to select ptp
+>>> clock source by means of device tree file node.
+>>>
+>>> For instance:
+>>>
+>>>     fsl,cksel = <0>;
+>>>
+>>
+>> Has this device tree binding been defined? (Where?)
+>> I don't see this property in the net-next.git tree at least.
+>>
+>> Claudiu
+>>
+>>
+>
+> Hi Claudiu,
+>
+> actually, I don't know where I should define this binding, my only idea
+> is to add "cksel" property description in
+> /Documentation/devicetree/bindings/net/fsl-tsec-phy.txt. Am I right or I
+> need to do some additional changes?
+>
+> Thanks.
+>
+>
 
 
---=-VdRUIrNGifcbcTa4uuNg
-Content-Disposition: attachment;
-	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.2.patch"
-Content-Type: text/x-patch;
-	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.2.patch";
-	charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+If you ask me, updates for the device trees of several powerpc boards, 
+like the 83xx series (as this patch implies), should be discussed and 
+agreed upon on the powerpc list (linuxppc-dev@lists.ozlabs.org),
+where these kind of changes are usually being discussed with people more
+knowledgeable in device tree bindings and the powerpc/83xx hardware.
 
->From 43587737635de32882d9f69df36562e0d5b0e0bd Mon Sep 17 00:00:00 2001
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 6 Sep 2013 22:39:20 +0100
-Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
-
-This bug fix is only for stable branches older than 3.10.  The bug was
-fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
-mapping/unmapping costs'), but that change is totally unsuitable for
-stable.
-
-Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
-swiotlb') added an explicit page_offset member to struct
-efx_rx_buffer, which must be set consistently with the u.page and
-dma_addr fields.  However, it failed to add the necessary assignment
-in efx_resurrect_rx_buffer().  It also did not correct the calculation
-of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
-that DMA-mapping a page will result in a page-aligned DMA address
-(exactly what swiotlb violates).
-
-Add the assignment of efx_rx_buffer::page_offset and change the
-calculation of dma_addr to make use of it.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/rx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 9ce8665..c231b3f 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -312,8 +312,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
- 
- 	index = rx_queue->added_count & rx_queue->ptr_mask;
- 	new_buf = efx_rx_buffer(rx_queue, index);
--	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
- 	new_buf->u.page = rx_buf->u.page;
-+	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
-+	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
- 	new_buf->len = rx_buf->len;
- 	new_buf->is_page = true;
- 	++rx_queue->added_count;
--- 
-1.8.1.4
-
-
---=-VdRUIrNGifcbcTa4uuNg
-Content-Disposition: attachment;
-	filename="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.4.patch"
-Content-Type: text/x-patch;
-	name="sfc-Fix-efx_rx_buf_offset-for-recycled-pages-3.4.patch";
-	charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
->From 55961f9a914e637f143da275da42154a49c9743a Mon Sep 17 00:00:00 2001
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 6 Sep 2013 22:39:20 +0100
-Subject: sfc: Fix efx_rx_buf_offset() for recycled pages
-
-This bug fix is only for stable branches older than 3.10.  The bug was
-fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
-mapping/unmapping costs'), but that change is totally unsuitable for
-stable.
-
-Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
-swiotlb') added an explicit page_offset member to struct
-efx_rx_buffer, which must be set consistently with the u.page and
-dma_addr fields.  However, it failed to add the necessary assignment
-in efx_resurrect_rx_buffer().  It also did not correct the calculation
-of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
-that DMA-mapping a page will result in a page-aligned DMA address
-(exactly what swiotlb violates).
-
-Add the assignment of efx_rx_buffer::page_offset and change the
-calculation of dma_addr to make use of it.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/rx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 7b3c068..62311ad3 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -311,8 +311,9 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
- 
- 	index = rx_queue->added_count & rx_queue->ptr_mask;
- 	new_buf = efx_rx_buffer(rx_queue, index);
--	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
- 	new_buf->u.page = rx_buf->u.page;
-+	new_buf->page_offset = rx_buf->page_offset ^ (PAGE_SIZE >> 1);
-+	new_buf->dma_addr = state->dma_addr + new_buf->page_offset;
- 	new_buf->len = rx_buf->len;
- 	new_buf->flags = EFX_RX_BUF_PAGE;
- 	++rx_queue->added_count;
--- 
-1.8.1.4
-
-
---=-VdRUIrNGifcbcTa4uuNg--
+Regards,
+Claudiu
