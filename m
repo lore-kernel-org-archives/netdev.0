@@ -1,47 +1,48 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH v2 1/1] net: cdc-phonet: Staticize usbpn_probe
-Date: Thu, 19 Sep 2013 12:15:26 +0530
-Message-ID: <1379573126-4879-1-git-send-email-sachin.kamat@linaro.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] USBNET: fix handling padding packet
+Date: Thu, 19 Sep 2013 08:57:23 +0200
+Message-ID: <1379573843.8608.7.camel@linux-fkkt.site>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com>
+	 <878uyu6xjm.fsf@nemi.mork.no>
+	 <CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com>
+	 <87zjra5dpx.fsf@nemi.mork.no> <1379523984.2430.3.camel@linux-fkkt.site>
+	 <be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-To: netdev@vger.kernel.org
+Cc: Ming Lei <ming.lei@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:35883 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606Ab3ISGpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 02:45:14 -0400
-Received: by mail-pb0-f41.google.com with SMTP id rp2so8060865pbb.28
-        for <netdev@vger.kernel.org>; Wed, 18 Sep 2013 23:45:13 -0700 (PDT)
+Received: from cantor2.suse.de ([195.135.220.15]:42863 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752676Ab3ISG51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Sep 2013 02:57:27 -0400
+In-Reply-To: <be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'usbpn_probe' is referenced only in this file. Make it static.
+On Wed, 2013-09-18 at 20:56 +0200, Bj=C3=B8rn Mork wrote:
+> Oliver Neukum <oneukum@suse.de> wrote:
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Acked-by: R=C3=A9mi Denis-Courmont <remi@remlab.net>
-Cc: R=C3=A9mi Denis-Courmont <remi@remlab.net>
----
- drivers/net/usb/cdc-phonet.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> >No, USB 3.0 uses no companion controllers, so you can have devices
+> >of any speed connected to it.
+> >
+>=20
+> Ah, right. I don't own such modern hardware, but I should have known =
+this anyway.=20
+>=20
+> This still doesn't change the fact that the driver is brand new for b=
+rand new devices. I believe we should assume such devices will support =
+ZLPs unless we have documentation stating anything else.
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
-c
-index 7d78669..6358d42 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -328,7 +328,7 @@ MODULE_DEVICE_TABLE(usb, usbpn_ids);
-=20
- static struct usb_driver usbpn_driver;
-=20
--int usbpn_probe(struct usb_interface *intf, const struct usb_device_id=
- *id)
-+static int usbpn_probe(struct usb_interface *intf, const struct usb_de=
-vice_id *id)
- {
- 	static const char ifname[] =3D "usbpn%d";
- 	const struct usb_cdc_union_desc *union_header =3D NULL;
---=20
-1.7.9.5
+=46or such devices we might assume it. But how does that matter for
+generic code? As any kind of device may be connected to XHCI, the sg
+code is relevant for every driver. And I certainly don't want trouble
+for older devices' drivers converted to sg.
+
+	Regards
+		Oliver
