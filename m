@@ -1,79 +1,81 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 18/51] DMA-API: staging: et131x: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:43:01 +0100
-Message-ID: <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH] declance: Remove `incompatible pointer type' warnings
+Date: Fri, 20 Sep 2013 00:49:44 +0100 (BST)
+Message-ID: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Einon <mark.einon@gmail.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
- devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
- dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
- linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org,
- linux-doc@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-ide@vger.kernel.org, linux-media@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvme@lists.infradead.org,
- linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- uclinux-dist-devel@blackfin.uclinux.org
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:49558 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150Ab3ISXtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 19:49:46 -0400
+Received: from localhost.localdomain ([127.0.0.1]:57364 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6823977Ab3ISXtopmdg0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 01:49:44 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace the following sequence:
+Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7:
 
-	dma_set_mask(dev, mask);
-	dma_set_coherent_mask(dev, mask);
+.../declance.c: In function 'cp_to_buf':
+.../declance.c:347: warning: assignment from incompatible pointer type
+.../declance.c:348: warning: assignment from incompatible pointer type
+.../declance.c: In function 'cp_from_buf':
+.../declance.c:406: warning: assignment from incompatible pointer type
+.../declance.c:407: warning: assignment from incompatible pointer type
 
-with a call to the new helper dma_set_mask_and_coherent().
+Also add a `const' qualifier where applicable and adjust formatting.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 ---
- drivers/staging/et131x/et131x.c |   17 ++---------------
- 1 files changed, 2 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index f73e58f..98edfa8 100644
---- a/drivers/staging/et131x/et131x.c
-+++ b/drivers/staging/et131x/et131x.c
-@@ -4797,21 +4797,8 @@ static int et131x_pci_setup(struct pci_dev *pdev,
- 	pci_set_master(pdev);
+linux-declance-cast-fix.patch
+Index: linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
+===================================================================
+--- linux-mips-3.12.0-rc1-20130917-4maxp.orig/drivers/net/ethernet/amd/declance.c
++++ linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
+@@ -344,8 +344,8 @@ static void cp_to_buf(const int type, vo
+ 		}
  
- 	/* Check the DMA addressing support of this device */
--	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
--		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
--		if (rc < 0) {
--			dev_err(&pdev->dev,
--			  "Unable to obtain 64 bit DMA for consistent allocations\n");
--			goto err_release_res;
--		}
--	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
--		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
--		if (rc < 0) {
--			dev_err(&pdev->dev,
--			  "Unable to obtain 32 bit DMA for consistent allocations\n");
--			goto err_release_res;
--		}
--	} else {
-+	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) ||
-+	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
- 		dev_err(&pdev->dev, "No usable DMA addressing method\n");
- 		rc = -EIO;
- 		goto err_release_res;
--- 
-1.7.4.4
+ 		clen = len & 1;
+-		rtp = tp;
+-		rfp = fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
+@@ -372,8 +372,8 @@ static void cp_to_buf(const int type, vo
+ 		 * do the rest, if any.
+ 		 */
+ 		clen = len & 15;
+-		rtp = (unsigned char *) tp;
+-		rfp = (unsigned char *) fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
+@@ -403,8 +403,8 @@ static void cp_from_buf(const int type, 
+ 
+ 		clen = len & 1;
+ 
+-		rtp = tp;
+-		rfp = fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+@@ -433,8 +433,8 @@ static void cp_from_buf(const int type, 
+ 		 * do the rest, if any.
+ 		 */
+ 		clen = len & 15;
+-		rtp = (unsigned char *) tp;
+-		rfp = (unsigned char *) fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
