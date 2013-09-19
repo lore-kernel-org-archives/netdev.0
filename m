@@ -1,99 +1,49 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: Re: [PATCH] skge: fix broken driver
-Date: Thu, 19 Sep 2013 14:04:38 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
-References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com> <20130919.135628.1201613770803318193.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
+ shut down
+Date: Thu, 19 Sep 2013 14:05:13 -0400 (EDT)
+Message-ID: <20130919.140513.2047786411565716987.davem@davemloft.net>
+References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	david.vrabel@citrix.com, wei.liu2@citrix.com,
+	ian.campbell@citrix.com
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62924 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752136Ab3ISSEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Sep 2013 14:04:41 -0400
-In-Reply-To: <20130919.135628.1201613770803318193.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53237 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752716Ab3ISSFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:05:15 -0400
+In-Reply-To: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Tue, 17 Sep 2013 17:46:08 +0100
 
-
-On Thu, 19 Sep 2013, David Miller wrote:
-
-> From: Mikulas Patocka <mpatocka@redhat.com>
-> Date: Thu, 19 Sep 2013 12:33:30 -0400 (EDT)
+> Without this patch, if a frontend cycles through states Closing
+> and Closed (which Windows frontends need to do) then the netdev
+> will be destroyed and requires re-invocation of hotplug scripts
+> to restore state before the frontend can move to Connected. Thus
+> when udev is not in use the backend gets stuck in InitWait.
 > 
-> > Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> > Cc: stable@kernel.org # 3.11
+> With this patch, the netdev is left alone whilst the backend is
+> still online and is only de-registered and freed just prior to
+> destroying the vif (which is also nicely symmetrical with the
+> netdev allocation and registration being done during probe) so
+> no re-invocation of hotplug scripts is required.
 > 
-> First, this is missing the reported-by and tested-by tags provided
-> by people who tested this patch.
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 
-I noticed the problem and tested the patch on my own machine. So I added 
-myself to these tags.
+I think all of the testing requests have been satisfied so I have
+applied this.
 
-> Secondly, CC:'ing stable is not the correct way to submit networking
-> patches for -stable inclusion.  You simply ask me to queue them up
-> for -stable explicitly instead.
-> 
-> Please re-submit this with the currect signoffs, thank you.
+But _please_ write a more proper subject line in future patch
+submissions.  You have to provide a subsystem prefix in the
+subject line, here I added "xen-netback: ", otherwise someone
+skimming the shortlog has no idea what area of code this change
+touches.
 
-Here I'm re-submitting it.
-
----
-
-skge: fix broken driver
-
-The patch 136d8f377e1575463b47840bc5f1b22d94bf8f63 broke the skge driver.
-Note this part of the patch:
-+               if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
-+                       dev_kfree_skb(nskb);
-+                       goto resubmit;
-+               }
-+
-                pci_unmap_single(skge->hw->pdev,
-                                 dma_unmap_addr(e, mapaddr),
-                                 dma_unmap_len(e, maplen),
-                                 PCI_DMA_FROMDEVICE);
-                skb = e->skb;
-                prefetch(skb->data);
--               skge_rx_setup(skge, e, nskb, skge->rx_buf_size);
-
-The function skge_rx_setup modifies e->skb to point to the new skb. Thus,
-after this change, the new buffer, not the old, is returned to the
-networking stack.
-
-This bug is present in kernels 3.11, 3.11.1 and 3.12-rc1. The patch should 
-be queued for 3.11-stable.
-
-Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-Reported-by: Mikulas Patocka <mpatocka@redhat.com>
-Tested-by: Mikulas Patocka <mpatocka@redhat.com>
-
----
- drivers/net/ethernet/marvell/skge.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-Index: linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c
-===================================================================
---- linux-3.11.1-fast.orig/drivers/net/ethernet/marvell/skge.c	2013-09-10 19:46:58.000000000 +0200
-+++ linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c	2013-09-19 18:20:43.000000000 +0200
-@@ -3092,6 +3092,9 @@ static struct sk_buff *skge_rx_get(struc
- 		if (!nskb)
- 			goto resubmit;
- 
-+		skb = e->skb;
-+		prefetch(skb->data);
-+
- 		if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
- 			dev_kfree_skb(nskb);
- 			goto resubmit;
-@@ -3101,8 +3104,6 @@ static struct sk_buff *skge_rx_get(struc
- 				 dma_unmap_addr(e, mapaddr),
- 				 dma_unmap_len(e, maplen),
- 				 PCI_DMA_FROMDEVICE);
--		skb = e->skb;
--		prefetch(skb->data);
- 	}
- 
- 	skb_put(skb, len);
+Thanks.
