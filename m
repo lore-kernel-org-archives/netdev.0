@@ -1,13 +1,21 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 13/51] DMA-API: net: sfc/efx.c: replace
+Subject: [PATCH 12/51] DMA-API: net: intel/e1000: replace
  dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:38:00 +0100
-Message-ID: <E1VMlvE-0007gc-B5@rmk-PC.arm.linux.org.uk>
+Date: Thu, 19 Sep 2013 22:37:00 +0100
+Message-ID: <E1VMluG-0007gV-6y@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Alex Duyck <alexander.h.duyck@intel.com>,
+ Don Skidmore <donald.c.skidmore@intel.com>,
+ Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+ Bruce Allan <bruce.w.allan@intel.com>,
+ Jesse Brandeburg <jesse.brandeburg@intel.com>,
+ Greg Rose <gregory.v.rose@intel.com>, John Ronciak <john.ronciak@intel.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ Carolyn Wyborny <carolyn.wyborny@intel.com>,
+ Tushar Dave <tushar.n.dave@intel.com>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -21,17 +29,17 @@ To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
  Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
  uclinux-dist-devel@blackfin.uclinux.org
-Return-path: <alsa-devel-bounces@alsa-project.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
 Replace the following sequence:
@@ -43,38 +51,34 @@ with a call to the new helper dma_set_mask_and_coherent().
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/sfc/efx.c |   12 +-----------
- 1 files changed, 1 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 07c9bc4..2e27837 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1121,7 +1121,7 @@ static int efx_init_io(struct efx_nic *efx)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 59ad007..34672f8 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1018,19 +1018,14 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  	 */
- 	while (dma_mask > 0x7fffffffUL) {
- 		if (dma_supported(&pci_dev->dev, dma_mask)) {
--			rc = dma_set_mask(&pci_dev->dev, dma_mask);
-+			rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
- 			if (rc == 0)
- 				break;
- 		}
-@@ -1134,16 +1134,6 @@ static int efx_init_io(struct efx_nic *efx)
- 	}
- 	netif_dbg(efx, probe, efx->net_dev,
- 		  "using DMA mask %llx\n", (unsigned long long) dma_mask);
--	rc = dma_set_coherent_mask(&pci_dev->dev, dma_mask);
--	if (rc) {
--		/* dma_set_coherent_mask() is not *allowed* to
--		 * fail with a mask that dma_set_mask() accepted,
--		 * but just in case...
+ 	pci_using_dac = 0;
+ 	if ((hw->bus_type == e1000_bus_type_pcix) &&
+-	    !dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+-		/* according to DMA-API-HOWTO, coherent calls will always
+-		 * succeed if the set call did
 -		 */
--		netif_err(efx, probe, efx->net_dev,
--			  "failed to set consistent DMA mask\n");
--		goto fail2;
--	}
+-		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
++	    !dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) {
+ 		pci_using_dac = 1;
+ 	} else {
+-		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
++		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+ 		if (err) {
+ 			pr_err("No usable DMA config, aborting\n");
+ 			goto err_dma;
+ 		}
+-		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+ 	}
  
- 	efx->membase_phys = pci_resource_start(efx->pci_dev, EFX_MEM_BAR);
- 	rc = pci_request_region(pci_dev, EFX_MEM_BAR, "sfc");
+ 	netdev->netdev_ops = &e1000_netdev_ops;
 -- 
 1.7.4.4
