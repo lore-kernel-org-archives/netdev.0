@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sfc: Fix efx_rx_buf_offset() for recycled
- pages
-Date: Thu, 19 Sep 2013 13:43:44 -0400 (EDT)
-Message-ID: <20130919.134344.567275739975628700.davem@davemloft.net>
-References: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH] skge: fix broken driver
+Date: Thu, 19 Sep 2013 13:56:28 -0400 (EDT)
+Message-ID: <20130919.135628.1201613770803318193.davem@davemloft.net>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1379607231.1514.13.camel@bwh-desktop.uk.level5networks.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: mpatocka@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53126 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752018Ab3ISR4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 13:56:30 -0400
+In-Reply-To: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 19 Sep 2013 17:13:51 +0100
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Thu, 19 Sep 2013 12:33:30 -0400 (EDT)
 
-> This bug fix is only for stable branches older than 3.10.  The bug was
-> fixed upstream by commit 2768935a4660 ('sfc: reuse pages to avoid DMA
-> mapping/unmapping costs'), but that change is totally unsuitable for
-> stable.
-> 
-> Commit b590ace09d51 ('sfc: Fix efx_rx_buf_offset() in the presence of
-> swiotlb') added an explicit page_offset member to struct
-> efx_rx_buffer, which must be set consistently with the u.page and
-> dma_addr fields.  However, it failed to add the necessary assignment
-> in efx_resurrect_rx_buffer().  It also did not correct the calculation
-> of efx_rx_buffer::dma_addr in efx_resurrect_rx_buffer(), which assumes
-> that DMA-mapping a page will result in a page-aligned DMA address
-> (exactly what swiotlb violates).
-> 
-> Add the assignment of efx_rx_buffer::page_offset and change the
-> calculation of dma_addr to make use of it.
+> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+> Cc: stable@kernel.org # 3.11
 
-No objections.
+First, this is missing the reported-by and tested-by tags provided
+by people who tested this patch.
+
+Secondly, CC:'ing stable is not the correct way to submit networking
+patches for -stable inclusion.  You simply ask me to queue them up
+for -stable explicitly instead.
+
+Please re-submit this with the currect signoffs, thank you.
