@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
- shut down
-Date: Thu, 19 Sep 2013 14:05:13 -0400 (EDT)
-Message-ID: <20130919.140513.2047786411565716987.davem@davemloft.net>
-References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+Subject: Re: [PATCH] skge: fix broken driver
+Date: Thu, 19 Sep 2013 14:07:32 -0400 (EDT)
+Message-ID: <20130919.140732.582965580280170561.davem@davemloft.net>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+	<20130919.135628.1201613770803318193.davem@davemloft.net>
+	<alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	david.vrabel@citrix.com, wei.liu2@citrix.com,
-	ian.campbell@citrix.com
-To: paul.durrant@citrix.com
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: mpatocka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53237 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53270 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752716Ab3ISSFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:05:15 -0400
-In-Reply-To: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+	with ESMTP id S1753255Ab3ISSHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:07:34 -0400
+In-Reply-To: <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Tue, 17 Sep 2013 17:46:08 +0100
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Thu, 19 Sep 2013 14:04:38 -0400 (EDT)
 
-> Without this patch, if a frontend cycles through states Closing
-> and Closed (which Windows frontends need to do) then the netdev
-> will be destroyed and requires re-invocation of hotplug scripts
-> to restore state before the frontend can move to Connected. Thus
-> when udev is not in use the backend gets stuck in InitWait.
-> 
-> With this patch, the netdev is left alone whilst the backend is
-> still online and is only de-registered and freed just prior to
-> destroying the vif (which is also nicely symmetrical with the
-> netdev allocation and registration being done during probe) so
-> no re-invocation of hotplug scripts is required.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Here I'm re-submitting it.
 
-I think all of the testing requests have been satisfied so I have
-applied this.
+Please do not hijack an existing discussions to resubmit the patch.
 
-But _please_ write a more proper subject line in future patch
-submissions.  You have to provide a subsystem prefix in the
-subject line, here I added "xen-netback: ", otherwise someone
-skimming the shortlog has no idea what area of code this change
-touches.
+Instead, make a fresh, completely new, mailing list posting for the
+patch submissions.
 
-Thanks.
+Thank you.
