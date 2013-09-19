@@ -1,13 +1,14 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 23/51] DMA-API: dma: pl08x: add
- dma_set_mask_and_coherent() call
-Date: Thu, 19 Sep 2013 22:48:01 +0100
-Message-ID: <E1VMm4v-0007hz-RC@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 18/51] DMA-API: staging: et131x: replace
+ dma_set_mask()+dma_set_coherent_mask() with new helper
+Date: Thu, 19 Sep 2013 22:43:01 +0100
+Message-ID: <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Vinod Koul <vinod.koul@intel.com>, Dan Williams <dan.j.williams@intel.com>
+Cc: Mark Einon <mark.einon@gmail.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -34,30 +35,45 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-The DMA API requires drivers to call the appropriate dma_set_mask()
-functions before doing any DMA mapping.  Add this required call to
-the AMBA PL08x driver.
+Replace the following sequence:
+
+	dma_set_mask(dev, mask);
+	dma_set_coherent_mask(dev, mask);
+
+with a call to the new helper dma_set_mask_and_coherent().
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/dma/amba-pl08x.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/staging/et131x/et131x.c |   17 ++---------------
+ 1 files changed, 2 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/dma/amba-pl08x.c b/drivers/dma/amba-pl08x.c
-index fce46c5..e51a983 100644
---- a/drivers/dma/amba-pl08x.c
-+++ b/drivers/dma/amba-pl08x.c
-@@ -2055,6 +2055,11 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
- 	if (ret)
- 		return ret;
+diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
+index f73e58f..98edfa8 100644
+--- a/drivers/staging/et131x/et131x.c
++++ b/drivers/staging/et131x/et131x.c
+@@ -4797,21 +4797,8 @@ static int et131x_pci_setup(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
  
-+	/* Ensure that we can do DMA */
-+	ret = dma_set_mask_and_coherent(&adev->dev, DMA_BIT_MASK(32));
-+	if (ret)
-+		goto out_no_pl08x;
-+
- 	/* Create the driver state holder */
- 	pl08x = kzalloc(sizeof(*pl08x), GFP_KERNEL);
- 	if (!pl08x) {
+ 	/* Check the DMA addressing support of this device */
+-	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+-		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+-		if (rc < 0) {
+-			dev_err(&pdev->dev,
+-			  "Unable to obtain 64 bit DMA for consistent allocations\n");
+-			goto err_release_res;
+-		}
+-	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
+-		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+-		if (rc < 0) {
+-			dev_err(&pdev->dev,
+-			  "Unable to obtain 32 bit DMA for consistent allocations\n");
+-			goto err_release_res;
+-		}
+-	} else {
++	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) ||
++	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+ 		dev_err(&pdev->dev, "No usable DMA addressing method\n");
+ 		rc = -EIO;
+ 		goto err_release_res;
 -- 
 1.7.4.4
