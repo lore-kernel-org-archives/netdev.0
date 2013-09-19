@@ -1,13 +1,14 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 21/51] DMA-API: usb: ssb-hcd: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Thu, 19 Sep 2013 22:46:01 +0100
-Message-ID: <E1VMm2z-0007hl-Hz@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH 26/51] DMA-API: usb: ohci-sa1111: add a note
+	about DMA masks
+Date: Thu, 19 Sep 2013 22:51:02 +0100
+Message-ID: <E1VMm7q-0007iO-68@rmk-PC.arm.linux.org.uk>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Alan Stern <stern@rowland.harvard.edu>
 To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
  devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
  dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
@@ -34,31 +35,30 @@ Errors-To: alsa-devel-bounces@alsa-project.org
 Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-Replace the following sequence:
-
-	dma_set_mask(dev, mask);
-	dma_set_coherent_mask(dev, mask);
-
-with a call to the new helper dma_set_mask_and_coherent().
+Add a comment to explain why this driver doesn't call any of the DMA
+API dma_set_mask() functions.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/usb/host/ssb-hcd.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/usb/host/ohci-sa1111.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/usb/host/ssb-hcd.c b/drivers/usb/host/ssb-hcd.c
-index 74af2c6..0196f76 100644
---- a/drivers/usb/host/ssb-hcd.c
-+++ b/drivers/usb/host/ssb-hcd.c
-@@ -163,8 +163,7 @@ static int ssb_hcd_probe(struct ssb_device *dev,
+diff --git a/drivers/usb/host/ohci-sa1111.c b/drivers/usb/host/ohci-sa1111.c
+index 17b2a7d..aa9e127 100644
+--- a/drivers/usb/host/ohci-sa1111.c
++++ b/drivers/usb/host/ohci-sa1111.c
+@@ -185,6 +185,12 @@ static int ohci_hcd_sa1111_probe(struct sa1111_dev *dev)
+ 	if (usb_disabled())
+ 		return -ENODEV;
  
- 	/* TODO: Probably need checks here; is the core connected? */
- 
--	if (dma_set_mask(dev->dma_dev, DMA_BIT_MASK(32)) ||
--	    dma_set_coherent_mask(dev->dma_dev, DMA_BIT_MASK(32)))
-+	if (dma_set_mask_and_coherent(dev->dma_dev, DMA_BIT_MASK(32)))
- 		return -EOPNOTSUPP;
- 
- 	usb_dev = kzalloc(sizeof(struct ssb_hcd_device), GFP_KERNEL);
++	/*
++	 * We don't call dma_set_mask_and_coherent() here because the
++	 * DMA mask has already been appropraitely setup by the core
++	 * SA-1111 bus code (which includes bug workarounds.)
++	 */
++
+ 	hcd = usb_create_hcd(&ohci_sa1111_hc_driver, &dev->dev, "sa1111");
+ 	if (!hcd)
+ 		return -ENOMEM;
 -- 
 1.7.4.4
