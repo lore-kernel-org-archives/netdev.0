@@ -1,39 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 2/2] ip: generate unique IP identificator if
- local fragmentation is allowed
-Date: Thu, 19 Sep 2013 14:11:36 -0400 (EDT)
-Message-ID: <20130919.141136.38349564506650340.davem@davemloft.net>
-References: <1379543393-7446-1-git-send-email-aatteka@nicira.com>
-	<1379543393-7446-2-git-send-email-aatteka@nicira.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: [PATCH v2] skge: fix broken driver
+Date: Thu, 19 Sep 2013 14:13:17 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1309191409301.12162@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: aatteka@nicira.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	Vasiliy Glazov <vascom2@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53351 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519Ab3ISSLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 14:11:38 -0400
-In-Reply-To: <1379543393-7446-2-git-send-email-aatteka@nicira.com>
+Received: from mx1.redhat.com ([209.132.183.28]:13193 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752448Ab3ISSN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Sep 2013 14:13:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ansis Atteka <aatteka@nicira.com>
-Date: Wed, 18 Sep 2013 15:29:53 -0700
+The patch 136d8f377e1575463b47840bc5f1b22d94bf8f63 broke the skge driver.
+Note this part of the patch:
++               if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
++                       dev_kfree_skb(nskb);
++                       goto resubmit;
++               }
++
+                pci_unmap_single(skge->hw->pdev,
+                                 dma_unmap_addr(e, mapaddr),
+                                 dma_unmap_len(e, maplen),
+                                 PCI_DMA_FROMDEVICE);
+                skb = e->skb;
+                prefetch(skb->data);
+-               skge_rx_setup(skge, e, nskb, skge->rx_buf_size);
 
-> If local fragmentation is allowed, then ip_select_ident() and
-> ip_select_ident_more() need to generate unique IDs to ensure
-> correct defragmentation on the peer.
-> 
-> For example, if IPsec (tunnel mode) has to encrypt large skbs
-> that have local_df bit set, then all IP fragments that belonged
-> to different ESP datagrams would have used the same identificator.
-> If one of these IP fragments would get lost or reordered, then
-> peer could possibly stitch together wrong IP fragments that did
-> not belong to the same datagram. This would lead to a packet loss
-> or data corruption.
-> 
-> Signed-off-by: Ansis Atteka <aatteka@nicira.com>
+The function skge_rx_setup modifies e->skb to point to the new skb. Thus,
+after this change, the new buffer, not the old, is returned to the
+networking stack.
 
-Applied.
+This bug is present in kernels 3.11, 3.11.1 and 3.12-rc1. The patch should 
+be queued for 3.11-stable.
+
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Reported-by: Mikulas Patocka <mpatocka@redhat.com>
+Reported-by: Vasiliy Glazov <vascom2@gmail.com>
+Tested-by: Mikulas Patocka <mpatocka@redhat.com>
+
+---
+ drivers/net/ethernet/marvell/skge.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c
+===================================================================
+--- linux-3.11.1-fast.orig/drivers/net/ethernet/marvell/skge.c	2013-09-10 19:46:58.000000000 +0200
++++ linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c	2013-09-19 18:20:43.000000000 +0200
+@@ -3092,6 +3092,9 @@ static struct sk_buff *skge_rx_get(struc
+ 		if (!nskb)
+ 			goto resubmit;
+ 
++		skb = e->skb;
++		prefetch(skb->data);
++
+ 		if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
+ 			dev_kfree_skb(nskb);
+ 			goto resubmit;
+@@ -3101,8 +3104,6 @@ static struct sk_buff *skge_rx_get(struc
+ 				 dma_unmap_addr(e, mapaddr),
+ 				 dma_unmap_len(e, maplen),
+ 				 PCI_DMA_FROMDEVICE);
+-		skb = e->skb;
+-		prefetch(skb->data);
+ 	}
+ 
+ 	skb_put(skb, len);
