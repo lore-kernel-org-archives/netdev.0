@@ -1,75 +1,107 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH 01/51] DMA-API: provide a helper to set both DMA and
- coherent DMA masks
-Date: Fri, 20 Sep 2013 02:21:37 +0100
-Message-ID: <1379640097.2500.4.camel@bwh-desktop.uk.level5networks.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-	 <E1VMlja-0007fA-HU@rmk-PC.arm.linux.org.uk>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [ovs-dev] [PATCH v2.39 7/7] datapath: Add basic MPLS support to kernel
+Date: Thu, 19 Sep 2013 18:31:14 -0700
+Message-ID: <CALnjE+oY5P5kwyuWNBde3+EbQq8kMqCTSz+KrH=bwOmLE9SSPQ@mail.gmail.com>
+References: <1378711207-29890-1-git-send-email-horms@verge.net.au>
+	<1378711207-29890-8-git-send-email-horms@verge.net.au>
+	<CALnjE+p9g+GO71yjcNVG+y9ZzvT_==SLSqAAqGHU_jg=sx7Ynw@mail.gmail.com>
+	<20130918220756.GA24919@verge.net.au>
+	<20130919204214.GA2734@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>, <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
-	<e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	<linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Solarflare linux maintainers" <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	<uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>,
-	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
-	Vinod Koul <vinod.koul-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Dan
-To: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <E1VMlja-0007fA-HU-eh5Bv4kxaXIANfyc6IWni62ZND6+EDdj@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	Ravi K <rkerur@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Isaku Yamahata <yamahata@valinux.co.jp>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:48136 "HELO
+	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751927Ab3ITBbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Sep 2013 21:31:15 -0400
+Received: by mail-qc0-f170.google.com with SMTP id m20so6146108qcx.1
+        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 18:31:14 -0700 (PDT)
+In-Reply-To: <20130919204214.GA2734@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-19 at 22:25 +0100, Russell King wrote:
-> Provide a helper to set both the DMA and coherent DMA masks to the
-> same value - this avoids duplicated code in a number of drivers,
-> sometimes with buggy error handling, and also allows us identify
-> which drivers do things differently.
-> 
-> Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-> ---
->  Documentation/DMA-API-HOWTO.txt |   37 ++++++++++++++++++++++---------------
->  Documentation/DMA-API.txt       |    8 ++++++++
->  include/linux/dma-mapping.h     |   14 ++++++++++++++
->  3 files changed, 44 insertions(+), 15 deletions(-)
-> 
-> diff --git a/Documentation/DMA-API-HOWTO.txt b/Documentation/DMA-API-HOWTO.txt
-> index 14129f1..5e98303 100644
-> --- a/Documentation/DMA-API-HOWTO.txt
-> +++ b/Documentation/DMA-API-HOWTO.txt
-[...]
-> -dma_set_coherent_mask() will always be able to set the same or a
-> -smaller mask as dma_set_mask(). However for the rare case that a
-> +The coherent coherent mask will always be able to set the same or a
-> +smaller mask as the streaming mask. However for the rare case that a
-[...]
+On Thu, Sep 19, 2013 at 1:45 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Wed, Sep 18, 2013 at 05:07:59PM -0500, Simon Horman wrote:
+>> On Tue, Sep 17, 2013 at 11:38:18AM -0700, Pravin Shelar wrote:
+>> > On Mon, Sep 9, 2013 at 12:20 AM, Simon Horman <horms@verge.net.au> wrote:
+>> > > Allow datapath to recognize and extract MPLS labels into flow keys
+>> > > and execute actions which push, pop, and set labels on packets.
+>> > >
+>> > > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
+>> > >
+>> > > Cc: Ravi K <rkerur@gmail.com>
+>> > > Cc: Leo Alterman <lalterman@nicira.com>
+>> > > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+>> > > Cc: Joe Stringer <joe@wand.net.nz>
+>> > > Signed-off-by: Simon Horman <horms@verge.net.au>
+>> > >
+>> > > ---
+>> > ....
+>> > > diff --git a/datapath/datapath.h b/datapath/datapath.h
+>> > > index 5d50dd4..babae3b 100644
+>> > > --- a/datapath/datapath.h
+>> > > +++ b/datapath/datapath.h
+>> > > @@ -36,6 +36,10 @@
+>> > >
+>> > >  #define SAMPLE_ACTION_DEPTH 3
+>> > >
+>> > > +#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
+>> > > +#define HAVE_INNER_PROTOCOL
+>> > > +#endif
+>> > > +
+>> > >  /**
+>> > >   * struct dp_stats_percpu - per-cpu packet processing statistics for a given
+>> > >   * datapath.
+>> > > @@ -93,11 +97,16 @@ struct datapath {
+>> > >   * @pkt_key: The flow information extracted from the packet.  Must be nonnull.
+>> > >   * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
+>> > >   * packet is not being tunneled.
+>> > > + * @inner_protocol: Provides a substitute for the skb->inner_protocol field on
+>> > > + * kernels before 3.11.
+>> > >   */
+>> > >  struct ovs_skb_cb {
+>> > >         struct sw_flow          *flow;
+>> > >         struct sw_flow_key      *pkt_key;
+>> > >         struct ovs_key_ipv4_tunnel  *tun_key;
+>> > > +#ifndef HAVE_INNER_PROTOCOL
+>> > > +       __be16                  inner_protocol;
+>> > > +#endif
+>> > >  };
+>> > >  #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
+>> > >
+>> > Can you move this to compat struct ovs_gso_cb {}
+>>
+>> I think that you are correct and inner_protocol needs
+>> to be in struct ovs_gso_cb so that it can
+>> be accessed via skb_network_protocol() from
+>> rpl___skb_gso_segment().
+>>
+>> However I think it may also need to be present in struct ovs_cb
+>> so that it can be set correctly.
+>>
+>> Currently it is set unconditionally
+>> in ovs_execute_actions() and Jesse has suggested setting
+>> it conditionally in pop_mpls() (which is called by do_execute_actions()).
+>> But regardless it seems to me that the field would need to be available
+>> in struct ovs_cb.
+>
+> Having reviewed the code once more I now notice that struct ovs_gso_cb
+> contains struct ovs_skb_cb dp_cb. Whereas my previous assumption was
+> that they were mutually exclusive.
+>
+> With this in mind I think it should be safe to use ovs_gso_cb from
+> ovs_execute_actions() or do_execute_actions() but I would value
+> your opinion on that.
+>
+> Conversely, if inner_protocol was left in struct ovs_skb_cb there should
+> be no problem with accessing it from GSO code as the code currently does.
+> So I am not sure that I see the value of moving it but I am happy to do
+> so if you think it is safe and it is your preferred option.
 
-The new wording doesn't make sense; a mask doesn't set itself.  I would
-suggest:
-
-"The coherent mask can always be set to the same or a smaller mask than
-the streaming mask."
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+right, access is not issue.
+Value is the code in datapath.c, with compatibility, remains closer to
+upstream ovs module. We have always tried to keep it that way.
