@@ -1,96 +1,89 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH 28/51] DMA-API: sound: fix dma mask handling in a lot of
- drivers
-Date: Fri, 20 Sep 2013 17:36:54 +0100
-Message-ID: <20130920163654.GN21013@sirena.org.uk>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMm9m-0007ij-ER@rmk-PC.arm.linux.org.uk>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: IPv6 kernel warning
+Date: Fri, 20 Sep 2013 09:40:30 -0700
+Message-ID: <CAK6E8=eNFG0fic+NYeQBjEoUQMeZKSAT3LU0JSQyE-4i_cDaZQ@mail.gmail.com>
+References: <20130920131153.GF12758@n2100.arm.linux.org.uk> <20130920160830.GA4241@marquez.int.rhx>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4406136581201344290=="
-Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
- Takashi Iwai <tiwai@suse.de>, linux-mmc@vger.kernel.org,
- linux-fbdev@vger.kernel.org, linux-nvme@lists.infradead.org,
- Jaroslav Kysela <perex@perex.cz>, Peter Ujfalusi <peter.ujfalusi@ti.com>,
- linux-ide@vger.kernel.org, devel@driverdev.osuosl.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- e1000-devel@lists.sourceforge.net, b43-dev@lists.infradead.org,
- linux-media@vger.kernel.org, devicetree@vger.kernel.org,
- Haojian Zhuang <haojian.zhuang@gmail.com>, Timur Tabi <timur@tabi.org>,
- Kukjin Kim <kgene.kim@samsung.com>, dri-devel@lists.freedesktop.org,
- Ben Dooks <ben-linux@fluff.org>, linux-tegra@vger.kernel.org,
- linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- Eric Miao <eric.y.miao@gmail.com>, Sangbeom Kim <sbkim73@samsu
-To: Russell King <rmk+kernel@arm.linux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <E1VMm9m-0007ij-ER@rmk-PC.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev <netdev@vger.kernel.org>
+To: Michele Baldessari <michele@acksyn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:50458 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540Ab3ITQkv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 12:40:51 -0400
+Received: by mail-ie0-f181.google.com with SMTP id tp5so1369441ieb.12
+        for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 09:40:51 -0700 (PDT)
+In-Reply-To: <20130920160830.GA4241@marquez.int.rhx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 20, 2013 at 9:08 AM, Michele Baldessari <michele@acksyn.org> wrote:
+> Hi Russell,
+>
+> On Fri, Sep 20, 2013 at 02:11:53PM +0100, Russell King - ARM Linux wrote:
+>> While running v3.11 on my firewall, I saw this warning.  I'm not sure
+>> what it means or what its implications are:
+>>
+>> ------------[ cut here ]------------
+>> WARNING: CPU: 0 PID: 0 at /home/rmk/git/linux-rmk/net/ipv4/tcp_input.c:2711 tcp_fastretrans_alert+0x178/0x840()
+>> Modules linked in: ipt_REJECT xt_multiport iptable_filter ipt_MASQUERADE xt_nat
+>> xt_mark iptable_nat nf_nat_ipv4 nf_nat ip6table_mangle xt_LOG xt_limit nf_conntrack_ipv6 nf_defrag_ipv6 xt_state ip6table_filter pata_pcmcia libata scsi_mod 3c589_cs ide_gd_mod ide_cs ide_core sa1111_cs sa1100_cs sa11xx_base soc_common sa11x0_dma virt_dma usbcore usb_common
+>> CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0+ #15
+>> Backtrace:
+>> [<c02111a8>] (dump_backtrace+0x0/0x114) from [<c02115a0>] (show_stack+0x18/0x1c) r6:c0520824 r5:00000009 r4:00000000
+>> [<c0211588>] (show_stack+0x0/0x1c) from [<c04d65e0>] (dump_stack+0x20/0x28)
+>> [<c04d65c0>] (dump_stack+0x0/0x28) from [<c021bfb0>] (warn_slowpath_common+0x68/0x88)
+>> [<c021bf48>] (warn_slowpath_common+0x0/0x88) from [<c021bff4>] (warn_slowpath_null+0x24/0x28)
+>>  r8:00000000 r7:00000001 r6:00000006 r5:00004320 r4:c11c6580
+>> [<c021bfd0>] (warn_slowpath_null+0x0/0x28) from [<c04515bc>] (tcp_fastretrans_alert+0x178/0x840)
+>> [<c0451444>] (tcp_fastretrans_alert+0x0/0x840) from [<c045273c>] (tcp_ack+0xa14/0xc18)
+>> [<c0451d28>] (tcp_ack+0x0/0xc18) from [<c0453138>] (tcp_rcv_established+0x494/0x594)
+>> [<c0452ca4>] (tcp_rcv_established+0x0/0x594) from [<c04a977c>] (tcp_v6_do_rcv+0xd0/0x428)
+>> [<c04a96ac>] (tcp_v6_do_rcv+0x0/0x428) from [<c04a9e70>] (tcp_v6_rcv+0x340/0x63c)
+>> [<c04a9b30>] (tcp_v6_rcv+0x0/0x63c) from [<c048b334>] (ip6_input_finish+0x214/0x3c4)
+>> [<c048b120>] (ip6_input_finish+0x0/0x3c4) from [<c048ba60>] (ip6_input+0x64/0x74)
+>> [<c048b9fc>] (ip6_input+0x0/0x74) from [<c048b564>] (ip6_rcv_finish+0x80/0x8c)
+>>  r4:c1c9ee20
+>> [<c048b4e4>] (ip6_rcv_finish+0x0/0x8c) from [<c048b994>] (ipv6_rcv+0x424/0x48c)
+>>  r4:c1c9ee20
+>> [<c048b570>] (ipv6_rcv+0x0/0x48c) from [<c0407624>] (__netif_receive_skb_core+0x618/0x688)
+>>  r8:0000dd86 r7:00000000 r6:c11f6800 r5:c05ee6cc r4:c05f1b98
+>> [<c040700c>] (__netif_receive_skb_core+0x0/0x688) from [<c040770c>] (__netif_receive_skb+0x78/0x80)
+>> [<c0407694>] (__netif_receive_skb+0x0/0x80) from [<c04077a8>] (process_backlog+0x94/0x14c)
+>>  r5:c06091e0 r4:c0609220
+>> [<c0407714>] (process_backlog+0x0/0x14c) from [<c0407af4>] (net_rx_action+0x78/0x1ac)
+>> [<c0407a7c>] (net_rx_action+0x0/0x1ac) from [<c021f500>] (__do_softirq+0xb4/0x198)
+>> [<c021f44c>] (__do_softirq+0x0/0x198) from [<c021f90c>] (irq_exit+0x74/0xc8)
+>> [<c021f898>] (irq_exit+0x0/0xc8) from [<c020f1ac>] (handle_IRQ+0x68/0x88)
+>>  r4:0000000b
+>> [<c020f144>] (handle_IRQ+0x0/0x88) from [<c0208210>] (asm_do_IRQ+0x10/0x14)
+>>  r5:60000013 r4:c0246818
+>> [<c0208200>] (asm_do_IRQ+0x0/0x14) from [<c0211fcc>] (__irq_svc+0x2c/0x98)
+>> Exception stack(0xc05e7f54 to 0xc05e7f9c)
+>> 7f40:                                              00000000 00000000 00000000
+>> 7f60: 60000013 c05e6000 c06092a4 c05ee080 00000001 c0204000 6901b115 c05e0800
+>> 7f80: c05e7fb8 c05e7f9c c05e7f9c c020f348 c0246818 60000013 ffffffff
+>> [<c0246794>] (cpu_startup_entry+0x0/0xe8) from [<c04d4d70>] (rest_init+0x64/0x7c)
+>>  r7:c05f3940 r6:c0922200 r5:c0609340 r4:c05ee0c0
+>> [<c04d4d0c>] (rest_init+0x0/0x7c) from [<c05c3acc>] (start_kernel+0x350/0x3ac)
+>> [<c05c377c>] (start_kernel+0x0/0x3ac) from [<c0208040>] (0xc0208040)
+>> ---[ end trace ab55f0e3f592fa5e ]---
+>
+> there's been multiple reports about this one:
+> https://bugzilla.redhat.com/show_bug.cgi?id=989251
+> http://bugzilla.kernel.org/show_bug.cgi?id=60779
+>
+> Could you try Yuchung's debug patch?
+> http://www.spinics.net/lists/netdev/msg250193.html
+Yes it looks like the same bug. Please try that patch to help identify
+this elusive bug.
 
---===============4406136581201344290==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NbUNL4d9A9kY58qh"
-Content-Disposition: inline
-
-
---NbUNL4d9A9kY58qh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, Sep 19, 2013 at 10:53:02PM +0100, Russell King wrote:
-> This code sequence is unsafe in modules:
->=20
-> static u64 mask =3D DMA_BIT_MASK(something);
-> ...
-> 	if (!dev->dma_mask)
-> 		dev->dma_mask =3D &mask;
-
-Acked-by: Mark Brown <broonie@linaro.org>
-
---NbUNL4d9A9kY58qh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.21 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSPHmjAAoJELSic+t+oim9WB4QAINsf282vDwWmQYHGXTeorHo
-q0pJ/9bTwBrSE0KzOK9H6UvL7oxCgzMPOT8RiSjWcdEXX/FavpH1TCf+ETkaYyEA
-NaPvO/uUV/99qWhM/PJQvtv4yxhIR7ENiZKywUuFnWQuc44yGUWBLK8ooA4xXtme
-WMcWyy7SMMcP/+9eBd9aNe1FPYFirsqSrrCpWSR/fD+TWFKMB6HG+OZGNYRFMrRm
-Xet5sWMGwzBiL453M0ujAEHKd/g4VOkweCydEq+2Rt2am6ph+SrMuoQvCDZ1bvbh
-71nyYA+j2xNy8jb7AA9PukWoeXyAI0xRY8zh939Uvdxf4SPUIVgw9wJE5rMRGoT5
-k4We/z2A4m1DGCtg1JQN86HAe7jv3YlGLoPOhsrOnOEV55VnXIz0Lm9x3HjTNfvG
-LcJXBGeHmU3Jvj3JEpA57YDbOhpwx0klK7RS5v6BjIJrJUSwjATqt1WQVr528HDp
-rXQpUqxUL3KObdlA5TYweR2I0KxWe47rw612XGqhRiI+equSdTDP770QsO1nXlsA
-qCfn3Gh7t+hyB3yFZUquWEXwKVv0YMh3Ds/bR2RtZluSl3SzM9n/Dp45w6SMu1LN
-oSpxUS7KNzTPXQp0kns7dDFnJJWXid7mUScjK4rc5pSyBF4NSEqJsmqHm0whd/qL
-uR8J7AFq8DkXx3g+/4gf
-=H53r
------END PGP SIGNATURE-----
-
---NbUNL4d9A9kY58qh--
-
-
---===============4406136581201344290==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---===============4406136581201344290==--
+>
+> thanks,
+> Michele
+> --
+> Michele Baldessari            <michele@acksyn.org>
+> C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
