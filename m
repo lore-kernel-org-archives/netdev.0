@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: cdc-phonet: Staticize usbpn_probe
-Date: Fri, 20 Sep 2013 14:42:24 -0400 (EDT)
-Message-ID: <20130920.144224.1940661875859472358.davem@davemloft.net>
-References: <1379573126-4879-1-git-send-email-sachin.kamat@linaro.org>
+Subject: Re: [PATCH net-next 1/2] net_sched: add u64 rate to
+ psched_ratecfg_precompute()
+Date: Fri, 20 Sep 2013 14:42:41 -0400 (EDT)
+Message-ID: <20130920.144241.1852910152833814427.davem@davemloft.net>
+References: <1379607003.3282.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, remi@remlab.net
-To: sachin.kamat@linaro.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39315 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39330 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab3ITSmZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:42:25 -0400
-In-Reply-To: <1379573126-4879-1-git-send-email-sachin.kamat@linaro.org>
+	with ESMTP id S1753563Ab3ITSmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:42:42 -0400
+In-Reply-To: <1379607003.3282.13.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sachin Kamat <sachin.kamat@linaro.org>
-Date: Thu, 19 Sep 2013 12:15:26 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Sep 2013 09:10:03 -0700
 
-> 'usbpn_probe' is referenced only in this file. Make it static.
->=20
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-> Acked-by: R=E9mi Denis-Courmont <remi@remlab.net>
-> Cc: R=E9mi Denis-Courmont <remi@remlab.net>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Add an extra u64 rate parameter to psched_ratecfg_precompute()
+> so that some qdisc can opt-in for 64bit rates in the future,
+> to overcome the ~34 Gbits limit.
+> 
+> psched_ratecfg_getrate() reports a legacy structure to
+> tc utility, so if actual rate is above the 32bit rate field,
+> cap it to the 34Gbit limit.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next
+Applied.
