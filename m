@@ -1,104 +1,190 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v3 -next 2/2] tcp: syncookies: reduce mss table to four values
-Date: Fri, 20 Sep 2013 22:32:56 +0200
-Message-ID: <1379709176-1625-2-git-send-email-fw@strlen.de>
-References: <1379709176-1625-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: fix dynamic right sizing
+Date: Fri, 20 Sep 2013 13:56:58 -0700
+Message-ID: <1379710618.3431.5.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Van Jacobson <vanj@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50694 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753946Ab3ITUge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 16:36:34 -0400
-In-Reply-To: <1379709176-1625-1-git-send-email-fw@strlen.de>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:51571 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753462Ab3ITU5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 16:57:02 -0400
+Received: by mail-yh0-f46.google.com with SMTP id c41so400184yho.33
+        for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 13:57:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Halve mss table size to make blind cookie guessing more difficult.
-This is sad since the tables were already small, but there
-is little alternative except perhaps adding more precise mss information
-in the tcp timestamp.  Timestamps are unfortunately not ubiquitous.
+Dynamic Right Sizing (DRS) is supposed to open TCP receive window
+automatically, but suffers from two bugs, presented by order
+of importance.
 
-Guessing all possible cookie values still has 8-in 2**32 chance.
+1) tcp_rcv_space_adjust() fix :
 
-Reported-by: Jakob Lell <jakob@jakoblell.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Using twice the last received amount is very pessimistic,
+because it doesn't allow fast recovery or proper slow start
+ramp up, if sender wants to increase cwin by 100% every RTT.
+
+copied = bytes received in previous RTT
+
+2*copied = bytes we expect to receive in next RTT
+
+4*copied = bytes we need to advertise in rwin at end of next RTT
+
+DRS is one RTT late, it needs a 4x factor.
+
+If sender is not using ABC, and increases cwin by 50% every rtt,
+then we needed 1.5*1.5 = 2.25 factor.
+This is probably why this bug was not really noticed.
+
+2) There is no window adjustment after first RTT. DRS triggers only
+  after the second RTT.
+  DRS needs two RTT to initialize, so tcp_fixup_rcvbuf() should setup
+  sk_rcvbuf to allow proper window grow for first two RTT.
+
+This patch increases TCP efficiency particularly for large RTT flows
+when autotuning is used at the receiver, and more particularly
+in presence of packet losses.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Cc: Van Jacobson <vanj@google.com>
 ---
- Changes since v2:
- - add comment explaining mss choices for tcp6 cookies, too
- Changes since v1:
- - add comment explaining mss choices
+ net/ipv4/tcp_input.c |   84 +++++++++++++++++++++++++----------------
+ 1 file changed, 53 insertions(+), 31 deletions(-)
 
- net/ipv4/syncookies.c | 22 +++++++++++-----------
- net/ipv6/syncookies.c | 15 +++++++++------
- 2 files changed, 20 insertions(+), 17 deletions(-)
-
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index b6ea297..15e0241 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -136,22 +136,22 @@ static __u32 check_tcp_syn_cookie(__u32 cookie, __be32 saddr, __be32 daddr,
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 25a89ea..5d08385 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -355,6 +355,12 @@ static void tcp_fixup_rcvbuf(struct sock *sk)
+ 	rcvmem = 2 * SKB_TRUESIZE(mss + MAX_TCP_HEADER) *
+ 		 tcp_default_init_rwnd(mss);
+ 
++	/* Dynamic Right Sizing (DRS) has 2 to 3 RTT latency
++	 * Allow enough cushion so that sender is not limited by our window
++	 */
++	if (sysctl_tcp_moderate_rcvbuf)
++		rcvmem <<= 2;
++
+ 	if (sk->sk_rcvbuf < rcvmem)
+ 		sk->sk_rcvbuf = min(rcvmem, sysctl_tcp_rmem[2]);
  }
+@@ -373,6 +379,8 @@ void tcp_init_buffer_space(struct sock *sk)
+ 		tcp_fixup_sndbuf(sk);
  
- /*
-- * MSS Values are taken from the 2009 paper
-- * 'Measuring TCP Maximum Segment Size' by S. Alcock and R. Nelson:
-- *  - values 1440 to 1460 accounted for 80% of observed mss values
-- *  - values outside the 536-1460 range are rare (<0.2%).
-+ * MSS Values are chosen based on the 2011 paper
-+ * 'An Analysis of TCP Maximum Segement Sizes' by S. Alcock and R. Nelson.
-+ * Values ..
-+ *  .. lower than 536 are rare (< 0.2%)
-+ *  .. between 537 and 1299 account for less than < 1.5% of observed values
-+ *  .. in the 1300-1349 range account for about 15 to 20% of observed mss values
-+ *  .. exceeding 1460 are very rare (< 0.04%)
-  *
-- * Table must be sorted.
-+ *  1460 is the single most frequently announced mss value (30 to 46% depending
-+ *  on monitor location).  Table must be sorted.
-  */
- static __u16 const msstab[] = {
--	64,
--	512,
- 	536,
--	1024,
--	1440,
-+	1300,
-+	1440,	/* 1440, 1452: PPPoE */
- 	1460,
--	4312,
--	8960,
- };
+ 	tp->rcvq_space.space = tp->rcv_wnd;
++	tp->rcvq_space.time = tcp_time_stamp;
++	tp->rcvq_space.seq = tp->copied_seq;
  
- /*
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 13ca0a0..d703218 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -24,15 +24,18 @@
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 	maxwin = tcp_full_space(sk);
  
--/* Table must be sorted. */
-+/* RFC 2460, Section 8.3:
-+ * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
-+ *
-+ * Due to IPV6_MIN_MTU=1280 the lowest possible MSS is 1220, which allows
-+ * using higher values than ipv4 tcp syncookies.
-+ * The other values are chosen based on ethernet (1500 and 9k MTU), plus
-+ * one that accounts for common encap (PPPoe) overhead. Table must be sorted.
-+ */
- static __u16 const msstab[] = {
--	64,
--	512,
--	536,
--	1280 - 60,
-+	1280 - 60, /* IPV6_MIN_MTU - 60 */
- 	1480 - 60,
- 	1500 - 60,
--	4460 - 60,
- 	9000 - 60,
- };
+@@ -512,48 +520,62 @@ void tcp_rcv_space_adjust(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int time;
+-	int space;
+-
+-	if (tp->rcvq_space.time == 0)
+-		goto new_measure;
++	int copied;
  
--- 
-1.8.1.5
+ 	time = tcp_time_stamp - tp->rcvq_space.time;
+ 	if (time < (tp->rcv_rtt_est.rtt >> 3) || tp->rcv_rtt_est.rtt == 0)
+ 		return;
+ 
+-	space = 2 * (tp->copied_seq - tp->rcvq_space.seq);
++	/* Number of bytes copied to user in last RTT */
++	copied = tp->copied_seq - tp->rcvq_space.seq;
++	if (copied <= tp->rcvq_space.space)
++		goto new_measure;
++
++	/* A bit of theory :
++	 * copied = bytes received in previous RTT, our base window
++	 * To cope with packet losses, we need a 2x factor
++	 * To cope with slow start, and sender growing its cwin by 100 %
++	 * every RTT, we need a 4x factor, because the ACK we are sending
++	 * now is for the next RTT, not the current one :
++	 * <prev RTT . ><current RTT .. ><next RTT .... >
++	 */
++
++	if (sysctl_tcp_moderate_rcvbuf &&
++	    !(sk->sk_userlocks & SOCK_RCVBUF_LOCK)) {
++		int rcvwin, rcvmem, rcvbuf;
+ 
+-	space = max(tp->rcvq_space.space, space);
++		/* minimal window to cope with packet losses, assuming
++		 * steady state. Add some cushion because of small variations.
++		 */
++		rcvwin = (copied << 1) + 16 * tp->advmss;
+ 
+-	if (tp->rcvq_space.space != space) {
+-		int rcvmem;
++		/* If rate increased by 25%,
++		 *	assume slow start, rcvwin = 3 * copied
++		 * If rate increased by 50%,
++		 *	assume sender can use 2x growth, rcvwin = 4 * copied
++		 */
++		if (copied >=
++		    tp->rcvq_space.space + (tp->rcvq_space.space >> 2)) {
++			if (copied >=
++			    tp->rcvq_space.space + (tp->rcvq_space.space >> 1))
++				rcvwin <<= 1;
++			else
++				rcvwin += (rcvwin >> 1);
++		}
+ 
+-		tp->rcvq_space.space = space;
++		rcvmem = SKB_TRUESIZE(tp->advmss + MAX_TCP_HEADER);
++		while (tcp_win_from_space(rcvmem) < tp->advmss)
++			rcvmem += 128;
+ 
+-		if (sysctl_tcp_moderate_rcvbuf &&
+-		    !(sk->sk_userlocks & SOCK_RCVBUF_LOCK)) {
+-			int new_clamp = space;
++		rcvbuf = min(rcvwin / tp->advmss * rcvmem, sysctl_tcp_rmem[2]);
++		if (rcvbuf > sk->sk_rcvbuf) {
++			sk->sk_rcvbuf = rcvbuf;
+ 
+-			/* Receive space grows, normalize in order to
+-			 * take into account packet headers and sk_buff
+-			 * structure overhead.
+-			 */
+-			space /= tp->advmss;
+-			if (!space)
+-				space = 1;
+-			rcvmem = SKB_TRUESIZE(tp->advmss + MAX_TCP_HEADER);
+-			while (tcp_win_from_space(rcvmem) < tp->advmss)
+-				rcvmem += 128;
+-			space *= rcvmem;
+-			space = min(space, sysctl_tcp_rmem[2]);
+-			if (space > sk->sk_rcvbuf) {
+-				sk->sk_rcvbuf = space;
+-
+-				/* Make the window clamp follow along.  */
+-				tp->window_clamp = new_clamp;
+-			}
++			/* Make the window clamp follow along.  */
++			tp->window_clamp = rcvwin;
+ 		}
+ 	}
++	tp->rcvq_space.space = copied;
+ 
+ new_measure:
+ 	tp->rcvq_space.seq = tp->copied_seq;
+@@ -5674,8 +5696,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			tcp_init_congestion_control(sk);
+ 
+ 			tcp_mtup_init(sk);
+-			tcp_init_buffer_space(sk);
+ 			tp->copied_seq = tp->rcv_nxt;
++			tcp_init_buffer_space(sk);
+ 		}
+ 		smp_mb();
+ 		tcp_set_state(sk, TCP_ESTABLISHED);
