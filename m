@@ -1,67 +1,84 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 1/2] remove all uses of printf's %n
-Date: Thu, 19 Sep 2013 21:53:40 -0700
-Message-ID: <CAGXu5jJNuFbBrYyWufqhDOapS4qYWkvLMi4pk8AnqgD8wXo5RA@mail.gmail.com>
-References: <CAGXu5jL+NeBw2_vXymM81UdtS6UO7KZA2S4rf3gwM_7nSJ2h6g@mail.gmail.com>
-	<20130917205742.16147.qmail@science.horizon.com>
-	<201309191756.BCF65661.MQFOLSJOFHFtOV@I-love.SAKURA.ne.jp>
-	<CAGXu5jK_D1BJOQr=1A-UFrpM5Ad+Qu894HT_XjkZh4EmsbCkTQ@mail.gmail.com>
-	<201309201309.GFB52620.OQOtSFLMJVHOFF@I-love.SAKURA.ne.jp>
-	<1379650985.2021.12.camel@joe-AO722>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 61681] New: Incoming TCP4 connections fail to start, don't
+ get past SYN_RECV and then quickly disappear
+Date: Thu, 19 Sep 2013 22:18:50 -0700
+Message-ID: <20130919221850.77620129@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Jiri Slaby <jslaby@suse.cz>, Al Viro <viro@zeniv.linux.org.uk>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	remi.denis-courmont@nokia.com, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	George Spelvin <linux@horizon.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jan Beulich <JBeulich@suse.com>,
-	Motohiro KOSAKI <kosaki.motohiro@gmail.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:58632 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754150Ab3ITExl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 00:53:41 -0400
-Received: by mail-ob0-f177.google.com with SMTP id wp18so10684753obc.22
-        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 21:53:41 -0700 (PDT)
-In-Reply-To: <1379650985.2021.12.camel@joe-AO722>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:57168 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305Ab3ITFSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 01:18:55 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ld10so279734pab.22
+        for <netdev@vger.kernel.org>; Thu, 19 Sep 2013 22:18:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 19, 2013 at 9:23 PM, Joe Perches <joe@perches.com> wrote:
-> On Fri, 2013-09-20 at 13:09 +0900, Tetsuo Handa wrote:
->> Hello.
->
-> Tetsuo-san:
->
->> We are discussing about removal of %n support from vsnprintf() at
->> https://lkml.org/lkml/2013/9/16/52 , and you are using %n in seq_printf().
->
-> Well, I'm not using (mere alcohol isn't using, right?)
-> but I still have the same question for Al.
->
-> Are there any races here?
-
-All the call sites I examined were linear. FWIW, I didn't see any races.
-
--Kees
-
->
->> I posted https://lkml.org/lkml/diff/2013/9/19/53/1 which introduces
->> seq_setwidth() / seq_pad() which can avoid use of %n in seq_printf().
->
-> I still think adding last_len, last_rtn
-> is sensible.
->
->
 
 
+Begin forwarded message:
+
+Date: Thu, 19 Sep 2013 09:42:15 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 61681] New: Incoming TCP4 connections fail to start, don't get past SYN_RECV and then quickly disappear
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=61681
+
+            Bug ID: 61681
+           Summary: Incoming TCP4 connections fail to start, don't get
+                    past SYN_RECV and then quickly disappear
+           Product: Networking
+           Version: 2.5
+    Kernel Version: Linux xxxxxx 3.4.57-48.42.amzn1.x86_64 #1 SMP Mon Aug
+                    12 21:43:36 UTC 2013 x86_64 x86_64 x86_64 GNU/Linux
+          Hardware: IA-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: dcrooke@gmail.com
+        Regression: No
+
+This bug appears to be very rare, but entirely real, and it dates back a long
+time. I tried to debug it thoroughly looking at both kernel and webserver
+settings, and then got down to looking at netstat.
+
+The Linux kernel can sometimes get into a state where it fails to complete
+approx 98% of incoming TCP connection attempts, and only correctly processes
+about 2%. These numbers may be relevant as others have posted finding the same
+"1 in 50" ratio on much older kernels over the years.
+
+I did not get a chance to capture traffic with iptables / pcap / Wireshark
+(production box so we gave up quickly and tried a reboot) but other folks with
+the same issue indicate that Linux is sending the wrong remote sequence number
+back in the SYN-ACK packet, and the client simply drops it. My experience is
+that the half formed connection is torn down almost immediately - I was running
+netstat in a continuous loop to see this, others have observed that their
+clients send RST in response to the malformed SYN-ACK.
+
+http://serverfault.com/questions/297134/server-not-sending-a-syn-ack-packet-in-response-to-a-syn-packet
+
+http://ask.wireshark.org/questions/23885/rst-after-syn-ack
+
+For us, the problem went away on a reboot and so far has stayed away, so I am
+wondering if it is a factor of cumulative traffic but TCP sequence number
+wraparound on the Linux end shouldn't cause this afaict, it should be simply
+replying to the client with the sequence number that came in the SYN packet.
+
+A number of people have had very similar looking issues due to broken
+multi-path network config or a broken NAT device. Obviously this is not the
+case here, Amazon knows how to do IT, this box only has one interface, and in
+any case the Linux kernel is still responsible for the sequence number it
+replies with.
 
 -- 
-Kees Cook
-Chrome OS Security
+You are receiving this mail because:
+You are the assignee for the bug.
