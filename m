@@ -1,81 +1,75 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH 48/51] ARM: 7795/1: mm: dma-mapping: Add
- dma_max_pfn(dev) helper function
-Date: Fri, 20 Sep 2013 00:41:06 +0100
-Message-ID: <E1VMnqM-00026g-PP@rmk-PC.arm.linux.org.uk>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH 01/51] DMA-API: provide a helper to set both DMA and
+ coherent DMA masks
+Date: Fri, 20 Sep 2013 02:21:37 +0100
+Message-ID: <1379640097.2500.4.camel@bwh-desktop.uk.level5networks.com>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+	 <E1VMlja-0007fA-HU@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vinod Koul <vinod.koul@intel.com>, Jens Axboe <axboe@kernel.dk>,
- Dan Williams <dan.j.williams@intel.com>
-To: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
- devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
- dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
- linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org,
- linux-doc@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-ide@vger.kernel.org, linux-media@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-nvme@lists.infradead.org,
- linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- uclinux-dist-devel@blackfin.uclinux.org
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+Cc: <alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>, <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
+	<e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Solarflare linux maintainers" <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	<uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>,
+	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
+	Vinod Koul <vinod.koul-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Dan
+To: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E1VMlja-0007fA-HU-eh5Bv4kxaXIANfyc6IWni62ZND6+EDdj@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+On Thu, 2013-09-19 at 22:25 +0100, Russell King wrote:
+> Provide a helper to set both the DMA and coherent DMA masks to the
+> same value - this avoids duplicated code in a number of drivers,
+> sometimes with buggy error handling, and also allows us identify
+> which drivers do things differently.
+> 
+> Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+> ---
+>  Documentation/DMA-API-HOWTO.txt |   37 ++++++++++++++++++++++---------------
+>  Documentation/DMA-API.txt       |    8 ++++++++
+>  include/linux/dma-mapping.h     |   14 ++++++++++++++
+>  3 files changed, 44 insertions(+), 15 deletions(-)
+> 
+> diff --git a/Documentation/DMA-API-HOWTO.txt b/Documentation/DMA-API-HOWTO.txt
+> index 14129f1..5e98303 100644
+> --- a/Documentation/DMA-API-HOWTO.txt
+> +++ b/Documentation/DMA-API-HOWTO.txt
+[...]
+> -dma_set_coherent_mask() will always be able to set the same or a
+> -smaller mask as dma_set_mask(). However for the rare case that a
+> +The coherent coherent mask will always be able to set the same or a
+> +smaller mask as the streaming mask. However for the rare case that a
+[...]
 
-Most of the kernel assumes that PFN0 is the start of the physical
-memory (RAM). This assumptions is not true on most of the ARM SOCs
-and hence and if one try to update the ARM port to follow the assumptions,
-we end of breaking the dma bounce limit for few block layer drivers.
-One such example is trying to unify the meaning of max*_pfn on ARM
-as the bootmem layer expects, breaks few block layer driver dma
-bounce limit.
+The new wording doesn't make sense; a mask doesn't set itself.  I would
+suggest:
 
-To fix this problem, we introduce dma_max_pfn(dev) generic helper with
-a possibility of override from the architecture code. The helper converts
-a DMA bitmask of bits to a block PFN number. In all the generic cases,
-it is just  "dev->dma_mask >> PAGE_SHIFT" and hence default behavior
-is maintained as is.
+"The coherent mask can always be set to the same or a smaller mask than
+the streaming mask."
 
-Subsequent patches will make use of the helper. No functional change.
+Ben.
 
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- include/linux/dma-mapping.h |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index 27d1421..fd4aee2 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -153,6 +153,13 @@ static inline int dma_set_seg_boundary(struct device *dev, unsigned long mask)
- 		return -EIO;
- }
- 
-+#ifndef dma_max_pfn
-+static inline unsigned long dma_max_pfn(struct device *dev)
-+{
-+	return *dev->dma_mask >> PAGE_SHIFT;
-+}
-+#endif
-+
- static inline void *dma_zalloc_coherent(struct device *dev, size_t size,
- 					dma_addr_t *dma_handle, gfp_t flag)
- {
 -- 
-1.7.4.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
