@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: emaclite: Code cleanup
-Date: Fri, 20 Sep 2013 14:41:21 -0400 (EDT)
-Message-ID: <20130920.144121.1198436308452870594.davem@davemloft.net>
-References: <196d8368eee2d45eeeab40e96e2971f78ed8a79b.1378969499.git.michal.simek@xilinx.com>
-	<196d8368eee2d45eeeab40e96e2971f78ed8a79b.1378969499.git.michal.simek@xilinx.com>
-	<22c8762e2e6eb8bb7d8b945b8f0a17f54e5c718c.1378969499.git.michal.simek@xilinx.com>
+Subject: Re: [PATCH v2 2/3] net: bnx2x: Staticize local symbols
+Date: Fri, 20 Sep 2013 14:41:46 -0400 (EDT)
+Message-ID: <20130920.144146.828826542487450556.davem@davemloft.net>
+References: <1379475001-24505-1-git-send-email-sachin.kamat@linaro.org>
+	<1379475001-24505-2-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, monstr@monstr.eu, renner@efe-gmbh.de,
-	libo.chen@huawei.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org
-To: michal.simek@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <22c8762e2e6eb8bb7d8b945b8f0a17f54e5c718c.1378969499.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
+To: sachin.kamat@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39298 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752950Ab3ITSlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:41:47 -0400
+In-Reply-To: <1379475001-24505-2-git-send-email-sachin.kamat@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Simek <michal.simek@xilinx.com>
-Date: Thu, 12 Sep 2013 09:05:11 +0200
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Wed, 18 Sep 2013 09:00:00 +0530
 
-> No function changes (s/\ \t/\t/g)
+> Local symbols used only in this file are made static.
 > 
-> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> Cc: Eilon Greenstein <eilong@broadcom.com>
+> Cc: Ariel Elior <ariele@broadcom.com>
 
-Also applied to net-next
+Applied to net-next
