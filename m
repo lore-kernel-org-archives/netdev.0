@@ -1,76 +1,114 @@
-From: Malahal Naineni <malahal@us.ibm.com>
-Subject: [PATCH] qlge: call ql_core_dump() only if dump memory was allocated.
-Date: Fri, 20 Sep 2013 10:30:31 -0500
-Message-ID: <1379691031-28666-1-git-send-email-malahal@us.ibm.com>
-To: netdev@vger.kernel.org
+From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Subject: Re: [PATCH] skge: fix broken driver
+Date: Fri, 20 Sep 2013 19:35:55 +0400
+Message-ID: <1379691355.2358.1.camel@ThinkPad-X230.localdomain>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+	 <20130919.135628.1201613770803318193.davem@davemloft.net>
+	 <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+	 <1379614608.2331.0.camel@ThinkPad-X230.localdomain>
+	 <alpine.LRH.2.02.1309191427420.15640@file01.intranet.prod.int.rdu2.redhat.com>
+	 <20130919213218.GA31672@electric-eye.fr.zoreil.com>
+	 <alpine.LRH.2.02.1309201030420.30821@file01.intranet.prod.int.rdu2.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Mikulas Patocka <mpatocka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:52137 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737Ab3ITPaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 11:30:35 -0400
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <malahal@us.ibm.com>;
-	Fri, 20 Sep 2013 09:30:34 -0600
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id AA8AE3E40042
-	for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 09:30:32 -0600 (MDT)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r8KFUWLc295462
-	for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 09:30:32 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r8KFUWYe018466
-	for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 09:30:32 -0600
-Received: from malahal (malahal.austin.ibm.com [9.41.105.170])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id r8KFUV5g018418
-	for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 09:30:32 -0600
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:34510 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897Ab3ITPgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 11:36:00 -0400
+Received: by mail-lb0-f175.google.com with SMTP id y6so677812lbh.20
+        for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 08:35:59 -0700 (PDT)
+In-Reply-To: <alpine.LRH.2.02.1309201030420.30821@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also changed a log message to indicate that memory was not allocated
-instead of memory not available!
----
- drivers/net/ethernet/qlogic/qlge/qlge_dbg.c |  4 ++--
- drivers/net/ethernet/qlogic/qlge/qlge_mpi.c | 12 +++++++-----
- 2 files changed, 9 insertions(+), 7 deletions(-)
+On Fri, 2013-09-20 at 10:32 -0400, Mikulas Patocka wrote:
+> 
+> 
+> On Thu, 19 Sep 2013, Francois Romieu wrote:
+> 
+> > Mikulas Patocka <mpatocka@redhat.com> :
+> > [...]
+> > > I see. My patch is a bit simpler - it doesn't allocate the structure 
+> > > skge_element on the stack.
+> > 
+> > Both patches don't behave exactly the same wrt pci_unmap_single.
+> > 
+> > -- 
+> > Ueimor
+> 
+> I see, my patch passes a wrong value to pci_unmap_single. So I made this 
+> change to make it pass the correct value. Do you agree with this patch?
+> 
+> ---
+> 
+> skge: fix invalid value passed to pci_unmap_sigle
+> 
+> In my patch c194992cbe71c20bb3623a566af8d11b0bfaa721 I didn't fix the skge
+> bug correctly. The value of the new mapping (not old) was passed to
+> pci_unmap_single.
+> 
+> If we enable CONFIG_DMA_API_DEBUG, it results in this warning:
+> WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:986 check_sync+0x4c4/0x580()
+> skge 0000:02:07.0: DMA-API: device driver tries to sync DMA memory it has
+> not allocated [device address=0x000000023a0096c0] [size=1536 bytes]
+> 
+> This patch makes the skge driver pass the correct value to
+> pci_unmap_single and fixes the warning. It copies the old descriptor to
+> on-stack variable "ee" and unmaps it if mapping of the new descriptor
+> succeeded.
+> 
+> This patch should be backported to 3.11-stable.
+> 
+> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+> Reported-by: Francois Romieu <romieu@fr.zoreil.com>
+> Tested-by: Mikulas Patocka <mpatocka@redhat.com>
+> 
+> ---
+>  drivers/net/ethernet/marvell/skge.c |    9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+> 
+> Index: linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c
+> ===================================================================
+> --- linux-3.11.1-fast.orig/drivers/net/ethernet/marvell/skge.c  2013-09-20 16:13:24.000000000 +0200
+> +++ linux-3.11.1-fast/drivers/net/ethernet/marvell/skge.c       2013-09-20 16:18:13.000000000 +0200
+> @@ -3086,13 +3086,16 @@ static struct sk_buff *skge_rx_get(struc
+>                                                PCI_DMA_FROMDEVICE);
+>                 skge_rx_reuse(e, skge->rx_buf_size);
+>         } else {
+> +               struct skge_element ee;
+>                 struct sk_buff *nskb;
+>  
+>                 nskb = netdev_alloc_skb_ip_align(dev, skge->rx_buf_size);
+>                 if (!nskb)
+>                         goto resubmit;
+>  
+> -               skb = e->skb;
+> +               ee = *e;
+> +
+> +               skb = ee.skb;
+>                 prefetch(skb->data);
+>  
+>                 if (skge_rx_setup(skge, e, nskb, skge->rx_buf_size) < 0) {
+> @@ -3101,8 +3104,8 @@ static struct sk_buff *skge_rx_get(struc
+>                 }
+>  
+>                 pci_unmap_single(skge->hw->pdev,
+> -                                dma_unmap_addr(e, mapaddr),
+> -                                dma_unmap_len(e, maplen),
+> +                                dma_unmap_addr(&ee, mapaddr),
+> +                                dma_unmap_len(&ee, maplen),
+>                                  PCI_DMA_FROMDEVICE);
+>         }
+>  
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c b/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-index 10093f0..6bc5db7 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-@@ -740,8 +740,8 @@ int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump)
- 	int i;
- 
- 	if (!mpi_coredump) {
--		netif_err(qdev, drv, qdev->ndev, "No memory available\n");
--		return -ENOMEM;
-+		netif_err(qdev, drv, qdev->ndev, "No memory allocated\n");
-+		return -EINVAL;
- 	}
- 
- 	/* Try to get the spinlock, but dont worry if
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c b/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
-index ff2bf8a..99a3e07 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
-@@ -1274,11 +1274,13 @@ void ql_mpi_reset_work(struct work_struct *work)
- 		return;
- 	}
- 
--	if (!ql_core_dump(qdev, qdev->mpi_coredump)) {
--		netif_err(qdev, drv, qdev->ndev, "Core is dumped!\n");
--		qdev->core_is_dumped = 1;
--		queue_delayed_work(qdev->workqueue,
--			&qdev->mpi_core_to_log, 5 * HZ);
-+	if (qdev->mpi_coredump) {
-+		if (!ql_core_dump(qdev, qdev->mpi_coredump)) {
-+			netif_err(qdev, drv, qdev->ndev, "Core is dumped!\n");
-+			qdev->core_is_dumped = 1;
-+			queue_delayed_work(qdev->workqueue,
-+				&qdev->mpi_core_to_log, 5 * HZ);
-+		}
- 	}
- 	ql_soft_reset_mpi_risc(qdev);
- }
+Mikulas, I think you should send this patch separate..
 -- 
-1.7.11.7
+Igor Gnatenko
+Fedora release 20 (Heisenbug)
+Linux 3.11.1-300.fc20.x86_64
