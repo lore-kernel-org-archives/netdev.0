@@ -1,66 +1,75 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 42/51] DMA-API: usb: musb:
-	use	platform_device_register_full() to avoid directly messing
-	with dma	masks
-Date: Fri, 20 Sep 2013 14:49:38 +0100
-Message-ID: <20130920134938.GO25647@n2100.arm.linux.org.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 13/51] DMA-API: net: sfc/efx.c: replace
+ dma_set_mask()+dma_set_coherent_mask() with new helper
+Date: Fri, 20 Sep 2013 14:55:28 +0100
+Message-ID: <1379685328.1681.0.camel@bwh-desktop.uk.level5networks.com>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMnQk-0007sX-Ty@rmk-PC.arm.linux.org.uk> <20130920131125.GO26101@radagast>
+	 <E1VMlvE-0007gc-B5@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-nvme@lists.infradead.org, linux-ide@vger.kernel.org,
- devel@driverdev.osuosl.org, linux-samsung-soc@vger.kernel.org,
- linux-scsi@vger.kernel.org, e1000-devel@lists.sourceforge.net,
- b43-dev@lists.infradead.org, linux-media@vger.kernel.org,
- devicetree@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-tegra@vger.kernel.org, linux-omap@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- netdev@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-crypto@vger.kernel.org,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- uclinux-dist-devel@blackfin.uclinux.org, linuxppc-dev@lists.ozlabs.org
-To: Felipe Balbi <balbi@ti.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-Content-Disposition: inline
-In-Reply-To: <20130920131125.GO26101@radagast>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:23287 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754784Ab3ITNzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 09:55:35 -0400
+In-Reply-To: <E1VMlvE-0007gc-B5@rmk-PC.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 20, 2013 at 08:11:25AM -0500, Felipe Balbi wrote:
-> Hi,
-> 
-> On Fri, Sep 20, 2013 at 12:14:38AM +0100, Russell King wrote:
-> > Use platform_device_register_full() for those drivers which can, to
-> > avoid messing directly with DMA masks.  This can only be done when
-> > the driver does not need to access the allocated musb platform device
-> > from within its callbacks, which may be called during the musb
-> > device probing.
-> > 
-> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> 
-> you want me to carry this one through my tree or you prefer getting my
-> Acked-by ? Either way works for me:
-> 
-> Acked-by: Felipe Balbi <balbi@ti.com>
-> 
-> there's also the third option of me setting up a branch with only this
-> patch and we both merge it, that'd also work.
+[Trimmed cc's]
 
-I think this patch is sufficiently stand-alone that it should be fine
-if you want to take it through your tree.  That may be better in the
-long run to avoid conflicts with this patch and any future work in
-this area during this cycle.
+On Thu, 2013-09-19 at 22:38 +0100, Russell King wrote:
+> Replace the following sequence:
+> 
+> 	dma_set_mask(dev, mask);
+> 	dma_set_coherent_mask(dev, mask);
+> 
+> with a call to the new helper dma_set_mask_and_coherent().
+> 
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Thanks.
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+
+> ---
+>  drivers/net/ethernet/sfc/efx.c |   12 +-----------
+>  1 files changed, 1 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 07c9bc4..2e27837 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -1121,7 +1121,7 @@ static int efx_init_io(struct efx_nic *efx)
+>  	 */
+>  	while (dma_mask > 0x7fffffffUL) {
+>  		if (dma_supported(&pci_dev->dev, dma_mask)) {
+> -			rc = dma_set_mask(&pci_dev->dev, dma_mask);
+> +			rc = dma_set_mask_and_coherent(&pci_dev->dev, dma_mask);
+>  			if (rc == 0)
+>  				break;
+>  		}
+> @@ -1134,16 +1134,6 @@ static int efx_init_io(struct efx_nic *efx)
+>  	}
+>  	netif_dbg(efx, probe, efx->net_dev,
+>  		  "using DMA mask %llx\n", (unsigned long long) dma_mask);
+> -	rc = dma_set_coherent_mask(&pci_dev->dev, dma_mask);
+> -	if (rc) {
+> -		/* dma_set_coherent_mask() is not *allowed* to
+> -		 * fail with a mask that dma_set_mask() accepted,
+> -		 * but just in case...
+> -		 */
+> -		netif_err(efx, probe, efx->net_dev,
+> -			  "failed to set consistent DMA mask\n");
+> -		goto fail2;
+> -	}
+>  
+>  	efx->membase_phys = pci_resource_start(efx->pci_dev, EFX_MEM_BAR);
+>  	rc = pci_request_region(pci_dev, EFX_MEM_BAR, "sfc");
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
