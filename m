@@ -1,62 +1,89 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH ] net: raw: do not report ICMP redirects to user space
-Date: Fri, 20 Sep 2013 18:21:25 +0800
-Message-ID: <523C21A5.4050504@cn.fujitsu.com>
+Subject: Re: [PATCH v2] ip6tnl: do route updating for redirect in ip6_tnl_err()
+Date: Fri, 20 Sep 2013 18:43:08 +0800
+Message-ID: <523C26BC.5050408@cn.fujitsu.com>
+References: <1379474877-3097-1-git-send-email-duanj.fnst@cn.fujitsu.com> <20130919.140213.417316271045370155.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: djduanjiong@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:38630 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:54043 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754435Ab3ITKW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Sep 2013 06:22:29 -0400
+	id S1754516Ab3ITKoN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 06:44:13 -0400
+In-Reply-To: <20130919.140213.417316271045370155.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+=E4=BA=8E 2013=E5=B9=B409=E6=9C=8820=E6=97=A5 02:02, David Miller =E5=86=
+=99=E9=81=93:
+> From: Duan Jiong <djduanjiong@gmail.com>
+> Date: Tue, 17 Sep 2013 20:27:57 -0700
+>=20
+>> After the ip6_tnl_err() is called, the rel_msg is assigned to
+>> 0, and the ip4ip6_err() will return directly, the instruction
+>> below will not be executed.
+>>
+>> In rfc2473, we can know that the tunnel ICMP redirect message
+>> should not be reported to the source of the original packet,
+>> so we can handle it in ip6_tnl_err().
+>>
+>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>=20
+> I do not think this change is correct.
+>=20
+>> @@ -576,9 +579,6 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb=
+_parm *opt,
+>>  		rel_type =3D ICMP_DEST_UNREACH;
+>>  		rel_code =3D ICMP_FRAG_NEEDED;
+>>  		break;
+>> -	case NDISC_REDIRECT:
+>> -		rel_type =3D ICMP_REDIRECT;
+>> -		rel_code =3D ICMP_REDIR_HOST;
+>>  	default:
+>>  		return 0;
+>>  	}
+>=20
+> The bug is a missing "break;" statement for this case, and:
 
-Redirect isn't an error condition, it should leave
-the error handler without touching the socket.
+You can read the ip6_tnl_err(). when the message is NDISC_REDIRECT, the
+rel_msg is assigned to 0, then=20
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv4/raw.c | 4 +++-
- net/ipv6/raw.c | 4 +++-
- 2 files changed, 6 insertions(+), 2 deletions(-)
+ 561         if (rel_msg =3D=3D 0)
+ 562                 return 0;
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index bfec521..193db03 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -218,8 +218,10 @@ static void raw_err(struct sock *sk, struct sk_buff *skb, u32 info)
- 
- 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED)
- 		ipv4_sk_update_pmtu(skb, sk, info);
--	else if (type == ICMP_REDIRECT)
-+	else if (type == ICMP_REDIRECT) {
- 		ipv4_sk_redirect(skb, sk);
-+		return;
-+	}
- 
- 	/* Report error on raw socket, if:
- 	   1. User requested ip_recverr.
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 58916bb..a4ed241 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -335,8 +335,10 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
- 		ip6_sk_update_pmtu(skb, sk, info);
- 		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
- 	}
--	if (type == NDISC_REDIRECT)
-+	if (type == NDISC_REDIRECT) {
- 		ip6_sk_redirect(skb, sk);
-+		return;
-+	}
- 	if (np->recverr) {
- 		u8 *payload = skb->data;
- 		if (!inet->hdrincl)
--- 
-1.8.3.1
+the function ip4ip6_err() return directly. so even though you add "brea=
+k;"
+statement for this case, the redirect message will not be handled.
+
+>=20
+>> @@ -637,8 +637,6 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb=
+_parm *opt,
+>> =20
+>>  		skb_dst(skb2)->ops->update_pmtu(skb_dst(skb2), NULL, skb2, rel_in=
+fo);
+>>  	}
+>> -	if (rel_type =3D=3D ICMP_REDIRECT)
+>> -		skb_dst(skb2)->ops->redirect(skb_dst(skb2), NULL, skb2);
+>> =20
+>=20
+> We absolutely must run the ipv4 dst_ops redirect handler here so you =
+must
+> keep this code around as well.
+>=20
+
+Because the Redirect Message is sent to tunnel entry-point, so the targ=
+et address in
+Redirect ICMPv6 Message is an ipv6 address, then we could not run the i=
+pv4 dst_ops=20
+redirect handler here.
+
+Thanks,
+  Duan
+
+> The only change you need to make is to add the missing break;
+> statement to ip4ip6_err() and then also add appropriate NDISC_REDIREC=
+T
+> handling to ip6ip6_err().
