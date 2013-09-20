@@ -1,48 +1,45 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] qlge: call ql_core_dump() only if dump memory was
- allocated.
-Date: Fri, 20 Sep 2013 11:08:51 -0700
-Message-ID: <1379700531.2301.2.camel@joe-AO722>
-References: <20130920.120201.1305554403409938708.davem@davemloft.net>
-	 <1379696386-29573-1-git-send-email-malahal@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Malahal Naineni <malahal@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0106.hostedemail.com ([216.40.44.106]:33130 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753135Ab3ITSIz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:08:55 -0400
-In-Reply-To: <1379696386-29573-1-git-send-email-malahal@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 02/11] dcbevent.h: Remove extern from function prototypes
+Date: Fri, 20 Sep 2013 11:23:19 -0700
+Message-ID: <346f461ada19cda69e1843c2c119f54f8def4cb1.1379701322.git.joe@perches.com>
+References: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-09-20 at 11:59 -0500, Malahal Naineni wrote:
-> Also changed a log message to indicate that memory was not allocated
-> instead of memory not available!
-[]
-> diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c b/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
-[]
-> @@ -1274,11 +1274,13 @@ void ql_mpi_reset_work(struct work_struct *work)
->  		return;
->  	}
->  
-> -	if (!ql_core_dump(qdev, qdev->mpi_coredump)) {
-> -		netif_err(qdev, drv, qdev->ndev, "Core is dumped!\n");
-> -		qdev->core_is_dumped = 1;
-> -		queue_delayed_work(qdev->workqueue,
-> -			&qdev->mpi_core_to_log, 5 * HZ);
-> +	if (qdev->mpi_coredump) {
-> +		if (!ql_core_dump(qdev, qdev->mpi_coredump)) {
-> +			netif_err(qdev, drv, qdev->ndev, "Core is dumped!\n");
-> +			qdev->core_is_dumped = 1;
-> +			queue_delayed_work(qdev->workqueue,
-> +				&qdev->mpi_core_to_log, 5 * HZ);
-> +		}
+There are a mix of function prototypes with and without extern
+in the kernel sources.  Standardize on not using extern for
+function prototypes.
 
-This can be done without adding another indentation level
+Function prototypes don't need to be written with extern.
+extern is assumed by the compiler.  Its use is as unnecessary as
+using auto to declare automatic/local variables in a block.
 
-	if (qdev->mpi_coredump &&
-	    !ql_core_dump(qdev, qdev->mpi_coredump)) {
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/net/dcbevent.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/dcbevent.h b/include/net/dcbevent.h
+index 443626e..d2f3041 100644
+--- a/include/net/dcbevent.h
++++ b/include/net/dcbevent.h
+@@ -25,9 +25,9 @@ enum dcbevent_notif_type {
+ };
+ 
+ #ifdef CONFIG_DCB
+-extern int register_dcbevent_notifier(struct notifier_block *nb);
+-extern int unregister_dcbevent_notifier(struct notifier_block *nb);
+-extern int call_dcbevent_notifiers(unsigned long val, void *v);
++int register_dcbevent_notifier(struct notifier_block *nb);
++int unregister_dcbevent_notifier(struct notifier_block *nb);
++int call_dcbevent_notifiers(unsigned long val, void *v);
+ #else
+ static inline int
+ register_dcbevent_notifier(struct notifier_block *nb)
+-- 
+1.8.1.2.459.gbcd45b4.dirty
