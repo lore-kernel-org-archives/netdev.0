@@ -1,73 +1,104 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: IPv6 kernel warning
-Date: Fri, 20 Sep 2013 14:11:53 +0100
-Message-ID: <20130920131153.GF12758@n2100.arm.linux.org.uk>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH 42/51] DMA-API: usb: musb: use
+ platform_device_register_full() to avoid directly messing with dma masks
+Date: Fri, 20 Sep 2013 08:11:25 -0500
+Message-ID: <20130920131125.GO26101@radagast>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <E1VMnQk-0007sX-Ty@rmk-PC.arm.linux.org.uk>
+Reply-To: balbi@ti.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:39581 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754590Ab3ITNMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 09:12:02 -0400
-Received: from n2100.arm.linux.org.uk ([2002:4e20:1eda:1:214:fdff:fe10:4f86]:36620)
-	by caramon.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.76)
-	(envelope-from <linux@arm.linux.org.uk>)
-	id 1VN0V2-0001Jm-Lm
-	for netdev@vger.kernel.org; Fri, 20 Sep 2013 14:11:57 +0100
-Received: from linux by n2100.arm.linux.org.uk with local (Exim 4.76)
-	(envelope-from <linux@n2100.arm.linux.org.uk>)
-	id 1VN0V0-0005m0-63
-	for netdev@vger.kernel.org; Fri, 20 Sep 2013 14:11:54 +0100
+Content-Type: multipart/mixed; boundary="===============7929212992198795530=="
+Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ linux-nvme@lists.infradead.org, linux-ide@vger.kernel.org,
+ devel@driverdev.osuosl.org, linux-samsung-soc@vger.kernel.org,
+ linux-scsi@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+ b43-dev@lists.infradead.org, linux-media@vger.kernel.org,
+ devicetree@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-tegra@vger.kernel.org, linux-omap@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org,
+ Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+ netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-wireless@vger.kernel.org, Felipe Balbi <balbi@ti.com>,
+ linux-crypto@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ uclinux-dist-devel@blackfin.uclinux.org, linuxppc-dev@lists.ozlabs.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <E1VMnQk-0007sX-Ty@rmk-PC.arm.linux.org.uk>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
+
+--===============7929212992198795530==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="S0GG+JvAI2G0KxBG"
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-While running v3.11 on my firewall, I saw this warning.  I'm not sure
-what it means or what its implications are:
+--S0GG+JvAI2G0KxBG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 0 at /home/rmk/git/linux-rmk/net/ipv4/tcp_input.c:2711 tcp_fastretrans_alert+0x178/0x840()
-Modules linked in: ipt_REJECT xt_multiport iptable_filter ipt_MASQUERADE xt_nat
-xt_mark iptable_nat nf_nat_ipv4 nf_nat ip6table_mangle xt_LOG xt_limit nf_conntrack_ipv6 nf_defrag_ipv6 xt_state ip6table_filter pata_pcmcia libata scsi_mod 3c589_cs ide_gd_mod ide_cs ide_core sa1111_cs sa1100_cs sa11xx_base soc_common sa11x0_dma virt_dma usbcore usb_common
-CPU: 0 PID: 0 Comm: swapper Not tainted 3.11.0+ #15
-Backtrace:
-[<c02111a8>] (dump_backtrace+0x0/0x114) from [<c02115a0>] (show_stack+0x18/0x1c) r6:c0520824 r5:00000009 r4:00000000
-[<c0211588>] (show_stack+0x0/0x1c) from [<c04d65e0>] (dump_stack+0x20/0x28)
-[<c04d65c0>] (dump_stack+0x0/0x28) from [<c021bfb0>] (warn_slowpath_common+0x68/0x88)
-[<c021bf48>] (warn_slowpath_common+0x0/0x88) from [<c021bff4>] (warn_slowpath_null+0x24/0x28)
- r8:00000000 r7:00000001 r6:00000006 r5:00004320 r4:c11c6580
-[<c021bfd0>] (warn_slowpath_null+0x0/0x28) from [<c04515bc>] (tcp_fastretrans_alert+0x178/0x840)
-[<c0451444>] (tcp_fastretrans_alert+0x0/0x840) from [<c045273c>] (tcp_ack+0xa14/0xc18)
-[<c0451d28>] (tcp_ack+0x0/0xc18) from [<c0453138>] (tcp_rcv_established+0x494/0x594)
-[<c0452ca4>] (tcp_rcv_established+0x0/0x594) from [<c04a977c>] (tcp_v6_do_rcv+0xd0/0x428)
-[<c04a96ac>] (tcp_v6_do_rcv+0x0/0x428) from [<c04a9e70>] (tcp_v6_rcv+0x340/0x63c)
-[<c04a9b30>] (tcp_v6_rcv+0x0/0x63c) from [<c048b334>] (ip6_input_finish+0x214/0x3c4)
-[<c048b120>] (ip6_input_finish+0x0/0x3c4) from [<c048ba60>] (ip6_input+0x64/0x74)
-[<c048b9fc>] (ip6_input+0x0/0x74) from [<c048b564>] (ip6_rcv_finish+0x80/0x8c)
- r4:c1c9ee20
-[<c048b4e4>] (ip6_rcv_finish+0x0/0x8c) from [<c048b994>] (ipv6_rcv+0x424/0x48c)
- r4:c1c9ee20
-[<c048b570>] (ipv6_rcv+0x0/0x48c) from [<c0407624>] (__netif_receive_skb_core+0x618/0x688)
- r8:0000dd86 r7:00000000 r6:c11f6800 r5:c05ee6cc r4:c05f1b98
-[<c040700c>] (__netif_receive_skb_core+0x0/0x688) from [<c040770c>] (__netif_receive_skb+0x78/0x80)
-[<c0407694>] (__netif_receive_skb+0x0/0x80) from [<c04077a8>] (process_backlog+0x94/0x14c)
- r5:c06091e0 r4:c0609220
-[<c0407714>] (process_backlog+0x0/0x14c) from [<c0407af4>] (net_rx_action+0x78/0x1ac)
-[<c0407a7c>] (net_rx_action+0x0/0x1ac) from [<c021f500>] (__do_softirq+0xb4/0x198)
-[<c021f44c>] (__do_softirq+0x0/0x198) from [<c021f90c>] (irq_exit+0x74/0xc8)
-[<c021f898>] (irq_exit+0x0/0xc8) from [<c020f1ac>] (handle_IRQ+0x68/0x88)
- r4:0000000b
-[<c020f144>] (handle_IRQ+0x0/0x88) from [<c0208210>] (asm_do_IRQ+0x10/0x14)
- r5:60000013 r4:c0246818
-[<c0208200>] (asm_do_IRQ+0x0/0x14) from [<c0211fcc>] (__irq_svc+0x2c/0x98)
-Exception stack(0xc05e7f54 to 0xc05e7f9c)
-7f40:                                              00000000 00000000 00000000
-7f60: 60000013 c05e6000 c06092a4 c05ee080 00000001 c0204000 6901b115 c05e0800
-7f80: c05e7fb8 c05e7f9c c05e7f9c c020f348 c0246818 60000013 ffffffff
-[<c0246794>] (cpu_startup_entry+0x0/0xe8) from [<c04d4d70>] (rest_init+0x64/0x7c)
- r7:c05f3940 r6:c0922200 r5:c0609340 r4:c05ee0c0
-[<c04d4d0c>] (rest_init+0x0/0x7c) from [<c05c3acc>] (start_kernel+0x350/0x3ac)
-[<c05c377c>] (start_kernel+0x0/0x3ac) from [<c0208040>] (0xc0208040)
----[ end trace ab55f0e3f592fa5e ]---
+Hi,
+
+On Fri, Sep 20, 2013 at 12:14:38AM +0100, Russell King wrote:
+> Use platform_device_register_full() for those drivers which can, to
+> avoid messing directly with DMA masks.  This can only be done when
+> the driver does not need to access the allocated musb platform device
+> from within its callbacks, which may be called during the musb
+> device probing.
+>=20
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+
+you want me to carry this one through my tree or you prefer getting my
+Acked-by ? Either way works for me:
+
+Acked-by: Felipe Balbi <balbi@ti.com>
+
+there's also the third option of me setting up a branch with only this
+patch and we both merge it, that'd also work.
+
+cheers
+
+--=20
+balbi
+
+--S0GG+JvAI2G0KxBG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSPEl9AAoJEIaOsuA1yqREIKYP/0fcIrBOWMvkcjYUJYHm/Vg7
+E8Vfe5ZUQcfPTWoiz5Kzdg+2Y4NG4Zv7Y7TpZj5atvz97zpiT0JAhvy5yf1+q3sv
+qozJJL3JUtpbwcNP4R0/rD6v+2VvyS3lWuJeCI/NJY4zpZ6zYS8WsaR7QRnjUX8O
+wOSIrYcwbr8xNrKIQxWhmEld60Cs4wSZ3TS8fvV0UWBo5CTeZdGZns/gRW5MGmZW
+tdR1nB+KmCqpVga49niAMHKm0DqvBhrXyuZm3T7nrWxXnqY3/bhYM/sGNPAdeGU1
+hJ6Hfe4yNjQpDm9bkRStj3kONevdXFpmnx7ndqnMGA+qAcZYUZP2ZQIP4zKUgPq5
+iM/lX9z+NYtJPzUi2sV6XGHpU5+O2Imy0SP36IvsV3K9RbSv+MDsNqCQRdFzhQjX
+dvR2fzXM6eX5zeRR9fonD3odCCr7sDGj8b+ODFhyp/Imph/e3spE0NWc/1et6KhY
+OOXVb2MRpRBPwA8yjFOfLEn5rgu3u8awCHDe4rmknYVdmzzrZOowTSqw5q6UTK80
+Vz+bJques9CHoUs2StfOeJ4QOn6mzaYi00HjqXZ3BZlBQSTKoPAAzC4H3vS/vPTs
+9PSqsMPPkK4cFcq94JIViy9gzHUKWJREWjM9nmAKMfGdU+xxkTnYLurDBKZy6SAt
+8zFqQe3pzsCzGEpNuH+i
+=q3cb
+-----END PGP SIGNATURE-----
+
+--S0GG+JvAI2G0KxBG--
+
+--===============7929212992198795530==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============7929212992198795530==--
