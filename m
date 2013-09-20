@@ -1,128 +1,119 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH 37/51] DMA-API: usb: use new dma_coerce_mask_and_coherent()
-Date: Fri, 20 Sep 2013 08:10:02 -0500
-Message-ID: <20130920131002.GN26101@radagast>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMmIV-0007jw-Gq@rmk-PC.arm.linux.org.uk>
-Reply-To: balbi@ti.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next 1/2] xen-netback: add a vif-is-connected flag
+Date: Fri, 20 Sep 2013 14:31:06 +0100
+Message-ID: <20130920133106.GB457@zion.uk.xensource.com>
+References: <1379681791-21842-1-git-send-email-paul.durrant@citrix.com>
+ <1379681791-21842-2-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2399579260979124827=="
-Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
- Alexander Shishkin <alexander.shishkin@linux.intel.com>,
- linux-mmc@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-nvme@lists.infradead.org, linux-ide@vger.kernel.org,
- devel@driverdev.osuosl.org, linux-samsung-soc@vger.kernel.org,
- linux-scsi@vger.kernel.org, e1000-devel@lists.sourceforge.net,
- Alan Stern <stern@rowland.harvard.edu>, b43-dev@lists.infradead.org,
- linux-media@vger.kernel.org, devicetree@vger.kernel.org,
- Stephen Warren <swarren@wwwdotorg.org>, Kukjin Kim <kgene.kim@samsung.com>,
- dri-devel@lists.freedesktop.org, linux-tegra@vger.kernel.org,
- linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- netdev@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-wireless@vger.kernel.org, Felipe Balbi <balbi@ti.com>,
- linux-crypto@vger.ker
-To: Russell King <rmk+kernel@arm.linux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <E1VMmIV-0007jw-Gq@rmk-PC.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
-
---===============2399579260979124827==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qi3SIpffvxS/TM8d"
-Content-Disposition: inline
-
---qi3SIpffvxS/TM8d
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-On Thu, Sep 19, 2013 at 11:02:03PM +0100, Russell King wrote:
-> diff --git a/drivers/usb/dwc3/dwc3-exynos.c b/drivers/usb/dwc3/dwc3-exyno=
-s.c
-> index c10b324..8b20c70 100644
-> --- a/drivers/usb/dwc3/dwc3-exynos.c
-> +++ b/drivers/usb/dwc3/dwc3-exynos.c
-> @@ -119,9 +119,7 @@ static int dwc3_exynos_probe(struct platform_device *=
-pdev)
->  	 * Since shared usb code relies on it, set it here for now.
->  	 * Once we move to full device tree support this will vanish off.
->  	 */
-> -	if (!dev->dma_mask)
-> -		dev->dma_mask =3D &dev->coherent_dma_mask;
-> -	ret =3D dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
-> +	ret =3D dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
->  	if (ret)
->  		goto err1;
-> =20
-> diff --git a/drivers/usb/host/ehci-omap.c b/drivers/usb/host/ehci-omap.c
-> index d0759c5..6fa82d6 100644
-> --- a/drivers/usb/host/ehci-omap.c
-> +++ b/drivers/usb/host/ehci-omap.c
-> @@ -144,9 +144,7 @@ static int ehci_hcd_omap_probe(struct platform_device=
- *pdev)
->  	 * Since shared usb code relies on it, set it here for now.
->  	 * Once we have dma capability bindings this can go away.
->  	 */
-> -	if (!dev->dma_mask)
-> -		dev->dma_mask =3D &dev->coherent_dma_mask;
-> -	ret =3D dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
-> +	ret =3D dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
->  	if (ret)
->  		return ret;
-
-for dwc3 and ehci-omap:
-
-Acked-by: Felipe Balbi <balbi@ti.com>
-
---=20
-balbi
-
---qi3SIpffvxS/TM8d
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSPEkpAAoJEIaOsuA1yqRE5YIP/31lUrjWWK0BZtKztgAZ5fjJ
-Be481Py022caHmi1k4ibHD/MCXINrJ4bt1/HqPUtS4dM9nS8xrpjawm0hyz1NpFd
-t3GyrpAJNpblpx8XSs4e2s0+06tAYbjPHBDLONoQbjfD9cT65f1Qury4tb3T6wN+
-Md3Jbe4JFUNwV2kmR63YUzE7/NZx7y9NZimdcKHOhUNMIfGcTsab0p7wWsbQKtJM
-+udKsbptMOCBWlYn7YWxr6vbCR7FWZxPFUq9gBX9tmOahSMNqoCPfl97RvGK8Exw
-lp6eXRZwnO8e1KQ3KKYtzeT+bSCakLdXhMc19A9EpxEhAk0Y/X+whVf+WvGyevtC
-AlDHUv6RXBabTl1iaNcM7HUWIVAuf1Byae+B89N7HS7KLkxMR3bEVeehIG8+41w5
-xFk654AIzRYJyDuuGgD5vlgoYEpV7uPdXRkFjI05K8YME0CCpmI7Zg3y/uhHwbgu
-Lo6PQQSeIqAKccQbHhlznagC9JeDSsygfoGXXc+K1jRw+FaJoRa2ClCtFUcI9W13
-RcM0Z6AYLflavmpTROakVySBtm8oc3VMD7FZwfqyfmdmb8jcalZItJ4ZbijSwo18
-H10HE6b4tqLxYQWnedPdwOuzHUb8unfQNpsuenGRRGJWrFu4Imx239V3+15m5biM
-WV1kb+UfNj6WuHNIFGbk
-=Y+4c
------END PGP SIGNATURE-----
-
---qi3SIpffvxS/TM8d--
-
-
---===============2399579260979124827==
 Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:16337 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754629Ab3ITNbK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 09:31:10 -0400
 Content-Disposition: inline
+In-Reply-To: <1379681791-21842-2-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+On Fri, Sep 20, 2013 at 01:56:30PM +0100, Paul Durrant wrote:
+> Having applied my patch to separate vif disconnect and free, I ran into a
+> BUG when testing resume from S3 with a Windows frontend because the vif task
+> pointer was not cleared by xenvif_disconnect() and so a double call to this
+> function tries to stop the thread twice.
+> Rather than applying a point fix for that issue it seems better to introduce
+> a boolean to indicate whether the vif is connected or not such that repeated
+> calls to either xenvif_connect() or xenvif_disconnect() behave appropriately.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
 
---===============2399579260979124827==--
+Reasonable change.
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+Thanks
+Wei.
+
+> ---
+>  drivers/net/xen-netback/common.h    |    1 +
+>  drivers/net/xen-netback/interface.c |   24 +++++++++++++-----------
+>  2 files changed, 14 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 5715318..860d92c 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -169,6 +169,7 @@ struct xenvif {
+>  
+>  	/* Miscellaneous private stuff. */
+>  	struct net_device *dev;
+> +	bool connected;
+>  };
+>  
+>  static inline struct xenbus_device *xenvif_to_xenbus_device(struct xenvif *vif)
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 01bb854..94b47f5 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -366,7 +366,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+>  	int err = -ENOMEM;
+>  
+>  	/* Already connected through? */
+> -	if (vif->tx_irq)
+> +	if (vif->connected)
+>  		return 0;
+>  
+>  	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
+> @@ -425,6 +425,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+>  
+>  	wake_up_process(vif->task);
+>  
+> +	vif->connected = 1;
+>  	return 0;
+>  
+>  err_rx_unbind:
+> @@ -453,23 +454,24 @@ void xenvif_carrier_off(struct xenvif *vif)
+>  
+>  void xenvif_disconnect(struct xenvif *vif)
+>  {
+> +	if (!vif->connected)
+> +		return;
+> +
+>  	if (netif_carrier_ok(vif->dev))
+>  		xenvif_carrier_off(vif);
+>  
+> -	if (vif->tx_irq) {
+> -		if (vif->tx_irq == vif->rx_irq)
+> -			unbind_from_irqhandler(vif->tx_irq, vif);
+> -		else {
+> -			unbind_from_irqhandler(vif->tx_irq, vif);
+> -			unbind_from_irqhandler(vif->rx_irq, vif);
+> -		}
+> -		vif->tx_irq = 0;
+> +	if (vif->tx_irq == vif->rx_irq)
+> +		unbind_from_irqhandler(vif->tx_irq, vif);
+> +	else {
+> +		unbind_from_irqhandler(vif->tx_irq, vif);
+> +		unbind_from_irqhandler(vif->rx_irq, vif);
+>  	}
+>  
+> -	if (vif->task)
+> -		kthread_stop(vif->task);
+> +	kthread_stop(vif->task);
+>  
+>  	xenvif_unmap_frontend_rings(vif);
+> +
+> +	vif->connected = 0;
+>  }
+>  
+>  void xenvif_free(struct xenvif *vif)
+> -- 
+> 1.7.10.4
