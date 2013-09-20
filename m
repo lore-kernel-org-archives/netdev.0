@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net_sched: htb: support of 64bit rates
-Date: Fri, 20 Sep 2013 14:42:46 -0400 (EDT)
-Message-ID: <20130920.144246.1733125926277807658.davem@davemloft.net>
-References: <1379607020.3282.14.camel@edumazet-glaptop>
+Subject: Re: [PATCH] phy/micrel: Add suspend/resume support to Micrel PHYs
+Date: Fri, 20 Sep 2013 14:42:53 -0400 (EDT)
+Message-ID: <20130920.144253.977721727117411814.davem@davemloft.net>
+References: <1379612448-20805-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39332 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753319Ab3ITSmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:42:47 -0400
-In-Reply-To: <1379607020.3282.14.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, b.brezillon@overkiz.com,
+	f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, patrice.vilchez@atmel.com,
+	david.choi@micrel.com
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1379612448-20805-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 19 Sep 2013 09:10:20 -0700
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Thu, 19 Sep 2013 19:40:48 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Patrice Vilchez <patrice.vilchez@atmel.com>
 > 
-> HTB already can deal with 64bit rates, we only have to add two new
-> attributes so that tc can use them to break the current 32bit ABI
-> barrier.
+> All supported Micrel PHYs implement the standard "power down" bit 11 of BMCR,
+> so this patch adds support using the generic genphy_{suspend,resume} functions.
 > 
-> TCA_HTB_RATE64 : class rate  (in bytes per second)
-> TCA_HTB_CEIL64 : class ceil  (in bytes per second)
-> 
-> This allows us to setup HTB on 40Gbps links, as 32bit limit is
-> actually ~34Gbps
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
+> [b.brezillon@overkiz.com: adapt to newer kernel and generalize to other phys]
+> Signed-off-by: Boris BREZILLON <b.brezillon@overkiz.com>
+> [nicolas.ferre@atmel.com: commit message modification]
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Cc: David J. Choi <david.choi@micrel.com>
 
-Applied.
+Applied to net-next
