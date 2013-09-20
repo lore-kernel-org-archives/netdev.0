@@ -1,52 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net/hsr: Add support for the High-availability
- Seamless Redundancy protocol (HSRv0)
-Date: Fri, 20 Sep 2013 15:10:17 -0400 (EDT)
-Message-ID: <20130920.151017.2125552741552759738.davem@davemloft.net>
-References: <523A4F5E.9070503@xdin.com>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: [net-next PATCH 0/4] cpsw: support for control module register
+Date: Sat, 21 Sep 2013 00:50:37 +0530
+Message-ID: <1379704841-32693-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, joe@perches.com,
-	jboticario@gmail.com, balferreira@googlemail.com,
-	elias.molina@ehu.es
-To: arvid.brodin@xdin.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39694 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753329Ab3ITTKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 15:10:21 -0400
-In-Reply-To: <523A4F5E.9070503@xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+	<tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arvid Brodin <arvid.brodin@xdin.com>
-Date: Thu, 19 Sep 2013 03:11:58 +0200
+This patch series adds the support for configuring GMII_SEL register
+of control module to select the phy mode type and also to configure
+the clock source for RMII phy mode whether to use internal clock or
+the external clock from the phy itself.
 
-> +/* If dev is a HSR master, return 1; otherwise, return 0.
-> + */
-> +bool is_hsr_master(struct net_device *dev)
+Till now CPSW works as this configuration is done in U-Boot and carried
+over to the kernel. But during suspend/resume Control module tends to
+lose its configured value for GMII_SEL register in AM33xx PG1.0, so
+if CPSW is used in RMII or RGMII mode, on resume cpsw is not working
+as GMII_SEL register lost its configuration values.
 
-Bool takes on either 'true' or 'false', not '1' or '0'.
+The initial version of the patch is done by Daniel Mack but as per
+Tony's comment he wants it as a seperate driver as it is done in USB
+control module. I have created a seperate driver for the same.
 
-> +#if !defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-> +		/* We need to memmove the whole header to work around
-> +		 * alignment problems caused by the 6-byte HSR tag.
-> +		 */
-> +		memmove(skb_deliver->data - HSR_TAGLEN, skb_deliver->data,
-> +			skb_headlen(skb_deliver));
-> +		skb_deliver->data -= HSR_TAGLEN;
-> +		skb_deliver->tail -= HSR_TAGLEN;
-> +#endif
+Changes from RFC version:
+* Changed "_" to "-" in DT names as per Serger's comment
 
-You can't do this.
+Daniel Mack (1):
+  net: ethernet: cpsw: switch to devres allocations
 
-First of all, you have no idea if subtracting skb->data a given amount
-will underflow the skb buffer start.  You aren't even checking, all
-of the standard skb_*() data adjustment interfaces do.
+Mugunthan V N (3):
+  drivers: net: cpsw-phy-sel: Add new driver for phy mode selection for
+    cpsw
+  drivers: net: cpsw: use cpsw-phy-sel driver to configure phy mode
+  ARM: dts: am33xx: adopt to cpsw-phy-sel driver to configure phy mode
 
-Secondly, everything after the header is now at the wrong offset from
-the beginning of the packet.
+ .../devicetree/bindings/net/cpsw-phy-sel.txt       |  28 ++++
+ arch/arm/boot/dts/am33xx.dtsi                      |   6 +
+ drivers/net/ethernet/ti/Kconfig                    |   8 +
+ drivers/net/ethernet/ti/Makefile                   |   1 +
+ drivers/net/ethernet/ti/cpsw-phy-sel.c             | 161 +++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw.c                     | 157 ++++++--------------
+ drivers/net/ethernet/ti/cpsw.h                     |   2 +
+ 7 files changed, 253 insertions(+), 110 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
+ create mode 100644 drivers/net/ethernet/ti/cpsw-phy-sel.c
 
-You will have to memmove() the entire packet if you want to realign
-where it starts.
+-- 
+1.8.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
