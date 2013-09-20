@@ -1,17 +1,17 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH ] net: udp: do not report ICMP redirects to user space
-Date: Fri, 20 Sep 2013 18:20:28 +0800
-Message-ID: <523C216C.90707@cn.fujitsu.com>
+Subject: [PATCH ] net: raw: do not report ICMP redirects to user space
+Date: Fri, 20 Sep 2013 18:21:25 +0800
+Message-ID: <523C21A5.4050504@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55898 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:38630 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754246Ab3ITKVf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Sep 2013 06:21:35 -0400
+	id S1754435Ab3ITKW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 06:22:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,38 +22,41 @@ the error handler without touching the socket.
 
 Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- net/ipv4/udp.c | 2 +-
- net/ipv6/udp.c | 4 +++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ net/ipv4/raw.c | 4 +++-
+ net/ipv6/raw.c | 4 +++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 74d2c95..0ca44df 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -658,7 +658,7 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
- 		break;
- 	case ICMP_REDIRECT:
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index bfec521..193db03 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -218,8 +218,10 @@ static void raw_err(struct sock *sk, struct sk_buff *skb, u32 info)
+ 
+ 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED)
+ 		ipv4_sk_update_pmtu(skb, sk, info);
+-	else if (type == ICMP_REDIRECT)
++	else if (type == ICMP_REDIRECT) {
  		ipv4_sk_redirect(skb, sk);
--		break;
-+		goto out;
- 	}
++		return;
++	}
  
- 	/*
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index f405815..72b7eaa 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -525,8 +525,10 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 
- 	if (type == ICMPV6_PKT_TOOBIG)
+ 	/* Report error on raw socket, if:
+ 	   1. User requested ip_recverr.
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 58916bb..a4ed241 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -335,8 +335,10 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
  		ip6_sk_update_pmtu(skb, sk, info);
+ 		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
+ 	}
 -	if (type == NDISC_REDIRECT)
 +	if (type == NDISC_REDIRECT) {
  		ip6_sk_redirect(skb, sk);
-+		goto out;
++		return;
 +	}
- 
- 	np = inet6_sk(sk);
- 
+ 	if (np->recverr) {
+ 		u8 *payload = skb->data;
+ 		if (!inet->hdrincl)
 -- 
 1.8.3.1
