@@ -1,68 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/4] mISDN: add support for group membership check
-Date: Fri, 20 Sep 2013 11:56:34 -0400 (EDT)
-Message-ID: <20130920.115634.1931451843075283025.davem@davemloft.net>
-References: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com>
-	<1379201336.19779.35.camel@deadeye.wl.decadent.org.uk>
-	<523C5141.4080608@suse.cz>
+Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from
+ stable rules
+Date: Fri, 20 Sep 2013 11:59:22 -0400 (EDT)
+Message-ID: <20130920.115922.1753824753898372116.davem@davemloft.net>
+References: <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+	<1379615474.22168.13.camel@joe-AO722>
+	<1379688880.2021.38.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, akpm@linux-foundation.org, jeffm@suse.com,
-	netdev@vger.kernel.org, isdn4linux@koppen.de, isdn@linux-pingi.de,
-	sergei.shtylyov@cogentembedded.com
-To: jslaby@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37337 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab3ITP4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 11:56:36 -0400
-In-Reply-To: <523C5141.4080608@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	mpatocka@redhat.com, gregkh@linuxfoundation.org, rob@landley.net,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1379688880.2021.38.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 20 Sep 2013 15:44:33 +0200
+From: Joe Perches <joe@perches.com>
+Date: Fri, 20 Sep 2013 07:54:40 -0700
 
-> On 09/15/2013 01:28 AM, Ben Hutchings wrote:
->>> @@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns 
->>> case IMSETDEVNAME: { struct mISDN_devrename dn; +		if
->>> (!capable(CAP_SYS_ADMIN) && +				!gid_eq(misdn_permitted_gid,
->>> current_gid()) && +				!in_group_p(misdn_permitted_gid)) +
->>> return -EPERM; if (copy_from_user(&dn, (void __user *)arg, 
->>> sizeof(dn))) { err = -EFAULT;
->> 
->> This seems to be the important bit: renaming of devices (if allowed
->> at all) ought to be limited to CAP_SYS_ADMIN or possibly
->> CAP_NET_ADMIN. But why should the group that is allowed to use
->> mISDN data sockets also be allowed to do this?
+> On Thu, 2013-09-19 at 11:31 -0700, Joe Perches wrote:
+>> Networking is once again "special", so at least document
+>> how it's working today in the hope that doing so makes
+>> less work for all that actually read the documentation.
 > 
-> This is based on an old patch we are dragging in SUSE since 2009:
-> http://www.isdn4linux.de/pipermail/isdn4linux/2009-December/004493.html
-> https://bugzilla.novell.com/show_bug.cgi?id=564423
-> 
-> The whole point of the gid-based access was to still allow some user
-> group to manipulate the device in an arbitrary way.
-> 
-> So if everybody agrees I will just disallow rename to
-> non-CAP_NET_ADMIN users and we are done?
+> David, why did you mark this N/A is patchwork?
+> It's your rule, why not document it?
 
-No we are not done, sorry.
-
-Having a device specific module parameter for this is wrong on several
-fundamental levels.
-
-Module parameters are wrong because you're going to eventually want to
-do this for other ISDN or other devices, and nobody is going to make
-sure the name of the parameter nor the semantics all match up.
-
-This is the worst possible user experience.
-
-You need to make it so that there is a standard, regular, interface
-for performing this task or making this setting.  Module parameters
-are not it.
-
-The reason this patch has rotted since 2009 is that it really is far
-from suitable for upstream inclusion, and I really don't see that much
-thought or care has been put into how it is implemented, so I wonder
-how much anyone really cares about the change.
+Because it should go through whoever maintains that document, and
+that isn't me.
