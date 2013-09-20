@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 07/11] flow.h/flow_keys.h: Remove extern from function prototypes
-Date: Fri, 20 Sep 2013 11:23:24 -0700
-Message-ID: <e353e88cf7202a9977a6caada9123dc57d968ee6.1379701322.git.joe@perches.com>
+Subject: [PATCH 06/11] fib_rules.h: Remove extern from function prototypes
+Date: Fri, 20 Sep 2013 11:23:23 -0700
+Message-ID: <10bbc6049fe0a1f2bb270e97cc4430226686dd39.1379701322.git.joe@perches.com>
 References: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
@@ -21,43 +21,35 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/flow.h      | 11 ++++++-----
- include/net/flow_keys.h |  2 +-
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/net/fib_rules.h | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 628e11b..65ce471 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -215,12 +215,13 @@ typedef struct flow_cache_object *(*flow_resolve_t)(
- 		struct net *net, const struct flowi *key, u16 family,
- 		u8 dir, struct flow_cache_object *oldobj, void *ctx);
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 4b2b557..e584de1 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -115,14 +115,13 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
+ 	return frh->table;
+ }
  
--extern struct flow_cache_object *flow_cache_lookup(
--		struct net *net, const struct flowi *key, u16 family,
--		u8 dir, flow_resolve_t resolver, void *ctx);
-+struct flow_cache_object *flow_cache_lookup(struct net *net,
-+					    const struct flowi *key, u16 family,
-+					    u8 dir, flow_resolve_t resolver,
-+					    void *ctx);
+-extern struct fib_rules_ops *fib_rules_register(const struct fib_rules_ops *, struct net *);
+-extern void fib_rules_unregister(struct fib_rules_ops *);
++struct fib_rules_ops *fib_rules_register(const struct fib_rules_ops *,
++					 struct net *);
++void fib_rules_unregister(struct fib_rules_ops *);
  
--extern void flow_cache_flush(void);
--extern void flow_cache_flush_deferred(void);
-+void flow_cache_flush(void);
-+void flow_cache_flush_deferred(void);
- extern atomic_t flow_cache_genid;
- 
- #endif
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index bb8271d..ac2439d 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -13,5 +13,5 @@ struct flow_keys {
- 	u8 ip_proto;
- };
- 
--extern bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
-+bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
+-extern int			fib_rules_lookup(struct fib_rules_ops *,
+-						 struct flowi *, int flags,
+-						 struct fib_lookup_arg *);
+-extern int			fib_default_rule_add(struct fib_rules_ops *,
+-						     u32 pref, u32 table,
+-						     u32 flags);
+-extern u32			fib_default_rule_pref(struct fib_rules_ops *ops);
++int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
++		     struct fib_lookup_arg *);
++int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
++			 u32 flags);
++u32 fib_default_rule_pref(struct fib_rules_ops *ops);
  #endif
 -- 
 1.8.1.2.459.gbcd45b4.dirty
