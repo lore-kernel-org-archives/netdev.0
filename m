@@ -1,74 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 18/51] DMA-API: staging: et131x: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Fri, 20 Sep 2013 16:42:08 +0100
-Message-ID: <1379691728.1681.15.camel@bwh-desktop.uk.level5networks.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-	 <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 2/4] mISDN: add support for group membership check
+Date: Fri, 20 Sep 2013 11:56:34 -0400 (EDT)
+Message-ID: <20130920.115634.1931451843075283025.davem@davemloft.net>
+References: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com>
+	<1379201336.19779.35.camel@deadeye.wl.decadent.org.uk>
+	<523C5141.4080608@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <devel@driverdev.osuosl.org>, netdev <netdev@vger.kernel.org>
-To: Russell King <rmk+kernel@arm.linux.org.uk>
+Cc: ben@decadent.org.uk, akpm@linux-foundation.org, jeffm@suse.com,
+	netdev@vger.kernel.org, isdn4linux@koppen.de, isdn@linux-pingi.de,
+	sergei.shtylyov@cogentembedded.com
+To: jslaby@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:53370 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675Ab3ITPmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 11:42:12 -0400
-In-Reply-To: <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37337 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264Ab3ITP4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 11:56:36 -0400
+In-Reply-To: <523C5141.4080608@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Trimmed cc's]
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 20 Sep 2013 15:44:33 +0200
 
-On Thu, 2013-09-19 at 22:43 +0100, Russell King wrote:
-> Replace the following sequence:
+> On 09/15/2013 01:28 AM, Ben Hutchings wrote:
+>>> @@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns 
+>>> case IMSETDEVNAME: { struct mISDN_devrename dn; +		if
+>>> (!capable(CAP_SYS_ADMIN) && +				!gid_eq(misdn_permitted_gid,
+>>> current_gid()) && +				!in_group_p(misdn_permitted_gid)) +
+>>> return -EPERM; if (copy_from_user(&dn, (void __user *)arg, 
+>>> sizeof(dn))) { err = -EFAULT;
+>> 
+>> This seems to be the important bit: renaming of devices (if allowed
+>> at all) ought to be limited to CAP_SYS_ADMIN or possibly
+>> CAP_NET_ADMIN. But why should the group that is allowed to use
+>> mISDN data sockets also be allowed to do this?
 > 
-> 	dma_set_mask(dev, mask);
-> 	dma_set_coherent_mask(dev, mask);
+> This is based on an old patch we are dragging in SUSE since 2009:
+> http://www.isdn4linux.de/pipermail/isdn4linux/2009-December/004493.html
+> https://bugzilla.novell.com/show_bug.cgi?id=564423
 > 
-> with a call to the new helper dma_set_mask_and_coherent().
+> The whole point of the gid-based access was to still allow some user
+> group to manipulate the device in an arbitrary way.
 > 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> ---
->  drivers/staging/et131x/et131x.c |   17 ++---------------
->  1 files changed, 2 insertions(+), 15 deletions(-)
-> 
-> diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-> index f73e58f..98edfa8 100644
-> --- a/drivers/staging/et131x/et131x.c
-> +++ b/drivers/staging/et131x/et131x.c
-> @@ -4797,21 +4797,8 @@ static int et131x_pci_setup(struct pci_dev *pdev,
->  	pci_set_master(pdev);
->  
->  	/* Check the DMA addressing support of this device */
-> -	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
-> -		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-> -		if (rc < 0) {
-> -			dev_err(&pdev->dev,
-> -			  "Unable to obtain 64 bit DMA for consistent allocations\n");
-> -			goto err_release_res;
-> -		}
-> -	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
-> -		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-> -		if (rc < 0) {
-> -			dev_err(&pdev->dev,
-> -			  "Unable to obtain 32 bit DMA for consistent allocations\n");
-> -			goto err_release_res;
-> -		}
-> -	} else {
-> +	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) ||
-> +	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+> So if everybody agrees I will just disallow rename to
+> non-CAP_NET_ADMIN users and we are done?
 
-Surely we want && here.
+No we are not done, sorry.
 
-Ben.
+Having a device specific module parameter for this is wrong on several
+fundamental levels.
 
->  		dev_err(&pdev->dev, "No usable DMA addressing method\n");
->  		rc = -EIO;
->  		goto err_release_res;
+Module parameters are wrong because you're going to eventually want to
+do this for other ISDN or other devices, and nobody is going to make
+sure the name of the parameter nor the semantics all match up.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This is the worst possible user experience.
+
+You need to make it so that there is a standard, regular, interface
+for performing this task or making this setting.  Module parameters
+are not it.
+
+The reason this patch has rotted since 2009 is that it really is far
+from suitable for upstream inclusion, and I really don't see that much
+thought or care has been put into how it is implemented, so I wonder
+how much anyone really cares about the change.
