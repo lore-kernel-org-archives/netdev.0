@@ -1,74 +1,65 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH 1/2] remove all uses of printf's %n
-Date: Fri, 20 Sep 2013 10:08:08 +0200
-Message-ID: <523C0268.20404@suse.cz>
-References: <CAGXu5jL+NeBw2_vXymM81UdtS6UO7KZA2S4rf3gwM_7nSJ2h6g@mail.gmail.com>	<20130917205742.16147.qmail@science.horizon.com>	<201309191756.BCF65661.MQFOLSJOFHFtOV@I-love.SAKURA.ne.jp>	<CAGXu5jK_D1BJOQr=1A-UFrpM5Ad+Qu894HT_XjkZh4EmsbCkTQ@mail.gmail.com> <201309201309.GFB52620.OQOtSFLMJVHOFF@I-love.SAKURA.ne.jp>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v4] Don't destroy the netdev until the vif is
+ shut down
+Date: Fri, 20 Sep 2013 08:10:25 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD010E55C@AMSPEX01CL01.citrite.net>
+References: <1379436368-6882-1-git-send-email-paul.durrant@citrix.com>
+ <20130919.140513.2047786411565716987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux@horizon.com, akpm@linux-foundation.org,
-	dan.carpenter@oracle.com, geert@linux-m68k.org, JBeulich@suse.com,
-	joe@perches.com, kosaki.motohiro@gmail.com
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	viro@zeniv.linux.org.uk, xemul@openvz.org,
-	remi.denis-courmont@nokia.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201309201309.GFB52620.OQOtSFLMJVHOFF@I-love.SAKURA.ne.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:39322 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754154Ab3ITIK1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 04:10:27 -0400
+In-Reply-To: <20130919.140513.2047786411565716987.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/20/2013 06:09 AM, Tetsuo Handa wrote:
-> --- a/fs/proc/consoles.c
-> +++ b/fs/proc/consoles.c
-...
-> @@ -47,11 +46,10 @@ static int show_console_dev(struct seq_file *m, void *v)
->  			con_flags[a].name : ' ';
->  	flags[a] = 0;
->  
-> -	seq_printf(m, "%s%d%n", con->name, con->index, &len);
-> -	len = 21 - len;
-> -	if (len < 1)
-> -		len = 1;
-> -	seq_printf(m, "%*c%c%c%c (%s)", len, ' ', con->read ? 'R' : '-',
-> +	seq_setwidth(m, 21 - 1);
-> +	seq_printf(m, "%s%d", con->name, con->index);
-> +	seq_pad(m, ' ');
-> +	seq_printf(m, "%c%c%c (%s)", con->read ? 'R' : '-',
->  			con->write ? 'W' : '-', con->unblank ? 'U' : '-',
->  			flags);
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: 19 September 2013 19:05
+> To: Paul Durrant
+> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; David Vrabel; Wei Liu;
+> Ian Campbell
+> Subject: Re: [PATCH net-next v4] Don't destroy the netdev until the vif is
+> shut down
+> 
+> From: Paul Durrant <paul.durrant@citrix.com>
+> Date: Tue, 17 Sep 2013 17:46:08 +0100
+> 
+> > Without this patch, if a frontend cycles through states Closing
+> > and Closed (which Windows frontends need to do) then the netdev
+> > will be destroyed and requires re-invocation of hotplug scripts
+> > to restore state before the frontend can move to Connected. Thus
+> > when udev is not in use the backend gets stuck in InitWait.
+> >
+> > With this patch, the netdev is left alone whilst the backend is
+> > still online and is only de-registered and freed just prior to
+> > destroying the vif (which is also nicely symmetrical with the
+> > netdev allocation and registration being done during probe) so
+> > no re-invocation of hotplug scripts is required.
+> >
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> 
+> I think all of the testing requests have been satisfied so I have
+> applied this.
+> 
+> But _please_ write a more proper subject line in future patch
+> submissions.  You have to provide a subsystem prefix in the
+> subject line, here I added "xen-netback: ", otherwise someone
+> skimming the shortlog has no idea what area of code this change
+> touches.
+> 
 
-Hello, do you really need seq_setwidth? It makes it really ugly...
+Ok. Will do. Thanks,
 
-Or do we need that all? Couldn't we simply have seq_printf_padded? Or
-maybe some % modifier in seq_printf to pad the string?
-
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-...
-> @@ -2548,15 +2549,15 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
->  					 (fi->fib_advmss ?
->  					  fi->fib_advmss + 40 : 0),
->  					 fi->fib_window,
-> -					 fi->fib_rtt >> 3, &len);
-> +					 fi->fib_rtt >> 3);
->  			else
->  				seq_printf(seq,
->  					 "*\t%08X\t%08X\t%04X\t%d\t%u\t"
-> -					 "%d\t%08X\t%d\t%u\t%u%n",
-> +					 "%d\t%08X\t%d\t%u\t%u",
->  					 prefix, 0, flags, 0, 0, 0,
-> -					 mask, 0, 0, 0, &len);
-> +					 mask, 0, 0, 0);
->  
-> -			seq_printf(seq, "%*s\n", 127 - len, "");
-> +			seq_pad(seq, '\n');
-
-Hmm, seq_pad is unintuitive. I would say it pads the string by '\n'. Of
-course it does not, but...
-
-thanks,
--- 
-js
-suse labs
+  Paul
