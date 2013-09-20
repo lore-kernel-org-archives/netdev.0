@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: ethernet: eth.c: removed checkpatch warnings
- and errors
-Date: Fri, 20 Sep 2013 14:42:34 -0400 (EDT)
-Message-ID: <20130920.144234.1253837765082596306.davem@davemloft.net>
-References: <523b2124.645d440a.1c55.0f75@mx.google.com>
+Subject: Re: [PATCH net-next 2/2] net_sched: htb: support of 64bit rates
+Date: Fri, 20 Sep 2013 14:42:46 -0400 (EDT)
+Message-ID: <20130920.144246.1733125926277807658.davem@davemloft.net>
+References: <1379607020.3282.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akong@redhat.com, stefanha@gmail.com, jiri@resnulli.us,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: avi.kp.137@gmail.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39325 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39332 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753355Ab3ITSmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:42:36 -0400
-In-Reply-To: <523b2124.645d440a.1c55.0f75@mx.google.com>
+	with ESMTP id S1753319Ab3ITSmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 14:42:47 -0400
+In-Reply-To: <1379607020.3282.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: avi.kp.137@gmail.com
-Date: Thu, 19 Sep 2013 21:36:50 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Sep 2013 09:10:20 -0700
 
-> From: Avinash Kumar <avi.kp.137@gmail.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> removed these checkpatch.pl warnings:
-> net/ethernet/eth.c:61: WARNING: Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
-> net/ethernet/eth.c:136: WARNING: Prefer netdev_dbg(netdev, ... then dev_dbg(dev, ... then pr_debug(...  to printk(KERN_DEBUG ...
-> net/ethernet/eth.c:181: ERROR: space prohibited before that close parenthesis ')'
+> HTB already can deal with 64bit rates, we only have to add two new
+> attributes so that tc can use them to break the current 32bit ABI
+> barrier.
 > 
-> Signed-off-by: Avinash Kumar <avi.kp.137@gmail.com>
+> TCA_HTB_RATE64 : class rate  (in bytes per second)
+> TCA_HTB_CEIL64 : class ceil  (in bytes per second)
+> 
+> This allows us to setup HTB on 40Gbps links, as 32bit limit is
+> actually ~34Gbps
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
