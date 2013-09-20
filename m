@@ -1,64 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/4] mISDN: add support for group membership check
-Date: Fri, 20 Sep 2013 12:15:35 -0400 (EDT)
-Message-ID: <20130920.121535.1653382964468102292.davem@davemloft.net>
-References: <523C5141.4080608@suse.cz>
-	<20130920.115634.1931451843075283025.davem@davemloft.net>
-	<523C7464.3070007@suse.cz>
+From: Bastian Blank <bastian@waldi.eu.org>
+Subject: Re: [PATCH net-next v2 2/2] xen-netback: handle
+ frontends that fail to transition through Closing
+Date: Fri, 20 Sep 2013 18:14:31 +0200
+Message-ID: <20130920161431.GA19095@mail.waldi.eu.org>
+References: <1379685460-25032-1-git-send-email-paul.durrant@citrix.com>
+	<1379685460-25032-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, akpm@linux-foundation.org, jeffm@suse.com,
-	netdev@vger.kernel.org, isdn4linux@koppen.de, isdn@linux-pingi.de,
-	sergei.shtylyov@cogentembedded.com
-To: jslaby@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37636 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235Ab3ITQPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 12:15:37 -0400
-In-Reply-To: <523C7464.3070007@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>, xen-devel@lists.xen.org
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <1379685460-25032-3-git-send-email-paul.durrant@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 20 Sep 2013 18:14:28 +0200
+On Fri, Sep 20, 2013 at 02:57:40PM +0100, Paul Durrant wrote:
+> Some old Windows frontends fail to transition through the xenbus Closing
+> state and move directly from Connected to Closed. Handle this case properly.
 
-> On 09/20/2013 05:56 PM, David Miller wrote:
->> From: Jiri Slaby <jslaby@suse.cz>
->> Date: Fri, 20 Sep 2013 15:44:33 +0200
->> 
->>> On 09/15/2013 01:28 AM, Ben Hutchings wrote:
->>>>> @@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns 
->>>>> case IMSETDEVNAME: { struct mISDN_devrename dn; +		if
->>>>> (!capable(CAP_SYS_ADMIN) && +				!gid_eq(misdn_permitted_gid,
->>>>> current_gid()) && +				!in_group_p(misdn_permitted_gid)) +
->>>>> return -EPERM; if (copy_from_user(&dn, (void __user *)arg, 
->>>>> sizeof(dn))) { err = -EFAULT;
->>>>
->>>> This seems to be the important bit: renaming of devices (if allowed
->>>> at all) ought to be limited to CAP_SYS_ADMIN or possibly
->>>> CAP_NET_ADMIN. But why should the group that is allowed to use
->>>> mISDN data sockets also be allowed to do this?
->>>
->>> This is based on an old patch we are dragging in SUSE since 2009:
->>> http://www.isdn4linux.de/pipermail/isdn4linux/2009-December/004493.html
->>> https://bugzilla.novell.com/show_bug.cgi?id=564423
->>>
->>> The whole point of the gid-based access was to still allow some user
->>> group to manipulate the device in an arbitrary way.
->>>
->>> So if everybody agrees I will just disallow rename to
->>> non-CAP_NET_ADMIN users and we are done?
->> 
->> No we are not done, sorry.
->> 
->> Having a device specific module parameter for this is wrong on several
->> fundamental levels.
-> 
-> What I'm suggesting is just to put a !capable(CAP_NET_ADMIN) test into
-> the rename path and nothing more.
+What happens in this case? Are there other state changes that will do
+unwanted things?
 
-And I'm saying that regardless of such a change, the patch itself
-is fundamentally implemented incorrectly and not acceptable for
-upstream inclusion until the interface for configuration is changed.
+Bastian
+
+-- 
+If there are self-made purgatories, then we all have to live in them.
+		-- Spock, "This Side of Paradise", stardate 3417.7
