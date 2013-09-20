@@ -1,108 +1,74 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v2 1/2] xen-netback: add a vif-is-connected flag
-Date: Fri, 20 Sep 2013 14:57:39 +0100
-Message-ID: <1379685460-25032-2-git-send-email-paul.durrant@citrix.com>
-References: <1379685460-25032-1-git-send-email-paul.durrant@citrix.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 39/51] DMA-API: others: use dma_set_coherent_mask()
+Date: Fri, 20 Sep 2013 15:00:18 +0100
+Message-ID: <20130920140018.GP25647@n2100.arm.linux.org.uk>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <E1VMnNq-0007s4-HN@rmk-PC.arm.linux.org.uk>
+ <20130920121652.GA7630@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:11246 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747Ab3ITN5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 09:57:45 -0400
-In-Reply-To: <1379685460-25032-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
+ David Airlie <airlied@linux.ie>, linux-mmc@vger.kernel.org,
+ linux-fbdev@vger.kernel.org, linux-nvme@lists.infradead.org,
+ linux-ide@vger.kernel.org, devel@driverdev.osuosl.org,
+ linux-samsung-soc@vger.kernel.org, Joonyoung Shim <jy0922.shim@samsung.com>,
+ linux-scsi@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+ Seung-Woo Kim <sw0312.kim@samsung.com>, b43-dev@lists.infradead.org,
+ linux-media@vger.kernel.org, devicetree@vger.kernel.org,
+ Inki Dae <inki.dae@samsung.com>, Kukjin Kim <kgene.kim@samsung.com>,
+ dri-devel@lists.freedesktop.org, linux-tegra@vger.kernel.org,
+ linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+ netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-wireless@vger.kernel.org, Kyungmin Park <kyungmin.park@samsung.com
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20130920121652.GA7630@mtj.dyndns.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Having applied my patch to separate vif disconnect and free, I ran into a
-BUG when testing resume from S3 with a Windows frontend because the vif task
-pointer was not cleared by xenvif_disconnect() and so a double call to this
-function tries to stop the thread twice.
-Rather than applying a point fix for that issue it seems better to introduce
-a boolean to indicate whether the vif is connected or not such that repeated
-calls to either xenvif_connect() or xenvif_disconnect() behave appropriately.
+On Fri, Sep 20, 2013 at 07:16:52AM -0500, Tejun Heo wrote:
+> On Fri, Sep 20, 2013 at 12:11:38AM +0100, Russell King wrote:
+> > The correct way for a driver to specify the coherent DMA mask is
+> > not to directly access the field in the struct device, but to use
+> > dma_set_coherent_mask().  Only arch and bus code should access this
+> > member directly.
+> > 
+> > Convert all direct write accesses to using the correct API.
+> > 
+> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> 
+> Acked-by: Tejun Heo <tj@kernel.org>
+> 
+> The patch is pretty widely spread.  I don't mind how it gets routed
+> but what's the plan?
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
----
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |   24 +++++++++++++-----------
- 2 files changed, 14 insertions(+), 11 deletions(-)
+The plan is... I'm going to try and avoid going through the hell of
+re-posting this patch series to all the recipients another time...
+(It's taken some 17 hours and lots of hand holding to get this patch
+set out without exim jumping off a cliff into deep OOM - soo deep that
+even the OOM killer doesn't run and the CPU is 100% idle because
+every single process stuck in an uninterruptible sleep waiting for
+every other process to free some memory - ouch!)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 5715318..860d92c 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -169,6 +169,7 @@ struct xenvif {
- 
- 	/* Miscellaneous private stuff. */
- 	struct net_device *dev;
-+	bool connected;
- };
- 
- static inline struct xenbus_device *xenvif_to_xenbus_device(struct xenvif *vif)
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 01bb854..94b47f5 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -366,7 +366,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	int err = -ENOMEM;
- 
- 	/* Already connected through? */
--	if (vif->tx_irq)
-+	if (vif->connected)
- 		return 0;
- 
- 	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
-@@ -425,6 +425,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 
- 	wake_up_process(vif->task);
- 
-+	vif->connected = 1;
- 	return 0;
- 
- err_rx_unbind:
-@@ -453,23 +454,24 @@ void xenvif_carrier_off(struct xenvif *vif)
- 
- void xenvif_disconnect(struct xenvif *vif)
- {
-+	if (!vif->connected)
-+		return;
-+
- 	if (netif_carrier_ok(vif->dev))
- 		xenvif_carrier_off(vif);
- 
--	if (vif->tx_irq) {
--		if (vif->tx_irq == vif->rx_irq)
--			unbind_from_irqhandler(vif->tx_irq, vif);
--		else {
--			unbind_from_irqhandler(vif->tx_irq, vif);
--			unbind_from_irqhandler(vif->rx_irq, vif);
--		}
--		vif->tx_irq = 0;
-+	if (vif->tx_irq == vif->rx_irq)
-+		unbind_from_irqhandler(vif->tx_irq, vif);
-+	else {
-+		unbind_from_irqhandler(vif->tx_irq, vif);
-+		unbind_from_irqhandler(vif->rx_irq, vif);
- 	}
- 
--	if (vif->task)
--		kthread_stop(vif->task);
-+	kthread_stop(vif->task);
- 
- 	xenvif_unmap_frontend_rings(vif);
-+
-+	vif->connected = 0;
- }
- 
- void xenvif_free(struct xenvif *vif)
--- 
-1.7.10.4
+I know that dealing with this patch set will be a problem due to how
+widespread this is, but much of the driver level changes come down to
+depending on a couple of patches.  One solution would be if I published
+a branch with just the dependencies in, which subsystem maintainers
+could pull, and then apply the appropriate patches on top.
+
+Another would be if subsystem maintainers are happy that I carry them,
+I can add the acks, and then later on towards the end of the cycle,
+provide a branch subsystem maintainers could pull.
+
+Or... if you can think of something easier...
