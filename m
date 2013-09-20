@@ -1,61 +1,67 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: Re: [PATCH 01/51] DMA-API: provide a helper to set both DMA and
- coherent DMA masks
-Date: Fri, 20 Sep 2013 15:12:44 +0100
-Message-ID: <20130920141244.GQ25647@n2100.arm.linux.org.uk>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMlja-0007fA-HU@rmk-PC.arm.linux.org.uk>
- <1379640097.2500.4.camel@bwh-desktop.uk.level5networks.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH net-next 1/2] xen-netback: add a vif-is-connected flag
+Date: Fri, 20 Sep 2013 15:28:55 +0100
+Message-ID: <523C5BA7.2010500@citrix.com>
+References: <1379681791-21842-1-git-send-email-paul.durrant@citrix.com> <1379681791-21842-2-git-send-email-paul.durrant@citrix.com> <20130920133106.GB457@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Vinod Koul <vinod.koul-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
- uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1379640097.2500.4.camel-/LGg1Z1CJKQ+9kgCwbf1HqK4ta4zdZpAajtMo4Cw6ucAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Paul Durrant <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:33080 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042Ab3ITO25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 10:28:57 -0400
+In-Reply-To: <20130920133106.GB457@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 20, 2013 at 02:21:37AM +0100, Ben Hutchings wrote:
-> On Thu, 2013-09-19 at 22:25 +0100, Russell King wrote:
-> [...]
-> > -dma_set_coherent_mask() will always be able to set the same or a
-> > -smaller mask as dma_set_mask(). However for the rare case that a
-> > +The coherent coherent mask will always be able to set the same or a
-> > +smaller mask as the streaming mask. However for the rare case that a
-> [...]
-> 
-> The new wording doesn't make sense; a mask doesn't set itself.  I would
-> suggest:
-> 
-> "The coherent mask can always be set to the same or a smaller mask than
-> the streaming mask."
+On 20/09/13 14:31, Wei Liu wrote:
+> On Fri, Sep 20, 2013 at 01:56:30PM +0100, Paul Durrant wrote:
+>> Having applied my patch to separate vif disconnect and free, I ran into a
+>> BUG when testing resume from S3 with a Windows frontend because the vif task
+>> pointer was not cleared by xenvif_disconnect() and so a double call to this
+>> function tries to stop the thread twice.
+>> Rather than applying a point fix for that issue it seems better to introduce
+>> a boolean to indicate whether the vif is connected or not such that repeated
+>> calls to either xenvif_connect() or xenvif_disconnect() behave appropriately.
 
-Yes, the original sentence is not particularly good, but I think even
-your modified version can be interpreted as "a mask setting itself"
-for all the same reasons that the original can be (which mask does "same"
-refer to?)
+We already have a backend state of CONNECTED/CLOSED/etc. why do we need
+an additional bit of state outside of this?
 
-Even so, I prefer your version.  Thanks. :)
+Does something like this in frontend_changed() fix it?
+
+	case XenbusStateClosing:
+                switch (dev->state) {
+                case XenbusStateClosed;
+                	break;
+		case XenbusStateConnected:
+			disconnect_backend(dev);
+			/* fall through */
+		default:
+			xenbus_switch_state(dev, XenbusStateClosing);
+			break;
+		}
+		break;
+
+	case XenbusStateClosed:
+                switch (dev->state) {
+                case XenbusStateConnected;
+			disconnect_backend(dev);
+                	/* fall through */
+		default:
+			xenbus_switch_state(dev, XenbusStateClosed);
+			break;
+		}
+		if (xenbus_dev_is_online(dev))
+			break;
+		/* fall through if not online */
+
+Can you also remove destroy_backend()?  It's not needed any more.
+
+I'd also recommend waiting a bit for other review feedback before
+posting an updated series.
+
+David
