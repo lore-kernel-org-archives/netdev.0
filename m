@@ -1,12 +1,12 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 03/51] DMA-API: net: intel/e1000e: fix 32-bit DMA mask
+Subject: Re: [PATCH 04/51] DMA-API: net: intel/igb: fix 32-bit DMA mask
  handling
-Date: Fri, 20 Sep 2013 12:48:19 -0700
-Message-ID: <1379706499.1972.9.camel@jtkirshe-mobl>
+Date: Fri, 20 Sep 2013 12:49:04 -0700
+Message-ID: <1379706544.1972.10.camel@jtkirshe-mobl>
 References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMllX-0007fP-33@rmk-PC.arm.linux.org.uk>
+ <E1VMlmV-0007fU-75@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1359985586041472676=="
+Content-Type: multipart/mixed; boundary="===============3083578769676017423=="
 Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
  linux-mmc@vger.kernel.org,
  Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
@@ -24,7 +24,7 @@ Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
  netdev@vger.kernel.org, linux-usb
 To: Russell King <rmk+kernel@arm.linux.org.uk>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <E1VMllX-0007fP-33@rmk-PC.arm.linux.org.uk>
+In-Reply-To: <E1VMlmV-0007fU-75@rmk-PC.arm.linux.org.uk>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -37,16 +37,16 @@ Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
 
---===============1359985586041472676==
+--===============3083578769676017423==
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-3xsX+KprzK1PFrdJx4iH"
+	protocol="application/pgp-signature"; boundary="=-Rnl4LjLMi+p2ia0gVncK"
 
 
---=-3xsX+KprzK1PFrdJx4iH
+--=-Rnl4LjLMi+p2ia0gVncK
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2013-09-19 at 22:27 +0100, Russell King wrote:
+On Thu, 2013-09-19 at 22:28 +0100, Russell King wrote:
 > The fallback to 32-bit DMA mask is rather odd:
 >         err =3D dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 >         if (!err) {
@@ -74,12 +74,12 @@ On Thu, 2013-09-19 at 22:27 +0100, Russell King wrote:
 >=20
 > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 > ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |   18 ++++++------------
+>  drivers/net/ethernet/intel/igb/igb_main.c |   18 ++++++------------
 >  1 files changed, 6 insertions(+), 12 deletions(-)
 
 Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-3xsX+KprzK1PFrdJx4iH
+--=-Rnl4LjLMi+p2ia0gVncK
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -87,25 +87,25 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.14 (GNU/Linux)
 
-iQIcBAABCgAGBQJSPKaDAAoJEOVv75VaS+3OjN4QAJS1KrQfi4MJeW8+QDc3iWrU
-hiwb7Ow5UdcyBYyX1IiOYG7tt0zo4P4VXekcKwnq0Oujg1VBXmnI/lZZLOhLHncB
-EuOzeIAS10mlRaJqou7C5sgJDeVMbxDjOOA/F/1aep592FDyhGLRyCWsT1q0CJh8
-7PagLEwYDgyv2PwBssTmUTiouj0SRdBcRcmyNvTIa8Vxk35ld1/wxwYXse6EwenX
-JjPiZHvbusSzkvZDxZEAhsVAmaDgztFfNUwnr02xIDaw9uaPgx0PnjgBuHKpVIpx
-arrBYbektin9ofhkQmqQyvM4unyxCsoY0tE6ZenjageRRfNXC4pfNKstILNhBAt9
-Qb0kcTyjlRUwYhn13dgU4oxZShuwbbtGACoRK89d0ldjO8ddVXa2rYrQUl9AnCCU
-qMwQoaz0vbEo2g1QrMnzJMIfqWZSeJv7dwYvAj31GQaggBbq8XBP1ATWN3gIaE7G
-sCY650ASK0WJTBOyTA1Oo3aUj4hr0KPBL3paenSyCLN4BDL5FZpMEs5fVzuCsjyz
-AryEjnJQ/8ja1ynjOd3KA8kle2+JG8PCwQpOSv2kmaW2N55PmjWpxVU+LGew2KPY
-Z7UD2yPyjFjKyyAH7DbaTQKdz2CzVeXTBXvecOvML6u0DKgN0rn+DqKmy2cHzz/S
-97+emkT0DMotA8fGsNAt
-=7gjN
+iQIcBAABCgAGBQJSPKawAAoJEOVv75VaS+3OXf0QAJHAY4P/bVO2lTdf8B6FIcu9
+4jWg0P/TphXZJ34YiM/lihN3ROBL0xh97DFVU7naSgH6AaCxXaQw7bxridfl05DS
+itZ6iJjdlcQOYZQWxdDPzNCgBoLQOMNjC82REH26QQY64qfvdOH+F1HsUpqLsuI5
+1rAAq3NGS++Y7ieyyWhz4u4BT5oR32QT3xrrC7Uzky7pWzbV7f2RhZETJ97YNa1k
+L1QAUApwpCRSToy/rzROs+g8tGcntXwktWt9t/y9U61a0XTMR9MYm9dUKSaxlTSp
+KmSjXbsp+fxmhbPYaCeYabk37A4PuULX+eAxrGiPgzuXDbnEr+Lx4BMCVNY9BNSV
+JAgEd90lGzfK9d5fYjpAggW8BZXv/QcrGiDxwvDcGg7AP+WBYmdGpcjJR08Hm0Ob
+zx2k9lZViO7pJNwwojz4Za1ojPyS4pmAVRjf9HuzSVN72ItM2Qnd7e5yHd2IHDhs
+itYHTSZZkJn/97BSjpExYdlYyWBEYl4Eh7ZfVkH/Q7K8JXak9Rr2v1/p7Zw/ehsx
+VpKO9E1GVn+nLXU56LRc35Ji+hnWSvxsiMfLSEwn4IigL+I6CjlV1JhGsqThqe2Y
+gGeQz/trK0FQXlPjnMMuumOyXKGKMdESnbBjbytC8FTZhMxLYuBBpspLv79dvDJZ
+yt2KMg8iyQF4nmKpfHje
+=x2Sq
 -----END PGP SIGNATURE-----
 
---=-3xsX+KprzK1PFrdJx4iH--
+--=-Rnl4LjLMi+p2ia0gVncK--
 
 
---===============1359985586041472676==
+--===============3083578769676017423==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -116,4 +116,4 @@ devel mailing list
 devel@linuxdriverproject.org
 http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
 
---===============1359985586041472676==--
+--===============3083578769676017423==--
