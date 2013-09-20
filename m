@@ -1,30 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL 0/5] IPVS fixes for v3.12
-Date: Fri, 20 Sep 2013 12:07:44 +0200
-Message-ID: <20130920100744.GA6767@localhost>
-References: <1379533542-9891-1-git-send-email-horms@verge.net.au>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH ] net: udp: do not report ICMP redirects to user space
+Date: Fri, 20 Sep 2013 18:20:28 +0800
+Message-ID: <523C216C.90707@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1379533542-9891-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:55898 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754246Ab3ITKVf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 06:21:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 18, 2013 at 02:45:37PM -0500, Simon Horman wrote:
-> please consider the following fixes for IPVS for v3.12.
-> 
-> The following changes since commit 61c5923a2f2d8ab98a1e3c76f17e0f4a871ec75b:
-> 
->   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2013-09-17 20:22:53 -0400)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.12
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Pulled, thanks Simon.
+Redirect isn't an error condition, it should leave
+the error handler without touching the socket.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/udp.c | 2 +-
+ net/ipv6/udp.c | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 74d2c95..0ca44df 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -658,7 +658,7 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
+ 		break;
+ 	case ICMP_REDIRECT:
+ 		ipv4_sk_redirect(skb, sk);
+-		break;
++		goto out;
+ 	}
+ 
+ 	/*
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index f405815..72b7eaa 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -525,8 +525,10 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 
+ 	if (type == ICMPV6_PKT_TOOBIG)
+ 		ip6_sk_update_pmtu(skb, sk, info);
+-	if (type == NDISC_REDIRECT)
++	if (type == NDISC_REDIRECT) {
+ 		ip6_sk_redirect(skb, sk);
++		goto out;
++	}
+ 
+ 	np = inet6_sk(sk);
+ 
+-- 
+1.8.3.1
