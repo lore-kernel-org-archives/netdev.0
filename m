@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 4/4] ARM: dts: am33xx: adopt to cpsw-phy-sel driver to configure phy mode
-Date: Sat, 21 Sep 2013 00:50:41 +0530
-Message-ID: <1379704841-32693-5-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 3/4] drivers: net: cpsw: use cpsw-phy-sel driver to configure phy mode
+Date: Sat, 21 Sep 2013 00:50:40 +0530
+Message-ID: <1379704841-32693-4-git-send-email-mugunthanvnm@ti.com>
 References: <1379704841-32693-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,39 +12,38 @@ Cc: <zonque@gmail.com>, <davem@davemloft.net>, <bcousson@baylibre.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48766 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753808Ab3ITTVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 15:21:55 -0400
+Received: from arroyo.ext.ti.com ([192.94.94.40]:55699 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753789Ab3ITTVw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 15:21:52 -0400
 In-Reply-To: <1379704841-32693-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add DT entries for the phy mode selection in AM33xx SoC using cpsw-phy-sel
-driver.
+Phy mode can be configured via the cpsw-phy-sel driver, this patch enabled the
+cpsw driver to utilise the api provided by the cpsw-phy-sel driver to configure
+the phy mode.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 Tested-by: Daniel Mack <zonque@gmail.com>
 ---
- arch/arm/boot/dts/am33xx.dtsi | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/ti/cpsw.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index f9c5da9..d76ae24 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -594,6 +594,12 @@
- 				/* Filled in by U-Boot */
- 				mac-address = [ 00 00 00 00 00 00 ];
- 			};
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 01c42e1..5efb37b 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1021,6 +1021,10 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 		dev_info(priv->dev, "phy found : id is : 0x%x\n",
+ 			 slave->phy->phy_id);
+ 		phy_start(slave->phy);
 +
-+			phy_sel: cpsw-phy-sel@44e10650 {
-+				compatible = "ti,am3352-cpsw-phy-sel";
-+				reg= <0x44e10650 0x4>;
-+				reg-names = "gmii-sel";
-+			};
- 		};
++		/* Configure GMII_SEL register */
++		cpsw_phy_sel(&priv->pdev->dev, slave->phy->interface,
++			     slave->slave_num);
+ 	}
+ }
  
- 		ocmcram: ocmcram@40300000 {
 -- 
 1.8.4
