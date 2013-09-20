@@ -1,70 +1,50 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next 2/2] xen-netback: handle frontends that fail to
- transition through Closing
-Date: Fri, 20 Sep 2013 13:40:59 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD010EFF2@AMSPEX01CL01.citrite.net>
-References: <1379681791-21842-1-git-send-email-paul.durrant@citrix.com>
- <1379681791-21842-3-git-send-email-paul.durrant@citrix.com>
- <20130920133448.GC457@zion.uk.xensource.com> <523C4FE6.30309@citrix.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [patch 2/4] mISDN: add support for group membership check
+Date: Fri, 20 Sep 2013 15:44:33 +0200
+Message-ID: <523C5141.4080608@suse.cz>
+References: <20130913215202.7D16C31C1BF@corp2gmr1-1.hot.corp.google.com> <1379201336.19779.35.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, isdn4linux@koppen.de,
+	isdn@linux-pingi.de, sergei.shtylyov@cogentembedded.com
+To: Ben Hutchings <ben@decadent.org.uk>, akpm@linux-foundation.org,
+	jeffm@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:21103 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754590Ab3ITNlB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 09:41:01 -0400
-In-Reply-To: <523C4FE6.30309@citrix.com>
-Content-Language: en-US
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:60549 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754787Ab3ITNog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Sep 2013 09:44:36 -0400
+Received: by mail-ea0-f173.google.com with SMTP id g10so276432eak.4
+        for <netdev@vger.kernel.org>; Fri, 20 Sep 2013 06:44:35 -0700 (PDT)
+In-Reply-To: <1379201336.19779.35.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Vrabel
-> Sent: 20 September 2013 14:39
-> To: Wei Liu
-> Cc: Paul Durrant; netdev@vger.kernel.org; xen-devel@lists.xen.org; Ian
-> Campbell
-> Subject: Re: [PATCH net-next 2/2] xen-netback: handle frontends that fail to
-> transition through Closing
+On 09/15/2013 01:28 AM, Ben Hutchings wrote:
+>> @@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, uns 
+>> case IMSETDEVNAME: { struct mISDN_devrename dn; +		if
+>> (!capable(CAP_SYS_ADMIN) && +				!gid_eq(misdn_permitted_gid,
+>> current_gid()) && +				!in_group_p(misdn_permitted_gid)) +
+>> return -EPERM; if (copy_from_user(&dn, (void __user *)arg, 
+>> sizeof(dn))) { err = -EFAULT;
 > 
-> On 20/09/13 14:34, Wei Liu wrote:
-> > On Fri, Sep 20, 2013 at 01:56:31PM +0100, Paul Durrant wrote:
-> >> Some old Windows frontends fail to transition through the xenbus Closing
-> >> state and move directly from Connected to Closed. Handle this case
-> properly.
-> >>
-> >> --- a/drivers/net/xen-netback/xenbus.c
-> >> +++ b/drivers/net/xen-netback/xenbus.c
-> >> @@ -265,6 +265,8 @@ static void frontend_changed(struct
-> xenbus_device *dev,
-> >>  		break;
-> >>
-> >>  	case XenbusStateClosed:
-> >> +		if (dev->state == XenbusStateConnected)
-> >> +			disconnect_backend(dev);
-> >
-> > Could you please add a comment above this change stating that this is a
-> > workaround for some old frontend that we cannot fix / upgrade.
-> 
-> Handling frontend CONNECTED -> CLOSED is a sensible thing for a backend
-> to do regardless of whether there are old frontends that do this or not.
-> 
+> This seems to be the important bit: renaming of devices (if allowed
+> at all) ought to be limited to CAP_SYS_ADMIN or possibly
+> CAP_NET_ADMIN. But why should the group that is allowed to use
+> mISDN data sockets also be allowed to do this?
 
-Agreed, but probably still worth the comment in case someone gets the wrong idea.
+This is based on an old patch we are dragging in SUSE since 2009:
+http://www.isdn4linux.de/pipermail/isdn4linux/2009-December/004493.html
+https://bugzilla.novell.com/show_bug.cgi?id=564423
 
-  Paul
+The whole point of the gid-based access was to still allow some user
+group to manipulate the device in an arbitrary way.
 
-> > We would still like to later frontend goes through the normal connected
-> > -> closing -> closed path.
-> 
-> This should be documented as a full description of the two state
-> machines in public/io/netif.h in Xen.  Not scattered about in comments
-> in a particular backend implementation.
-> 
-> David
+So if everybody agrees I will just disallow rename to
+non-CAP_NET_ADMIN users and we are done?
+
+thanks,
+-- 
+js
+suse labs
