@@ -1,13 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 02/11] dcbevent.h: Remove extern from function prototypes
-Date: Fri, 20 Sep 2013 11:23:19 -0700
-Message-ID: <346f461ada19cda69e1843c2c119f54f8def4cb1.1379701322.git.joe@perches.com>
-References: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
+Subject: [PATCH 01/11] compat.h: Remove extern from function prototypes
+Date: Fri, 20 Sep 2013 11:23:18 -0700
+Message-ID: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <597c1b62607f823af60dc4a99d59373dddfb7837.1379701322.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -21,25 +19,73 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/dcbevent.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ include/net/compat.h | 48 +++++++++++++++++++++++++++---------------------
+ 1 file changed, 27 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/dcbevent.h b/include/net/dcbevent.h
-index 443626e..d2f3041 100644
---- a/include/net/dcbevent.h
-+++ b/include/net/dcbevent.h
-@@ -25,9 +25,9 @@ enum dcbevent_notif_type {
+diff --git a/include/net/compat.h b/include/net/compat.h
+index 6e95653..3b603b1 100644
+--- a/include/net/compat.h
++++ b/include/net/compat.h
+@@ -29,8 +29,8 @@ struct compat_cmsghdr {
+ 	compat_int_t	cmsg_type;
  };
  
- #ifdef CONFIG_DCB
--extern int register_dcbevent_notifier(struct notifier_block *nb);
--extern int unregister_dcbevent_notifier(struct notifier_block *nb);
--extern int call_dcbevent_notifiers(unsigned long val, void *v);
-+int register_dcbevent_notifier(struct notifier_block *nb);
-+int unregister_dcbevent_notifier(struct notifier_block *nb);
-+int call_dcbevent_notifiers(unsigned long val, void *v);
- #else
- static inline int
- register_dcbevent_notifier(struct notifier_block *nb)
+-extern int compat_sock_get_timestamp(struct sock *, struct timeval __user *);
+-extern int compat_sock_get_timestampns(struct sock *, struct timespec __user *);
++int compat_sock_get_timestamp(struct sock *, struct timeval __user *);
++int compat_sock_get_timestampns(struct sock *, struct timespec __user *);
+ 
+ #else /* defined(CONFIG_COMPAT) */
+ /*
+@@ -40,24 +40,30 @@ extern int compat_sock_get_timestampns(struct sock *, struct timespec __user *);
+ #define compat_mmsghdr	mmsghdr
+ #endif /* defined(CONFIG_COMPAT) */
+ 
+-extern int get_compat_msghdr(struct msghdr *, struct compat_msghdr __user *);
+-extern int verify_compat_iovec(struct msghdr *, struct iovec *, struct sockaddr_storage *, int);
+-extern asmlinkage long compat_sys_sendmsg(int,struct compat_msghdr __user *,unsigned int);
+-extern asmlinkage long compat_sys_sendmmsg(int, struct compat_mmsghdr __user *,
+-					   unsigned int, unsigned int);
+-extern asmlinkage long compat_sys_recvmsg(int,struct compat_msghdr __user *,unsigned int);
+-extern asmlinkage long compat_sys_recvmmsg(int, struct compat_mmsghdr __user *,
+-					   unsigned int, unsigned int,
+-					   struct compat_timespec __user *);
+-extern asmlinkage long compat_sys_getsockopt(int, int, int, char __user *, int __user *);
+-extern int put_cmsg_compat(struct msghdr*, int, int, int, void *);
+-
+-extern int cmsghdr_from_user_compat_to_kern(struct msghdr *, struct sock *, unsigned char *, int);
+-
+-extern int compat_mc_setsockopt(struct sock *, int, int, char __user *, unsigned int,
+-	int (*)(struct sock *, int, int, char __user *, unsigned int));
+-extern int compat_mc_getsockopt(struct sock *, int, int, char __user *,
+-	int __user *, int (*)(struct sock *, int, int, char __user *,
+-				int __user *));
++int get_compat_msghdr(struct msghdr *, struct compat_msghdr __user *);
++int verify_compat_iovec(struct msghdr *, struct iovec *,
++			struct sockaddr_storage *, int);
++asmlinkage long compat_sys_sendmsg(int, struct compat_msghdr __user *,
++				   unsigned int);
++asmlinkage long compat_sys_sendmmsg(int, struct compat_mmsghdr __user *,
++				    unsigned int, unsigned int);
++asmlinkage long compat_sys_recvmsg(int, struct compat_msghdr __user *,
++				   unsigned int);
++asmlinkage long compat_sys_recvmmsg(int, struct compat_mmsghdr __user *,
++				    unsigned int, unsigned int,
++				    struct compat_timespec __user *);
++asmlinkage long compat_sys_getsockopt(int, int, int, char __user *,
++				      int __user *);
++int put_cmsg_compat(struct msghdr*, int, int, int, void *);
++
++int cmsghdr_from_user_compat_to_kern(struct msghdr *, struct sock *,
++				     unsigned char *, int);
++
++int compat_mc_setsockopt(struct sock *, int, int, char __user *, unsigned int,
++			 int (*)(struct sock *, int, int, char __user *,
++				 unsigned int));
++int compat_mc_getsockopt(struct sock *, int, int, char __user *, int __user *,
++			 int (*)(struct sock *, int, int, char __user *,
++				 int __user *));
+ 
+ #endif /* NET_COMPAT_H */
 -- 
 1.8.1.2.459.gbcd45b4.dirty
