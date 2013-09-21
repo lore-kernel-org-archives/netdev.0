@@ -1,58 +1,151 @@
-From: Arvid Brodin <arvid.brodin@xdin.com>
-Subject: Re: [PATCH v4] net/hsr: Add support for the High-availability Seamless
- Redundancy protocol (HSRv0)
-Date: Sat, 21 Sep 2013 03:28:29 +0200
-Message-ID: <523CF63D.7030505@xdin.com>
-References: <523A4F5E.9070503@xdin.com> <20130920.151017.2125552741552759738.davem@davemloft.net> <523CEBCD.10808@xdin.com> <523CF077.8010607@xdin.com>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Subject: Re: [PATCH 1/1] mrp: add periodictimer to allow retries when
+ packets get lost
+Date: Fri, 20 Sep 2013 21:32:13 -0400
+Message-ID: <523CF71D.3090002@ll.mit.edu>
+References: <1379528419.1787.50.camel@joe-AO722>
+	<1379532280-11047-1-git-send-email-noel@burton-krahn.com>
+ <20130920.145903.1454447110808820874.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arvid Brodin <arvid.brodin@xdin.com>, <netdev@vger.kernel.org>,
-	<shemminger@vyatta.com>, <joe@perches.com>, <jboticario@gmail.com>,
-	<balferreira@googlemail.com>, <elias.molina@ehu.es>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms040304090908040807000205"
+Cc: "noel@burton-krahn.com" <noel@burton-krahn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"joe@perches.com" <joe@perches.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:49484 "EHLO spam1.webland.se"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:49851 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936Ab3IUB2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Sep 2013 21:28:34 -0400
-In-Reply-To: <523CF077.8010607@xdin.com>
+	id S1751702Ab3IUB7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 21:59:02 -0400
+In-Reply-To: <20130920.145903.1454447110808820874.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-09-21 03:03, Arvid Brodin wrote:
-> On 2013-09-21 02:43, Arvid Brodin wrote:
->> It's weird though, the "len" bug doesn't show up in my practical tes=
-ts -=20
->> scp of 16 MiB file (sha1sum compared afterwards) and ping with defau=
-lt=20
->> and 65 KB packets work just fine before and after this change - even
->> between one fixed system and one with the bug remaining. Could it be
->> that none of the network device drivers we use (e1000e and macb) mak=
-e=20
->> use of nonlinear skbs?
->=20
-> Forget about this, e1000e is running on an architecture with=20
-> HAVE_EFFICIENT_UNALIGNED_ACCESS, and on macb it does affect things -=20
-> with the "fix" nothing works. :-|=20
+--------------ms040304090908040807000205
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-=2E.. and that is because I have already shortened the packet through t=
-he
-call to strip_hsr_tag() a few lines above, which calls=20
-skb_pull(..., HSR_TAGLEN) in turn. So ->len is already correct.
-
-Moving both ->data and ->tail, and all data between them, HSR_TAGLEN by=
-tes
-lower, should not be a problem if
-
-a) the space ahead of ->data is vacant (not part of the packet),
-b) there is enough headroom,
-c) it does not break 32-bit alignment, and
-d) there are no references to headers etc in the data being moved.
-
-Right?=20
+Noel, thanks for your patch. This timer was apparently not in the GARP=20
+standard but added in the MRP standard and I missed it. Looks good to me.=
 
 
---=20
-Arvid Brodin | Consultant (Linux)
-XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
+Acked-by: David Ward <david.ward@ll.mit.edu>
+
+
+On 09/20/2013 02:59 PM, David Miller wrote:
+> Re: [PATCH 1/1] mrp: add periodictimer to allow retries when packets=20
+> get lost
+>
+> From: Noel Burton-Krahn <noel@burton-krahn.com>
+> Date: Wed, 18 Sep 2013 12:24:40 -0700
+>
+> > MRP doesn't implement the periodictimer in 802.1Q, so it never retrie=
+s
+> > if packets get lost.  I ran into this problem when MRP sent a MVRP
+> > JoinIn before the interface was fully up.  The JoinIn was lost, MRP
+> > didn't retry, and MVRP registration failed.
+> >
+> > Tested against Juniper QFabric switches
+> >
+> > Signed-off-by: Noel Burton-Krahn <noel@burton-krahn.com>
+>
+> David W., please review this patch.
+>
+> Thanks.
+>
+
+
+
+--------------ms040304090908040807000205
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+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
+--------------ms040304090908040807000205--
