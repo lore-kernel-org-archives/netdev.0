@@ -1,88 +1,135 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next] ipv6: do not allow ipv6 module to be removed
-Date: Sat, 21 Sep 2013 11:12:21 +0800
-Message-ID: <1379733141-10643-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <amwang@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO
+Date: Sat, 21 Sep 2013 06:27:00 +0200
+Message-ID: <20130921042700.GB8070@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10600 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752066Ab3IUDMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Sep 2013 23:12:33 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:41523 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692Ab3IUE1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 00:27:12 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+In the following scenario the socket is corked:
+If the first UDP packet is larger then the mtu we try to append it to the
+write queue via ip6_ufo_append_data. A following packet, which is smaller
+than the mtu would be appended to the already queued up gso-skb via
+plain ip6_append_data. This causes random memory corruptions.
 
-There was some bug report on ipv6 module removal path before.
-Also, as Stephen pointed out, after vxlan module gets ipv6 support,
-the ipv6 stub it used is not safe against this module removal either.
-So, let's just remove inet6_exit() so that ipv6 module will not be
-able to be unloaded.
+In ip6_ufo_append_data we also have to be careful to not queue up the
+same skb multiple times. So setup the gso frame only when no first skb
+is available.
 
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+This also fixes a shortcoming where we add the current packet's length to
+cork->length but return early because of a packet > mtu with dontfrag set
+(instead of sutracting it again).
 
+Found with trinity.
+
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 7c96100..4966b12 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -1028,52 +1028,4 @@ out_unregister_tcp_proto:
- }
- module_init(inet6_init);
+
+I could only test this with virtualized UFO enabled network cards. Could
+someone test this on real hardware?
+
+ net/ipv6/ip6_output.c | 53 +++++++++++++++++++++------------------------------
+ 1 file changed, 22 insertions(+), 31 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 3a692d5..a54c45c 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1015,6 +1015,8 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 	 * udp datagram
+ 	 */
+ 	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL) {
++		struct frag_hdr fhdr;
++
+ 		skb = sock_alloc_send_skb(sk,
+ 			hh_len + fragheaderlen + transhdrlen + 20,
+ 			(flags & MSG_DONTWAIT), &err);
+@@ -1036,12 +1038,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+-	}
+-
+-	err = skb_append_datato_frags(sk,skb, getfrag, from,
+-				      (length - transhdrlen));
+-	if (!err) {
+-		struct frag_hdr fhdr;
  
--static void __exit inet6_exit(void)
--{
--	if (disable_ipv6_mod)
--		return;
+ 		/* Specify the length of each IPv6 datagram fragment.
+ 		 * It has to be a multiple of 8.
+@@ -1052,15 +1048,10 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 		ipv6_select_ident(&fhdr, rt);
+ 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+ 		__skb_queue_tail(&sk->sk_write_queue, skb);
 -
--	/* First of all disallow new sockets creation. */
--	sock_unregister(PF_INET6);
--	/* Disallow any further netlink messages */
--	rtnl_unregister_all(PF_INET6);
+-		return 0;
+ 	}
+-	/* There is not enough support do UPD LSO,
+-	 * so follow normal path
+-	 */
+-	kfree_skb(skb);
+ 
+-	return err;
++	return skb_append_datato_frags(sk, skb, getfrag, from,
++				       (length - transhdrlen));
+ }
+ 
+ static inline struct ipv6_opt_hdr *ip6_opt_dup(struct ipv6_opt_hdr *src,
+@@ -1227,27 +1218,27 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	 * --yoshfuji
+ 	 */
+ 
+-	cork->length += length;
+-	if (length > mtu) {
+-		int proto = sk->sk_protocol;
+-		if (dontfrag && (proto == IPPROTO_UDP || proto == IPPROTO_RAW)){
+-			ipv6_local_rxpmtu(sk, fl6, mtu-exthdrlen);
+-			return -EMSGSIZE;
+-		}
 -
--	udpv6_exit();
--	udplitev6_exit();
--	tcpv6_exit();
--
--	/* Cleanup code parts. */
--	ipv6_packet_cleanup();
--	ipv6_frag_exit();
--	ipv6_exthdrs_exit();
--	addrconf_cleanup();
--	ip6_flowlabel_cleanup();
--	ndisc_late_cleanup();
--	ip6_route_cleanup();
--#ifdef CONFIG_PROC_FS
--
--	/* Cleanup code parts. */
--	if6_proc_exit();
--	ipv6_misc_proc_exit();
--	udplite6_proc_exit();
--	raw6_proc_exit();
--#endif
--	ipv6_netfilter_fini();
--	ipv6_stub = NULL;
--	igmp6_cleanup();
--	ndisc_cleanup();
--	ip6_mr_cleanup();
--	icmpv6_cleanup();
--	rawv6_exit();
--
--	unregister_pernet_subsys(&inet6_net_ops);
--	proto_unregister(&rawv6_prot);
--	proto_unregister(&udplitev6_prot);
--	proto_unregister(&udpv6_prot);
--	proto_unregister(&tcpv6_prot);
--
--	rcu_barrier(); /* Wait for completion of call_rcu()'s */
--}
--module_exit(inet6_exit);
--
- MODULE_ALIAS_NETPROTO(PF_INET6);
+-		if (proto == IPPROTO_UDP &&
+-		    (rt->dst.dev->features & NETIF_F_UFO)) {
++	if ((length > mtu) && dontfrag && (sk->sk_protocol == IPPROTO_UDP ||
++					   sk->sk_protocol == IPPROTO_RAW)) {
++		ipv6_local_rxpmtu(sk, fl6, mtu-exthdrlen);
++		return -EMSGSIZE;
++	}
+ 
+-			err = ip6_ufo_append_data(sk, getfrag, from, length,
+-						  hh_len, fragheaderlen,
+-						  transhdrlen, mtu, flags, rt);
+-			if (err)
+-				goto error;
+-			return 0;
+-		}
++	skb = skb_peek_tail(&sk->sk_write_queue);
++	cork->length += length;
++	if (((length > mtu) ||
++	     (skb && skb_is_gso(skb))) &&
++	    (sk->sk_protocol == IPPROTO_UDP) &&
++	    (rt->dst.dev->features & NETIF_F_UFO)) {
++		err = ip6_ufo_append_data(sk, getfrag, from, length,
++					  hh_len, fragheaderlen,
++					  transhdrlen, mtu, flags, rt);
++		if (err)
++			goto error;
++		return 0;
+ 	}
+ 
+-	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL)
++	if (!skb)
+ 		goto alloc_new_skb;
+ 
+ 	while (length > 0) {
+-- 
+1.8.3.1
