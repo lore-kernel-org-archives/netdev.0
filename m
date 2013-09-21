@@ -1,51 +1,43 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 09/19] net: Change variable type to bool
-Date: Sun, 22 Sep 2013 00:27:41 +0200
-Message-ID: <1379802471-30252-9-git-send-email-peter.senna@gmail.com>
-References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: eilong@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] declance: Remove `incompatible pointer type' warnings
+Date: Sun, 22 Sep 2013 02:41:36 +0400
+Message-ID: <523E20A0.6090104@cogentembedded.com>
+References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:45732 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823Ab3IUWle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 18:41:34 -0400
+Received: by mail-la0-f50.google.com with SMTP id gx14so1479535lab.9
+        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 15:41:33 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variable rc is only assigned the values true and false.
-The function bnx2x_prev_is_path_marked already returns bool.
-Change rc type to bool.
+Hello.
 
-The simplified semantic patch that find this problem is as
-follows (http://coccinelle.lip6.fr/):
+On 09/20/2013 03:49 AM, Maciej W. Rozycki wrote:
 
-@exists@
-type T;
-identifier b;
-@@
-- T
-+ bool
-  b = ...;
-  ... when any
-  b = \(true\|false\)
+> Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7:
 
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+    Please also specify that commit's summary in parens. That's the only way 
+to uniquely identify a commit and makes life a bit easier when you browse the 
+commits.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index fccfc1d..105cc80 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9874,7 +9874,7 @@ static int bnx2x_prev_path_mark_eeh(struct bnx2x *bp)
- static bool bnx2x_prev_is_path_marked(struct bnx2x *bp)
- {
- 	struct bnx2x_prev_path_list *tmp_list;
--	int rc = false;
-+	bool rc = false;
- 
- 	if (down_trylock(&bnx2x_prev_sem))
- 		return false;
--- 
-1.8.3.1
+> .../declance.c: In function 'cp_to_buf':
+> .../declance.c:347: warning: assignment from incompatible pointer type
+> .../declance.c:348: warning: assignment from incompatible pointer type
+> .../declance.c: In function 'cp_from_buf':
+> .../declance.c:406: warning: assignment from incompatible pointer type
+> .../declance.c:407: warning: assignment from incompatible pointer type
+
+> Also add a `const' qualifier where applicable and adjust formatting.
+
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+
+WBR, Sergei
