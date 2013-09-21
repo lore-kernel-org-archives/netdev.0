@@ -1,165 +1,88 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [RESEND PATCH iproute2] vxlan: add ipv6 support
-Date: Sat, 21 Sep 2013 10:35:24 +0800
-Message-ID: <1379730924-12433-1-git-send-email-amwang@redhat.com>
+Subject: [PATCH net-next] ipv6: do not allow ipv6 module to be removed
+Date: Sat, 21 Sep 2013 11:12:21 +0800
+Message-ID: <1379733141-10643-1-git-send-email-amwang@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10916 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10600 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751927Ab3IUCfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Sep 2013 22:35:33 -0400
+	id S1752066Ab3IUDMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 23:12:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-The kernel already supports it, so add the support
-to iproute2 as well.
-    
+There was some bug report on ipv6 module removal path before.
+Also, as Stephen pointed out, after vxlan module gets ipv6 support,
+the ipv6 stub it used is not safe against this module removal either.
+So, let's just remove inet6_exit() so that ipv6 module will not be
+able to be unloaded.
+
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 
 ---
- include/linux/if_link.h |    2 +
- ip/iplink_vxlan.c       |   69 ++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 59 insertions(+), 12 deletions(-)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index d07aeca..0c37561 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -311,6 +311,8 @@ enum {
- 	IFLA_VXLAN_L2MISS,
- 	IFLA_VXLAN_L3MISS,
- 	IFLA_VXLAN_PORT,	/* destination port */
-+	IFLA_VXLAN_GROUP6,
-+	IFLA_VXLAN_LOCAL6,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 4304b0d..12e1c74 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -43,6 +43,9 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u32 saddr = 0;
- 	__u32 gaddr = 0;
- 	__u32 daddr = 0;
-+	struct in6_addr saddr6 = IN6ADDR_ANY_INIT;
-+	struct in6_addr gaddr6 = IN6ADDR_ANY_INIT;
-+	struct in6_addr daddr6 = IN6ADDR_ANY_INIT;
- 	unsigned link = 0;
- 	__u8 tos = 0;
- 	__u8 ttl = 0;
-@@ -66,21 +69,36 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			vni_set = 1;
- 		} else if (!matches(*argv, "group")) {
- 			NEXT_ARG();
--			gaddr = get_addr32(*argv);
--
--			if (!IN_MULTICAST(ntohl(gaddr)))
--				invarg("invalid group address", *argv);
-+			if (!inet_pton(AF_INET, *argv, &gaddr)) {
-+				if (!inet_pton(AF_INET6, *argv, &gaddr6)) {
-+					fprintf(stderr, "Invalid address \"%s\"\n", *argv);
-+					return -1;
-+				} else if (!IN6_IS_ADDR_MULTICAST(&gaddr6))
-+					invarg("invald group address", *argv);
-+			} else if (!IN_MULTICAST(ntohl(gaddr)))
-+					invarg("invald group address", *argv);
- 		} else if (!matches(*argv, "remote")) {
- 			NEXT_ARG();
--			daddr = get_addr32(*argv);
--
--			if (IN_MULTICAST(ntohl(daddr)))
--				invarg("invalid remote address", *argv);
-+			if (!inet_pton(AF_INET, *argv, &daddr)) {
-+				if (!inet_pton(AF_INET6, *argv, &daddr6)) {
-+					fprintf(stderr, "Invalid address \"%s\"\n", *argv);
-+					return -1;
-+				} else if (IN6_IS_ADDR_MULTICAST(&daddr6))
-+					invarg("invald remote address", *argv);
-+			} else if (IN_MULTICAST(ntohl(daddr)))
-+					invarg("invald remote address", *argv);
- 		} else if (!matches(*argv, "local")) {
- 			NEXT_ARG();
--			if (strcmp(*argv, "any"))
--				saddr = get_addr32(*argv);
--			if (IN_MULTICAST(ntohl(saddr)))
-+			if (strcmp(*argv, "any")) {
-+				if (!inet_pton(AF_INET, *argv, &saddr)) {
-+					if (!inet_pton(AF_INET6, *argv, &saddr6)) {
-+						fprintf(stderr, "Invalid address \"%s\"\n", *argv);
-+						return -1;
-+					}
-+				}
-+			}
-+
-+			if (IN_MULTICAST(ntohl(saddr)) || IN6_IS_ADDR_MULTICAST(&saddr6))
- 				invarg("invalid local address", *argv);
- 		} else if (!matches(*argv, "dev")) {
- 			NEXT_ARG();
-@@ -167,7 +185,9 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		fprintf(stderr, "vxlan: missing virtual network identifier\n");
- 		return -1;
- 	}
--	if (gaddr && daddr) {
-+	if ((gaddr && daddr) ||
-+		(memcmp(&gaddr6, &in6addr_any, sizeof(gaddr6)) &&
-+		 memcmp(&daddr6, &in6addr_any, sizeof(daddr6)))) {
- 		fprintf(stderr, "vxlan: both group and remote cannot be specified\n");
- 		return -1;
- 	}
-@@ -176,8 +196,16 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		addattr_l(n, 1024, IFLA_VXLAN_GROUP, &gaddr, 4);
- 	else if (daddr)
- 		addattr_l(n, 1024, IFLA_VXLAN_GROUP, &daddr, 4);
-+	if (memcmp(&gaddr6, &in6addr_any, sizeof(gaddr6)) != 0)
-+		addattr_l(n, 1024, IFLA_VXLAN_GROUP6, &gaddr6, sizeof(struct in6_addr));
-+	else if (memcmp(&daddr6, &in6addr_any, sizeof(daddr6)) != 0)
-+		addattr_l(n, 1024, IFLA_VXLAN_GROUP6, &daddr6, sizeof(struct in6_addr));
-+
- 	if (saddr)
- 		addattr_l(n, 1024, IFLA_VXLAN_LOCAL, &saddr, 4);
-+	else if (memcmp(&saddr6, &in6addr_any, sizeof(saddr6)) != 0)
-+		addattr_l(n, 1024, IFLA_VXLAN_LOCAL6, &saddr6, sizeof(struct in6_addr));
-+
- 	if (link)
- 		addattr32(n, 1024, IFLA_VXLAN_LINK, link);
- 	addattr8(n, 1024, IFLA_VXLAN_TTL, ttl);
-@@ -229,6 +257,17 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 				fprintf(f, "remote %s ",
- 					format_host(AF_INET, 4, &addr, s1, sizeof(s1)));
- 		}
-+	} else if (tb[IFLA_VXLAN_GROUP6]) {
-+		struct in6_addr addr;
-+		memcpy(&addr, RTA_DATA(tb[IFLA_VXLAN_GROUP6]), sizeof(struct in6_addr));
-+		if (memcmp(&addr, &in6addr_any, sizeof(addr)) != 0) {
-+			if (IN6_IS_ADDR_MULTICAST(&addr))
-+				fprintf(f, "group %s ",
-+					format_host(AF_INET6, sizeof(struct in6_addr), &addr, s1, sizeof(s1)));
-+			else
-+				fprintf(f, "remote %s ",
-+					format_host(AF_INET6, sizeof(struct in6_addr), &addr, s1, sizeof(s1)));
-+		}
- 	}
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 7c96100..4966b12 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -1028,52 +1028,4 @@ out_unregister_tcp_proto:
+ }
+ module_init(inet6_init);
  
- 	if (tb[IFLA_VXLAN_LOCAL]) {
-@@ -236,6 +275,12 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		if (addr)
- 			fprintf(f, "local %s ",
- 				format_host(AF_INET, 4, &addr, s1, sizeof(s1)));
-+	} else if (tb[IFLA_VXLAN_LOCAL6]) {
-+		struct in6_addr addr;
-+		memcpy(&addr, RTA_DATA(tb[IFLA_VXLAN_LOCAL6]), sizeof(struct in6_addr));
-+		if (memcmp(&addr, &in6addr_any, sizeof(addr)) != 0)
-+			fprintf(f, "local %s ",
-+				format_host(AF_INET6, sizeof(struct in6_addr), &addr, s1, sizeof(s1)));
- 	}
- 
- 	if (tb[IFLA_VXLAN_LINK] &&
--- 
-1.7.7.6
+-static void __exit inet6_exit(void)
+-{
+-	if (disable_ipv6_mod)
+-		return;
+-
+-	/* First of all disallow new sockets creation. */
+-	sock_unregister(PF_INET6);
+-	/* Disallow any further netlink messages */
+-	rtnl_unregister_all(PF_INET6);
+-
+-	udpv6_exit();
+-	udplitev6_exit();
+-	tcpv6_exit();
+-
+-	/* Cleanup code parts. */
+-	ipv6_packet_cleanup();
+-	ipv6_frag_exit();
+-	ipv6_exthdrs_exit();
+-	addrconf_cleanup();
+-	ip6_flowlabel_cleanup();
+-	ndisc_late_cleanup();
+-	ip6_route_cleanup();
+-#ifdef CONFIG_PROC_FS
+-
+-	/* Cleanup code parts. */
+-	if6_proc_exit();
+-	ipv6_misc_proc_exit();
+-	udplite6_proc_exit();
+-	raw6_proc_exit();
+-#endif
+-	ipv6_netfilter_fini();
+-	ipv6_stub = NULL;
+-	igmp6_cleanup();
+-	ndisc_cleanup();
+-	ip6_mr_cleanup();
+-	icmpv6_cleanup();
+-	rawv6_exit();
+-
+-	unregister_pernet_subsys(&inet6_net_ops);
+-	proto_unregister(&rawv6_prot);
+-	proto_unregister(&udplitev6_prot);
+-	proto_unregister(&udpv6_prot);
+-	proto_unregister(&tcpv6_prot);
+-
+-	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+-}
+-module_exit(inet6_exit);
+-
+ MODULE_ALIAS_NETPROTO(PF_INET6);
