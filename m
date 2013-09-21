@@ -1,135 +1,57 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO
-Date: Sat, 21 Sep 2013 06:27:00 +0200
-Message-ID: <20130921042700.GB8070@order.stressinduktion.org>
+Subject: [PATCH net-next] net: neighbour: use source address of last enqueued packet for solicitation
+Date: Sat, 21 Sep 2013 06:32:34 +0200
+Message-ID: <20130921043234.GA13307@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net
+Cc: davem@davemloft.net, ja@ssi.bg
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:41523 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:41526 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab3IUE1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 00:27:12 -0400
+	with ESMTP id S1751692Ab3IUEcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 00:32:36 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the following scenario the socket is corked:
-If the first UDP packet is larger then the mtu we try to append it to the
-write queue via ip6_ufo_append_data. A following packet, which is smaller
-than the mtu would be appended to the already queued up gso-skb via
-plain ip6_append_data. This causes random memory corruptions.
+Currently we always use the first member of the arp_queue to determine
+the sender ip address of the arp packet (or in case of IPv6 - source
+address of the ndisc packet). This skb is fixed as long as the queue is
+not drained by a complete purge because of a timeout or by a successful
+response.
 
-In ip6_ufo_append_data we also have to be careful to not queue up the
-same skb multiple times. So setup the gso frame only when no first skb
-is available.
+If the first packet enqueued on the arp_queue is from a local application
+with a manually set source address and the to be discovered system
+does some kind of uRPF checks on the source address in the arp packet
+the resolving process hangs until a timeout and restarts. This hurts
+communication with the participating network node.
 
-This also fixes a shortcoming where we add the current packet's length to
-cork->length but return early because of a packet > mtu with dontfrag set
-(instead of sutracting it again).
+This could be mitigated a bit if we use the latest enqueued skb's
+source address for the resolving process, which is not as static as
+the arp_queue's head. This change of the source address could result in
+better recovery of a failed solicitation.
 
-Found with trinity.
-
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Julian Anastasov <ja@ssi.bg>
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
+ net/core/neighbour.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I could only test this with virtualized UFO enabled network cards. Could
-someone test this on real hardware?
-
- net/ipv6/ip6_output.c | 53 +++++++++++++++++++++------------------------------
- 1 file changed, 22 insertions(+), 31 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 3a692d5..a54c45c 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1015,6 +1015,8 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	 * udp datagram
- 	 */
- 	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL) {
-+		struct frag_hdr fhdr;
-+
- 		skb = sock_alloc_send_skb(sk,
- 			hh_len + fragheaderlen + transhdrlen + 20,
- 			(flags & MSG_DONTWAIT), &err);
-@@ -1036,12 +1038,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 		skb->protocol = htons(ETH_P_IPV6);
- 		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum = 0;
--	}
--
--	err = skb_append_datato_frags(sk,skb, getfrag, from,
--				      (length - transhdrlen));
--	if (!err) {
--		struct frag_hdr fhdr;
- 
- 		/* Specify the length of each IPv6 datagram fragment.
- 		 * It has to be a multiple of 8.
-@@ -1052,15 +1048,10 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 		ipv6_select_ident(&fhdr, rt);
- 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 		__skb_queue_tail(&sk->sk_write_queue, skb);
--
--		return 0;
- 	}
--	/* There is not enough support do UPD LSO,
--	 * so follow normal path
--	 */
--	kfree_skb(skb);
- 
--	return err;
-+	return skb_append_datato_frags(sk, skb, getfrag, from,
-+				       (length - transhdrlen));
- }
- 
- static inline struct ipv6_opt_hdr *ip6_opt_dup(struct ipv6_opt_hdr *src,
-@@ -1227,27 +1218,27 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	 * --yoshfuji
- 	 */
- 
--	cork->length += length;
--	if (length > mtu) {
--		int proto = sk->sk_protocol;
--		if (dontfrag && (proto == IPPROTO_UDP || proto == IPPROTO_RAW)){
--			ipv6_local_rxpmtu(sk, fl6, mtu-exthdrlen);
--			return -EMSGSIZE;
--		}
--
--		if (proto == IPPROTO_UDP &&
--		    (rt->dst.dev->features & NETIF_F_UFO)) {
-+	if ((length > mtu) && dontfrag && (sk->sk_protocol == IPPROTO_UDP ||
-+					   sk->sk_protocol == IPPROTO_RAW)) {
-+		ipv6_local_rxpmtu(sk, fl6, mtu-exthdrlen);
-+		return -EMSGSIZE;
-+	}
- 
--			err = ip6_ufo_append_data(sk, getfrag, from, length,
--						  hh_len, fragheaderlen,
--						  transhdrlen, mtu, flags, rt);
--			if (err)
--				goto error;
--			return 0;
--		}
-+	skb = skb_peek_tail(&sk->sk_write_queue);
-+	cork->length += length;
-+	if (((length > mtu) ||
-+	     (skb && skb_is_gso(skb))) &&
-+	    (sk->sk_protocol == IPPROTO_UDP) &&
-+	    (rt->dst.dev->features & NETIF_F_UFO)) {
-+		err = ip6_ufo_append_data(sk, getfrag, from, length,
-+					  hh_len, fragheaderlen,
-+					  transhdrlen, mtu, flags, rt);
-+		if (err)
-+			goto error;
-+		return 0;
- 	}
- 
--	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL)
-+	if (!skb)
- 		goto alloc_new_skb;
- 
- 	while (length > 0) {
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 6072610..ca15f32 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -867,7 +867,7 @@ static void neigh_invalidate(struct neighbour *neigh)
+ static void neigh_probe(struct neighbour *neigh)
+ 	__releases(neigh->lock)
+ {
+-	struct sk_buff *skb = skb_peek(&neigh->arp_queue);
++	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
+ 	/* keep skb alive even if arp_queue overflows */
+ 	if (skb)
+ 		skb = skb_copy(skb, GFP_ATOMIC);
 -- 
 1.8.3.1
