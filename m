@@ -1,153 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 11/12] netrom.h: Remove extern from function prototypes
-Date: Sat, 21 Sep 2013 10:22:51 -0700
-Message-ID: <3c7374b4762a384241e77c39509c2a9b6b0b4648.1379783996.git.joe@perches.com>
-References: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH 3/4] net: VSI: Add virtual station interface support
+Date: Sat, 21 Sep 2013 10:30:29 -0700
+Message-ID: <523DD7B5.2040206@intel.com>
+References: <20130920231259.GA31479@neilslaptop.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:39802 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752263Ab3IURab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Sep 2013 13:30:31 -0400
+In-Reply-To: <20130920231259.GA31479@neilslaptop.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are a mix of function prototypes with and without extern
-in the kernel sources.  Standardize on not using extern for
-function prototypes.
+On 9/20/2013 4:12 PM, Neil Horman wrote:
+>
+> John-
+>       Sorry for not copying your orgional patch into your email, but I apparently
+> erased this email prior to fully reading it.  At any rate, as we discussed the
+> other day, I think this idea is great, but it would benefit from being
+> implemented using macvlans rather than a new link type.  If we can set a
+> hardware flag in the underlying driver to indicate support for hardware
+> forwarding, we can skip the macvlan soft forwarding, and just transmit directly.
+> It should save us needing to create a whole new link type that is so simmilar to
+> one we already have.
+>
+>       I'm back home now, so I can start looking at this if you like on monday.
+>
+> Best
+> Neil
+>
+>
 
-Function prototypes don't need to be written with extern.
-extern is assumed by the compiler.  Its use is as unnecessary as
-using auto to declare automatic/local variables in a block.
+Yes definitely take a look making it an extension (flag) to macvlan
+would be more useful if it can work. The one question I have is would
+we need to clear the flag when a feature is attached to the PF that can
+not be done in hardware. For example attaching an ingress qdisc,
+ebtables, or starting up tcpdump are two that come to mind.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/netrom.h | 89 ++++++++++++++++++++++++++--------------------------
- 1 file changed, 44 insertions(+), 45 deletions(-)
+.John
 
-diff --git a/include/net/netrom.h b/include/net/netrom.h
-index 121dcf8..110350a 100644
---- a/include/net/netrom.h
-+++ b/include/net/netrom.h
-@@ -183,51 +183,50 @@ extern int  sysctl_netrom_routing_control;
- extern int  sysctl_netrom_link_fails_count;
- extern int  sysctl_netrom_reset_circuit;
- 
--extern int  nr_rx_frame(struct sk_buff *, struct net_device *);
--extern void nr_destroy_socket(struct sock *);
-+int nr_rx_frame(struct sk_buff *, struct net_device *);
-+void nr_destroy_socket(struct sock *);
- 
- /* nr_dev.c */
--extern int  nr_rx_ip(struct sk_buff *, struct net_device *);
--extern void nr_setup(struct net_device *);
-+int nr_rx_ip(struct sk_buff *, struct net_device *);
-+void nr_setup(struct net_device *);
- 
- /* nr_in.c */
--extern int  nr_process_rx_frame(struct sock *, struct sk_buff *);
-+int nr_process_rx_frame(struct sock *, struct sk_buff *);
- 
- /* nr_loopback.c */
--extern void nr_loopback_init(void);
--extern void nr_loopback_clear(void);
--extern int  nr_loopback_queue(struct sk_buff *);
-+void nr_loopback_init(void);
-+void nr_loopback_clear(void);
-+int nr_loopback_queue(struct sk_buff *);
- 
- /* nr_out.c */
--extern void nr_output(struct sock *, struct sk_buff *);
--extern void nr_send_nak_frame(struct sock *);
--extern void nr_kick(struct sock *);
--extern void nr_transmit_buffer(struct sock *, struct sk_buff *);
--extern void nr_establish_data_link(struct sock *);
--extern void nr_enquiry_response(struct sock *);
--extern void nr_check_iframes_acked(struct sock *, unsigned short);
-+void nr_output(struct sock *, struct sk_buff *);
-+void nr_send_nak_frame(struct sock *);
-+void nr_kick(struct sock *);
-+void nr_transmit_buffer(struct sock *, struct sk_buff *);
-+void nr_establish_data_link(struct sock *);
-+void nr_enquiry_response(struct sock *);
-+void nr_check_iframes_acked(struct sock *, unsigned short);
- 
- /* nr_route.c */
--extern void nr_rt_device_down(struct net_device *);
--extern struct net_device *nr_dev_first(void);
--extern struct net_device *nr_dev_get(ax25_address *);
--extern int  nr_rt_ioctl(unsigned int, void __user *);
--extern void nr_link_failed(ax25_cb *, int);
--extern int  nr_route_frame(struct sk_buff *, ax25_cb *);
-+void nr_rt_device_down(struct net_device *);
-+struct net_device *nr_dev_first(void);
-+struct net_device *nr_dev_get(ax25_address *);
-+int nr_rt_ioctl(unsigned int, void __user *);
-+void nr_link_failed(ax25_cb *, int);
-+int nr_route_frame(struct sk_buff *, ax25_cb *);
- extern const struct file_operations nr_nodes_fops;
- extern const struct file_operations nr_neigh_fops;
--extern void nr_rt_free(void);
-+void nr_rt_free(void);
- 
- /* nr_subr.c */
--extern void nr_clear_queues(struct sock *);
--extern void nr_frames_acked(struct sock *, unsigned short);
--extern void nr_requeue_frames(struct sock *);
--extern int  nr_validate_nr(struct sock *, unsigned short);
--extern int  nr_in_rx_window(struct sock *, unsigned short);
--extern void nr_write_internal(struct sock *, int);
-+void nr_clear_queues(struct sock *);
-+void nr_frames_acked(struct sock *, unsigned short);
-+void nr_requeue_frames(struct sock *);
-+int nr_validate_nr(struct sock *, unsigned short);
-+int nr_in_rx_window(struct sock *, unsigned short);
-+void nr_write_internal(struct sock *, int);
- 
--extern void __nr_transmit_reply(struct sk_buff *skb, int mine,
--	unsigned char cmdflags);
-+void __nr_transmit_reply(struct sk_buff *skb, int mine, unsigned char cmdflags);
- 
- /*
-  * This routine is called when a Connect Acknowledge with the Choke Flag
-@@ -247,24 +246,24 @@ do {									\
- 	__nr_transmit_reply((skb), (mine), NR_RESET);			\
- } while (0)
- 
--extern void nr_disconnect(struct sock *, int);
-+void nr_disconnect(struct sock *, int);
- 
- /* nr_timer.c */
--extern void nr_init_timers(struct sock *sk);
--extern void nr_start_heartbeat(struct sock *);
--extern void nr_start_t1timer(struct sock *);
--extern void nr_start_t2timer(struct sock *);
--extern void nr_start_t4timer(struct sock *);
--extern void nr_start_idletimer(struct sock *);
--extern void nr_stop_heartbeat(struct sock *);
--extern void nr_stop_t1timer(struct sock *);
--extern void nr_stop_t2timer(struct sock *);
--extern void nr_stop_t4timer(struct sock *);
--extern void nr_stop_idletimer(struct sock *);
--extern int  nr_t1timer_running(struct sock *);
-+void nr_init_timers(struct sock *sk);
-+void nr_start_heartbeat(struct sock *);
-+void nr_start_t1timer(struct sock *);
-+void nr_start_t2timer(struct sock *);
-+void nr_start_t4timer(struct sock *);
-+void nr_start_idletimer(struct sock *);
-+void nr_stop_heartbeat(struct sock *);
-+void nr_stop_t1timer(struct sock *);
-+void nr_stop_t2timer(struct sock *);
-+void nr_stop_t4timer(struct sock *);
-+void nr_stop_idletimer(struct sock *);
-+int nr_t1timer_running(struct sock *);
- 
- /* sysctl_net_netrom.c */
--extern void nr_register_sysctl(void);
--extern void nr_unregister_sysctl(void);
-+void nr_register_sysctl(void);
-+void nr_unregister_sysctl(void);
- 
- #endif
--- 
-1.8.1.2.459.gbcd45b4.dirty
+Sorry for the duplication Neil, I sent this mail from a broken email
+client just a minute ago and vger dropped it.
