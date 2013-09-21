@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 08/12] net_namespace.h: Remove extern from function prototypes
-Date: Sat, 21 Sep 2013 10:22:48 -0700
-Message-ID: <06e3cfbaf8d24024d683f7ce0ddf94a52193a0b7.1379783996.git.joe@perches.com>
+Subject: [PATCH 10/12] netevent/netlink.h: Remove extern from function prototypes
+Date: Sat, 21 Sep 2013 10:22:50 -0700
+Message-ID: <b167058642444fecd8fb53e18927e10a4b14ddef.1379783996.git.joe@perches.com>
 References: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
@@ -21,75 +21,99 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/net_namespace.h | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+ include/net/netevent.h |  6 ++---
+ include/net/netlink.h  | 63 ++++++++++++++++++++------------------------------
+ 2 files changed, 28 insertions(+), 41 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 1313456..38c2afb 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -136,8 +136,8 @@ struct net {
- extern struct net init_net;
+diff --git a/include/net/netevent.h b/include/net/netevent.h
+index fe630dd..d8bbb38 100644
+--- a/include/net/netevent.h
++++ b/include/net/netevent.h
+@@ -26,8 +26,8 @@ enum netevent_notif_type {
+ 	NETEVENT_REDIRECT,	   /* arg is struct netevent_redirect ptr */
+ };
  
- #ifdef CONFIG_NET_NS
--extern struct net *copy_net_ns(unsigned long flags,
--	struct user_namespace *user_ns, struct net *old_net);
-+struct net *copy_net_ns(unsigned long flags, struct user_namespace *user_ns,
-+			struct net *old_net);
+-extern int register_netevent_notifier(struct notifier_block *nb);
+-extern int unregister_netevent_notifier(struct notifier_block *nb);
+-extern int call_netevent_notifiers(unsigned long val, void *v);
++int register_netevent_notifier(struct notifier_block *nb);
++int unregister_netevent_notifier(struct notifier_block *nb);
++int call_netevent_notifiers(unsigned long val, void *v);
  
- #else /* CONFIG_NET_NS */
- #include <linux/sched.h>
-@@ -154,11 +154,11 @@ static inline struct net *copy_net_ns(unsigned long flags,
+ #endif
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 9690b0f..2b47eaa 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -225,44 +225,31 @@ struct nl_info {
+ 	u32			portid;
+ };
  
- extern struct list_head net_namespace_list;
+-extern int		netlink_rcv_skb(struct sk_buff *skb,
+-					int (*cb)(struct sk_buff *,
+-						  struct nlmsghdr *));
+-extern int		nlmsg_notify(struct sock *sk, struct sk_buff *skb,
+-				     u32 portid, unsigned int group, int report,
+-				     gfp_t flags);
+-
+-extern int		nla_validate(const struct nlattr *head,
+-				     int len, int maxtype,
+-				     const struct nla_policy *policy);
+-extern int		nla_parse(struct nlattr **tb, int maxtype,
+-				  const struct nlattr *head, int len,
+-				  const struct nla_policy *policy);
+-extern int		nla_policy_len(const struct nla_policy *, int);
+-extern struct nlattr *	nla_find(const struct nlattr *head,
+-				 int len, int attrtype);
+-extern size_t		nla_strlcpy(char *dst, const struct nlattr *nla,
+-				    size_t dstsize);
+-extern int		nla_memcpy(void *dest, const struct nlattr *src, int count);
+-extern int		nla_memcmp(const struct nlattr *nla, const void *data,
+-				   size_t size);
+-extern int		nla_strcmp(const struct nlattr *nla, const char *str);
+-extern struct nlattr *	__nla_reserve(struct sk_buff *skb, int attrtype,
+-				      int attrlen);
+-extern void *		__nla_reserve_nohdr(struct sk_buff *skb, int attrlen);
+-extern struct nlattr *	nla_reserve(struct sk_buff *skb, int attrtype,
+-				    int attrlen);
+-extern void *		nla_reserve_nohdr(struct sk_buff *skb, int attrlen);
+-extern void		__nla_put(struct sk_buff *skb, int attrtype,
+-				  int attrlen, const void *data);
+-extern void		__nla_put_nohdr(struct sk_buff *skb, int attrlen,
+-					const void *data);
+-extern int		nla_put(struct sk_buff *skb, int attrtype,
+-				int attrlen, const void *data);
+-extern int		nla_put_nohdr(struct sk_buff *skb, int attrlen,
+-				      const void *data);
+-extern int		nla_append(struct sk_buff *skb, int attrlen,
+-				   const void *data);
++int netlink_rcv_skb(struct sk_buff *skb,
++		    int (*cb)(struct sk_buff *, struct nlmsghdr *));
++int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 portid,
++		 unsigned int group, int report, gfp_t flags);
++
++int nla_validate(const struct nlattr *head, int len, int maxtype,
++		 const struct nla_policy *policy);
++int nla_parse(struct nlattr **tb, int maxtype, const struct nlattr *head,
++	      int len, const struct nla_policy *policy);
++int nla_policy_len(const struct nla_policy *, int);
++struct nlattr *nla_find(const struct nlattr *head, int len, int attrtype);
++size_t nla_strlcpy(char *dst, const struct nlattr *nla, size_t dstsize);
++int nla_memcpy(void *dest, const struct nlattr *src, int count);
++int nla_memcmp(const struct nlattr *nla, const void *data, size_t size);
++int nla_strcmp(const struct nlattr *nla, const char *str);
++struct nlattr *__nla_reserve(struct sk_buff *skb, int attrtype, int attrlen);
++void *__nla_reserve_nohdr(struct sk_buff *skb, int attrlen);
++struct nlattr *nla_reserve(struct sk_buff *skb, int attrtype, int attrlen);
++void *nla_reserve_nohdr(struct sk_buff *skb, int attrlen);
++void __nla_put(struct sk_buff *skb, int attrtype, int attrlen,
++	       const void *data);
++void __nla_put_nohdr(struct sk_buff *skb, int attrlen, const void *data);
++int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
++int nla_put_nohdr(struct sk_buff *skb, int attrlen, const void *data);
++int nla_append(struct sk_buff *skb, int attrlen, const void *data);
  
--extern struct net *get_net_ns_by_pid(pid_t pid);
--extern struct net *get_net_ns_by_fd(int pid);
-+struct net *get_net_ns_by_pid(pid_t pid);
-+struct net *get_net_ns_by_fd(int pid);
- 
- #ifdef CONFIG_NET_NS
--extern void __put_net(struct net *net);
-+void __put_net(struct net *net);
- 
- static inline struct net *get_net(struct net *net)
- {
-@@ -190,7 +190,7 @@ int net_eq(const struct net *net1, const struct net *net2)
- 	return net1 == net2;
- }
- 
--extern void net_drop_ns(void *);
-+void net_drop_ns(void *);
- 
- #else
- 
-@@ -307,19 +307,19 @@ struct pernet_operations {
-  * device which caused kernel oops, and panics during network
-  * namespace cleanup.   So please don't get this wrong.
-  */
--extern int register_pernet_subsys(struct pernet_operations *);
--extern void unregister_pernet_subsys(struct pernet_operations *);
--extern int register_pernet_device(struct pernet_operations *);
--extern void unregister_pernet_device(struct pernet_operations *);
-+int register_pernet_subsys(struct pernet_operations *);
-+void unregister_pernet_subsys(struct pernet_operations *);
-+int register_pernet_device(struct pernet_operations *);
-+void unregister_pernet_device(struct pernet_operations *);
- 
- struct ctl_table;
- struct ctl_table_header;
- 
- #ifdef CONFIG_SYSCTL
--extern int net_sysctl_init(void);
--extern struct ctl_table_header *register_net_sysctl(struct net *net,
--	const char *path, struct ctl_table *table);
--extern void unregister_net_sysctl_table(struct ctl_table_header *header);
-+int net_sysctl_init(void);
-+struct ctl_table_header *register_net_sysctl(struct net *net, const char *path,
-+					     struct ctl_table *table);
-+void unregister_net_sysctl_table(struct ctl_table_header *header);
- #else
- static inline int net_sysctl_init(void) { return 0; }
- static inline struct ctl_table_header *register_net_sysctl(struct net *net,
+ /**************************************************************************
+  * Netlink Messages
 -- 
 1.8.1.2.459.gbcd45b4.dirty
