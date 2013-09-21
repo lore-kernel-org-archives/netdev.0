@@ -1,46 +1,108 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-09-21
-Date: Sat, 21 Sep 2013 16:08:12 +0200
-Message-ID: <1379772493-7856-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH 2/2] net: phy: at803x: add suspend/resume callbacks
+Date: Sat, 21 Sep 2013 16:53:02 +0200
+Message-ID: <1379775182-1271-2-git-send-email-zonque@gmail.com>
+References: <1379775182-1271-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, mugunthanvnm@ti.com, ujhelyi.m@gmail.com,
+	sergei.shtylyov@cogentembedded.com, Daniel Mack <zonque@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36727 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870Ab3IUOIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 10:08:19 -0400
+Received: from svenfoo.org ([82.94.215.22]:56359 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752577Ab3IUOxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Sep 2013 10:53:16 -0400
+In-Reply-To: <1379775182-1271-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+When WOL is enabled, the chip can't be put into power-down (BMCR_PDOWN)
+mode, as that will also switch off the MAC, which consequently leads to
+a link loss.
 
-here is a fixes for the v3.12 release cycle. Alexey Khoroshilov from the Linux
-Driver Verification project submitted a patch that fixes a memory leak in the
-failure paths of the peak USB driver.
+Use BMCR_ISOLATE in that case, which will at least save us some
+milliamperes in comparison to normal operation mode.
 
-
-regards,
-Marc
-
+Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
+ drivers/net/phy/at803x.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
 
-The following changes since commit dcb30e659287a6b40dafed1362532da42ec27229:
-
-  Merge tag 'arm64-stable' of git://git.kernel.org/pub/scm/linux/kernel/git/cmarinas/linux-aarch64 (2013-09-20 08:18:51 -0500)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.12
-
-for you to fetch changes up to f37d6e701f2a3a04e66690397340a6417f6e053f:
-
-  can: pcan_usb_core: fix memory leak on failure paths in peak_usb_start() (2013-09-20 20:58:21 +0200)
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      can: pcan_usb_core: fix memory leak on failure paths in peak_usb_start()
-
- drivers/net/can/usb/peak_usb/pcan_usb_core.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index 4179228..bc71947 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -100,6 +100,45 @@ static void at803x_get_wol(struct phy_device *phydev,
+ 		wol->wolopts |= WAKE_MAGIC;
+ }
+ 
++static int at803x_suspend(struct phy_device *phydev)
++{
++	int value;
++	int wol_enabled;
++
++	mutex_lock(&phydev->lock);
++
++	value = phy_read(phydev, AT803X_INTR_ENABLE);
++	wol_enabled = value & AT803X_WOL_ENABLE;
++
++	value = phy_read(phydev, MII_BMCR);
++
++	if (wol_enabled)
++		value |= BMCR_ISOLATE;
++	else
++		value |= BMCR_PDOWN;
++
++	phy_write(phydev, MII_BMCR, value);
++
++	mutex_unlock(&phydev->lock);
++
++	return 0;
++}
++
++static int at803x_resume(struct phy_device *phydev)
++{
++	int value;
++
++	mutex_lock(&phydev->lock);
++
++	value = phy_read(phydev, MII_BMCR);
++	value &= ~(BMCR_PDOWN | BMCR_ISOLATE);
++	phy_write(phydev, MII_BMCR, value);
++
++	mutex_unlock(&phydev->lock);
++
++	return 0;
++}
++
+ static int at803x_config_init(struct phy_device *phydev)
+ {
+ 	int val;
+@@ -161,6 +200,8 @@ static struct phy_driver at803x_driver[] = {
+ 	.config_init	= at803x_config_init,
+ 	.set_wol	= at803x_set_wol,
+ 	.get_wol	= at803x_get_wol,
++	.suspend	= at803x_suspend,
++	.resume		= at803x_resume,
+ 	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -176,6 +217,8 @@ static struct phy_driver at803x_driver[] = {
+ 	.config_init	= at803x_config_init,
+ 	.set_wol	= at803x_set_wol,
+ 	.get_wol	= at803x_get_wol,
++	.suspend	= at803x_suspend,
++	.resume		= at803x_resume,
+ 	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -191,6 +234,8 @@ static struct phy_driver at803x_driver[] = {
+ 	.config_init	= at803x_config_init,
+ 	.set_wol	= at803x_set_wol,
+ 	.get_wol	= at803x_get_wol,
++	.suspend	= at803x_suspend,
++	.resume		= at803x_resume,
+ 	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_aneg	= genphy_config_aneg,
+-- 
+1.8.3.1
