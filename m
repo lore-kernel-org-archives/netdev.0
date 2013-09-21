@@ -1,57 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] net: neighbour: use source address of last enqueued packet for solicitation
-Date: Sat, 21 Sep 2013 06:32:34 +0200
-Message-ID: <20130921043234.GA13307@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, ja@ssi.bg
-To: netdev@vger.kernel.org
+From: Vladimir Murzin <murzin.v@gmail.com>
+Subject: [RESEND PATCH 1/2] powerpc: net: filter: fix DIVWU instruction opcode
+Date: Sat, 21 Sep 2013 09:25:33 +0200
+Message-ID: <1379748334-3313-1-git-send-email-murzin.v@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	benh@kernel.crashing.org, paulus@samba.org, matt@ozlabs.org,
+	edumazet@google.com, dborkman@redhat.com,
+	Vladimir Murzin <murzin.v@gmail.com>
+To: linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:41526 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab3IUEcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 00:32:36 -0400
-Content-Disposition: inline
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:39762 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752082Ab3IUH0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 03:26:51 -0400
+Received: by mail-lb0-f174.google.com with SMTP id w6so1246468lbh.5
+        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 00:26:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we always use the first member of the arp_queue to determine
-the sender ip address of the arp packet (or in case of IPv6 - source
-address of the ndisc packet). This skb is fixed as long as the queue is
-not drained by a complete purge because of a timeout or by a successful
-response.
+Currently DIVWU stands for *signed* divw opcode:
 
-If the first packet enqueued on the arp_queue is from a local application
-with a manually set source address and the to be discovered system
-does some kind of uRPF checks on the source address in the arp packet
-the resolving process hangs until a timeout and restarts. This hurts
-communication with the participating network node.
+7d 2a 4b 96 	divwu   r9,r10,r9
+7d 2a 4b d6 	divw    r9,r10,r9
 
-This could be mitigated a bit if we use the latest enqueued skb's
-source address for the resolving process, which is not as static as
-the arp_queue's head. This change of the source address could result in
-better recovery of a failed solicitation.
+Use the *unsigned* divw opcode for DIVWU.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Julian Anastasov <ja@ssi.bg>
-Reviewed-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+Acked-by: Matt Evans <matt@ozlabs.org>
 ---
- net/core/neighbour.c | 2 +-
+ arch/powerpc/include/asm/ppc-opcode.h |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 6072610..ca15f32 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -867,7 +867,7 @@ static void neigh_invalidate(struct neighbour *neigh)
- static void neigh_probe(struct neighbour *neigh)
- 	__releases(neigh->lock)
- {
--	struct sk_buff *skb = skb_peek(&neigh->arp_queue);
-+	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
- 	/* keep skb alive even if arp_queue overflows */
- 	if (skb)
- 		skb = skb_copy(skb, GFP_ATOMIC);
+diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
+index d7fe9f5..c91842c 100644
+--- a/arch/powerpc/include/asm/ppc-opcode.h
++++ b/arch/powerpc/include/asm/ppc-opcode.h
+@@ -218,7 +218,7 @@
+ #define PPC_INST_MULLW			0x7c0001d6
+ #define PPC_INST_MULHWU			0x7c000016
+ #define PPC_INST_MULLI			0x1c000000
+-#define PPC_INST_DIVWU			0x7c0003d6
++#define PPC_INST_DIVWU			0x7c000396
+ #define PPC_INST_RLWINM			0x54000000
+ #define PPC_INST_RLDICR			0x78000004
+ #define PPC_INST_SLW			0x7c000030
 -- 
-1.8.3.1
+1.7.10.4
