@@ -1,79 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
-Date: Sat, 21 Sep 2013 04:39:46 +0400
-Message-ID: <523CEAD2.7030706@cogentembedded.com>
-References: <201309140410.38396.sergei.shtylyov@cogentembedded.com> <20130917.154446.554384673039269498.davem@davemloft.net>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: [PATCH v4] net/hsr: Add support for the High-availability Seamless
+ Redundancy protocol (HSRv0)
+Date: Sat, 21 Sep 2013 02:43:57 +0200
+Message-ID: <523CEBCD.10808@xdin.com>
+References: <523A4F5E.9070503@xdin.com> <20130920.151017.2125552741552759738.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	laurent.pinchart+renesas@ideasonboard.com
-To: David Miller <davem@davemloft.net>,
-	nobuhiro.iwamatsu.yj@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20130917.154446.554384673039269498.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <shemminger@vyatta.com>,
+	<joe@perches.com>, <jboticario@gmail.com>,
+	<balferreira@googlemail.com>, <elias.molina@ehu.es>,
+	Arvid Brodin <arvid.brodin@xdin.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spam1.webland.se ([91.207.112.90]:56000 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752070Ab3IUAzN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Sep 2013 20:55:13 -0400
+In-Reply-To: <20130920.151017.2125552741552759738.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 2013-09-20 21:10, David Miller wrote:
+> From: Arvid Brodin <arvid.brodin@xdin.com>
+> Date: Thu, 19 Sep 2013 03:11:58 +0200
+>=20
+>> +#if !defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+>> +		/* We need to memmove the whole header to work around
+>> +		 * alignment problems caused by the 6-byte HSR tag.
+>> +		 */
+>> +		memmove(skb_deliver->data - HSR_TAGLEN, skb_deliver->data,
+>> +			skb_headlen(skb_deliver));
+>> +		skb_deliver->data -=3D HSR_TAGLEN;
+>> +		skb_deliver->tail -=3D HSR_TAGLEN;
+>> +#endif
+>=20
+> You can't do this.
+>=20
+> First of all, you have no idea if subtracting skb->data a given amoun=
+t
+> will underflow the skb buffer start.  You aren't even checking, all
+> of the standard skb_*() data adjustment interfaces do.
 
-On 09/17/2013 11:44 PM, David Miller wrote:
+Isn't it reasonable to assume that skb points to an sk_buff with a
+valid Ethernet header, and with skb->data pointing to the end of that
+header, at the start of ETH_P_... protocol handlers?
 
->> Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY registers
->> registers values of which are vital for the correct functioning of the driver.
->> Unfortunately, the existing PHY platform fixup mechanism doesn't help  here as
->> it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups() from
->> the driver helps here. With a proper platform fixup, this fixes NFS timeouts on
->> the SH-Mobile Lager board.
 
-    "And sets the PHY LED pins to the desired mode", I should have added.
+> Secondly, everything after the header is now at the wrong offset from
+> the beginning of the packet.
+>=20
+> You will have to memmove() the entire packet if you want to realign
+> where it starts.
 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Are you saying packet data may contain offsets from itself to the mac=20
+header? Or are you talking about fragments? This being the Ethernet=20
+protocol handler, e.g. skb->network_header and skb->transport_header=20
+should not have been set yet.
 
-> The PHY layer is designed to naturally already take care of this kind of
-> thing.  I think that part of the problem is that you're fighting the
-> natural control flow the PHY layer provides.
+Anyway, I should do
+	skb_deliver->len -=3D HSR_TAGLEN;
+here! (I'm removing 6 bytes after the mac header from the packet, not=20
+just realigning it.)
 
-> When the phy_connect() is performed, what we end up doing is calling
-> phy_attach_direct() which invokes the ->probe() method of the driver
-> and then afterwards we do phy_init_hw() which takes care of doing
-> the fixup calls.
+Given all this, and looking at e.g. __pskb_pull_tail(), it should be=20
+correct to memmove() only the linear part of the packet after the remov=
+ed=20
+bytes - any fragments will just be appended directly after the end of t=
+he=20
+(shortened) linear part on use?
 
-    Yes, I have studied the code paths beforehand.
+It's weird though, the "len" bug doesn't show up in my practical tests =
+-=20
+scp of 16 MiB file (sha1sum compared afterwards) and ping with default=20
+and 65 KB packets work just fine before and after this change - even
+between one fixed system and one with the bug remaining. Could it be
+that none of the network device drivers we use (e1000e and macb) make=20
+use of nonlinear skbs?
 
-> So if you really need to do a BMCR reset then run the fixups I'd like
-> you to look into making that happen within the provided control
-> flow rather than with an exceptional explicit call to run the fixups.
 
-    That could change the behavior of many Ethernet drivers in sometimes 
-unpredictable ways I think (due to extended registers the PHYs sometimes have, 
-like in this case) if you meant including the PHY reset into phylib control 
-flows. Anyway, that would have required more complex patches only good for 
-merging at the merge window time while I aimed at a quick fix for a problem at 
-hand (which is NFS timeout/slowdown and LED mode mismatch to what was designed 
-for the board).
-    Some other drivers also do reset the PHYs but usually that's accompanied 
-by a loop polling for reset completion, so a naive code like that one on the 
-phylib's ioctl() path couldn't have helped if I wanted to hook reset writes in 
-the same fashion in phy_write(). In my case reset seems just quick enough for 
-the extended PHY register reads/writes to work correctly without polling the 
-reset bit first...
-    That's why I took an easy way and used already exported phy_scan_fixups() 
-to undo what the PHY reset did to some of the PHY's registers. The question is 
-why it was exported in the first place? It doesn't seem to be used by anything 
-but phylib internally...
-
-> I'm willing to be convinced that this is a better or necessary approach
-> but you'll need to explain it to me.
-
-    Well, I didn't write this driver, so I'm probably not the best person to 
-be asked about its design (maybe Iwamatsu-san could add something here). I 
-don't know about the purpose of the explicit PHY reset in the driver more than 
-the accompanying comment says (and it doesn't say much other than that it 
-takes the PHY out of power-down). Perhaps we could just painlessly remove it, 
-who knows?
-
-> Thanks.
-
-WBR, Sergei
-
+--=20
+Arvid Brodin | Consultant (Linux)
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
