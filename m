@@ -1,38 +1,79 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH 1/2] remove all uses of printf's %n
-Date: Sat, 21 Sep 2013 09:28:14 +0900
-Message-ID: <201309210928.JCF90671.OtOFLFQSOJVFMH@I-love.SAKURA.ne.jp>
-References: <201309191756.BCF65661.MQFOLSJOFHFtOV@I-love.SAKURA.ne.jp>
-	<CAGXu5jK_D1BJOQr=1A-UFrpM5Ad+Qu894HT_XjkZh4EmsbCkTQ@mail.gmail.com>
-	<201309201309.GFB52620.OQOtSFLMJVHOFF@I-love.SAKURA.ne.jp>
-	<523C0268.20404@suse.cz>
-	<CAGXu5jLENb+x6b9XOY7-pWMT7GsFgnLr0=A8VNFLkqMi0BX4=w@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
+Date: Sat, 21 Sep 2013 04:39:46 +0400
+Message-ID: <523CEAD2.7030706@cogentembedded.com>
+References: <201309140410.38396.sergei.shtylyov@cogentembedded.com> <20130917.154446.554384673039269498.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: viro@zeniv.linux.org.uk, xemul@openvz.org,
-	remi.denis-courmont@nokia.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux@horizon.com, akpm@linux-foundation.org,
-	dan.carpenter@oracle.com, geert@linux-m68k.org, JBeulich@suse.com,
-	joe@perches.com, kosaki.motohiro@gmail.com
-To: keescook@chromium.org, jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jLENb+x6b9XOY7-pWMT7GsFgnLr0=A8VNFLkqMi0BX4=w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	laurent.pinchart+renesas@ideasonboard.com
+To: David Miller <davem@davemloft.net>,
+	nobuhiro.iwamatsu.yj@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130917.154446.554384673039269498.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kees Cook wrote:
-> >> -                     seq_printf(seq, "%*s\n", 127 - len, "");
-> >> +                     seq_pad(seq, '\n');
-> >
-> > Hmm, seq_pad is unintuitive. I would say it pads the string by '\n'. Of
-> > course it does not, but...
-> 
-> I don't think this is a very serious problem. Currently, the padding
-> character is always ' ' for all existing callers, so it only makes
-> sense to make the trailing character an argument.
+Hello.
 
-If you want, we can rename seq_pad() to seq_pad_and_putc(). Also we can pass
-both the padding character (e.g. ' ') and the trailing character (e.g. '\n')
-like seq_pad_and_putc((' ' << 8) | '\n'), though I wonder someone wants to
-use '\0', '\t', '\n' etc. as the padding character...
+On 09/17/2013 11:44 PM, David Miller wrote:
+
+>> Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY registers
+>> registers values of which are vital for the correct functioning of the driver.
+>> Unfortunately, the existing PHY platform fixup mechanism doesn't help  here as
+>> it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups() from
+>> the driver helps here. With a proper platform fixup, this fixes NFS timeouts on
+>> the SH-Mobile Lager board.
+
+    "And sets the PHY LED pins to the desired mode", I should have added.
+
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> The PHY layer is designed to naturally already take care of this kind of
+> thing.  I think that part of the problem is that you're fighting the
+> natural control flow the PHY layer provides.
+
+> When the phy_connect() is performed, what we end up doing is calling
+> phy_attach_direct() which invokes the ->probe() method of the driver
+> and then afterwards we do phy_init_hw() which takes care of doing
+> the fixup calls.
+
+    Yes, I have studied the code paths beforehand.
+
+> So if you really need to do a BMCR reset then run the fixups I'd like
+> you to look into making that happen within the provided control
+> flow rather than with an exceptional explicit call to run the fixups.
+
+    That could change the behavior of many Ethernet drivers in sometimes 
+unpredictable ways I think (due to extended registers the PHYs sometimes have, 
+like in this case) if you meant including the PHY reset into phylib control 
+flows. Anyway, that would have required more complex patches only good for 
+merging at the merge window time while I aimed at a quick fix for a problem at 
+hand (which is NFS timeout/slowdown and LED mode mismatch to what was designed 
+for the board).
+    Some other drivers also do reset the PHYs but usually that's accompanied 
+by a loop polling for reset completion, so a naive code like that one on the 
+phylib's ioctl() path couldn't have helped if I wanted to hook reset writes in 
+the same fashion in phy_write(). In my case reset seems just quick enough for 
+the extended PHY register reads/writes to work correctly without polling the 
+reset bit first...
+    That's why I took an easy way and used already exported phy_scan_fixups() 
+to undo what the PHY reset did to some of the PHY's registers. The question is 
+why it was exported in the first place? It doesn't seem to be used by anything 
+but phylib internally...
+
+> I'm willing to be convinced that this is a better or necessary approach
+> but you'll need to explain it to me.
+
+    Well, I didn't write this driver, so I'm probably not the best person to 
+be asked about its design (maybe Iwamatsu-san could add something here). I 
+don't know about the purpose of the explicit PHY reset in the driver more than 
+the accompanying comment says (and it doesn't say much other than that it 
+takes the PHY out of power-down). Perhaps we could just painlessly remove it, 
+who knows?
+
+> Thanks.
+
+WBR, Sergei
+
