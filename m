@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 03/12] ipx.h: Remove extern from function prototypes
-Date: Sat, 21 Sep 2013 10:22:43 -0700
-Message-ID: <aed828a0b08b947467bf8009e8225c3abdfe78c0.1379783995.git.joe@perches.com>
+Subject: [PATCH 12/12] p8022.h: Remove extern from function prototypes
+Date: Sat, 21 Sep 2013 10:22:52 -0700
+Message-ID: <5640248f05394a4460179df8f9f8cb5a1959eb6b.1379783996.git.joe@perches.com>
 References: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
@@ -21,42 +21,35 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/ipx.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/net/p8022.h | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/ipx.h b/include/net/ipx.h
-index c1fec6b..9e9e354 100644
---- a/include/net/ipx.h
-+++ b/include/net/ipx.h
-@@ -123,23 +123,23 @@ extern struct list_head ipx_routes;
- extern rwlock_t ipx_routes_lock;
+diff --git a/include/net/p8022.h b/include/net/p8022.h
+index 42e9fac..05e4138 100644
+--- a/include/net/p8022.h
++++ b/include/net/p8022.h
+@@ -1,13 +1,13 @@
+ #ifndef _NET_P8022_H
+ #define _NET_P8022_H
+-extern struct datalink_proto *
+-	register_8022_client(unsigned char type,
+-			     int (*func)(struct sk_buff *skb,
+-					 struct net_device *dev,
+-					 struct packet_type *pt,
+-					 struct net_device *orig_dev));
+-extern void unregister_8022_client(struct datalink_proto *proto);
++struct datalink_proto *
++register_8022_client(unsigned char type,
++		     int (*func)(struct sk_buff *skb,
++				 struct net_device *dev,
++				 struct packet_type *pt,
++				 struct net_device *orig_dev));
++void unregister_8022_client(struct datalink_proto *proto);
  
- extern struct list_head ipx_interfaces;
--extern struct ipx_interface *ipx_interfaces_head(void);
-+struct ipx_interface *ipx_interfaces_head(void);
- extern spinlock_t ipx_interfaces_lock;
- 
- extern struct ipx_interface *ipx_primary_net;
- 
--extern int ipx_proc_init(void);
--extern void ipx_proc_exit(void);
-+int ipx_proc_init(void);
-+void ipx_proc_exit(void);
- 
--extern const char *ipx_frame_name(__be16);
--extern const char *ipx_device_name(struct ipx_interface *intrfc);
-+const char *ipx_frame_name(__be16);
-+const char *ipx_device_name(struct ipx_interface *intrfc);
- 
- static __inline__ void ipxitf_hold(struct ipx_interface *intrfc)
- {
- 	atomic_inc(&intrfc->refcnt);
- }
- 
--extern void ipxitf_down(struct ipx_interface *intrfc);
-+void ipxitf_down(struct ipx_interface *intrfc);
- 
- static __inline__ void ipxitf_put(struct ipx_interface *intrfc)
- {
+-extern struct datalink_proto *make_8023_client(void);
+-extern void destroy_8023_client(struct datalink_proto *dl);
++struct datalink_proto *make_8023_client(void);
++void destroy_8023_client(struct datalink_proto *dl);
+ #endif
 -- 
 1.8.1.2.459.gbcd45b4.dirty
