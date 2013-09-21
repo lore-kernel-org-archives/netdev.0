@@ -1,52 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Potential out-of-bounds access in ip6_finish_output2
-Date: Sat, 21 Sep 2013 17:14:57 +0200
-Message-ID: <20130921151457.GA5748@order.stressinduktion.org>
-References: <CACT4Y+ZXqoixvCyN5703+sVhCV4ND-vNwash2Z1vSDoLgKNyVg@mail.gmail.com> <20130917224851.GB8947@order.stressinduktion.org>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [patch 2/4] mISDN: add support for group membership check
+Date: Sat, 21 Sep 2013 17:36:04 +0200
+Message-ID: <523DBCE4.1060903@linux-pingi.de>
+References: <523C7464.3070007@suse.cz>	<20130920.121535.1653382964468102292.davem@davemloft.net>	<523C753A.8040401@suse.cz> <20130920.122142.1032350399957506112.davem@davemloft.net> <523C780E.5050201@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Dmitry Vyukov <dvyukov@google.com>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, Paul Turner <pjt@google.com>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ben@decadent.org.uk,
+	akpm@linux-foundation.org, jeffm@suse.com, netdev@vger.kernel.org,
+	isdn4linux@koppen.de, isdn@linux-pingi.de,
+	sergei.shtylyov@cogentembedded.com
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42125 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752482Ab3IUPO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 11:14:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20130917224851.GB8947@order.stressinduktion.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:50752 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850Ab3IUPgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 11:36:15 -0400
+In-Reply-To: <523C780E.5050201@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 18, 2013 at 12:48:51AM +0200, Hannes Frederic Sowa wrote:
-> On Mon, Sep 16, 2013 at 10:13:10PM -0700, Dmitry Vyukov wrote:
-> > I am working on AddressSanitizer -- a tool that detects use-after-free
-> > and out-of-bounds bugs
-> > (https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel).
-> > 
-> > I've got a dozen of reports in ip6_finish_output2. Below are 2 of
-> > them. They are always followed by kernel crash. Unfortunately I don't
-> > have a reproducer because I am using trinity fuzzer. I would
-> > appreciate if somebody familiar with the code look at sources and
-> > maybe spot the bug.
+Hi Jiri,
+
+thanks for bringing up this this issue again and sorry for not jumping
+in earlier.
+
+Am 20.09.2013 18:30, schrieb Jiri Slaby:
+> On 09/20/2013 06:21 PM, David Miller wrote:
+>> From: Jiri Slaby <jslaby@suse.cz>
+>> Date: Fri, 20 Sep 2013 18:18:02 +0200
+>>
+>>> Ok, let's leave the hole in there then.
+>>
+>> Jiri, don't turn this on me.
+>>
+>> The issue is not whether something needs to be fixed or not, I never
+>> said "don't fix this" and therefore I'd like to ask politely that you
+>> not make it seem like I have.
+>>
+>> Rather, I'm saying that the implementation is terrible, sets a bad
+>> precendence for fixing similar problems, and therefore not is in
+>> a state where we can apply it.
+
+OK, the history of this this patch is, that the somebody came up with
+the issue, that with the old device node implementation it was simple to
+restrict access to a group via standard unix file access rules to avoid
+normal users could use ISDN to sniff the bus or even worst for the owner
+make high cost calls.
+Then somebody came up with this idea, which did allow a similar level of
+protection. I did not like it very much nor I had a better idea, SuSE
+security people did want it, so it was implemented. I never tried to
+push it.
+
+>>
+>> So, I'm not saying "don't fix this", I'm saying "fix it properly."
 > 
-> Thanks for the report!
-> 
-> I tried reproducing the bug and hit some other bugs nearby. I'll try to fix
-> them, but this could take some time.
 
-I fixed the first bug I encountered with trinity here:
-http://patchwork.ozlabs.org/patch/276835/
+David, since you mention that here are maybe other drivers with same
+issues, do you have an idea about a better interface or maybe a
+completely other way which could be used to restrict the access to some
+group of users.
 
-The main cause of this bug has nothing to do with raw sockets, so I first
-thought they are not related. But I left my machine run trinity while
-I was sleeping and did not see any other splats (I added some manually
-range checks in ip6_append_data). So maybe your bug happend because the
-premature exit in the dontfrag check without resetting cork->length. Maybe
-you could give this patch a try? I'll have a second look later today.
-
-Thanks,
-
-  Hannes
+> Yeah, I understand your point and agree, that the parameter is ugly as
+> hell. But investing any more time in ISDN is not worth it, I think.
+> Look, I sent the patch a couple times to the ISDN maintainers and they
+> didn't even bother to reply. And I am not familiar with the code and do
+> not want to spend more time than putting there a single check, sorry.
+> Hence, if there is anybody from the ISDN fellows to take care of that,
+> nice. If not, we will just live with this patch locally some more years
+> and drop it when the ISDN subsystem is dropped from the kernel, if
+> dropped at all.
