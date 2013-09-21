@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 03/11] sfc: Add EF10 registers to register dump
-Date: Sat, 21 Sep 2013 19:33:45 +0100
-Message-ID: <1379788425.1681.37.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 04/11] sfc: Fold tso_get_head_fragment() into
+ tso_start()
+Date: Sat, 21 Sep 2013 19:34:05 +0100
+Message-ID: <1379788445.1681.38.camel@bwh-desktop.uk.level5networks.com>
 References: <1379788283.1681.34.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,156 +10,124 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32583 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:32589 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398Ab3IUSds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:33:48 -0400
+	with ESMTP id S1752619Ab3IUSeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:34:09 -0400
 In-Reply-To: <1379788283.1681.34.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are very few readable registers, but we may as well report them.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/nic.c | 73 ++++++++++++++++++++++++------------------
- 1 file changed, 42 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/sfc/tx.c | 62 +++++++++++++++++++++----------------------
+ 1 file changed, 31 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index e7dbd2d..c75009b 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -19,6 +19,7 @@
- #include "bitfield.h"
- #include "efx.h"
- #include "nic.h"
-+#include "ef10_regs.h"
- #include "farch_regs.h"
- #include "io.h"
- #include "workarounds.h"
-@@ -166,26 +167,30 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 2ac91c5..9025356 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -822,11 +822,17 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
  
- /* Register dump */
+
+ /* Parse the SKB header and initialise state. */
+-static void tso_start(struct tso_state *st, const struct sk_buff *skb)
++static int tso_start(struct tso_state *st, struct efx_nic *efx,
++		     const struct sk_buff *skb)
+ {
++	unsigned int header_len, in_len;
++
+ 	st->ip_off = skb_network_header(skb) - skb->data;
+ 	st->tcp_off = skb_transport_header(skb) - skb->data;
+-	st->header_len = st->tcp_off + (tcp_hdr(skb)->doff << 2u);
++	header_len = st->tcp_off + (tcp_hdr(skb)->doff << 2u);
++	in_len = skb_headlen(skb) - header_len;
++	st->header_len = header_len;
++	st->in_len = in_len;
+ 	if (st->protocol == htons(ETH_P_IP)) {
+ 		st->ip_base_len = st->header_len - st->ip_off;
+ 		st->ipv4_id = ntohs(ip_hdr(skb)->id);
+@@ -840,9 +846,24 @@ static void tso_start(struct tso_state *st, const struct sk_buff *skb)
+ 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->syn);
+ 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->rst);
  
--#define REGISTER_REVISION_A	1
--#define REGISTER_REVISION_B	2
--#define REGISTER_REVISION_C	3
--#define REGISTER_REVISION_Z	3	/* latest revision */
-+#define REGISTER_REVISION_FA	1
-+#define REGISTER_REVISION_FB	2
-+#define REGISTER_REVISION_FC	3
-+#define REGISTER_REVISION_FZ	3	/* last Falcon arch revision */
-+#define REGISTER_REVISION_ED	4
-+#define REGISTER_REVISION_EZ	4	/* latest EF10 revision */
- 
- struct efx_nic_reg {
- 	u32 offset:24;
--	u32 min_revision:2, max_revision:2;
-+	u32 min_revision:3, max_revision:3;
- };
- 
--#define REGISTER(name, min_rev, max_rev) {				\
--	FR_ ## min_rev ## max_rev ## _ ## name,				\
--	REGISTER_REVISION_ ## min_rev, REGISTER_REVISION_ ## max_rev	\
-+#define REGISTER(name, arch, min_rev, max_rev) {			\
-+	arch ## R_ ## min_rev ## max_rev ## _ ## name,			\
-+	REGISTER_REVISION_ ## arch ## min_rev,				\
-+	REGISTER_REVISION_ ## arch ## max_rev				\
+-	st->out_len = skb->len - st->header_len;
+-	st->unmap_len = 0;
+-	st->dma_flags = 0;
++	st->out_len = skb->len - header_len;
++
++	if (likely(in_len == 0)) {
++		st->unmap_len = 0;
++		st->dma_flags = 0;
++		return 0;
++	}
++
++	st->unmap_addr = dma_map_single(&efx->pci_dev->dev,
++					skb->data + header_len, in_len,
++					DMA_TO_DEVICE);
++	if (unlikely(dma_mapping_error(&efx->pci_dev->dev, st->unmap_addr)))
++		return -ENOMEM;
++
++	st->dma_flags = EFX_TX_BUF_MAP_SINGLE;
++	st->unmap_len = in_len;
++	st->dma_addr = st->unmap_addr;
++	return 0;
  }
--#define REGISTER_AA(name) REGISTER(name, A, A)
--#define REGISTER_AB(name) REGISTER(name, A, B)
--#define REGISTER_AZ(name) REGISTER(name, A, Z)
--#define REGISTER_BB(name) REGISTER(name, B, B)
--#define REGISTER_BZ(name) REGISTER(name, B, Z)
--#define REGISTER_CZ(name) REGISTER(name, C, Z)
-+#define REGISTER_AA(name) REGISTER(name, F, A, A)
-+#define REGISTER_AB(name) REGISTER(name, F, A, B)
-+#define REGISTER_AZ(name) REGISTER(name, F, A, Z)
-+#define REGISTER_BB(name) REGISTER(name, F, B, B)
-+#define REGISTER_BZ(name) REGISTER(name, F, B, Z)
-+#define REGISTER_CZ(name) REGISTER(name, F, C, Z)
-+#define REGISTER_DZ(name) REGISTER(name, E, D, Z)
  
- static const struct efx_nic_reg efx_nic_regs[] = {
- 	REGISTER_AZ(ADR_REGION),
-@@ -292,37 +297,42 @@ static const struct efx_nic_reg efx_nic_regs[] = {
- 	REGISTER_AB(XX_TXDRV_CTL),
- 	/* XX_PRBS_CTL, XX_PRBS_CHK and XX_PRBS_ERR are not used */
- 	/* XX_CORE_STAT is partly RC */
-+	REGISTER_DZ(BIU_HW_REV_ID),
-+	REGISTER_DZ(MC_DB_LWRD),
-+	REGISTER_DZ(MC_DB_HWRD),
- };
- 
- struct efx_nic_reg_table {
- 	u32 offset:24;
--	u32 min_revision:2, max_revision:2;
-+	u32 min_revision:3, max_revision:3;
- 	u32 step:6, rows:21;
- };
- 
--#define REGISTER_TABLE_DIMENSIONS(_, offset, min_rev, max_rev, step, rows) { \
-+#define REGISTER_TABLE_DIMENSIONS(_, offset, arch, min_rev, max_rev, step, rows) { \
- 	offset,								\
--	REGISTER_REVISION_ ## min_rev, REGISTER_REVISION_ ## max_rev,	\
-+	REGISTER_REVISION_ ## arch ## min_rev,				\
-+	REGISTER_REVISION_ ## arch ## max_rev,				\
- 	step, rows							\
+ static int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
+@@ -860,24 +881,6 @@ static int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
+ 	return -ENOMEM;
  }
--#define REGISTER_TABLE(name, min_rev, max_rev)				\
-+#define REGISTER_TABLE(name, arch, min_rev, max_rev)			\
- 	REGISTER_TABLE_DIMENSIONS(					\
--		name, FR_ ## min_rev ## max_rev ## _ ## name,		\
--		min_rev, max_rev,					\
--		FR_ ## min_rev ## max_rev ## _ ## name ## _STEP,	\
--		FR_ ## min_rev ## max_rev ## _ ## name ## _ROWS)
--#define REGISTER_TABLE_AA(name) REGISTER_TABLE(name, A, A)
--#define REGISTER_TABLE_AZ(name) REGISTER_TABLE(name, A, Z)
--#define REGISTER_TABLE_BB(name) REGISTER_TABLE(name, B, B)
--#define REGISTER_TABLE_BZ(name) REGISTER_TABLE(name, B, Z)
-+		name, arch ## R_ ## min_rev ## max_rev ## _ ## name,	\
-+		arch, min_rev, max_rev,					\
-+		arch ## R_ ## min_rev ## max_rev ## _ ## name ## _STEP,	\
-+		arch ## R_ ## min_rev ## max_rev ## _ ## name ## _ROWS)
-+#define REGISTER_TABLE_AA(name) REGISTER_TABLE(name, F, A, A)
-+#define REGISTER_TABLE_AZ(name) REGISTER_TABLE(name, F, A, Z)
-+#define REGISTER_TABLE_BB(name) REGISTER_TABLE(name, F, B, B)
-+#define REGISTER_TABLE_BZ(name) REGISTER_TABLE(name, F, B, Z)
- #define REGISTER_TABLE_BB_CZ(name)					\
--	REGISTER_TABLE_DIMENSIONS(name, FR_BZ_ ## name, B, B,		\
-+	REGISTER_TABLE_DIMENSIONS(name, FR_BZ_ ## name, F, B, B,	\
- 				  FR_BZ_ ## name ## _STEP,		\
- 				  FR_BB_ ## name ## _ROWS),		\
--	REGISTER_TABLE_DIMENSIONS(name, FR_BZ_ ## name, C, Z,		\
-+	REGISTER_TABLE_DIMENSIONS(name, FR_BZ_ ## name, F, C, Z,	\
- 				  FR_BZ_ ## name ## _STEP,		\
- 				  FR_CZ_ ## name ## _ROWS)
--#define REGISTER_TABLE_CZ(name) REGISTER_TABLE(name, C, Z)
-+#define REGISTER_TABLE_CZ(name) REGISTER_TABLE(name, F, C, Z)
-+#define REGISTER_TABLE_DZ(name) REGISTER_TABLE(name, E, D, Z)
  
- static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
- 	/* DRIVER is not used */
-@@ -340,9 +350,9 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
- 	 * 1K entries allows for some expansion of queue count and
- 	 * size before we need to change the version. */
- 	REGISTER_TABLE_DIMENSIONS(BUF_FULL_TBL_KER, FR_AA_BUF_FULL_TBL_KER,
--				  A, A, 8, 1024),
-+				  F, A, A, 8, 1024),
- 	REGISTER_TABLE_DIMENSIONS(BUF_FULL_TBL, FR_BZ_BUF_FULL_TBL,
--				  B, Z, 8, 1024),
-+				  F, B, Z, 8, 1024),
- 	REGISTER_TABLE_CZ(RX_MAC_FILTER_TBL0),
- 	REGISTER_TABLE_BB_CZ(TIMER_TBL),
- 	REGISTER_TABLE_BB_CZ(TX_PACE_TBL),
-@@ -353,6 +363,7 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
- 	/* MSIX_PBA_TABLE is not mapped */
- 	/* SRM_DBG is not mapped (and is redundant with BUF_FLL_TBL) */
- 	REGISTER_TABLE_BZ(RX_FILTER_TBL0),
-+	REGISTER_TABLE_DZ(BIU_MC_SFT_STATUS),
- };
+-static int tso_get_head_fragment(struct tso_state *st, struct efx_nic *efx,
+-				 const struct sk_buff *skb)
+-{
+-	int hl = st->header_len;
+-	int len = skb_headlen(skb) - hl;
+-
+-	st->unmap_addr = dma_map_single(&efx->pci_dev->dev, skb->data + hl,
+-					len, DMA_TO_DEVICE);
+-	if (likely(!dma_mapping_error(&efx->pci_dev->dev, st->unmap_addr))) {
+-		st->dma_flags = EFX_TX_BUF_MAP_SINGLE;
+-		st->unmap_len = len;
+-		st->in_len = len;
+-		st->dma_addr = st->unmap_addr;
+-		return 0;
+-	}
+-	return -ENOMEM;
+-}
+-
  
- size_t efx_nic_get_regs_len(struct efx_nic *efx)
+ /**
+  * tso_fill_packet_with_fragment - form descriptors for the current fragment
+@@ -1023,12 +1026,11 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 
+ 	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
+ 
+-	tso_start(&state, skb);
++	rc = tso_start(&state, efx, skb);
++	if (rc)
++		goto mem_err;
+ 
+-	/* Assume that skb header area contains exactly the headers, and
+-	 * all payload is in the frag list.
+-	 */
+-	if (skb_headlen(skb) == state.header_len) {
++	if (likely(state.in_len == 0)) {
+ 		/* Grab the first payload fragment. */
+ 		EFX_BUG_ON_PARANOID(skb_shinfo(skb)->nr_frags < 1);
+ 		frag_i = 0;
+@@ -1037,9 +1039,7 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 		if (rc)
+ 			goto mem_err;
+ 	} else {
+-		rc = tso_get_head_fragment(&state, efx, skb);
+-		if (rc)
+-			goto mem_err;
++		/* Payload starts in the header area. */
+ 		frag_i = -1;
+ 	}
+ 
 
 
 -- 
