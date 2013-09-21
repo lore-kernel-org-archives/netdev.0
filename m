@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 06/11] sfc: Allocate and link PIO buffers; map them
- with write-combining
-Date: Sat, 21 Sep 2013 19:34:58 +0100
-Message-ID: <1379788498.1681.40.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 07/11] sfc: Separate out queue-empty check from
+ efx_nic_may_push_tx_desc()
+Date: Sat, 21 Sep 2013 19:35:16 +0100
+Message-ID: <1379788516.1681.41.camel@bwh-desktop.uk.level5networks.com>
 References: <1379788283.1681.34.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,524 +10,67 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32609 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:32620 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619Ab3IUSfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:35:01 -0400
+	with ESMTP id S1752112Ab3IUSfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:35:20 -0400
 In-Reply-To: <1379788283.1681.34.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Try to allocate a segment of PIO buffer to each TX channel.  If
-allocation fails, log an error but continue.
-
-PIO buffers must be mapped separately from the NIC registers, with
-write-combining enabled.  Where the host page size is 4K, we could
-potentially map each VI's registers and PIO buffer separately.
-However, this would add significant complexity, and we also need to
-support architectures such as POWER which have a greater page size.
-So make a single contiguous write-combining mapping after the
-uncacheable mapping, aligned to the host page size, and link PIO
-buffers there.  Where necessary, allocate additional VIs within
-the write-combining mapping purely for access to PIO buffers.
-
-Link all TX buffers to TX queues and the additional VIs in
-efx_ef10_dimension_resources() and in efx_ef10_init_nic() after
-an MC reboot.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 317 +++++++++++++++++++++++++++++++++-
- drivers/net/ethernet/sfc/efx.h        |   1 +
- drivers/net/ethernet/sfc/io.h         |   5 +
- drivers/net/ethernet/sfc/net_driver.h |   5 +
- drivers/net/ethernet/sfc/nic.h        |  18 ++
- drivers/net/ethernet/sfc/tx.c         |  10 ++
- 6 files changed, 353 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sfc/nic.h | 28 ++++++++++++++++++++++------
+ 1 file changed, 22 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 6956bd2..9165c35 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -284,6 +284,181 @@ static int efx_ef10_free_vis(struct efx_nic *efx)
- 	return rc;
- }
- 
-+#ifdef EFX_USE_PIO
-+
-+static void efx_ef10_free_piobufs(struct efx_nic *efx)
-+{
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_FREE_PIOBUF_IN_LEN);
-+	unsigned int i;
-+	int rc;
-+
-+	BUILD_BUG_ON(MC_CMD_FREE_PIOBUF_OUT_LEN != 0);
-+
-+	for (i = 0; i < nic_data->n_piobufs; i++) {
-+		MCDI_SET_DWORD(inbuf, FREE_PIOBUF_IN_PIOBUF_HANDLE,
-+			       nic_data->piobuf_handle[i]);
-+		rc = efx_mcdi_rpc(efx, MC_CMD_FREE_PIOBUF, inbuf, sizeof(inbuf),
-+				  NULL, 0, NULL);
-+		WARN_ON(rc);
-+	}
-+
-+	nic_data->n_piobufs = 0;
-+}
-+
-+static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
-+{
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	MCDI_DECLARE_BUF(outbuf, MC_CMD_ALLOC_PIOBUF_OUT_LEN);
-+	unsigned int i;
-+	size_t outlen;
-+	int rc = 0;
-+
-+	BUILD_BUG_ON(MC_CMD_ALLOC_PIOBUF_IN_LEN != 0);
-+
-+	for (i = 0; i < n; i++) {
-+		rc = efx_mcdi_rpc(efx, MC_CMD_ALLOC_PIOBUF, NULL, 0,
-+				  outbuf, sizeof(outbuf), &outlen);
-+		if (rc)
-+			break;
-+		if (outlen < MC_CMD_ALLOC_PIOBUF_OUT_LEN) {
-+			rc = -EIO;
-+			break;
-+		}
-+		nic_data->piobuf_handle[i] =
-+			MCDI_DWORD(outbuf, ALLOC_PIOBUF_OUT_PIOBUF_HANDLE);
-+		netif_dbg(efx, probe, efx->net_dev,
-+			  "allocated PIO buffer %u handle %x\n", i,
-+			  nic_data->piobuf_handle[i]);
-+	}
-+
-+	nic_data->n_piobufs = i;
-+	if (rc)
-+		efx_ef10_free_piobufs(efx);
-+	return rc;
-+}
-+
-+static int efx_ef10_link_piobufs(struct efx_nic *efx)
-+{
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	MCDI_DECLARE_BUF(inbuf,
-+			 max(MC_CMD_LINK_PIOBUF_IN_LEN,
-+			     MC_CMD_UNLINK_PIOBUF_IN_LEN));
-+	struct efx_channel *channel;
-+	struct efx_tx_queue *tx_queue;
-+	unsigned int offset, index;
-+	int rc;
-+
-+	BUILD_BUG_ON(MC_CMD_LINK_PIOBUF_OUT_LEN != 0);
-+	BUILD_BUG_ON(MC_CMD_UNLINK_PIOBUF_OUT_LEN != 0);
-+
-+	/* Link a buffer to each VI in the write-combining mapping */
-+	for (index = 0; index < nic_data->n_piobufs; ++index) {
-+		MCDI_SET_DWORD(inbuf, LINK_PIOBUF_IN_PIOBUF_HANDLE,
-+			       nic_data->piobuf_handle[index]);
-+		MCDI_SET_DWORD(inbuf, LINK_PIOBUF_IN_TXQ_INSTANCE,
-+			       nic_data->pio_write_vi_base + index);
-+		rc = efx_mcdi_rpc(efx, MC_CMD_LINK_PIOBUF,
-+				  inbuf, MC_CMD_LINK_PIOBUF_IN_LEN,
-+				  NULL, 0, NULL);
-+		if (rc) {
-+			netif_err(efx, drv, efx->net_dev,
-+				  "failed to link VI %u to PIO buffer %u (%d)\n",
-+				  nic_data->pio_write_vi_base + index, index,
-+				  rc);
-+			goto fail;
-+		}
-+		netif_dbg(efx, probe, efx->net_dev,
-+			  "linked VI %u to PIO buffer %u\n",
-+			  nic_data->pio_write_vi_base + index, index);
-+	}
-+
-+	/* Link a buffer to each TX queue */
-+	efx_for_each_channel(channel, efx) {
-+		efx_for_each_channel_tx_queue(tx_queue, channel) {
-+			/* We assign the PIO buffers to queues in
-+			 * reverse order to allow for the following
-+			 * special case.
-+			 */
-+			offset = ((efx->tx_channel_offset + efx->n_tx_channels -
-+				   tx_queue->channel->channel - 1) *
-+				  efx_piobuf_size);
-+			index = offset / ER_DZ_TX_PIOBUF_SIZE;
-+			offset = offset % ER_DZ_TX_PIOBUF_SIZE;
-+
-+			/* When the host page size is 4K, the first
-+			 * host page in the WC mapping may be within
-+			 * the same VI page as the last TX queue.  We
-+			 * can only link one buffer to each VI.
-+			 */
-+			if (tx_queue->queue == nic_data->pio_write_vi_base) {
-+				BUG_ON(index != 0);
-+				rc = 0;
-+			} else {
-+				MCDI_SET_DWORD(inbuf,
-+					       LINK_PIOBUF_IN_PIOBUF_HANDLE,
-+					       nic_data->piobuf_handle[index]);
-+				MCDI_SET_DWORD(inbuf,
-+					       LINK_PIOBUF_IN_TXQ_INSTANCE,
-+					       tx_queue->queue);
-+				rc = efx_mcdi_rpc(efx, MC_CMD_LINK_PIOBUF,
-+						  inbuf, MC_CMD_LINK_PIOBUF_IN_LEN,
-+						  NULL, 0, NULL);
-+			}
-+
-+			if (rc) {
-+				/* This is non-fatal; the TX path just
-+				 * won't use PIO for this queue
-+				 */
-+				netif_err(efx, drv, efx->net_dev,
-+					  "failed to link VI %u to PIO buffer %u (%d)\n",
-+					  tx_queue->queue, index, rc);
-+				tx_queue->piobuf = NULL;
-+			} else {
-+				tx_queue->piobuf =
-+					nic_data->pio_write_base +
-+					index * EFX_VI_PAGE_SIZE + offset;
-+				tx_queue->piobuf_offset = offset;
-+				netif_dbg(efx, probe, efx->net_dev,
-+					  "linked VI %u to PIO buffer %u offset %x addr %p\n",
-+					  tx_queue->queue, index,
-+					  tx_queue->piobuf_offset,
-+					  tx_queue->piobuf);
-+			}
-+		}
-+	}
-+
-+	return 0;
-+
-+fail:
-+	while (index--) {
-+		MCDI_SET_DWORD(inbuf, UNLINK_PIOBUF_IN_TXQ_INSTANCE,
-+			       nic_data->pio_write_vi_base + index);
-+		efx_mcdi_rpc(efx, MC_CMD_UNLINK_PIOBUF,
-+			     inbuf, MC_CMD_UNLINK_PIOBUF_IN_LEN,
-+			     NULL, 0, NULL);
-+	}
-+	return rc;
-+}
-+
-+#else /* !EFX_USE_PIO */
-+
-+static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
-+{
-+	return n == 0 ? 0 : -ENOBUFS;
-+}
-+
-+static int efx_ef10_link_piobufs(struct efx_nic *efx)
-+{
-+	return 0;
-+}
-+
-+static void efx_ef10_free_piobufs(struct efx_nic *efx)
-+{
-+}
-+
-+#endif /* EFX_USE_PIO */
-+
- static void efx_ef10_remove(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-@@ -294,9 +469,15 @@ static void efx_ef10_remove(struct efx_nic *efx)
- 	/* This needs to be after efx_ptp_remove_channel() with no filters */
- 	efx_ef10_rx_free_indir_table(efx);
- 
-+	if (nic_data->wc_membase)
-+		iounmap(nic_data->wc_membase);
-+
- 	rc = efx_ef10_free_vis(efx);
- 	WARN_ON(rc != 0);
- 
-+	if (!nic_data->must_restore_piobufs)
-+		efx_ef10_free_piobufs(efx);
-+
- 	efx_mcdi_fini(efx);
- 	efx_nic_free_buffer(efx, &nic_data->mcdi_buf);
- 	kfree(nic_data);
-@@ -329,12 +510,126 @@ static int efx_ef10_alloc_vis(struct efx_nic *efx,
- 	return 0;
- }
- 
-+/* Note that the failure path of this function does not free
-+ * resources, as this will be done by efx_ef10_remove().
-+ */
- static int efx_ef10_dimension_resources(struct efx_nic *efx)
- {
--	unsigned int n_vis =
--		max(efx->n_channels, efx->n_tx_channels * EFX_TXQ_TYPES);
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	unsigned int uc_mem_map_size, wc_mem_map_size;
-+	unsigned int min_vis, pio_write_vi_base, max_vis;
-+	void __iomem *membase;
-+	int rc;
-+
-+	min_vis = max(efx->n_channels, efx->n_tx_channels * EFX_TXQ_TYPES);
-+
-+#ifdef EFX_USE_PIO
-+	/* Try to allocate PIO buffers if wanted and if the full
-+	 * number of PIO buffers would be sufficient to allocate one
-+	 * copy-buffer per TX channel.  Failure is non-fatal, as there
-+	 * are only a small number of PIO buffers shared between all
-+	 * functions of the controller.
-+	 */
-+	if (efx_piobuf_size != 0 &&
-+	    ER_DZ_TX_PIOBUF_SIZE / efx_piobuf_size * EF10_TX_PIOBUF_COUNT >=
-+	    efx->n_tx_channels) {
-+		unsigned int n_piobufs =
-+			DIV_ROUND_UP(efx->n_tx_channels,
-+				     ER_DZ_TX_PIOBUF_SIZE / efx_piobuf_size);
-+
-+		rc = efx_ef10_alloc_piobufs(efx, n_piobufs);
-+		if (rc)
-+			netif_err(efx, probe, efx->net_dev,
-+				  "failed to allocate PIO buffers (%d)\n", rc);
-+		else
-+			netif_dbg(efx, probe, efx->net_dev,
-+				  "allocated %u PIO buffers\n", n_piobufs);
-+	}
-+#else
-+	nic_data->n_piobufs = 0;
-+#endif
-+
-+	/* PIO buffers should be mapped with write-combining enabled,
-+	 * and we want to make single UC and WC mappings rather than
-+	 * several of each (in fact that's the only option if host
-+	 * page size is >4K).  So we may allocate some extra VIs just
-+	 * for writing PIO buffers through.
-+	 */
-+	uc_mem_map_size = PAGE_ALIGN((min_vis - 1) * EFX_VI_PAGE_SIZE +
-+				     ER_DZ_TX_PIOBUF);
-+	if (nic_data->n_piobufs) {
-+		pio_write_vi_base = uc_mem_map_size / EFX_VI_PAGE_SIZE;
-+		wc_mem_map_size = (PAGE_ALIGN((pio_write_vi_base +
-+					       nic_data->n_piobufs) *
-+					      EFX_VI_PAGE_SIZE) -
-+				   uc_mem_map_size);
-+		max_vis = pio_write_vi_base + nic_data->n_piobufs;
-+	} else {
-+		pio_write_vi_base = 0;
-+		wc_mem_map_size = 0;
-+		max_vis = min_vis;
-+	}
-+
-+	/* In case the last attached driver failed to free VIs, do it now */
-+	rc = efx_ef10_free_vis(efx);
-+	if (rc != 0)
-+		return rc;
-+
-+	rc = efx_ef10_alloc_vis(efx, min_vis, max_vis);
-+	if (rc != 0)
-+		return rc;
- 
--	return efx_ef10_alloc_vis(efx, n_vis, n_vis);
-+	/* If we didn't get enough VIs to map all the PIO buffers, free the
-+	 * PIO buffers
-+	 */
-+	if (nic_data->n_piobufs &&
-+	    nic_data->n_allocated_vis <
-+	    pio_write_vi_base + nic_data->n_piobufs) {
-+		netif_dbg(efx, probe, efx->net_dev,
-+			  "%u VIs are not sufficient to map %u PIO buffers\n",
-+			  nic_data->n_allocated_vis, nic_data->n_piobufs);
-+		efx_ef10_free_piobufs(efx);
-+	}
-+
-+	/* Shrink the original UC mapping of the memory BAR */
-+	membase = ioremap_nocache(efx->membase_phys, uc_mem_map_size);
-+	if (!membase) {
-+		netif_err(efx, probe, efx->net_dev,
-+			  "could not shrink memory BAR to %x\n",
-+			  uc_mem_map_size);
-+		return -ENOMEM;
-+	}
-+	iounmap(efx->membase);
-+	efx->membase = membase;
-+
-+	/* Set up the WC mapping if needed */
-+	if (wc_mem_map_size) {
-+		nic_data->wc_membase = ioremap_wc(efx->membase_phys +
-+						  uc_mem_map_size,
-+						  wc_mem_map_size);
-+		if (!nic_data->wc_membase) {
-+			netif_err(efx, probe, efx->net_dev,
-+				  "could not allocate WC mapping of size %x\n",
-+				  wc_mem_map_size);
-+			return -ENOMEM;
-+		}
-+		nic_data->pio_write_vi_base = pio_write_vi_base;
-+		nic_data->pio_write_base =
-+			nic_data->wc_membase +
-+			(pio_write_vi_base * EFX_VI_PAGE_SIZE + ER_DZ_TX_PIOBUF -
-+			 uc_mem_map_size);
-+
-+		rc = efx_ef10_link_piobufs(efx);
-+		if (rc)
-+			efx_ef10_free_piobufs(efx);
-+	}
-+
-+	netif_dbg(efx, probe, efx->net_dev,
-+		  "memory BAR at %pa (virtual %p+%x UC, %p+%x WC)\n",
-+		  &efx->membase_phys, efx->membase, uc_mem_map_size,
-+		  nic_data->wc_membase, wc_mem_map_size);
-+
-+	return 0;
- }
- 
- static int efx_ef10_init_nic(struct efx_nic *efx)
-@@ -351,6 +646,21 @@ static int efx_ef10_init_nic(struct efx_nic *efx)
- 		nic_data->must_realloc_vis = false;
- 	}
- 
-+	if (nic_data->must_restore_piobufs && nic_data->n_piobufs) {
-+		rc = efx_ef10_alloc_piobufs(efx, nic_data->n_piobufs);
-+		if (rc == 0) {
-+			rc = efx_ef10_link_piobufs(efx);
-+			if (rc)
-+				efx_ef10_free_piobufs(efx);
-+		}
-+
-+		/* Log an error on failure, but this is non-fatal */
-+		if (rc)
-+			netif_err(efx, drv, efx->net_dev,
-+				  "failed to restore PIO buffers (%d)\n", rc);
-+		nic_data->must_restore_piobufs = false;
-+	}
-+
- 	efx_ef10_rx_push_indir_table(efx);
- 	return 0;
- }
-@@ -708,6 +1018,7 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
- 	/* All our allocations have been reset */
- 	nic_data->must_realloc_vis = true;
- 	nic_data->must_restore_filters = true;
-+	nic_data->must_restore_piobufs = true;
- 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
- 
- 	return -EIO;
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 34d00f5..31d0128 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -30,6 +30,7 @@ efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
- extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
- extern int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
- extern unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
-+extern unsigned int efx_piobuf_size;
- 
- /* RX */
- extern void efx_rx_config_page_split(struct efx_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
-index 96ce507..4d3f119 100644
---- a/drivers/net/ethernet/sfc/io.h
-+++ b/drivers/net/ethernet/sfc/io.h
-@@ -66,6 +66,11 @@
- #define EFX_USE_QWORD_IO 1
- #endif
- 
-+/* PIO is a win only if write-combining is possible */
-+#ifdef ARCH_HAS_IOREMAP_WC
-+#define EFX_USE_PIO 1
-+#endif
-+
- #ifdef EFX_USE_QWORD_IO
- static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
- 				  unsigned int reg)
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index b172ed1..6febecc 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -182,6 +182,9 @@ struct efx_tx_buffer {
-  * @tsoh_page: Array of pages of TSO header buffers
-  * @txd: The hardware descriptor ring
-  * @ptr_mask: The size of the ring minus 1.
-+ * @piobuf: PIO buffer region for this TX queue (shared with its partner).
-+ *	Size of the region is efx_piobuf_size.
-+ * @piobuf_offset: Buffer offset to be specified in PIO descriptors
-  * @initialised: Has hardware queue been initialised?
-  * @read_count: Current read pointer.
-  *	This is the number of buffers that have been removed from both rings.
-@@ -223,6 +226,8 @@ struct efx_tx_queue {
- 	struct efx_buffer *tsoh_page;
- 	struct efx_special_buffer txd;
- 	unsigned int ptr_mask;
-+	void __iomem *piobuf;
-+	unsigned int piobuf_offset;
- 	bool initialised;
- 
- 	/* Members used mainly on the completion path */
 diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 4b1e188..a6e4336 100644
+index a6e4336..53f8cf6 100644
 --- a/drivers/net/ethernet/sfc/nic.h
 +++ b/drivers/net/ethernet/sfc/nic.h
-@@ -389,6 +389,12 @@ enum {
- 	EF10_STAT_COUNT
- };
+@@ -71,6 +71,26 @@ efx_tx_desc(struct efx_tx_queue *tx_queue, unsigned int index)
+ 	return ((efx_qword_t *) (tx_queue->txd.buf.addr)) + index;
+ }
  
-+/* Maximum number of TX PIO buffers we may allocate to a function.
-+ * This matches the total number of buffers on each SFC9100-family
-+ * controller.
++/* Report whether the NIC considers this TX queue empty, given the
++ * write_count used for the last doorbell push.  May return false
++ * negative.
 + */
-+#define EF10_TX_PIOBUF_COUNT 16
++static inline bool __efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue,
++					 unsigned int write_count)
++{
++	unsigned int empty_read_count = ACCESS_ONCE(tx_queue->empty_read_count);
 +
- /**
-  * struct efx_ef10_nic_data - EF10 architecture NIC state
-  * @mcdi_buf: DMA buffer for MCDI
-@@ -397,6 +403,13 @@ enum {
-  * @n_allocated_vis: Number of VIs allocated to this function
-  * @must_realloc_vis: Flag: VIs have yet to be reallocated after MC reboot
-  * @must_restore_filters: Flag: filters have yet to be restored after MC reboot
-+ * @n_piobufs: Number of PIO buffers allocated to this function
-+ * @wc_membase: Base address of write-combining mapping of the memory BAR
-+ * @pio_write_base: Base address for writing PIO buffers
-+ * @pio_write_vi_base: Relative VI number for @pio_write_base
-+ * @piobuf_handle: Handle of each PIO buffer allocated
-+ * @must_restore_piobufs: Flag: PIO buffers have yet to be restored after MC
-+ *	reboot
-  * @rx_rss_context: Firmware handle for our RSS context
-  * @stats: Hardware statistics
-  * @workaround_35388: Flag: firmware supports workaround for bug 35388
-@@ -410,6 +423,11 @@ struct efx_ef10_nic_data {
- 	unsigned int n_allocated_vis;
- 	bool must_realloc_vis;
- 	bool must_restore_filters;
-+	unsigned int n_piobufs;
-+	void __iomem *wc_membase, *pio_write_base;
-+	unsigned int pio_write_vi_base;
-+	unsigned int piobuf_handle[EF10_TX_PIOBUF_COUNT];
-+	bool must_restore_piobufs;
- 	u32 rx_rss_context;
- 	u64 stats[EF10_STAT_COUNT];
- 	bool workaround_35388;
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index a23ba0d..8754347 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -17,12 +17,22 @@
- #include <net/ipv6.h>
- #include <linux/if_ether.h>
- #include <linux/highmem.h>
-+#include <linux/cache.h>
- #include "net_driver.h"
- #include "efx.h"
-+#include "io.h"
- #include "nic.h"
- #include "workarounds.h"
- #include "ef10_regs.h"
++	if (empty_read_count == 0)
++		return false;
++
++	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0;
++}
++
++static inline bool efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue)
++{
++	return __efx_nic_tx_is_empty(tx_queue, tx_queue->write_count);
++}
++
+ /* Decide whether to push a TX descriptor to the NIC vs merely writing
+  * the doorbell.  This can reduce latency when we are adding a single
+  * descriptor to an empty queue, but is otherwise pointless.  Further,
+@@ -80,14 +100,10 @@ efx_tx_desc(struct efx_tx_queue *tx_queue, unsigned int index)
+ static inline bool efx_nic_may_push_tx_desc(struct efx_tx_queue *tx_queue,
+ 					    unsigned int write_count)
+ {
+-	unsigned empty_read_count = ACCESS_ONCE(tx_queue->empty_read_count);
+-
+-	if (empty_read_count == 0)
+-		return false;
++	bool was_empty = __efx_nic_tx_is_empty(tx_queue, write_count);
  
-+#ifdef EFX_USE_PIO
-+
-+#define EFX_PIOBUF_SIZE_MAX ER_DZ_TX_PIOBUF_SIZE
-+#define EFX_PIOBUF_SIZE_DEF ALIGN(256, L1_CACHE_BYTES)
-+unsigned int efx_piobuf_size __read_mostly = EFX_PIOBUF_SIZE_DEF;
-+
-+#endif /* EFX_USE_PIO */
-+
- static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
- 			       struct efx_tx_buffer *buffer,
- 			       unsigned int *pkts_compl,
+ 	tx_queue->empty_read_count = 0;
+-	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0
+-		&& tx_queue->write_count - write_count == 1;
++	return was_empty && tx_queue->write_count - write_count == 1;
+ }
+ 
+ /* Returns a pointer to the specified descriptor in the RX descriptor queue */
 
 
 -- 
