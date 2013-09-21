@@ -1,37 +1,52 @@
-From: Ubuntu <dineshraju2007@gmail.com>
-Subject: [--signoff] Changes made for Lance.c
-Date: Sat, 21 Sep 2013 20:17:59 +0000
-Message-ID: <1379794679-4304-1-git-send-email-ubuntu@ip-10-164-104-115.ec2.internal>
-Cc: dinesh <dineshraju2007@gmail.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] skge: fix invalid value passed to pci_unmap_sigle
+Date: Sun, 22 Sep 2013 02:12:52 +0400
+Message-ID: <523E19E4.20005@cogentembedded.com>
+References: <alpine.LRH.2.02.1309201352010.1763@file01.intranet.prod.int.rdu2.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Igor Gnatenko <i.gnatenko.brain@gmail.com>,
+	stephen@networkplumber.org
+To: Mikulas Patocka <mpatocka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f48.google.com ([209.85.216.48]:60350 "EHLO
-	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab3IUUSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 16:18:04 -0400
-Received: by mail-qa0-f48.google.com with SMTP id hu16so562986qab.0
-        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 13:18:03 -0700 (PDT)
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:35142 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751808Ab3IUWMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 18:12:50 -0400
+Received: by mail-lb0-f174.google.com with SMTP id w6so1604116lbh.19
+        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 15:12:49 -0700 (PDT)
+In-Reply-To: <alpine.LRH.2.02.1309201352010.1763@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: dinesh <dineshraju2007@gmail.com>
+Hello.
 
----
- drivers/net/ethernet/amd/lance.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 09/20/2013 09:53 PM, Mikulas Patocka wrote:
 
-diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
-index 5c72843..256f590 100644
---- a/drivers/net/ethernet/amd/lance.c
-+++ b/drivers/net/ethernet/amd/lance.c
-@@ -754,7 +754,7 @@ lance_open(struct net_device *dev)
- 	int i;
- 
- 	if (dev->irq == 0 ||
--		request_irq(dev->irq, lance_interrupt, 0, lp->name, dev)) {
-+		request_irq(dev->irq, lance_interrupt, 0, dev->name, dev)) {
- 		return -EAGAIN;
- 	}
- 
--- 
-1.8.1.2
+> In my patch c194992cbe71c20bb3623a566af8d11b0bfaa721 I didn't fix the skge
+
+    Please also specify that commit's summary in parens.
+
+> bug correctly. The value of the new mapping (not old) was passed to
+> pci_unmap_single.
+
+> If we enable CONFIG_DMA_API_DEBUG, it results in this warning:
+> WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:986 check_sync+0x4c4/0x580()
+> skge 0000:02:07.0: DMA-API: device driver tries to sync DMA memory it has
+> not allocated [device address=0x000000023a0096c0] [size=1536 bytes]
+
+> This patch makes the skge driver pass the correct value to
+> pci_unmap_single and fixes the warning. It copies the old descriptor to
+> on-stack variable "ee" and unmaps it if mapping of the new descriptor
+> succeeded.
+
+> This patch should be backported to 3.11-stable.
+
+> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+> Reported-by: Francois Romieu <romieu@fr.zoreil.com>
+> Tested-by: Mikulas Patocka <mpatocka@redhat.com>
+
+WBR, Sergei
