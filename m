@@ -1,38 +1,38 @@
-From: Mihir Singh <me@mihirsingh.com>
-Subject: [net-next] hp100: replace hardcoded name in /proc/interrupts with interface name
-Date: Sat, 21 Sep 2013 18:48:09 +0000
-Message-ID: <1379789289-10961-1-git-send-email-me@mihirsingh.com>
-Cc: Mihir Singh <me@mihirsingh.com>
+From: Nate Levesque <thenaterhood@gmail.com>
+Subject: [net-next] Fix hardcoded interrupt name lp->name to use system device value
+Date: Sat, 21 Sep 2013 18:49:41 +0000
+Message-ID: <1379789381-3992-1-git-send-email-thenaterhood@gmail.com>
+Cc: Nate Levesque <thenaterhood@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f44.google.com ([209.85.128.44]:60256 "EHLO
-	mail-qe0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398Ab3IUSsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:48:18 -0400
-Received: by mail-qe0-f44.google.com with SMTP id 3so1122686qeb.3
-        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 11:48:17 -0700 (PDT)
+Received: from mail-qe0-f41.google.com ([209.85.128.41]:32808 "EHLO
+	mail-qe0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752278Ab3IUStx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:49:53 -0400
+Received: by mail-qe0-f41.google.com with SMTP id 1so1131955qee.28
+        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 11:49:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The /proc/interrupts file displays hp100, which is not the accepted style. Printing eth%d is more helpful.
+The lance interrupt handler was using the hard-coded name which would make it difficult to tell where the interrupt came from. Changed to use the device name that made the interrupt.
 
-Signed-off-by: Mihir Singh <me@mihirsingh.com>
+Signed-off-by: Nate Levesque <thenaterhood@gmail.com>
 ---
- drivers/net/ethernet/hp/hp100.c | 2 +-
+ drivers/net/ethernet/amd/lance.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index 91227d0..3786009 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -1098,7 +1098,7 @@ static int hp100_open(struct net_device *dev)
- 	if (request_irq(dev->irq, hp100_interrupt,
- 			lp->bus == HP100_BUS_PCI || lp->bus ==
- 			HP100_BUS_EISA ? IRQF_SHARED : 0,
--			"hp100", dev)) {
-+			dev->name, dev)) {
- 		printk("hp100: %s: unable to get IRQ %d\n", dev->name, dev->irq);
+diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
+index 5c72843..256f590 100644
+--- a/drivers/net/ethernet/amd/lance.c
++++ b/drivers/net/ethernet/amd/lance.c
+@@ -754,7 +754,7 @@ lance_open(struct net_device *dev)
+ 	int i;
+ 
+ 	if (dev->irq == 0 ||
+-		request_irq(dev->irq, lance_interrupt, 0, lp->name, dev)) {
++		request_irq(dev->irq, lance_interrupt, 0, dev->name, dev)) {
  		return -EAGAIN;
  	}
+ 
 -- 
 1.8.1.2
