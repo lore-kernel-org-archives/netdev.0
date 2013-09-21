@@ -1,65 +1,117 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [PATCH] via-rhine: fix VLAN priority field (PCP, IEEE 802.1p)
-Date: Sat, 21 Sep 2013 14:24:11 +0200
-Message-ID: <20130921122411.GA25499@core.hellgate.ch>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2013-09-21
+Date: Sat, 21 Sep 2013 15:54:54 +0200
+Message-ID: <523DA52E.2030701@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Peter =?iso-8859-1?Q?Bostr=F6m?= <peter.bostrom@netrounds.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zhbdzmsp-smta17.bluewin.ch ([195.186.99.133]:47428 "EHLO
-	zhbdzmsp-smta17.bluewin.ch" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751721Ab3IUMbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 08:31:19 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="qArC94PpuLXbB58GN8gkQRUVC08RnTQgs"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Roger Luethi <rl@hellgate.ch>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--qArC94PpuLXbB58GN8gkQRUVC08RnTQgs
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Outgoing packets sent by via-rhine have their VLAN PCP field off by one
-(when hardware acceleration is enabled). The TX descriptor expects only=
- VID
-and PCP (without a CFI/DEI bit).
+Hello David,
 
-Peter Bostr=F6m noticed and reported the bug.
+this is a pull request for net-next. It consists of two patches by Uwe
+Kleine-K=C3=B6nig, they add explicit copyrights to the uapi CAN headers
+(including Acked-bys of the header authors). And 12 cleanup patches by
+Jingoo Han. Several drivers are converted to use dev_get_platdata()
+instead of open coding it, two unnecessary pci_set_drvdata() are
+removed from the CAN PCI drivers.
 
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
-Cc: Peter Bostr=F6m <peter.bostrom@netrounds.com>
+regards,
+Marc
+
 ---
- drivers/net/ethernet/via/via-rhine.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/etherne=
-t/via/via-rhine.c
-index c8f088a..bdf697b 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -32,7 +32,7 @@
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-=20
- #define DRV_NAME	"via-rhine"
--#define DRV_VERSION	"1.5.0"
-+#define DRV_VERSION	"1.5.1"
- #define DRV_RELDATE	"2010-10-09"
-=20
- #include <linux/types.h>
-@@ -1704,7 +1704,12 @@ static netdev_tx_t rhine_start_tx(struct sk_buff=
- *skb,
- 		cpu_to_le32(TXDESC | (skb->len >=3D ETH_ZLEN ? skb->len : ETH_ZLEN))=
-;
-=20
- 	if (unlikely(vlan_tx_tag_present(skb))) {
--		rp->tx_ring[entry].tx_status =3D cpu_to_le32((vlan_tx_tag_get(skb)) =
-<< 16);
-+		u16 vid_pcp =3D vlan_tx_tag_get(skb);
-+
-+		/* drop CFI/DEI bit, register needs VID and PCP */
-+		vid_pcp =3D (vid_pcp & VLAN_VID_MASK) |
-+			  ((vid_pcp & VLAN_PRIO_MASK) >> 1);
-+		rp->tx_ring[entry].tx_status =3D cpu_to_le32((vid_pcp) << 16);
- 		/* request tagging */
- 		rp->tx_ring[entry].desc_length |=3D cpu_to_le32(0x020000);
- 	}
+The following changes since commit 19717d05848849a3b1dddeced9abb5884cff91=
+52:
+
+  declance: Remove `incompatible pointer type' warnings (2013-09-20 14:41=
+:03 -0400)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to a0c7d83322521880caf8c9c1ef20a2a1cd5cb955:
+
+  can: sja1000: remove unnecessary pci_set_drvdata() (2013-09-21 15:43:16=
+ +0200)
+
+----------------------------------------------------------------
+Jingoo Han (12):
+      can: at91_can: use dev_get_platdata()
+      can: bfin_can: use dev_get_platdata()
+      can: cc770: use dev_get_platdata()
+      can: flexcan: use dev_get_platdata()
+      can: janz-ican3: use dev_get_platdata()
+      can: mcp251x: use dev_get_platdata()
+      can: sja1000: use dev_get_platdata()
+      can: softing: use dev_get_platdata()
+      can: ti_hecc: use dev_get_platdata()
+      can: c_can: remove unnecessary pci_set_drvdata()
+      can: pch_can: remove unnecessary pci_set_drvdata()
+      can: sja1000: remove unnecessary pci_set_drvdata()
+
+Uwe Kleine-K=C3=B6nig (2):
+      can: add explicit copyrights to can headers
+      can: add explicit copyrights to can's netlink header
+
+ drivers/net/can/at91_can.c                 |  2 +-
+ drivers/net/can/bfin_can.c                 |  2 +-
+ drivers/net/can/c_can/c_can_pci.c          |  2 --
+ drivers/net/can/cc770/cc770_platform.c     |  4 ++--
+ drivers/net/can/flexcan.c                  |  2 +-
+ drivers/net/can/janz-ican3.c               |  2 +-
+ drivers/net/can/mcp251x.c                  |  2 +-
+ drivers/net/can/pch_can.c                  |  1 -
+ drivers/net/can/sja1000/ems_pci.c          |  1 -
+ drivers/net/can/sja1000/kvaser_pci.c       |  1 -
+ drivers/net/can/sja1000/peak_pci.c         |  2 --
+ drivers/net/can/sja1000/plx_pci.c          |  1 -
+ drivers/net/can/sja1000/sja1000_platform.c |  2 +-
+ drivers/net/can/softing/softing_main.c     |  2 +-
+ drivers/net/can/ti_hecc.c                  |  2 +-
+ include/uapi/linux/can/bcm.h               | 32 ++++++++++++++++++++++++=
+++++++
+ include/uapi/linux/can/error.h             | 32 ++++++++++++++++++++++++=
+++++++
+ include/uapi/linux/can/gw.h                | 32 ++++++++++++++++++++++++=
+++++++
+ include/uapi/linux/can/netlink.h           |  8 ++++++++
+ include/uapi/linux/can/raw.h               | 32 ++++++++++++++++++++++++=
+++++++
+ 20 files changed, 146 insertions(+), 18 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--qArC94PpuLXbB58GN8gkQRUVC08RnTQgs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlI9pS4ACgkQjTAFq1RaXHOhCgCdFnOcHgEtZlXYce/NKIzjPqGG
+SPIAoIoVV3fhAXMlGSK97LnfLqBniGaY
+=MPrb
+-----END PGP SIGNATURE-----
+
+--qArC94PpuLXbB58GN8gkQRUVC08RnTQgs--
