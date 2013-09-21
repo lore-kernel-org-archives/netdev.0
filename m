@@ -1,117 +1,85 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-09-21
-Date: Sat, 21 Sep 2013 15:54:54 +0200
-Message-ID: <523DA52E.2030701@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="qArC94PpuLXbB58GN8gkQRUVC08RnTQgs"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] can: pcan_usb_core: fix memory leak on failure paths in peak_usb_start()
+Date: Sat, 21 Sep 2013 16:08:13 +0200
+Message-ID: <1379772493-7856-2-git-send-email-mkl@pengutronix.de>
+References: <1379772493-7856-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36729 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751959Ab3IUOIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 10:08:19 -0400
+In-Reply-To: <1379772493-7856-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---qArC94PpuLXbB58GN8gkQRUVC08RnTQgs
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Hello David,
+Tx and rx urbs are not deallocated if something goes wrong in peak_usb_start().
+The patch fixes error handling to deallocate all the resources.
 
-this is a pull request for net-next. It consists of two patches by Uwe
-Kleine-K=C3=B6nig, they add explicit copyrights to the uapi CAN headers
-(including Acked-bys of the header authors). And 12 cleanup patches by
-Jingoo Han. Several drivers are converted to use dev_get_platdata()
-instead of open coding it, two unnecessary pci_set_drvdata() are
-removed from the CAN PCI drivers.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-regards,
-Marc
-
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Acked-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-The following changes since commit 19717d05848849a3b1dddeced9abb5884cff91=
-52:
-
-  declance: Remove `incompatible pointer type' warnings (2013-09-20 14:41=
-:03 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to a0c7d83322521880caf8c9c1ef20a2a1cd5cb955:
-
-  can: sja1000: remove unnecessary pci_set_drvdata() (2013-09-21 15:43:16=
- +0200)
-
-----------------------------------------------------------------
-Jingoo Han (12):
-      can: at91_can: use dev_get_platdata()
-      can: bfin_can: use dev_get_platdata()
-      can: cc770: use dev_get_platdata()
-      can: flexcan: use dev_get_platdata()
-      can: janz-ican3: use dev_get_platdata()
-      can: mcp251x: use dev_get_platdata()
-      can: sja1000: use dev_get_platdata()
-      can: softing: use dev_get_platdata()
-      can: ti_hecc: use dev_get_platdata()
-      can: c_can: remove unnecessary pci_set_drvdata()
-      can: pch_can: remove unnecessary pci_set_drvdata()
-      can: sja1000: remove unnecessary pci_set_drvdata()
-
-Uwe Kleine-K=C3=B6nig (2):
-      can: add explicit copyrights to can headers
-      can: add explicit copyrights to can's netlink header
-
- drivers/net/can/at91_can.c                 |  2 +-
- drivers/net/can/bfin_can.c                 |  2 +-
- drivers/net/can/c_can/c_can_pci.c          |  2 --
- drivers/net/can/cc770/cc770_platform.c     |  4 ++--
- drivers/net/can/flexcan.c                  |  2 +-
- drivers/net/can/janz-ican3.c               |  2 +-
- drivers/net/can/mcp251x.c                  |  2 +-
- drivers/net/can/pch_can.c                  |  1 -
- drivers/net/can/sja1000/ems_pci.c          |  1 -
- drivers/net/can/sja1000/kvaser_pci.c       |  1 -
- drivers/net/can/sja1000/peak_pci.c         |  2 --
- drivers/net/can/sja1000/plx_pci.c          |  1 -
- drivers/net/can/sja1000/sja1000_platform.c |  2 +-
- drivers/net/can/softing/softing_main.c     |  2 +-
- drivers/net/can/ti_hecc.c                  |  2 +-
- include/uapi/linux/can/bcm.h               | 32 ++++++++++++++++++++++++=
-++++++
- include/uapi/linux/can/error.h             | 32 ++++++++++++++++++++++++=
-++++++
- include/uapi/linux/can/gw.h                | 32 ++++++++++++++++++++++++=
-++++++
- include/uapi/linux/can/netlink.h           |  8 ++++++++
- include/uapi/linux/can/raw.h               | 32 ++++++++++++++++++++++++=
-++++++
- 20 files changed, 146 insertions(+), 18 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---qArC94PpuLXbB58GN8gkQRUVC08RnTQgs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlI9pS4ACgkQjTAFq1RaXHOhCgCdFnOcHgEtZlXYce/NKIzjPqGG
-SPIAoIoVV3fhAXMlGSK97LnfLqBniGaY
-=MPrb
------END PGP SIGNATURE-----
-
---qArC94PpuLXbB58GN8gkQRUVC08RnTQgs--
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+index a0f647f..0b7a4c3 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+@@ -463,7 +463,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (i < PCAN_USB_MAX_TX_URBS) {
+ 		if (i == 0) {
+ 			netdev_err(netdev, "couldn't setup any tx URB\n");
+-			return err;
++			goto err_tx;
+ 		}
+ 
+ 		netdev_warn(netdev, "tx performance may be slow\n");
+@@ -472,7 +472,7 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (dev->adapter->dev_start) {
+ 		err = dev->adapter->dev_start(dev);
+ 		if (err)
+-			goto failed;
++			goto err_adapter;
+ 	}
+ 
+ 	dev->state |= PCAN_USB_STATE_STARTED;
+@@ -481,19 +481,26 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 	if (dev->adapter->dev_set_bus) {
+ 		err = dev->adapter->dev_set_bus(dev, 1);
+ 		if (err)
+-			goto failed;
++			goto err_adapter;
+ 	}
+ 
+ 	dev->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
+ 	return 0;
+ 
+-failed:
++err_adapter:
+ 	if (err == -ENODEV)
+ 		netif_device_detach(dev->netdev);
+ 
+ 	netdev_warn(netdev, "couldn't submit control: %d\n", err);
+ 
++	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++) {
++		usb_free_urb(dev->tx_contexts[i].urb);
++		dev->tx_contexts[i].urb = NULL;
++	}
++err_tx:
++	usb_kill_anchored_urbs(&dev->rx_submitted);
++
+ 	return err;
+ }
+ 
+-- 
+1.8.4.rc3
