@@ -1,84 +1,52 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/2] ipv6: compare sernum when walking fib for /proc/net/ipv6_route as safety net
-Date: Sat, 21 Sep 2013 16:56:10 +0200
-Message-ID: <20130921145610.GA20769@order.stressinduktion.org>
+Subject: Re: Potential out-of-bounds access in ip6_finish_output2
+Date: Sat, 21 Sep 2013 17:14:57 +0200
+Message-ID: <20130921151457.GA5748@order.stressinduktion.org>
+References: <CACT4Y+ZXqoixvCyN5703+sVhCV4ND-vNwash2Z1vSDoLgKNyVg@mail.gmail.com> <20130917224851.GB8947@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: greearb@candelatech.com, kaber@trash.net, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+To: Dmitry Vyukov <dvyukov@google.com>, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, Paul Turner <pjt@google.com>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42097 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:42125 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395Ab3IUO4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 10:56:11 -0400
+	with ESMTP id S1752482Ab3IUPO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 11:14:59 -0400
 Content-Disposition: inline
+In-Reply-To: <20130917224851.GB8947@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides an additional safety net against NULL
-pointer dereferences while walking the fib trie for the new
-/proc/net/ipv6_route walkers. I never needed it myself and am unsure
-if it is needed at all, but the same checks where introduced in
-2bec5a369ee79576a3eea2c23863325089785a2c ("ipv6: fib: fix crash when
-changing large fib while dumping it") to fix NULL pointer bugs.
+On Wed, Sep 18, 2013 at 12:48:51AM +0200, Hannes Frederic Sowa wrote:
+> On Mon, Sep 16, 2013 at 10:13:10PM -0700, Dmitry Vyukov wrote:
+> > I am working on AddressSanitizer -- a tool that detects use-after-free
+> > and out-of-bounds bugs
+> > (https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel).
+> > 
+> > I've got a dozen of reports in ip6_finish_output2. Below are 2 of
+> > them. They are always followed by kernel crash. Unfortunately I don't
+> > have a reproducer because I am using trinity fuzzer. I would
+> > appreciate if somebody familiar with the code look at sources and
+> > maybe spot the bug.
+> 
+> Thanks for the report!
+> 
+> I tried reproducing the bug and hit some other bugs nearby. I'll try to fix
+> them, but this could take some time.
 
-This patch is separated from the first patch to make it easier to revert
-if we are sure we can drop this logic.
+I fixed the first bug I encountered with trinity here:
+http://patchwork.ozlabs.org/patch/276835/
 
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_fib.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+The main cause of this bug has nothing to do with raw sockets, so I first
+thought they are not related. But I left my machine run trinity while
+I was sleeping and did not see any other splats (I added some manually
+range checks in ip6_append_data). So maybe your bug happend because the
+premature exit in the dontfrag check without resetting cork->length. Maybe
+you could give this patch a try? I'll have a second look later today.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 05ffa54..5550a81 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1771,6 +1771,7 @@ struct ipv6_route_iter {
- 	struct fib6_walker_t w;
- 	loff_t skip;
- 	struct fib6_table *tbl;
-+	__u32 sernum;
- };
- 
- static int ipv6_route_seq_show(struct seq_file *seq, void *v)
-@@ -1823,6 +1824,7 @@ static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
- 	iter->w.state = FWS_INIT;
- 	iter->w.node = iter->w.root;
- 	iter->w.args = iter;
-+	iter->sernum = iter->w.root->fn_sernum;
- 	INIT_LIST_HEAD(&iter->w.lh);
- 	fib6_walker_link(&iter->w);
- }
-@@ -1848,6 +1850,17 @@ static struct fib6_table *ipv6_route_seq_next_table(struct fib6_table *tbl,
- 	return hlist_entry_safe(node, struct fib6_table, tb6_hlist);
- }
- 
-+static void ipv6_route_check_sernum(struct ipv6_route_iter *iter)
-+{
-+	if (iter->sernum != iter->w.root->fn_sernum) {
-+		iter->sernum = iter->w.root->fn_sernum;
-+		iter->w.state = FWS_INIT;
-+		iter->w.node = iter->w.root;
-+		WARN_ON(iter->w.skip);
-+		iter->w.skip = iter->w.count;
-+	}
-+}
-+
- static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	int r;
-@@ -1865,6 +1878,7 @@ static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	}
- 
- iter_table:
-+	ipv6_route_check_sernum(iter);
- 	read_lock(&iter->tbl->tb6_lock);
- 	r = fib6_walk_continue(&iter->w);
- 	read_unlock(&iter->tbl->tb6_lock);
--- 
-1.8.3.1
+Thanks,
+
+  Hannes
