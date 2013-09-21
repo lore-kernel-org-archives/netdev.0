@@ -1,21 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/12] inet*.h: Remove extern from function prototypes
-Date: Sat, 21 Sep 2013 14:04:29 -0400 (EDT)
-Message-ID: <20130921.140429.715510116659568271.davem@davemloft.net>
-References: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
+Subject: Re: [PATCH net-next 0/8] tg3: Misc cleanups and fixes.
+Date: Sat, 21 Sep 2013 14:05:15 -0400 (EDT)
+Message-ID: <20130921.140515.342897325124711405.davem@davemloft.net>
+References: <1379720822-6500-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: nsujir@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52474 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52483 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab3IUSEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:04:31 -0400
-In-Reply-To: <005f102eb1322058f9e797a7268ae8be01ecfaae.1379783995.git.joe@perches.com>
+	with ESMTP id S1752391Ab3IUSFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 14:05:16 -0400
+In-Reply-To: <1379720822-6500-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Date: Fri, 20 Sep 2013 16:46:54 -0700
 
-Series applied, thanks Joe.
+> Nithin Nayak Sujir (8):
+>   tg3: Add function tg3_phy_shdw_write()
+>   tg3: Add support for new 577xx device ids
+>   tg3: LED in shared mode does not blink during traffic
+>   tg3: Remove if 0'd code
+>   tg3: Remove redundant if check
+>   tg3: Appropriately classify interrupts during request_irq
+>   tg3: Remove unnecessary spinlock
+>   tg3: Update version to 3.134
+
+All applied, thanks.
