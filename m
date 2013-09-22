@@ -1,36 +1,34 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: convert to GRO API
- and advertise this feature
-Date: Sun, 22 Sep 2013 14:29:15 +0800
-Message-ID: <523E8E3B.3050805@redhat.com>
-References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
+From: "liujunliang_ljl" <liujunliang_ljl@163.com>
+Subject: Re: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NETSR9700Device Driver Support
+Date: Sun, 22 Sep 2013 15:44:45 +0800
+Message-ID: <201309221544441560431@163.com>
+References: <1378035488-8643-1-git-send-email-liujunliang_ljl@163.com>,
+ <20130903.222708.238851084536537650.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Anirban Chakraborty <abchak@juniper.net>,
-	Ian Campbell <ian.campbell@citrix.com>, xen-devel@lists.xen.org
-To: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3918 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466Ab3IVG31 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Sep 2013 02:29:27 -0400
-In-Reply-To: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "horms" <horms@verge.net.au>, "joe" <joe@perches.com>,
+	"romieu" <romieu@fr.zoreil.com>,
+	"gregkh" <gregkh@linuxfoundation.org>,
+	"netdev" <netdev@vger.kernel.org>,
+	"linux-usb" <linux-usb@vger.kernel.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"sunhecheng" <sunhecheng@vip.126.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/22/2013 12:05 AM, Wei Liu wrote:
-> Anirban was seeing netfront received MTU size packets, which downgraded
-> throughput. The following patch makes netfront use GRO API which
-> improves throughput for that case.
->
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Signed-off-by: Anirban Chakraborty <abchak@juniper.net>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-
-Maybe a dumb question: doesn't Xen depends on the driver of host card to
-do GRO and pass it to netfront? What the case that netfront can receive
-a MTU size packet, for a card that does not support GRO in host? Doing
-GRO twice may introduce extra overheads.
-
-Thanks
+RGVhciBNaWxsZXIgOg0KDQoJCQlJJ20gc29ycnkgdG8gdHJvdWJsZSB5b3UgdGhhdCBIb3cgYWJv
+dXQgdGhlIHByb2Nlc3MgZm9yIFNSOTcwMCBEZXZpY2UgRHJpdmVyIHJlbGVhc2U/DQoNCgkJCVRo
+YW5rcyBhIGxvdC4NCg0KDQoyMDEzLTA5LTIyIA0KDQoNCg0KbGl1anVubGlhbmdfbGpsIA0KDQoN
+Cg0Kt6K8/sjLo7ogRGF2aWQgTWlsbGVyIA0Kt6LLzcqxvOSjuiAyMDEzLTA5LTA0ICAxMDoyNzox
+NCANCsrVvP7Iy6O6IGxpdWp1bmxpYW5nX2xqbCANCrOty82juiBob3Jtczsgam9lOyByb21pZXU7
+IGdyZWdraDsgbmV0ZGV2OyBsaW51eC11c2I7IGxpbnV4LWtlcm5lbDsgc3VuaGVjaGVuZyANCtb3
+zOKjuiBSZTogW1BBVENIXSBVU0IyTkVUIDogU1I5NzAwIDogT25lIGNoaXAgVVNCIDEuMSBVU0Iy
+TkVUU1I5NzAwRGV2aWNlIERyaXZlciBTdXBwb3J0IA0KIA0KRnJvbTogbGl1anVubGlhbmdfbGps
+QDE2My5jb20NCkRhdGU6IFN1biwgIDEgU2VwIDIwMTMgMTk6Mzg6MDggKzA4MDANCj4gRnJvbTog
+TGl1IEp1bmxpYW5nIDxsaXVqdW5saWFuZ19samxAMTYzLmNvbT4NCj4gDQo+IFNpZ25lZC1vZmYt
+Ynk6IExpdSBKdW5saWFuZyA8bGl1anVubGlhbmdfbGpsQDE2My5jb20+DQpBcHBsaWVkLCB0aGFu
+a3MuDQo=
