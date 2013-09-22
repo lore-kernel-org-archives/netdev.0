@@ -1,43 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] declance: Remove `incompatible pointer type' warnings
-Date: Sun, 22 Sep 2013 02:41:36 +0400
-Message-ID: <523E20A0.6090104@cogentembedded.com>
-References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH ethtool] Fix iteration count in sff8472_calibration()
+Date: Sun, 22 Sep 2013 02:36:42 +0100
+Message-ID: <1379813802.21174.36.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-EQkYUYziERbRVua1rGhc"
+Cc: netdev <netdev@vger.kernel.org>,
+	Aurelien Guillaume <aurelien@iwi.me>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:45732 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab3IUWle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 18:41:34 -0400
-Received: by mail-la0-f50.google.com with SMTP id gx14so1479535lab.9
-        for <netdev@vger.kernel.org>; Sat, 21 Sep 2013 15:41:33 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44472 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752505Ab3IVBhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Sep 2013 21:37:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 09/20/2013 03:49 AM, Maciej W. Rozycki wrote:
+--=-EQkYUYziERbRVua1rGhc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7:
+We want to iterate over all elements of the various arrays of readings
+(which all have the same dimensions - and maybe ought to be a single
+array).  Unfortunately the iteration count is sizeof(sd->bias_cur) and
+bias_cur has 2-byte elements, so we iterate over twice as many
+elements as are really there.
 
-    Please also specify that commit's summary in parens. That's the only way 
-to uniquely identify a commit and makes life a bit easier when you browse the 
-commits.
+Compiler-detected, and compile-tested only.
 
-> .../declance.c: In function 'cp_to_buf':
-> .../declance.c:347: warning: assignment from incompatible pointer type
-> .../declance.c:348: warning: assignment from incompatible pointer type
-> .../declance.c: In function 'cp_from_buf':
-> .../declance.c:406: warning: assignment from incompatible pointer type
-> .../declance.c:407: warning: assignment from incompatible pointer type
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ sfpdiag.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Also add a `const' qualifier where applicable and adjust formatting.
+diff --git a/sfpdiag.c b/sfpdiag.c
+index f67e491..04fd880 100644
+--- a/sfpdiag.c
++++ b/sfpdiag.c
+@@ -224,7 +224,7 @@ static void sff8472_calibration(const __u8 *id, struct =
+sff8472_diags *sd)
+ 	__u16 rx_reading;
+=20
+ 	/* Calibration should occur for all values (threshold and current) */
+-	for (i =3D 0; i < sizeof(sd->bias_cur); ++i) {
++	for (i =3D 0; i < ARRAY_SIZE(sd->bias_cur); ++i) {
+ 		/*
+ 		 * Apply calibration formula 1 (Temp., Voltage, Bias, Tx Power)
+ 		 */
 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 
-WBR, Sergei
+--=-EQkYUYziERbRVua1rGhc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIVAwUAUj5Jque/yOyVhhEJAQo95w//bv1ili0z/r0g4T0c7p7/2f7Xvgei5vdR
+/qcbW2JV8s4i8vhCBRRbhVkmP6bqQNeRe9izWv6+bpJsNYVOL01F58zBq01dXfm8
+5dxvp2uSIJB8uITnAm6eOcn+k4DMfJN/GWdsdqY6+ufkdcaEcKNrViT2aKINJdqr
+3GxkErhGs0dgUvU5TV+bjmfm/NJeMNCrsxJmtBqfhaH/4je7NEe5rpofEyYr8BYq
+zP47XbFu8eNasd/e97xccaaEWENmoGefxrTAISuQIJqFkgg2qiAFDE+EVF8NcvP7
+X2HkJCV3K2+ctivmcXCxtdsJ/Kx3vOLW5XGLbZdc28RMbgj491D9rFbXZckHjX3w
+BUmpTBA4nlcfPuDpScwm1eAVwQ/1DDXMsO6qMTiyVvl8RcfHXpPvqCTemOvffxhJ
+6VqVkVfoOrKJXBUVuIu3TeYPRcC0Uyn9qPtDfgDkXAVccMDdpjUdAfT3RBAoNG7L
+nWeyauw161i7NHy7OEwW0S+sbVWz1IW3SQ1xfoYZ6sHL0uuZLtARfWUFWsIIVzew
+NhkInKbNLmvJYUAq92f5/VQbC08L+h6goJQwbtuCQjvHHWLdwjxNFZh7f4R8kHYx
+h5AIGKJqCKPJngT70Eej2CLBbFcvqqK084Bx7WZ9QYkvv0qgNh/Lqlb67CYqRq1n
+DoHwW4pQM7g=
+=qPPS
+-----END PGP SIGNATURE-----
+
+--=-EQkYUYziERbRVua1rGhc--
