@@ -1,93 +1,81 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH v2] declance: Remove `incompatible pointer type' warnings
-Date: Sun, 22 Sep 2013 21:19:01 +0100 (BST)
-Message-ID: <alpine.LFD.2.03.1309222113300.16797@linux-mips.org>
-References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org> <20130920.144304.2081229489870626586.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH V3] wireless: rtlwifi: Replace variable with a break
+Date: Sun, 22 Sep 2013 22:22:46 +0200
+Message-ID: <1379881366-25487-1-git-send-email-peter.senna@gmail.com>
+Cc: joe@perches.com, sergei.shtylyov@cogentembedded.com,
+	chaoming_li@realsil.com.cn, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Peter Senna Tschudin <peter.senna@gmail.com>
+To: Larry.Finger@lwfinger.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:56972 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569Ab3IVUTC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 16:19:02 -0400
-Received: from localhost.localdomain ([127.0.0.1]:36545 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6816288Ab3IVUTBcOKue (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:19:01 +0200
-In-Reply-To: <20130920.144304.2081229489870626586.davem@davemloft.net>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:51251 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752093Ab3IVUXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 16:23:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7 
-[drivers/net: Remove casts of void *]:
+This patch removes the variable continual, and change the while loop
+to break when efuse_data == 0xFF.
 
-.../declance.c: In function 'cp_to_buf':
-.../declance.c:347: warning: assignment from incompatible pointer type
-.../declance.c:348: warning: assignment from incompatible pointer type
-.../declance.c: In function 'cp_from_buf':
-.../declance.c:406: warning: assignment from incompatible pointer type
-.../declance.c:407: warning: assignment from incompatible pointer type
+Tested by compilation only.
 
-Also add a `const' qualifier where applicable and adjust formatting.
-
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+CC: Joe Perches <joe@perches.com>
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 ---
-> Applied to net-next
+Changes from V2:
+ - Fix typo in the subject
+ - Fix indentation
 
- Thanks, by Sergei's request please use this version instead that has the 
-reference to the original commit updated (no change to the patch itself).
+Changes from V1:
+ - Fix the indetation
+ - Remove remaining } from removed else
 
-  Maciej
+Please ignore the patch:
+[PATCH 12/19] wireless: Change variable type to bool
 
-linux-declance-cast-fix.patch
-Index: linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
-===================================================================
---- linux-mips-3.12.0-rc1-20130917-4maxp.orig/drivers/net/ethernet/amd/declance.c
-+++ linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
-@@ -344,8 +344,8 @@ static void cp_to_buf(const int type, vo
- 		}
+And apply this one instead.
+
+The variable continual was declared as int, but was used as bool. I
+sent previous patch changing the variable type to bool, but Joe Perches
+proposed that removing the variable and adding a break would be better.
+
+ drivers/net/wireless/rtlwifi/efuse.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
+index 838a1ed..ae13fb9 100644
+--- a/drivers/net/wireless/rtlwifi/efuse.c
++++ b/drivers/net/wireless/rtlwifi/efuse.c
+@@ -1203,20 +1203,18 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
  
- 		clen = len & 1;
--		rtp = tp;
--		rfp = fp;
-+		rtp = (unsigned char *)tp;
-+		rfp = (const unsigned char *)fp;
- 		while (clen--) {
- 			*rtp++ = *rfp++;
- 		}
-@@ -372,8 +372,8 @@ static void cp_to_buf(const int type, vo
- 		 * do the rest, if any.
- 		 */
- 		clen = len & 15;
--		rtp = (unsigned char *) tp;
--		rfp = (unsigned char *) fp;
-+		rtp = (unsigned char *)tp;
-+		rfp = (const unsigned char *)fp;
- 		while (clen--) {
- 			*rtp++ = *rfp++;
- 		}
-@@ -403,8 +403,8 @@ static void cp_from_buf(const int type, 
+ static u16 efuse_get_current_size(struct ieee80211_hw *hw)
+ {
+-	int continual = true;
+ 	u16 efuse_addr = 0;
+ 	u8 hworden;
+ 	u8 efuse_data, word_cnts;
  
- 		clen = len & 1;
+-	while (continual && efuse_one_byte_read(hw, efuse_addr, &efuse_data)
+-	       && (efuse_addr < EFUSE_MAX_SIZE)) {
+-		if (efuse_data != 0xFF) {
+-			hworden = efuse_data & 0x0F;
+-			word_cnts = efuse_calculate_word_cnts(hworden);
+-			efuse_addr = efuse_addr + (word_cnts * 2) + 1;
+-		} else {
+-			continual = false;
+-		}
++	while (efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
++	       efuse_addr < EFUSE_MAX_SIZE) {
++		if (efuse_data == 0xFF)
++			break;
++
++		hworden = efuse_data & 0x0F;
++		word_cnts = efuse_calculate_word_cnts(hworden);
++		efuse_addr = efuse_addr + (word_cnts * 2) + 1;
+ 	}
  
--		rtp = tp;
--		rfp = fp;
-+		rtp = (unsigned char *)tp;
-+		rfp = (const unsigned char *)fp;
- 
- 		while (clen--) {
- 			*rtp++ = *rfp++;
-@@ -433,8 +433,8 @@ static void cp_from_buf(const int type, 
- 		 * do the rest, if any.
- 		 */
- 		clen = len & 15;
--		rtp = (unsigned char *) tp;
--		rfp = (unsigned char *) fp;
-+		rtp = (unsigned char *)tp;
-+		rfp = (const unsigned char *)fp;
- 		while (clen--) {
- 			*rtp++ = *rfp++;
- 		}
+ 	return efuse_addr;
+-- 
+1.8.3.1
