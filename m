@@ -1,40 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Xen-devel] TSQ accounting skb->truesize degrades throughput
- for large packets
-Date: Sun, 22 Sep 2013 07:58:22 -0700
-Message-ID: <1379861902.3431.12.camel@edumazet-glaptop>
-References: <20130906101635.GI14104@zion.uk.xensource.com>
-	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
-	 <1378486840.31445.36.camel@edumazet-glaptop>
-	 <1378574494.26319.14.camel@edumazet-glaptop> <522E4080.2050802@citrix.com>
-	 <1378763815.26319.39.camel@edumazet-glaptop>
-	 <loom.20130921T045654-573@post.gmane.org>
-	 <20130921150327.GA9078@zion.uk.xensource.com>
-	 <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xensource.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Matt Evans <matt@ozlabs.org>
+Subject: Re: [RESEND PATCH 2/2] ppc: bpf_jit: support MOD operation
+Date: Mon, 23 Sep 2013 01:13:45 +1000
+Message-ID: <F41DB09C-2D43-48DA-AE0A-4988B887F65C@ozlabs.org>
+References: <1379748334-3313-1-git-send-email-murzin.v@gmail.com> <1379748334-3313-2-git-send-email-murzin.v@gmail.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"paulus@samba.org" <paulus@samba.org>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	Vladimir Murzin <murzin.v@gmail.com>
+To: Vladimir Murzin <murzin.v@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:54791 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026Ab3IVO6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 10:58:24 -0400
-Received: by mail-ob0-f177.google.com with SMTP id wp18so2685018obc.22
-        for <netdev@vger.kernel.org>; Sun, 22 Sep 2013 07:58:23 -0700 (PDT)
-In-Reply-To: <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:32837 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752033Ab3IVPNs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 11:13:48 -0400
+In-Reply-To: <1379748334-3313-2-git-send-email-murzin.v@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-09-22 at 10:36 +0800, Cong Wang wrote:
+Hi Vladimir,
 
+On 21 Sep 2013, at 17:25, Vladimir Murzin <murzin.v@gmail.com> wrote:
+
+> commit b6069a9570 (filter: add MOD operation) added generic
+> support for modulus operation in BPF.
 > 
-> I was replying via newsgroup, not mailing list. :)
+> This patch brings JIT support for PPC64
 > 
-> Anyway, adding Eric and netdev now.
+> Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+> Acked-by: Matt Evans <matt@ozlabs.org>
 
-Yes, dont worry, this will be done on Monday or Tuesday.
+Not this version, though; see below. 
 
-I am still in New Orleans after LPC 2013.
+> ---
+> arch/powerpc/net/bpf_jit_comp.c | 22 ++++++++++++++++++++++
+> 1 file changed, 22 insertions(+)
+> 
+> diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+> index bf56e33..96f24dc 100644
+> --- a/arch/powerpc/net/bpf_jit_comp.c
+> +++ b/arch/powerpc/net/bpf_jit_comp.c
+> @@ -193,6 +193,28 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+>                PPC_MUL(r_A, r_A, r_scratch1);
+>            }
+>            break;
+> +        case BPF_S_ALU_MOD_X: /* A %= X; */
+> +            ctx->seen |= SEEN_XREG;
+> +            PPC_CMPWI(r_X, 0);
+> +            if (ctx->pc_ret0 != -1) {
+> +                PPC_BCC(COND_EQ, addrs[ctx->pc_ret0]);
+> +            } else {
+> +                PPC_BCC_SHORT(COND_NE, (ctx->idx*4)+12);
+> +                PPC_LI(r_ret, 0);
+> +                PPC_JMP(exit_addr);
+> +            }
+> +            PPC_DIVWU(r_scratch1, r_A, r_X);
+> +            PPC_MUL(r_scratch1, r_X, r_scratch1);
+> +            PPC_SUB(r_A, r_A, r_scratch1);
+> +            break;
+> +        case BPF_S_ALU_MOD_K: /* A %= K; */
+> +#define r_scratch2 (r_scratch1 + 1)
+
+Old version of this patch, still?  I had hoped that r_scratch2 would be defined in the header.
+
+> +            PPC_LI32(r_scratch2, K);
+> +            PPC_DIVWU(r_scratch1, r_A, r_scratch2);
+> +            PPC_MUL(r_scratch1, r_scratch2, r_scratch1);
+> +            PPC_SUB(r_A, r_A, r_scratch1);
+> +#undef r_scratch2
+
+And remember this guy too.. :)
+
+
+Matt
+
+> +            break;
+>        case BPF_S_ALU_DIV_X: /* A /= X; */
+>            ctx->seen |= SEEN_XREG;
+>            PPC_CMPWI(r_X, 0);
+> -- 
+> 1.8.1.5
