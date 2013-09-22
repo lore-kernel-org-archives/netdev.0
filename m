@@ -1,48 +1,35 @@
-From: Grant Likely <grant.likely@linaro.org>
-Subject: Re: [PATCH 22/51] DMA-API: amba: get rid of separate dma_mask
-Date: Sun, 22 Sep 2013 07:18:28 -0500
-Message-ID: <20130922121828.58F02C42373@trevor.secretlab.ca>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMm3x-0007hp-Lv@rmk-PC.arm.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] xen-netfront: convert to GRO API and advertise
+ this feature
+Date: Sun, 22 Sep 2013 07:55:23 -0700
+Message-ID: <1379861723.3431.10.camel@edumazet-glaptop>
+References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <rob.herring@calxeda.com>
-To: Russell King <rmk+kernel@arm.linux.org.uk>, alsa-devel@alsa-project.org,
- b43-dev@lists.infradead.org, devel@driverdev.osuosl.org,
- devicetree@vger.kernel.org, dri-devel@lists.freedesktop.org,
- e1000-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org,
- linux-crypto@vger.kernel.org, linux-doc@vger.kernel.org,
- linux-fbdev@vger.kernel.org, linux-ide@vger.kernel.org,
- linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
- linux-nvme@lists.infradead.org, linux-omap@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org, linux-samsung-soc@vger.kernel.org,
- linux-scsi@vger.kernel.org, linux-tegra@vger.kernel.org,
- linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
- netdev@vger.kernel.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- uclinux-dist-devel@blackfin.uclinux.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <E1VMm3x-0007hp-Lv@rmk-PC.arm.linux.org.uk>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	Anirban Chakraborty <abchak@juniper.net>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:51756 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543Ab3IVOz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 10:55:26 -0400
+Received: by mail-ob0-f169.google.com with SMTP id wp4so2728589obc.14
+        for <netdev@vger.kernel.org>; Sun, 22 Sep 2013 07:55:25 -0700 (PDT)
+In-Reply-To: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Sep 2013 22:47:01 +0100, Russell King <rmk+kernel@arm.linux.org.uk> wrote:
-> AMBA Primecell devices always treat streaming and coherent DMA exactly
-> the same, so there's no point in having the masks separated.
-> 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+On Sat, 2013-09-21 at 17:05 +0100, Wei Liu wrote:
+> Anirban was seeing netfront received MTU size packets, which downgraded
+> throughput. The following patch makes netfront use GRO API which
+> improves throughput for that case.
 
-for the drivers/of/platform.c portion:
-Acked-by: Grant Likely <grant.likely@linaro.org>
+> -	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
+> +	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO |
+> +				  NETIF_F_GRO;
 
-g.
+
+This part is not needed.
