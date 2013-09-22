@@ -1,34 +1,26 @@
-From: "liujunliang_ljl" <liujunliang_ljl@163.com>
-Subject: Re: Re: [PATCH] USB2NET : SR9700 : One chip USB 1.1 USB2NETSR9700Device Driver Support
-Date: Sun, 22 Sep 2013 15:44:45 +0800
-Message-ID: <201309221544441560431@163.com>
-References: <1378035488-8643-1-git-send-email-liujunliang_ljl@163.com>,
- <20130903.222708.238851084536537650.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "horms" <horms@verge.net.au>, "joe" <joe@perches.com>,
-	"romieu" <romieu@fr.zoreil.com>,
-	"gregkh" <gregkh@linuxfoundation.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-usb" <linux-usb@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"sunhecheng" <sunhecheng@vip.126.com>
-To: "David Miller" <davem@davemloft.net>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [PATCH 1/2] remove all uses of printf's %n
+Date: 22 Sep 2013 04:09:59 -0400
+Message-ID: <20130922080959.384.qmail@science.horizon.com>
+References: <201309210928.JCF90671.OtOFLFQSOJVFMH@I-love.SAKURA.ne.jp>
+Cc: akpm@linux-foundation.org, dan.carpenter@oracle.com,
+	geert@linux-m68k.org, JBeulich@suse.com, joe@perches.com,
+	kosaki.motohiro@gmail.com, linux-kernel@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux@horizon.com,
+	netdev@vger.kernel.org, remi.denis-courmont@nokia.com,
+	viro@zeniv.linux.org.uk, xemul@openvz.org
+To: jslaby@suse.cz, keescook@chromium.org,
+	penguin-kernel@I-love.SAKURA.ne.jp
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201309210928.JCF90671.OtOFLFQSOJVFMH@I-love.SAKURA.ne.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RGVhciBNaWxsZXIgOg0KDQoJCQlJJ20gc29ycnkgdG8gdHJvdWJsZSB5b3UgdGhhdCBIb3cgYWJv
-dXQgdGhlIHByb2Nlc3MgZm9yIFNSOTcwMCBEZXZpY2UgRHJpdmVyIHJlbGVhc2U/DQoNCgkJCVRo
-YW5rcyBhIGxvdC4NCg0KDQoyMDEzLTA5LTIyIA0KDQoNCg0KbGl1anVubGlhbmdfbGpsIA0KDQoN
-Cg0Kt6K8/sjLo7ogRGF2aWQgTWlsbGVyIA0Kt6LLzcqxvOSjuiAyMDEzLTA5LTA0ICAxMDoyNzox
-NCANCsrVvP7Iy6O6IGxpdWp1bmxpYW5nX2xqbCANCrOty82juiBob3Jtczsgam9lOyByb21pZXU7
-IGdyZWdraDsgbmV0ZGV2OyBsaW51eC11c2I7IGxpbnV4LWtlcm5lbDsgc3VuaGVjaGVuZyANCtb3
-zOKjuiBSZTogW1BBVENIXSBVU0IyTkVUIDogU1I5NzAwIDogT25lIGNoaXAgVVNCIDEuMSBVU0Iy
-TkVUU1I5NzAwRGV2aWNlIERyaXZlciBTdXBwb3J0IA0KIA0KRnJvbTogbGl1anVubGlhbmdfbGps
-QDE2My5jb20NCkRhdGU6IFN1biwgIDEgU2VwIDIwMTMgMTk6Mzg6MDggKzA4MDANCj4gRnJvbTog
-TGl1IEp1bmxpYW5nIDxsaXVqdW5saWFuZ19samxAMTYzLmNvbT4NCj4gDQo+IFNpZ25lZC1vZmYt
-Ynk6IExpdSBKdW5saWFuZyA8bGl1anVubGlhbmdfbGpsQDE2My5jb20+DQpBcHBsaWVkLCB0aGFu
-a3MuDQo=
+> If you want, we can rename seq_pad() to seq_pad_and_putc(). Also we can pass
+> both the padding character (e.g. ' ') and the trailing character (e.g. '\n')
+> like seq_pad_and_putc((' ' << 8) | '\n'), though I wonder someone wants to
+> use '\0', '\t', '\n' etc. as the padding character...
+
+How about let that complexity wait until it's needed?  It's not like
+it's that big a PITA of a patch to write, and there's a significant
+chance it will *never* be needed.
