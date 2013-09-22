@@ -1,54 +1,62 @@
-From: Avinash kumar <avi.kp.137@gmail.com>
-Subject: [PATCH 3/3] drivers: net: vmxnet3: vmxnet3_int.h: removed checkpatch warnings
-Date: Sun, 22 Sep 2013 22:04:37 +0530
-Message-ID: <1379867677-3607-1-git-send-email-avi.kp.137@gmail.com>
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Avinash kumar <avi.kp.137@gmail.com>
-To: sbhatewara@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH 3/4] net: VSI: Add virtual station interface support
+Date: Sun, 22 Sep 2013 12:44:59 -0400
+Message-ID: <20130922164458.GA2264@neilslaptop.think-freely.org>
+References: <20130920231259.GA31479@neilslaptop.think-freely.org>
+ <523DD7B5.2040206@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60135 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752188Ab3IVQpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 12:45:22 -0400
+Content-Disposition: inline
+In-Reply-To: <523DD7B5.2040206@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-removed following checkpatch warnings:
-drivers/net/vmxnet3/vmxnet3_int.h:241: WARNING: __aligned(size) is preferred over __attribute__((aligned(size)))
-drivers/net/vmxnet3/vmxnet3_int.h:284: WARNING: __aligned(size) is preferred over __attribute__((aligned(size)))
-drivers/net/vmxnet3/vmxnet3_int.h:413: WARNING: extern prototypes should be avoided in .h files
+On Sat, Sep 21, 2013 at 10:30:29AM -0700, John Fastabend wrote:
+> On 9/20/2013 4:12 PM, Neil Horman wrote:
+> >
+> >John-
+> >      Sorry for not copying your orgional patch into your email, but I apparently
+> >erased this email prior to fully reading it.  At any rate, as we discussed the
+> >other day, I think this idea is great, but it would benefit from being
+> >implemented using macvlans rather than a new link type.  If we can set a
+> >hardware flag in the underlying driver to indicate support for hardware
+> >forwarding, we can skip the macvlan soft forwarding, and just transmit directly.
+> >It should save us needing to create a whole new link type that is so simmilar to
+> >one we already have.
+> >
+> >      I'm back home now, so I can start looking at this if you like on monday.
+> >
+> >Best
+> >Neil
+> >
+> >
+> 
+> Yes definitely take a look making it an extension (flag) to macvlan
+> would be more useful if it can work. The one question I have is would
+> we need to clear the flag when a feature is attached to the PF that can
+> not be done in hardware. For example attaching an ingress qdisc,
+> ebtables, or starting up tcpdump are two that come to mind.
+> 
+I think that it probably would, although I expect that this would be the case
+independent of the implementations (virtual station interfaces vs. macvlans).
+The only other option I see is to disallow those features that can't be done in
+hardware, but I think thats unworkable long term.
 
-Signed-off-by: Avinash Kumar <avi.kp.137@gmail.com>
----
- drivers/net/vmxnet3/vmxnet3_int.h |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Neil
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index a03f358..71ae32b 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -238,7 +238,7 @@ struct vmxnet3_tx_queue {
- 	int                             num_stop;  /* # of times the queue is
- 						    * stopped */
- 	int				qid;
--} __attribute__((__aligned__(SMP_CACHE_BYTES)));
-+} __aligned(SMP_CACHE_BYTES);
- 
- enum vmxnet3_rx_buf_type {
- 	VMXNET3_RX_BUF_NONE = 0,
-@@ -281,7 +281,7 @@ struct vmxnet3_rx_queue {
- 	dma_addr_t                      buf_info_pa;
- 	struct Vmxnet3_RxQueueCtrl            *shared;
- 	struct vmxnet3_rq_driver_stats  stats;
--} __attribute__((__aligned__(SMP_CACHE_BYTES)));
-+} __aligned(SMP_CACHE_BYTES);
- 
- #define VMXNET3_DEVICE_MAX_TX_QUEUES 8
- #define VMXNET3_DEVICE_MAX_RX_QUEUES 8   /* Keep this value as a power of 2 */
-@@ -410,7 +410,7 @@ int
- vmxnet3_create_queues(struct vmxnet3_adapter *adapter,
- 		      u32 tx_ring_size, u32 rx_ring_size, u32 rx_ring2_size);
- 
--extern void vmxnet3_set_ethtool_ops(struct net_device *netdev);
-+void vmxnet3_set_ethtool_ops(struct net_device *netdev);
- 
- extern struct rtnl_link_stats64 *
- vmxnet3_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats);
--- 
-1.7.9.5
+> .John
+> 
+> Sorry for the duplication Neil, I sent this mail from a broken email
+> client just a minute ago and vger dropped it.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
