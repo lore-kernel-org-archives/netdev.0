@@ -1,70 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 2/8 V3] rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
-Date: Sun, 22 Sep 2013 23:09:31 +0400
-Message-ID: <523F406B.2010708@cogentembedded.com>
-References: <1379534260-14841-1-git-send-email-Larry.Finger@lwfinger.net> <1379534260-14841-3-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379534260-14841-3-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH] wireless: rtlwifi: Replace variable with a brake
+Date: Sun, 22 Sep 2013 21:24:42 +0200
+Message-ID: <1379877882-21254-1-git-send-email-peter.senna@gmail.com>
+Cc: chaoming_li@realsil.com.cn, joe@perches.com,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Peter Senna Tschudin <peter.senna@gmail.com>
+To: Larry.Finger@lwfinger.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This patch removes the variable continual, and change the while loop
+to break when efuse_data == 0xFF.
 
-On 09/18/2013 11:57 PM, Larry Finger wrote:
+CC: Joe Perches <joe@perches.com>
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+---
+Please ignore the patch:
+[PATCH 12/19] wireless: Change variable type to bool
 
-> Smatch lists the following:
->    CHECK   drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
-> drivers/net/wireless/rtlwifi/rtl8192de/hw.c:1200 rtl92de_set_qos() info: ignoring unreachable code.
+And apply this one instead.
 
-> The dead code is deleted.
+The variable continual was declared as int, but was used as bool. I
+sent previous patch changing the variable type to bool, but Joe Perches
+proposed that removing the variable and adding a brake would be better.
 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> ---
->   drivers/net/wireless/rtlwifi/rtl8192de/hw.c |   19 -------------------
->   1 file changed, 19 deletions(-)
+ drivers/net/wireless/rtlwifi/efuse.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-> Index: wireless-testing-save/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> ===================================================================
-> --- wireless-testing-save.orig/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> +++ wireless-testing-save/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-> @@ -1194,25 +1194,6 @@ void rtl92d_linked_set_reg(struct ieee80
->    * mac80211 will send pkt when scan */
->   void rtl92de_set_qos(struct ieee80211_hw *hw, int aci)
->   {
-> -	struct rtl_priv *rtlpriv = rtl_priv(hw);
-> -	rtl92d_dm_init_edca_turbo(hw);
-
-    This call seems reachable...
-
-> -	return;
-> -	switch (aci) {
-> -	case AC1_BK:
-> -		rtl_write_dword(rtlpriv, REG_EDCA_BK_PARAM, 0xa44f);
-> -		break;
-> -	case AC0_BE:
-> -		break;
-> -	case AC2_VI:
-> -		rtl_write_dword(rtlpriv, REG_EDCA_VI_PARAM, 0x5e4322);
-> -		break;
-> -	case AC3_VO:
-> -		rtl_write_dword(rtlpriv, REG_EDCA_VO_PARAM, 0x2f3222);
-> -		break;
-> -	default:
-> -		RT_ASSERT(false, "invalid aci: %d !\n", aci);
-> -		break;
-> -	}
->   }
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
+index 838a1ed..d1328fc 100644
+--- a/drivers/net/wireless/rtlwifi/efuse.c
++++ b/drivers/net/wireless/rtlwifi/efuse.c
+@@ -1203,19 +1203,18 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
+ 
+ static u16 efuse_get_current_size(struct ieee80211_hw *hw)
+ {
+-	int continual = true;
+ 	u16 efuse_addr = 0;
+ 	u8 hworden;
+ 	u8 efuse_data, word_cnts;
+ 
+-	while (continual && efuse_one_byte_read(hw, efuse_addr, &efuse_data)
+-	       && (efuse_addr < EFUSE_MAX_SIZE)) {
+-		if (efuse_data != 0xFF) {
++	while (efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
++					(efuse_addr < EFUSE_MAX_SIZE)) {
++		if (efuse_data == 0xFF)
++			break;
++
+ 			hworden = efuse_data & 0x0F;
+ 			word_cnts = efuse_calculate_word_cnts(hworden);
+ 			efuse_addr = efuse_addr + (word_cnts * 2) + 1;
+-		} else {
+-			continual = false;
+ 		}
+ 	}
+ 
+-- 
+1.8.3.1
