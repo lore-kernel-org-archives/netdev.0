@@ -1,83 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 12/19] wireless: Change variable type to bool
-Date: Sun, 22 Sep 2013 01:22:08 -0700
-Message-ID: <1379838128.2086.6.camel@joe-AO722>
-References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
-	 <1379802471-30252-12-git-send-email-peter.senna@gmail.com>
+From: Kelsey Gries <kgries1@graceland.edu>
+Subject: Donation!!! Forthe purpose of confidentiality and to claim your
+ prize, reply via this email :bayfordadrian1@gmail.com
+Date: Sun, 22 Sep 2013 04:59:08 -0500
+Message-ID: <2A7B322771C0E44186D613C3D4819F15B83C5DED8C@owlery.graceland.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379802471-30252-12-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hedwig.graceland.edu ([198.101.32.141]:13993 "EHLO
+	mail.graceland.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752637Ab3IVKEc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 06:04:32 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-09-22 at 00:27 +0200, Peter Senna Tschudin wrote:
-> The variable continual is only assigned the values true and false.
-> Change its type to bool.
-[]
-> diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
-[]
-> @@ -1203,7 +1203,7 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
->  
->  static u16 efuse_get_current_size(struct ieee80211_hw *hw)
->  {
-> -	int continual = true;
-> +	bool continual = true;
->  	u16 efuse_addr = 0;
->  	u8 hworden;
->  	u8 efuse_data, word_cnts;
 
-Yes, this could use bool, but would probably be better
-written without continual at all
+This is a personal mail directed to you. My wife and I won 148.6m in the
+Euro Millions jackpot in August 2012 and have voluntarily decided to
+donate $1,000,000..00 USD to you as part of our own charity project to
+improve the life of 10 lucky individuals all over the world.If you have
+received this email please do not delete it and it is not by mistake
+because you are one of the lucky recipients, get back to us with your
+details so that we can forward it to the payout bank who will transfer
+your own part of the donation to you.
 
-as it is before this patch:
+You can verify this by visiting the web pages below.
+http://www.guardian.co.uk/uk/2012/aug/14/british-euromillions-jackpot-winners-revealed
+http://www.bbc.co.uk/news/uk-england-19254228
 
-static u16 efuse_get_current_size(struct ieee80211_hw *hw)
-{
-	int continual = true;
-	u16 efuse_addr = 0;
-	u8 hworden;
-	u8 efuse_data, word_cnts;
+For the purpose of confidentiality and to claim your prize, reply via
+this email :bayfordadrian1@gmail.com
 
-	while (continual && efuse_one_byte_read(hw, efuse_addr, &efuse_data)
-	       && (efuse_addr < EFUSE_MAX_SIZE)) {
-		if (efuse_data != 0xFF) {
-			hworden = efuse_data & 0x0F;
-			word_cnts = efuse_calculate_word_cnts(hworden);
-			efuse_addr = efuse_addr + (word_cnts * 2) + 1;
-		} else {
-			continual = false;
-		}
-	}
-
-	return efuse_addr;
-}
-
-I think writing it without continual, which is effectively
-an ersatz "break", would be better
-
-Something like:
-
-static u16 efuse_get_current_size(struct ieee80211_hw *hw)
-{
-	u16 efuse_addr = 0;
-	u8 hworden;
-	u8 efuse_data, word_cnts;
-
-	while (efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
-	       (efuse_addr < EFUSE_MAX_SIZE) {
-		if (efuse_data == 0xff)
-			break;
-		hworden = efuse_data & 0x0F;
-		word_cnts = efuse_calculate_word_cnts(hworden);
-		efuse_addr = efuse_addr + (word_cnts * 2) + 1;
-	}
-
-	return efuse_addr;
-}
+Yours Sincerely,
+Gillian & Adrian Bayford
