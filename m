@@ -1,60 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Bug - regression - Via velocity interface coming up freezes
- kernel
-Date: Mon, 23 Sep 2013 00:11:09 +0200
-Message-ID: <20130922221109.GA14246@electric-eye.fr.zoreil.com>
-References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 2/5] Bluetooth: Fix assignment of 0/1 to bool variables
+Date: Sun, 22 Sep 2013 17:21:29 -0500
+Message-ID: <20130922222129.GE18215@joana>
+References: <1379875453-20083-1-git-send-email-peter.senna@gmail.com>
+ <1379875453-20083-2-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>
-To: Dirk Kraft <dirk.kraft@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56805 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029Ab3IVWL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 18:11:59 -0400
+Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1379875453-20083-2-git-send-email-peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dirk Kraft <dirk.kraft@gmail.com> :
-[...]
-> I observe problems with my machine freezing when bringing up the
-> network interface (via velocity based). Detailed report below.
+Hi Peter,
+
+2013-09-22 Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+
+> Convert 0 to false and 1 to true when assigning values to bool
+> variables. Inspired by commit 3db1cd5c05f35fb43eb134df6f321de4e63141f2.
 > 
-> First message was rejected because of html. Julia Lawall, sorry about
-> sending multiple copies.
+> The simplified semantic patch that find this problem is as
+> follows (http://coccinelle.lip6.fr/):
 > 
-> [1.] One line summary of the problem:
-> Via_velocity interface coming up freezes kernel - WARNING: CPU: 0 PID:
-> 1529 at /build/buildd/linux-3.11.0/kernel/softirq.c:159
-> local_bh_enable+0x60/0x90()
+> @@
+> bool b;
+> @@
+> (
+> -b = 0
+> +b = false
+> |
+> -b = 1
+> +b = true
+> )
+> 
+> Signed-off-by: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> ---
+>  net/bluetooth/l2cap_core.c |   16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
 
-netif_receive_skb with irq disabled ?
+Patch has been applied to bluetooth-next. Thanks.
 
-You can try this one as a wild guess before I have more time to analyze.
-
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index d022bf9..64c42be 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -2172,16 +2172,13 @@ static int velocity_poll(struct napi_struct *napi, int budget)
- 	unsigned int rx_done;
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&vptr->lock, flags);
- 	/*
- 	 * Do rx and tx twice for performance (taken from the VIA
- 	 * out-of-tree driver).
- 	 */
--	rx_done = velocity_rx_srv(vptr, budget / 2);
--	velocity_tx_srv(vptr);
--	rx_done += velocity_rx_srv(vptr, budget - rx_done);
-+	rx_done = velocity_rx_srv(vptr, budget);
-+	spin_lock_irqsave(&vptr->lock, flags);
- 	velocity_tx_srv(vptr);
--
- 	/* If budget not fully consumed, exit the polling mode */
- 	if (rx_done < budget) {
- 		napi_complete(napi);
+	Gustavo
