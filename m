@@ -1,7 +1,8 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net 2/5] bnx2x: KR2 disablement fix
-Date: Sun, 22 Sep 2013 14:59:23 +0300
-Message-ID: <1379851166-11959-3-git-send-email-yanivr@broadcom.com>
+Subject: [PATCH net 3/5] bnx2x: 57840 non-external loopback test fail on
+ 1G
+Date: Sun, 22 Sep 2013 14:59:24 +0300
+Message-ID: <1379851166-11959-4-git-send-email-yanivr@broadcom.com>
 References: <1379851166-11959-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,132 +12,61 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Yaniv Rosner" <yanivr@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4912 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4018 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753138Ab3IVL77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Sep 2013 07:59:59 -0400
+	id S1753135Ab3IVL75 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Sep 2013 07:59:57 -0400
 In-Reply-To: <1379851166-11959-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Relocate bnx2x_disable_kr2 function, and use it to disable KR2 in case it is not
-configured in order to clear it's configuration, otherwise the link may come up
-at 20G instead of the requested 10G-KR. In addition, restart AN after
-disabling KR2 as part of the KR2 work-around.
+when 1G-optic module was plugged in, internal loopback test failed because the
+driver used to check the optic module (with no need), and for 1G optic module,
+the link speed was forced down to 1G, while the XMAC (10G MAC) was enabled.
+This patch avoid accessing optic module in case internal loopback was selected,
+and update the link speed in case 1G optic module was detected during init
+stage.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   76 +++++++++++-----------
- 1 files changed, 39 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   17 +++++++++++++----
+ 1 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 12ef8e1..84798bb 100644
+index 84798bb..5c6d46c 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -3684,6 +3684,41 @@ static void bnx2x_warpcore_enable_AN_KR2(struct bnx2x_phy *phy,
- 	bnx2x_update_link_attr(params, vars->link_attr_sync);
- }
+@@ -4523,10 +4523,14 @@ static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
+ 			 * enabled transmitter to avoid current leakage in case
+ 			 * no module is connected
+ 			 */
+-			if (bnx2x_is_sfp_module_plugged(phy, params))
+-				bnx2x_sfp_module_detection(phy, params);
+-			else
+-				bnx2x_sfp_e3_set_transmitter(params, phy, 1);
++			if ((params->loopback_mode == LOOPBACK_NONE) ||
++			    (params->loopback_mode == LOOPBACK_EXT)) {
++				if (bnx2x_is_sfp_module_plugged(phy, params))
++					bnx2x_sfp_module_detection(phy, params);
++				else
++					bnx2x_sfp_e3_set_transmitter(params,
++								     phy, 1);
++			}
  
-+static void bnx2x_disable_kr2(struct link_params *params,
-+			      struct link_vars *vars,
-+			      struct bnx2x_phy *phy)
-+{
-+	struct bnx2x *bp = params->bp;
-+	int i;
-+	static struct bnx2x_reg_set reg_set[] = {
-+		/* Step 1 - Program the TX/RX alignment markers */
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL5, 0x7690},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL7, 0xe647},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL6, 0xc4f0},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL9, 0x7690},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_RX_CTRL11, 0xe647},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_RX_CTRL10, 0xc4f0},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_USERB0_CTRL, 0x000c},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CTRL1, 0x6000},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CTRL3, 0x0000},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CODE_FIELD, 0x0002},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI1, 0x0000},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI2, 0x0af7},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI3, 0x0af7},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_LD_BAM_CODE, 0x0002},
-+		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_LD_UD_CODE, 0x0000}
-+	};
-+	DP(NETIF_MSG_LINK, "Disabling 20G-KR2\n");
-+
-+	for (i = 0; i < ARRAY_SIZE(reg_set); i++)
-+		bnx2x_cl45_write(bp, phy, reg_set[i].devad, reg_set[i].reg,
-+				 reg_set[i].val);
-+	vars->link_attr_sync &= ~LINK_ATTR_SYNC_KR2_ENABLE;
-+	bnx2x_update_link_attr(params, vars->link_attr_sync);
-+
-+	vars->check_kr2_recovery_cnt = CHECK_KR2_RECOVERY_CNT;
-+}
-+
- static void bnx2x_warpcore_set_lpi_passthrough(struct bnx2x_phy *phy,
- 					       struct link_params *params)
- {
-@@ -3829,6 +3864,8 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
- 		bnx2x_set_aer_mmd(params, phy);
- 
- 		bnx2x_warpcore_enable_AN_KR2(phy, params, vars);
-+	} else {
-+		bnx2x_disable_kr2(params, vars, phy);
+ 			bnx2x_warpcore_config_sfi(phy, params);
+ 			break;
+@@ -6528,6 +6532,11 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 			params->phy[INT_PHY].config_init(phy, params, vars);
  	}
  
- 	/* Enable Autoneg: only on the main lane */
-@@ -13416,43 +13453,6 @@ static void bnx2x_sfp_tx_fault_detection(struct bnx2x_phy *phy,
- 		}
- 	}
- }
--static void bnx2x_disable_kr2(struct link_params *params,
--			      struct link_vars *vars,
--			      struct bnx2x_phy *phy)
--{
--	struct bnx2x *bp = params->bp;
--	int i;
--	static struct bnx2x_reg_set reg_set[] = {
--		/* Step 1 - Program the TX/RX alignment markers */
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL5, 0x7690},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL7, 0xe647},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL6, 0xc4f0},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_TX_CTRL9, 0x7690},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_RX_CTRL11, 0xe647},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL82_USERB1_RX_CTRL10, 0xc4f0},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_USERB0_CTRL, 0x000c},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CTRL1, 0x6000},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CTRL3, 0x0000},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_CL73_BAM_CODE_FIELD, 0x0002},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI1, 0x0000},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI2, 0x0af7},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_OUI3, 0x0af7},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_LD_BAM_CODE, 0x0002},
--		{MDIO_WC_DEVAD, MDIO_WC_REG_ETA_CL73_LD_UD_CODE, 0x0000}
--	};
--	DP(NETIF_MSG_LINK, "Disabling 20G-KR2\n");
--
--	for (i = 0; i < ARRAY_SIZE(reg_set); i++)
--		bnx2x_cl45_write(bp, phy, reg_set[i].devad, reg_set[i].reg,
--				 reg_set[i].val);
--	vars->link_attr_sync &= ~LINK_ATTR_SYNC_KR2_ENABLE;
--	bnx2x_update_link_attr(params, vars->link_attr_sync);
--
--	vars->check_kr2_recovery_cnt = CHECK_KR2_RECOVERY_CNT;
--	/* Restart AN on leading lane */
--	bnx2x_warpcore_restart_AN_KR(phy, params);
--}
--
- static void bnx2x_kr2_recovery(struct link_params *params,
- 			       struct link_vars *vars,
- 			       struct bnx2x_phy *phy)
-@@ -13530,6 +13530,8 @@ static void bnx2x_check_kr2_wa(struct link_params *params,
- 		/* Disable KR2 on both lanes */
- 		DP(NETIF_MSG_LINK, "BP=0x%x, NP=0x%x\n", base_page, next_page);
- 		bnx2x_disable_kr2(params, vars, phy);
-+		/* Restart AN on leading lane */
-+		bnx2x_warpcore_restart_AN_KR(phy, params);
- 		return;
- 	}
- }
++	/* Re-read this value in case it was changed inside config_init due to
++	 * limitations of optic module
++	 */
++	vars->line_speed = params->phy[INT_PHY].req_line_speed;
++
+ 	/* Init external phy*/
+ 	if (non_ext_phy) {
+ 		if (params->phy[INT_PHY].supported &
 -- 
 1.7.1
