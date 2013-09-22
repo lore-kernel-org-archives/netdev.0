@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 05/12] request_sock.h: Remove extern from function prototypes
-Date: Sun, 22 Sep 2013 10:32:20 -0700
-Message-ID: <bec351fc6068b45ffff56683af1ebed6271843db.1379870986.git.joe@perches.com>
+Subject: [PATCH 09/12] scm.h: Remove extern from function prototypes
+Date: Sun, 22 Sep 2013 10:32:24 -0700
+Message-ID: <3abdad0f2a5221b8cc5fb0084d5c221451d2071a.1379870986.git.joe@perches.com>
 References: <b692aba58032f629907ea2d462c99b87906645ca.1379870986.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
@@ -21,41 +21,29 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/request_sock.h | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ include/net/scm.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 59795e4..65c3e516 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -43,7 +43,7 @@ struct request_sock_ops {
- 					   struct request_sock *req);
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 8de2d37..262532d 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -33,11 +33,11 @@ struct scm_cookie {
+ #endif
  };
  
--extern int inet_rtx_syn_ack(struct sock *parent, struct request_sock *req);
-+int inet_rtx_syn_ack(struct sock *parent, struct request_sock *req);
+-extern void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm);
+-extern void scm_detach_fds_compat(struct msghdr *msg, struct scm_cookie *scm);
+-extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm);
+-extern void __scm_destroy(struct scm_cookie *scm);
+-extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
++void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm);
++void scm_detach_fds_compat(struct msghdr *msg, struct scm_cookie *scm);
++int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm);
++void __scm_destroy(struct scm_cookie *scm);
++struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl);
  
- /* struct request_sock - mini sock to represent a connection request
-  */
-@@ -162,13 +162,13 @@ struct request_sock_queue {
- 					     */
- };
- 
--extern int reqsk_queue_alloc(struct request_sock_queue *queue,
--			     unsigned int nr_table_entries);
-+int reqsk_queue_alloc(struct request_sock_queue *queue,
-+		      unsigned int nr_table_entries);
- 
--extern void __reqsk_queue_destroy(struct request_sock_queue *queue);
--extern void reqsk_queue_destroy(struct request_sock_queue *queue);
--extern void reqsk_fastopen_remove(struct sock *sk,
--				  struct request_sock *req, bool reset);
-+void __reqsk_queue_destroy(struct request_sock_queue *queue);
-+void reqsk_queue_destroy(struct request_sock_queue *queue);
-+void reqsk_fastopen_remove(struct sock *sk, struct request_sock *req,
-+			   bool reset);
- 
- static inline struct request_sock *
- 	reqsk_queue_yank_acceptq(struct request_sock_queue *queue)
+ #ifdef CONFIG_SECURITY_NETWORK
+ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
 -- 
 1.8.1.2.459.gbcd45b4.dirty
