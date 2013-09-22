@@ -1,66 +1,48 @@
 From: Anirban Chakraborty <abchak@juniper.net>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: convert to GRO API
- and advertise this feature
-Date: Sun, 22 Sep 2013 23:04:12 +0000
-Message-ID: <9C83E3AC-719D-4290-8C19-A06356C4BFFA@juniper.net>
+Subject: Re: [PATCH net-next] xen-netfront: convert to GRO API and advertise
+ this feature
+Date: Sun, 22 Sep 2013 23:09:35 +0000
+Message-ID: <D310C490-3B7D-4937-95DC-AFC1682B60BE@juniper.net>
 References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
- <523E8E3B.3050805@redhat.com> <20130922120936.GA4079@zion.uk.xensource.com>
+ <1379861723.3431.10.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Jason Wang <jasowang@redhat.com>,
+Cc: Wei Liu <wei.liu2@citrix.com>,
 	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	"<xen-devel@lists.xen.org>" <xen-devel@lists.xen.org>
-To: Wei Liu <wei.liu2@citrix.com>
+	"<xen-devel@lists.xen.org>" <xen-devel@lists.xen.org>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:53438
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752340Ab3IVXEb convert rfc822-to-8bit
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:52245
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752340Ab3IVXJl convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Sep 2013 19:04:31 -0400
-In-Reply-To: <20130922120936.GA4079@zion.uk.xensource.com>
+	Sun, 22 Sep 2013 19:09:41 -0400
+In-Reply-To: <1379861723.3431.10.camel@edumazet-glaptop>
 Content-Language: en-US
-Content-ID: <F593343BD32FAD45BA23494AB025BD17@namprd05.prod.outlook.com>
+Content-ID: <5D5580385783D147BB6F04707B1B07C8@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Sep 22, 2013, at 5:09 AM, Wei Liu <wei.liu2@citrix.com> wrote:
+On Sep 22, 2013, at 7:55 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Sun, Sep 22, 2013 at 02:29:15PM +0800, Jason Wang wrote:
->> On 09/22/2013 12:05 AM, Wei Liu wrote:
->>> Anirban was seeing netfront received MTU size packets, which downgraded
->>> throughput. The following patch makes netfront use GRO API which
->>> improves throughput for that case.
->>> 
->>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->>> Signed-off-by: Anirban Chakraborty <abchak@juniper.net>
->>> Cc: Ian Campbell <ian.campbell@citrix.com>
->> 
->> Maybe a dumb question: doesn't Xen depends on the driver of host card to
->> do GRO and pass it to netfront? What the case that netfront can receive
+> On Sat, 2013-09-21 at 17:05 +0100, Wei Liu wrote:
+>> Anirban was seeing netfront received MTU size packets, which downgraded
+>> throughput. The following patch makes netfront use GRO API which
+>> improves throughput for that case.
 > 
-> The would be the ideal situation. Netback pushes large packets to
-> netfront and netfront sees large packets.
+>> -	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
+>> +	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO |
+>> +				  NETIF_F_GRO;
 > 
->> a MTU size packet, for a card that does not support GRO in host? Doing
 > 
-> However Anirban saw the case when backend interface receives large
-> packets but netfront sees MTU size packets, so my thought is there is
-> certain configuration that leads to this issue. As we cannot tell
-> users what to enable and what not to enable so I would like to solve
-> this within our driver.
-> 
->> GRO twice may introduce extra overheads.
->> 
-> 
-> AIUI if the packet that frontend sees is large already then the GRO path
-> is quite short which will not introduce heavy penalty, while on the
-> other hand if packet is segmented doing GRO improves throughput.
-> 
+> This part is not needed.
 
-Thanks Wei, for explaining and submitting the patch. I would like add following to what you have already mentioned.
-In my configuration, I was seeing netback was pushing large packets to the guest (Centos 6.4) but the netfront was receiving MTU sized packets. With this patch on, I do see large packets received on the guest interface. As a result there was substantial throughput improvement in the guest side (2.8 Gbps to 3.8 Gbps). Also, note that the host NIC driver was enabled for GRO already. 
+Shouldn't the flag be set? In dev_gro_receive() we do check if this flag is set or not:
+
+        if (!(skb->dev->features & NETIF_F_GRO) || netpoll_rx_on(skb))
+               goto normal;
 
 -Anirban
