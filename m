@@ -1,329 +1,114 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next] xen-netback: improve ring effeciency for guest RX
-Date: Sun, 22 Sep 2013 19:03:44 +0100
-Message-ID: <1379873024-32132-1-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <xen-devel@lists.xen.org>, Wei Liu <wei.liu2@citrix.com>,
-	Xi Xiong <xixiong@amazon.com>, Matt Wilson <msw@amazon.com>,
-	Annie Li <annie.li@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:10406 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355Ab3IVSDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 14:03:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH 2/5] Bluetooth: Fix assignment of 0/1 to bool variables
+Date: Sun, 22 Sep 2013 20:44:10 +0200
+Message-ID: <1379875453-20083-2-git-send-email-peter.senna@gmail.com>
+References: <1379875453-20083-1-git-send-email-peter.senna@gmail.com>
+Cc: gustavo@padovan.org, johan.hedberg@gmail.com, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Peter Senna Tschudin <peter.senna@gmail.com>
+To: marcel@holtmann.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1379875453-20083-1-git-send-email-peter.senna@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There was a bug that netback routines netbk/xenvif_skb_count_slots and
-netbk/xenvif_gop_frag_copy disagreed with each other, which caused
-netback to push wrong number of responses to netfront, which caused
-netfront to eventually crash. The bug was fixed in 6e43fc04a
-("xen-netback: count number required slots for an skb more carefully").
+Convert 0 to false and 1 to true when assigning values to bool
+variables. Inspired by commit 3db1cd5c05f35fb43eb134df6f321de4e63141f2.
 
-Commit 6e43fc04a focused on backport-ability. The drawback with the
-existing packing scheme is that the ring is not used effeciently, as
-stated in 6e43fc04a.
+The simplified semantic patch that find this problem is as
+follows (http://coccinelle.lip6.fr/):
 
-skb->data like:
-    |        1111|222222222222|3333        |
+@@
+bool b;
+@@
+(
+-b = 0
++b = false
+|
+-b = 1
++b = true
+)
 
-is arranged as:
-    |1111        |222222222222|3333        |
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
-If we can do this:
-    |111122222222|22223333    |
-That would save one ring slot, which improves ring effeciency.
-
-This patch effectively reverts 6e43fc04a. That patch made count_slots
-agree with gop_frag_copy, while this patch goes the other way around --
-make gop_frag_copy agree with count_slots. The end result is that they
-still agree with each other, and the ring is now arranged like:
-    |111122222222|22223333    |
-
-The patch that improves packing was first posted by Xi Xong and Matt
-Wilson. I only rebase it on top of net-next and rewrite commit message,
-so I retain all their SoBs. For more infomation about the original bug
-please refer to email listed below and commit message of 6e43fc04a.
-
-Original patch:
-http://lists.xen.org/archives/html/xen-devel/2013-07/msg00760.html
-
-Signed-off-by: Xi Xiong <xixiong@amazon.com>
-Reviewed-by: Matt Wilson <msw@amazon.com>
-[ msw: minor code cleanups, rewrote commit message, adjusted code
-  to count RX slots instead of meta structures ]
-Signed-off-by: Matt Wilson <msw@amazon.com>
-Cc: Annie Li <annie.li@oracle.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <Ian.Campbell@citrix.com>
-[ liuw: rebased on top of net-next tree, rewrote commit message, coding
-  style cleanup. ]
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |  144 ++++++++++++++++---------------------
- 1 file changed, 61 insertions(+), 83 deletions(-)
+ net/bluetooth/l2cap_core.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f3e591c..d0b0feb 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -47,6 +47,14 @@
- #include <asm/xen/hypercall.h>
- #include <asm/xen/page.h>
- 
-+/* SKB control block overlay is used to store useful information when
-+ * doing guest RX.
-+ */
-+struct skb_cb_overlay {
-+	int meta_slots_used;
-+	int peek_slots_count;
-+};
-+
- /* Provide an option to disable split event channels at load time as
-  * event channels are limited resource. Split event channels are
-  * enabled by default.
-@@ -212,49 +220,6 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
- 	return false;
- }
- 
--struct xenvif_count_slot_state {
--	unsigned long copy_off;
--	bool head;
--};
--
--unsigned int xenvif_count_frag_slots(struct xenvif *vif,
--				     unsigned long offset, unsigned long size,
--				     struct xenvif_count_slot_state *state)
--{
--	unsigned count = 0;
--
--	offset &= ~PAGE_MASK;
--
--	while (size > 0) {
--		unsigned long bytes;
--
--		bytes = PAGE_SIZE - offset;
--
--		if (bytes > size)
--			bytes = size;
--
--		if (start_new_rx_buffer(state->copy_off, bytes, state->head)) {
--			count++;
--			state->copy_off = 0;
--		}
--
--		if (state->copy_off + bytes > MAX_BUFFER_OFFSET)
--			bytes = MAX_BUFFER_OFFSET - state->copy_off;
--
--		state->copy_off += bytes;
--
--		offset += bytes;
--		size -= bytes;
--
--		if (offset == PAGE_SIZE)
--			offset = 0;
--
--		state->head = false;
--	}
--
--	return count;
--}
--
- /*
-  * Figure out how many ring slots we're going to need to send @skb to
-  * the guest. This function is essentially a dry run of
-@@ -262,40 +227,53 @@ unsigned int xenvif_count_frag_slots(struct xenvif *vif,
-  */
- unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+diff -u -p a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -5797,7 +5797,7 @@ static int l2cap_rx_state_recv(struct l2
+ 			       struct sk_buff *skb, u8 event)
  {
--	struct xenvif_count_slot_state state;
- 	unsigned int count;
--	unsigned char *data;
--	unsigned i;
-+	int i, copy_off;
-+	struct skb_cb_overlay *sco;
+ 	int err = 0;
+-	bool skb_in_use = 0;
++	bool skb_in_use = false;
  
--	state.head = true;
--	state.copy_off = 0;
-+	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+ 	BT_DBG("chan %p, control %p, skb %p, event %d", chan, control, skb,
+ 	       event);
+@@ -5818,7 +5818,7 @@ static int l2cap_rx_state_recv(struct l2
+ 							   control->txseq);
  
--	/* Slot for the first (partial) page of data. */
--	count = 1;
-+	copy_off = skb_headlen(skb) % PAGE_SIZE;
+ 			chan->buffer_seq = chan->expected_tx_seq;
+-			skb_in_use = 1;
++			skb_in_use = true;
  
--	/* Need a slot for the GSO prefix for GSO extra data? */
- 	if (skb_shinfo(skb)->gso_size)
- 		count++;
- 
--	data = skb->data;
--	while (data < skb_tail_pointer(skb)) {
--		unsigned long offset = offset_in_page(data);
--		unsigned long size = PAGE_SIZE - offset;
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-+		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
-+		unsigned long bytes;
- 
--		if (data + size > skb_tail_pointer(skb))
--			size = skb_tail_pointer(skb) - data;
-+		offset &= ~PAGE_MASK;
- 
--		count += xenvif_count_frag_slots(vif, offset, size, &state);
-+		while (size > 0) {
-+			BUG_ON(offset >= PAGE_SIZE);
-+			BUG_ON(copy_off > MAX_BUFFER_OFFSET);
- 
--		data += size;
--	}
-+			bytes = PAGE_SIZE - offset;
- 
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		unsigned long size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
--		unsigned long offset = skb_shinfo(skb)->frags[i].page_offset;
-+			if (bytes > size)
-+				bytes = size;
-+
-+			if (start_new_rx_buffer(copy_off, bytes, 0)) {
-+				count++;
-+				copy_off = 0;
-+			}
- 
--		count += xenvif_count_frag_slots(vif, offset, size, &state);
-+			if (copy_off + bytes > MAX_BUFFER_OFFSET)
-+				bytes = MAX_BUFFER_OFFSET - copy_off;
-+
-+			copy_off += bytes;
-+
-+			offset += bytes;
-+			size -= bytes;
-+
-+			if (offset == PAGE_SIZE)
-+				offset = 0;
-+		}
- 	}
-+
-+	sco = (struct skb_cb_overlay *)skb->cb;
-+	sco->peek_slots_count = count;
- 	return count;
- }
- 
-@@ -327,14 +305,11 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
- 	return meta;
- }
- 
--/*
-- * Set up the grant operations for this fragment. If it's a flipping
-- * interface, we also set up the unmap request from here.
-- */
-+/* Set up the grant operations for this fragment. */
- static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 				 struct netrx_pending_operations *npo,
- 				 struct page *page, unsigned long size,
--				 unsigned long offset, int *head)
-+				 unsigned long offset, int head, int *first)
- {
- 	struct gnttab_copy *copy_gop;
- 	struct xenvif_rx_meta *meta;
-@@ -358,12 +333,12 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		if (bytes > size)
- 			bytes = size;
- 
--		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
-+		if (start_new_rx_buffer(npo->copy_off, bytes, head)) {
- 			/*
- 			 * Netfront requires there to be some data in the head
- 			 * buffer.
+ 			err = l2cap_reassemble_sdu(chan, skb, control);
+ 			if (err)
+@@ -5854,7 +5854,7 @@ static int l2cap_rx_state_recv(struct l2
+ 			 * current frame is stored for later use.
  			 */
--			BUG_ON(*head);
-+			BUG_ON(*first);
+ 			skb_queue_tail(&chan->srej_q, skb);
+-			skb_in_use = 1;
++			skb_in_use = true;
+ 			BT_DBG("Queued %p (queue len %d)", skb,
+ 			       skb_queue_len(&chan->srej_q));
  
- 			meta = get_next_rx_buffer(vif, npo);
- 		}
-@@ -397,10 +372,10 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		}
- 
- 		/* Leave a gap for the GSO descriptor. */
--		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-+		if (*first && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
- 			vif->rx.req_cons++;
- 
--		*head = 0; /* There must be something in this buffer now. */
-+		*first = 0; /* There must be something in this buffer now. */
- 
- 	}
- }
-@@ -426,7 +401,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 	struct xen_netif_rx_request *req;
- 	struct xenvif_rx_meta *meta;
- 	unsigned char *data;
--	int head = 1;
-+	int first = 1;
- 	int old_meta_prod;
- 
- 	old_meta_prod = npo->meta_prod;
-@@ -462,7 +437,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 			len = skb_tail_pointer(skb) - data;
- 
- 		xenvif_gop_frag_copy(vif, skb, npo,
--				     virt_to_page(data), len, offset, &head);
-+				     virt_to_page(data), len, offset, 1, &first);
- 		data += len;
- 	}
- 
-@@ -471,7 +446,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
- 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
- 				     skb_shinfo(skb)->frags[i].page_offset,
--				     &head);
-+				     0, &first);
- 	}
- 
- 	return npo->meta_prod - old_meta_prod;
-@@ -529,10 +504,6 @@ static void xenvif_add_frag_responses(struct xenvif *vif, int status,
- 	}
- }
- 
--struct skb_cb_overlay {
--	int meta_slots_used;
--};
--
- static void xenvif_kick_thread(struct xenvif *vif)
+@@ -5932,7 +5932,7 @@ static int l2cap_rx_state_srej_sent(stru
  {
- 	wake_up(&vif->wq);
-@@ -563,19 +534,26 @@ void xenvif_rx_action(struct xenvif *vif)
- 	count = 0;
+ 	int err = 0;
+ 	u16 txseq = control->txseq;
+-	bool skb_in_use = 0;
++	bool skb_in_use = false;
  
- 	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL) {
-+		RING_IDX old_rx_req_cons;
-+
- 		vif = netdev_priv(skb->dev);
- 		nr_frags = skb_shinfo(skb)->nr_frags;
+ 	BT_DBG("chan %p, control %p, skb %p, event %d", chan, control, skb,
+ 	       event);
+@@ -5944,7 +5944,7 @@ static int l2cap_rx_state_srej_sent(stru
+ 			/* Keep frame for reassembly later */
+ 			l2cap_pass_to_tx(chan, control);
+ 			skb_queue_tail(&chan->srej_q, skb);
+-			skb_in_use = 1;
++			skb_in_use = true;
+ 			BT_DBG("Queued %p (queue len %d)", skb,
+ 			       skb_queue_len(&chan->srej_q));
  
-+		old_rx_req_cons = vif->rx.req_cons;
- 		sco = (struct skb_cb_overlay *)skb->cb;
- 		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
+@@ -5955,7 +5955,7 @@ static int l2cap_rx_state_srej_sent(stru
  
--		count += nr_frags + 1;
-+		count += vif->rx.req_cons - old_rx_req_cons;
+ 			l2cap_pass_to_tx(chan, control);
+ 			skb_queue_tail(&chan->srej_q, skb);
+-			skb_in_use = 1;
++			skb_in_use = true;
+ 			BT_DBG("Queued %p (queue len %d)", skb,
+ 			       skb_queue_len(&chan->srej_q));
  
- 		__skb_queue_tail(&rxq, skb);
+@@ -5970,7 +5970,7 @@ static int l2cap_rx_state_srej_sent(stru
+ 			 * the missing frames.
+ 			 */
+ 			skb_queue_tail(&chan->srej_q, skb);
+-			skb_in_use = 1;
++			skb_in_use = true;
+ 			BT_DBG("Queued %p (queue len %d)", skb,
+ 			       skb_queue_len(&chan->srej_q));
  
-+		skb = skb_peek(&vif->rx_queue);
-+		if (skb == NULL)
-+			break;
-+		sco = (struct skb_cb_overlay *)skb->cb;
-+
- 		/* Filled the batch queue? */
--		/* XXX FIXME: RX path dependent on MAX_SKB_FRAGS */
--		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
-+		if (count + sco->peek_slots_count >= XEN_NETIF_RX_RING_SIZE)
- 			break;
- 	}
+@@ -5984,7 +5984,7 @@ static int l2cap_rx_state_srej_sent(stru
+ 			 * SREJ'd frames.
+ 			 */
+ 			skb_queue_tail(&chan->srej_q, skb);
+-			skb_in_use = 1;
++			skb_in_use = true;
+ 			BT_DBG("Queued %p (queue len %d)", skb,
+ 			       skb_queue_len(&chan->srej_q));
  
--- 
-1.7.10.4
+
