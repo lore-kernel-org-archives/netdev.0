@@ -1,114 +1,30 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 2/5] Bluetooth: Fix assignment of 0/1 to bool variables
-Date: Sun, 22 Sep 2013 20:44:10 +0200
-Message-ID: <1379875453-20083-2-git-send-email-peter.senna@gmail.com>
-References: <1379875453-20083-1-git-send-email-peter.senna@gmail.com>
-Cc: gustavo@padovan.org, johan.hedberg@gmail.com, davem@davemloft.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: marcel@holtmann.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1379875453-20083-1-git-send-email-peter.senna@gmail.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from stable
+ rules
+Date: Sun, 22 Sep 2013 11:51:04 -0700
+Message-ID: <20130922185104.GA7515@infradead.org>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+ <20130919.135628.1201613770803318193.davem@davemloft.net>
+ <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+ <1379615474.22168.13.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, Mikulas Patocka <mpatocka@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rob Landley <rob@landley.net>, linux-doc@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1379615474.22168.13.camel@joe-AO722>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert 0 to false and 1 to true when assigning values to bool
-variables. Inspired by commit 3db1cd5c05f35fb43eb134df6f321de4e63141f2.
+This is also the preferred way to do it for XFS.  Maybe word it in a way
+that we can easily add subsystems.
 
-The simplified semantic patch that find this problem is as
-follows (http://coccinelle.lip6.fr/):
-
-@@
-bool b;
-@@
-(
--b = 0
-+b = false
-|
--b = 1
-+b = true
-)
-
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-
----
- net/bluetooth/l2cap_core.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
-diff -u -p a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -5797,7 +5797,7 @@ static int l2cap_rx_state_recv(struct l2
- 			       struct sk_buff *skb, u8 event)
- {
- 	int err = 0;
--	bool skb_in_use = 0;
-+	bool skb_in_use = false;
- 
- 	BT_DBG("chan %p, control %p, skb %p, event %d", chan, control, skb,
- 	       event);
-@@ -5818,7 +5818,7 @@ static int l2cap_rx_state_recv(struct l2
- 							   control->txseq);
- 
- 			chan->buffer_seq = chan->expected_tx_seq;
--			skb_in_use = 1;
-+			skb_in_use = true;
- 
- 			err = l2cap_reassemble_sdu(chan, skb, control);
- 			if (err)
-@@ -5854,7 +5854,7 @@ static int l2cap_rx_state_recv(struct l2
- 			 * current frame is stored for later use.
- 			 */
- 			skb_queue_tail(&chan->srej_q, skb);
--			skb_in_use = 1;
-+			skb_in_use = true;
- 			BT_DBG("Queued %p (queue len %d)", skb,
- 			       skb_queue_len(&chan->srej_q));
- 
-@@ -5932,7 +5932,7 @@ static int l2cap_rx_state_srej_sent(stru
- {
- 	int err = 0;
- 	u16 txseq = control->txseq;
--	bool skb_in_use = 0;
-+	bool skb_in_use = false;
- 
- 	BT_DBG("chan %p, control %p, skb %p, event %d", chan, control, skb,
- 	       event);
-@@ -5944,7 +5944,7 @@ static int l2cap_rx_state_srej_sent(stru
- 			/* Keep frame for reassembly later */
- 			l2cap_pass_to_tx(chan, control);
- 			skb_queue_tail(&chan->srej_q, skb);
--			skb_in_use = 1;
-+			skb_in_use = true;
- 			BT_DBG("Queued %p (queue len %d)", skb,
- 			       skb_queue_len(&chan->srej_q));
- 
-@@ -5955,7 +5955,7 @@ static int l2cap_rx_state_srej_sent(stru
- 
- 			l2cap_pass_to_tx(chan, control);
- 			skb_queue_tail(&chan->srej_q, skb);
--			skb_in_use = 1;
-+			skb_in_use = true;
- 			BT_DBG("Queued %p (queue len %d)", skb,
- 			       skb_queue_len(&chan->srej_q));
- 
-@@ -5970,7 +5970,7 @@ static int l2cap_rx_state_srej_sent(stru
- 			 * the missing frames.
- 			 */
- 			skb_queue_tail(&chan->srej_q, skb);
--			skb_in_use = 1;
-+			skb_in_use = true;
- 			BT_DBG("Queued %p (queue len %d)", skb,
- 			       skb_queue_len(&chan->srej_q));
- 
-@@ -5984,7 +5984,7 @@ static int l2cap_rx_state_srej_sent(stru
- 			 * SREJ'd frames.
- 			 */
- 			skb_queue_tail(&chan->srej_q, skb);
--			skb_in_use = 1;
-+			skb_in_use = true;
- 			BT_DBG("Queued %p (queue len %d)", skb,
- 			       skb_queue_len(&chan->srej_q));
- 
+To me it generally seems to be the best way to do it - having random Ccs
+and lots of stable trees doesn't seem like a very good way of handling
+it.
 
