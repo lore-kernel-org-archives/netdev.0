@@ -1,82 +1,93 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH V2] wireless: rtlwifi: Replace variable with a brake
-Date: Sun, 22 Sep 2013 23:56:38 +0400
-Message-ID: <523F4B76.80507@cogentembedded.com>
-References: <1379879410-22787-1-git-send-email-peter.senna@gmail.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH v2] declance: Remove `incompatible pointer type' warnings
+Date: Sun, 22 Sep 2013 21:19:01 +0100 (BST)
+Message-ID: <alpine.LFD.2.03.1309222113300.16797@linux-mips.org>
+References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org> <20130920.144304.2081229489870626586.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379879410-22787-1-git-send-email-peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:56972 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569Ab3IVUTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 16:19:02 -0400
+Received: from localhost.localdomain ([127.0.0.1]:36545 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6816288Ab3IVUTBcOKue (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:19:01 +0200
+In-Reply-To: <20130920.144304.2081229489870626586.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7 
+[drivers/net: Remove casts of void *]:
 
-On 09/22/2013 11:50 PM, Peter Senna Tschudin wrote:
+.../declance.c: In function 'cp_to_buf':
+.../declance.c:347: warning: assignment from incompatible pointer type
+.../declance.c:348: warning: assignment from incompatible pointer type
+.../declance.c: In function 'cp_from_buf':
+.../declance.c:406: warning: assignment from incompatible pointer type
+.../declance.c:407: warning: assignment from incompatible pointer type
 
-    You have a typo in the subject -- "brake" is a device to stop a vehicle. :-)
+Also add a `const' qualifier where applicable and adjust formatting.
 
-> This patch removes the variable continual, and change the while loop
-> to break when efuse_data == 0xFF.
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+> Applied to net-next
 
-> Tested by compilation only.
+ Thanks, by Sergei's request please use this version instead that has the 
+reference to the original commit updated (no change to the patch itself).
 
-> CC: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> Signed-off-by: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> Changes from V1:
->   - Fix the indetation
->   - Remove remaining } from removed else
+  Maciej
 
-> Please ignore the patch:
-> [PATCH 12/19] wireless: Change variable type to bool
-
-> And apply this one instead.
-
-> The variable continual was declared as int, but was used as bool. I
-> sent previous patch changing the variable type to bool, but Joe Perches
-> proposed that removing the variable and adding a brake would be better.
-
->   drivers/net/wireless/rtlwifi/efuse.c | 18 ++++++++----------
->   1 file changed, 8 insertions(+), 10 deletions(-)
-
-> diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
-> index 838a1ed..2aedd9f 100644
-> --- a/drivers/net/wireless/rtlwifi/efuse.c
-> +++ b/drivers/net/wireless/rtlwifi/efuse.c
-> @@ -1203,20 +1203,18 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
->
->   static u16 efuse_get_current_size(struct ieee80211_hw *hw)
->   {
-> -	int continual = true;
->   	u16 efuse_addr = 0;
->   	u8 hworden;
->   	u8 efuse_data, word_cnts;
->
-> -	while (continual && efuse_one_byte_read(hw, efuse_addr, &efuse_data)
-> -	       && (efuse_addr < EFUSE_MAX_SIZE)) {
-> -		if (efuse_data != 0xFF) {
-> -			hworden = efuse_data & 0x0F;
-> -			word_cnts = efuse_calculate_word_cnts(hworden);
-> -			efuse_addr = efuse_addr + (word_cnts * 2) + 1;
-> -		} else {
-> -			continual = false;
-> -		}
-> +	while (efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
-> +					(efuse_addr < EFUSE_MAX_SIZE)) {
-
-    Start this line under efuse_one_byte_read, please. Also, parens are not 
-needed.
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+linux-declance-cast-fix.patch
+Index: linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
+===================================================================
+--- linux-mips-3.12.0-rc1-20130917-4maxp.orig/drivers/net/ethernet/amd/declance.c
++++ linux-mips-3.12.0-rc1-20130917-4maxp/drivers/net/ethernet/amd/declance.c
+@@ -344,8 +344,8 @@ static void cp_to_buf(const int type, vo
+ 		}
+ 
+ 		clen = len & 1;
+-		rtp = tp;
+-		rfp = fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
+@@ -372,8 +372,8 @@ static void cp_to_buf(const int type, vo
+ 		 * do the rest, if any.
+ 		 */
+ 		clen = len & 15;
+-		rtp = (unsigned char *) tp;
+-		rfp = (unsigned char *) fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
+@@ -403,8 +403,8 @@ static void cp_from_buf(const int type, 
+ 
+ 		clen = len & 1;
+ 
+-		rtp = tp;
+-		rfp = fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+@@ -433,8 +433,8 @@ static void cp_from_buf(const int type, 
+ 		 * do the rest, if any.
+ 		 */
+ 		clen = len & 15;
+-		rtp = (unsigned char *) tp;
+-		rfp = (unsigned char *) fp;
++		rtp = (unsigned char *)tp;
++		rfp = (const unsigned char *)fp;
+ 		while (clen--) {
+ 			*rtp++ = *rfp++;
+ 		}
