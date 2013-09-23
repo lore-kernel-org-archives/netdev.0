@@ -1,50 +1,67 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Question on Netlink IPv6 routing table lookup
-Date: Mon, 23 Sep 2013 16:41:07 -0300
-Message-ID: <52409953.8040208@gont.com.ar>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] xfrm: Simplify SA looking up when using wildcard
+ source address
+Date: Mon, 23 Sep 2013 23:46:28 +0400
+Message-ID: <52409A94.7090308@cogentembedded.com>
+References: <1379927917-17365-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:60268 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646Ab3IWToA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:44:00 -0400
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:39640 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095Ab3IWTqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:46:30 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so3093627lbi.1
+        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 12:46:28 -0700 (PDT)
+In-Reply-To: <1379927917-17365-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Folks,
+Hello.
 
-I'm performing IPv6 routing table lookups with a netlink socket, and it
-seems that specifying the Source Address with the RTA_SRC element does
-not have any effect on the result of the look-up.
+On 09/23/2013 01:18 PM, Fan Du wrote:
 
-In my network setup, I have two interfaces, as follows:
+> I'm not quite sure I get this "wildcard source address" right,
+> IMHO if a host needs to protect every traffic for a given remote host=
+,
+> then the source address is wildcard address, i.e. all ZEROs.
+> (Please correct me if I'm bloodly wrong=E3=80=82=E3=80=82=E3=80=82)
 
- NET1 (fc00:1::/64) <------> MY_NODE <------> NET2 (fc00:2::/64)
+> Here is the argument if above statement stands true:
+> __xfrm4/6_state_addr_check is a four steps check, all we need to do
+> is checking whether the destination address match. Passing saddr from
+> flow is worst option, as the checking needs to reach the fourth step.
 
-For simplicity sake, let's say that my nodes' address on NET1 is
-fc00:1::1, and my node's address on NET2 is fc00:2::1. And my node has
-two default routes (one in NET1, and another in NET2).
+> So, simply this process by only checking destination address only whe=
+n
+> using wildcard source address for looking up SAs.
 
-I'd expect that if I set RTA_SRC to fc00:1::1, the default route on NET1
-is selected, but if I set RTA_SRC to fc00:2::1, it is the default route
-on NET2 that is selected.
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   include/net/xfrm.h    |   31 +++++++++++++++++++++++++++++++
+>   net/xfrm/xfrm_state.c |    2 +-
+>   2 files changed, 32 insertions(+), 1 deletion(-)
 
-However, the result of the routing tale look-up is always the same,
-regardless of RTA_SRC.
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index e253bf0..fdb9343 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -1282,6 +1282,37 @@ xfrm_state_addr_check(const struct xfrm_state =
+*x,
+>   }
+>
+>   static __inline__ int
+> +__xfrm4_state_daddr_check(const struct xfrm_state *x,
+> +                                const xfrm_address_t *daddr)
+> +{
+> +        return ((daddr->a4 =3D=3D x->id.daddr.a4) ? 1 : 0);
 
-I looked at /proc/net/ipv6_route, and it seems that, for all routes, the
-"source network" is always set to :: (all zeroes), thus probably
-explaining the above behavior.
+    () not needed around the *return* expression, and ?: not needed too=
+=2E
 
-Is there any way to influence the routing-table look-up based on the
-IPv6 source address?
-
-If that's not (currently) possible, should I expect RTA_SRC to work as
-described above at some point in the future?
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+WBR, Sergei
