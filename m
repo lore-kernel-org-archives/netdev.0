@@ -1,11 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 05/10] atheros: Remove extern from function prototypes
-Date: Mon, 23 Sep 2013 15:11:32 -0700
-Message-ID: <b7bf26665e0378a3ec9d4450daf60dc115f75e49.1379974101.git.joe@perches.com>
+Subject: [PATCH 02/10] 8390: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 15:11:29 -0700
+Message-ID: <6ba89944a5841cbbd76b9a1412e1e7b6c41e1efe.1379974101.git.joe@perches.com>
 References: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com>
@@ -22,59 +21,75 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c.h |  6 +++---
- drivers/net/ethernet/atheros/atl1e/atl1e.h | 12 ++++++------
- drivers/net/ethernet/atheros/atlx/atl2.h   |  2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/8390/8390.h | 40 ++++++++++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-index 0f05565..7f9369a 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-@@ -600,7 +600,7 @@ struct atl1c_adapter {
- extern char atl1c_driver_name[];
- extern char atl1c_driver_version[];
- 
--extern void atl1c_reinit_locked(struct atl1c_adapter *adapter);
--extern s32 atl1c_reset_hw(struct atl1c_hw *hw);
--extern void atl1c_set_ethtool_ops(struct net_device *netdev);
-+void atl1c_reinit_locked(struct atl1c_adapter *adapter);
-+s32 atl1c_reset_hw(struct atl1c_hw *hw);
-+void atl1c_set_ethtool_ops(struct net_device *netdev);
- #endif /* _ATL1C_H_ */
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-index b5fd934..1b0fe2d 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e.h
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-@@ -499,10 +499,10 @@ struct atl1e_adapter {
- extern char atl1e_driver_name[];
- extern char atl1e_driver_version[];
- 
--extern void atl1e_check_options(struct atl1e_adapter *adapter);
--extern int atl1e_up(struct atl1e_adapter *adapter);
--extern void atl1e_down(struct atl1e_adapter *adapter);
--extern void atl1e_reinit_locked(struct atl1e_adapter *adapter);
--extern s32 atl1e_reset_hw(struct atl1e_hw *hw);
--extern void atl1e_set_ethtool_ops(struct net_device *netdev);
-+void atl1e_check_options(struct atl1e_adapter *adapter);
-+int atl1e_up(struct atl1e_adapter *adapter);
-+void atl1e_down(struct atl1e_adapter *adapter);
-+void atl1e_reinit_locked(struct atl1e_adapter *adapter);
-+s32 atl1e_reset_hw(struct atl1e_hw *hw);
-+void atl1e_set_ethtool_ops(struct net_device *netdev);
- #endif /* _ATL1_E_H_ */
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
-index 3ebe19f..2f27d4c 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.h
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.h
-@@ -42,7 +42,7 @@
- #include "atlx.h"
- 
- #ifdef ETHTOOL_OPS_COMPAT
--extern int ethtool_ioctl(struct ifreq *ifr);
-+int ethtool_ioctl(struct ifreq *ifr);
+diff --git a/drivers/net/ethernet/8390/8390.h b/drivers/net/ethernet/8390/8390.h
+index ef325ff..2923c51 100644
+--- a/drivers/net/ethernet/8390/8390.h
++++ b/drivers/net/ethernet/8390/8390.h
+@@ -28,42 +28,42 @@ extern int ei_debug;
  #endif
  
- #define PCI_COMMAND_REGISTER	PCI_COMMAND
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-extern void ei_poll(struct net_device *dev);
+-extern void eip_poll(struct net_device *dev);
++void ei_poll(struct net_device *dev);
++void eip_poll(struct net_device *dev);
+ #endif
+ 
+ 
+ /* Without I/O delay - non ISA or later chips */
+-extern void NS8390_init(struct net_device *dev, int startp);
+-extern int ei_open(struct net_device *dev);
+-extern int ei_close(struct net_device *dev);
+-extern irqreturn_t ei_interrupt(int irq, void *dev_id);
+-extern void ei_tx_timeout(struct net_device *dev);
+-extern netdev_tx_t ei_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-extern void ei_set_multicast_list(struct net_device *dev);
+-extern struct net_device_stats *ei_get_stats(struct net_device *dev);
++void NS8390_init(struct net_device *dev, int startp);
++int ei_open(struct net_device *dev);
++int ei_close(struct net_device *dev);
++irqreturn_t ei_interrupt(int irq, void *dev_id);
++void ei_tx_timeout(struct net_device *dev);
++netdev_tx_t ei_start_xmit(struct sk_buff *skb, struct net_device *dev);
++void ei_set_multicast_list(struct net_device *dev);
++struct net_device_stats *ei_get_stats(struct net_device *dev);
+ 
+ extern const struct net_device_ops ei_netdev_ops;
+ 
+-extern struct net_device *__alloc_ei_netdev(int size);
++struct net_device *__alloc_ei_netdev(int size);
+ static inline struct net_device *alloc_ei_netdev(void)
+ {
+ 	return __alloc_ei_netdev(0);
+ }
+ 
+ /* With I/O delay form */
+-extern void NS8390p_init(struct net_device *dev, int startp);
+-extern int eip_open(struct net_device *dev);
+-extern int eip_close(struct net_device *dev);
+-extern irqreturn_t eip_interrupt(int irq, void *dev_id);
+-extern void eip_tx_timeout(struct net_device *dev);
+-extern netdev_tx_t eip_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-extern void eip_set_multicast_list(struct net_device *dev);
+-extern struct net_device_stats *eip_get_stats(struct net_device *dev);
++void NS8390p_init(struct net_device *dev, int startp);
++int eip_open(struct net_device *dev);
++int eip_close(struct net_device *dev);
++irqreturn_t eip_interrupt(int irq, void *dev_id);
++void eip_tx_timeout(struct net_device *dev);
++netdev_tx_t eip_start_xmit(struct sk_buff *skb, struct net_device *dev);
++void eip_set_multicast_list(struct net_device *dev);
++struct net_device_stats *eip_get_stats(struct net_device *dev);
+ 
+ extern const struct net_device_ops eip_netdev_ops;
+ 
+-extern struct net_device *__alloc_eip_netdev(int size);
++struct net_device *__alloc_eip_netdev(int size);
+ static inline struct net_device *alloc_eip_netdev(void)
+ {
+ 	return __alloc_eip_netdev(0);
 -- 
 1.8.1.2.459.gbcd45b4.dirty
