@@ -1,74 +1,58 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: convert to GRO API
- and advertise this feature
-Date: Mon, 23 Sep 2013 14:22:28 +0800
-Message-ID: <523FDE24.5060902@oracle.com>
-References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>	<523E8E3B.3050805@redhat.com>	<20130922120936.GA4079@zion.uk.xensource.com> <9C83E3AC-719D-4290-8C19-A06356C4BFFA@juniper.net> <523FCB4D.30801@redhat.com>
+From: Dirk Kraft <dirk.kraft@gmail.com>
+Subject: Re: Bug - regression - Via velocity interface coming up freezes kernel
+Date: Mon, 23 Sep 2013 08:29:31 +0200
+Message-ID: <CAFES+iKYWTn-DZRCnWer56rWeGh0t86GAx66OgZ7Jnvm-9fo9w@mail.gmail.com>
+References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
+	<20130922221109.GA14246@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Anirban Chakraborty <abchak@juniper.net>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	"<xen-devel@lists.xen.org>" <xen-devel@lists.xen.org>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:17399 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab3IWGWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 02:22:41 -0400
-In-Reply-To: <523FCB4D.30801@redhat.com>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:52561 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752335Ab3IWG3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 02:29:32 -0400
+Received: by mail-we0-f169.google.com with SMTP id t60so2704111wes.14
+        for <netdev@vger.kernel.org>; Sun, 22 Sep 2013 23:29:31 -0700 (PDT)
+In-Reply-To: <20130922221109.GA14246@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi
 
-On 2013-9-23 13:02, Jason Wang wrote:
-> On 09/23/2013 07:04 AM, Anirban Chakraborty wrote:
->> On Sep 22, 2013, at 5:09 AM, Wei Liu <wei.liu2@citrix.com> wrote:
->>
->>> On Sun, Sep 22, 2013 at 02:29:15PM +0800, Jason Wang wrote:
->>>> On 09/22/2013 12:05 AM, Wei Liu wrote:
->>>>> Anirban was seeing netfront received MTU size packets, which downgraded
->>>>> throughput. The following patch makes netfront use GRO API which
->>>>> improves throughput for that case.
->>>>>
->>>>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->>>>> Signed-off-by: Anirban Chakraborty <abchak@juniper.net>
->>>>> Cc: Ian Campbell <ian.campbell@citrix.com>
->>>> Maybe a dumb question: doesn't Xen depends on the driver of host card to
->>>> do GRO and pass it to netfront? What the case that netfront can receive
->>> The would be the ideal situation. Netback pushes large packets to
->>> netfront and netfront sees large packets.
->>>
->>>> a MTU size packet, for a card that does not support GRO in host? Doing
->>> However Anirban saw the case when backend interface receives large
->>> packets but netfront sees MTU size packets, so my thought is there is
->>> certain configuration that leads to this issue. As we cannot tell
->>> users what to enable and what not to enable so I would like to solve
->>> this within our driver.
->>>
->>>> GRO twice may introduce extra overheads.
->>>>
->>> AIUI if the packet that frontend sees is large already then the GRO path
->>> is quite short which will not introduce heavy penalty, while on the
->>> other hand if packet is segmented doing GRO improves throughput.
->>>
->> Thanks Wei, for explaining and submitting the patch. I would like add following to what you have already mentioned.
->> In my configuration, I was seeing netback was pushing large packets to the guest (Centos 6.4) but the netfront was receiving MTU sized packets. With this patch on, I do see large packets received on the guest interface. As a result there was substantial throughput improvement in the guest side (2.8 Gbps to 3.8 Gbps). Also, note that the host NIC driver was enabled for GRO already.
->>
->> -Anirban
-> In this case, even if you still want to do GRO. It's better to find the
-> root cause of why the GSO packet were segmented
+On Mon, Sep 23, 2013 at 12:11 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+[...]
+> You can try this one as a wild guess before I have more time to analyze.
 
-Totally agree, we need to find the cause why large packets is segmented 
-only in different host case.
+By applying the below patch to 3.11-rc1 the problem is gone.
 
-> (maybe GSO were not
-> enabled for netback?), since it introduces extra overheads.
+I was only able to do a short test. Could not say if this has any side effects.
 
- From Anirban's feedback, large packets can be seen on vif interface, 
-and even on guests running on the same host.
+Thanks,
+Dirk
 
-Thanks
-Annie
+>
+> diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+> index d022bf9..64c42be 100644
+> --- a/drivers/net/ethernet/via/via-velocity.c
+> +++ b/drivers/net/ethernet/via/via-velocity.c
+> @@ -2172,16 +2172,13 @@ static int velocity_poll(struct napi_struct *napi, int budget)
+>         unsigned int rx_done;
+>         unsigned long flags;
+>
+> -       spin_lock_irqsave(&vptr->lock, flags);
+>         /*
+>          * Do rx and tx twice for performance (taken from the VIA
+>          * out-of-tree driver).
+>          */
+> -       rx_done = velocity_rx_srv(vptr, budget / 2);
+> -       velocity_tx_srv(vptr);
+> -       rx_done += velocity_rx_srv(vptr, budget - rx_done);
+> +       rx_done = velocity_rx_srv(vptr, budget);
+> +       spin_lock_irqsave(&vptr->lock, flags);
+>         velocity_tx_srv(vptr);
+> -
+>         /* If budget not fully consumed, exit the polling mode */
+>         if (rx_done < budget) {
+>                 napi_complete(napi);
