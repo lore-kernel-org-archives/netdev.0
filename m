@@ -1,23 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/19] net: Change variable type to bool
-Date: Mon, 23 Sep 2013 17:38:37 -0400 (EDT)
-Message-ID: <20130923.173837.1100130860877105243.davem@davemloft.net>
-References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
-	<1379802471-30252-9-git-send-email-peter.senna@gmail.com>
+From: "Mr. Alpha Isoko" <mralphaisoko@sify.com>
+Subject: GOOD DAY
+Date: Mon, 23 Sep 2013 14:39:47 -0700 (PDT)
+Message-ID: <1379972387.26981.YahooMailBasic@web141204.mail.bf1.yahoo.com>
+Reply-To: mralphaisoko@ibibo.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: peter.senna@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1379802471-30252-9-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm19-vm0.bullet.mail.bf1.yahoo.com ([98.139.213.162]:38419 "EHLO
+	nm19-vm0.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752229Ab3IWVjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 17:39:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Using the same prefix, "net: " for several patches gives no information
-to the person reading the shortlog.
+Greetings From Mr Alpha Isoko.
 
-Use more specific subsystem prefixes, such as "bnx2x: "myri10ge: ",
-"ipv6: ", etc.
+Dear Friend,
+
+For your kind attention. I will be very glad if you do assist me to relocate this sum of (US$10.5M) to your account for the benefit of our both families.
+
+This is a genuine business,only i cannot operate it alone without using a Foreigner who will stand as a beneficiary to the money, that is why i decided to contact you in a good manner to assist me and also to share the benefit together with me.
+
+By indicating your interest I will send you the full details on how the business will be executed.
+
+Please keep this proposal as a top secret.
+
+Regards,
+Mr.Alpha Isoko.
