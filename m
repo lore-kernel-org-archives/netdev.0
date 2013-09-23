@@ -1,78 +1,57 @@
-From: Anirban Chakraborty <abchak@juniper.net>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: convert to GRO API
- and advertise this feature
-Date: Mon, 23 Sep 2013 20:32:27 +0000
-Message-ID: <47535B21-3384-4B05-B5BE-B4C01DF4319E@juniper.net>
-References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
-	<523E8E3B.3050805@redhat.com>	<20130922120936.GA4079@zion.uk.xensource.com>
- <9C83E3AC-719D-4290-8C19-A06356C4BFFA@juniper.net>
- <523FCB4D.30801@redhat.com> <523FDE24.5060902@oracle.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from stable
+	rules
+Date: Mon, 23 Sep 2013 13:34:05 -0700
+Message-ID: <1379968445.3575.60.camel@joe-AO722>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
+	<20130919.135628.1201613770803318193.davem@davemloft.net>
+	<alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
+	<1379615474.22168.13.camel@joe-AO722>
+	<20130922185104.GA7515@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jason Wang <jasowang@redhat.com>, Wei Liu <wei.liu2@citrix.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	"<xen-devel@lists.xen.org>" <xen-devel@lists.xen.org>
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:11865
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751835Ab3IWUdO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Sep 2013 16:33:14 -0400
-In-Reply-To: <523FDE24.5060902@oracle.com>
-Content-Language: en-US
-Content-ID: <C5CCE898BD7539418D78EE69B2985FFA@namprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com,
+	stephen@networkplumber.org, Mikulas Patocka <mpatocka@redhat.com>,
+	Rob Landley <rob@landley.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <xfs-bounces@oss.sgi.com>
+In-Reply-To: <20130922185104.GA7515@infradead.org>
+List-Unsubscribe: <http://oss.sgi.com/mailman/options/xfs>,
+	<mailto:xfs-request@oss.sgi.com?subject=unsubscribe>
+List-Archive: <http://oss.sgi.com/pipermail/xfs>
+List-Post: <mailto:xfs@oss.sgi.com>
+List-Help: <mailto:xfs-request@oss.sgi.com?subject=help>
+List-Subscribe: <http://oss.sgi.com/mailman/listinfo/xfs>,
+	<mailto:xfs-request@oss.sgi.com?subject=subscribe>
+Errors-To: xfs-bounces@oss.sgi.com
+Sender: xfs-bounces@oss.sgi.com
+List-Id: netdev.vger.kernel.org
 
-
-On Sep 22, 2013, at 11:22 PM, annie li <annie.li@oracle.com> wrote:
-
+On Sun, 2013-09-22 at 11:51 -0700, Christoph Hellwig wrote:
+> This is also the preferred way to do it for XFS.  Maybe word it in a way
+> that we can easily add subsystems.
 > 
-> On 2013-9-23 13:02, Jason Wang wrote:
->> On 09/23/2013 07:04 AM, Anirban Chakraborty wrote:
->>> On Sep 22, 2013, at 5:09 AM, Wei Liu <wei.liu2@citrix.com> wrote:
->>> 
->>>> On Sun, Sep 22, 2013 at 02:29:15PM +0800, Jason Wang wrote:
->>>>> On 09/22/2013 12:05 AM, Wei Liu wrote:
->>>>>> Anirban was seeing netfront received MTU size packets, which downgraded
->>>>>> throughput. The following patch makes netfront use GRO API which
->>>>>> improves throughput for that case.
->>>>>> 
->>>>>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->>>>>> Signed-off-by: Anirban Chakraborty <abchak@juniper.net>
->>>>>> Cc: Ian Campbell <ian.campbell@citrix.com>
->>>>> Maybe a dumb question: doesn't Xen depends on the driver of host card to
->>>>> do GRO and pass it to netfront? What the case that netfront can receive
->>>> The would be the ideal situation. Netback pushes large packets to
->>>> netfront and netfront sees large packets.
->>>> 
->>>>> a MTU size packet, for a card that does not support GRO in host? Doing
->>>> However Anirban saw the case when backend interface receives large
->>>> packets but netfront sees MTU size packets, so my thought is there is
->>>> certain configuration that leads to this issue. As we cannot tell
->>>> users what to enable and what not to enable so I would like to solve
->>>> this within our driver.
->>>> 
->>>>> GRO twice may introduce extra overheads.
->>>>> 
->>>> AIUI if the packet that frontend sees is large already then the GRO path
->>>> is quite short which will not introduce heavy penalty, while on the
->>>> other hand if packet is segmented doing GRO improves throughput.
->>>> 
->>> Thanks Wei, for explaining and submitting the patch. I would like add following to what you have already mentioned.
->>> In my configuration, I was seeing netback was pushing large packets to the guest (Centos 6.4) but the netfront was receiving MTU sized packets. With this patch on, I do see large packets received on the guest interface. As a result there was substantial throughput improvement in the guest side (2.8 Gbps to 3.8 Gbps). Also, note that the host NIC driver was enabled for GRO already.
->>> 
->>> -Anirban
->> In this case, even if you still want to do GRO. It's better to find the
->> root cause of why the GSO packet were segmented
-> 
-> Totally agree, we need to find the cause why large packets is segmented only in different host case.
+> To me it generally seems to be the best way to do it - having random Ccs
+> and lots of stable trees doesn't seem like a very good way of handling
+> it.
 
-It appears (from looking at the netback code) that although GSO is turned on at the netback, the guest receives large packet:
-1. if it is a local packet (vm to vm on the same host), in which case netfront does a LRO or,
-2. via turning on GRO explicitly (with this patch).
+Maybe adding a mechanism to MAINTAINERS would be better.
+Maybe a default B: (backport?) of stable@vger.kernel.org
+with a per-subsystem override?
 
--Anirban
+SUBSYSTEM TYPE
+M:	maintainer@email.address
+L:	list@email.address
+S:	Supported
+F:	file/pattern/
+B:	stable@email.address
+
+
+_______________________________________________
+xfs mailing list
+xfs@oss.sgi.com
+http://oss.sgi.com/mailman/listinfo/xfs
