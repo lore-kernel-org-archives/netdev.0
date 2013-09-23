@@ -1,69 +1,34 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 12/12] sctp: Remove extern from function prototypes
-Date: Mon, 23 Sep 2013 16:39:42 -0400
-Message-ID: <20130923203942.GA2425@hmsreliant.think-freely.org>
-References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
- <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH -next] openvswitch: remove duplicated include
+	from vport-vxlan.c
+Date: Mon, 23 Sep 2013 13:41:33 -0700
+Message-ID: <CAEP_g=9NLnOW53mJyxXfs7UgOUFWxNdw92hJYugdM-ORqLY9zA@mail.gmail.com>
+References: <CAPgLHd_r4p2hYiL9nnwK64vck=f=sbhWrRZr32BdeW14ae63KQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAPgLHd_r4p2hYiL9nnwK64vck=f=sbhWrRZr32BdeW14ae63KQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 23, 2013 at 11:37:59AM -0700, Joe Perches wrote:
-> There are a mix of function prototypes with and without extern
-> in the kernel sources.  Standardize on not using extern for
-> function prototypes.
-> 
-> Function prototypes don't need to be written with extern.
-> extern is assumed by the compiler.  Its use is as unnecessary as
-> using auto to declare automatic/local variables in a block.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  include/net/sctp/sctp.h | 13 ++++++-------
->  1 file changed, 6 insertions(+), 7 deletions(-)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 3794c5a..c5fe806 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -90,12 +90,11 @@
->  /*
->   * sctp/protocol.c
->   */
-> -extern int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
-> -				     sctp_scope_t, gfp_t gfp,
-> -				     int flags);
-> -extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
-> -extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
-> -extern void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
-> +int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
-> +			      sctp_scope_t, gfp_t gfp, int flags);
-> +struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
-> +int sctp_register_pf(struct sctp_pf *, sa_family_t);
-> +void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
->  
->  /*
->   * sctp/socket.c
-> @@ -110,7 +109,7 @@ void sctp_sock_rfree(struct sk_buff *skb);
->  void sctp_copy_sock(struct sock *newsk, struct sock *sk,
->  		    struct sctp_association *asoc);
->  extern struct percpu_counter sctp_sockets_allocated;
-> -extern int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
-> +int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
->  
->  /*
->   * sctp/primitive.c
-> -- 
-> 1.8.1.2.459.gbcd45b4.dirty
-> 
-> 
+On Mon, Sep 23, 2013 at 6:55 AM, Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+>
+> Remove duplicated include.
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Applied.
