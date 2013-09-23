@@ -1,80 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Mon, 23 Sep 2013 23:42:50 +0400
-Message-ID: <524099BA.5020303@cogentembedded.com>
-References: <20130923115139.GA15034@eldamar.org.uk>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Question on Netlink IPv6 routing table lookup
+Date: Mon, 23 Sep 2013 16:41:07 -0300
+Message-ID: <52409953.8040208@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Frolkin <avf@eldamar.org.uk>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130923115139.GA15034@eldamar.org.uk>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web01.jbserver.net ([93.186.182.34]:60268 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752646Ab3IWToA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:44:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Folks,
 
-On 09/23/2013 03:51 PM, Alexander Frolkin wrote:
+I'm performing IPv6 routing table lookups with a netlink socket, and it
+seems that specifying the Source Address with the RTA_SRC element does
+not have any effect on the result of the look-up.
 
-> Improve the SH fallback realserver selection strategy.
+In my network setup, I have two interfaces, as follows:
 
-> With sh and sh-fallback, if a realserver is down, this attempts to
-> distribute the traffic that would have gone to that server evenly
-> among the remaining servers.
+ NET1 (fc00:1::/64) <------> MY_NODE <------> NET2 (fc00:2::/64)
 
-> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-> ---
-> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-> index f16c027..1676354 100644
-> --- a/net/netfilter/ipvs/ip_vs_sh.c
-> +++ b/net/netfilter/ipvs/ip_vs_sh.c
-> @@ -120,22 +120,35 @@ static inline struct ip_vs_dest *
->   ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
->   		      const union nf_inet_addr *addr, __be16 port)
->   {
-> -	unsigned int offset;
-> -	unsigned int hash;
-> +	unsigned int offset, roffset;
-> +	unsigned int hash, ihash;
->   	struct ip_vs_dest *dest;
->
-> -	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> -		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-> -		dest = rcu_dereference(s->buckets[hash].dest);
-> -		if (!dest)
-> -			break;
-> -		if (is_unavailable(dest))
-> -			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> -				      "%s:%d (offset %d)",
-> +	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-> +	dest = rcu_dereference(s->buckets[ihash].dest);
-> +
+For simplicity sake, let's say that my nodes' address on NET1 is
+fc00:1::1, and my node's address on NET2 is fc00:2::1. And my node has
+two default routes (one in NET1, and another in NET2).
 
-    Empty line net needed here (and it wasn't there in the original code).
+I'd expect that if I set RTA_SRC to fc00:1::1, the default route on NET1
+is selected, but if I set RTA_SRC to fc00:2::1, it is the default route
+on NET2 that is selected.
 
-> +	if (!dest)
-> +		return NULL;
-> +
+However, the result of the routing tale look-up is always the same,
+regardless of RTA_SRC.
 
-    Here too.
+I looked at /proc/net/ipv6_route, and it seems that, for all routes, the
+"source network" is always set to :: (all zeroes), thus probably
+explaining the above behavior.
 
-> +	if (is_unavailable(dest)) {
-> +		IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> +		      "%s:%d, reselecting",
-> +		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +		      ntohs(dest->port));
-> +		for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> +			roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-> +			hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
-> +			dest = rcu_dereference(s->buckets[hash].dest);
-> +			if (is_unavailable(dest))
-> +				IP_VS_DBG_BUF(6, "SH: selected unavailable "
-> +				      "server %s:%d (offset %d), reselecting",
->   				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+Is there any way to influence the routing-table look-up based on the
+IPv6 source address?
 
-WBR, Sergei
-
+If that's not (currently) possible, should I expect RTA_SRC to work as
+described above at some point in the future?
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
