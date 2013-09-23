@@ -1,69 +1,51 @@
-From: catab@embedromix.ro
-Subject: Re: [PATCH] Do not drop DNATed 6to4/6rd packets
-Date: Mon, 23 Sep 2013 21:36:33 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1309232135570.6779@mail.embedromix.ro>
-References: <20130915131401.GA18477@order.stressinduktion.org>  <1379847513-10837-1-git-send-email-catab@embedromix.ro> <1379869266.2086.13.camel@joe-AO722>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: missing kfree_skb(skb) in ipv6_frag_rcv()?
+Date: Mon, 23 Sep 2013 11:37:11 -0700
+Message-ID: <1379961431.3165.25.camel@edumazet-glaptop>
+References: <1379952298.2485.35.camel@bwh-desktop.uk.level5networks.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7354@saturn3.aculab.com>
+	 <1379955122.2485.47.camel@bwh-desktop.uk.level5networks.com>
+	 <2134F8430051B64F815C691A62D983181101B8@XCH-BLV-504.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedromix.ro ([5.9.41.220]:36862 "EHLO mail.embedromix.ro"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754170Ab3IWSgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Sep 2013 14:36:48 -0400
-In-Reply-To: <1379869266.2086.13.camel@joe-AO722>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:38913 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753302Ab3IWShW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 14:37:22 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so3546300pdj.36
+        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 11:37:21 -0700 (PDT)
+In-Reply-To: <2134F8430051B64F815C691A62D983181101B8@XCH-BLV-504.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 22 Sep 2013, Joe Perches wrote:
+On Mon, 2013-09-23 at 17:42 +0000, Templin, Fred L wrote:
+> Hello,
+> 
+> In the most recent kernel releases, in ./net/ipv6/reassembly.c,
+> I see the following code at the end of "ipv6_frag_rcv()":
+> 
+> +	IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)), IPSTATS_MIB_REASMFAILS);
+> +	kfree_skb(skb);
+> +	return -1;
+> +
+> +fail_hdr:
+> +	IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)), IPSTATS_MIB_INHDRERRORS);
+> +	icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, skb_network_header_len(skb));
+> +	return -1;
+> +}
+> 
+> Perhaps I missed it, but I did not find anywhere that 'icmpv6_param_prob()'
+> frees the skb, and hence it appears that there is a missing kfree_skb()
+> in the above code. Is this a bug?
 
-> On Sun, 2013-09-22 at 13:58 +0300, Catalin(ux) M. BOIE wrote:
->> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
->>
->> When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
->> patch (218774dc) will drop them because the IPv6 address embedded
->> does not match the IPv4 destination. This patch will allow them to
->> pass by testing if we have an address that matches on 6to4/6rd interface.
->> I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
->> Also, log the dropped packets (with rate limit).
->
-> Thanks.  trivial nits which maybe fixed later:
->
->> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> []
->> +/* Returns true if a packet is spoofed
->> + */
->
-> probably nicer as single line /* Returns true ... */
->
->> +static bool packet_is_spoofed(struct sk_buff *skb,
->> +			      const struct iphdr *iph,
->> +			      struct ip_tunnel *tunnel)
->> +{
->> +	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
->> +
->> +	if (tunnel->dev->priv_flags & IFF_ISATAP) {
->> +		if (!isatap_chksrc(skb, iph, tunnel))
->> +			return true;
->> +
->> +		return false;
->> +	}
->> +
->> +	if ((tunnel->dev->flags&IFF_POINTOPOINT))
->
-> It'd be nicer with spaces around the &
->
->> +		return false;
->
-> It'd be slightly faster code moving the ipv6_hdr(skb)
-> assignment below these tests.
+void icmpv6_param_prob(struct sk_buff *skb, u8 code, int pos)
+{
+        icmp6_send(skb, ICMPV6_PARAMPROB, code, pos);
+        kfree_skb(skb);
+}
 
-Sorry, v3 was missing the changes suggested.
-v4 fill fix it.
-Sorry.
-
---
-Catalin(ux) M. BOIE
-http://kernel.embedromix.ro/
+Well, I do see kfree_skb(skb) here.
