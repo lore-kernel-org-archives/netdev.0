@@ -1,133 +1,62 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
-Date: Mon, 23 Sep 2013 10:41:00 -0400
-Message-ID: <524052FC.5010301@redhat.com>
-References: <1378808874.3988.2.camel@ubuntu-vm-makita>  <20130912.160033.779509034953932316.davem@davemloft.net>  <1379074013.1678.16.camel@localhost.localdomain>  <523744A6.5090001@redhat.com> <1379405552.6177.31.camel@ubuntu-vm-makita>
-Reply-To: vyasevic@redhat.com
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH 18/51] DMA-API: staging: et131x: replace
+ dma_set_mask()+dma_set_coherent_mask() with new helper
+Date: Mon, 23 Sep 2013 15:42:53 +0100
+Message-ID: <20130923144253.GB3608@laugharne.auvation.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
+ <1379691728.1681.15.camel@bwh-desktop.uk.level5networks.com>
+ <20130921195531.GO12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
-	Patrick McHardy <kaber@trash.net>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54439 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752288Ab3IWOlV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Sep 2013 10:41:21 -0400
-In-Reply-To: <1379405552.6177.31.camel@ubuntu-vm-makita>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, devel@driverdev.osuosl.org,
+ netdev <netdev@vger.kernel.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20130921195531.GO12758@n2100.arm.linux.org.uk>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 09/17/2013 04:12 AM, Toshiaki Makita wrote:
-> On Mon, 2013-09-16 at 13:49 -0400, Vlad Yasevich wrote:
->> On 09/13/2013 08:06 AM, Toshiaki Makita wrote:
->>> On Thu, 2013-09-12 at 16:00 -0400, David Miller wrote:
->>>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>>> Date: Tue, 10 Sep 2013 19:27:54 +0900
->>>>
->>>>> There seem to be some undesirable behaviors related with PVID.
->>>>> 1. It has no effect assigning PVID to a port. PVID cannot be applied
->>>>> to any frame regardless of whether we set it or not.
->>>>> 2. FDB entries learned via frames applied PVID are registered with
->>>>> VID 0 rather than VID value of PVID.
->>>>> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
->>>>> This leads interoperational problems such as sending frames with VID
->>>>> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
->>>>> 0 as they belong to VLAN 0, which is expected to be handled as they have
->>>>> no VID according to IEEE 802.1Q.
->>>>>
->>>>> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
->>>>> is fixed, because we cannot activate PVID due to it.
->>>>
->>>> Please work out the issues in patch #2 with Vlad and resubmit this
->>>> series.
->>>>
->>>> Thank you.
->>>
->>> I'm hovering between whether we should fix the issue by changing vlan 0
->>> interface behavior in 8021q module or enabling a bridge port to sending
->>> priority-tagged frames, or another better way.
->>>
->>> If you could comment it, I'd appreciate it :)
->>>
->>>
->>> BTW, I think what is discussed in patch #2 is another problem about
->>> handling priority-tags, and it exists without this patch set applied.
->>> It looks like that we should prepare another patch set than this to fix
->>> that problem.
->>>
->>> Should I include patches that fix the priority-tags problem in this
->>> patch set and resubmit them all together?
->>>
->>
->> I am thinking that we might need to do it in bridge and it looks like
->> the simplest way to do it is to have default priority regeneration table
->> (table 6-5 from 802.1Q doc).
->>
->> That way I think we would conform to the spec.
->>
->> -vlad
->
-> Unfortunately I don't think the default priority regeneration table
-> resolves the problem because IEEE 802.1Q says that a VLAN-aware bridge
-> can transmit untagged or VLAN-tagged frames only (the end of section 7.5
-> and 8.1.7).
->
-> No mechanism to send priority-tagged frames is found as far as I can see
-> the standard. I think the regenerated priority is used for outgoing PCP
-> field only if egress policy is not untagged (i.e. transmitting as
-> VLAN-tagged), and unused if untagged (Section 6.9.2 3rd/4th Paragraph).
->
-> If we want to transmit priority-tagged frames from a bridge port, I
-> think we need to implement a new (optional) feature that is above the
-> standard, as I stated previously.
->
-> How do you feel about adding a per-port policy that enables a bridge to
-> send priority-tagged frames instead of untagged frames when egress
-> policy for the port is untagged?
-> With this change, we can transmit frames for a given vlan as either all
-> untagged, all priority-tagged or all VLAN-tagged.
+On Sat, Sep 21, 2013 at 08:55:31PM +0100, Russell King - ARM Linux wrote:
+> On Fri, Sep 20, 2013 at 04:42:08PM +0100, Ben Hutchings wrote:
+> > On Thu, 2013-09-19 at 22:43 +0100, Russell King wrote:
+> > > +	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) ||
+> > > +	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+> > 
+> > Surely we want && here.
+> 
+> Good catch, exactly right.  Thanks for the review, here's the replacement
+> patch:
+> 
+> 8<====
+> From: Russell King <rmk+kernel@arm.linux.org.uk>
+> Subject: [PATCH] DMA-API: staging: et131x: replace
+>  dma_set_mask()+dma_set_coherent_mask() with new helper
+> 
+> Replace the following sequence:
+> 
+> 	dma_set_mask(dev, mask);
+> 	dma_set_coherent_mask(dev, mask);
+> 
+> with a call to the new helper dma_set_mask_and_coherent().
+> 
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> ---
+>  drivers/staging/et131x/et131x.c |   17 ++---------------
+>  1 files changed, 2 insertions(+), 15 deletions(-)
 
-That would work.  What I am thinking is that we do it by special casing
-the vid 0 egress policy specification.  Let it be untagged by default 
-and if it is tagged, then we preserve the priority field and forward
-it on.
+Acked-by: Mark Einon <mark.einon@gmail.com>
 
-This keeps the API stable and doesn't require user/admin from knowing 
-exactly what happens.  Default operation conforms to the spec and allows
-simple change to make it backward-compatible.
+Cheers,
 
-What do you think.  I've done a simple prototype of this an it seems to 
-work with the VMs I am testing with.
-
--vlad
-
->
-> Thanks,
->
-> Toshiaki Makita
->
->>
->>>
->>> Thanks,
->>>
->>> Toshiaki Makita
->>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>>
->>>
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Mark
