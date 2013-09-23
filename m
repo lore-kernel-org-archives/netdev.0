@@ -1,72 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Do not drop DNATed 6to4/6rd packets (v4)
-Date: Mon, 23 Sep 2013 12:11:25 -0700
-Message-ID: <1379963485.3575.53.camel@joe-AO722>
-References: <1379869266.2086.13.camel@joe-AO722>
-	 <1379961413-21005-1-git-send-email-catab@embedromix.ro>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 12/12] sctp: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 15:11:36 -0400
+Message-ID: <52409268.1050602@gmail.com>
+References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com> <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0142.hostedemail.com ([216.40.44.142]:52353 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752798Ab3IWTL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:11:29 -0400
-In-Reply-To: <1379961413-21005-1-git-send-email-catab@embedromix.ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-09-23 at 21:36 +0300, Catalin(ux) M. BOIE wrote:
-> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-> 
-> When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
-> patch (218774dc) will drop them because the IPv6 address embedded
-> does not match the IPv4 destination. This patch will allow them to
-> pass by testing if we have an address that matches on 6to4/6rd interface.
-> I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
-> Also, log the dropped packets (with rate limit).
+On 09/23/2013 02:37 PM, Joe Perches wrote:
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
+>
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-A few more trivialities:
+looks simple enough.
 
-When you send revisions to patches, please put the
-revision number inside the brackets like:
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-[PATCH V4] subject
 
-Also, use a prefix for the patch like:
-
-[PATCH V4] IPv6 NAT: Don't drop DNAT 6to4 or 6RD packets
-
-> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-[]
-> @@ -67,6 +67,10 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
->  int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
->  #endif
->  
-> +extern bool ipv6_chk_custom_prefix(const struct in6_addr *addr,
-> +				   const unsigned int prefix_len,
-> +				   struct net_device *dev);
-> +
-
-extern isn't required.
-
-> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-[]
-> @@ -566,6 +566,70 @@ static inline bool is_spoofed_6rd(struct ip_tunnel *tunnel, const __be32 v4addr,
-[]
-> +/* Returns true if a packet is spoofed */
-> +static bool packet_is_spoofed(struct sk_buff *skb,
-> +			      const struct iphdr *iph,
-> +			      struct ip_tunnel *tunnel)
-> +{
-[]
-> +	if ((tunnel->dev->flags & IFF_POINTOPOINT))
-> +		return false;
-
-One too many parentheses
-
-	if (tunnel->dev->flags & IFF_POINTTOPOINT)
-		return false;
+-vlad
+> ---
+>   include/net/sctp/sctp.h | 13 ++++++-------
+>   1 file changed, 6 insertions(+), 7 deletions(-)
+>
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 3794c5a..c5fe806 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -90,12 +90,11 @@
+>   /*
+>    * sctp/protocol.c
+>    */
+> -extern int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
+> -				     sctp_scope_t, gfp_t gfp,
+> -				     int flags);
+> -extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+> -extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> -extern void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
+> +int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
+> +			      sctp_scope_t, gfp_t gfp, int flags);
+> +struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+> +int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> +void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
+>
+>   /*
+>    * sctp/socket.c
+> @@ -110,7 +109,7 @@ void sctp_sock_rfree(struct sk_buff *skb);
+>   void sctp_copy_sock(struct sock *newsk, struct sock *sk,
+>   		    struct sctp_association *asoc);
+>   extern struct percpu_counter sctp_sockets_allocated;
+> -extern int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
+> +int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
+>
+>   /*
+>    * sctp/primitive.c
+>
