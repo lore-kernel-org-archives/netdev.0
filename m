@@ -1,204 +1,112 @@
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Subject: [PATCH] Do not drop DNATed 6to4/6rd packets (v4)
-Date: Mon, 23 Sep 2013 21:36:53 +0300
-Message-ID: <1379961413-21005-1-git-send-email-catab@embedromix.ro>
-References: <1379869266.2086.13.camel@joe-AO722>
-Cc: hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net, joe@perches.com
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 08/12] bluetooth: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 11:37:36 -0700
+Message-ID: <e9994a2b839277a9237364b59e655060f1fcb957.1379961014.git.joe@perches.com>
+References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	linux-bluetooth@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedromix.ro ([5.9.41.220]:36868 "EHLO mail.embedromix.ro"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753302Ab3IWShS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Sep 2013 14:37:18 -0400
-In-Reply-To: <1379869266.2086.13.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+There are a mix of function prototypes with and without extern
+in the kernel sources.  Standardize on not using extern for
+function prototypes.
 
-When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
-patch (218774dc) will drop them because the IPv6 address embedded
-does not match the IPv4 destination. This patch will allow them to
-pass by testing if we have an address that matches on 6to4/6rd interface.
-I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
-Also, log the dropped packets (with rate limit).
+Function prototypes don't need to be written with extern.
+extern is assumed by the compiler.  Its use is as unnecessary as
+using auto to declare automatic/local variables in a block.
 
-Signed-off-by: Catalin(ux) M. BOIE <catab@embedromix.ro>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/addrconf.h |  4 +++
- net/ipv6/addrconf.c    | 27 ++++++++++++++++
- net/ipv6/sit.c         | 84 +++++++++++++++++++++++++++++++++++++++++---------
- 3 files changed, 100 insertions(+), 15 deletions(-)
+ include/net/bluetooth/bluetooth.h | 16 ++++++++--------
+ include/net/bluetooth/hci_core.h  | 23 +++++++++++------------
+ include/net/bluetooth/rfcomm.h    |  4 ++--
+ 3 files changed, 21 insertions(+), 22 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index fb314de..96966eb 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -67,6 +67,10 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
- #endif
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 10d43d8..13d6c39 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -331,16 +331,16 @@ out:
  
-+extern bool ipv6_chk_custom_prefix(const struct in6_addr *addr,
-+				   const unsigned int prefix_len,
-+				   struct net_device *dev);
+ int bt_to_errno(__u16 code);
+ 
+-extern int hci_sock_init(void);
+-extern void hci_sock_cleanup(void);
++int hci_sock_init(void);
++void hci_sock_cleanup(void);
+ 
+-extern int bt_sysfs_init(void);
+-extern void bt_sysfs_cleanup(void);
++int bt_sysfs_init(void);
++void bt_sysfs_cleanup(void);
+ 
+-extern int  bt_procfs_init(struct net *net, const char *name,
+-			   struct bt_sock_list* sk_list,
+-			   int (* seq_show)(struct seq_file *, void *));
+-extern void bt_procfs_cleanup(struct net *net, const char *name);
++int bt_procfs_init(struct net *net, const char *name,
++		   struct bt_sock_list *sk_list,
++		   int (*seq_show)(struct seq_file *, void *));
++void bt_procfs_cleanup(struct net *net, const char *name);
+ 
+ extern struct dentry *bt_debugfs;
+ 
+diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+index 3ede820..5769061 100644
+--- a/include/net/bluetooth/hci_core.h
++++ b/include/net/bluetooth/hci_core.h
+@@ -367,18 +367,17 @@ extern rwlock_t hci_dev_list_lock;
+ extern rwlock_t hci_cb_list_lock;
+ 
+ /* ----- HCI interface to upper protocols ----- */
+-extern int l2cap_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr);
+-extern void l2cap_connect_cfm(struct hci_conn *hcon, u8 status);
+-extern int l2cap_disconn_ind(struct hci_conn *hcon);
+-extern void l2cap_disconn_cfm(struct hci_conn *hcon, u8 reason);
+-extern int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt);
+-extern int l2cap_recv_acldata(struct hci_conn *hcon, struct sk_buff *skb,
+-			      u16 flags);
+-
+-extern int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags);
+-extern void sco_connect_cfm(struct hci_conn *hcon, __u8 status);
+-extern void sco_disconn_cfm(struct hci_conn *hcon, __u8 reason);
+-extern int sco_recv_scodata(struct hci_conn *hcon, struct sk_buff *skb);
++int l2cap_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr);
++void l2cap_connect_cfm(struct hci_conn *hcon, u8 status);
++int l2cap_disconn_ind(struct hci_conn *hcon);
++void l2cap_disconn_cfm(struct hci_conn *hcon, u8 reason);
++int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt);
++int l2cap_recv_acldata(struct hci_conn *hcon, struct sk_buff *skb, u16 flags);
 +
- int ipv6_chk_prefix(const struct in6_addr *addr, struct net_device *dev);
++int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags);
++void sco_connect_cfm(struct hci_conn *hcon, __u8 status);
++void sco_disconn_cfm(struct hci_conn *hcon, __u8 reason);
++int sco_recv_scodata(struct hci_conn *hcon, struct sk_buff *skb);
  
- struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d6ff126..a0c3abe 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1499,6 +1499,33 @@ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
- 	return false;
+ /* ----- Inquiry cache ----- */
+ #define INQUIRY_CACHE_AGE_MAX   (HZ*30)   /* 30 seconds */
+diff --git a/include/net/bluetooth/rfcomm.h b/include/net/bluetooth/rfcomm.h
+index 7afd419..b7f43e7 100644
+--- a/include/net/bluetooth/rfcomm.h
++++ b/include/net/bluetooth/rfcomm.h
+@@ -256,8 +256,8 @@ static inline void rfcomm_dlc_put(struct rfcomm_dlc *d)
+ 		rfcomm_dlc_free(d);
  }
  
-+/* Compares an address/prefix_len with addresses on device @dev.
-+ * If one is found it returns true.
-+ */
-+bool ipv6_chk_custom_prefix(const struct in6_addr *addr,
-+	const unsigned int prefix_len, struct net_device *dev)
-+{
-+	struct inet6_dev *idev;
-+	struct inet6_ifaddr *ifa;
-+	bool ret = false;
-+
-+	rcu_read_lock();
-+	idev = __in6_dev_get(dev);
-+	if (idev) {
-+		read_lock_bh(&idev->lock);
-+		list_for_each_entry(ifa, &idev->addr_list, if_list) {
-+			ret = ipv6_prefix_equal(addr, &ifa->addr, prefix_len);
-+			if (ret)
-+				break;
-+		}
-+		read_unlock_bh(&idev->lock);
-+	}
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(ipv6_chk_custom_prefix);
-+
- int ipv6_chk_prefix(const struct in6_addr *addr, struct net_device *dev)
+-extern void __rfcomm_dlc_throttle(struct rfcomm_dlc *d);
+-extern void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d);
++void __rfcomm_dlc_throttle(struct rfcomm_dlc *d);
++void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d);
+ 
+ static inline void rfcomm_dlc_throttle(struct rfcomm_dlc *d)
  {
- 	struct inet6_dev *idev;
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 7ee5cb9..3b5219a 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -566,6 +566,70 @@ static inline bool is_spoofed_6rd(struct ip_tunnel *tunnel, const __be32 v4addr,
- 	return false;
- }
- 
-+/* Checks if an address matches an address on the tunnel interface.
-+ * Used to detect the NAT of proto 41 packets and let them pass spoofing test.
-+ * Long story:
-+ * This function is called after we considered the packet as spoofed
-+ * in is_spoofed_6rd.
-+ * We may have a router that is doing NAT for proto 41 packets
-+ * for an internal station. Destination a.a.a.a/PREFIX:bbbb:bbbb
-+ * will be translated to n.n.n.n/PREFIX:bbbb:bbbb. And is_spoofed_6rd
-+ * function will return true, dropping the packet.
-+ * But, we can still check if is spoofed against the IP
-+ * addresses associated with the interface.
-+ */
-+static bool only_dnatted(const struct ip_tunnel *tunnel,
-+	const struct in6_addr *v6dst)
-+{
-+	int prefix_len;
-+
-+#ifdef CONFIG_IPV6_SIT_6RD
-+	prefix_len = tunnel->ip6rd.prefixlen + 32
-+		- tunnel->ip6rd.relay_prefixlen;
-+#else
-+	prefix_len = 48;
-+#endif
-+	return ipv6_chk_custom_prefix(v6dst, prefix_len, tunnel->dev);
-+}
-+
-+/* Returns true if a packet is spoofed */
-+static bool packet_is_spoofed(struct sk_buff *skb,
-+			      const struct iphdr *iph,
-+			      struct ip_tunnel *tunnel)
-+{
-+	const struct ipv6hdr *ipv6h;
-+
-+	if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+		if (!isatap_chksrc(skb, iph, tunnel))
-+			return true;
-+
-+		return false;
-+	}
-+
-+	if ((tunnel->dev->flags & IFF_POINTOPOINT))
-+		return false;
-+
-+	ipv6h = ipv6_hdr(skb);
-+
-+	if (unlikely(is_spoofed_6rd(tunnel, iph->saddr, &ipv6h->saddr))) {
-+		net_warn_ratelimited("Src spoofed %pI4/%pI6c -> %pI4/%pI6c\n",
-+				     &iph->saddr, &ipv6h->saddr,
-+				     &iph->daddr, &ipv6h->daddr);
-+		return true;
-+	}
-+
-+	if (likely(!is_spoofed_6rd(tunnel, iph->daddr, &ipv6h->daddr)))
-+		return false;
-+
-+	if (only_dnatted(tunnel, &ipv6h->daddr))
-+		return false;
-+
-+	net_warn_ratelimited("Dst spoofed %pI4/%pI6c -> %pI4/%pI6c\n",
-+			     &iph->saddr, &ipv6h->saddr,
-+			     &iph->daddr, &ipv6h->daddr);
-+	return true;
-+}
-+
- static int ipip6_rcv(struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
-@@ -586,19 +650,9 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		IPCB(skb)->flags = 0;
- 		skb->protocol = htons(ETH_P_IPV6);
- 
--		if (tunnel->dev->priv_flags & IFF_ISATAP) {
--			if (!isatap_chksrc(skb, iph, tunnel)) {
--				tunnel->dev->stats.rx_errors++;
--				goto out;
--			}
--		} else if (!(tunnel->dev->flags&IFF_POINTOPOINT)) {
--			if (is_spoofed_6rd(tunnel, iph->saddr,
--					   &ipv6_hdr(skb)->saddr) ||
--			    is_spoofed_6rd(tunnel, iph->daddr,
--					   &ipv6_hdr(skb)->daddr)) {
--				tunnel->dev->stats.rx_errors++;
--				goto out;
--			}
-+		if (packet_is_spoofed(skb, iph, tunnel)) {
-+			tunnel->dev->stats.rx_errors++;
-+			goto out;
- 		}
- 
- 		__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
-@@ -748,7 +802,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
- 
- 		if (neigh == NULL) {
--			net_dbg_ratelimited("sit: nexthop == NULL\n");
-+			net_dbg_ratelimited("nexthop == NULL\n");
- 			goto tx_error;
- 		}
- 
-@@ -777,7 +831,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
- 
- 		if (neigh == NULL) {
--			net_dbg_ratelimited("sit: nexthop == NULL\n");
-+			net_dbg_ratelimited("nexthop == NULL\n");
- 			goto tx_error;
- 		}
- 
 -- 
-1.8.3.1
+1.8.1.2.459.gbcd45b4.dirty
