@@ -1,131 +1,139 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v1] USBNET: fix handling padding packet
-Date: Mon, 23 Sep 2013 20:59:35 +0800
-Message-ID: <1379941175-10500-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH net-next] igb: fix driver reload with VF assigned to guest
+Date: Mon, 23 Sep 2013 15:06:51 +0200
+Message-ID: <1379941611-19605-1-git-send-email-sassmann@kpanic.de>
+Cc: e1000-devel@lists.sourceforge.net, davem@davemloft.net,
+	alexander.h.duyck@intel.com, carolyn.wyborny@intel.com,
+	jeffrey.t.kirsher@intel.com, gregory.v.rose@intel.com,
+	sassmann@kpanic.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:58455 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753967Ab3IWM7q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 08:59:46 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:4097 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753475Ab3IWNHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Sep 2013 09:07:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
-if the usb host controller is capable of building packet from
-discontinuous buffers, but missed handling padding packet when
-building DMA SG.
+commit fa44f2f185f7f9da19d331929bb1b56c1ccd1d93 broke reloading of igb, when
+VFs are assigned to a guest, in several ways.
+1. on module load adapter->vf_data does not get properly allocated,
+resulting in a null pointer exception when accessing adapter->vf_data in
+igb_reset() on module reload.
+ modprobe -r igb ; modprobe igb max_vfs=7
+[  215.215837] igb 0000:01:00.1: removed PHC on eth1
+[  216.932072] igb 0000:01:00.1: IOV Disabled
+[  216.937038] igb 0000:01:00.0: removed PHC on eth0
+[  217.127032] igb 0000:01:00.0: Cannot deallocate SR-IOV virtual functions while they are assigned - VFs will not be deallocated
+[  217.146178] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.0.5-k
+[  217.154050] igb: Copyright (c) 2007-2013 Intel Corporation.
+[  217.160688] igb 0000:01:00.0: Enabling SR-IOV VFs using the module parameter is deprecated - please use the pci sysfs interface.
+[  217.173703] igb 0000:01:00.0: irq 103 for MSI/MSI-X
+[  217.179227] igb 0000:01:00.0: irq 104 for MSI/MSI-X
+[  217.184735] igb 0000:01:00.0: irq 105 for MSI/MSI-X
+[  217.220082] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
+[  217.228846] IP: [<ffffffffa007c5e5>] igb_reset+0xc5/0x4b0 [igb]
+[  217.235472] PGD 3607ec067 PUD 36170b067 PMD 0
+[  217.240461] Oops: 0002 [#1] SMP
+[  217.244085] Modules linked in: igb(+) igbvf mptsas mptscsih mptbase scsi_transport_sas [last unloaded: igb]
+[  217.255040] CPU: 4 PID: 4833 Comm: modprobe Not tainted 3.11.0+ #46
+[...]
+[  217.390007]  [<ffffffffa007fab2>] igb_probe+0x892/0xfd0 [igb]
+[  217.396422]  [<ffffffff81470b3e>] local_pci_probe+0x1e/0x40
+[  217.402641]  [<ffffffff81472029>] pci_device_probe+0xf9/0x110
+[...]
+2. A follow up issue, pci_enable_sriov() should only be called if no VFs were
+still allocated on module unload. Otherwise pci_enable_sriov() gets called
+multiple times in a row rendering the NIC unusable until reset.
+3. simply calling igb_enable_sriov() in igb_probe_vfs() is not enough as the
+interrupts need to be re-setup. Switching that to igb_pci_enable_sriov().
 
-This patch attachs the pre-allocated padding packet at the
-end of the sg list, so padding packet can be sent to device
-if drivers require that.
-
-Reported-by: David Laight <David.Laight@aculab.com>
-Acked-by: Oliver Neukum <oliver@neukum.org>
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
-v1:
-	- fix bug in case of dev->can_dma_sg and !urb->num_sgs
----
- drivers/net/usb/usbnet.c   |   27 +++++++++++++++++++++------
- include/linux/usb/usbnet.h |    1 +
- 2 files changed, 22 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 37 +++++++++++++------------------
+ 1 file changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 7b331e6..bf94e10 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1241,7 +1241,9 @@ static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
- 	if (num_sgs == 1)
- 		return 0;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8cf44f2..421f3f1 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -182,6 +182,7 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
  
--	urb->sg = kmalloc(num_sgs * sizeof(struct scatterlist), GFP_ATOMIC);
-+	/* reserve one for zero packet */
-+	urb->sg = kmalloc((num_sgs + 1) * sizeof(struct scatterlist),
-+			  GFP_ATOMIC);
- 	if (!urb->sg)
- 		return -ENOMEM;
+ #ifdef CONFIG_PCI_IOV
+ static int igb_vf_configure(struct igb_adapter *adapter, int vf);
++static int igb_pci_enable_sriov(struct pci_dev *dev, int num_vfs);
+ #endif
  
-@@ -1305,7 +1307,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 		if (build_dma_sg(skb, urb) < 0)
- 			goto drop;
- 	}
--	entry->length = length = urb->transfer_buffer_length;
-+	length = urb->transfer_buffer_length;
- 
- 	/* don't assume the hardware handles USB_ZERO_PACKET
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
-@@ -1317,15 +1319,18 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	if (length % dev->maxpacket == 0) {
- 		if (!(info->flags & FLAG_SEND_ZLP)) {
- 			if (!(info->flags & FLAG_MULTI_PACKET)) {
--				urb->transfer_buffer_length++;
--				if (skb_tailroom(skb)) {
-+				length++;
-+				if (skb_tailroom(skb) && !urb->num_sgs) {
- 					skb->data[skb->len] = 0;
- 					__skb_put(skb, 1);
--				}
-+				} else if (urb->num_sgs)
-+					sg_set_buf(&urb->sg[urb->num_sgs++],
-+							dev->padding_pkt, 1);
- 			}
- 		} else
- 			urb->transfer_flags |= URB_ZERO_PACKET;
- 	}
-+	entry->length = urb->transfer_buffer_length = length;
- 
- 	spin_lock_irqsave(&dev->txq.lock, flags);
- 	retval = usb_autopm_get_interface_async(dev->intf);
-@@ -1509,6 +1514,7 @@ void usbnet_disconnect (struct usb_interface *intf)
- 
- 	usb_kill_urb(dev->interrupt);
- 	usb_free_urb(dev->interrupt);
-+	kfree(dev->padding_pkt);
- 
- 	free_netdev(net);
+ #ifdef CONFIG_PM
+@@ -2429,7 +2430,7 @@ err_dma:
  }
-@@ -1679,9 +1685,16 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	/* initialize max rx_qlen and tx_qlen */
- 	usbnet_update_max_qlen(dev);
  
-+	if (dev->can_dma_sg && !(info->flags & FLAG_SEND_ZLP) &&
-+		!(info->flags & FLAG_MULTI_PACKET)) {
-+		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
-+		if (!dev->padding_pkt)
-+			goto out4;
+ #ifdef CONFIG_PCI_IOV
+-static int  igb_disable_sriov(struct pci_dev *pdev)
++static int igb_disable_sriov(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+@@ -2470,27 +2471,19 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
+ 	int err = 0;
+ 	int i;
+ 
+-	if (!adapter->msix_entries) {
++	if (!adapter->msix_entries || num_vfs > 7) {
+ 		err = -EPERM;
+ 		goto out;
+ 	}
+-
+ 	if (!num_vfs)
+ 		goto out;
+-	else if (old_vfs && old_vfs == num_vfs)
+-		goto out;
+-	else if (old_vfs && old_vfs != num_vfs)
+-		err = igb_disable_sriov(pdev);
+-
+-	if (err)
+-		goto out;
+ 
+-	if (num_vfs > 7) {
+-		err = -EPERM;
+-		goto out;
+-	}
+-
+-	adapter->vfs_allocated_count = num_vfs;
++	if (old_vfs) {
++		dev_info(&pdev->dev, "%d pre-allocated VFs found - override max_vfs setting of %d\n",
++			 old_vfs, max_vfs);
++		adapter->vfs_allocated_count = old_vfs;
++	} else
++		adapter->vfs_allocated_count = num_vfs;
+ 
+ 	adapter->vf_data = kcalloc(adapter->vfs_allocated_count,
+ 				sizeof(struct vf_data_storage), GFP_KERNEL);
+@@ -2504,10 +2497,12 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
+ 		goto out;
+ 	}
+ 
+-	err = pci_enable_sriov(pdev, adapter->vfs_allocated_count);
+-	if (err)
+-		goto err_out;
+-
++	/* only call pci_enable_sriov() if no VFs are allocated already */
++	if (!old_vfs) {
++		err = pci_enable_sriov(pdev, adapter->vfs_allocated_count);
++		if (err)
++			goto err_out;
 +	}
-+
- 	status = register_netdev (net);
- 	if (status)
--		goto out4;
-+		goto out5;
- 	netif_info(dev, probe, dev->net,
- 		   "register '%s' at usb-%s-%s, %s, %pM\n",
- 		   udev->dev.driver->name,
-@@ -1699,6 +1712,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	dev_info(&pdev->dev, "%d VFs allocated\n",
+ 		 adapter->vfs_allocated_count);
+ 	for (i = 0; i < adapter->vfs_allocated_count; i++)
+@@ -2623,7 +2618,7 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
+ 		return;
  
- 	return 0;
+ 	pci_sriov_set_totalvfs(pdev, 7);
+-	igb_enable_sriov(pdev, max_vfs);
++	igb_pci_enable_sriov(pdev, max_vfs);
  
-+out5:
-+	kfree(dev->padding_pkt);
- out4:
- 	usb_free_urb(dev->interrupt);
- out3:
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 9cb2fe8..e303eef 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -42,6 +42,7 @@ struct usbnet {
- 	struct usb_host_endpoint *status;
- 	unsigned		maxpacket;
- 	struct timer_list	delay;
-+	const char		*padding_pkt;
- 
- 	/* protocol/interface state */
- 	struct net_device	*net;
+ #endif /* CONFIG_PCI_IOV */
+ }
 -- 
-1.7.9.5
+1.8.3.1
