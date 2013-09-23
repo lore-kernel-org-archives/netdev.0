@@ -1,48 +1,31 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] net: Use Toeplitz for IPv4 and IPv6 connection
- hashing
-Date: Mon, 23 Sep 2013 16:11:15 -0700
-Message-ID: <20130923161115.5d756838@nehalam.linuxnetplumber.net>
-References: <alpine.DEB.2.02.1309231543330.23714@tomh.mtv.corp.google.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 0/2] Toeplitz hashing
+Date: Mon, 23 Sep 2013 16:16:34 -0700
+Message-ID: <5240CBD2.1020709@hp.com>
+References: <alpine.DEB.2.02.1309231534010.23714@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	jesse.brandeburg@intel.com
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:61273 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684Ab3IWXLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 19:11:19 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so3842457pde.10
-        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 16:11:18 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1309231543330.23714@tomh.mtv.corp.google.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:23659 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752394Ab3IWXQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 19:16:37 -0400
+In-Reply-To: <alpine.DEB.2.02.1309231534010.23714@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Sep 2013 15:44:51 -0700 (PDT)
-Tom Herbert <therbert@google.com> wrote:
+On 09/23/2013 03:41 PM, Tom Herbert wrote:
+> There's also the possibility of calculating the Toeplitz hash for a
+> connection in order to deduce which RSS queue the connection maps
+> to, and thus allow a poor man's aRFS (idea from Jesse Brandeburg).
 
-> Toeplitz
->   IPv4
->     58.72% CPU utilization
->     110/146/198 90/95/99% latencies
->     1.72549e+06 tps
->   IPv6
->     72.38% CPU utilization
->     117/168/255 90/95/99% latencies
->     1.58545e+06 tps
-> 
-> Jhash
->   IPv4
->     57.67% CPU utilization
->     111/146/196 90/95/99% latencies
->     1.71574e+06 tps
->   IPv6
->     71.84% CPU utilization
->     117/166/248 90/95/99% latencies
->     1.59359e+06 tps
+Perhaps the answer is in the meaning of the leading 'a' in aRFS but 
+doesn't one still depend on the thread of execution handling only one 
+flow for that to work effectively?  Or would flows be assigned to 
+threads of execution based on the Toeplitz hash of the connections?
 
-It looks slower and more complex than Jhash, what is the benefit?
-Have you investigated using Murmur instead?
+rick jones
