@@ -1,74 +1,131 @@
-From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 37/51] DMA-API: usb: use new dma_coerce_mask_and_coherent()
-Date: Mon, 23 Sep 2013 14:34:34 +0200
-Message-ID: <5240355A.9010609@atmel.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk> <E1VMmIV-0007jw-Gq@rmk-PC.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Kukjin Kim <kgene.kim-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Tony Prisk <linux-ci5G2KO2hbZ+pU9mqzGVBQ@public.gmane.org>,
-	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-To: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	<alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>, <b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
-	<e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	<linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	<uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <E1VMmIV-0007jw-Gq-eh5Bv4kxaXIANfyc6IWni62ZND6+EDdj@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v1] USBNET: fix handling padding packet
+Date: Mon, 23 Sep 2013 20:59:35 +0800
+Message-ID: <1379941175-10500-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:58455 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753967Ab3IWM7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 08:59:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/09/2013 00:02, Russell King :
-> Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-> ---
->   drivers/usb/chipidea/ci_hdrc_imx.c |    4 +---
->   drivers/usb/dwc3/dwc3-exynos.c     |    4 +---
->   drivers/usb/host/ehci-atmel.c      |    4 +---
+Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
+if the usb host controller is capable of building packet from
+discontinuous buffers, but missed handling padding packet when
+building DMA SG.
 
-For Atmel driver:
+This patch attachs the pre-allocated padding packet at the
+end of the sg list, so padding packet can be sent to device
+if drivers require that.
 
-Acked-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Reported-by: David Laight <David.Laight@aculab.com>
+Acked-by: Oliver Neukum <oliver@neukum.org>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
+---
+v1:
+	- fix bug in case of dev->can_dma_sg and !urb->num_sgs
+---
+ drivers/net/usb/usbnet.c   |   27 +++++++++++++++++++++------
+ include/linux/usb/usbnet.h |    1 +
+ 2 files changed, 22 insertions(+), 6 deletions(-)
 
-[..]
-
-> diff --git a/drivers/usb/host/ehci-atmel.c b/drivers/usb/host/ehci-atmel.c
-> index 5831a88..8e7323e 100644
-> --- a/drivers/usb/host/ehci-atmel.c
-> +++ b/drivers/usb/host/ehci-atmel.c
-> @@ -90,9 +90,7 @@ static int ehci_atmel_drv_probe(struct platform_device *pdev)
->   	 * Since shared usb code relies on it, set it here for now.
->   	 * Once we have dma capability bindings this can go away.
->   	 */
-> -	if (!pdev->dev.dma_mask)
-> -		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-> -	retval = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-> +	retval = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
->   	if (retval)
->   		goto fail_create_hcd;
->
-
-[..]
-
-Thanks Russell,
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 7b331e6..bf94e10 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1241,7 +1241,9 @@ static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
+ 	if (num_sgs == 1)
+ 		return 0;
+ 
+-	urb->sg = kmalloc(num_sgs * sizeof(struct scatterlist), GFP_ATOMIC);
++	/* reserve one for zero packet */
++	urb->sg = kmalloc((num_sgs + 1) * sizeof(struct scatterlist),
++			  GFP_ATOMIC);
+ 	if (!urb->sg)
+ 		return -ENOMEM;
+ 
+@@ -1305,7 +1307,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 		if (build_dma_sg(skb, urb) < 0)
+ 			goto drop;
+ 	}
+-	entry->length = length = urb->transfer_buffer_length;
++	length = urb->transfer_buffer_length;
+ 
+ 	/* don't assume the hardware handles USB_ZERO_PACKET
+ 	 * NOTE:  strictly conforming cdc-ether devices should expect
+@@ -1317,15 +1319,18 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	if (length % dev->maxpacket == 0) {
+ 		if (!(info->flags & FLAG_SEND_ZLP)) {
+ 			if (!(info->flags & FLAG_MULTI_PACKET)) {
+-				urb->transfer_buffer_length++;
+-				if (skb_tailroom(skb)) {
++				length++;
++				if (skb_tailroom(skb) && !urb->num_sgs) {
+ 					skb->data[skb->len] = 0;
+ 					__skb_put(skb, 1);
+-				}
++				} else if (urb->num_sgs)
++					sg_set_buf(&urb->sg[urb->num_sgs++],
++							dev->padding_pkt, 1);
+ 			}
+ 		} else
+ 			urb->transfer_flags |= URB_ZERO_PACKET;
+ 	}
++	entry->length = urb->transfer_buffer_length = length;
+ 
+ 	spin_lock_irqsave(&dev->txq.lock, flags);
+ 	retval = usb_autopm_get_interface_async(dev->intf);
+@@ -1509,6 +1514,7 @@ void usbnet_disconnect (struct usb_interface *intf)
+ 
+ 	usb_kill_urb(dev->interrupt);
+ 	usb_free_urb(dev->interrupt);
++	kfree(dev->padding_pkt);
+ 
+ 	free_netdev(net);
+ }
+@@ -1679,9 +1685,16 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	/* initialize max rx_qlen and tx_qlen */
+ 	usbnet_update_max_qlen(dev);
+ 
++	if (dev->can_dma_sg && !(info->flags & FLAG_SEND_ZLP) &&
++		!(info->flags & FLAG_MULTI_PACKET)) {
++		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
++		if (!dev->padding_pkt)
++			goto out4;
++	}
++
+ 	status = register_netdev (net);
+ 	if (status)
+-		goto out4;
++		goto out5;
+ 	netif_info(dev, probe, dev->net,
+ 		   "register '%s' at usb-%s-%s, %s, %pM\n",
+ 		   udev->dev.driver->name,
+@@ -1699,6 +1712,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 
+ 	return 0;
+ 
++out5:
++	kfree(dev->padding_pkt);
+ out4:
+ 	usb_free_urb(dev->interrupt);
+ out3:
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 9cb2fe8..e303eef 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -42,6 +42,7 @@ struct usbnet {
+ 	struct usb_host_endpoint *status;
+ 	unsigned		maxpacket;
+ 	struct timer_list	delay;
++	const char		*padding_pkt;
+ 
+ 	/* protocol/interface state */
+ 	struct net_device	*net;
 -- 
-Nicolas Ferre
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.9.5
