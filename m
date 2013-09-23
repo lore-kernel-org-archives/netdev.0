@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/lapb: re-send packets on timeout
-Date: Mon, 23 Sep 2013 16:53:25 -0400 (EDT)
-Message-ID: <20130923.165325.1506033071596532414.davem@davemloft.net>
-References: <1379498435-28860-1-git-send-email-josselin.costanzi@mobile-devices.fr>
+Subject: Re: [PATCH 1/1] mrp: add periodictimer to allow retries when
+ packets get lost
+Date: Mon, 23 Sep 2013 16:54:07 -0400 (EDT)
+Message-ID: <20130923.165407.372933292995681502.davem@davemloft.net>
+References: <1379532280-11047-1-git-send-email-noel@burton-krahn.com>
+	<20130920.145903.1454447110808820874.davem@davemloft.net>
+	<523CF71D.3090002@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maxime.jayat@mobile-devices.fr
-To: josselin.costanzi@mobile-devices.fr
+Cc: noel@burton-krahn.com, netdev@vger.kernel.org, joe@perches.com
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43836 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43853 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753742Ab3IWUx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 16:53:27 -0400
-In-Reply-To: <1379498435-28860-1-git-send-email-josselin.costanzi@mobile-devices.fr>
+	with ESMTP id S1752230Ab3IWUyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 16:54:09 -0400
+In-Reply-To: <523CF71D.3090002@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
-Date: Wed, 18 Sep 2013 12:00:35 +0200
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Date: Fri, 20 Sep 2013 21:32:13 -0400
 
-> Actually re-send packets when the T1 timer runs out. This fixes a bug
-> where packets are waiting on the write queue until disconnection when
-> no other traffic is outstanding.
+> Noel, thanks for your patch. This timer was apparently not in the GARP
+> standard but added in the MRP standard and I missed it. Looks good to
+> me.
 > 
-> Signed-off-by: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
-> Signed-off-by: Maxime Jayat <maxime.jayat@mobile-devices.fr>
+> Acked-by: David Ward <david.ward@ll.mit.edu>
 
-Applied, thanks.
+Applied, thanks everyone.
