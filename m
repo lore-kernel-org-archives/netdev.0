@@ -1,77 +1,27 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 1/6] bnx2x: Prevent mistaken hangup between driver &
- FW
-Date: Mon, 23 Sep 2013 10:12:50 +0300
-Message-ID: <1379920375-10303-2-git-send-email-yuvalmin@broadcom.com>
-References: <1379920375-10303-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net 0/6] bnx2x: Bug fixes patch series
+Date: Mon, 23 Sep 2013 10:12:49 +0300
+Message-ID: <1379920375-10303-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
+Cc: ariele@broadcom.com, eilong@broadcom.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4689 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4679 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753061Ab3IWHNb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752994Ab3IWHNb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Sep 2013 03:13:31 -0400
-In-Reply-To: <1379920375-10303-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eilon Greenstein <eilong@broadcom.com>
+Hi Dave,
 
-When system CPU is stressed it's possible that the driver will not be able
-to pulse the FW every second, which will cause the log to be filled with
-error messages.
+This patch contains various bug fixes, half of which are SR-IOV related
+(some fixing issues in the recently added VF RSS support), while the other fix
+a wide assortments of issues in the driver.
 
-Increasing the threshold to 5 seconds seems to be enough to eliminate the
-issue.
+Please consider applying these patches to `net'.
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index a6704b5..f403c6b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -5447,26 +5447,24 @@ static void bnx2x_timer(unsigned long data)
- 	if (IS_PF(bp) &&
- 	    !BP_NOMCP(bp)) {
- 		int mb_idx = BP_FW_MB_IDX(bp);
--		u32 drv_pulse;
--		u32 mcp_pulse;
-+		u16 drv_pulse;
-+		u16 mcp_pulse;
- 
- 		++bp->fw_drv_pulse_wr_seq;
- 		bp->fw_drv_pulse_wr_seq &= DRV_PULSE_SEQ_MASK;
--		/* TBD - add SYSTEM_TIME */
- 		drv_pulse = bp->fw_drv_pulse_wr_seq;
- 		bnx2x_drv_pulse(bp);
- 
- 		mcp_pulse = (SHMEM_RD(bp, func_mb[mb_idx].mcp_pulse_mb) &
- 			     MCP_PULSE_SEQ_MASK);
- 		/* The delta between driver pulse and mcp response
--		 * should be 1 (before mcp response) or 0 (after mcp response)
-+		 * should not get too big. If the MFW is more than 5 pulses
-+		 * behind, we should worry about it enough to generate an error
-+		 * log.
- 		 */
--		if ((drv_pulse != mcp_pulse) &&
--		    (drv_pulse != ((mcp_pulse + 1) & MCP_PULSE_SEQ_MASK))) {
--			/* someone lost a heartbeat... */
--			BNX2X_ERR("drv_pulse (0x%x) != mcp_pulse (0x%x)\n",
-+		if (((drv_pulse - mcp_pulse) & MCP_PULSE_SEQ_MASK) > 5)
-+			BNX2X_ERR("MFW seems hanged: drv_pulse (0x%x) != mcp_pulse (0x%x)\n",
- 				  drv_pulse, mcp_pulse);
--		}
- 	}
- 
- 	if (bp->state == BNX2X_STATE_OPEN)
--- 
-1.8.1.4
+Thanks,
+Yuval Mintz
