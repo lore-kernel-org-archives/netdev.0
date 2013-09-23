@@ -1,10 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 07/10] brocade: Remove extern from function prototypes
-Date: Mon, 23 Sep 2013 15:11:34 -0700
-Message-ID: <068587054a8cd5308d1fdf6a5f9bde1078a50cee.1379974101.git.joe@perches.com>
+Subject: [PATCH 05/10] atheros: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 15:11:32 -0700
+Message-ID: <b7bf26665e0378a3ec9d4450daf60dc115f75e49.1379974101.git.joe@perches.com>
 References: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Rasesh Mody <rmody@brocade.com>
+	linux-kernel@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com>
@@ -21,72 +22,59 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.h | 43 ++++++++++++++++-----------------
- 1 file changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h |  6 +++---
+ drivers/net/ethernet/atheros/atl1e/atl1e.h | 12 ++++++------
+ drivers/net/ethernet/atheros/atlx/atl2.h   |  2 +-
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index aefee77..f7e033f 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -372,38 +372,37 @@ extern u32		bnad_rxqs_per_cq;
- /*
-  * EXTERN PROTOTYPES
-  */
--extern u32 *cna_get_firmware_buf(struct pci_dev *pdev);
-+u32 *cna_get_firmware_buf(struct pci_dev *pdev);
- /* Netdev entry point prototypes */
--extern void bnad_set_rx_mode(struct net_device *netdev);
--extern struct net_device_stats *bnad_get_netdev_stats(
--				struct net_device *netdev);
--extern int bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr);
--extern int bnad_enable_default_bcast(struct bnad *bnad);
--extern void bnad_restore_vlans(struct bnad *bnad, u32 rx_id);
--extern void bnad_set_ethtool_ops(struct net_device *netdev);
--extern void bnad_cb_completion(void *arg, enum bfa_status status);
-+void bnad_set_rx_mode(struct net_device *netdev);
-+struct net_device_stats *bnad_get_netdev_stats(struct net_device *netdev);
-+int bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr);
-+int bnad_enable_default_bcast(struct bnad *bnad);
-+void bnad_restore_vlans(struct bnad *bnad, u32 rx_id);
-+void bnad_set_ethtool_ops(struct net_device *netdev);
-+void bnad_cb_completion(void *arg, enum bfa_status status);
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index 0f05565..7f9369a 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -600,7 +600,7 @@ struct atl1c_adapter {
+ extern char atl1c_driver_name[];
+ extern char atl1c_driver_version[];
  
- /* Configuration & setup */
--extern void bnad_tx_coalescing_timeo_set(struct bnad *bnad);
--extern void bnad_rx_coalescing_timeo_set(struct bnad *bnad);
-+void bnad_tx_coalescing_timeo_set(struct bnad *bnad);
-+void bnad_rx_coalescing_timeo_set(struct bnad *bnad);
+-extern void atl1c_reinit_locked(struct atl1c_adapter *adapter);
+-extern s32 atl1c_reset_hw(struct atl1c_hw *hw);
+-extern void atl1c_set_ethtool_ops(struct net_device *netdev);
++void atl1c_reinit_locked(struct atl1c_adapter *adapter);
++s32 atl1c_reset_hw(struct atl1c_hw *hw);
++void atl1c_set_ethtool_ops(struct net_device *netdev);
+ #endif /* _ATL1C_H_ */
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
+index b5fd934..1b0fe2d 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e.h
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e.h
+@@ -499,10 +499,10 @@ struct atl1e_adapter {
+ extern char atl1e_driver_name[];
+ extern char atl1e_driver_version[];
  
--extern int bnad_setup_rx(struct bnad *bnad, u32 rx_id);
--extern int bnad_setup_tx(struct bnad *bnad, u32 tx_id);
--extern void bnad_destroy_tx(struct bnad *bnad, u32 tx_id);
--extern void bnad_destroy_rx(struct bnad *bnad, u32 rx_id);
-+int bnad_setup_rx(struct bnad *bnad, u32 rx_id);
-+int bnad_setup_tx(struct bnad *bnad, u32 tx_id);
-+void bnad_destroy_tx(struct bnad *bnad, u32 tx_id);
-+void bnad_destroy_rx(struct bnad *bnad, u32 rx_id);
+-extern void atl1e_check_options(struct atl1e_adapter *adapter);
+-extern int atl1e_up(struct atl1e_adapter *adapter);
+-extern void atl1e_down(struct atl1e_adapter *adapter);
+-extern void atl1e_reinit_locked(struct atl1e_adapter *adapter);
+-extern s32 atl1e_reset_hw(struct atl1e_hw *hw);
+-extern void atl1e_set_ethtool_ops(struct net_device *netdev);
++void atl1e_check_options(struct atl1e_adapter *adapter);
++int atl1e_up(struct atl1e_adapter *adapter);
++void atl1e_down(struct atl1e_adapter *adapter);
++void atl1e_reinit_locked(struct atl1e_adapter *adapter);
++s32 atl1e_reset_hw(struct atl1e_hw *hw);
++void atl1e_set_ethtool_ops(struct net_device *netdev);
+ #endif /* _ATL1_E_H_ */
+diff --git a/drivers/net/ethernet/atheros/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
+index 3ebe19f..2f27d4c 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl2.h
++++ b/drivers/net/ethernet/atheros/atlx/atl2.h
+@@ -42,7 +42,7 @@
+ #include "atlx.h"
  
- /* Timer start/stop protos */
--extern void bnad_dim_timer_start(struct bnad *bnad);
-+void bnad_dim_timer_start(struct bnad *bnad);
+ #ifdef ETHTOOL_OPS_COMPAT
+-extern int ethtool_ioctl(struct ifreq *ifr);
++int ethtool_ioctl(struct ifreq *ifr);
+ #endif
  
- /* Statistics */
--extern void bnad_netdev_qstats_fill(struct bnad *bnad,
--		struct rtnl_link_stats64 *stats);
--extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
--		struct rtnl_link_stats64 *stats);
-+void bnad_netdev_qstats_fill(struct bnad *bnad,
-+			     struct rtnl_link_stats64 *stats);
-+void bnad_netdev_hwstats_fill(struct bnad *bnad,
-+			      struct rtnl_link_stats64 *stats);
- 
- /* Debugfs */
--void	bnad_debugfs_init(struct bnad *bnad);
--void	bnad_debugfs_uninit(struct bnad *bnad);
-+void bnad_debugfs_init(struct bnad *bnad);
-+void bnad_debugfs_uninit(struct bnad *bnad);
- 
- /* MACROS */
- /* To set & get the stats counters */
+ #define PCI_COMMAND_REGISTER	PCI_COMMAND
 -- 
 1.8.1.2.459.gbcd45b4.dirty
