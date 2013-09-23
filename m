@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] ptp: add the PTP_SYS_OFFSET ioctl to the
- testptp program
-Date: Mon, 23 Sep 2013 16:46:40 -0400 (EDT)
-Message-ID: <20130923.164640.942004832887018037.davem@davemloft.net>
-References: <20130914153952.GD23682@zhudong.nay.redhat.com>
-	<20130915084811.GA10163@netboy>
-	<20130917073235.GG23682@zhudong.nay.redhat.com>
+Subject: Re: [PATCH] net/lapb: re-send packets on timeout
+Date: Mon, 23 Sep 2013 16:53:25 -0400 (EDT)
+Message-ID: <20130923.165325.1506033071596532414.davem@davemloft.net>
+References: <1379498435-28860-1-git-send-email-josselin.costanzi@mobile-devices.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, rob@landley.net, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bluezhudong@gmail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130917073235.GG23682@zhudong.nay.redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maxime.jayat@mobile-devices.fr
+To: josselin.costanzi@mobile-devices.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43836 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753742Ab3IWUx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 16:53:27 -0400
+In-Reply-To: <1379498435-28860-1-git-send-email-josselin.costanzi@mobile-devices.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dong Zhu <bluezhudong@gmail.com>
-Date: Tue, 17 Sep 2013 15:32:35 +0800
+From: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
+Date: Wed, 18 Sep 2013 12:00:35 +0200
 
-> This patch add a method into testptp.c to measure the time offset
-> between phc and system clock through the ioctl PTP_SYS_OFFSET.
+> Actually re-send packets when the T1 timer runs out. This fixes a bug
+> where packets are waiting on the write queue until disconnection when
+> no other traffic is outstanding.
 > 
-> Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
+> Signed-off-by: Josselin Costanzi <josselin.costanzi@mobile-devices.fr>
+> Signed-off-by: Maxime Jayat <maxime.jayat@mobile-devices.fr>
 
-Applied.
+Applied, thanks.
