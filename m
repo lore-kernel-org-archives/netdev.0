@@ -1,59 +1,80 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH 11/19] wireless: Change variable type to bool
-Date: Mon, 23 Sep 2013 12:40:33 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F70430F44C59426@SC-VEXCH1.marvell.com>
-References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
- <1379802471-30252-11-git-send-email-peter.senna@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ipvs: improved SH fallback strategy
+Date: Mon, 23 Sep 2013 23:42:50 +0400
+Message-ID: <524099BA.5020303@cogentembedded.com>
+References: <20130923115139.GA15034@eldamar.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:47168 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753281Ab3IWTko convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Sep 2013 15:40:44 -0400
-In-Reply-To: <1379802471-30252-11-git-send-email-peter.senna@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Frolkin <avf@eldamar.org.uk>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130923115139.GA15034@eldamar.org.uk>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Peter,
+Hello.
 
-Thanks for your patch.
+On 09/23/2013 03:51 PM, Alexander Frolkin wrote:
 
-> The variables cancel_scan_cmd, enable_data, hs_activate and valid are
-> only assigned the values true and false. Change its type to bool.
-> 
-> The simplified semantic patch that find this problem is as
-> follows (http://coccinelle.lip6.fr/):
-> 
-> @exists@
-> type T;
-> identifier b;
-> @@
-> - T
-> + bool
->   b = ...;
->   ... when any
->   b = \(true\|false\)
-> 
-> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+> Improve the SH fallback realserver selection strategy.
 
-Acked-by: Bing Zhao <bzhao@marvell.com>
+> With sh and sh-fallback, if a realserver is down, this attempts to
+> distribute the traffic that would have gone to that server evenly
+> among the remaining servers.
 
-Thanks,
-Bing
-
+> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 > ---
->  drivers/net/wireless/mwifiex/cmdevt.c  | 2 +-
->  drivers/net/wireless/mwifiex/join.c    | 2 +-
->  drivers/net/wireless/mwifiex/sta_cmd.c | 2 +-
->  drivers/net/wireless/mwifiex/wmm.c     | 2 +-
->  4 files changed, 4 insertions(+), 4 deletions(-)
+> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+> index f16c027..1676354 100644
+> --- a/net/netfilter/ipvs/ip_vs_sh.c
+> +++ b/net/netfilter/ipvs/ip_vs_sh.c
+> @@ -120,22 +120,35 @@ static inline struct ip_vs_dest *
+>   ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+>   		      const union nf_inet_addr *addr, __be16 port)
+>   {
+> -	unsigned int offset;
+> -	unsigned int hash;
+> +	unsigned int offset, roffset;
+> +	unsigned int hash, ihash;
+>   	struct ip_vs_dest *dest;
+>
+> -	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
+> -		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
+> -		dest = rcu_dereference(s->buckets[hash].dest);
+> -		if (!dest)
+> -			break;
+> -		if (is_unavailable(dest))
+> -			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+> -				      "%s:%d (offset %d)",
+> +	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
+> +	dest = rcu_dereference(s->buckets[ihash].dest);
+> +
+
+    Empty line net needed here (and it wasn't there in the original code).
+
+> +	if (!dest)
+> +		return NULL;
+> +
+
+    Here too.
+
+> +	if (is_unavailable(dest)) {
+> +		IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+> +		      "%s:%d, reselecting",
+> +		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+> +		      ntohs(dest->port));
+> +		for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
+> +			roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
+> +			hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
+> +			dest = rcu_dereference(s->buckets[hash].dest);
+> +			if (is_unavailable(dest))
+> +				IP_VS_DBG_BUF(6, "SH: selected unavailable "
+> +				      "server %s:%d (offset %d), reselecting",
+>   				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+
+WBR, Sergei
+
