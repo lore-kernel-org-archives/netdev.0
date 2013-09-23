@@ -1,57 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] stable_kernel_rules.txt: Exclude networking from stable
-	rules
-Date: Mon, 23 Sep 2013 13:34:05 -0700
-Message-ID: <1379968445.3575.60.camel@joe-AO722>
-References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com>
-	<20130919.135628.1201613770803318193.davem@davemloft.net>
-	<alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com>
-	<1379615474.22168.13.camel@joe-AO722>
-	<20130922185104.GA7515@infradead.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 12/12] sctp: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 16:39:42 -0400
+Message-ID: <20130923203942.GA2425@hmsreliant.think-freely.org>
+References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
+ <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, xfs@oss.sgi.com,
-	stephen@networkplumber.org, Mikulas Patocka <mpatocka@redhat.com>,
-	Rob Landley <rob@landley.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <xfs-bounces@oss.sgi.com>
-In-Reply-To: <20130922185104.GA7515@infradead.org>
-List-Unsubscribe: <http://oss.sgi.com/mailman/options/xfs>,
-	<mailto:xfs-request@oss.sgi.com?subject=unsubscribe>
-List-Archive: <http://oss.sgi.com/pipermail/xfs>
-List-Post: <mailto:xfs@oss.sgi.com>
-List-Help: <mailto:xfs-request@oss.sgi.com?subject=help>
-List-Subscribe: <http://oss.sgi.com/mailman/listinfo/xfs>,
-	<mailto:xfs-request@oss.sgi.com?subject=subscribe>
-Errors-To: xfs-bounces@oss.sgi.com
-Sender: xfs-bounces@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6738b115d30d40f33c688863f5421d84d2aa706c.1379961014.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-09-22 at 11:51 -0700, Christoph Hellwig wrote:
-> This is also the preferred way to do it for XFS.  Maybe word it in a way
-> that we can easily add subsystems.
+On Mon, Sep 23, 2013 at 11:37:59AM -0700, Joe Perches wrote:
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
 > 
-> To me it generally seems to be the best way to do it - having random Ccs
-> and lots of stable trees doesn't seem like a very good way of handling
-> it.
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  include/net/sctp/sctp.h | 13 ++++++-------
+>  1 file changed, 6 insertions(+), 7 deletions(-)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 3794c5a..c5fe806 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -90,12 +90,11 @@
+>  /*
+>   * sctp/protocol.c
+>   */
+> -extern int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
+> -				     sctp_scope_t, gfp_t gfp,
+> -				     int flags);
+> -extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+> -extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> -extern void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
+> +int sctp_copy_local_addr_list(struct net *, struct sctp_bind_addr *,
+> +			      sctp_scope_t, gfp_t gfp, int flags);
+> +struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+> +int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> +void sctp_addr_wq_mgmt(struct net *, struct sctp_sockaddr_entry *, int);
+>  
+>  /*
+>   * sctp/socket.c
+> @@ -110,7 +109,7 @@ void sctp_sock_rfree(struct sk_buff *skb);
+>  void sctp_copy_sock(struct sock *newsk, struct sock *sk,
+>  		    struct sctp_association *asoc);
+>  extern struct percpu_counter sctp_sockets_allocated;
+> -extern int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
+> +int sctp_asconf_mgmt(struct sctp_sock *, struct sctp_sockaddr_entry *);
+>  
+>  /*
+>   * sctp/primitive.c
+> -- 
+> 1.8.1.2.459.gbcd45b4.dirty
+> 
+> 
 
-Maybe adding a mechanism to MAINTAINERS would be better.
-Maybe a default B: (backport?) of stable@vger.kernel.org
-with a per-subsystem override?
-
-SUBSYSTEM TYPE
-M:	maintainer@email.address
-L:	list@email.address
-S:	Supported
-F:	file/pattern/
-B:	stable@email.address
-
-
-_______________________________________________
-xfs mailing list
-xfs@oss.sgi.com
-http://oss.sgi.com/mailman/listinfo/xfs
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
