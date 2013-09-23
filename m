@@ -1,56 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 01/12] ping.h: Remove extern from function prototypes
-Date: Sun, 22 Sep 2013 19:16:39 -0700
-Message-ID: <1379902599.3575.9.camel@joe-AO722>
-References: <b692aba58032f629907ea2d462c99b87906645ca.1379870986.git.joe@perches.com>
-	 <523FA098.9050200@gmail.com>
+From: Matthew Whitehead <tedheadster@gmail.com>
+Subject: Re: [net-next] Fix hardcoded interrupt name lp->name to use system
+ device value
+Date: Sun, 22 Sep 2013 22:25:33 -0400
+Message-ID: <20130923022532.GA17124@gmail.com>
+References: <1379789381-3992-1-git-send-email-thenaterhood@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Ryan Mallon <rmallon@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Nate Levesque <thenaterhood@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0192.hostedemail.com ([216.40.44.192]:46688 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753020Ab3IWCQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:16:44 -0400
-In-Reply-To: <523FA098.9050200@gmail.com>
+Received: from mail-qe0-f43.google.com ([209.85.128.43]:51756 "EHLO
+	mail-qe0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611Ab3IWCZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:25:41 -0400
+Received: by mail-qe0-f43.google.com with SMTP id gh4so1761493qeb.30
+        for <netdev@vger.kernel.org>; Sun, 22 Sep 2013 19:25:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1379789381-3992-1-git-send-email-thenaterhood@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-23 at 11:59 +1000, Ryan Mallon wrote:
-> This seems like a lot of code churn for very little benefit. At a quick
-> glance:
+On Sat, Sep 21, 2013 at 06:49:41PM +0000, Nate Levesque wrote:
+> The lance interrupt handler was using the hard-coded name which would make it difficult to tell where the interrupt came from. Changed to use the device name that made the interrupt.
 > 
->   git grep extern include/ | wc -l
->   11427
+> Signed-off-by: Nate Levesque <thenaterhood@gmail.com>
+> ---
+>  drivers/net/ethernet/amd/lance.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Not all of those will need to be removed, but that is still a huge
-> number to change, and doesn't include extern usage in C files or local
-> headers. You are probably never going to remove all the instances, so
-> what is the point of just randomly doing a handful?
+> diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
+> index 5c72843..256f590 100644
+> --- a/drivers/net/ethernet/amd/lance.c
+> +++ b/drivers/net/ethernet/amd/lance.c
+> @@ -754,7 +754,7 @@ lance_open(struct net_device *dev)
+>  	int i;
+>  
+>  	if (dev->irq == 0 ||
+> -		request_irq(dev->irq, lance_interrupt, 0, lp->name, dev)) {
+> +		request_irq(dev->irq, lance_interrupt, 0, dev->name, dev)) {
+>  		return -EAGAIN;
+>  	}
+>  
+> -- 
+> 1.8.1.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Rather more than a handful.
-
-The ratio of function prototypes without extern to
-function prototypes with extern is currently ~2.5:1
-
-So:
-
-Standardization without extern
-Line count reduction (~10%)
-Miscellaneous neatening at the same time
-Removal of all unnecessary externs from include/net
-
-There are ~8500 instances in include/
-There are ~1500 instances in include/net/
-
-After this series, 0 in include/net/
-
-Start somewhere, go from there...
-
-$ git grep -E "^\s*\bextern(\s+\w+){1,4}\s*\(\s*[^\*]" include/ | wc -l
-8395
-$ git grep -E "^\s*\bextern(\s+\w+){1,4}\s*\(\s*[^\*]" include/net/ | wc -l
-1471
+Reviewed-by: Matthew Whitehead <tedheadster@gmail.com>
