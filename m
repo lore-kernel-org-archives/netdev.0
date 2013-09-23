@@ -1,47 +1,66 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: iproute2 and libnl3?
-Date: Mon, 23 Sep 2013 12:19:52 -0700
-Message-ID: <20130923121952.47ba4d66@nehalam.linuxnetplumber.net>
-References: <1902752B0C92F943AB7EA9EE13E2DEEC1272C74D80@HQ1-EXCH02.corp.brocade.com>
+Subject: Re: [PATCH net-next] dev: advertise rx_flags changes
+Date: Mon, 23 Sep 2013 12:27:15 -0700
+Message-ID: <20130923122715.1d1b2005@nehalam.linuxnetplumber.net>
+References: <1379946334-4183-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Arvid Brodin <arvid.brodin@xdin.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:51689 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555Ab3IWTUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:20:25 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x10so3622733pdj.29
-        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 12:20:25 -0700 (PDT)
-In-Reply-To: <1902752B0C92F943AB7EA9EE13E2DEEC1272C74D80@HQ1-EXCH02.corp.brocade.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:55490 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752529Ab3IWT1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:27:19 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ld10so3939319pab.8
+        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 12:27:18 -0700 (PDT)
+In-Reply-To: <1379946334-4183-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Sep 2013 11:17:40 -0700
-Arvid Brodin <arvid.brodin@xdin.com> wrote:
+On Mon, 23 Sep 2013 16:25:34 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-> Hi Stephen (and others),
+> There is no netlink message/call to notifier chains when rx_flags are updated,
+> let's advertise everybody.
 > 
-> I'm trying to move the functionality from a small user space tool I wrote for 
-> listening to HSR Netlink messages into iproute2. The tool uses generic netlink 
-> through libnl3. 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/core/dev.c | 9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
 > 
-> It seems iproute2 uses libnl-1 though:
-> 
-> iphsr.c:325:6: warning: 'struct nl_sock' declared inside parameter list
-> iphsr.c:334:30: error: 'NL_AUTO_PORT' undeclared (first use in this function)
-> iphsr.c:341:2: warning: implicit declaration of function 'nl_send_auto'
-> iphsr.c:417:2: warning: implicit declaration of function 'genl_ctrl_resolve_grp'
-> iphsr.c:424:2: warning: implicit declaration of function 'nl_socket_add_memberships'
-> iphsr.c:455:2: warning: implicit declaration of function 'nl_socket_alloc'
-> iphsr.c:463:2: warning: implicit declaration of function 'nl_socket_disable_seq_check'
-> 
-> Are there alternatives to the above functionality in libnl-1, or do I need to 
-> implement it myself (copy them from the libnl3 code perhaps)?
-> 
-> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 5c713f2239cc..6c91d3919279 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4818,8 +4818,13 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
+>  {
+>  	const struct net_device_ops *ops = dev->netdev_ops;
+>  
+> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+> -		ops->ndo_change_rx_flags(dev, flags);
+> +	if (dev->flags & IFF_UP) {
+> +		if (ops->ndo_change_rx_flags)
+> +			ops->ndo_change_rx_flags(dev, flags);
+> +
+> +		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+> +		rtmsg_ifinfo(RTM_NEWLINK, dev, flags);
+> +	}
+>  }
+>  
+>  static int __dev_set_promiscuity(struct net_device *dev, int inc)
 
-Upstream version of iproute does not use libnl.
-Any patches to use libnl are rejected. iproute2 has its own internal libnetlink  library.
+This will cause duplicate notification if IFF_MULTICAST changes:
+
+1. dev_change_flags
+      __dev_change_flags
+         dev_change_rx_flags
+            call_netdevice_notifiers...
+
+2. dev_change_flags
+     __dev_notify_flags
+        call_netdevice_notifiers...
+
+
+        
