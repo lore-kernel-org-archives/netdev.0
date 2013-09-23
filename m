@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 11/11] sfc: Add static tracepoints to datapath
-Date: Mon, 23 Sep 2013 02:08:38 -0400 (EDT)
-Message-ID: <20130923.020838.2084214261543483443.davem@davemloft.net>
-References: <1379788283.1681.34.camel@bwh-desktop.uk.level5networks.com>
-	<1379788592.1681.45.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH net 0/5] bnx2x: Link fixes
+Date: Mon, 23 Sep 2013 02:10:47 -0400 (EDT)
+Message-ID: <20130923.021047.1551479327290447031.davem@davemloft.net>
+References: <1379851166-11959-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: yanivr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45895 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45944 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752816Ab3IWGIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 02:08:41 -0400
-In-Reply-To: <1379788592.1681.45.camel@bwh-desktop.uk.level5networks.com>
+	with ESMTP id S1751944Ab3IWGKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 02:10:49 -0400
+In-Reply-To: <1379851166-11959-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 21 Sep 2013 19:36:32 +0100
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Sun, 22 Sep 2013 14:59:21 +0300
 
-> These tracepoints support the driver-specific datapath feature tests
-> we're running internally, though they might be useful for other
-> purposes.  The skb fields are chosen to cover driver features
-> implemented now or likely to be added soon.
-> 
-> (Includes a bug fix from Edward Cree.)
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> The following patch series contain few link fixes.
+> Please consider applying it to net.
 
-Make this generic, rather than specific to this driver.
-
-You're putting a tracepoint right before calls to the generic core
-receive interfaces.  That makes no sense at all.
+All applied, thanks a lot.
