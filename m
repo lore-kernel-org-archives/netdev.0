@@ -1,52 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 11/11] sfc: Add static tracepoints to datapath
-Date: Mon, 23 Sep 2013 19:34:49 +0100
-Message-ID: <1379961289.2485.53.camel@bwh-desktop.uk.level5networks.com>
-References: <1379788592.1681.45.camel@bwh-desktop.uk.level5networks.com>
-	 <20130923.020838.2084214261543483443.davem@davemloft.net>
-	 <1379951467.2485.33.camel@bwh-desktop.uk.level5networks.com>
-	 <20130923.141723.230027899643613700.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 03/12] udplite.h: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 11:33:39 -0700
+Message-ID: <c9da8be3fe2aec5da9e4fe64b234a02e43ee12a4.1379961014.git.joe@perches.com>
+References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:24674 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753962Ab3IWSex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 14:34:53 -0400
-In-Reply-To: <20130923.141723.230027899643613700.davem@davemloft.net>
+Received: from smtprelay0229.hostedemail.com ([216.40.44.229]:43120 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753617Ab3IWSdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 14:33:42 -0400
+In-Reply-To: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-23 at 14:17 -0400, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 23 Sep 2013 16:51:07 +0100
-> 
-> > 2. Generic trace events would be subject to changes that could make them
-> > unsuitable for Solarflare's tests.
-> 
-> This is not an argument for doing things privately in your driver and
-> duplicating things.
-> 
-> We should make a facility that's useful to Solarflare _AS WELL AS_
-> everyone else.
+There are a mix of function prototypes with and without extern
+in the kernel sources.  Standardize on not using extern for
+function prototypes.
 
-OK, I'll try that.
+Function prototypes don't need to be written with extern.
+extern is assumed by the compiler.  Its use is as unnecessary as
+using auto to declare automatic/local variables in a block.
 
-> > 4. Static tracepoints always have run-time overhead, so these should
-> > probably be controlled by a kconfig option (as in this patch).
-> 
-> Don't we use static branches and other tricks to make them close to zero
-> overhead?
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/net/udplite.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-You're right, it is a static branch if CONFIG_JUMP_LABEL is enabled.
-Some documentation has not been updated to reflect this.
-
-Ben.
-
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+index 7137545..2caadab 100644
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -126,7 +126,7 @@ static inline __wsum udplite_csum(struct sk_buff *skb)
+ 	return skb_checksum(skb, off, len, 0);
+ }
+ 
+-extern void	udplite4_register(void);
+-extern int 	udplite_get_port(struct sock *sk, unsigned short snum,
+-			int (*scmp)(const struct sock *, const struct sock *));
++void udplite4_register(void);
++int udplite_get_port(struct sock *sk, unsigned short snum,
++		     int (*scmp)(const struct sock *, const struct sock *));
+ #endif	/* _UDPLITE_H */
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.2.459.gbcd45b4.dirty
