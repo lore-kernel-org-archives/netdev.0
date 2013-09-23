@@ -1,885 +1,120 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 11/12] netfilter: Remove extern from function prototypes
-Date: Mon, 23 Sep 2013 11:37:48 -0700
-Message-ID: <de1106130366672acb936422f4da7cbb1aafbda1.1379961014.git.joe@perches.com>
-References: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0208.hostedemail.com ([216.40.44.208]:59834 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754292Ab3IWSh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 14:37:59 -0400
-In-Reply-To: <445209f8885ccd8234fa787c30d63e63fc7917d7.1379961014.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: Re: [PATCH 36/51] DMA-API: usb: use dma_set_coherent_mask()
+Date: Mon, 23 Sep 2013 19:42:26 +0100
+Message-ID: <20130923184226.GU25647@n2100.arm.linux.org.uk>
+References: <E1VMmHX-0007jq-Cj@rmk-PC.arm.linux.org.uk> <Pine.LNX.4.44L0.1309231418030.1348-100000@iolanthe.rowland.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Kukjin Kim <kgene.kim-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
+	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh@lin
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44L0.1309231418030.1348-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are a mix of function prototypes with and without extern
-in the kernel sources.  Standardize on not using extern for
-function prototypes.
+On Mon, Sep 23, 2013 at 02:27:39PM -0400, Alan Stern wrote:
+> On Thu, 19 Sep 2013, Russell King wrote:
+> 
+> > The correct way for a driver to specify the coherent DMA mask is
+> > not to directly access the field in the struct device, but to use
+> > dma_set_coherent_mask().  Only arch and bus code should access this
+> > member directly.
+> > 
+> > Convert all direct write accesses to using the correct API.
+> > 
+> > Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+> 
+> > diff --git a/drivers/usb/host/ehci-platform.c b/drivers/usb/host/ehci-platform.c
+> > index f6b790c..5b0cd2d 100644
+> > --- a/drivers/usb/host/ehci-platform.c
+> > +++ b/drivers/usb/host/ehci-platform.c
+> 
+> > @@ -91,8 +91,9 @@ static int ehci_platform_probe(struct platform_device *dev)
+> >  		dev->dev.platform_data = &ehci_platform_defaults;
+> >  	if (!dev->dev.dma_mask)
+> >  		dev->dev.dma_mask = &dev->dev.coherent_dma_mask;
+> > -	if (!dev->dev.coherent_dma_mask)
+> > -		dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+> > +	err = dma_set_coherent_mask(&dev->dev, DMA_BIT_MASK(32));
+> > +	if (err)
+> > +		return err;
+> >  
+> >  	pdata = dev_get_platdata(&dev->dev);
+> 
+> ehci-platform.c is a generic file, intended for use by multiple
+> platforms.  Is it not possible that on some platforms, the arch or bus
+> code may already have initialized the DMA masks?  Isn't something like 
+> this (i.e., DMA bindings) planned for Device Tree?
+> 
+> By eliminating the tests above and calling dma_set_coherent_mask or
+> dma_coerce_mask_and_coherent unconditionally, this patch (and the next)
+> would overwrite those initial settings.
+> 
+> I don't know to what extent the same may be true for the other,
+> platform-specific, drivers changed by this patch.  But it's something 
+> to be aware of.
 
-Function prototypes don't need to be written with extern.
-extern is assumed by the compiler.  Its use is as unnecessary as
-using auto to declare automatic/local variables in a block.
+Please check the DMA API documentation:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/netfilter/ipv4/nf_conntrack_ipv4.h |  6 +--
- include/net/netfilter/ipv4/nf_defrag_ipv4.h    |  2 +-
- include/net/netfilter/ipv6/nf_defrag_ipv6.h    | 17 +++----
- include/net/netfilter/nf_conntrack.h           | 69 +++++++++++---------------
- include/net/netfilter/nf_conntrack_acct.h      | 12 ++---
- include/net/netfilter/nf_conntrack_core.h      | 69 ++++++++++++--------------
- include/net/netfilter/nf_conntrack_ecache.h    | 22 ++++----
- include/net/netfilter/nf_conntrack_extend.h    |  2 +-
- include/net/netfilter/nf_conntrack_helper.h    | 40 ++++++++-------
- include/net/netfilter/nf_conntrack_l3proto.h   | 16 +++---
- include/net/netfilter/nf_conntrack_l4proto.h   | 32 ++++++------
- include/net/netfilter/nf_conntrack_seqadj.h    | 30 +++++------
- include/net/netfilter/nf_conntrack_synproxy.h  | 28 +++++------
- include/net/netfilter/nf_conntrack_timeout.h   |  4 +-
- include/net/netfilter/nf_conntrack_timestamp.h |  8 +--
- include/net/netfilter/nf_nat.h                 | 10 ++--
- include/net/netfilter/nf_nat_core.h            |  8 ++-
- include/net/netfilter/nf_nat_helper.h          | 29 ++++-------
- include/net/netfilter/nf_nat_l3proto.h         | 23 ++++-----
- include/net/netfilter/nf_nat_l4proto.h         | 30 +++++------
- include/net/netfilter/nf_queue.h               |  2 +-
- include/net/netfilter/xt_rateest.h             |  4 +-
- 22 files changed, 217 insertions(+), 246 deletions(-)
+=====
+For correct operation, you must interrogate the kernel in your device
+probe routine to see if the DMA controller on the machine can properly
+support the DMA addressing limitation your device has.  It is good
+style to do this even if your device holds the default setting,
+because this shows that you did think about these issues wrt. your
+device.
 
-diff --git a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-index 7573d52..6c3d12e 100644
---- a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-+++ b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-@@ -16,9 +16,9 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp;
- 
--extern int nf_conntrack_ipv4_compat_init(void);
--extern void nf_conntrack_ipv4_compat_fini(void);
-+int nf_conntrack_ipv4_compat_init(void);
-+void nf_conntrack_ipv4_compat_fini(void);
- 
--extern void need_ipv4_conntrack(void);
-+void need_ipv4_conntrack(void);
- 
- #endif /*_NF_CONNTRACK_IPV4_H*/
-diff --git a/include/net/netfilter/ipv4/nf_defrag_ipv4.h b/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-index 6b00ea3..f01ef20 100644
---- a/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-+++ b/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-@@ -1,6 +1,6 @@
- #ifndef _NF_DEFRAG_IPV4_H
- #define _NF_DEFRAG_IPV4_H
- 
--extern void nf_defrag_ipv4_enable(void);
-+void nf_defrag_ipv4_enable(void);
- 
- #endif /* _NF_DEFRAG_IPV4_H */
-diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-index fd79c9a..5613412 100644
---- a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-@@ -1,15 +1,14 @@
- #ifndef _NF_DEFRAG_IPV6_H
- #define _NF_DEFRAG_IPV6_H
- 
--extern void nf_defrag_ipv6_enable(void);
--
--extern int nf_ct_frag6_init(void);
--extern void nf_ct_frag6_cleanup(void);
--extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
--extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
--			       struct net_device *in,
--			       struct net_device *out,
--			       int (*okfn)(struct sk_buff *));
-+void nf_defrag_ipv6_enable(void);
-+
-+int nf_ct_frag6_init(void);
-+void nf_ct_frag6_cleanup(void);
-+struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
-+void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
-+			struct net_device *in, struct net_device *out,
-+			int (*okfn)(struct sk_buff *));
- 
- struct inet_frags_ctl;
- 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 0c1288a..01ea6ee 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -139,15 +139,13 @@ static inline struct net *nf_ct_net(const struct nf_conn *ct)
- }
- 
- /* Alter reply tuple (maybe alter helper). */
--extern void
--nf_conntrack_alter_reply(struct nf_conn *ct,
--			 const struct nf_conntrack_tuple *newreply);
-+void nf_conntrack_alter_reply(struct nf_conn *ct,
-+			      const struct nf_conntrack_tuple *newreply);
- 
- /* Is this tuple taken? (ignoring any belonging to the given
-    conntrack). */
--extern int
--nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
--			 const struct nf_conn *ignored_conntrack);
-+int nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
-+			     const struct nf_conn *ignored_conntrack);
- 
- /* Return conntrack_info and tuple hash for given skb. */
- static inline struct nf_conn *
-@@ -165,37 +163,34 @@ static inline void nf_ct_put(struct nf_conn *ct)
- }
- 
- /* Protocol module loading */
--extern int nf_ct_l3proto_try_module_get(unsigned short l3proto);
--extern void nf_ct_l3proto_module_put(unsigned short l3proto);
-+int nf_ct_l3proto_try_module_get(unsigned short l3proto);
-+void nf_ct_l3proto_module_put(unsigned short l3proto);
- 
- /*
-  * Allocate a hashtable of hlist_head (if nulls == 0),
-  * or hlist_nulls_head (if nulls == 1)
-  */
--extern void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
-+void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
- 
--extern void nf_ct_free_hashtable(void *hash, unsigned int size);
-+void nf_ct_free_hashtable(void *hash, unsigned int size);
- 
--extern struct nf_conntrack_tuple_hash *
-+struct nf_conntrack_tuple_hash *
- __nf_conntrack_find(struct net *net, u16 zone,
- 		    const struct nf_conntrack_tuple *tuple);
- 
--extern int nf_conntrack_hash_check_insert(struct nf_conn *ct);
-+int nf_conntrack_hash_check_insert(struct nf_conn *ct);
- bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
- 
--extern void nf_conntrack_flush_report(struct net *net, u32 portid, int report);
-+void nf_conntrack_flush_report(struct net *net, u32 portid, int report);
- 
--extern bool nf_ct_get_tuplepr(const struct sk_buff *skb,
--			      unsigned int nhoff, u_int16_t l3num,
--			      struct nf_conntrack_tuple *tuple);
--extern bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
--				 const struct nf_conntrack_tuple *orig);
-+bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
-+		       u_int16_t l3num, struct nf_conntrack_tuple *tuple);
-+bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
-+			  const struct nf_conntrack_tuple *orig);
- 
--extern void __nf_ct_refresh_acct(struct nf_conn *ct,
--				 enum ip_conntrack_info ctinfo,
--				 const struct sk_buff *skb,
--				 unsigned long extra_jiffies,
--				 int do_acct);
-+void __nf_ct_refresh_acct(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			  const struct sk_buff *skb,
-+			  unsigned long extra_jiffies, int do_acct);
- 
- /* Refresh conntrack for this many jiffies and do accounting */
- static inline void nf_ct_refresh_acct(struct nf_conn *ct,
-@@ -214,10 +209,8 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
- 	__nf_ct_refresh_acct(ct, 0, skb, extra_jiffies, 0);
- }
- 
--extern bool __nf_ct_kill_acct(struct nf_conn *ct,
--			      enum ip_conntrack_info ctinfo,
--			      const struct sk_buff *skb,
--			      int do_acct);
-+bool __nf_ct_kill_acct(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		       const struct sk_buff *skb, int do_acct);
- 
- /* kill conntrack and do accounting */
- static inline bool nf_ct_kill_acct(struct nf_conn *ct,
-@@ -244,19 +237,17 @@ static inline struct nf_conn *nf_ct_untracked_get(void)
- {
- 	return &__raw_get_cpu_var(nf_conntrack_untracked);
- }
--extern void nf_ct_untracked_status_or(unsigned long bits);
-+void nf_ct_untracked_status_or(unsigned long bits);
- 
- /* Iterate over all conntracks: if iter returns true, it's deleted. */
--extern void
--nf_ct_iterate_cleanup(struct net *net,
--		      int (*iter)(struct nf_conn *i, void *data),
--		      void *data, u32 portid, int report);
--extern void nf_conntrack_free(struct nf_conn *ct);
--extern struct nf_conn *
--nf_conntrack_alloc(struct net *net, u16 zone,
--		   const struct nf_conntrack_tuple *orig,
--		   const struct nf_conntrack_tuple *repl,
--		   gfp_t gfp);
-+void nf_ct_iterate_cleanup(struct net *net,
-+			   int (*iter)(struct nf_conn *i, void *data),
-+			   void *data, u32 portid, int report);
-+void nf_conntrack_free(struct nf_conn *ct);
-+struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
-+				   const struct nf_conntrack_tuple *orig,
-+				   const struct nf_conntrack_tuple *repl,
-+				   gfp_t gfp);
- 
- static inline int nf_ct_is_template(const struct nf_conn *ct)
- {
-@@ -287,7 +278,7 @@ static inline bool nf_is_loopback_packet(const struct sk_buff *skb)
- 
- struct kernel_param;
- 
--extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
-+int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
- extern unsigned int nf_conntrack_htable_size;
- extern unsigned int nf_conntrack_max;
- extern unsigned int nf_conntrack_hash_rnd;
-diff --git a/include/net/netfilter/nf_conntrack_acct.h b/include/net/netfilter/nf_conntrack_acct.h
-index 2bdb7a1..fef44ed 100644
---- a/include/net/netfilter/nf_conntrack_acct.h
-+++ b/include/net/netfilter/nf_conntrack_acct.h
-@@ -42,8 +42,8 @@ struct nf_conn_counter *nf_ct_acct_ext_add(struct nf_conn *ct, gfp_t gfp)
- 	return acct;
- };
- 
--extern unsigned int
--seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir);
-+unsigned int seq_print_acct(struct seq_file *s, const struct nf_conn *ct,
-+			    int dir);
- 
- /* Check if connection tracking accounting is enabled */
- static inline bool nf_ct_acct_enabled(struct net *net)
-@@ -57,9 +57,9 @@ static inline void nf_ct_set_acct(struct net *net, bool enable)
- 	net->ct.sysctl_acct = enable;
- }
- 
--extern int nf_conntrack_acct_pernet_init(struct net *net);
--extern void nf_conntrack_acct_pernet_fini(struct net *net);
-+int nf_conntrack_acct_pernet_init(struct net *net);
-+void nf_conntrack_acct_pernet_fini(struct net *net);
- 
--extern int nf_conntrack_acct_init(void);
--extern void nf_conntrack_acct_fini(void);
-+int nf_conntrack_acct_init(void);
-+void nf_conntrack_acct_fini(void);
- #endif /* _NF_CONNTRACK_ACCT_H */
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index fb2b623..15308b8 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -20,49 +20,42 @@
- /* This header is used to share core functionality between the
-    standalone connection tracking module, and the compatibility layer's use
-    of connection tracking. */
--extern unsigned int nf_conntrack_in(struct net *net,
--				    u_int8_t pf,
--				    unsigned int hooknum,
--				    struct sk_buff *skb);
--
--extern int nf_conntrack_init_net(struct net *net);
--extern void nf_conntrack_cleanup_net(struct net *net);
--extern void nf_conntrack_cleanup_net_list(struct list_head *net_exit_list);
--
--extern int nf_conntrack_proto_pernet_init(struct net *net);
--extern void nf_conntrack_proto_pernet_fini(struct net *net);
--
--extern int nf_conntrack_proto_init(void);
--extern void nf_conntrack_proto_fini(void);
--
--extern int nf_conntrack_init_start(void);
--extern void nf_conntrack_cleanup_start(void);
--
--extern void nf_conntrack_init_end(void);
--extern void nf_conntrack_cleanup_end(void);
--
--extern bool
--nf_ct_get_tuple(const struct sk_buff *skb,
--		unsigned int nhoff,
--		unsigned int dataoff,
--		u_int16_t l3num,
--		u_int8_t protonum,
--		struct nf_conntrack_tuple *tuple,
--		const struct nf_conntrack_l3proto *l3proto,
--		const struct nf_conntrack_l4proto *l4proto);
--
--extern bool
--nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
--		   const struct nf_conntrack_tuple *orig,
--		   const struct nf_conntrack_l3proto *l3proto,
--		   const struct nf_conntrack_l4proto *l4proto);
-+unsigned int nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
-+			     struct sk_buff *skb);
-+
-+int nf_conntrack_init_net(struct net *net);
-+void nf_conntrack_cleanup_net(struct net *net);
-+void nf_conntrack_cleanup_net_list(struct list_head *net_exit_list);
-+
-+int nf_conntrack_proto_pernet_init(struct net *net);
-+void nf_conntrack_proto_pernet_fini(struct net *net);
-+
-+int nf_conntrack_proto_init(void);
-+void nf_conntrack_proto_fini(void);
-+
-+int nf_conntrack_init_start(void);
-+void nf_conntrack_cleanup_start(void);
-+
-+void nf_conntrack_init_end(void);
-+void nf_conntrack_cleanup_end(void);
-+
-+bool nf_ct_get_tuple(const struct sk_buff *skb, unsigned int nhoff,
-+		     unsigned int dataoff, u_int16_t l3num, u_int8_t protonum,
-+		     struct nf_conntrack_tuple *tuple,
-+		     const struct nf_conntrack_l3proto *l3proto,
-+		     const struct nf_conntrack_l4proto *l4proto);
-+
-+bool nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
-+			const struct nf_conntrack_tuple *orig,
-+			const struct nf_conntrack_l3proto *l3proto,
-+			const struct nf_conntrack_l4proto *l4proto);
- 
- /* Find a connection corresponding to a tuple. */
--extern struct nf_conntrack_tuple_hash *
-+struct nf_conntrack_tuple_hash *
- nf_conntrack_find_get(struct net *net, u16 zone,
- 		      const struct nf_conntrack_tuple *tuple);
- 
--extern int __nf_conntrack_confirm(struct sk_buff *skb);
-+int __nf_conntrack_confirm(struct sk_buff *skb);
- 
- /* Confirm a connection: returns NF_DROP if packet must be dropped. */
- static inline int nf_conntrack_confirm(struct sk_buff *skb)
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index 092dc65..0e3d08e 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -68,10 +68,12 @@ struct nf_ct_event_notifier {
- 	int (*fcn)(unsigned int events, struct nf_ct_event *item);
- };
- 
--extern int nf_conntrack_register_notifier(struct net *net, struct nf_ct_event_notifier *nb);
--extern void nf_conntrack_unregister_notifier(struct net *net, struct nf_ct_event_notifier *nb);
-+int nf_conntrack_register_notifier(struct net *net,
-+				   struct nf_ct_event_notifier *nb);
-+void nf_conntrack_unregister_notifier(struct net *net,
-+				      struct nf_ct_event_notifier *nb);
- 
--extern void nf_ct_deliver_cached_events(struct nf_conn *ct);
-+void nf_ct_deliver_cached_events(struct nf_conn *ct);
- 
- static inline void
- nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
-@@ -166,8 +168,10 @@ struct nf_exp_event_notifier {
- 	int (*fcn)(unsigned int events, struct nf_exp_event *item);
- };
- 
--extern int nf_ct_expect_register_notifier(struct net *net, struct nf_exp_event_notifier *nb);
--extern void nf_ct_expect_unregister_notifier(struct net *net, struct nf_exp_event_notifier *nb);
-+int nf_ct_expect_register_notifier(struct net *net,
-+				   struct nf_exp_event_notifier *nb);
-+void nf_ct_expect_unregister_notifier(struct net *net,
-+				      struct nf_exp_event_notifier *nb);
- 
- static inline void
- nf_ct_expect_event_report(enum ip_conntrack_expect_events event,
-@@ -207,11 +211,11 @@ nf_ct_expect_event(enum ip_conntrack_expect_events event,
- 	nf_ct_expect_event_report(event, exp, 0, 0);
- }
- 
--extern int nf_conntrack_ecache_pernet_init(struct net *net);
--extern void nf_conntrack_ecache_pernet_fini(struct net *net);
-+int nf_conntrack_ecache_pernet_init(struct net *net);
-+void nf_conntrack_ecache_pernet_fini(struct net *net);
- 
--extern int nf_conntrack_ecache_init(void);
--extern void nf_conntrack_ecache_fini(void);
-+int nf_conntrack_ecache_init(void);
-+void nf_conntrack_ecache_fini(void);
- #else /* CONFIG_NF_CONNTRACK_EVENTS */
- 
- static inline void nf_conntrack_event_cache(enum ip_conntrack_events event,
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 88a1d40..86372ae 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -73,7 +73,7 @@ static inline void *__nf_ct_ext_find(const struct nf_conn *ct, u8 id)
- 	((id##_TYPE *)__nf_ct_ext_find((ext), (id)))
- 
- /* Destroy all relationships */
--extern void __nf_ct_ext_destroy(struct nf_conn *ct);
-+void __nf_ct_ext_destroy(struct nf_conn *ct);
- static inline void nf_ct_ext_destroy(struct nf_conn *ct)
- {
- 	if (ct->ext)
-diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
-index 26c4ae5..6cf614bc 100644
---- a/include/net/netfilter/nf_conntrack_helper.h
-+++ b/include/net/netfilter/nf_conntrack_helper.h
-@@ -52,21 +52,24 @@ struct nf_conntrack_helper {
- 	unsigned int queue_num;		/* For user-space helpers. */
- };
- 
--extern struct nf_conntrack_helper *
--__nf_conntrack_helper_find(const char *name, u16 l3num, u8 protonum);
-+struct nf_conntrack_helper *__nf_conntrack_helper_find(const char *name,
-+						       u16 l3num, u8 protonum);
- 
--extern struct nf_conntrack_helper *
--nf_conntrack_helper_try_module_get(const char *name, u16 l3num, u8 protonum);
-+struct nf_conntrack_helper *nf_conntrack_helper_try_module_get(const char *name,
-+							       u16 l3num,
-+							       u8 protonum);
- 
--extern int nf_conntrack_helper_register(struct nf_conntrack_helper *);
--extern void nf_conntrack_helper_unregister(struct nf_conntrack_helper *);
-+int nf_conntrack_helper_register(struct nf_conntrack_helper *);
-+void nf_conntrack_helper_unregister(struct nf_conntrack_helper *);
- 
--extern struct nf_conn_help *nf_ct_helper_ext_add(struct nf_conn *ct, struct nf_conntrack_helper *helper, gfp_t gfp);
-+struct nf_conn_help *nf_ct_helper_ext_add(struct nf_conn *ct,
-+					  struct nf_conntrack_helper *helper,
-+					  gfp_t gfp);
- 
--extern int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
--				     gfp_t flags);
-+int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
-+			      gfp_t flags);
- 
--extern void nf_ct_helper_destroy(struct nf_conn *ct);
-+void nf_ct_helper_destroy(struct nf_conn *ct);
- 
- static inline struct nf_conn_help *nfct_help(const struct nf_conn *ct)
- {
-@@ -82,17 +85,16 @@ static inline void *nfct_help_data(const struct nf_conn *ct)
- 	return (void *)help->data;
- }
- 
--extern int nf_conntrack_helper_pernet_init(struct net *net);
--extern void nf_conntrack_helper_pernet_fini(struct net *net);
-+int nf_conntrack_helper_pernet_init(struct net *net);
-+void nf_conntrack_helper_pernet_fini(struct net *net);
- 
--extern int nf_conntrack_helper_init(void);
--extern void nf_conntrack_helper_fini(void);
-+int nf_conntrack_helper_init(void);
-+void nf_conntrack_helper_fini(void);
- 
--extern int nf_conntrack_broadcast_help(struct sk_buff *skb,
--				       unsigned int protoff,
--				       struct nf_conn *ct,
--				       enum ip_conntrack_info ctinfo,
--				       unsigned int timeout);
-+int nf_conntrack_broadcast_help(struct sk_buff *skb, unsigned int protoff,
-+				struct nf_conn *ct,
-+				enum ip_conntrack_info ctinfo,
-+				unsigned int timeout);
- 
- struct nf_ct_helper_expectfn {
- 	struct list_head head;
-diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
-index 3bb89ea..3efab70 100644
---- a/include/net/netfilter/nf_conntrack_l3proto.h
-+++ b/include/net/netfilter/nf_conntrack_l3proto.h
-@@ -77,17 +77,17 @@ struct nf_conntrack_l3proto {
- extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX];
- 
- /* Protocol pernet registration. */
--extern int nf_ct_l3proto_pernet_register(struct net *net,
--					 struct nf_conntrack_l3proto *proto);
--extern void nf_ct_l3proto_pernet_unregister(struct net *net,
--					    struct nf_conntrack_l3proto *proto);
-+int nf_ct_l3proto_pernet_register(struct net *net,
-+				  struct nf_conntrack_l3proto *proto);
-+void nf_ct_l3proto_pernet_unregister(struct net *net,
-+				     struct nf_conntrack_l3proto *proto);
- 
- /* Protocol global registration. */
--extern int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto);
--extern void nf_ct_l3proto_unregister(struct nf_conntrack_l3proto *proto);
-+int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto);
-+void nf_ct_l3proto_unregister(struct nf_conntrack_l3proto *proto);
- 
--extern struct nf_conntrack_l3proto *nf_ct_l3proto_find_get(u_int16_t l3proto);
--extern void nf_ct_l3proto_put(struct nf_conntrack_l3proto *p);
-+struct nf_conntrack_l3proto *nf_ct_l3proto_find_get(u_int16_t l3proto);
-+void nf_ct_l3proto_put(struct nf_conntrack_l3proto *p);
- 
- /* Existing built-in protocols */
- extern struct nf_conntrack_l3proto nf_conntrack_l3proto_generic;
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index b411d7b..4c8d573 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -114,22 +114,22 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_generic;
- 
- #define MAX_NF_CT_PROTO 256
- 
--extern struct nf_conntrack_l4proto *
--__nf_ct_l4proto_find(u_int16_t l3proto, u_int8_t l4proto);
-+struct nf_conntrack_l4proto *__nf_ct_l4proto_find(u_int16_t l3proto,
-+						  u_int8_t l4proto);
- 
--extern struct nf_conntrack_l4proto *
--nf_ct_l4proto_find_get(u_int16_t l3proto, u_int8_t l4proto);
--extern void nf_ct_l4proto_put(struct nf_conntrack_l4proto *p);
-+struct nf_conntrack_l4proto *nf_ct_l4proto_find_get(u_int16_t l3proto,
-+						    u_int8_t l4proto);
-+void nf_ct_l4proto_put(struct nf_conntrack_l4proto *p);
- 
- /* Protocol pernet registration. */
--extern int nf_ct_l4proto_pernet_register(struct net *net,
--					 struct nf_conntrack_l4proto *proto);
--extern void nf_ct_l4proto_pernet_unregister(struct net *net,
--					    struct nf_conntrack_l4proto *proto);
-+int nf_ct_l4proto_pernet_register(struct net *net,
-+				  struct nf_conntrack_l4proto *proto);
-+void nf_ct_l4proto_pernet_unregister(struct net *net,
-+				     struct nf_conntrack_l4proto *proto);
- 
- /* Protocol global registration. */
--extern int nf_ct_l4proto_register(struct nf_conntrack_l4proto *proto);
--extern void nf_ct_l4proto_unregister(struct nf_conntrack_l4proto *proto);
-+int nf_ct_l4proto_register(struct nf_conntrack_l4proto *proto);
-+void nf_ct_l4proto_unregister(struct nf_conntrack_l4proto *proto);
- 
- static inline void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn)
- {
-@@ -140,11 +140,11 @@ static inline void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn)
- }
- 
- /* Generic netlink helpers */
--extern int nf_ct_port_tuple_to_nlattr(struct sk_buff *skb,
--				      const struct nf_conntrack_tuple *tuple);
--extern int nf_ct_port_nlattr_to_tuple(struct nlattr *tb[],
--				      struct nf_conntrack_tuple *t);
--extern int nf_ct_port_nlattr_tuple_size(void);
-+int nf_ct_port_tuple_to_nlattr(struct sk_buff *skb,
-+			       const struct nf_conntrack_tuple *tuple);
-+int nf_ct_port_nlattr_to_tuple(struct nlattr *tb[],
-+			       struct nf_conntrack_tuple *t);
-+int nf_ct_port_nlattr_tuple_size(void);
- extern const struct nla_policy nf_ct_port_nla_policy[];
- 
- #ifdef CONFIG_SYSCTL
-diff --git a/include/net/netfilter/nf_conntrack_seqadj.h b/include/net/netfilter/nf_conntrack_seqadj.h
-index f6177a5..4b33629 100644
---- a/include/net/netfilter/nf_conntrack_seqadj.h
-+++ b/include/net/netfilter/nf_conntrack_seqadj.h
-@@ -30,22 +30,18 @@ static inline struct nf_conn_seqadj *nfct_seqadj_ext_add(struct nf_conn *ct)
- 	return nf_ct_ext_add(ct, NF_CT_EXT_SEQADJ, GFP_ATOMIC);
- }
- 
--extern int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
--			     s32 off);
--extern int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
--			    __be32 seq, s32 off);
--extern void nf_ct_tcp_seqadj_set(struct sk_buff *skb,
--				 struct nf_conn *ct,
--				 enum ip_conntrack_info ctinfo,
--				 s32 off);
--
--extern int nf_ct_seq_adjust(struct sk_buff *skb,
--			    struct nf_conn *ct, enum ip_conntrack_info ctinfo,
--			    unsigned int protoff);
--extern s32 nf_ct_seq_offset(const struct nf_conn *ct, enum ip_conntrack_dir,
--			    u32 seq);
--
--extern int nf_conntrack_seqadj_init(void);
--extern void nf_conntrack_seqadj_fini(void);
-+int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		      s32 off);
-+int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+		     __be32 seq, s32 off);
-+void nf_ct_tcp_seqadj_set(struct sk_buff *skb, struct nf_conn *ct,
-+			  enum ip_conntrack_info ctinfo, s32 off);
-+
-+int nf_ct_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
-+		     enum ip_conntrack_info ctinfo, unsigned int protoff);
-+s32 nf_ct_seq_offset(const struct nf_conn *ct, enum ip_conntrack_dir, u32 seq);
-+
-+int nf_conntrack_seqadj_init(void);
-+void nf_conntrack_seqadj_fini(void);
- 
- #endif /* _NF_CONNTRACK_SEQADJ_H */
-diff --git a/include/net/netfilter/nf_conntrack_synproxy.h b/include/net/netfilter/nf_conntrack_synproxy.h
-index 806f54a..9681866 100644
---- a/include/net/netfilter/nf_conntrack_synproxy.h
-+++ b/include/net/netfilter/nf_conntrack_synproxy.h
-@@ -56,22 +56,20 @@ struct synproxy_options {
- 
- struct tcphdr;
- struct xt_synproxy_info;
--extern void synproxy_parse_options(const struct sk_buff *skb, unsigned int doff,
--				   const struct tcphdr *th,
--				   struct synproxy_options *opts);
--extern unsigned int synproxy_options_size(const struct synproxy_options *opts);
--extern void synproxy_build_options(struct tcphdr *th,
--				   const struct synproxy_options *opts);
-+void synproxy_parse_options(const struct sk_buff *skb, unsigned int doff,
-+			    const struct tcphdr *th,
-+			    struct synproxy_options *opts);
-+unsigned int synproxy_options_size(const struct synproxy_options *opts);
-+void synproxy_build_options(struct tcphdr *th,
-+			    const struct synproxy_options *opts);
- 
--extern void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
--					   struct synproxy_options *opts);
--extern void synproxy_check_timestamp_cookie(struct synproxy_options *opts);
-+void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
-+				    struct synproxy_options *opts);
-+void synproxy_check_timestamp_cookie(struct synproxy_options *opts);
- 
--extern unsigned int synproxy_tstamp_adjust(struct sk_buff *skb,
--					   unsigned int protoff,
--					   struct tcphdr *th,
--					   struct nf_conn *ct,
--					   enum ip_conntrack_info ctinfo,
--					   const struct nf_conn_synproxy *synproxy);
-+unsigned int synproxy_tstamp_adjust(struct sk_buff *skb, unsigned int protoff,
-+				    struct tcphdr *th, struct nf_conn *ct,
-+				    enum ip_conntrack_info ctinfo,
-+				    const struct nf_conn_synproxy *synproxy);
- 
- #endif /* _NF_CONNTRACK_SYNPROXY_H */
-diff --git a/include/net/netfilter/nf_conntrack_timeout.h b/include/net/netfilter/nf_conntrack_timeout.h
-index d23aceb..6230871 100644
---- a/include/net/netfilter/nf_conntrack_timeout.h
-+++ b/include/net/netfilter/nf_conntrack_timeout.h
-@@ -76,8 +76,8 @@ nf_ct_timeout_lookup(struct net *net, struct nf_conn *ct,
- }
- 
- #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
--extern int nf_conntrack_timeout_init(void);
--extern void nf_conntrack_timeout_fini(void);
-+int nf_conntrack_timeout_init(void);
-+void nf_conntrack_timeout_fini(void);
- #else
- static inline int nf_conntrack_timeout_init(void)
- {
-diff --git a/include/net/netfilter/nf_conntrack_timestamp.h b/include/net/netfilter/nf_conntrack_timestamp.h
-index b004614..300ae22 100644
---- a/include/net/netfilter/nf_conntrack_timestamp.h
-+++ b/include/net/netfilter/nf_conntrack_timestamp.h
-@@ -48,11 +48,11 @@ static inline void nf_ct_set_tstamp(struct net *net, bool enable)
- }
- 
- #ifdef CONFIG_NF_CONNTRACK_TIMESTAMP
--extern int nf_conntrack_tstamp_pernet_init(struct net *net);
--extern void nf_conntrack_tstamp_pernet_fini(struct net *net);
-+int nf_conntrack_tstamp_pernet_init(struct net *net);
-+void nf_conntrack_tstamp_pernet_fini(struct net *net);
- 
--extern int nf_conntrack_tstamp_init(void);
--extern void nf_conntrack_tstamp_fini(void);
-+int nf_conntrack_tstamp_init(void);
-+void nf_conntrack_tstamp_fini(void);
- #else
- static inline int nf_conntrack_tstamp_pernet_init(struct net *net)
- {
-diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
-index 59a1924..c29b4e5 100644
---- a/include/net/netfilter/nf_nat.h
-+++ b/include/net/netfilter/nf_nat.h
-@@ -41,13 +41,13 @@ struct nf_conn_nat {
- };
- 
- /* Set up the info structure to map into this range. */
--extern unsigned int nf_nat_setup_info(struct nf_conn *ct,
--				      const struct nf_nat_range *range,
--				      enum nf_nat_manip_type maniptype);
-+unsigned int nf_nat_setup_info(struct nf_conn *ct,
-+			       const struct nf_nat_range *range,
-+			       enum nf_nat_manip_type maniptype);
- 
- /* Is this tuple already taken? (not by us)*/
--extern int nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
--			     const struct nf_conn *ignored_conntrack);
-+int nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
-+		      const struct nf_conn *ignored_conntrack);
- 
- static inline struct nf_conn_nat *nfct_nat(const struct nf_conn *ct)
- {
-diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
-index 972e1e4..fbfd1ba 100644
---- a/include/net/netfilter/nf_nat_core.h
-+++ b/include/net/netfilter/nf_nat_core.h
-@@ -7,12 +7,10 @@
- /* This header used to share core functionality between the standalone
-    NAT module, and the compatibility layer's use of NAT for masquerading. */
- 
--extern unsigned int nf_nat_packet(struct nf_conn *ct,
--				  enum ip_conntrack_info ctinfo,
--				  unsigned int hooknum,
--				  struct sk_buff *skb);
-+unsigned int nf_nat_packet(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			   unsigned int hooknum, struct sk_buff *skb);
- 
--extern int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family);
-+int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family);
- 
- static inline int nf_nat_initialized(struct nf_conn *ct,
- 				     enum nf_nat_manip_type manip)
-diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
-index 404324d..01bcc6b 100644
---- a/include/net/netfilter/nf_nat_helper.h
-+++ b/include/net/netfilter/nf_nat_helper.h
-@@ -7,14 +7,11 @@
- struct sk_buff;
- 
- /* These return true or false. */
--extern int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
--				      struct nf_conn *ct,
--				      enum ip_conntrack_info ctinfo,
--				      unsigned int protoff,
--				      unsigned int match_offset,
--				      unsigned int match_len,
--				      const char *rep_buffer,
--				      unsigned int rep_len, bool adjust);
-+int __nf_nat_mangle_tcp_packet(struct sk_buff *skb, struct nf_conn *ct,
-+			       enum ip_conntrack_info ctinfo,
-+			       unsigned int protoff, unsigned int match_offset,
-+			       unsigned int match_len, const char *rep_buffer,
-+			       unsigned int rep_len, bool adjust);
- 
- static inline int nf_nat_mangle_tcp_packet(struct sk_buff *skb,
- 					   struct nf_conn *ct,
-@@ -30,18 +27,14 @@ static inline int nf_nat_mangle_tcp_packet(struct sk_buff *skb,
- 					  rep_buffer, rep_len, true);
- }
- 
--extern int nf_nat_mangle_udp_packet(struct sk_buff *skb,
--				    struct nf_conn *ct,
--				    enum ip_conntrack_info ctinfo,
--				    unsigned int protoff,
--				    unsigned int match_offset,
--				    unsigned int match_len,
--				    const char *rep_buffer,
--				    unsigned int rep_len);
-+int nf_nat_mangle_udp_packet(struct sk_buff *skb, struct nf_conn *ct,
-+			     enum ip_conntrack_info ctinfo,
-+			     unsigned int protoff, unsigned int match_offset,
-+			     unsigned int match_len, const char *rep_buffer,
-+			     unsigned int rep_len);
- 
- /* Setup NAT on this expected conntrack so it follows master, but goes
-  * to port ct->master->saved_proto. */
--extern void nf_nat_follow_master(struct nf_conn *ct,
--				 struct nf_conntrack_expect *this);
-+void nf_nat_follow_master(struct nf_conn *ct, struct nf_conntrack_expect *this);
- 
- #endif
-diff --git a/include/net/netfilter/nf_nat_l3proto.h b/include/net/netfilter/nf_nat_l3proto.h
-index bd3b97e..5a2919b 100644
---- a/include/net/netfilter/nf_nat_l3proto.h
-+++ b/include/net/netfilter/nf_nat_l3proto.h
-@@ -35,18 +35,15 @@ struct nf_nat_l3proto {
- 				   struct nf_nat_range *range);
- };
- 
--extern int nf_nat_l3proto_register(const struct nf_nat_l3proto *);
--extern void nf_nat_l3proto_unregister(const struct nf_nat_l3proto *);
--extern const struct nf_nat_l3proto *__nf_nat_l3proto_find(u8 l3proto);
--
--extern int nf_nat_icmp_reply_translation(struct sk_buff *skb,
--					 struct nf_conn *ct,
--					 enum ip_conntrack_info ctinfo,
--					 unsigned int hooknum);
--extern int nf_nat_icmpv6_reply_translation(struct sk_buff *skb,
--					   struct nf_conn *ct,
--					   enum ip_conntrack_info ctinfo,
--					   unsigned int hooknum,
--					   unsigned int hdrlen);
-+int nf_nat_l3proto_register(const struct nf_nat_l3proto *);
-+void nf_nat_l3proto_unregister(const struct nf_nat_l3proto *);
-+const struct nf_nat_l3proto *__nf_nat_l3proto_find(u8 l3proto);
-+
-+int nf_nat_icmp_reply_translation(struct sk_buff *skb, struct nf_conn *ct,
-+				  enum ip_conntrack_info ctinfo,
-+				  unsigned int hooknum);
-+int nf_nat_icmpv6_reply_translation(struct sk_buff *skb, struct nf_conn *ct,
-+				    enum ip_conntrack_info ctinfo,
-+				    unsigned int hooknum, unsigned int hdrlen);
- 
- #endif /* _NF_NAT_L3PROTO_H */
-diff --git a/include/net/netfilter/nf_nat_l4proto.h b/include/net/netfilter/nf_nat_l4proto.h
-index 24feb68..12f4cc8 100644
---- a/include/net/netfilter/nf_nat_l4proto.h
-+++ b/include/net/netfilter/nf_nat_l4proto.h
-@@ -42,10 +42,11 @@ struct nf_nat_l4proto {
- };
- 
- /* Protocol registration. */
--extern int nf_nat_l4proto_register(u8 l3proto, const struct nf_nat_l4proto *l4proto);
--extern void nf_nat_l4proto_unregister(u8 l3proto, const struct nf_nat_l4proto *l4proto);
-+int nf_nat_l4proto_register(u8 l3proto, const struct nf_nat_l4proto *l4proto);
-+void nf_nat_l4proto_unregister(u8 l3proto,
-+			       const struct nf_nat_l4proto *l4proto);
- 
--extern const struct nf_nat_l4proto *__nf_nat_l4proto_find(u8 l3proto, u8 l4proto);
-+const struct nf_nat_l4proto *__nf_nat_l4proto_find(u8 l3proto, u8 l4proto);
- 
- /* Built-in protocols. */
- extern const struct nf_nat_l4proto nf_nat_l4proto_tcp;
-@@ -54,19 +55,18 @@ extern const struct nf_nat_l4proto nf_nat_l4proto_icmp;
- extern const struct nf_nat_l4proto nf_nat_l4proto_icmpv6;
- extern const struct nf_nat_l4proto nf_nat_l4proto_unknown;
- 
--extern bool nf_nat_l4proto_in_range(const struct nf_conntrack_tuple *tuple,
--				    enum nf_nat_manip_type maniptype,
--				    const union nf_conntrack_man_proto *min,
--				    const union nf_conntrack_man_proto *max);
-+bool nf_nat_l4proto_in_range(const struct nf_conntrack_tuple *tuple,
-+			     enum nf_nat_manip_type maniptype,
-+			     const union nf_conntrack_man_proto *min,
-+			     const union nf_conntrack_man_proto *max);
- 
--extern void nf_nat_l4proto_unique_tuple(const struct nf_nat_l3proto *l3proto,
--					struct nf_conntrack_tuple *tuple,
--					const struct nf_nat_range *range,
--					enum nf_nat_manip_type maniptype,
--					const struct nf_conn *ct,
--					u16 *rover);
-+void nf_nat_l4proto_unique_tuple(const struct nf_nat_l3proto *l3proto,
-+				 struct nf_conntrack_tuple *tuple,
-+				 const struct nf_nat_range *range,
-+				 enum nf_nat_manip_type maniptype,
-+				 const struct nf_conn *ct, u16 *rover);
- 
--extern int nf_nat_l4proto_nlattr_to_range(struct nlattr *tb[],
--					  struct nf_nat_range *range);
-+int nf_nat_l4proto_nlattr_to_range(struct nlattr *tb[],
-+				   struct nf_nat_range *range);
- 
- #endif /*_NF_NAT_L4PROTO_H*/
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index aaba4bb..c1d5b3e 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -28,7 +28,7 @@ struct nf_queue_handler {
- 
- void nf_register_queue_handler(const struct nf_queue_handler *qh);
- void nf_unregister_queue_handler(void);
--extern void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
-+void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
- 
- bool nf_queue_entry_get_refs(struct nf_queue_entry *entry);
- void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
-diff --git a/include/net/netfilter/xt_rateest.h b/include/net/netfilter/xt_rateest.h
-index 495c71f..79f45e1 100644
---- a/include/net/netfilter/xt_rateest.h
-+++ b/include/net/netfilter/xt_rateest.h
-@@ -16,7 +16,7 @@ struct xt_rateest {
- 	struct rcu_head			rcu;
- };
- 
--extern struct xt_rateest *xt_rateest_lookup(const char *name);
--extern void xt_rateest_put(struct xt_rateest *est);
-+struct xt_rateest *xt_rateest_lookup(const char *name);
-+void xt_rateest_put(struct xt_rateest *est);
- 
- #endif /* _XT_RATEEST_H */
--- 
-1.8.1.2.459.gbcd45b4.dirty
+The query is performed via a call to dma_set_mask():
+
+        int dma_set_mask(struct device *dev, u64 mask);
+
+The query for consistent allocations is performed via a call to
+dma_set_coherent_mask():
+
+        int dma_set_coherent_mask(struct device *dev, u64 mask);
+=====
+
+So, All drivers which use DMA are supposed to issue the appropriate
+calls to check the DMA masks before they perform DMA, even if the
+"default" is correct.
+
+And yes, this is all part of sorting out the DT mess - we should
+start not from the current mess (which is really totally haphazard)
+but from the well established position of how the DMA API _should_
+be used.  What that means is that all drivers should be issuing
+these calls as appropriate today.
+
+The default mask setup when the device is created is just that -
+it's a default mask, and it should not be used to decide anything
+about the device.  That's something which the driver should compute
+on its own accord and then inform the various other layers via the
+appropriate call.
+
+Remember, on PCI, even when we have 64-bit, we do not declare PCI
+devices with a 64-bit DMA mask: that's up to PCI device drivers to
+_try_ to set a 64-bit DMA mask, which when successful _allows_ them
+to use 64-bit DMA.  If it fails, they have to only use 32-bit.  If
+they want a smaller mask, the _driver_ has to set the smaller mask,
+not the device creating code.
+
+The reason we're into this (particularly on ARM) is that we got lazy
+because we could get by with declaring a DMA mask at device creation
+time, since all devices were statically declared.  Now it's time to
+get rid of those old lazy ways and start doing things correctly and
+to the requirements of the APIs.
