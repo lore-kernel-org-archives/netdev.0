@@ -1,62 +1,63 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH 18/51] DMA-API: staging: et131x: replace
- dma_set_mask()+dma_set_coherent_mask() with new helper
-Date: Mon, 23 Sep 2013 15:42:53 +0100
-Message-ID: <20130923144253.GB3608@laugharne.auvation.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMm05-0007hG-5T@rmk-PC.arm.linux.org.uk>
- <1379691728.1681.15.camel@bwh-desktop.uk.level5networks.com>
- <20130921195531.GO12758@n2100.arm.linux.org.uk>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: [PATCH] skge: fix broken driver
+Date: Mon, 23 Sep 2013 10:58:41 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1309231057090.20579@file01.intranet.prod.int.rdu2.redhat.com>
+References: <alpine.LRH.2.02.1309191229480.32035@file01.intranet.prod.int.rdu2.redhat.com> <20130919.135628.1201613770803318193.davem@davemloft.net> <alpine.LRH.2.02.1309191359300.12162@file01.intranet.prod.int.rdu2.redhat.com> <1379614608.2331.0.camel@ThinkPad-X230.localdomain>
+ <alpine.LRH.2.02.1309191427420.15640@file01.intranet.prod.int.rdu2.redhat.com> <20130919213218.GA31672@electric-eye.fr.zoreil.com> <alpine.LRH.2.02.1309201030420.30821@file01.intranet.prod.int.rdu2.redhat.com>
+ <20130920213854.GA19732@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, devel@driverdev.osuosl.org,
- netdev <netdev@vger.kernel.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20130921195531.GO12758@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Igor Gnatenko <i.gnatenko.brain@gmail.com>,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36463 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752869Ab3IWO6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Sep 2013 10:58:48 -0400
+In-Reply-To: <20130920213854.GA19732@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 21, 2013 at 08:55:31PM +0100, Russell King - ARM Linux wrote:
-> On Fri, Sep 20, 2013 at 04:42:08PM +0100, Ben Hutchings wrote:
-> > On Thu, 2013-09-19 at 22:43 +0100, Russell King wrote:
-> > > +	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) ||
-> > > +	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
-> > 
-> > Surely we want && here.
-> 
-> Good catch, exactly right.  Thanks for the review, here's the replacement
-> patch:
-> 
-> 8<====
-> From: Russell King <rmk+kernel@arm.linux.org.uk>
-> Subject: [PATCH] DMA-API: staging: et131x: replace
->  dma_set_mask()+dma_set_coherent_mask() with new helper
-> 
-> Replace the following sequence:
-> 
-> 	dma_set_mask(dev, mask);
-> 	dma_set_coherent_mask(dev, mask);
-> 
-> with a call to the new helper dma_set_mask_and_coherent().
-> 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> ---
->  drivers/staging/et131x/et131x.c |   17 ++---------------
->  1 files changed, 2 insertions(+), 15 deletions(-)
 
-Acked-by: Mark Einon <mark.einon@gmail.com>
 
-Cheers,
+On Fri, 20 Sep 2013, Francois Romieu wrote:
 
-Mark
+> Mikulas Patocka <mpatocka@redhat.com> :
+> > On Thu, 19 Sep 2013, Francois Romieu wrote:
+> [...]
+> > > Both patches don't behave exactly the same wrt pci_unmap_single.
+> [...]
+> > I see, my patch passes a wrong value to pci_unmap_single. So I made this 
+> > change to make it pass the correct value. Do you agree with this patch ?
+> 
+> Yes. I did not report it. Igor did.
+
+You did report it. You said earlier in some email: "Both patches don't 
+behave exactly the same wrt pci_unmap_single." I found this bug because of 
+that message.
+
+Mikulas
+
+> You may "struct skge_element ee = *e;" and save a line. Who cares about
+> the extra copy when netdev_alloc_skb_ip_align fails ?
+> 
+> Something less ugly for the longer term
+> - use netdev_alloc_skb_ip_align in skge_rx_fill
+> - have skge_rx_setup return previouly stored sk_buff * - NULL if it was so -
+>   and ERR_PTR when it fails for whatever reason
+> - move netdev_alloc_skb_ip_align into skge_rx_setup
+> - pci_unmap in skge_rx_setup
+> - profit
+> 
+> Or isolate the struct sk_buff * + DEFINE_DMA_ part in skge_element then
+> save it as a whole in skge_rx_setup before initializing a new one as a
+> (netdev_alloc_skb_ip_align + pci_map).
+> 
+> Does someone volunteer to write it for net-next once the fix has been
+> merged and later pulled into net-next ?
+> 
+> -- 
+> Ueimor
+> 
