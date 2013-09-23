@@ -1,100 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 1/2] Revert "Fix reporting of VLAN tag offload flags
- on Linux < 2.6.37"
-Date: Tue, 24 Sep 2013 00:24:58 +0100
-Message-ID: <1379978698.2485.85.camel@bwh-desktop.uk.level5networks.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/2] net: Use Toeplitz for IPv4 and IPv6 connection hashing
+Date: Mon, 23 Sep 2013 16:26:02 -0700
+Message-ID: <CA+mtBx_4u0xi0eqQ1H4Vn=GmFgppbgMWz8SypYD6dpoD+Dxk_g@mail.gmail.com>
+References: <alpine.DEB.2.02.1309231543330.23714@tomh.mtv.corp.google.com>
+	<20130923161115.5d756838@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63800 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007Ab3IWXZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 19:25:02 -0400
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:59091 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752849Ab3IWX0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 19:26:03 -0400
+Received: by mail-ie0-f182.google.com with SMTP id aq17so7724906iec.13
+        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 16:26:02 -0700 (PDT)
+In-Reply-To: <20130923161115.5d756838@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 1cddbe64cfc66b58988c85086d6df3a77c0c61a5.
-It causes 'ethtool -K' to pass the VLAN tag offload flags to
-ETHTOOL_SFLAGS when they are not supported and will be rejected.
----
- ethtool.c | 41 -----------------------------------------
- 1 file changed, 41 deletions(-)
+On Mon, Sep 23, 2013 at 4:11 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Mon, 23 Sep 2013 15:44:51 -0700 (PDT)
+> Tom Herbert <therbert@google.com> wrote:
+>
+>> Toeplitz
+>>   IPv4
+>>     58.72% CPU utilization
+>>     110/146/198 90/95/99% latencies
+>>     1.72549e+06 tps
+>>   IPv6
+>>     72.38% CPU utilization
+>>     117/168/255 90/95/99% latencies
+>>     1.58545e+06 tps
+>>
+>> Jhash
+>>   IPv4
+>>     57.67% CPU utilization
+>>     111/146/196 90/95/99% latencies
+>>     1.71574e+06 tps
+>>   IPv6
+>>     71.84% CPU utilization
+>>     117/166/248 90/95/99% latencies
+>>     1.59359e+06 tps
+>
+> It looks slower and more complex than Jhash, what is the benefit?
+> Have you investigated using Murmur instead?
 
-diff --git a/ethtool.c b/ethtool.c
-index dcdc0a9..2dc07d3 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -35,8 +35,6 @@
- #include <sys/utsname.h>
- #include <limits.h>
- #include <ctype.h>
--#include <assert.h>
--#include <sys/fcntl.h>
- 
- #include <sys/socket.h>
- #include <netinet/in.h>
-@@ -1506,31 +1504,6 @@ static struct feature_defs *get_feature_defs(struct cmd_context *ctx)
- 	return defs;
- }
- 
--static int get_netdev_attr(struct cmd_context *ctx, const char *name,
--		    char *buf, size_t buf_len)
--{
--#ifdef TEST_ETHTOOL
--	errno = ENOENT;
--	return -1;
--#else
--	char path[40 + IFNAMSIZ];
--	ssize_t len;
--	int fd;
--
--	len = snprintf(path, sizeof(path), "/sys/class/net/%s/%s",
--		       ctx->devname, name);
--	assert(len < sizeof(path));
--	fd = open(path, O_RDONLY);
--	if (fd < 0)
--		return fd;
--	len = read(fd, buf, buf_len - 1);
--	if (len >= 0)
--		buf[len] = 0;
--	close(fd);
--	return len;
--#endif
--}
--
- static int do_gdrv(struct cmd_context *ctx)
- {
- 	int err;
-@@ -1972,20 +1945,6 @@ get_features(struct cmd_context *ctx, const struct feature_defs *defs)
- 			perror("Cannot get device generic features");
- 		else
- 			allfail = 0;
--	} else {
--		/* We should have got VLAN tag offload flags through
--		 * ETHTOOL_GFLAGS.  However, prior to Linux 2.6.37
--		 * they were not exposed in this way - and since VLAN
--		 * tag offload was defined and implemented by many
--		 * drivers, we shouldn't assume they are off.
--		 * Instead, since these feature flag values were
--		 * stable, read them from sysfs.
--		 */
--		char buf[20];
--		if (get_netdev_attr(ctx, "features", buf, sizeof(buf)) > 0)
--			state->off_flags |=
--				strtoul(buf, NULL, 0) &
--				(ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN);
- 	}
- 
- 	if (allfail) {
--- 
-1.8.1.4
-
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Benefit would be to leverage and be compatible HW hash computation...
+perhaps this is just an intellectual curiosity :-)
