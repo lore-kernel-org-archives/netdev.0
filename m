@@ -1,66 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] dev: advertise rx_flags changes
-Date: Mon, 23 Sep 2013 12:27:15 -0700
-Message-ID: <20130923122715.1d1b2005@nehalam.linuxnetplumber.net>
-References: <1379946334-4183-1-git-send-email-nicolas.dichtel@6wind.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: missing kfree_skb(skb) in ipv6_frag_rcv()?
+Date: Mon, 23 Sep 2013 19:32:37 +0000
+Message-ID: <2134F8430051B64F815C691A62D9831811037E@XCH-BLV-504.nw.nos.boeing.com>
+References: <1379952298.2485.35.camel@bwh-desktop.uk.level5networks.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7354@saturn3.aculab.com>
+	 <1379955122.2485.47.camel@bwh-desktop.uk.level5networks.com>
+	 <2134F8430051B64F815C691A62D983181101B8@XCH-BLV-504.nw.nos.boeing.com>
+ <1379961431.3165.25.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:55490 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752529Ab3IWT1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:27:19 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so3939319pab.8
-        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 12:27:18 -0700 (PDT)
-In-Reply-To: <1379946334-4183-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from slb-mbsout-02.boeing.com ([130.76.64.129]:40414 "EHLO
+	slb-mbsout-02.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752962Ab3IWTcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 15:32:39 -0400
+Received: from slb-mbsout-02.boeing.com (localhost.localdomain [127.0.0.1])
+	by slb-mbsout-02.boeing.com (8.14.4/8.14.4/DOWNSTREAM_MBSOUT) with ESMTP id r8NJWcDm016104
+	for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 12:32:39 -0700
+In-Reply-To: <1379961431.3165.25.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Sep 2013 16:25:34 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> There is no netlink message/call to notifier chains when rx_flags are updated,
-> let's advertise everybody.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/core/dev.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 5c713f2239cc..6c91d3919279 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4818,8 +4818,13 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
->  {
->  	const struct net_device_ops *ops = dev->netdev_ops;
->  
-> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
-> -		ops->ndo_change_rx_flags(dev, flags);
-> +	if (dev->flags & IFF_UP) {
-> +		if (ops->ndo_change_rx_flags)
-> +			ops->ndo_change_rx_flags(dev, flags);
-> +
-> +		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-> +		rtmsg_ifinfo(RTM_NEWLINK, dev, flags);
-> +	}
->  }
->  
->  static int __dev_set_promiscuity(struct net_device *dev, int inc)
-
-This will cause duplicate notification if IFF_MULTICAST changes:
-
-1. dev_change_flags
-      __dev_change_flags
-         dev_change_rx_flags
-            call_netdevice_notifiers...
-
-2. dev_change_flags
-     __dev_notify_flags
-        call_netdevice_notifiers...
-
-
-        
+SGkgRXJpYywNCg0KVGhhbmtzIGZvciB0aGUgY29ycmVjdGlvbiAtIEkgdGhpbmsgSSBsb3N0IHRy
+YWNrIG9mIHRoZSBjb2RlIEkNCnNob3VsZCBoYXZlIGJlZW4gbG9va2luZyBhdC4NCg0KRnJlZA0K
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgU2VwdGVtYmVyIDIz
+LCAyMDEzIDExOjM3IEFNDQo+IFRvOiBUZW1wbGluLCBGcmVkIEwNCj4gQ2M6IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IG1pc3Npbmcga2ZyZWVfc2tiKHNrYikgaW4gaXB2
+Nl9mcmFnX3JjdigpPw0KPiANCj4gT24gTW9uLCAyMDEzLTA5LTIzIGF0IDE3OjQyICswMDAwLCBU
+ZW1wbGluLCBGcmVkIEwgd3JvdGU6DQo+ID4gSGVsbG8sDQo+ID4NCj4gPiBJbiB0aGUgbW9zdCBy
+ZWNlbnQga2VybmVsIHJlbGVhc2VzLCBpbiAuL25ldC9pcHY2L3JlYXNzZW1ibHkuYywNCj4gPiBJ
+IHNlZSB0aGUgZm9sbG93aW5nIGNvZGUgYXQgdGhlIGVuZCBvZiAiaXB2Nl9mcmFnX3JjdigpIjoN
+Cj4gPg0KPiA+ICsJSVA2X0lOQ19TVEFUU19CSChuZXQsIGlwNl9kc3RfaWRldihza2JfZHN0KHNr
+YikpLA0KPiBJUFNUQVRTX01JQl9SRUFTTUZBSUxTKTsNCj4gPiArCWtmcmVlX3NrYihza2IpOw0K
+PiA+ICsJcmV0dXJuIC0xOw0KPiA+ICsNCj4gPiArZmFpbF9oZHI6DQo+ID4gKwlJUDZfSU5DX1NU
+QVRTKG5ldCwgaXA2X2RzdF9pZGV2KHNrYl9kc3Qoc2tiKSksDQo+IElQU1RBVFNfTUlCX0lOSERS
+RVJST1JTKTsNCj4gPiArCWljbXB2Nl9wYXJhbV9wcm9iKHNrYiwgSUNNUFY2X0hEUl9GSUVMRCwN
+Cj4gc2tiX25ldHdvcmtfaGVhZGVyX2xlbihza2IpKTsNCj4gPiArCXJldHVybiAtMTsNCj4gPiAr
+fQ0KPiA+DQo+ID4gUGVyaGFwcyBJIG1pc3NlZCBpdCwgYnV0IEkgZGlkIG5vdCBmaW5kIGFueXdo
+ZXJlIHRoYXQNCj4gJ2ljbXB2Nl9wYXJhbV9wcm9iKCknDQo+ID4gZnJlZXMgdGhlIHNrYiwgYW5k
+IGhlbmNlIGl0IGFwcGVhcnMgdGhhdCB0aGVyZSBpcyBhIG1pc3NpbmcNCj4ga2ZyZWVfc2tiKCkN
+Cj4gPiBpbiB0aGUgYWJvdmUgY29kZS4gSXMgdGhpcyBhIGJ1Zz8NCj4gDQo+IHZvaWQgaWNtcHY2
+X3BhcmFtX3Byb2Ioc3RydWN0IHNrX2J1ZmYgKnNrYiwgdTggY29kZSwgaW50IHBvcykNCj4gew0K
+PiAgICAgICAgIGljbXA2X3NlbmQoc2tiLCBJQ01QVjZfUEFSQU1QUk9CLCBjb2RlLCBwb3MpOw0K
+PiAgICAgICAgIGtmcmVlX3NrYihza2IpOw0KPiB9DQo+IA0KPiBXZWxsLCBJIGRvIHNlZSBrZnJl
+ZV9za2Ioc2tiKSBoZXJlLg0KPiANCg0K
