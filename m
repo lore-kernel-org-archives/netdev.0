@@ -1,52 +1,73 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: Re: [net-next] hp100: replace hardcoded name in /proc/interrupts
- with interface name
-Date: Sun, 22 Sep 2013 22:26:22 -0400
-Message-ID: <20130923022621.GB17124@gmail.com>
-References: <1379789289-10961-1-git-send-email-me@mihirsingh.com>
+From: Ryan Mallon <rmallon@gmail.com>
+Subject: Re: [PATCH 01/12] ping.h: Remove extern from function prototypes
+Date: Mon, 23 Sep 2013 12:38:06 +1000
+Message-ID: <523FA98E.4080908@gmail.com>
+References: <b692aba58032f629907ea2d462c99b87906645ca.1379870986.git.joe@perches.com>  <523FA098.9050200@gmail.com> <1379902599.3575.9.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Mihir Singh <me@mihirsingh.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f41.google.com ([209.85.128.41]:57856 "EHLO
-	mail-qe0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753051Ab3IWC00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:26:26 -0400
-Received: by mail-qe0-f41.google.com with SMTP id 1so1745884qee.14
-        for <netdev@vger.kernel.org>; Sun, 22 Sep 2013 19:26:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1379789289-10961-1-git-send-email-me@mihirsingh.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:46138 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611Ab3IWCiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Sep 2013 22:38:09 -0400
+In-Reply-To: <1379902599.3575.9.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 21, 2013 at 06:48:09PM +0000, Mihir Singh wrote:
-> The /proc/interrupts file displays hp100, which is not the accepted style. Printing eth%d is more helpful.
+On 23/09/13 12:16, Joe Perches wrote:
+> On Mon, 2013-09-23 at 11:59 +1000, Ryan Mallon wrote:
+>> This seems like a lot of code churn for very little benefit. At a quick
+>> glance:
+>>
+>>   git grep extern include/ | wc -l
+>>   11427
+>>
+>> Not all of those will need to be removed, but that is still a huge
+>> number to change, and doesn't include extern usage in C files or local
+>> headers. You are probably never going to remove all the instances, so
+>> what is the point of just randomly doing a handful?
 > 
-> Signed-off-by: Mihir Singh <me@mihirsingh.com>
-> ---
->  drivers/net/ethernet/hp/hp100.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Rather more than a handful.
 > 
-> diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-> index 91227d0..3786009 100644
-> --- a/drivers/net/ethernet/hp/hp100.c
-> +++ b/drivers/net/ethernet/hp/hp100.c
-> @@ -1098,7 +1098,7 @@ static int hp100_open(struct net_device *dev)
->  	if (request_irq(dev->irq, hp100_interrupt,
->  			lp->bus == HP100_BUS_PCI || lp->bus ==
->  			HP100_BUS_EISA ? IRQF_SHARED : 0,
-> -			"hp100", dev)) {
-> +			dev->name, dev)) {
->  		printk("hp100: %s: unable to get IRQ %d\n", dev->name, dev->irq);
->  		return -EAGAIN;
->  	}
-> -- 
-> 1.8.1.2
+> The ratio of function prototypes without extern to
+> function prototypes with extern is currently ~2.5:1
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> So:
+> 
+> Standardization without extern
+> Line count reduction (~10%)
+> Miscellaneous neatening at the same time
+> Removal of all unnecessary externs from include/net
+> 
+> There are ~8500 instances in include/
+> There are ~1500 instances in include/net/
+> 
+> After this series, 0 in include/net/
+> 
+> Start somewhere, go from there...
+> 
+> $ git grep -E "^\s*\bextern(\s+\w+){1,4}\s*\(\s*[^\*]" include/ | wc -l
+> 8395
+> $ git grep -E "^\s*\bextern(\s+\w+){1,4}\s*\(\s*[^\*]" include/net/ | wc -l
+> 1471
 
-Reviewed-By: Matthew Whitehead <tedheadster@gmail.com>
+Right, and:
+
+  $ git grep -E "^\s*\bextern(\s+\w+){1,4}\s*\(\s*[^\*]" | wc -l
+  29104
+
+Since there are lots of local/arch headers, and there are uses of extern
+function prototypes in C files.
+
+I don't see the real benefit though. Its like trying to "clean-up" the
+difference between "unsigned x" and "unsigned int x", or any number of
+other minor style differences. Either version, with or without the
+extern, is correct, valid C code. Plus you will get people adding new
+instances of extern because they don't know any better. A checkpatch
+rule might help, but we all know how often people run that...
+
+~Ryan
