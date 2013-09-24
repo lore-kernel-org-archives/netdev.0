@@ -1,8 +1,10 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 3/5] tipc: avoid unnecessary lookup for tipc bearer instance
-Date: Tue, 24 Sep 2013 04:27:46 -0500
-Message-ID: <1380014868-2797-4-git-send-email-jon.maloy@ericsson.com>
-References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/5] tipc: some small patches
+Date: Tue, 24 Sep 2013 04:27:43 -0500
+Message-ID: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -10,130 +12,31 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp106.biz.mail.bf1.yahoo.com ([98.139.244.54]:29741 "HELO
+Received: from smtp106.biz.mail.bf1.yahoo.com ([98.139.244.54]:29724 "HELO
 	smtp106.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752833Ab3IXJex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 05:34:53 -0400
-In-Reply-To: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
+	by vger.kernel.org with SMTP id S1750713Ab3IXJev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 05:34:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+Some small and relatively straightforward patches that fix a number of
+minor issues. The patches are functionally unrelated to each other.
 
-tipc_block_bearer() currently takes a bearer name (const char*)
-as argument. This requires the function to make a lookup to find
-the pointer to the corresponding bearer struct. In the current
-code base this is not necessary, since the only two callers
-(tipc_continue(),recv_notification()) already have validated
-copies of this pointer, and hence can pass it directly in the
-function call.
+Ying Xue (5):
+  tipc: silence sparse warnings
+  tipc: make bearer and media naming consistent
+  tipc: avoid unnecessary lookup for tipc bearer instance
+  tipc: correct return value of recv_msg routine
+  tipc: correct return value of link_cmd_set_value routine
 
-We change tipc_block_bearer() to directly take struct tipc_bearer*
-as argument instead.
+ net/tipc/bearer.c    |   18 ++++---------
+ net/tipc/bearer.h    |   10 ++++----
+ net/tipc/eth_media.c |   68 +++++++++++++++++++++++++-------------------------
+ net/tipc/ib_media.c  |   58 +++++++++++++++++++++---------------------
+ net/tipc/link.c      |   33 ++++++++++++++++--------
+ net/tipc/msg.c       |    4 +--
+ net/tipc/socket.c    |    6 ++---
+ 7 files changed, 100 insertions(+), 97 deletions(-)
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bearer.c    |   14 +++-----------
- net/tipc/bearer.h    |    2 +-
- net/tipc/eth_media.c |    6 +++---
- net/tipc/ib_media.c  |    6 +++---
- 4 files changed, 10 insertions(+), 18 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 09faa55..3f9707a 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -420,23 +420,15 @@ exit:
- }
- 
- /**
-- * tipc_block_bearer - Block the bearer with the given name, and reset all its links
-+ * tipc_block_bearer - Block the bearer, and reset all its links
-  */
--int tipc_block_bearer(const char *name)
-+int tipc_block_bearer(struct tipc_bearer *b_ptr)
- {
--	struct tipc_bearer *b_ptr = NULL;
- 	struct tipc_link *l_ptr;
- 	struct tipc_link *temp_l_ptr;
- 
- 	read_lock_bh(&tipc_net_lock);
--	b_ptr = tipc_bearer_find(name);
--	if (!b_ptr) {
--		pr_warn("Attempt to block unknown bearer <%s>\n", name);
--		read_unlock_bh(&tipc_net_lock);
--		return -EINVAL;
--	}
--
--	pr_info("Blocking bearer <%s>\n", name);
-+	pr_info("Blocking bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
- 	b_ptr->blocked = 1;
- 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index f800e63..e5e04be 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -163,7 +163,7 @@ int tipc_register_media(struct tipc_media *m_ptr);
- 
- void tipc_recv_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr);
- 
--int  tipc_block_bearer(const char *name);
-+int  tipc_block_bearer(struct tipc_bearer *b_ptr);
- void tipc_continue(struct tipc_bearer *tb_ptr);
- 
- int tipc_enable_bearer(const char *bearer_name, u32 disc_domain, u32 priority);
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index e048d49..c36c938 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -265,17 +265,17 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 		if (netif_carrier_ok(dev))
- 			tipc_continue(eb_ptr->bearer);
- 		else
--			tipc_block_bearer(eb_ptr->bearer->name);
-+			tipc_block_bearer(eb_ptr->bearer);
- 		break;
- 	case NETDEV_UP:
- 		tipc_continue(eb_ptr->bearer);
- 		break;
- 	case NETDEV_DOWN:
--		tipc_block_bearer(eb_ptr->bearer->name);
-+		tipc_block_bearer(eb_ptr->bearer);
- 		break;
- 	case NETDEV_CHANGEMTU:
- 	case NETDEV_CHANGEADDR:
--		tipc_block_bearer(eb_ptr->bearer->name);
-+		tipc_block_bearer(eb_ptr->bearer);
- 		tipc_continue(eb_ptr->bearer);
- 		break;
- 	case NETDEV_UNREGISTER:
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index 5545145..20b1aa4 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -258,17 +258,17 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 		if (netif_carrier_ok(dev))
- 			tipc_continue(ib_ptr->bearer);
- 		else
--			tipc_block_bearer(ib_ptr->bearer->name);
-+			tipc_block_bearer(ib_ptr->bearer);
- 		break;
- 	case NETDEV_UP:
- 		tipc_continue(ib_ptr->bearer);
- 		break;
- 	case NETDEV_DOWN:
--		tipc_block_bearer(ib_ptr->bearer->name);
-+		tipc_block_bearer(ib_ptr->bearer);
- 		break;
- 	case NETDEV_CHANGEMTU:
- 	case NETDEV_CHANGEADDR:
--		tipc_block_bearer(ib_ptr->bearer->name);
-+		tipc_block_bearer(ib_ptr->bearer);
- 		tipc_continue(ib_ptr->bearer);
- 		break;
- 	case NETDEV_UNREGISTER:
 -- 
 1.7.9.5
