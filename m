@@ -1,53 +1,26 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: SMSC 9303 support
-Date: Tue, 24 Sep 2013 17:51:28 +0100
-Message-ID: <1380041488.2736.41.camel@bwh-desktop.uk.level5networks.com>
-References: <524183D6.6040801@mlbassoc.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 04/10] amd/7990: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 09:55:55 -0700
+Message-ID: <1380041755.3575.93.camel@joe-AO722>
+References: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com>
+	 <65ef2eba58fddc268ba0afb4de7757f073d3bb49.1379974101.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Gary Thomas <gary@mlbassoc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17009 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591Ab3IXQvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:51:32 -0400
-In-Reply-To: <524183D6.6040801@mlbassoc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <65ef2eba58fddc268ba0afb4de7757f073d3bb49.1379974101.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-24 at 06:21 -0600, Gary Thomas wrote:
-> I need to support the SMSC9303 in an embedded system.  I'm not
-> finding any [explicit] support for this device in the latest
-> mainline kernel.  Did I miss something?
-> 
-> To be clear, the SMSC9303 is a 3-port managed ethernet switch
-> capable of supporting 802.1D/802.1Q directly. This switch is
-> driven by a single MAC via MII/RMII and exposes the other two
-> ports via physical PHYs.  What I need it to do is behave like
-> two external, separate devices.  I was thinking that what I need
-> to do is treat these as VLAN devices since the switch can manage
-> the routing.
-> 
-> Does this seem like a reasonable approach?
+Hey David.
 
-Linux has 'DSA' (Distributed Switch Architecture) which supports tagging
-of packets to indicate which switch port they are sent or received
-through.  This was originally added to support some Marvell switch chips
-and I don't know whether it would be suitable or extensible for this
-one.
+This ended up in your tree as
+commit 44da5c2f523876a02336c18dbcce93449fdbf0ca
+without your signoff.
 
-Ben.
-
-> How do I "hook up" my normal ethernet driver to it?  To the hardware
-> it just looks like any other MII/RMII PHY.  The device is managed
-> separately via I2C.  I can have that set up separately if necessary.
-> 
-> Thanks for any pointers/ideas
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Is there something I need to do differently so
+your scripts add your sign-off properly or did
+this manage to just slip through via some manual
+git am without the -s?
