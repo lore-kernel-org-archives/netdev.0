@@ -1,43 +1,30 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet
- need also be handled by UFO
-Date: Tue, 24 Sep 2013 11:43:44 -0400 (EDT)
-Message-ID: <20130924.114344.932694780733009227.davem@redhat.com>
-References: <20130921042700.GB8070@order.stressinduktion.org>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net v4 0/1] xen-netback: windows frontend compatibility fixes
+Date: Tue, 24 Sep 2013 16:44:59 +0100
+Message-ID: <1380037500-12174-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44811 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752690Ab3IXPnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 11:43:49 -0400
-In-Reply-To: <20130921042700.GB8070@order.stressinduktion.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:40815 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753927Ab3IXPpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 11:45:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sat, 21 Sep 2013 06:27:00 +0200
+The following patches fix a couple more issues found when testing with
+Windows frontends.
 
-> In the following scenario the socket is corked:
-> If the first UDP packet is larger then the mtu we try to append it to the
-> write queue via ip6_ufo_append_data. A following packet, which is smaller
-> than the mtu would be appended to the already queued up gso-skb via
-> plain ip6_append_data. This causes random memory corruptions.
-> 
-> In ip6_ufo_append_data we also have to be careful to not queue up the
-> same skb multiple times. So setup the gso frame only when no first skb
-> is available.
-> 
-> This also fixes a shortcoming where we add the current packet's length to
-> cork->length but return early because of a packet > mtu with dontfrag set
-> (instead of sutracting it again).
-> 
-> Found with trinity.
-> 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+v4:
+- Fix problem with hotplug failure noticed by Wei Liu
 
-Applied and queued up for -stable, thanks.
+v3:
+- Collapse both v2 patches into a single patch that introduces a new
+  function to handle backend state transtions. By doing this we ensure that
+  we always transition through intermediate states and that we don't attempt
+  repeated connects or disconnects.
+
+v2:
+- Add comment in 2/2 to note that state transitions from Connected to Closed
+  are incorrect.
