@@ -1,52 +1,38 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
- specify an ip address to be primary or secondary ip on an interface
-Date: Tue, 24 Sep 2013 13:46:41 -0700
-Message-ID: <CAK3+h2y7v0i7AgK02GSy1apKKsi8n7is7U8oypx=uBf49Bubbg@mail.gmail.com>
-References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
-	<20130924.152833.434453431118381771.davem@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: per-PID network stats files in /proc
+Date: Tue, 24 Sep 2013 14:02:29 -0700
+Message-ID: <1380056549.3165.117.camel@edumazet-glaptop>
+References: <20130924201536.GA3555@mhcomputing.net>
+	 <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
+	 <20130924204442.GA5074@mhcomputing.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130924.152833.434453431118381771.davem@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Matthew Hall <mh@mhcomputing.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:33208 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753657Ab3IXVCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 17:02:30 -0400
+Received: by mail-pb0-f49.google.com with SMTP id xb4so5080101pbc.22
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 14:02:30 -0700 (PDT)
+In-Reply-To: <20130924204442.GA5074@mhcomputing.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ok, I will resend the patch with your suggestions.
+On Tue, 2013-09-24 at 13:44 -0700, Matthew Hall wrote:
+> On Tue, Sep 24, 2013 at 01:41:57PM -0700, Stephen Hemminger wrote:
+> > No. because most of these would be associated with global state.
+> > Even sockets can be shared between PID's.
+> 
+> OK. So if this is true, then I feel compelled to ask, why does 
+> /proc/PID/net/snmp exist in the first place, if it would never really work?
 
-Vincent
+That because of network containers
 
-On Tue, Sep 24, 2013 at 12:28 PM, David Miller <davem@redhat.com> wrote:
-> From: Vincent Li <vincent.mc.li@gmail.com>
-> Date: Tue, 24 Sep 2013 11:11:21 -0700
->
->> the current behavior is when an IP is added to an interface, the primary
->> or secondary attributes is depending on the order of ip added to the interface
->> the first IP will be primary and second, third,... or alias IP will be secondary
->> if the IP subnet matches
->>
->> this patch add the flexiblity to allow user to specify an argument 'primary' or 'secondary'
->> (use 'ip addr add ip/mask primary|secondary dev ethX ' from iproute2 for example) to specify
->> an IP address to be  primary or secondary.
->>
->> the reason for this patch is that we have a multi blade cluster platform sharing 'floating management ip'
->> and also that each blade has its own management ip on the management interface, so whichever blade in the
->> cluster becomes primary blade, the 'floating mangaement ip' follows it, and we want any of our traffic
->> originated from the primary blade source from the 'floating management ip' for consistency. but in this
->> case, since the local blade management ip is always the primary ip on the mangaement interface and 'floating
->> management ip' is always secondary, kernel always choose the primary ip as source ip address. thus we would
->> like to add the flexibility in kernel to allow us to specify which ip to be primary or secondary.
->>
->> Signed-off-by: Vincent Li <vincent.mc.li@gmail.com>
->
-> When submitting a patch, please:
->
-> 1) Specify an appropriate prefix for your subject line, indicating the
->    subsystem.  "ipv4: " might be appropriate here.
->
-> 2) Format your commit message so that lines do not exceed 80 columns.
->    People will read using ASCII text based tools in 80 column
->    terminals.
+You can perfectly use a network container to get your own copy of
+counters
+
+ip netns help
