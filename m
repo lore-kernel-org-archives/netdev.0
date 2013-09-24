@@ -1,32 +1,27 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v4 net-next 06/27] bonding: modify
- bond_get_slave_by_dev() to use neighbours
-Date: Tue, 24 Sep 2013 15:19:43 -0400 (EDT)
-Message-ID: <20130924.151943.1884204173373827600.davem@redhat.com>
-References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
-	<1380023227-9576-7-git-send-email-vfalico@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
+ specify an ip address to be primary or secondary ip on an interface
+Date: Tue, 24 Sep 2013 12:21:01 -0700
+Message-ID: <20130924122101.6912dde0@nehalam.linuxnetplumber.net>
+References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: vfalico@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47963 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754523Ab3IXTUu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 15:20:50 -0400
-In-Reply-To: <1380023227-9576-7-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: Vincent Li <vincent.mc.li@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 24 Sep 2013 13:46:46 +0200
+On Tue, 24 Sep 2013 11:11:21 -0700
+Vincent Li <vincent.mc.li@gmail.com> wrote:
 
-> -	return NULL;
-> +	return (struct slave *)netdev_lower_dev_get_private(bond->dev,
-> +							    slave_dev);
->  }
+> -	ifa->ifa_flags &= ~IFA_F_SECONDARY;
+>  	last_primary = &in_dev->ifa_list;
+>  
+> +	if((*last_primary) == NULL)
 
-void pointers never need to be cast, please remove this "struct slave *"
-cast.
+
+Minor nit, paren's here are unnecessary
