@@ -1,88 +1,39 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v3 1/1] xen-netback: Handle backend state
- transitions in a more robust way
-Date: Tue, 24 Sep 2013 15:33:08 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0111C9A@AMSPEX01CL01.citrite.net>
-References: <1380034282-11210-1-git-send-email-paul.durrant@citrix.com>
- <1380034282-11210-2-git-send-email-paul.durrant@citrix.com>
- <20130924152611.GA14211@zion.uk.xensource.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: question tehuti.c
+Date: Tue, 24 Sep 2013 11:34:32 -0400
+Message-ID: <20130924153432.GI9773@gospo.rdu.redhat.com>
+References: <alpine.DEB.2.02.1309231752040.2242@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:44565 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753565Ab3IXPfG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 11:35:06 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexander Indenbaum <baum@tehutinetworks.net>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1309231752040.2242@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Paul Durrant
-> Sent: 24 September 2013 16:31
-> To: Wei Liu
-> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu;
-> David Vrabel
-> Subject: RE: [PATCH net v3 1/1] xen-netback: Handle backend state
-> transitions in a more robust way
+On Mon, Sep 23, 2013 at 05:54:00PM +0200, Julia Lawall wrote:
+> The function bdx_setmulti in the file drivers/net/ethernet/tehuti/tehuti.c
+> contains:
 > 
-> > -----Original Message-----
-> > From: Wei Liu [mailto:wei.liu2@citrix.com]
-> > Sent: 24 September 2013 16:26
-> > To: Paul Durrant
-> > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
-> Liu;
-> > David Vrabel
-> > Subject: Re: [PATCH net v3 1/1] xen-netback: Handle backend state
-> > transitions in a more robust way
-> >
-> > On Tue, Sep 24, 2013 at 03:51:22PM +0100, Paul Durrant wrote:
-> > > When the frontend state changes metback now specifies its desired state
-> > to
-> >                                   netback
-> > > a new function, set_backend_state(), which transitions through any
-> > [...]
-> > > +/* Handle backend state transitions:
-> > > + *
-> > > + * The backend state starts in InitWait and the following transtions are
-> >                                                              transitions
-> > > + * allowed.
-> > >
-> > [...]
-> > > @@ -363,7 +448,9 @@ static void hotplug_status_changed(struct
-> > xenbus_watch *watch,
-> > >  	if (IS_ERR(str))
-> > >  		return;
-> > >  	if (len == sizeof("connected")-1 && !memcmp(str, "connected", len))
-> > {
-> > > -		xenbus_switch_state(be->dev, XenbusStateConnected);
-> > > +		/* Complete any pending state change */
-> > > +		xenbus_switch_state(be->dev, be->state);
-> > > +
-> >
-> > The state transition takes place iff hotplug status is "connected", is
-> > this desirable? What if hotplug fails?
-> >
+>         u32 rxf_val =
+>             GMAC_RX_FILTER_AM | GMAC_RX_FILTER_AB | GMAC_RX_FILTER_OSEN;
 > 
-> The xenbus state will remain in InitWait but the backend state will be
-> Connected.
+> and then later:
 > 
-> > If it cycles through connect again it looks like it will trigger that
-> > BUG_ON in connect()?
-> >
+>        } else {
+>                 DBG("only own mac %d\n", netdev_mc_count(ndev));
+>                 rxf_val |= GMAC_RX_FILTER_AB;
+>         }
 > 
-> No, I don't think so because be->state is not the same as dev->state. The
-> frontend can go to Closing/Closed (which will take dev->state to
-> Closing/Closed) and this should be fine.
-> 
+> The last assignment doesn't look very useful, because GMAC_RX_FILTER_ABis
+> already included in rxf_val.  Was something else intended?
 
-Sorry, I misread. You're right. I'll fix.
+You are correct that the setting of GMAC_RX_FILTER_AB is a bit redundant
+since it was set earlier in the function.
 
-  Paul
+I have not worked on this driver in several years and if there is no
+response from Alexander or someone else at Tehuti Networks then you may
+not get an answer to your question. :-/
