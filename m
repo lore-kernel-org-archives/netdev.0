@@ -1,68 +1,99 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: [ipv4:PATCH] Allow userspace to specify primary or secondary ip on interface
-Date: Tue, 24 Sep 2013 14:09:48 -0700
-Message-ID: <1380056988-6717-1-git-send-email-vincent.mc.li@gmail.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Vincent Li <vincent.mc.li@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/10 - GIT PULL] drivers: net: Next block of
+	Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 14:09:54 -0700
+Message-ID: <cover.1380056108.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, cbe-oss-dev@lists.ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Allow userspace code to use flag IFA_F_SECONDARY to specify an ip address to
-be primary or secondary ip on an interface.
+The following changes since commit b0983d3c9b132c33b6fb2e28d157a1edc18a173c:
 
-the current behavior is when an IP is added to an interface, the primary
-or secondary attributes is depending on the order of ip added to the interface
-the first IP will be primary and second, third...or alias IP will be secondary
-if the IP subnet matches.
+  tcp: fix dynamic right sizing (2013-09-24 11:07:32 -0400)
 
-this patch add the flexiblity to allow user to specify an argument 'primary' 
-or 'secondary' (use 'ip addr add ip/mask primary|secondary dev ethX ' from 
-iproute2 for example) to specify an IP address to be  primary or secondary.
+are available in the git repository at:
 
-the reason for this patch is that we have a multi blade cluster platform 
-sharing 'floating management ip' and also that each blade has its own 
-management ip on the management interface, so whichever blade in the
-cluster becomes primary blade, the 'floating mangaement ip' follows it,
-and we want any of our traffic originated from the primary blade source from
-the 'floating management ip' for consistency. but in this case, since the local
-blade management ip is always the primary ip on the mangaement interface and 
-'floating management ip' is always secondary, kernel always choose the primary
-ip as source ip address. thus we would like to add the flexibility in kernel to
-allow us to specify which ip to be primary or secondary.
+  git://repo.or.cz/linux-2.6/trivial-mods.git 20130924_dn_externs_2
 
-Signed-off-by: Vincent Li <vincent.mc.li@gmail.com>
----
- net/ipv4/devinet.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+for you to fetch changes up to 294da3abaa73a0b69fd54e442b0b5bd9455b7be6:
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a1b5bcb..5a7764e 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -440,8 +440,9 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 		return 0;
- 	}
- 
--	ifa->ifa_flags &= ~IFA_F_SECONDARY;
- 	last_primary = &in_dev->ifa_list;
-+	if(*last_primary == NULL)
-+		ifa->ifa_flags &= ~IFA_F_SECONDARY;
- 
- 	for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
- 	     ifap = &ifa1->ifa_next) {
-@@ -458,7 +459,10 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 				inet_free_ifa(ifa);
- 				return -EINVAL;
- 			}
--			ifa->ifa_flags |= IFA_F_SECONDARY;
-+			if (!(ifa->ifa_flags & IFA_F_SECONDARY))
-+				ifa1->ifa_flags |= IFA_F_SECONDARY;
-+			else
-+				ifa->ifa_flags |= IFA_F_SECONDARY;
- 		}
- 	}
- 
+  irda: Remove extern from function prototypes (2013-09-24 12:54:17 -0700)
+
+----------------------------------------------------------------
+Joe Perches (10):
+  ibm/emac: Remove extern from function prototypes
+  intel: Remove extern from function prototypes
+  oki-semi: Remove extern from function prototypes
+  qlogic: Remove extern from function prototypes
+  sfc: Remove extern from function prototypes
+  stmicro: Remove extern from function prototypes
+  ti: Remove extern from function prototypes
+  toshiba: Remove extern from function prototypes
+  fddi/skfp: Remove extern from function prototypes
+  irda: Remove extern from function prototypes
+
+ drivers/net/ethernet/ibm/emac/debug.h             |  14 +-
+ drivers/net/ethernet/ibm/emac/rgmii.h             |  18 +-
+ drivers/net/ethernet/ibm/emac/tah.h               |  14 +-
+ drivers/net/ethernet/ibm/emac/zmii.h              |  18 +-
+ drivers/net/ethernet/intel/e1000/e1000.h          |  32 ++--
+ drivers/net/ethernet/intel/e1000e/e1000.h         |  45 +++--
+ drivers/net/ethernet/intel/igb/e1000_82575.h      |  16 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h         |   6 +-
+ drivers/net/ethernet/intel/igb/e1000_i210.h       |  38 ++--
+ drivers/net/ethernet/intel/igb/e1000_mac.h        |   2 +-
+ drivers/net/ethernet/intel/igb/igb.h              |  73 ++++----
+ drivers/net/ethernet/intel/igbvf/igbvf.h          |  22 +--
+ drivers/net/ethernet/intel/ixgb/ixgb.h            |  22 +--
+ drivers/net/ethernet/intel/ixgb/ixgb_hw.h         |  25 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          | 172 +++++++++---------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  34 ++--
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h   |  56 +++---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h   |   5 +-
+ drivers/net/ethernet/qlogic/qlge/qlge.h           |  58 +++---
+ drivers/net/ethernet/sfc/efx.h                    | 104 ++++++-----
+ drivers/net/ethernet/sfc/mcdi.h                   | 120 ++++++-------
+ drivers/net/ethernet/sfc/mdio_10g.h               |  26 ++-
+ drivers/net/ethernet/sfc/nic.h                    | 210 +++++++++++-----------
+ drivers/net/ethernet/sfc/phy.h                    |   8 +-
+ drivers/net/ethernet/sfc/selftest.h               |  15 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  12 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h   |  17 +-
+ drivers/net/ethernet/stmicro/stmmac/mmc.h         |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  10 +-
+ drivers/net/ethernet/ti/cpts.h                    |   9 +-
+ drivers/net/ethernet/toshiba/ps3_gelic_net.h      |  29 ++-
+ drivers/net/ethernet/toshiba/ps3_gelic_wireless.h |   6 +-
+ drivers/net/ethernet/toshiba/spider_net.h         |   4 +-
+ drivers/net/fddi/skfp/h/smc.h                     |  28 +--
+ drivers/net/irda/sir-dev.h                        |  29 +--
+ 35 files changed, 631 insertions(+), 672 deletions(-)
+
 -- 
-1.7.9.5
+1.8.1.2.459.gbcd45b4.dirty
+
+
+------------------------------------------------------------------------------
+October Webinars: Code for Performance
+Free Intel webinars can help you accelerate application performance.
+Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
+the latest Intel processors and coprocessors. See abstracts and register >
+http://pubads.g.doubleclick.net/gampad/clk?id=60133471&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
