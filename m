@@ -1,32 +1,33 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 22/27] bonding: use neighbours for bond_next_slave()
-Date: Tue, 24 Sep 2013 13:47:02 +0200
-Message-ID: <1380023227-9576-23-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 24/27] vlan: link the upper neighbour only after registering
+Date: Tue, 24 Sep 2013 13:47:04 +0200
+Message-ID: <1380023227-9576-25-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39316 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9504 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752216Ab3IXLre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:34 -0400
+	id S1753655Ab3IXLrg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:36 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the new function __bond_next_slave().
+Otherwise users might access it without being fully registered, as per
+sysfs - it only inits in register_netdevice(), so is unusable till it is
+called.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Patrick McHardy <kaber@trash.net>
+CC: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
     v3  -> v4:
-    Use the bonding-specific function, instead of the general netdev, which
-    was removed.
+    No change.
     
     v2  -> v3:
     No change.
@@ -35,36 +36,44 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Change to standard logic - if it's the last slave - return the first one,
-    otherwise - return the next via netdev_lower_dev_get_next_private().
-    Also, bond_prev_slave() was dropped - so we don't need it.
+    No changes.
 
- drivers/net/bonding/bonding.h | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ net/8021q/vlan.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index db8d38a7..1b68cec 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -76,8 +76,6 @@
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 61fc573..69b4a35 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -169,13 +169,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_mvrp;
  
- #define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
- 
--#define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
+-	err = netdev_upper_dev_link(real_dev, dev);
+-	if (err)
+-		goto out_uninit_mvrp;
 -
- /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
- #define bond_first_slave(bond) \
- 	(bond_has_slaves(bond) ? \
-@@ -92,9 +90,7 @@
- #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_upper_dev_unlink;
++		goto out_uninit_mvrp;
++
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_unregister_netdev;
  
- /* Since bond_first/last_slave can return NULL, these can return NULL too */
--#define bond_next_slave(bond, pos) \
--	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
--					 bond_to_slave((pos)->list.next))
-+#define bond_next_slave(bond, pos) __bond_next_slave(bond, pos)
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -191,8 +191,8 @@ int register_vlan_dev(struct net_device *dev)
  
- /**
-  * bond_for_each_slave - iterate over all slaves
+ 	return 0;
+ 
+-out_upper_dev_unlink:
+-	netdev_upper_dev_unlink(real_dev, dev);
++out_unregister_netdev:
++	unregister_netdevice(dev);
+ out_uninit_mvrp:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_mvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
