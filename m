@@ -1,69 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 02/10] intel: Remove extern from function
-	prototypes
-Date: Tue, 24 Sep 2013 15:22:26 -0700
-Message-ID: <1380061346.17366.1.camel@joe-AO722>
-References: <cover.1380056108.git.joe@perches.com>
-	<5ccc921af41a862fe969809228f029035f851502.1380056108.git.joe@perches.com>
-	<1380060449.2189.6.camel@jtkirshe-mobl>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Cannot re-enable 'auto' for IPv6 link local?
+Date: Tue, 24 Sep 2013 15:54:18 -0700
+Message-ID: <5242181A.6090300@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Don, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Jesse
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1380060449.2189.6.camel@jtkirshe-mobl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:33927 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899Ab3IXWyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 18:54:19 -0400
+Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r8OMsIpV017740
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 15:54:18 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+At one time, I'm fairly certain this worked, but not having much
+luck in a hacked 3.9.11+ kernel:
+
+The goal is to enable the link-local address to be auto-configured.
+At start of this, there is no /proc/sys/net/ipv6/config/eth30 dir
+because all IPv6 addrs were removed (I suppose).
+
+# ./local/sbin/ip -6 addr add 2345::18 dev eth30
+# echo 1 > /proc/sys/net/ipv6/conf/eth30/autoconf
+# cat /proc/sys/net/ipv6/conf/eth30/autoconf
+1
+# ./local/sbin/ip -6 addr del 2345::18 dev eth30
+# cat /proc/sys/net/ipv6/conf/eth30/autoconf
+cat: /proc/sys/net/ipv6/conf/eth30/autoconf: No such file or directory
 
 
-On Tue, 2013-09-24 at 15:07 -0700, Jeff Kirsher wrote:
-> On Tue, 2013-09-24 at 14:09 -0700, Joe Perches wrote:
-> > There are a mix of function prototypes with and without extern
-> > in the kernel sources.  Standardize on not using extern for
-> > function prototypes.
-> > 
-> > Function prototypes don't need to be written with extern.
-> > extern is assumed by the compiler.  Its use is as unnecessary as
-> > using auto to declare automatic/local variables in a block.
-> 
-> So you are able to confirm that all compilers make this assumption
-> correctly?  The initial reason for using extern was because not all
-> compilers made the assumption or made it correctly.
+What is the proper way to turn on ipv6 auto configuration?
 
-No, I didn't bother.
+Thanks,
+Ben
 
-Any current compilers already do make this assumption
-valid as it's been part of the c spec since 1989 and
-prototypes without extern already are the predominate
-form in .h files for linux kernel sources.
-
-Even in drivers/net/ethernet/intel/... there are more
-prototypes without extern than with extern.
-
-
-
-
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60133471&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
