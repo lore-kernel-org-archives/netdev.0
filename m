@@ -1,50 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] vxlan: Use RCU apis to access sk_user_data.
-Date: Mon, 23 Sep 2013 22:51:16 -0700
-Message-ID: <1380001876.3165.44.camel@edumazet-glaptop>
-References: <1380000501-13969-1-git-send-email-pshelar@nicira.com>
+From: Dong Zhu <bluezhudong@gmail.com>
+Subject: [PATCH] ptp: add range check on n_samples
+Date: Tue, 24 Sep 2013 15:05:57 +0800
+Message-ID: <20130924070557.GA28795@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f42.google.com ([209.85.213.42]:52952 "EHLO
-	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713Ab3IXFvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 01:51:19 -0400
-Received: by mail-yh0-f42.google.com with SMTP id z12so1824316yhz.15
-        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 22:51:18 -0700 (PDT)
-In-Reply-To: <1380000501-13969-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-09-23 at 22:28 -0700, Pravin B Shelar wrote:
-> Use of RCU api makes vxlan code easier to understand.  It also
-> fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
-> In rare case without ACCESS_ONCE() compiler might omit vs on
-> sk_user_data dereference.
-> Compiler can use vs as alias for sk->sk_user_data, resulting in
-> multiple sk_user_data dereference in rcu read context which
-> could change.
-> 
-> CC: Jesse Gross <jesse@nicira.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  drivers/net/vxlan.c |    9 +++------
->  include/net/sock.h  |    2 ++
->  2 files changed, 5 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index d1292fe..3519a71 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -952,8 +952,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
->  
->  	spin_lock(&vn->sock_lock);
->  	hlist_del_rcu(&vs->hlist);
-> -	smp_wmb();
-> -	vs->sock->sk->sk_user_data = NULL;
-> +	rcu_assign_pointer(sk_user_data_rcu(vs->sock->sk), NULL);
+>From d4eb97e8d5def76d46167c91059147e2c7d33433 Mon Sep 17 00:00:00 2001
 
-RCU_INIT_POINTER(sk_user_data_rcu(vs->sock->sk), NULL)
+When using PTP_SYS_OFFSET ioctl to measure the time offset between the
+PHC and system clock, we need to specify the number of measurements, the
+valid value of n_samples is between 1 to 25. If n_samples <= 0 or > 25
+it makes no sense, so this patch intends to add a range check.
+
+Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
+---
+ drivers/ptp/ptp_chardev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index 34a0c60..4e85b23 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -104,7 +104,8 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 			err = -EFAULT;
+ 			break;
+ 		}
+-		if (sysoff->n_samples > PTP_MAX_SAMPLES) {
++		if (sysoff->n_samples <= 0 ||
++		    sysoff->n_samples > PTP_MAX_SAMPLES) {
+ 			err = -EINVAL;
+ 			break;
+ 		}
+-- 
+1.7.11.7
+
+-- 
+Best Regards,
+Dong Zhu
