@@ -1,54 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: fix invalid value passed to pci_unmap_sigle
-Date: Tue, 24 Sep 2013 10:18:28 -0400 (EDT)
-Message-ID: <20130924.101828.2183168168532626954.davem@davemloft.net>
-References: <alpine.LRH.2.02.1309201352010.1763@file01.intranet.prod.int.rdu2.redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 01/10] can: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 16:22:55 +0200
+Message-ID: <5241A03F.8070007@pengutronix.de>
+References: <5570169a078375fa8662adeb2a7f24c1ae718bfb.1379974101.git.joe@perches.com> <52414128.8030706@pengutronix.de> <20130924.100209.1219862004963547693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	i.gnatenko.brain@gmail.com, stephen@networkplumber.org
-To: mpatocka@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53710 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729Ab3IXOSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 10:18:30 -0400
-In-Reply-To: <alpine.LRH.2.02.1309201352010.1763@file01.intranet.prod.int.rdu2.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="FinRX8mWIwOgvTvNF2C1pUOwrvthmP7qU"
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20130924.100209.1219862004963547693.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mikulas Patocka <mpatocka@redhat.com>
-Date: Fri, 20 Sep 2013 13:53:22 -0400 (EDT)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--FinRX8mWIwOgvTvNF2C1pUOwrvthmP7qU
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> In my patch c194992cbe71c20bb3623a566af8d11b0bfaa721 I didn't fix the skge
+On 09/24/2013 04:02 PM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Tue, 24 Sep 2013 09:37:12 +0200
+>=20
+>> On 09/24/2013 12:11 AM, Joe Perches wrote:
+>>> There are a mix of function prototypes with and without extern
+>>> in the kernel sources.  Standardize on not using extern for
+>>> function prototypes.
+>>>
+>>> Function prototypes don't need to be written with extern.
+>>> extern is assumed by the compiler.  Its use is as unnecessary as
+>>> using auto to declare automatic/local variables in a block.
+>>>
+>>> Signed-off-by: Joe Perches <joe@perches.com>
+>>
+>> Thx, added to linux-can-next. The patch will be included in the next
+>> pull request to David.
+>=20
+> Marc, I'm trying to just quickly apply these all into my tree directly.=
 
-Always refer to commits, not just by SHA ID, but also with the commit
-header line text in parenthesis and double quotes, for this you'd say:
 
-c194992cbe71c20bb3623a566af8d11b0bfaa721 ("skge: fix broken driver")
+Fine with me.
 
-Using just the SHA ID is completely ambiguous, because the SHA ID will
-be entirely different if this commit is added to a different tree, such
-as -stable.
+Tnx, Marc
 
-> bug correctly. The value of the new mapping (not old) was passed to
-> pci_unmap_single.
-> 
-> If we enable CONFIG_DMA_API_DEBUG, it results in this warning:
-> WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:986 check_sync+0x4c4/0x580()
-> skge 0000:02:07.0: DMA-API: device driver tries to sync DMA memory it has
-> not allocated [device address=0x000000023a0096c0] [size=1536 bytes]
-> 
-> This patch makes the skge driver pass the correct value to
-> pci_unmap_single and fixes the warning. It copies the old descriptor to
-> on-stack variable "ee" and unmaps it if mapping of the new descriptor
-> succeeded.
-> 
-> This patch should be backported to 3.11-stable.
-> 
-> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> Reported-by: Francois Romieu <romieu@fr.zoreil.com>
-> Tested-by: Mikulas Patocka <mpatocka@redhat.com>
 
-Applied and queued up for -stable, thanks.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--FinRX8mWIwOgvTvNF2C1pUOwrvthmP7qU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlJBoD8ACgkQjTAFq1RaXHNXQACffofqRM1GWcJztT29vlqbPxcu
+zocAoJSXnggybETXic4LShcUGj19jFOE
+=+ye+
+-----END PGP SIGNATURE-----
+
+--FinRX8mWIwOgvTvNF2C1pUOwrvthmP7qU--
