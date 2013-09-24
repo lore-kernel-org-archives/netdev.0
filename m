@@ -1,64 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 07:45:32 +0200
-Message-ID: <20130924054532.GA24446@order.stressinduktion.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com> <1379980991.3165.37.camel@edumazet-glaptop> <20130924023038.GA22393@order.stressinduktion.org> <20130924033505.GB22393@order.stressinduktion.org> <1380001118.3165.41.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] vxlan: Use RCU apis to access sk_user_data.
+Date: Mon, 23 Sep 2013 22:51:16 -0700
+Message-ID: <1380001876.3165.44.camel@edumazet-glaptop>
+References: <1380000501-13969-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46847 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710Ab3IXFpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 01:45:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1380001118.3165.41.camel@edumazet-glaptop>
+Received: from mail-yh0-f42.google.com ([209.85.213.42]:52952 "EHLO
+	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713Ab3IXFvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 01:51:19 -0400
+Received: by mail-yh0-f42.google.com with SMTP id z12so1824316yhz.15
+        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 22:51:18 -0700 (PDT)
+In-Reply-To: <1380000501-13969-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 23, 2013 at 10:38:38PM -0700, Eric Dumazet wrote:
-> On Tue, 2013-09-24 at 05:35 +0200, Hannes Frederic Sowa wrote:
+On Mon, 2013-09-23 at 22:28 -0700, Pravin B Shelar wrote:
+> Use of RCU api makes vxlan code easier to understand.  It also
+> fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
+> In rare case without ACCESS_ONCE() compiler might omit vs on
+> sk_user_data dereference.
+> Compiler can use vs as alias for sk->sk_user_data, resulting in
+> multiple sk_user_data dereference in rcu read context which
+> could change.
 > 
-> > > build_ehash_secret builds up the data which seeds fragmentation ids, ephermal
-> > > port randomization etc. Could we drop the check of sock->type? I guess the
-> > > idea was that in-kernel sockets of type raw/udp do not seed the keys when no
-> > > entropy is available?
-> > 
-> > Would this be better (I checked inet_ehash_secret, ipv6_hash_secret
-> > and net_secret to actual get initialized)?
-> > 
+> CC: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  drivers/net/vxlan.c |    9 +++------
+>  include/net/sock.h  |    2 ++
+>  2 files changed, 5 insertions(+), 6 deletions(-)
 > 
-> inet_ehash_secret is used only to make jhash() for tcp ehash, not for
-> fragmentation ids or other uses (port randomization).
-> 
-> 
-> > [PATCH] inet: initialize hash secret values on first non-kernel socket creation
-> > 
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> 
-> Why ? This looks buggy to me.
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index d1292fe..3519a71 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -952,8 +952,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+>  
+>  	spin_lock(&vn->sock_lock);
+>  	hlist_del_rcu(&vs->hlist);
+> -	smp_wmb();
+> -	vs->sock->sk->sk_user_data = NULL;
+> +	rcu_assign_pointer(sk_user_data_rcu(vs->sock->sk), NULL);
 
-It does initialize the rest of the key values (net_secret_init), too:
-
-258 void build_ehash_secret(void)
-259 {
-260         u32 rnd;
-261 
-262         do {
-263                 get_random_bytes(&rnd, sizeof(rnd));
-264         } while (rnd == 0);
-265 
-266         if (cmpxchg(&inet_ehash_secret, 0, rnd) == 0) {
-267                 get_random_bytes(&ipv6_hash_secret, sizeof(ipv6_hash_secret));
-268                 net_secret_init();
-269         }
-270 }
-
-Maybe I overlooked something?
-
-Thanks,
-
-  Hannes
+RCU_INIT_POINTER(sk_user_data_rcu(vs->sock->sk), NULL)
