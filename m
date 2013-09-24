@@ -1,41 +1,165 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net 5/6] i40e: better return values
-Date: Tue, 24 Sep 2013 04:34:46 -0700
-Message-ID: <1380022486.3575.74.camel@joe-AO722>
-References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
+Date: Tue, 24 Sep 2013 20:45:07 +0900
+Message-ID: <1380023107.3162.53.camel@ubuntu-vm-makita>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita>
+	 <20130912.160033.779509034953932316.davem@davemloft.net>
+	 <1379074013.1678.16.camel@localhost.localdomain>
+	 <523744A6.5090001@redhat.com> <1379405552.6177.31.camel@ubuntu-vm-makita>
+	 <524052FC.5010301@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
+	Patrick McHardy <kaber@trash.net>
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0235.hostedemail.com ([216.40.44.235]:60889 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750836Ab3IXLeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 07:34:50 -0400
-In-Reply-To: <1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:41992 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713Ab3IXLp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 07:45:26 -0400
+In-Reply-To: <524052FC.5010301@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-24 at 02:45 -0700, Jeff Kirsher wrote:
+On Mon, 2013-09-23 at 10:41 -0400, Vlad Yasevich wrote:
+> On 09/17/2013 04:12 AM, Toshiaki Makita wrote:
+> > On Mon, 2013-09-16 at 13:49 -0400, Vlad Yasevich wrote:
+> >> On 09/13/2013 08:06 AM, Toshiaki Makita wrote:
+> >>> On Thu, 2013-09-12 at 16:00 -0400, David Miller wrote:
+> >>>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> >>>> Date: Tue, 10 Sep 2013 19:27:54 +0900
+> >>>>
+> >>>>> There seem to be some undesirable behaviors related with PVID.
+> >>>>> 1. It has no effect assigning PVID to a port. PVID cannot be applied
+> >>>>> to any frame regardless of whether we set it or not.
+> >>>>> 2. FDB entries learned via frames applied PVID are registered with
+> >>>>> VID 0 rather than VID value of PVID.
+> >>>>> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
+> >>>>> This leads interoperational problems such as sending frames with VID
+> >>>>> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
+> >>>>> 0 as they belong to VLAN 0, which is expected to be handled as they have
+> >>>>> no VID according to IEEE 802.1Q.
+> >>>>>
+> >>>>> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
+> >>>>> is fixed, because we cannot activate PVID due to it.
+> >>>>
+> >>>> Please work out the issues in patch #2 with Vlad and resubmit this
+> >>>> series.
+> >>>>
+> >>>> Thank you.
+> >>>
+> >>> I'm hovering between whether we should fix the issue by changing vlan 0
+> >>> interface behavior in 8021q module or enabling a bridge port to sending
+> >>> priority-tagged frames, or another better way.
+> >>>
+> >>> If you could comment it, I'd appreciate it :)
+> >>>
+> >>>
+> >>> BTW, I think what is discussed in patch #2 is another problem about
+> >>> handling priority-tags, and it exists without this patch set applied.
+> >>> It looks like that we should prepare another patch set than this to fix
+> >>> that problem.
+> >>>
+> >>> Should I include patches that fix the priority-tags problem in this
+> >>> patch set and resubmit them all together?
+> >>>
+> >>
+> >> I am thinking that we might need to do it in bridge and it looks like
+> >> the simplest way to do it is to have default priority regeneration table
+> >> (table 6-5 from 802.1Q doc).
+> >>
+> >> That way I think we would conform to the spec.
+> >>
+> >> -vlad
+> >
+> > Unfortunately I don't think the default priority regeneration table
+> > resolves the problem because IEEE 802.1Q says that a VLAN-aware bridge
+> > can transmit untagged or VLAN-tagged frames only (the end of section 7.5
+> > and 8.1.7).
+> >
+> > No mechanism to send priority-tagged frames is found as far as I can see
+> > the standard. I think the regenerated priority is used for outgoing PCP
+> > field only if egress policy is not untagged (i.e. transmitting as
+> > VLAN-tagged), and unused if untagged (Section 6.9.2 3rd/4th Paragraph).
+> >
+> > If we want to transmit priority-tagged frames from a bridge port, I
+> > think we need to implement a new (optional) feature that is above the
+> > standard, as I stated previously.
+> >
+> > How do you feel about adding a per-port policy that enables a bridge to
+> > send priority-tagged frames instead of untagged frames when egress
+> > policy for the port is untagged?
+> > With this change, we can transmit frames for a given vlan as either all
+> > untagged, all priority-tagged or all VLAN-tagged.
+> 
+> That would work.  What I am thinking is that we do it by special casing
+> the vid 0 egress policy specification.  Let it be untagged by default 
+> and if it is tagged, then we preserve the priority field and forward
+> it on.
+> 
+> This keeps the API stable and doesn't require user/admin from knowing 
+> exactly what happens.  Default operation conforms to the spec and allows
+> simple change to make it backward-compatible.
+> 
+> What do you think.  I've done a simple prototype of this an it seems to 
+> work with the VMs I am testing with.
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-[]
-> @@ -3339,9 +3345,7 @@ static u8 i40e_dcb_get_num_tc(struct i40e_dcbx_config *dcbcfg)
->  	/* Traffic class index starts from zero so
->  	 * increment to return the actual count
->  	 */
-> -	num_tc++;
-> -
-> -	return num_tc;
-> +	return num_tc++;
+Are you saying that
+- by default, set the 0th bit of untagged_bitmap; and
+- if we unset the 0th bit and set the "vid"th bit, we transmit frames
+classified as belonging to VLAN "vid" as priority-tagged?
 
-Ick.  post_increment problem.
+If so, though it's attractive to keep current API, I'm worried about if
+it could be a bit confusing and not intuitive for kernel/iproute2
+developers that VID 0 has a special meaning only in the egress policy.
+Wouldn't it be better to adding a new member to struct net_port_vlans
+instead of using VID 0 of untagged_bitmap?
 
-	return ++num_tc;
+Or are you saying that we use a new flag in struct net_port_vlans but
+use the BRIDGE_VLAN_INFO_UNTAGGED bit with VID 0 in netlink to set the
+flag?
 
-There's nothing wrong with the original code
-unless this is a bugfix which should be documented
-better than "better return values".
+Even in that case, I'm afraid that it might be confusing for developers
+for the same reason. We are going to prohibit to specify VID with 0 (and
+4095) in adding/deleting a FDB entry or a vlan filtering entry, but it
+would allow us to use VID 0 only when a vlan filtering entry is
+configured.
+I am thinking a new nlattr is a straightforward approach to configure
+it.
+
+Thanks,
+
+Toshiaki Makita
+
+> 
+> -vlad
+> 
+> >
+> > Thanks,
+> >
+> > Toshiaki Makita
+> >
+> >>
+> >>>
+> >>> Thanks,
+> >>>
+> >>> Toshiaki Makita
+> >>>
+> >>>>
+> >>>> --
+> >>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>>> the body of a message to majordomo@vger.kernel.org
+> >>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>
+> >>>
+> >>>
+> >
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
