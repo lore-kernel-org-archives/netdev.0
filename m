@@ -1,34 +1,38 @@
-From: Matthew Hall <mh@mhcomputing.net>
-Subject: Re: per-PID network stats files in /proc
-Date: Tue, 24 Sep 2013 14:22:39 -0700
-Message-ID: <20130924212238.GA6673@mhcomputing.net>
-References: <20130924201536.GA3555@mhcomputing.net>
- <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
- <20130924204442.GA5074@mhcomputing.net>
- <20130924140435.5881cf76@nehalam.linuxnetplumber.net>
+From: Geoff Levand <geoff@infradead.org>
+Subject: Re: [PATCH 08/10] toshiba: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 14:26:44 -0700
+Message-ID: <1380058004.9509.1.camel@smoke>
+References: <cover.1380056108.git.joe@perches.com>
+	 <3e0dd1f4722f8e0c10a47b9bbb26e891e79fef60.1380056108.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from master.mhcomputing.net ([74.208.46.186]:49403 "EHLO
-	mail.mhcomputing.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754511Ab3IXVY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 17:24:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20130924140435.5881cf76@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	Jens Osterkamp <jens@de.ibm.com>, cbe-oss-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3e0dd1f4722f8e0c10a47b9bbb26e891e79fef60.1380056108.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 24, 2013 at 02:04:35PM -0700, Stephen Hemminger wrote:
-> You could do what you want by putting each process in own network
-> namespace, but that might be more work than you want to bother with.
+On Tue, 2013-09-24 at 14:10 -0700, Joe Perches wrote:
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
+> 
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ethernet/toshiba/ps3_gelic_net.h      | 29 +++++++++++------------
+>  drivers/net/ethernet/toshiba/ps3_gelic_wireless.h |  6 ++---
+>  drivers/net/ethernet/toshiba/spider_net.h         |  4 ++--
+>  3 files changed, 19 insertions(+), 20 deletions(-)
 
-Putting my one process or group of processes into one namespace, separate from 
-the one the rest of the system uses, could be perfectly OK actually.
+Looks good.  Thanks.
 
-So I'm going to look into this and see if it's possible. At least it would 
-give me a better route than where I am right now.
-
-Thanks!
-Matthew.
+Acked-by: Geoff Levand <geoff@infradead.org>
