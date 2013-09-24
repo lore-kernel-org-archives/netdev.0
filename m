@@ -1,29 +1,32 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 12/27] bonding: rework rlb_next_rx_slave() to use bond_for_each_slave()
-Date: Tue, 24 Sep 2013 13:46:52 +0200
-Message-ID: <1380023227-9576-13-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 14/27] bonding: rework bond_ab_arp_probe() to use bond_for_each_slave()
+Date: Tue, 24 Sep 2013 13:46:54 +0200
+Message-ID: <1380023227-9576-15-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13664 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24309 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753154Ab3IXLrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:18 -0400
+	id S1753208Ab3IXLsV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:48:21 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we're using bond_for_each_slave_from(), which is really hard to
-implement under RCU and/or neighbour list.
+Currently it uses the hard-to-rcuify bond_for_each_slave_from(), and also
+it doesn't check every slave for disrepencies between the actual
+IS_UP(slave) and the slave->link == BOND_LINK_UP, but only till we find the
+next suitable slave.
 
-Remove it and use bond_for_each_slave() instead, taking care of the last
-used slave.
+Fix this by using bond_for_each_slave() and storing the first good slave in
+*before till we find the current_arp_slave, after that we store the first good
+slave in new_slave. If new_slave is empty - use the slave stored in before,
+and if it's also empty - then we didn't find any suitable slave.
 
-Also, rename next_rx_slave to rx_slave and store the current (last)
-rx_slave.
+Also, in the meanwhile, check for each slave status.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -43,88 +46,80 @@ Notes:
     RFC -> v1:
     New patch.
 
- drivers/net/bonding/bond_alb.c | 41 +++++++++++++++++++++--------------------
- drivers/net/bonding/bond_alb.h |  4 +---
- 2 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index f4929ce..c5b85ad 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -383,30 +383,31 @@ out:
- static struct slave *rlb_next_rx_slave(struct bonding *bond)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6abbfac..3c96b1b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2761,8 +2761,9 @@ do_failover:
+  */
+ static void bond_ab_arp_probe(struct bonding *bond)
  {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
--	struct slave *rx_slave, *slave, *start_at;
--	int i = 0;
--
--	if (bond_info->next_rx_slave)
--		start_at = bond_info->next_rx_slave;
--	else
--		start_at = bond_first_slave(bond);
--
--	rx_slave = NULL;
-+	struct slave *before = NULL, *rx_slave = NULL, *slave;
+-	struct slave *slave, *next_slave;
+-	int i;
++	struct slave *slave, *before = NULL, *new_slave = NULL;
 +	struct list_head *iter;
 +	bool found = false;
  
--	bond_for_each_slave_from(bond, slave, i, start_at) {
--		if (SLAVE_IS_OK(slave)) {
--			if (!rx_slave) {
--				rx_slave = slave;
--			} else if (slave->speed > rx_slave->speed) {
+ 	read_lock(&bond->curr_slave_lock);
+ 
+@@ -2792,18 +2793,12 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 
+ 	bond_set_slave_inactive_flags(bond->current_arp_slave);
+ 
+-	/* search for next candidate */
+-	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+-		if (IS_UP(slave->dev)) {
+-			slave->link = BOND_LINK_BACK;
+-			bond_set_slave_active_flags(slave);
+-			bond_arp_send_all(bond, slave);
+-			slave->jiffies = jiffies;
+-			bond->current_arp_slave = slave;
+-			break;
+-		}
 +	bond_for_each_slave(bond, slave, iter) {
-+		if (!SLAVE_IS_OK(slave))
-+			continue;
-+		if (!found) {
-+			if (!before || before->speed < slave->speed)
-+				before = slave;
-+		} else {
-+			if (!rx_slave || rx_slave->speed < slave->speed)
- 				rx_slave = slave;
--			}
++		if (!found && !before && IS_UP(slave->dev))
++			before = slave;
+ 
++		if (found && !new_slave && IS_UP(slave->dev))
++			new_slave = slave;
+ 		/* if the link state is up at this point, we
+ 		 * mark it down - this can happen if we have
+ 		 * simultaneous link failures and
+@@ -2811,7 +2806,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 		 * one the current slave so it is still marked
+ 		 * up when it is actually down
+ 		 */
+-		if (slave->link == BOND_LINK_UP) {
++		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
+ 			slave->link = BOND_LINK_DOWN;
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+@@ -2821,7 +2816,22 @@ static void bond_ab_arp_probe(struct bonding *bond)
+ 			pr_info("%s: backup interface %s is now down.\n",
+ 				bond->dev->name, slave->dev->name);
  		}
-+		if (slave == bond_info->rx_slave)
++		if (slave == bond->current_arp_slave)
 +			found = true;
  	}
-+	/* we didn't find anything after the current or we have something
-+	 * better before and up to the current slave
-+	 */
-+	if (!rx_slave || (before && rx_slave->speed < before->speed))
-+		rx_slave = before;
- 
--	if (rx_slave) {
--		slave = bond_next_slave(bond, rx_slave);
--		bond_info->next_rx_slave = slave;
--	}
-+	if (rx_slave)
-+		bond_info->rx_slave = rx_slave;
- 
- 	return rx_slave;
++
++	if (!new_slave && before)
++		new_slave = before;
++
++	if (!new_slave)
++		return;
++
++	new_slave->link = BOND_LINK_BACK;
++	bond_set_slave_active_flags(new_slave);
++	bond_arp_send_all(bond, new_slave);
++	new_slave->jiffies = jiffies;
++	bond->current_arp_slave = new_slave;
++
  }
-@@ -1611,7 +1612,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
- 	tlb_clear_slave(bond, slave, 0);
  
- 	if (bond->alb_info.rlb_enabled) {
--		bond->alb_info.next_rx_slave = NULL;
-+		bond->alb_info.rx_slave = NULL;
- 		rlb_clear_slave(bond, slave);
- 	}
- }
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index c5eff5d..4226044 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -154,9 +154,7 @@ struct alb_bond_info {
- 	u8			rx_ntt;	/* flag - need to transmit
- 					 * to all rx clients
- 					 */
--	struct slave		*next_rx_slave;/* next slave to be assigned
--						* to a new rx client for
--						*/
-+	struct slave		*rx_slave;/* last slave to xmit from */
- 	u8			primary_is_promisc;	   /* boolean */
- 	u32			rlb_promisc_timeout_counter;/* counts primary
- 							     * promiscuity time
+ void bond_activebackup_arp_mon(struct work_struct *work)
 -- 
 1.8.4
