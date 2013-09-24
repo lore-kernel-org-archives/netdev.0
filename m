@@ -1,54 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 5/6] i40e: better return values
-Date: Tue, 24 Sep 2013 10:12:31 -0400 (EDT)
-Message-ID: <20130924.101231.1193830264265403478.davem@davemloft.net>
-References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1380022486.3575.74.camel@joe-AO722>
+Subject: Re: [PATCH ] net: udp: do not report ICMP redirects to user space
+Date: Tue, 24 Sep 2013 10:17:02 -0400 (EDT)
+Message-ID: <20130924.101702.809917335088042479.davem@davemloft.net>
+References: <523C216C.90707@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53468 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53661 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729Ab3IXOMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 10:12:33 -0400
-In-Reply-To: <1380022486.3575.74.camel@joe-AO722>
+	with ESMTP id S1752933Ab3IXORE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 10:17:04 -0400
+In-Reply-To: <523C216C.90707@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 24 Sep 2013 04:34:46 -0700
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Fri, 20 Sep 2013 18:20:28 +0800
 
-> On Tue, 2013-09-24 at 02:45 -0700, Jeff Kirsher wrote:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 > 
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> []
->> @@ -3339,9 +3345,7 @@ static u8 i40e_dcb_get_num_tc(struct i40e_dcbx_config *dcbcfg)
->>  	/* Traffic class index starts from zero so
->>  	 * increment to return the actual count
->>  	 */
->> -	num_tc++;
->> -
->> -	return num_tc;
->> +	return num_tc++;
+> Redirect isn't an error condition, it should leave
+> the error handler without touching the socket.
 > 
-> Ick.  post_increment problem.
-> 
-> 	return ++num_tc;
-> 
-> There's nothing wrong with the original code
-> unless this is a bugfix which should be documented
-> better than "better return values".
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Agreed, this style of coding is asking for a bug.
-
-If you want to return "num_tc PLUS ONE" just say that:
-
-	return num_tc + 1;
-
-Why even use pre/post increment when the variable has no other
-use than as a return value?
+Applied.
