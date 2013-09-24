@@ -1,10 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 06/10] stmicro: Remove extern from function prototypes
-Date: Tue, 24 Sep 2013 14:10:00 -0700
-Message-ID: <d6cc64ef73f74edfc485fefb5e6dc2ba625bd675.1380056108.git.joe@perches.com>
+Subject: [PATCH 05/10] sfc: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 14:09:59 -0700
+Message-ID: <00aef9867ee9d0de8380c3e65c1ca41698fc9949.1380056108.git.joe@perches.com>
 References: <cover.1380056108.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -22,103 +23,759 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h    | 12 ++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h | 17 ++++++++---------
- drivers/net/ethernet/stmicro/stmmac/mmc.h       |  6 +++---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h    | 10 +++++-----
- 4 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/sfc/efx.h      | 104 +++++++++---------
+ drivers/net/ethernet/sfc/mcdi.h     | 120 ++++++++++-----------
+ drivers/net/ethernet/sfc/mdio_10g.h |  26 +++--
+ drivers/net/ethernet/sfc/nic.h      | 210 ++++++++++++++++++------------------
+ drivers/net/ethernet/sfc/phy.h      |   8 +-
+ drivers/net/ethernet/sfc/selftest.h |  15 ++-
+ 6 files changed, 234 insertions(+), 249 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 7eb8bab..fc94f20 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -451,14 +451,14 @@ struct mac_device_info {
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr);
- struct mac_device_info *dwmac100_setup(void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 31d0128..b8235ee 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -18,38 +18,36 @@
+ #define EFX_MEM_BAR 2
  
--extern void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
--				unsigned int high, unsigned int low);
--extern void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
--				unsigned int high, unsigned int low);
-+void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
-+			 unsigned int high, unsigned int low);
-+void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
-+			 unsigned int high, unsigned int low);
+ /* TX */
+-extern int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
+-extern void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
+-extern void efx_init_tx_queue(struct efx_tx_queue *tx_queue);
+-extern void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue);
+-extern void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
+-extern netdev_tx_t
+-efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev);
+-extern netdev_tx_t
+-efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
+-extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
+-extern int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
+-extern unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
++int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
++void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
++void efx_init_tx_queue(struct efx_tx_queue *tx_queue);
++void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue);
++void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
++netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
++				struct net_device *net_dev);
++netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
++void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
++int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
++unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
+ extern unsigned int efx_piobuf_size;
  
--extern void stmmac_set_mac(void __iomem *ioaddr, bool enable);
-+void stmmac_set_mac(void __iomem *ioaddr, bool enable);
+ /* RX */
+-extern void efx_rx_config_page_split(struct efx_nic *efx);
+-extern int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
+-extern void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
+-extern void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
+-extern void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
+-extern void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
+-extern void efx_rx_slow_fill(unsigned long context);
+-extern void __efx_rx_packet(struct efx_channel *channel);
+-extern void efx_rx_packet(struct efx_rx_queue *rx_queue,
+-			  unsigned int index, unsigned int n_frags,
+-			  unsigned int len, u16 flags);
++void efx_rx_config_page_split(struct efx_nic *efx);
++int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
++void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
++void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
++void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
++void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
++void efx_rx_slow_fill(unsigned long context);
++void __efx_rx_packet(struct efx_channel *channel);
++void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
++		   unsigned int n_frags, unsigned int len, u16 flags);
+ static inline void efx_rx_flush_packet(struct efx_channel *channel)
+ {
+ 	if (channel->rx_pkt_n_frags)
+ 		__efx_rx_packet(channel);
+ }
+-extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
++void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
  
--extern void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
-+void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
- extern const struct stmmac_ring_mode_ops ring_mode_ops;
- extern const struct stmmac_chain_mode_ops chain_mode_ops;
+ #define EFX_MAX_DMAQ_SIZE 4096UL
+ #define EFX_DEFAULT_DMAQ_SIZE 1024UL
+@@ -163,9 +161,9 @@ static inline s32 efx_filter_get_rx_ids(struct efx_nic *efx,
+ 	return efx->type->filter_get_rx_ids(efx, priority, buf, size);
+ }
+ #ifdef CONFIG_RFS_ACCEL
+-extern int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+-			  u16 rxq_index, u32 flow_id);
+-extern bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned quota);
++int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
++		   u16 rxq_index, u32 flow_id);
++bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned quota);
+ static inline void efx_filter_rfs_expire(struct efx_channel *channel)
+ {
+ 	if (channel->rfs_filters_added >= 60 &&
+@@ -177,50 +175,48 @@ static inline void efx_filter_rfs_expire(struct efx_channel *channel)
+ static inline void efx_filter_rfs_expire(struct efx_channel *channel) {}
+ #define efx_filter_rfs_enabled() 0
+ #endif
+-extern bool efx_filter_is_mc_recipient(const struct efx_filter_spec *spec);
++bool efx_filter_is_mc_recipient(const struct efx_filter_spec *spec);
  
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 8e5662c..def266d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -104,14 +104,13 @@
- #define DMA_STATUS_TI	0x00000001	/* Transmit Interrupt */
- #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
+ /* Channels */
+-extern int efx_channel_dummy_op_int(struct efx_channel *channel);
+-extern void efx_channel_dummy_op_void(struct efx_channel *channel);
+-extern int
+-efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries);
++int efx_channel_dummy_op_int(struct efx_channel *channel);
++void efx_channel_dummy_op_void(struct efx_channel *channel);
++int efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries);
  
--extern void dwmac_enable_dma_transmission(void __iomem *ioaddr);
--extern void dwmac_enable_dma_irq(void __iomem *ioaddr);
--extern void dwmac_disable_dma_irq(void __iomem *ioaddr);
--extern void dwmac_dma_start_tx(void __iomem *ioaddr);
--extern void dwmac_dma_stop_tx(void __iomem *ioaddr);
--extern void dwmac_dma_start_rx(void __iomem *ioaddr);
--extern void dwmac_dma_stop_rx(void __iomem *ioaddr);
--extern int dwmac_dma_interrupt(void __iomem *ioaddr,
--			       struct stmmac_extra_stats *x);
-+void dwmac_enable_dma_transmission(void __iomem *ioaddr);
-+void dwmac_enable_dma_irq(void __iomem *ioaddr);
-+void dwmac_disable_dma_irq(void __iomem *ioaddr);
-+void dwmac_dma_start_tx(void __iomem *ioaddr);
-+void dwmac_dma_stop_tx(void __iomem *ioaddr);
-+void dwmac_dma_start_rx(void __iomem *ioaddr);
-+void dwmac_dma_stop_rx(void __iomem *ioaddr);
-+int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x);
+ /* Ports */
+-extern int efx_reconfigure_port(struct efx_nic *efx);
+-extern int __efx_reconfigure_port(struct efx_nic *efx);
++int efx_reconfigure_port(struct efx_nic *efx);
++int __efx_reconfigure_port(struct efx_nic *efx);
  
- #endif /* __DWMAC_DMA_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc.h b/drivers/net/ethernet/stmicro/stmmac/mmc.h
-index 48ec001..8607488 100644
---- a/drivers/net/ethernet/stmicro/stmmac/mmc.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/mmc.h
-@@ -128,8 +128,8 @@ struct stmmac_counters {
- 	unsigned int mmc_rx_icmp_err_octets;
+ /* Ethtool support */
+ extern const struct ethtool_ops efx_ethtool_ops;
+ 
+ /* Reset handling */
+-extern int efx_reset(struct efx_nic *efx, enum reset_type method);
+-extern void efx_reset_down(struct efx_nic *efx, enum reset_type method);
+-extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
+-extern int efx_try_recovery(struct efx_nic *efx);
++int efx_reset(struct efx_nic *efx, enum reset_type method);
++void efx_reset_down(struct efx_nic *efx, enum reset_type method);
++int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
++int efx_try_recovery(struct efx_nic *efx);
+ 
+ /* Global */
+-extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
+-extern int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
+-				   unsigned int rx_usecs, bool rx_adaptive,
+-				   bool rx_may_override_tx);
+-extern void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
+-				   unsigned int *rx_usecs, bool *rx_adaptive);
++void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
++int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
++			    unsigned int rx_usecs, bool rx_adaptive,
++			    bool rx_may_override_tx);
++void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
++			    unsigned int *rx_usecs, bool *rx_adaptive);
+ 
+ /* Dummy PHY ops for PHY drivers */
+-extern int efx_port_dummy_op_int(struct efx_nic *efx);
+-extern void efx_port_dummy_op_void(struct efx_nic *efx);
+-
++int efx_port_dummy_op_int(struct efx_nic *efx);
++void efx_port_dummy_op_void(struct efx_nic *efx);
+ 
+ /* MTD */
+ #ifdef CONFIG_SFC_MTD
+-extern int efx_mtd_add(struct efx_nic *efx, struct efx_mtd_partition *parts,
+-		       size_t n_parts, size_t sizeof_part);
++int efx_mtd_add(struct efx_nic *efx, struct efx_mtd_partition *parts,
++		size_t n_parts, size_t sizeof_part);
+ static inline int efx_mtd_probe(struct efx_nic *efx)
+ {
+ 	return efx->type->mtd_probe(efx);
+ }
+-extern void efx_mtd_rename(struct efx_nic *efx);
+-extern void efx_mtd_remove(struct efx_nic *efx);
++void efx_mtd_rename(struct efx_nic *efx);
++void efx_mtd_remove(struct efx_nic *efx);
+ #else
+ static inline int efx_mtd_probe(struct efx_nic *efx) { return 0; }
+ static inline void efx_mtd_rename(struct efx_nic *efx) {}
+@@ -242,9 +238,9 @@ static inline void efx_schedule_channel_irq(struct efx_channel *channel)
+ 	efx_schedule_channel(channel);
+ }
+ 
+-extern void efx_link_status_changed(struct efx_nic *efx);
+-extern void efx_link_set_advertising(struct efx_nic *efx, u32);
+-extern void efx_link_set_wanted_fc(struct efx_nic *efx, u8);
++void efx_link_status_changed(struct efx_nic *efx);
++void efx_link_set_advertising(struct efx_nic *efx, u32);
++void efx_link_set_wanted_fc(struct efx_nic *efx, u8);
+ 
+ static inline void efx_device_detach_sync(struct efx_nic *efx)
+ {
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index c34d0d4..656a327 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -108,38 +108,35 @@ static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
+ }
+ #endif
+ 
+-extern int efx_mcdi_init(struct efx_nic *efx);
+-extern void efx_mcdi_fini(struct efx_nic *efx);
++int efx_mcdi_init(struct efx_nic *efx);
++void efx_mcdi_fini(struct efx_nic *efx);
+ 
+-extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
+-			const efx_dword_t *inbuf, size_t inlen,
++int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const efx_dword_t *inbuf,
++		 size_t inlen, efx_dword_t *outbuf, size_t outlen,
++		 size_t *outlen_actual);
++
++int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
++		       const efx_dword_t *inbuf, size_t inlen);
++int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 			efx_dword_t *outbuf, size_t outlen,
+ 			size_t *outlen_actual);
+ 
+-extern int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+-			      const efx_dword_t *inbuf, size_t inlen);
+-extern int efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+-			       efx_dword_t *outbuf, size_t outlen,
+-			       size_t *outlen_actual);
+-
+ typedef void efx_mcdi_async_completer(struct efx_nic *efx,
+ 				      unsigned long cookie, int rc,
+ 				      efx_dword_t *outbuf,
+ 				      size_t outlen_actual);
+-extern int efx_mcdi_rpc_async(struct efx_nic *efx, unsigned int cmd,
+-			      const efx_dword_t *inbuf, size_t inlen,
+-			      size_t outlen,
+-			      efx_mcdi_async_completer *complete,
+-			      unsigned long cookie);
++int efx_mcdi_rpc_async(struct efx_nic *efx, unsigned int cmd,
++		       const efx_dword_t *inbuf, size_t inlen, size_t outlen,
++		       efx_mcdi_async_completer *complete,
++		       unsigned long cookie);
+ 
+-extern int efx_mcdi_poll_reboot(struct efx_nic *efx);
+-extern void efx_mcdi_mode_poll(struct efx_nic *efx);
+-extern void efx_mcdi_mode_event(struct efx_nic *efx);
+-extern void efx_mcdi_flush_async(struct efx_nic *efx);
++int efx_mcdi_poll_reboot(struct efx_nic *efx);
++void efx_mcdi_mode_poll(struct efx_nic *efx);
++void efx_mcdi_mode_event(struct efx_nic *efx);
++void efx_mcdi_flush_async(struct efx_nic *efx);
+ 
+-extern void efx_mcdi_process_event(struct efx_channel *channel,
+-				   efx_qword_t *event);
+-extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
++void efx_mcdi_process_event(struct efx_channel *channel, efx_qword_t *event);
++void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ 
+ /* We expect that 16- and 32-bit fields in MCDI requests and responses
+  * are appropriately aligned, but 64-bit fields are only
+@@ -275,55 +272,54 @@ extern void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+ #define MCDI_EVENT_FIELD(_ev, _field)			\
+ 	EFX_QWORD_FIELD(_ev, MCDI_EVENT_ ## _field)
+ 
+-extern void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len);
+-extern int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+-				  u16 *fw_subtype_list, u32 *capabilities);
+-extern int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart,
+-			     u32 dest_evq);
+-extern int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out);
+-extern int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
+-			       size_t *size_out, size_t *erase_size_out,
+-			       bool *protected_out);
+-extern int efx_mcdi_nvram_test_all(struct efx_nic *efx);
+-extern int efx_mcdi_handle_assertion(struct efx_nic *efx);
+-extern void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
+-extern int efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,
+-					 const u8 *mac, int *id_out);
+-extern int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out);
+-extern int efx_mcdi_wol_filter_remove(struct efx_nic *efx, int id);
+-extern int efx_mcdi_wol_filter_reset(struct efx_nic *efx);
+-extern int efx_mcdi_flush_rxqs(struct efx_nic *efx);
+-extern int efx_mcdi_port_probe(struct efx_nic *efx);
+-extern void efx_mcdi_port_remove(struct efx_nic *efx);
+-extern int efx_mcdi_port_reconfigure(struct efx_nic *efx);
+-extern int efx_mcdi_port_get_number(struct efx_nic *efx);
+-extern u32 efx_mcdi_phy_get_caps(struct efx_nic *efx);
+-extern void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev);
+-extern int efx_mcdi_set_mac(struct efx_nic *efx);
++void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len);
++int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
++			   u16 *fw_subtype_list, u32 *capabilities);
++int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart, u32 dest_evq);
++int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out);
++int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
++			size_t *size_out, size_t *erase_size_out,
++			bool *protected_out);
++int efx_mcdi_nvram_test_all(struct efx_nic *efx);
++int efx_mcdi_handle_assertion(struct efx_nic *efx);
++void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
++int efx_mcdi_wol_filter_set_magic(struct efx_nic *efx, const u8 *mac,
++				  int *id_out);
++int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out);
++int efx_mcdi_wol_filter_remove(struct efx_nic *efx, int id);
++int efx_mcdi_wol_filter_reset(struct efx_nic *efx);
++int efx_mcdi_flush_rxqs(struct efx_nic *efx);
++int efx_mcdi_port_probe(struct efx_nic *efx);
++void efx_mcdi_port_remove(struct efx_nic *efx);
++int efx_mcdi_port_reconfigure(struct efx_nic *efx);
++int efx_mcdi_port_get_number(struct efx_nic *efx);
++u32 efx_mcdi_phy_get_caps(struct efx_nic *efx);
++void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev);
++int efx_mcdi_set_mac(struct efx_nic *efx);
+ #define EFX_MC_STATS_GENERATION_INVALID ((__force __le64)(-1))
+-extern void efx_mcdi_mac_start_stats(struct efx_nic *efx);
+-extern void efx_mcdi_mac_stop_stats(struct efx_nic *efx);
+-extern bool efx_mcdi_mac_check_fault(struct efx_nic *efx);
+-extern enum reset_type efx_mcdi_map_reset_reason(enum reset_type reason);
+-extern int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method);
+-extern int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled);
++void efx_mcdi_mac_start_stats(struct efx_nic *efx);
++void efx_mcdi_mac_stop_stats(struct efx_nic *efx);
++bool efx_mcdi_mac_check_fault(struct efx_nic *efx);
++enum reset_type efx_mcdi_map_reset_reason(enum reset_type reason);
++int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method);
++int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled);
+ 
+ #ifdef CONFIG_SFC_MCDI_MON
+-extern int efx_mcdi_mon_probe(struct efx_nic *efx);
+-extern void efx_mcdi_mon_remove(struct efx_nic *efx);
++int efx_mcdi_mon_probe(struct efx_nic *efx);
++void efx_mcdi_mon_remove(struct efx_nic *efx);
+ #else
+ static inline int efx_mcdi_mon_probe(struct efx_nic *efx) { return 0; }
+ static inline void efx_mcdi_mon_remove(struct efx_nic *efx) {}
+ #endif
+ 
+ #ifdef CONFIG_SFC_MTD
+-extern int efx_mcdi_mtd_read(struct mtd_info *mtd, loff_t start,
+-			     size_t len, size_t *retlen, u8 *buffer);
+-extern int efx_mcdi_mtd_erase(struct mtd_info *mtd, loff_t start, size_t len);
+-extern int efx_mcdi_mtd_write(struct mtd_info *mtd, loff_t start,
+-			      size_t len, size_t *retlen, const u8 *buffer);
+-extern int efx_mcdi_mtd_sync(struct mtd_info *mtd);
+-extern void efx_mcdi_mtd_rename(struct efx_mtd_partition *part);
++int efx_mcdi_mtd_read(struct mtd_info *mtd, loff_t start, size_t len,
++		      size_t *retlen, u8 *buffer);
++int efx_mcdi_mtd_erase(struct mtd_info *mtd, loff_t start, size_t len);
++int efx_mcdi_mtd_write(struct mtd_info *mtd, loff_t start, size_t len,
++		       size_t *retlen, const u8 *buffer);
++int efx_mcdi_mtd_sync(struct mtd_info *mtd);
++void efx_mcdi_mtd_rename(struct efx_mtd_partition *part);
+ #endif
+ 
+ #endif /* EFX_MCDI_H */
+diff --git a/drivers/net/ethernet/sfc/mdio_10g.h b/drivers/net/ethernet/sfc/mdio_10g.h
+index 16824fe..4a2dc4c 100644
+--- a/drivers/net/ethernet/sfc/mdio_10g.h
++++ b/drivers/net/ethernet/sfc/mdio_10g.h
+@@ -20,7 +20,7 @@
+ 
+ static inline unsigned efx_mdio_id_rev(u32 id) { return id & 0xf; }
+ static inline unsigned efx_mdio_id_model(u32 id) { return (id >> 4) & 0x3f; }
+-extern unsigned efx_mdio_id_oui(u32 id);
++unsigned efx_mdio_id_oui(u32 id);
+ 
+ static inline int efx_mdio_read(struct efx_nic *efx, int devad, int addr)
+ {
+@@ -56,7 +56,7 @@ static inline bool efx_mdio_phyxgxs_lane_sync(struct efx_nic *efx)
+ 	return sync;
+ }
+ 
+-extern const char *efx_mdio_mmd_name(int mmd);
++const char *efx_mdio_mmd_name(int mmd);
+ 
+ /*
+  * Reset a specific MMD and wait for reset to clear.
+@@ -64,30 +64,29 @@ extern const char *efx_mdio_mmd_name(int mmd);
+  *
+  * This function will sleep
+  */
+-extern int efx_mdio_reset_mmd(struct efx_nic *efx, int mmd,
+-			      int spins, int spintime);
++int efx_mdio_reset_mmd(struct efx_nic *efx, int mmd, int spins, int spintime);
+ 
+ /* As efx_mdio_check_mmd but for multiple MMDs */
+ int efx_mdio_check_mmds(struct efx_nic *efx, unsigned int mmd_mask);
+ 
+ /* Check the link status of specified mmds in bit mask */
+-extern bool efx_mdio_links_ok(struct efx_nic *efx, unsigned int mmd_mask);
++bool efx_mdio_links_ok(struct efx_nic *efx, unsigned int mmd_mask);
+ 
+ /* Generic transmit disable support though PMAPMD */
+-extern void efx_mdio_transmit_disable(struct efx_nic *efx);
++void efx_mdio_transmit_disable(struct efx_nic *efx);
+ 
+ /* Generic part of reconfigure: set/clear loopback bits */
+-extern void efx_mdio_phy_reconfigure(struct efx_nic *efx);
++void efx_mdio_phy_reconfigure(struct efx_nic *efx);
+ 
+ /* Set the power state of the specified MMDs */
+-extern void efx_mdio_set_mmds_lpower(struct efx_nic *efx,
+-				     int low_power, unsigned int mmd_mask);
++void efx_mdio_set_mmds_lpower(struct efx_nic *efx, int low_power,
++			      unsigned int mmd_mask);
+ 
+ /* Set (some of) the PHY settings over MDIO */
+-extern int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd);
++int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd);
+ 
+ /* Push advertising flags and restart autonegotiation */
+-extern void efx_mdio_an_reconfigure(struct efx_nic *efx);
++void efx_mdio_an_reconfigure(struct efx_nic *efx);
+ 
+ /* Get pause parameters from AN if available (otherwise return
+  * requested pause parameters)
+@@ -95,8 +94,7 @@ extern void efx_mdio_an_reconfigure(struct efx_nic *efx);
+ u8 efx_mdio_get_pause(struct efx_nic *efx);
+ 
+ /* Wait for specified MMDs to exit reset within a timeout */
+-extern int efx_mdio_wait_reset_mmds(struct efx_nic *efx,
+-				    unsigned int mmd_mask);
++int efx_mdio_wait_reset_mmds(struct efx_nic *efx, unsigned int mmd_mask);
+ 
+ /* Set or clear flag, debouncing */
+ static inline void
+@@ -107,6 +105,6 @@ efx_mdio_set_flag(struct efx_nic *efx, int devad, int addr,
+ }
+ 
+ /* Liveness self-test for MDIO PHYs */
+-extern int efx_mdio_test_alive(struct efx_nic *efx);
++int efx_mdio_test_alive(struct efx_nic *efx);
+ 
+ #endif /* EFX_MDIO_10G_H */
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 609f067..08883c8 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -30,7 +30,7 @@ static inline int efx_nic_rev(struct efx_nic *efx)
+ 	return efx->type->revision;
+ }
+ 
+-extern u32 efx_farch_fpga_ver(struct efx_nic *efx);
++u32 efx_farch_fpga_ver(struct efx_nic *efx);
+ 
+ /* NIC has two interlinked PCI functions for the same port. */
+ static inline bool efx_nic_is_dual_func(struct efx_nic *efx)
+@@ -497,18 +497,18 @@ static inline unsigned int efx_vf_size(struct efx_nic *efx)
+ 	return 1 << efx->vi_scale;
+ }
+ 
+-extern int efx_init_sriov(void);
+-extern void efx_sriov_probe(struct efx_nic *efx);
+-extern int efx_sriov_init(struct efx_nic *efx);
+-extern void efx_sriov_mac_address_changed(struct efx_nic *efx);
+-extern void efx_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event);
+-extern void efx_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event);
+-extern void efx_sriov_event(struct efx_channel *channel, efx_qword_t *event);
+-extern void efx_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq);
+-extern void efx_sriov_flr(struct efx_nic *efx, unsigned flr);
+-extern void efx_sriov_reset(struct efx_nic *efx);
+-extern void efx_sriov_fini(struct efx_nic *efx);
+-extern void efx_fini_sriov(void);
++int efx_init_sriov(void);
++void efx_sriov_probe(struct efx_nic *efx);
++int efx_sriov_init(struct efx_nic *efx);
++void efx_sriov_mac_address_changed(struct efx_nic *efx);
++void efx_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event);
++void efx_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event);
++void efx_sriov_event(struct efx_channel *channel, efx_qword_t *event);
++void efx_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq);
++void efx_sriov_flr(struct efx_nic *efx, unsigned flr);
++void efx_sriov_reset(struct efx_nic *efx);
++void efx_sriov_fini(struct efx_nic *efx);
++void efx_fini_sriov(void);
+ 
+ #else
+ 
+@@ -534,22 +534,20 @@ static inline void efx_fini_sriov(void) {}
+ 
+ #endif
+ 
+-extern int efx_sriov_set_vf_mac(struct net_device *dev, int vf, u8 *mac);
+-extern int efx_sriov_set_vf_vlan(struct net_device *dev, int vf,
+-				 u16 vlan, u8 qos);
+-extern int efx_sriov_get_vf_config(struct net_device *dev, int vf,
+-				   struct ifla_vf_info *ivf);
+-extern int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf,
+-				     bool spoofchk);
++int efx_sriov_set_vf_mac(struct net_device *dev, int vf, u8 *mac);
++int efx_sriov_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos);
++int efx_sriov_get_vf_config(struct net_device *dev, int vf,
++			    struct ifla_vf_info *ivf);
++int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf,
++			      bool spoofchk);
+ 
+ struct ethtool_ts_info;
+-extern void efx_ptp_probe(struct efx_nic *efx);
+-extern int efx_ptp_ioctl(struct efx_nic *efx, struct ifreq *ifr, int cmd);
+-extern void efx_ptp_get_ts_info(struct efx_nic *efx,
+-				struct ethtool_ts_info *ts_info);
+-extern bool efx_ptp_is_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
+-extern int efx_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
+-extern void efx_ptp_event(struct efx_nic *efx, efx_qword_t *ev);
++void efx_ptp_probe(struct efx_nic *efx);
++int efx_ptp_ioctl(struct efx_nic *efx, struct ifreq *ifr, int cmd);
++void efx_ptp_get_ts_info(struct efx_nic *efx, struct ethtool_ts_info *ts_info);
++bool efx_ptp_is_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
++int efx_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
++void efx_ptp_event(struct efx_nic *efx, efx_qword_t *ev);
+ 
+ extern const struct efx_nic_type falcon_a1_nic_type;
+ extern const struct efx_nic_type falcon_b0_nic_type;
+@@ -563,7 +561,7 @@ extern const struct efx_nic_type efx_hunt_a0_nic_type;
+  **************************************************************************
+  */
+ 
+-extern int falcon_probe_board(struct efx_nic *efx, u16 revision_info);
++int falcon_probe_board(struct efx_nic *efx, u16 revision_info);
+ 
+ /* TX data path */
+ static inline int efx_nic_probe_tx(struct efx_tx_queue *tx_queue)
+@@ -631,58 +629,58 @@ static inline void efx_nic_eventq_read_ack(struct efx_channel *channel)
+ {
+ 	channel->efx->type->ev_read_ack(channel);
+ }
+-extern void efx_nic_event_test_start(struct efx_channel *channel);
++void efx_nic_event_test_start(struct efx_channel *channel);
+ 
+ /* Falcon/Siena queue operations */
+-extern int efx_farch_tx_probe(struct efx_tx_queue *tx_queue);
+-extern void efx_farch_tx_init(struct efx_tx_queue *tx_queue);
+-extern void efx_farch_tx_fini(struct efx_tx_queue *tx_queue);
+-extern void efx_farch_tx_remove(struct efx_tx_queue *tx_queue);
+-extern void efx_farch_tx_write(struct efx_tx_queue *tx_queue);
+-extern int efx_farch_rx_probe(struct efx_rx_queue *rx_queue);
+-extern void efx_farch_rx_init(struct efx_rx_queue *rx_queue);
+-extern void efx_farch_rx_fini(struct efx_rx_queue *rx_queue);
+-extern void efx_farch_rx_remove(struct efx_rx_queue *rx_queue);
+-extern void efx_farch_rx_write(struct efx_rx_queue *rx_queue);
+-extern void efx_farch_rx_defer_refill(struct efx_rx_queue *rx_queue);
+-extern int efx_farch_ev_probe(struct efx_channel *channel);
+-extern int efx_farch_ev_init(struct efx_channel *channel);
+-extern void efx_farch_ev_fini(struct efx_channel *channel);
+-extern void efx_farch_ev_remove(struct efx_channel *channel);
+-extern int efx_farch_ev_process(struct efx_channel *channel, int quota);
+-extern void efx_farch_ev_read_ack(struct efx_channel *channel);
+-extern void efx_farch_ev_test_generate(struct efx_channel *channel);
++int efx_farch_tx_probe(struct efx_tx_queue *tx_queue);
++void efx_farch_tx_init(struct efx_tx_queue *tx_queue);
++void efx_farch_tx_fini(struct efx_tx_queue *tx_queue);
++void efx_farch_tx_remove(struct efx_tx_queue *tx_queue);
++void efx_farch_tx_write(struct efx_tx_queue *tx_queue);
++int efx_farch_rx_probe(struct efx_rx_queue *rx_queue);
++void efx_farch_rx_init(struct efx_rx_queue *rx_queue);
++void efx_farch_rx_fini(struct efx_rx_queue *rx_queue);
++void efx_farch_rx_remove(struct efx_rx_queue *rx_queue);
++void efx_farch_rx_write(struct efx_rx_queue *rx_queue);
++void efx_farch_rx_defer_refill(struct efx_rx_queue *rx_queue);
++int efx_farch_ev_probe(struct efx_channel *channel);
++int efx_farch_ev_init(struct efx_channel *channel);
++void efx_farch_ev_fini(struct efx_channel *channel);
++void efx_farch_ev_remove(struct efx_channel *channel);
++int efx_farch_ev_process(struct efx_channel *channel, int quota);
++void efx_farch_ev_read_ack(struct efx_channel *channel);
++void efx_farch_ev_test_generate(struct efx_channel *channel);
+ 
+ /* Falcon/Siena filter operations */
+-extern int efx_farch_filter_table_probe(struct efx_nic *efx);
+-extern void efx_farch_filter_table_restore(struct efx_nic *efx);
+-extern void efx_farch_filter_table_remove(struct efx_nic *efx);
+-extern void efx_farch_filter_update_rx_scatter(struct efx_nic *efx);
+-extern s32 efx_farch_filter_insert(struct efx_nic *efx,
+-				   struct efx_filter_spec *spec, bool replace);
+-extern int efx_farch_filter_remove_safe(struct efx_nic *efx,
+-					enum efx_filter_priority priority,
+-					u32 filter_id);
+-extern int efx_farch_filter_get_safe(struct efx_nic *efx,
+-				     enum efx_filter_priority priority,
+-				     u32 filter_id, struct efx_filter_spec *);
+-extern void efx_farch_filter_clear_rx(struct efx_nic *efx,
+-				      enum efx_filter_priority priority);
+-extern u32 efx_farch_filter_count_rx_used(struct efx_nic *efx,
+-					  enum efx_filter_priority priority);
+-extern u32 efx_farch_filter_get_rx_id_limit(struct efx_nic *efx);
+-extern s32 efx_farch_filter_get_rx_ids(struct efx_nic *efx,
+-				       enum efx_filter_priority priority,
+-				       u32 *buf, u32 size);
++int efx_farch_filter_table_probe(struct efx_nic *efx);
++void efx_farch_filter_table_restore(struct efx_nic *efx);
++void efx_farch_filter_table_remove(struct efx_nic *efx);
++void efx_farch_filter_update_rx_scatter(struct efx_nic *efx);
++s32 efx_farch_filter_insert(struct efx_nic *efx, struct efx_filter_spec *spec,
++			    bool replace);
++int efx_farch_filter_remove_safe(struct efx_nic *efx,
++				 enum efx_filter_priority priority,
++				 u32 filter_id);
++int efx_farch_filter_get_safe(struct efx_nic *efx,
++			      enum efx_filter_priority priority, u32 filter_id,
++			      struct efx_filter_spec *);
++void efx_farch_filter_clear_rx(struct efx_nic *efx,
++			       enum efx_filter_priority priority);
++u32 efx_farch_filter_count_rx_used(struct efx_nic *efx,
++				   enum efx_filter_priority priority);
++u32 efx_farch_filter_get_rx_id_limit(struct efx_nic *efx);
++s32 efx_farch_filter_get_rx_ids(struct efx_nic *efx,
++				enum efx_filter_priority priority, u32 *buf,
++				u32 size);
+ #ifdef CONFIG_RFS_ACCEL
+-extern s32 efx_farch_filter_rfs_insert(struct efx_nic *efx,
+-				       struct efx_filter_spec *spec);
+-extern bool efx_farch_filter_rfs_expire_one(struct efx_nic *efx, u32 flow_id,
+-					    unsigned int index);
++s32 efx_farch_filter_rfs_insert(struct efx_nic *efx,
++				struct efx_filter_spec *spec);
++bool efx_farch_filter_rfs_expire_one(struct efx_nic *efx, u32 flow_id,
++				     unsigned int index);
+ #endif
+-extern void efx_farch_filter_sync_rx_mode(struct efx_nic *efx);
++void efx_farch_filter_sync_rx_mode(struct efx_nic *efx);
+ 
+-extern bool efx_nic_event_present(struct efx_channel *channel);
++bool efx_nic_event_present(struct efx_channel *channel);
+ 
+ /* Some statistics are computed as A - B where A and B each increase
+  * linearly with some hardware counter(s) and the counters are read
+@@ -703,17 +701,17 @@ static inline void efx_update_diff_stat(u64 *stat, u64 diff)
+ }
+ 
+ /* Interrupts */
+-extern int efx_nic_init_interrupt(struct efx_nic *efx);
+-extern void efx_nic_irq_test_start(struct efx_nic *efx);
+-extern void efx_nic_fini_interrupt(struct efx_nic *efx);
++int efx_nic_init_interrupt(struct efx_nic *efx);
++void efx_nic_irq_test_start(struct efx_nic *efx);
++void efx_nic_fini_interrupt(struct efx_nic *efx);
+ 
+ /* Falcon/Siena interrupts */
+-extern void efx_farch_irq_enable_master(struct efx_nic *efx);
+-extern void efx_farch_irq_test_generate(struct efx_nic *efx);
+-extern void efx_farch_irq_disable_master(struct efx_nic *efx);
+-extern irqreturn_t efx_farch_msi_interrupt(int irq, void *dev_id);
+-extern irqreturn_t efx_farch_legacy_interrupt(int irq, void *dev_id);
+-extern irqreturn_t efx_farch_fatal_interrupt(struct efx_nic *efx);
++void efx_farch_irq_enable_master(struct efx_nic *efx);
++void efx_farch_irq_test_generate(struct efx_nic *efx);
++void efx_farch_irq_disable_master(struct efx_nic *efx);
++irqreturn_t efx_farch_msi_interrupt(int irq, void *dev_id);
++irqreturn_t efx_farch_legacy_interrupt(int irq, void *dev_id);
++irqreturn_t efx_farch_fatal_interrupt(struct efx_nic *efx);
+ 
+ static inline int efx_nic_event_test_irq_cpu(struct efx_channel *channel)
+ {
+@@ -725,21 +723,21 @@ static inline int efx_nic_irq_test_irq_cpu(struct efx_nic *efx)
+ }
+ 
+ /* Global Resources */
+-extern int efx_nic_flush_queues(struct efx_nic *efx);
+-extern void siena_prepare_flush(struct efx_nic *efx);
+-extern int efx_farch_fini_dmaq(struct efx_nic *efx);
+-extern void siena_finish_flush(struct efx_nic *efx);
+-extern void falcon_start_nic_stats(struct efx_nic *efx);
+-extern void falcon_stop_nic_stats(struct efx_nic *efx);
+-extern int falcon_reset_xaui(struct efx_nic *efx);
+-extern void efx_farch_dimension_resources(struct efx_nic *efx, unsigned sram_lim_qw);
+-extern void efx_farch_init_common(struct efx_nic *efx);
+-extern void efx_ef10_handle_drain_event(struct efx_nic *efx);
++int efx_nic_flush_queues(struct efx_nic *efx);
++void siena_prepare_flush(struct efx_nic *efx);
++int efx_farch_fini_dmaq(struct efx_nic *efx);
++void siena_finish_flush(struct efx_nic *efx);
++void falcon_start_nic_stats(struct efx_nic *efx);
++void falcon_stop_nic_stats(struct efx_nic *efx);
++int falcon_reset_xaui(struct efx_nic *efx);
++void efx_farch_dimension_resources(struct efx_nic *efx, unsigned sram_lim_qw);
++void efx_farch_init_common(struct efx_nic *efx);
++void efx_ef10_handle_drain_event(struct efx_nic *efx);
+ static inline void efx_nic_push_rx_indir_table(struct efx_nic *efx)
+ {
+ 	efx->type->rx_push_indir_table(efx);
+ }
+-extern void efx_farch_rx_push_indir_table(struct efx_nic *efx);
++void efx_farch_rx_push_indir_table(struct efx_nic *efx);
+ 
+ int efx_nic_alloc_buffer(struct efx_nic *efx, struct efx_buffer *buffer,
+ 			 unsigned int len, gfp_t gfp_flags);
+@@ -750,24 +748,22 @@ struct efx_farch_register_test {
+ 	unsigned address;
+ 	efx_oword_t mask;
+ };
+-extern int efx_farch_test_registers(struct efx_nic *efx,
+-				    const struct efx_farch_register_test *regs,
+-				    size_t n_regs);
++int efx_farch_test_registers(struct efx_nic *efx,
++			     const struct efx_farch_register_test *regs,
++			     size_t n_regs);
+ 
+-extern size_t efx_nic_get_regs_len(struct efx_nic *efx);
+-extern void efx_nic_get_regs(struct efx_nic *efx, void *buf);
++size_t efx_nic_get_regs_len(struct efx_nic *efx);
++void efx_nic_get_regs(struct efx_nic *efx, void *buf);
+ 
+-extern size_t
+-efx_nic_describe_stats(const struct efx_hw_stat_desc *desc, size_t count,
+-		       const unsigned long *mask, u8 *names);
+-extern void
+-efx_nic_update_stats(const struct efx_hw_stat_desc *desc, size_t count,
+-		     const unsigned long *mask,
+-		     u64 *stats, const void *dma_buf, bool accumulate);
++size_t efx_nic_describe_stats(const struct efx_hw_stat_desc *desc, size_t count,
++			      const unsigned long *mask, u8 *names);
++void efx_nic_update_stats(const struct efx_hw_stat_desc *desc, size_t count,
++			  const unsigned long *mask, u64 *stats,
++			  const void *dma_buf, bool accumulate);
+ 
+ #define EFX_MAX_FLUSH_TIME 5000
+ 
+-extern void efx_farch_generate_event(struct efx_nic *efx, unsigned int evq,
+-				     efx_qword_t *event);
++void efx_farch_generate_event(struct efx_nic *efx, unsigned int evq,
++			      efx_qword_t *event);
+ 
+ #endif /* EFX_NIC_H */
+diff --git a/drivers/net/ethernet/sfc/phy.h b/drivers/net/ethernet/sfc/phy.h
+index 45eeb70..803bf44 100644
+--- a/drivers/net/ethernet/sfc/phy.h
++++ b/drivers/net/ethernet/sfc/phy.h
+@@ -15,7 +15,7 @@
+  */
+ extern const struct efx_phy_operations falcon_sfx7101_phy_ops;
+ 
+-extern void tenxpress_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
++void tenxpress_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
+ 
+ /****************************************************************************
+  * AMCC/Quake QT202x PHYs
+@@ -34,7 +34,7 @@ extern const struct efx_phy_operations falcon_qt202x_phy_ops;
+ #define QUAKE_LED_TXLINK	(0)
+ #define QUAKE_LED_RXLINK	(8)
+ 
+-extern void falcon_qt202x_set_led(struct efx_nic *p, int led, int state);
++void falcon_qt202x_set_led(struct efx_nic *p, int led, int state);
+ 
+ /****************************************************************************
+ * Transwitch CX4 retimer
+@@ -44,7 +44,7 @@ extern const struct efx_phy_operations falcon_txc_phy_ops;
+ #define TXC_GPIO_DIR_INPUT	0
+ #define TXC_GPIO_DIR_OUTPUT	1
+ 
+-extern void falcon_txc_set_gpio_dir(struct efx_nic *efx, int pin, int dir);
+-extern void falcon_txc_set_gpio_val(struct efx_nic *efx, int pin, int val);
++void falcon_txc_set_gpio_dir(struct efx_nic *efx, int pin, int dir);
++void falcon_txc_set_gpio_val(struct efx_nic *efx, int pin, int val);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/sfc/selftest.h b/drivers/net/ethernet/sfc/selftest.h
+index 87698ae..a2f4a06 100644
+--- a/drivers/net/ethernet/sfc/selftest.h
++++ b/drivers/net/ethernet/sfc/selftest.h
+@@ -43,13 +43,12 @@ struct efx_self_tests {
+ 	struct efx_loopback_self_tests loopback[LOOPBACK_TEST_MAX + 1];
  };
  
--extern void dwmac_mmc_ctrl(void __iomem *ioaddr, unsigned int mode);
--extern void dwmac_mmc_intr_all_mask(void __iomem *ioaddr);
--extern void dwmac_mmc_read(void __iomem *ioaddr, struct stmmac_counters *mmc);
-+void dwmac_mmc_ctrl(void __iomem *ioaddr, unsigned int mode);
-+void dwmac_mmc_intr_all_mask(void __iomem *ioaddr);
-+void dwmac_mmc_read(void __iomem *ioaddr, struct stmmac_counters *mmc);
+-extern void efx_loopback_rx_packet(struct efx_nic *efx,
+-				   const char *buf_ptr, int pkt_len);
+-extern int efx_selftest(struct efx_nic *efx,
+-			struct efx_self_tests *tests,
+-			unsigned flags);
+-extern void efx_selftest_async_start(struct efx_nic *efx);
+-extern void efx_selftest_async_cancel(struct efx_nic *efx);
+-extern void efx_selftest_async_work(struct work_struct *data);
++void efx_loopback_rx_packet(struct efx_nic *efx, const char *buf_ptr,
++			    int pkt_len);
++int efx_selftest(struct efx_nic *efx, struct efx_self_tests *tests,
++		 unsigned flags);
++void efx_selftest_async_start(struct efx_nic *efx);
++void efx_selftest_async_cancel(struct efx_nic *efx);
++void efx_selftest_async_work(struct work_struct *data);
  
- #endif /* __MMC_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index f16a9bd..22f89ff 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -110,14 +110,14 @@ struct stmmac_priv {
- 
- extern int phyaddr;
- 
--extern int stmmac_mdio_unregister(struct net_device *ndev);
--extern int stmmac_mdio_register(struct net_device *ndev);
--extern void stmmac_set_ethtool_ops(struct net_device *netdev);
-+int stmmac_mdio_unregister(struct net_device *ndev);
-+int stmmac_mdio_register(struct net_device *ndev);
-+void stmmac_set_ethtool_ops(struct net_device *netdev);
- extern const struct stmmac_desc_ops enh_desc_ops;
- extern const struct stmmac_desc_ops ndesc_ops;
- extern const struct stmmac_hwtimestamp stmmac_ptp;
--extern int stmmac_ptp_register(struct stmmac_priv *priv);
--extern void stmmac_ptp_unregister(struct stmmac_priv *priv);
-+int stmmac_ptp_register(struct stmmac_priv *priv);
-+void stmmac_ptp_unregister(struct stmmac_priv *priv);
- int stmmac_freeze(struct net_device *ndev);
- int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
+ #endif /* EFX_SELFTEST_H */
 -- 
 1.8.1.2.459.gbcd45b4.dirty
