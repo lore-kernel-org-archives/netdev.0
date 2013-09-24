@@ -1,34 +1,29 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 11/27] bonding: rework bond_3ad_xmit_xor() to use bond_for_each_slave() only
-Date: Tue, 24 Sep 2013 13:46:51 +0200
-Message-ID: <1380023227-9576-12-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 12/27] bonding: rework rlb_next_rx_slave() to use bond_for_each_slave()
+Date: Tue, 24 Sep 2013 13:46:52 +0200
+Message-ID: <1380023227-9576-13-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61230 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13664 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753154Ab3IXLrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:15 -0400
+	id S1753154Ab3IXLrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:18 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, there are two loops - first we find the first slave in an
-aggregator after the xmit_hash_policy() returned number, and after that we
-loop from that slave, over bonding head, and till that slave to find any
-suitable slave to send the packet through.
+Currently, we're using bond_for_each_slave_from(), which is really hard to
+implement under RCU and/or neighbour list.
 
-Replace it by just one bond_for_each_slave() loop, which first loops
-through the requested number of slaves, saving the first suitable one, and
-after that we've hit the requested number of slaves to skip - search for
-any up slave to send the packet through. If we don't find such kind of
-slave - then just send the packet through the first suitable slave found.
+Remove it and use bond_for_each_slave() instead, taking care of the last
+used slave.
 
-Logic remains unchainged, and we skip two loops. Also, refactor it a bit
-for readability.
+Also, rename next_rx_slave to rx_slave and store the current (last)
+rx_slave.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -48,92 +43,88 @@ Notes:
     RFC -> v1:
     New patch.
 
- drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 24 deletions(-)
+ drivers/net/bonding/bond_alb.c | 41 +++++++++++++++++++++--------------------
+ drivers/net/bonding/bond_alb.h |  4 +---
+ 2 files changed, 22 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 3847aee..c861ee7 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index f4929ce..c5b85ad 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -383,30 +383,31 @@ out:
+ static struct slave *rlb_next_rx_slave(struct bonding *bond)
  {
--	struct slave *slave, *start_at;
- 	struct bonding *bond = netdev_priv(dev);
-+	struct slave *slave, *first_ok_slave;
-+	struct aggregator *agg;
-+	struct ad_info ad_info;
- 	struct list_head *iter;
--	int slave_agg_no;
- 	int slaves_in_agg;
--	int agg_id;
--	int i;
--	struct ad_info ad_info;
-+	int slave_agg_no;
- 	int res = 1;
-+	int agg_id;
- 
- 	read_lock(&bond->lock);
- 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
-@@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 	agg_id = ad_info.aggregator_id;
- 
- 	if (slaves_in_agg == 0) {
--		/*the aggregator is empty*/
- 		pr_debug("%s: Error: active aggregator is empty\n", dev->name);
- 		goto out;
- 	}
- 
- 	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
-+	first_ok_slave = NULL;
- 
- 	bond_for_each_slave(bond, slave, iter) {
--		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
-+		agg = SLAVE_AD_INFO(slave).port.aggregator;
-+		if (!agg || agg->aggregator_identifier != agg_id)
-+			continue;
- 
--		if (agg && (agg->aggregator_identifier == agg_id)) {
-+		if (slave_agg_no >= 0) {
-+			if (!first_ok_slave && SLAVE_IS_OK(slave))
-+				first_ok_slave = slave;
- 			slave_agg_no--;
--			if (slave_agg_no < 0)
--				break;
-+			continue;
-+		}
-+
-+		if (SLAVE_IS_OK(slave)) {
-+			res = bond_dev_queue_xmit(bond, skb, slave->dev);
-+			goto out;
- 		}
- 	}
- 
-@@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 	}
- 
--	start_at = slave;
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+-	struct slave *rx_slave, *slave, *start_at;
+-	int i = 0;
 -
+-	if (bond_info->next_rx_slave)
+-		start_at = bond_info->next_rx_slave;
+-	else
+-		start_at = bond_first_slave(bond);
+-
+-	rx_slave = NULL;
++	struct slave *before = NULL, *rx_slave = NULL, *slave;
++	struct list_head *iter;
++	bool found = false;
+ 
 -	bond_for_each_slave_from(bond, slave, i, start_at) {
--		int slave_agg_id = 0;
--		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
--
--		if (agg)
--			slave_agg_id = agg->aggregator_identifier;
--
--		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
--			res = bond_dev_queue_xmit(bond, skb, slave->dev);
--			break;
--		}
--	}
-+	/* we couldn't find any suitable slave after the agg_no, so use the
-+	 * first suitable found, if found. */
-+	if (first_ok_slave)
-+		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+-		if (SLAVE_IS_OK(slave)) {
+-			if (!rx_slave) {
+-				rx_slave = slave;
+-			} else if (slave->speed > rx_slave->speed) {
++	bond_for_each_slave(bond, slave, iter) {
++		if (!SLAVE_IS_OK(slave))
++			continue;
++		if (!found) {
++			if (!before || before->speed < slave->speed)
++				before = slave;
++		} else {
++			if (!rx_slave || rx_slave->speed < slave->speed)
+ 				rx_slave = slave;
+-			}
+ 		}
++		if (slave == bond_info->rx_slave)
++			found = true;
+ 	}
++	/* we didn't find anything after the current or we have something
++	 * better before and up to the current slave
++	 */
++	if (!rx_slave || (before && rx_slave->speed < before->speed))
++		rx_slave = before;
  
- out:
- 	read_unlock(&bond->lock);
+-	if (rx_slave) {
+-		slave = bond_next_slave(bond, rx_slave);
+-		bond_info->next_rx_slave = slave;
+-	}
++	if (rx_slave)
++		bond_info->rx_slave = rx_slave;
+ 
+ 	return rx_slave;
+ }
+@@ -1611,7 +1612,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
+ 	tlb_clear_slave(bond, slave, 0);
+ 
+ 	if (bond->alb_info.rlb_enabled) {
+-		bond->alb_info.next_rx_slave = NULL;
++		bond->alb_info.rx_slave = NULL;
+ 		rlb_clear_slave(bond, slave);
+ 	}
+ }
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index c5eff5d..4226044 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -154,9 +154,7 @@ struct alb_bond_info {
+ 	u8			rx_ntt;	/* flag - need to transmit
+ 					 * to all rx clients
+ 					 */
+-	struct slave		*next_rx_slave;/* next slave to be assigned
+-						* to a new rx client for
+-						*/
++	struct slave		*rx_slave;/* last slave to xmit from */
+ 	u8			primary_is_promisc;	   /* boolean */
+ 	u32			rlb_promisc_timeout_counter;/* counts primary
+ 							     * promiscuity time
 -- 
 1.8.4
