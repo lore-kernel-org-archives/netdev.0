@@ -1,54 +1,48 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net v2] vxlan: Use RCU apis to access sk_user_data.
-Date: Tue, 24 Sep 2013 09:25:33 -0700
-Message-ID: <CALnjE+qyb7yeXMogv0JE8HTuUm26S1ZJqeav-Oqhfff9ZqUgpA@mail.gmail.com>
-References: <1380038979-24035-1-git-send-email-pshelar@nicira.com>
-	<1380039366.3165.92.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: [RFC PATCH 0/2] l2tp: add vlan pseudowire support
+Date: Tue, 24 Sep 2013 17:27:08 +0100
+Message-ID: <1380040030-6648-1-git-send-email-jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:33250 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753965Ab3IXQZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:25:35 -0400
-Received: by mail-qe0-f46.google.com with SMTP id x7so3278363qeu.19
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:25:34 -0700 (PDT)
-In-Reply-To: <1380039366.3165.92.camel@edumazet-glaptop>
+Received: from katalix.com ([82.103.140.233]:42169 "EHLO bert.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752856Ab3IXQ1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 12:27:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 24, 2013 at 9:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-09-24 at 09:09 -0700, Pravin B Shelar wrote:
->> Use of RCU api makes vxlan code easier to understand.  It also
->> fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
->> In rare case without ACCESS_ONCE() compiler might omit vs on
->> sk_user_data dereference. Compiler can use vs as alias for
->> sk->sk_user_data, resulting in multiple sk_user_data dereference
->> in rcu read context which could change.
->>
->> CC: Jesse Gross <jesse@nicira.com>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> ---
->> v2:
->> Use RCU_INIT_POINTER
->> ---
->>  drivers/net/vxlan.c |   11 ++++-------
->>  include/net/sock.h  |    2 ++
->>  2 files changed, 6 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index d1292fe..1fae0d6 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -1,4 +1,4 @@
->> -/*
->> + /*
->>   * VXLAN: Virtual eXtensible Local Area Network
->>   *
->
->
-> extra space ?
->
-right, I missed that.
+This RFC patch series adds L2TP vlan pseudowire support by creating a
+vlan netdev in addition to the l2tpeth netdev when the user creates
+vlan pseudowires. To do so, new symbols are exported in 8021q to allow
+l2tp to create and destroy vlan netdevs. The existing L2TP netlink API
+already contains attributes for vlan pseudowires but they have been
+unused to date.
+
+L2TP vlan pseudowires are similar to the existing L2TP ethernet
+pseudowires except that vlan pseudowires always carry only one vlan
+and never carry untagged frames, while ethernet pseudowires can carry
+any ethernet frame (tagged or untagged). It is possible to create vlan
+interfaces on top of l2tpeth interfaces (ethernet pseudowires) today
+using standard tools. But for VLAN pseudowires, there must be one and
+only one vlan.
+
+The changes in this patch series create a pair of netdevs per vlan
+pseudowire: a vlan netdev and an l2tpeth netdev; the l2tpeth netdev is
+used as the master for the vlan netdev. The master netdev must not be
+configured since untagged frames are not allowed in vlan pseudowires.
+
+Some L2TP setups have thousands of L2TP pseudowires so creating two
+netdevs per vlan pseudowire isn't ideal when one might suffice. Should I
+investigate changing 8021q to allow for the case where there is no
+master netdev?
+
+
+James Chapman (2):
+  vlan: export functions to register/unregister vlan devices
+  l2tp: add vlan pseudowire support
+
+ include/linux/if_vlan.h |   11 ++++++
+ net/8021q/vlan.c        |   82 ++++++++++++++++++++++++++++------------------
+ net/l2tp/l2tp_eth.c     |   73 ++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 132 insertions(+), 34 deletions(-)
