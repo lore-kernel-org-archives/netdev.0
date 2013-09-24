@@ -1,20 +1,16 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 02/10] intel: Remove extern from function prototypes
-Date: Tue, 24 Sep 2013 14:09:56 -0700
-Message-ID: <5ccc921af41a862fe969809228f029035f851502.1380056108.git.joe@perches.com>
+Subject: [PATCH 04/10] qlogic: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 14:09:58 -0700
+Message-ID: <8a1a0ae11cbf80cacee40abc9af8a8ef16aaaf36.1380056108.git.joe@perches.com>
 References: <cover.1380056108.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1380056108.git.joe@perches.com>
@@ -31,702 +27,154 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000.h     |  32 ++---
- drivers/net/ethernet/intel/e1000e/e1000.h    |  45 ++++---
- drivers/net/ethernet/intel/igb/e1000_82575.h |  16 +--
- drivers/net/ethernet/intel/igb/e1000_hw.h    |   6 +-
- drivers/net/ethernet/intel/igb/e1000_i210.h  |  38 +++---
- drivers/net/ethernet/intel/igb/e1000_mac.h   |   2 +-
- drivers/net/ethernet/intel/igb/igb.h         |  73 ++++++------
- drivers/net/ethernet/intel/igbvf/igbvf.h     |  22 ++--
- drivers/net/ethernet/intel/ixgb/ixgb.h       |  22 ++--
- drivers/net/ethernet/intel/ixgb/ixgb_hw.h    |  25 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe.h     | 172 +++++++++++++--------------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  34 +++---
- 12 files changed, 233 insertions(+), 254 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h |  5 +--
+ drivers/net/ethernet/qlogic/qlge/qlge.h         | 58 ++++++++++++-------------
+ 2 files changed, 30 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 26d9cd5..58c1472 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -325,7 +325,7 @@ enum e1000_state_t {
- #undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 32675e1..e8eff3e 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -1883,9 +1883,8 @@ static inline u32 netxen_tx_avail(struct nx_host_tx_ring *tx_ring)
  
--extern struct net_device *e1000_get_hw_dev(struct e1000_hw *hw);
-+struct net_device *e1000_get_hw_dev(struct e1000_hw *hw);
- #define e_dbg(format, arg...) \
- 	netdev_dbg(e1000_get_hw_dev(hw), format, ## arg)
- #define e_err(msglvl, format, arg...) \
-@@ -346,20 +346,20 @@ extern struct net_device *e1000_get_hw_dev(struct e1000_hw *hw);
- extern char e1000_driver_name[];
- extern const char e1000_driver_version[];
+ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac);
+ int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac);
+-extern void netxen_change_ringparam(struct netxen_adapter *adapter);
+-extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
+-				int *valp);
++void netxen_change_ringparam(struct netxen_adapter *adapter);
++int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp);
  
--extern int e1000_up(struct e1000_adapter *adapter);
--extern void e1000_down(struct e1000_adapter *adapter);
--extern void e1000_reinit_locked(struct e1000_adapter *adapter);
--extern void e1000_reset(struct e1000_adapter *adapter);
--extern int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx);
--extern int e1000_setup_all_rx_resources(struct e1000_adapter *adapter);
--extern int e1000_setup_all_tx_resources(struct e1000_adapter *adapter);
--extern void e1000_free_all_rx_resources(struct e1000_adapter *adapter);
--extern void e1000_free_all_tx_resources(struct e1000_adapter *adapter);
--extern void e1000_update_stats(struct e1000_adapter *adapter);
--extern bool e1000_has_link(struct e1000_adapter *adapter);
--extern void e1000_power_up_phy(struct e1000_adapter *);
--extern void e1000_set_ethtool_ops(struct net_device *netdev);
--extern void e1000_check_options(struct e1000_adapter *adapter);
--extern char *e1000_get_hw_dev_name(struct e1000_hw *hw);
-+int e1000_up(struct e1000_adapter *adapter);
-+void e1000_down(struct e1000_adapter *adapter);
-+void e1000_reinit_locked(struct e1000_adapter *adapter);
-+void e1000_reset(struct e1000_adapter *adapter);
-+int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx);
-+int e1000_setup_all_rx_resources(struct e1000_adapter *adapter);
-+int e1000_setup_all_tx_resources(struct e1000_adapter *adapter);
-+void e1000_free_all_rx_resources(struct e1000_adapter *adapter);
-+void e1000_free_all_tx_resources(struct e1000_adapter *adapter);
-+void e1000_update_stats(struct e1000_adapter *adapter);
-+bool e1000_has_link(struct e1000_adapter *adapter);
-+void e1000_power_up_phy(struct e1000_adapter *);
-+void e1000_set_ethtool_ops(struct net_device *netdev);
-+void e1000_check_options(struct e1000_adapter *adapter);
-+char *e1000_get_hw_dev_name(struct e1000_hw *hw);
+ extern const struct ethtool_ops netxen_nic_ethtool_ops;
  
- #endif /* _E1000_H_ */
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index ad0edd1..0150f7f 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -472,26 +472,25 @@ enum latency_range {
- extern char e1000e_driver_name[];
- extern const char e1000e_driver_version[];
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
+index 8994337..cc62272 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge.h
++++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
+@@ -2206,14 +2206,14 @@ extern char qlge_driver_name[];
+ extern const char qlge_driver_version[];
+ extern const struct ethtool_ops qlge_ethtool_ops;
  
--extern void e1000e_check_options(struct e1000_adapter *adapter);
--extern void e1000e_set_ethtool_ops(struct net_device *netdev);
--
--extern int e1000e_up(struct e1000_adapter *adapter);
--extern void e1000e_down(struct e1000_adapter *adapter);
--extern void e1000e_reinit_locked(struct e1000_adapter *adapter);
--extern void e1000e_reset(struct e1000_adapter *adapter);
--extern void e1000e_power_up_phy(struct e1000_adapter *adapter);
--extern int e1000e_setup_rx_resources(struct e1000_ring *ring);
--extern int e1000e_setup_tx_resources(struct e1000_ring *ring);
--extern void e1000e_free_rx_resources(struct e1000_ring *ring);
--extern void e1000e_free_tx_resources(struct e1000_ring *ring);
--extern struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
--						    struct rtnl_link_stats64
--						    *stats);
--extern void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
--extern void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
--extern void e1000e_get_hw_control(struct e1000_adapter *adapter);
--extern void e1000e_release_hw_control(struct e1000_adapter *adapter);
--extern void e1000e_write_itr(struct e1000_adapter *adapter, u32 itr);
-+void e1000e_check_options(struct e1000_adapter *adapter);
-+void e1000e_set_ethtool_ops(struct net_device *netdev);
-+
-+int e1000e_up(struct e1000_adapter *adapter);
-+void e1000e_down(struct e1000_adapter *adapter);
-+void e1000e_reinit_locked(struct e1000_adapter *adapter);
-+void e1000e_reset(struct e1000_adapter *adapter);
-+void e1000e_power_up_phy(struct e1000_adapter *adapter);
-+int e1000e_setup_rx_resources(struct e1000_ring *ring);
-+int e1000e_setup_tx_resources(struct e1000_ring *ring);
-+void e1000e_free_rx_resources(struct e1000_ring *ring);
-+void e1000e_free_tx_resources(struct e1000_ring *ring);
-+struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
-+					     struct rtnl_link_stats64 *stats);
-+void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
-+void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
-+void e1000e_get_hw_control(struct e1000_adapter *adapter);
-+void e1000e_release_hw_control(struct e1000_adapter *adapter);
-+void e1000e_write_itr(struct e1000_adapter *adapter, u32 itr);
+-extern int ql_sem_spinlock(struct ql_adapter *qdev, u32 sem_mask);
+-extern void ql_sem_unlock(struct ql_adapter *qdev, u32 sem_mask);
+-extern int ql_read_xgmac_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
+-extern int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
+-			       u32 *value);
+-extern int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value);
+-extern int ql_write_cfg(struct ql_adapter *qdev, void *ptr, int size, u32 bit,
+-			u16 q_id);
++int ql_sem_spinlock(struct ql_adapter *qdev, u32 sem_mask);
++void ql_sem_unlock(struct ql_adapter *qdev, u32 sem_mask);
++int ql_read_xgmac_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
++int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
++			u32 *value);
++int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value);
++int ql_write_cfg(struct ql_adapter *qdev, void *ptr, int size, u32 bit,
++		 u16 q_id);
+ void ql_queue_fw_error(struct ql_adapter *qdev);
+ void ql_mpi_work(struct work_struct *work);
+ void ql_mpi_reset_work(struct work_struct *work);
+@@ -2233,10 +2233,9 @@ int ql_unpause_mpi_risc(struct ql_adapter *qdev);
+ int ql_pause_mpi_risc(struct ql_adapter *qdev);
+ int ql_hard_reset_mpi_risc(struct ql_adapter *qdev);
+ int ql_soft_reset_mpi_risc(struct ql_adapter *qdev);
+-int ql_dump_risc_ram_area(struct ql_adapter *qdev, void *buf,
+-		u32 ram_addr, int word_count);
+-int ql_core_dump(struct ql_adapter *qdev,
+-		struct ql_mpi_coredump *mpi_coredump);
++int ql_dump_risc_ram_area(struct ql_adapter *qdev, void *buf, u32 ram_addr,
++			  int word_count);
++int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump);
+ int ql_mb_about_fw(struct ql_adapter *qdev);
+ int ql_mb_wol_set_magic(struct ql_adapter *qdev, u32 enable_wol);
+ int ql_mb_wol_mode(struct ql_adapter *qdev, u32 wol);
+@@ -2249,8 +2248,7 @@ int ql_mb_get_port_cfg(struct ql_adapter *qdev);
+ int ql_mb_set_port_cfg(struct ql_adapter *qdev);
+ int ql_wait_fifo_empty(struct ql_adapter *qdev);
+ void ql_get_dump(struct ql_adapter *qdev, void *buff);
+-void ql_gen_reg_dump(struct ql_adapter *qdev,
+-			struct ql_reg_dump *mpi_coredump);
++void ql_gen_reg_dump(struct ql_adapter *qdev, struct ql_reg_dump *mpi_coredump);
+ netdev_tx_t ql_lb_send(struct sk_buff *skb, struct net_device *ndev);
+ void ql_check_lb_frame(struct ql_adapter *, struct sk_buff *);
+ int ql_own_firmware(struct ql_adapter *qdev);
+@@ -2264,9 +2262,9 @@ int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget);
+ /* #define QL_OB_DUMP */
  
- extern unsigned int copybreak;
- 
-@@ -508,8 +507,8 @@ extern const struct e1000_info e1000_pch2_info;
- extern const struct e1000_info e1000_pch_lpt_info;
- extern const struct e1000_info e1000_es2_info;
- 
--extern void e1000e_ptp_init(struct e1000_adapter *adapter);
--extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
-+void e1000e_ptp_init(struct e1000_adapter *adapter);
-+void e1000e_ptp_remove(struct e1000_adapter *adapter);
- 
- static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- {
-@@ -536,7 +535,7 @@ static inline s32 e1e_wphy_locked(struct e1000_hw *hw, u32 offset, u16 data)
- 	return hw->phy.ops.write_reg_locked(hw, offset, data);
- }
- 
--extern void e1000e_reload_nvm_generic(struct e1000_hw *hw);
-+void e1000e_reload_nvm_generic(struct e1000_hw *hw);
- 
- static inline s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 74a1506..8c24377 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -28,14 +28,14 @@
- #ifndef _E1000_82575_H_
- #define _E1000_82575_H_
- 
--extern void igb_shutdown_serdes_link_82575(struct e1000_hw *hw);
--extern void igb_power_up_serdes_link_82575(struct e1000_hw *hw);
--extern void igb_power_down_phy_copper_82575(struct e1000_hw *hw);
--extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
--extern s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
--				u8 dev_addr, u8 *data);
--extern s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
--				 u8 dev_addr, u8 data);
-+void igb_shutdown_serdes_link_82575(struct e1000_hw *hw);
-+void igb_power_up_serdes_link_82575(struct e1000_hw *hw);
-+void igb_power_down_phy_copper_82575(struct e1000_hw *hw);
-+void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
-+s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset, u8 dev_addr,
-+		      u8 *data);
-+s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset, u8 dev_addr,
-+		       u8 data);
- 
- #define ID_LED_DEFAULT_82575_SERDES ((ID_LED_DEF1_DEF2 << 12) | \
-                                      (ID_LED_DEF1_DEF2 <<  8) | \
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 37a9c06..2e166b2 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -562,11 +562,11 @@ struct e1000_hw {
- 	u8  revision_id;
- };
- 
--extern struct net_device *igb_get_hw_dev(struct e1000_hw *hw);
-+struct net_device *igb_get_hw_dev(struct e1000_hw *hw);
- #define hw_dbg(format, arg...) \
- 	netdev_dbg(igb_get_hw_dev(hw), format, ##arg)
- 
- /* These functions must be implemented by drivers */
--s32  igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
--s32  igb_write_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
-+s32 igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
-+s32 igb_write_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
- #endif /* _E1000_HW_H_ */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
-index dde3c4b..2d91371 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
-@@ -28,26 +28,24 @@
- #ifndef _E1000_I210_H_
- #define _E1000_I210_H_
- 
--extern s32 igb_update_flash_i210(struct e1000_hw *hw);
--extern s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw);
--extern s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw);
--extern s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset,
--			      u16 words, u16 *data);
--extern s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset,
--			     u16 words, u16 *data);
--extern s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
--extern void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
--extern s32 igb_acquire_nvm_i210(struct e1000_hw *hw);
--extern void igb_release_nvm_i210(struct e1000_hw *hw);
--extern s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data);
--extern s32 igb_read_invm_version(struct e1000_hw *hw,
--				 struct e1000_fw_version *invm_ver);
--extern s32 igb_read_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr,
--			      u16 *data);
--extern s32 igb_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr,
--			       u16 data);
--extern s32 igb_init_nvm_params_i210(struct e1000_hw *hw);
--extern bool igb_get_flash_presence_i210(struct e1000_hw *hw);
-+s32 igb_update_flash_i210(struct e1000_hw *hw);
-+s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw);
-+s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw);
-+s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
-+			    u16 *data);
-+s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
-+			   u16 *data);
-+s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
-+void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
-+s32 igb_acquire_nvm_i210(struct e1000_hw *hw);
-+void igb_release_nvm_i210(struct e1000_hw *hw);
-+s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data);
-+s32 igb_read_invm_version(struct e1000_hw *hw,
-+			  struct e1000_fw_version *invm_ver);
-+s32 igb_read_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 *data);
-+s32 igb_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 data);
-+s32 igb_init_nvm_params_i210(struct e1000_hw *hw);
-+bool igb_get_flash_presence_i210(struct e1000_hw *hw);
- 
- #define E1000_STM_OPCODE		0xDB00
- #define E1000_EEPROM_FLASH_SIZE_WORD	0x11
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.h b/drivers/net/ethernet/intel/igb/e1000_mac.h
-index 5e13e83..e4cbe8e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.h
-@@ -86,6 +86,6 @@ enum e1000_mng_mode {
- 
- #define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
- 
--extern void e1000_init_function_pointers_82575(struct e1000_hw *hw);
-+void e1000_init_function_pointers_82575(struct e1000_hw *hw);
- 
+ #ifdef QL_REG_DUMP
+-extern void ql_dump_xgmac_control_regs(struct ql_adapter *qdev);
+-extern void ql_dump_routing_entries(struct ql_adapter *qdev);
+-extern void ql_dump_regs(struct ql_adapter *qdev);
++void ql_dump_xgmac_control_regs(struct ql_adapter *qdev);
++void ql_dump_routing_entries(struct ql_adapter *qdev);
++void ql_dump_regs(struct ql_adapter *qdev);
+ #define QL_DUMP_REGS(qdev) ql_dump_regs(qdev)
+ #define QL_DUMP_ROUTE(qdev) ql_dump_routing_entries(qdev)
+ #define QL_DUMP_XGMAC_CONTROL_REGS(qdev) ql_dump_xgmac_control_regs(qdev)
+@@ -2277,26 +2275,26 @@ extern void ql_dump_regs(struct ql_adapter *qdev);
  #endif
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 6807b09..cdaa2bc 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -483,40 +483,37 @@ enum igb_boards {
- extern char igb_driver_name[];
- extern char igb_driver_version[];
  
--extern int igb_up(struct igb_adapter *);
--extern void igb_down(struct igb_adapter *);
--extern void igb_reinit_locked(struct igb_adapter *);
--extern void igb_reset(struct igb_adapter *);
--extern void igb_write_rss_indir_tbl(struct igb_adapter *);
--extern int igb_set_spd_dplx(struct igb_adapter *, u32, u8);
--extern int igb_setup_tx_resources(struct igb_ring *);
--extern int igb_setup_rx_resources(struct igb_ring *);
--extern void igb_free_tx_resources(struct igb_ring *);
--extern void igb_free_rx_resources(struct igb_ring *);
--extern void igb_configure_tx_ring(struct igb_adapter *, struct igb_ring *);
--extern void igb_configure_rx_ring(struct igb_adapter *, struct igb_ring *);
--extern void igb_setup_tctl(struct igb_adapter *);
--extern void igb_setup_rctl(struct igb_adapter *);
--extern netdev_tx_t igb_xmit_frame_ring(struct sk_buff *, struct igb_ring *);
--extern void igb_unmap_and_free_tx_resource(struct igb_ring *,
--					   struct igb_tx_buffer *);
--extern void igb_alloc_rx_buffers(struct igb_ring *, u16);
--extern void igb_update_stats(struct igb_adapter *, struct rtnl_link_stats64 *);
--extern bool igb_has_link(struct igb_adapter *adapter);
--extern void igb_set_ethtool_ops(struct net_device *);
--extern void igb_power_up_link(struct igb_adapter *);
--extern void igb_set_fw_version(struct igb_adapter *);
--extern void igb_ptp_init(struct igb_adapter *adapter);
--extern void igb_ptp_stop(struct igb_adapter *adapter);
--extern void igb_ptp_reset(struct igb_adapter *adapter);
--extern void igb_ptp_tx_work(struct work_struct *work);
--extern void igb_ptp_rx_hang(struct igb_adapter *adapter);
--extern void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
--extern void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
--				struct sk_buff *skb);
--extern void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
--				unsigned char *va,
--				struct sk_buff *skb);
-+int igb_up(struct igb_adapter *);
-+void igb_down(struct igb_adapter *);
-+void igb_reinit_locked(struct igb_adapter *);
-+void igb_reset(struct igb_adapter *);
-+void igb_write_rss_indir_tbl(struct igb_adapter *);
-+int igb_set_spd_dplx(struct igb_adapter *, u32, u8);
-+int igb_setup_tx_resources(struct igb_ring *);
-+int igb_setup_rx_resources(struct igb_ring *);
-+void igb_free_tx_resources(struct igb_ring *);
-+void igb_free_rx_resources(struct igb_ring *);
-+void igb_configure_tx_ring(struct igb_adapter *, struct igb_ring *);
-+void igb_configure_rx_ring(struct igb_adapter *, struct igb_ring *);
-+void igb_setup_tctl(struct igb_adapter *);
-+void igb_setup_rctl(struct igb_adapter *);
-+netdev_tx_t igb_xmit_frame_ring(struct sk_buff *, struct igb_ring *);
-+void igb_unmap_and_free_tx_resource(struct igb_ring *, struct igb_tx_buffer *);
-+void igb_alloc_rx_buffers(struct igb_ring *, u16);
-+void igb_update_stats(struct igb_adapter *, struct rtnl_link_stats64 *);
-+bool igb_has_link(struct igb_adapter *adapter);
-+void igb_set_ethtool_ops(struct net_device *);
-+void igb_power_up_link(struct igb_adapter *);
-+void igb_set_fw_version(struct igb_adapter *);
-+void igb_ptp_init(struct igb_adapter *adapter);
-+void igb_ptp_stop(struct igb_adapter *adapter);
-+void igb_ptp_reset(struct igb_adapter *adapter);
-+void igb_ptp_tx_work(struct work_struct *work);
-+void igb_ptp_rx_hang(struct igb_adapter *adapter);
-+void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
-+void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector, struct sk_buff *skb);
-+void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
-+			 struct sk_buff *skb);
- static inline void igb_ptp_rx_hwtstamp(struct igb_ring *rx_ring,
- 				       union e1000_adv_rx_desc *rx_desc,
- 				       struct sk_buff *skb)
-@@ -531,11 +528,11 @@ static inline void igb_ptp_rx_hwtstamp(struct igb_ring *rx_ring,
- 	rx_ring->last_rx_timestamp = jiffies;
- }
- 
--extern int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
--				  struct ifreq *ifr, int cmd);
-+int igb_ptp_hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr,
-+			   int cmd);
- #ifdef CONFIG_IGB_HWMON
--extern void igb_sysfs_exit(struct igb_adapter *adapter);
--extern int igb_sysfs_init(struct igb_adapter *adapter);
-+void igb_sysfs_exit(struct igb_adapter *adapter);
-+int igb_sysfs_init(struct igb_adapter *adapter);
- #endif
- static inline s32 igb_reset_phy(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/ethernet/intel/igbvf/igbvf.h b/drivers/net/ethernet/intel/igbvf/igbvf.h
-index a1463e3..7d6a25c 100644
---- a/drivers/net/ethernet/intel/igbvf/igbvf.h
-+++ b/drivers/net/ethernet/intel/igbvf/igbvf.h
-@@ -312,17 +312,17 @@ enum igbvf_state_t {
- extern char igbvf_driver_name[];
- extern const char igbvf_driver_version[];
- 
--extern void igbvf_check_options(struct igbvf_adapter *);
--extern void igbvf_set_ethtool_ops(struct net_device *);
--
--extern int igbvf_up(struct igbvf_adapter *);
--extern void igbvf_down(struct igbvf_adapter *);
--extern void igbvf_reinit_locked(struct igbvf_adapter *);
--extern int igbvf_setup_rx_resources(struct igbvf_adapter *, struct igbvf_ring *);
--extern int igbvf_setup_tx_resources(struct igbvf_adapter *, struct igbvf_ring *);
--extern void igbvf_free_rx_resources(struct igbvf_ring *);
--extern void igbvf_free_tx_resources(struct igbvf_ring *);
--extern void igbvf_update_stats(struct igbvf_adapter *);
-+void igbvf_check_options(struct igbvf_adapter *);
-+void igbvf_set_ethtool_ops(struct net_device *);
-+
-+int igbvf_up(struct igbvf_adapter *);
-+void igbvf_down(struct igbvf_adapter *);
-+void igbvf_reinit_locked(struct igbvf_adapter *);
-+int igbvf_setup_rx_resources(struct igbvf_adapter *, struct igbvf_ring *);
-+int igbvf_setup_tx_resources(struct igbvf_adapter *, struct igbvf_ring *);
-+void igbvf_free_rx_resources(struct igbvf_ring *);
-+void igbvf_free_tx_resources(struct igbvf_ring *);
-+void igbvf_update_stats(struct igbvf_adapter *);
- 
- extern unsigned int copybreak;
- 
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb.h b/drivers/net/ethernet/intel/ixgb/ixgb.h
-index 4d2ae97..2224cc2 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb.h
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb.h
-@@ -187,21 +187,21 @@ enum ixgb_state_t {
- };
- 
- /* Exported from other modules */
--extern void ixgb_check_options(struct ixgb_adapter *adapter);
--extern void ixgb_set_ethtool_ops(struct net_device *netdev);
-+void ixgb_check_options(struct ixgb_adapter *adapter);
-+void ixgb_set_ethtool_ops(struct net_device *netdev);
- extern char ixgb_driver_name[];
- extern const char ixgb_driver_version[];
- 
--extern void ixgb_set_speed_duplex(struct net_device *netdev);
-+void ixgb_set_speed_duplex(struct net_device *netdev);
- 
--extern int ixgb_up(struct ixgb_adapter *adapter);
--extern void ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog);
--extern void ixgb_reset(struct ixgb_adapter *adapter);
--extern int ixgb_setup_rx_resources(struct ixgb_adapter *adapter);
--extern int ixgb_setup_tx_resources(struct ixgb_adapter *adapter);
--extern void ixgb_free_rx_resources(struct ixgb_adapter *adapter);
--extern void ixgb_free_tx_resources(struct ixgb_adapter *adapter);
--extern void ixgb_update_stats(struct ixgb_adapter *adapter);
-+int ixgb_up(struct ixgb_adapter *adapter);
-+void ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog);
-+void ixgb_reset(struct ixgb_adapter *adapter);
-+int ixgb_setup_rx_resources(struct ixgb_adapter *adapter);
-+int ixgb_setup_tx_resources(struct ixgb_adapter *adapter);
-+void ixgb_free_rx_resources(struct ixgb_adapter *adapter);
-+void ixgb_free_tx_resources(struct ixgb_adapter *adapter);
-+void ixgb_update_stats(struct ixgb_adapter *adapter);
- 
- 
- #endif /* _IXGB_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_hw.h b/drivers/net/ethernet/intel/ixgb/ixgb_hw.h
-index 2a99a35..0bd5d72 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_hw.h
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_hw.h
-@@ -759,27 +759,20 @@ struct ixgb_hw_stats {
- };
- 
- /* Function Prototypes */
--extern bool ixgb_adapter_stop(struct ixgb_hw *hw);
--extern bool ixgb_init_hw(struct ixgb_hw *hw);
--extern bool ixgb_adapter_start(struct ixgb_hw *hw);
--extern void ixgb_check_for_link(struct ixgb_hw *hw);
--extern bool ixgb_check_for_bad_link(struct ixgb_hw *hw);
--
--extern void ixgb_rar_set(struct ixgb_hw *hw,
--				u8 *addr,
--				u32 index);
-+bool ixgb_adapter_stop(struct ixgb_hw *hw);
-+bool ixgb_init_hw(struct ixgb_hw *hw);
-+bool ixgb_adapter_start(struct ixgb_hw *hw);
-+void ixgb_check_for_link(struct ixgb_hw *hw);
-+bool ixgb_check_for_bad_link(struct ixgb_hw *hw);
- 
-+void ixgb_rar_set(struct ixgb_hw *hw, u8 *addr, u32 index);
- 
- /* Filters (multicast, vlan, receive) */
--extern void ixgb_mc_addr_list_update(struct ixgb_hw *hw,
--				   u8 *mc_addr_list,
--				   u32 mc_addr_count,
--				   u32 pad);
-+void ixgb_mc_addr_list_update(struct ixgb_hw *hw, u8 *mc_addr_list,
-+			      u32 mc_addr_count, u32 pad);
- 
- /* Vfta functions */
--extern void ixgb_write_vfta(struct ixgb_hw *hw,
--				 u32 offset,
--				 u32 value);
-+void ixgb_write_vfta(struct ixgb_hw *hw, u32 offset, u32 value);
- 
- /* Access functions to eeprom data */
- void ixgb_get_ee_mac_addr(struct ixgb_hw *hw, u8 *mac_addr);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 0ac6b11..3637841 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -786,93 +786,89 @@ extern const char ixgbe_driver_version[];
- extern char ixgbe_default_device_descr[];
- #endif /* IXGBE_FCOE */
- 
--extern void ixgbe_up(struct ixgbe_adapter *adapter);
--extern void ixgbe_down(struct ixgbe_adapter *adapter);
--extern void ixgbe_reinit_locked(struct ixgbe_adapter *adapter);
--extern void ixgbe_reset(struct ixgbe_adapter *adapter);
--extern void ixgbe_set_ethtool_ops(struct net_device *netdev);
--extern int ixgbe_setup_rx_resources(struct ixgbe_ring *);
--extern int ixgbe_setup_tx_resources(struct ixgbe_ring *);
--extern void ixgbe_free_rx_resources(struct ixgbe_ring *);
--extern void ixgbe_free_tx_resources(struct ixgbe_ring *);
--extern void ixgbe_configure_rx_ring(struct ixgbe_adapter *,struct ixgbe_ring *);
--extern void ixgbe_configure_tx_ring(struct ixgbe_adapter *,struct ixgbe_ring *);
--extern void ixgbe_disable_rx_queue(struct ixgbe_adapter *adapter,
--				   struct ixgbe_ring *);
--extern void ixgbe_update_stats(struct ixgbe_adapter *adapter);
--extern int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter);
--extern int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
-+void ixgbe_up(struct ixgbe_adapter *adapter);
-+void ixgbe_down(struct ixgbe_adapter *adapter);
-+void ixgbe_reinit_locked(struct ixgbe_adapter *adapter);
-+void ixgbe_reset(struct ixgbe_adapter *adapter);
-+void ixgbe_set_ethtool_ops(struct net_device *netdev);
-+int ixgbe_setup_rx_resources(struct ixgbe_ring *);
-+int ixgbe_setup_tx_resources(struct ixgbe_ring *);
-+void ixgbe_free_rx_resources(struct ixgbe_ring *);
-+void ixgbe_free_tx_resources(struct ixgbe_ring *);
-+void ixgbe_configure_rx_ring(struct ixgbe_adapter *, struct ixgbe_ring *);
-+void ixgbe_configure_tx_ring(struct ixgbe_adapter *, struct ixgbe_ring *);
-+void ixgbe_disable_rx_queue(struct ixgbe_adapter *adapter, struct ixgbe_ring *);
-+void ixgbe_update_stats(struct ixgbe_adapter *adapter);
-+int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter);
-+int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 			       u16 subdevice_id);
--extern void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
--extern netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *,
--					 struct ixgbe_adapter *,
--					 struct ixgbe_ring *);
--extern void ixgbe_unmap_and_free_tx_resource(struct ixgbe_ring *,
--                                             struct ixgbe_tx_buffer *);
--extern void ixgbe_alloc_rx_buffers(struct ixgbe_ring *, u16);
--extern void ixgbe_write_eitr(struct ixgbe_q_vector *);
--extern int ixgbe_poll(struct napi_struct *napi, int budget);
--extern int ethtool_ioctl(struct ifreq *ifr);
--extern s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw);
--extern s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 fdirctrl);
--extern s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 fdirctrl);
--extern s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
--						 union ixgbe_atr_hash_dword input,
--						 union ixgbe_atr_hash_dword common,
--                                                 u8 queue);
--extern s32 ixgbe_fdir_set_input_mask_82599(struct ixgbe_hw *hw,
--					   union ixgbe_atr_input *input_mask);
--extern s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
--						 union ixgbe_atr_input *input,
--						 u16 soft_id, u8 queue);
--extern s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
--						 union ixgbe_atr_input *input,
--						 u16 soft_id);
--extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
--						 union ixgbe_atr_input *mask);
--extern bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
--extern void ixgbe_set_rx_mode(struct net_device *netdev);
-+void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
-+netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *, struct ixgbe_adapter *,
-+				  struct ixgbe_ring *);
-+void ixgbe_unmap_and_free_tx_resource(struct ixgbe_ring *,
-+				      struct ixgbe_tx_buffer *);
-+void ixgbe_alloc_rx_buffers(struct ixgbe_ring *, u16);
-+void ixgbe_write_eitr(struct ixgbe_q_vector *);
-+int ixgbe_poll(struct napi_struct *napi, int budget);
-+int ethtool_ioctl(struct ifreq *ifr);
-+s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw);
-+s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 fdirctrl);
-+s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 fdirctrl);
-+s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
-+					  union ixgbe_atr_hash_dword input,
-+					  union ixgbe_atr_hash_dword common,
-+					  u8 queue);
-+s32 ixgbe_fdir_set_input_mask_82599(struct ixgbe_hw *hw,
-+				    union ixgbe_atr_input *input_mask);
-+s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
-+					  union ixgbe_atr_input *input,
-+					  u16 soft_id, u8 queue);
-+s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
-+					  union ixgbe_atr_input *input,
-+					  u16 soft_id);
-+void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
-+					  union ixgbe_atr_input *mask);
-+bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
-+void ixgbe_set_rx_mode(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_DCB
--extern void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
-+void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
- #endif
--extern int ixgbe_setup_tc(struct net_device *dev, u8 tc);
--extern void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
--extern void ixgbe_do_reset(struct net_device *netdev);
-+int ixgbe_setup_tc(struct net_device *dev, u8 tc);
-+void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
-+void ixgbe_do_reset(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_HWMON
--extern void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter);
--extern int ixgbe_sysfs_init(struct ixgbe_adapter *adapter);
-+void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter);
-+int ixgbe_sysfs_init(struct ixgbe_adapter *adapter);
- #endif /* CONFIG_IXGBE_HWMON */
- #ifdef IXGBE_FCOE
--extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
--extern int ixgbe_fso(struct ixgbe_ring *tx_ring,
--		     struct ixgbe_tx_buffer *first,
--		     u8 *hdr_len);
--extern int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
--			  union ixgbe_adv_rx_desc *rx_desc,
--			  struct sk_buff *skb);
--extern int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
--                              struct scatterlist *sgl, unsigned int sgc);
--extern int ixgbe_fcoe_ddp_target(struct net_device *netdev, u16 xid,
--				 struct scatterlist *sgl, unsigned int sgc);
--extern int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid);
--extern int ixgbe_setup_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
--extern void ixgbe_free_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
--extern int ixgbe_fcoe_enable(struct net_device *netdev);
--extern int ixgbe_fcoe_disable(struct net_device *netdev);
-+void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
-+int ixgbe_fso(struct ixgbe_ring *tx_ring, struct ixgbe_tx_buffer *first,
-+	      u8 *hdr_len);
-+int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
-+		   union ixgbe_adv_rx_desc *rx_desc, struct sk_buff *skb);
-+int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
-+		       struct scatterlist *sgl, unsigned int sgc);
-+int ixgbe_fcoe_ddp_target(struct net_device *netdev, u16 xid,
-+			  struct scatterlist *sgl, unsigned int sgc);
-+int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid);
-+int ixgbe_setup_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
-+void ixgbe_free_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
-+int ixgbe_fcoe_enable(struct net_device *netdev);
-+int ixgbe_fcoe_disable(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_DCB
--extern u8 ixgbe_fcoe_getapp(struct ixgbe_adapter *adapter);
--extern u8 ixgbe_fcoe_setapp(struct ixgbe_adapter *adapter, u8 up);
-+u8 ixgbe_fcoe_getapp(struct ixgbe_adapter *adapter);
-+u8 ixgbe_fcoe_setapp(struct ixgbe_adapter *adapter, u8 up);
- #endif /* CONFIG_IXGBE_DCB */
--extern int ixgbe_fcoe_get_wwn(struct net_device *netdev, u64 *wwn, int type);
--extern int ixgbe_fcoe_get_hbainfo(struct net_device *netdev,
--				  struct netdev_fcoe_hbainfo *info);
--extern u8 ixgbe_fcoe_get_tc(struct ixgbe_adapter *adapter);
-+int ixgbe_fcoe_get_wwn(struct net_device *netdev, u64 *wwn, int type);
-+int ixgbe_fcoe_get_hbainfo(struct net_device *netdev,
-+			   struct netdev_fcoe_hbainfo *info);
-+u8 ixgbe_fcoe_get_tc(struct ixgbe_adapter *adapter);
- #endif /* IXGBE_FCOE */
- #ifdef CONFIG_DEBUG_FS
--extern void ixgbe_dbg_adapter_init(struct ixgbe_adapter *adapter);
--extern void ixgbe_dbg_adapter_exit(struct ixgbe_adapter *adapter);
--extern void ixgbe_dbg_init(void);
--extern void ixgbe_dbg_exit(void);
-+void ixgbe_dbg_adapter_init(struct ixgbe_adapter *adapter);
-+void ixgbe_dbg_adapter_exit(struct ixgbe_adapter *adapter);
-+void ixgbe_dbg_init(void);
-+void ixgbe_dbg_exit(void);
+ #ifdef QL_STAT_DUMP
+-extern void ql_dump_stat(struct ql_adapter *qdev);
++void ql_dump_stat(struct ql_adapter *qdev);
+ #define QL_DUMP_STAT(qdev) ql_dump_stat(qdev)
  #else
- static inline void ixgbe_dbg_adapter_init(struct ixgbe_adapter *adapter) {}
- static inline void ixgbe_dbg_adapter_exit(struct ixgbe_adapter *adapter) {}
-@@ -884,12 +880,12 @@ static inline struct netdev_queue *txring_txq(const struct ixgbe_ring *ring)
- 	return netdev_get_tx_queue(ring->netdev, ring->queue_index);
- }
- 
--extern void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
--extern void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
--				    struct sk_buff *skb);
-+void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
-+void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
-+void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
-+void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
-+void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-+			     struct sk_buff *skb);
- static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 					 union ixgbe_adv_rx_desc *rx_desc,
- 					 struct sk_buff *skb)
-@@ -906,11 +902,11 @@ static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 	rx_ring->last_rx_timestamp = jiffies;
- }
- 
--extern int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
--				    struct ifreq *ifr, int cmd);
--extern void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_reset(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
-+int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter, struct ifreq *ifr,
-+			     int cmd);
-+void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
-+void ixgbe_ptp_reset(struct ixgbe_adapter *adapter);
-+void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
- #ifdef CONFIG_PCI_IOV
- void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter);
+ #define QL_DUMP_STAT(qdev)
  #endif
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index fff0d98..64a2b91 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -281,27 +281,23 @@ extern const struct ixgbe_mbx_operations ixgbevf_mbx_ops;
- extern const char ixgbevf_driver_name[];
- extern const char ixgbevf_driver_version[];
  
--extern void ixgbevf_up(struct ixgbevf_adapter *adapter);
--extern void ixgbevf_down(struct ixgbevf_adapter *adapter);
--extern void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter);
--extern void ixgbevf_reset(struct ixgbevf_adapter *adapter);
--extern void ixgbevf_set_ethtool_ops(struct net_device *netdev);
--extern int ixgbevf_setup_rx_resources(struct ixgbevf_adapter *,
--				      struct ixgbevf_ring *);
--extern int ixgbevf_setup_tx_resources(struct ixgbevf_adapter *,
--				      struct ixgbevf_ring *);
--extern void ixgbevf_free_rx_resources(struct ixgbevf_adapter *,
--				      struct ixgbevf_ring *);
--extern void ixgbevf_free_tx_resources(struct ixgbevf_adapter *,
--				      struct ixgbevf_ring *);
--extern void ixgbevf_update_stats(struct ixgbevf_adapter *adapter);
--extern int ethtool_ioctl(struct ifreq *ifr);
--
--extern void ixgbe_napi_add_all(struct ixgbevf_adapter *adapter);
--extern void ixgbe_napi_del_all(struct ixgbevf_adapter *adapter);
-+void ixgbevf_up(struct ixgbevf_adapter *adapter);
-+void ixgbevf_down(struct ixgbevf_adapter *adapter);
-+void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter);
-+void ixgbevf_reset(struct ixgbevf_adapter *adapter);
-+void ixgbevf_set_ethtool_ops(struct net_device *netdev);
-+int ixgbevf_setup_rx_resources(struct ixgbevf_adapter *, struct ixgbevf_ring *);
-+int ixgbevf_setup_tx_resources(struct ixgbevf_adapter *, struct ixgbevf_ring *);
-+void ixgbevf_free_rx_resources(struct ixgbevf_adapter *, struct ixgbevf_ring *);
-+void ixgbevf_free_tx_resources(struct ixgbevf_adapter *, struct ixgbevf_ring *);
-+void ixgbevf_update_stats(struct ixgbevf_adapter *adapter);
-+int ethtool_ioctl(struct ifreq *ifr);
-+
-+void ixgbe_napi_add_all(struct ixgbevf_adapter *adapter);
-+void ixgbe_napi_del_all(struct ixgbevf_adapter *adapter);
- 
- #ifdef DEBUG
--extern char *ixgbevf_get_hw_dev_name(struct ixgbe_hw *hw);
-+char *ixgbevf_get_hw_dev_name(struct ixgbe_hw *hw);
- #define hw_dbg(hw, format, arg...) \
- 	printk(KERN_DEBUG "%s: " format, ixgbevf_get_hw_dev_name(hw), ##arg)
+ #ifdef QL_DEV_DUMP
+-extern void ql_dump_qdev(struct ql_adapter *qdev);
++void ql_dump_qdev(struct ql_adapter *qdev);
+ #define QL_DUMP_QDEV(qdev) ql_dump_qdev(qdev)
  #else
+ #define QL_DUMP_QDEV(qdev)
+ #endif
+ 
+ #ifdef QL_CB_DUMP
+-extern void ql_dump_wqicb(struct wqicb *wqicb);
+-extern void ql_dump_tx_ring(struct tx_ring *tx_ring);
+-extern void ql_dump_ricb(struct ricb *ricb);
+-extern void ql_dump_cqicb(struct cqicb *cqicb);
+-extern void ql_dump_rx_ring(struct rx_ring *rx_ring);
+-extern void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
++void ql_dump_wqicb(struct wqicb *wqicb);
++void ql_dump_tx_ring(struct tx_ring *tx_ring);
++void ql_dump_ricb(struct ricb *ricb);
++void ql_dump_cqicb(struct cqicb *cqicb);
++void ql_dump_rx_ring(struct rx_ring *rx_ring);
++void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
+ #define QL_DUMP_RICB(ricb) ql_dump_ricb(ricb)
+ #define QL_DUMP_WQICB(wqicb) ql_dump_wqicb(wqicb)
+ #define QL_DUMP_TX_RING(tx_ring) ql_dump_tx_ring(tx_ring)
+@@ -2314,9 +2312,9 @@ extern void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
+ #endif
+ 
+ #ifdef QL_OB_DUMP
+-extern void ql_dump_tx_desc(struct tx_buf_desc *tbd);
+-extern void ql_dump_ob_mac_iocb(struct ob_mac_iocb_req *ob_mac_iocb);
+-extern void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
++void ql_dump_tx_desc(struct tx_buf_desc *tbd);
++void ql_dump_ob_mac_iocb(struct ob_mac_iocb_req *ob_mac_iocb);
++void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
+ #define QL_DUMP_OB_MAC_IOCB(ob_mac_iocb) ql_dump_ob_mac_iocb(ob_mac_iocb)
+ #define QL_DUMP_OB_MAC_RSP(ob_mac_rsp) ql_dump_ob_mac_rsp(ob_mac_rsp)
+ #else
+@@ -2325,14 +2323,14 @@ extern void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
+ #endif
+ 
+ #ifdef QL_IB_DUMP
+-extern void ql_dump_ib_mac_rsp(struct ib_mac_iocb_rsp *ib_mac_rsp);
++void ql_dump_ib_mac_rsp(struct ib_mac_iocb_rsp *ib_mac_rsp);
+ #define QL_DUMP_IB_MAC_RSP(ib_mac_rsp) ql_dump_ib_mac_rsp(ib_mac_rsp)
+ #else
+ #define QL_DUMP_IB_MAC_RSP(ib_mac_rsp)
+ #endif
+ 
+ #ifdef	QL_ALL_DUMP
+-extern void ql_dump_all(struct ql_adapter *qdev);
++void ql_dump_all(struct ql_adapter *qdev);
+ #define QL_DUMP_ALL(qdev) ql_dump_all(qdev)
+ #else
+ #define QL_DUMP_ALL(qdev)
 -- 
 1.8.1.2.459.gbcd45b4.dirty
