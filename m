@@ -1,38 +1,37 @@
-From: Geoff Levand <geoff@infradead.org>
-Subject: Re: [PATCH 08/10] toshiba: Remove extern from function prototypes
-Date: Tue, 24 Sep 2013 14:26:44 -0700
-Message-ID: <1380058004.9509.1.camel@smoke>
-References: <cover.1380056108.git.joe@perches.com>
-	 <3e0dd1f4722f8e0c10a47b9bbb26e891e79fef60.1380056108.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2 v2] net: Add function to get SW rxhash
+Date: Tue, 24 Sep 2013 14:30:03 -0700
+Message-ID: <1380058203.3165.121.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1309241335380.23856@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Jens Osterkamp <jens@de.ibm.com>, cbe-oss-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3e0dd1f4722f8e0c10a47b9bbb26e891e79fef60.1380056108.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:65201 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754536Ab3IXVaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 17:30:05 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so5522960pad.19
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 14:30:04 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1309241335380.23856@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-24 at 14:10 -0700, Joe Perches wrote:
-> There are a mix of function prototypes with and without extern
-> in the kernel sources.  Standardize on not using extern for
-> function prototypes.
+On Tue, 2013-09-24 at 13:42 -0700, Tom Herbert wrote:
+> Some uses of skb_get_rxhash expect that the function will return
+> a consistent value whether it is called on RX or TX paths. On RX
+> path, we will use the rxhash if provided by the NIC, so this
+> would not normally be the same result computed in TX path would be
+> a software calculation.
 > 
-> Function prototypes don't need to be written with extern.
-> extern is assumed by the compiler.  Its use is as unnecessary as
-> using auto to declare automatic/local variables in a block.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/ethernet/toshiba/ps3_gelic_net.h      | 29 +++++++++++------------
->  drivers/net/ethernet/toshiba/ps3_gelic_wireless.h |  6 ++---
->  drivers/net/ethernet/toshiba/spider_net.h         |  4 ++--
->  3 files changed, 19 insertions(+), 20 deletions(-)
+> This patch adds skb_get_sw_rxhash to explicitly request a hash
+> calculated by the stack, disregarding the hash provided by NIC.
 
-Looks good.  Thanks.
+As I said, I think this is overhead in network fast path.
 
-Acked-by: Geoff Levand <geoff@infradead.org>
+This can be done without adding a new skb field.
+
+I suspect tun should not use rxhash but a proper hash, as conntrack or
+tcp...
