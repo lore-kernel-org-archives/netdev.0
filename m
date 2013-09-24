@@ -1,68 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 21:42:15 +0200
-Message-ID: <20130924194215.GA4446@order.stressinduktion.org>
-References: <20130924023038.GA22393@order.stressinduktion.org> <20130924033505.GB22393@order.stressinduktion.org> <1380001118.3165.41.camel@edumazet-glaptop> <20130924160145.GB26769@order.stressinduktion.org> <1380039299.3165.91.camel@edumazet-glaptop> <CA+mtBx9u3-mnULxTwyWAZA4gZ6Dg-PeYYVGZibwQi7toinHJ-A@mail.gmail.com> <1380041185.3165.97.camel@edumazet-glaptop> <CA+mtBx_tWS44q8jER+QtR5k4k2ieq99He6YdPF8KKBF4Z2+32w@mail.gmail.com> <1380044075.3165.108.camel@edumazet-glaptop> <CA+mtBx8PJj1HgaoiOoJjQL6VmU4Rn7ctBpscr1YxpfrWW9VSbA@mail.gmail.com>
+From: Matthew Hall <mh@mhcomputing.net>
+Subject: per-PID network stats files in /proc
+Date: Tue, 24 Sep 2013 13:15:37 -0700
+Message-ID: <20130924201536.GA3555@mhcomputing.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48438 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752751Ab3IXTmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 15:42:20 -0400
+Received: from master.mhcomputing.net ([74.208.46.186]:49399 "EHLO
+	mail.mhcomputing.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754205Ab3IXUXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 16:23:12 -0400
 Content-Disposition: inline
-In-Reply-To: <CA+mtBx8PJj1HgaoiOoJjQL6VmU4Rn7ctBpscr1YxpfrWW9VSbA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 24, 2013 at 11:02:11AM -0700, Tom Herbert wrote:
-> On Tue, Sep 24, 2013 at 10:34 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Tue, 2013-09-24 at 10:03 -0700, Tom Herbert wrote:
-> >> On Tue, Sep 24, 2013 at 9:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> > On Tue, 2013-09-24 at 09:35 -0700, Tom Herbert wrote:
-> >> >
-> >> >> We should really be using rxhash for that anyway, eliminate this
-> >> >> ehashfn.  This would entail adding rxhash argument in the various
-> >> >> udp_lookup functions.
-> >> >
-> >> > Nope : Some NICs provide UDP rxhash only using L3  (source IP,
-> >> > destination IP), not L4 (adding source & destination ports)
-> >> >
-> >> Then the NIC won't set l4_rxhash and we'll rehash over 4-tuple when
-> >> skb_get_rxhash is called.
-> >
-> > Yes, but then in this case you add cpu cycles for no reason.
-> >
-> > If you have multiqueue NIC, you do not use RPS/RFS, so skb->rxhash might
-> > be 0
-> >
-> > hash = inet_ehashfn(net, daddr, hnum, saddr, sport);
-> >
-> > is faster than the whole flow dissection game.
-> >
-> But if we already have valid l4_rxhash we're just wasting time
-> recomputing it (very like the same value).  So just do:
-> 
-> if (skb->l4_hash)
->     hash = skb->rxhash
-> else
->     hash = inet_ehashfn(net, daddr, hnum, saddr, sport);
-> 
-> Even if we go the inet_ehashfn route in the packet, it's makes sense
-> to store this in skb->rxhash so that subsequent functions don't need
-> to compute the hash
-> 
-> By the way, I believe there is an insidious in using the same hash
-> value or even related hash values in multiple places for steering.
-> Since we typically do something like hash % numqueues, we introduce
-> bias if multiple steering levels look at the same bits.  With
-> SO_REUSEPORT this might actually be beneficial since we could get port
-> selection to match RSS locality, but this is not by design!
+Hello,
 
-Wouldn't this also need infrastructure to sync the keys over multiple network
-cards to have best benefits?
+I have an application that I'd like to make self-tuning, based upon the values 
+of some of the network stats counters. Thus I went reading through a copy of 
+linux-3.11.1 to look for some more information, and began exploring procfs as 
+well.
+
+I discovered some system-wide counters in /proc/net/snmp which are pretty 
+interesting so I was trying to use the per-PID counters in 
+/proc/net/PID/net/snmp as well.
+
+Unfortunately I found that all of these files seem to be identical on my own 
+system running Linux 3.2.0:
+
+$ md5sum /proc/net/snmp /proc/1/net/snmp /proc/2/net/snmp
+8b92b426f860d0667a780cd8baabb7bf  /proc/net/snmp
+8b92b426f860d0667a780cd8baabb7bf  /proc/1/net/snmp
+8b92b426f860d0667a780cd8baabb7bf  /proc/2/net/snmp
+
+I found the snmp_seq_show function in net/ipv4/proc.c which prints these 
+statistics to see how it really worked, but then I was having a hard time 
+finding out what's really calling this code since it hooks up to the /proc 
+framework.
+
+Is there some option one can change which enables gathering the network 
+statistics per-PID, or per-socket? This would be a tremendous help for my 
+application.
+
+Thanks,
+Matthew.
