@@ -1,15 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 04/10] qlogic: Remove extern from function prototypes
-Date: Tue, 24 Sep 2013 14:09:58 -0700
-Message-ID: <8a1a0ae11cbf80cacee40abc9af8a8ef16aaaf36.1380056108.git.joe@perches.com>
+Subject: [PATCH 07/10] ti: Remove extern from function prototypes
+Date: Tue, 24 Sep 2013 14:10:01 -0700
+Message-ID: <95f7f1519d5b1ad7c51b3ac561a0903462202d36.1380056108.git.joe@perches.com>
 References: <cover.1380056108.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -27,154 +21,34 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/qlogic/netxen/netxen_nic.h |  5 +--
- drivers/net/ethernet/qlogic/qlge/qlge.h         | 58 ++++++++++++-------------
- 2 files changed, 30 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/ti/cpts.h | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-index 32675e1..e8eff3e 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-@@ -1883,9 +1883,8 @@ static inline u32 netxen_tx_avail(struct nx_host_tx_ring *tx_ring)
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index fe993cd..1a581ef 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -127,8 +127,8 @@ struct cpts {
+ };
  
- int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac);
- int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac);
--extern void netxen_change_ringparam(struct netxen_adapter *adapter);
--extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
--				int *valp);
-+void netxen_change_ringparam(struct netxen_adapter *adapter);
-+int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp);
- 
- extern const struct ethtool_ops netxen_nic_ethtool_ops;
- 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-index 8994337..cc62272 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-@@ -2206,14 +2206,14 @@ extern char qlge_driver_name[];
- extern const char qlge_driver_version[];
- extern const struct ethtool_ops qlge_ethtool_ops;
- 
--extern int ql_sem_spinlock(struct ql_adapter *qdev, u32 sem_mask);
--extern void ql_sem_unlock(struct ql_adapter *qdev, u32 sem_mask);
--extern int ql_read_xgmac_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
--extern int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
--			       u32 *value);
--extern int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value);
--extern int ql_write_cfg(struct ql_adapter *qdev, void *ptr, int size, u32 bit,
--			u16 q_id);
-+int ql_sem_spinlock(struct ql_adapter *qdev, u32 sem_mask);
-+void ql_sem_unlock(struct ql_adapter *qdev, u32 sem_mask);
-+int ql_read_xgmac_reg(struct ql_adapter *qdev, u32 reg, u32 *data);
-+int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
-+			u32 *value);
-+int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value);
-+int ql_write_cfg(struct ql_adapter *qdev, void *ptr, int size, u32 bit,
-+		 u16 q_id);
- void ql_queue_fw_error(struct ql_adapter *qdev);
- void ql_mpi_work(struct work_struct *work);
- void ql_mpi_reset_work(struct work_struct *work);
-@@ -2233,10 +2233,9 @@ int ql_unpause_mpi_risc(struct ql_adapter *qdev);
- int ql_pause_mpi_risc(struct ql_adapter *qdev);
- int ql_hard_reset_mpi_risc(struct ql_adapter *qdev);
- int ql_soft_reset_mpi_risc(struct ql_adapter *qdev);
--int ql_dump_risc_ram_area(struct ql_adapter *qdev, void *buf,
--		u32 ram_addr, int word_count);
--int ql_core_dump(struct ql_adapter *qdev,
--		struct ql_mpi_coredump *mpi_coredump);
-+int ql_dump_risc_ram_area(struct ql_adapter *qdev, void *buf, u32 ram_addr,
-+			  int word_count);
-+int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump);
- int ql_mb_about_fw(struct ql_adapter *qdev);
- int ql_mb_wol_set_magic(struct ql_adapter *qdev, u32 enable_wol);
- int ql_mb_wol_mode(struct ql_adapter *qdev, u32 wol);
-@@ -2249,8 +2248,7 @@ int ql_mb_get_port_cfg(struct ql_adapter *qdev);
- int ql_mb_set_port_cfg(struct ql_adapter *qdev);
- int ql_wait_fifo_empty(struct ql_adapter *qdev);
- void ql_get_dump(struct ql_adapter *qdev, void *buff);
--void ql_gen_reg_dump(struct ql_adapter *qdev,
--			struct ql_reg_dump *mpi_coredump);
-+void ql_gen_reg_dump(struct ql_adapter *qdev, struct ql_reg_dump *mpi_coredump);
- netdev_tx_t ql_lb_send(struct sk_buff *skb, struct net_device *ndev);
- void ql_check_lb_frame(struct ql_adapter *, struct sk_buff *);
- int ql_own_firmware(struct ql_adapter *qdev);
-@@ -2264,9 +2262,9 @@ int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget);
- /* #define QL_OB_DUMP */
- 
- #ifdef QL_REG_DUMP
--extern void ql_dump_xgmac_control_regs(struct ql_adapter *qdev);
--extern void ql_dump_routing_entries(struct ql_adapter *qdev);
--extern void ql_dump_regs(struct ql_adapter *qdev);
-+void ql_dump_xgmac_control_regs(struct ql_adapter *qdev);
-+void ql_dump_routing_entries(struct ql_adapter *qdev);
-+void ql_dump_regs(struct ql_adapter *qdev);
- #define QL_DUMP_REGS(qdev) ql_dump_regs(qdev)
- #define QL_DUMP_ROUTE(qdev) ql_dump_routing_entries(qdev)
- #define QL_DUMP_XGMAC_CONTROL_REGS(qdev) ql_dump_xgmac_control_regs(qdev)
-@@ -2277,26 +2275,26 @@ extern void ql_dump_regs(struct ql_adapter *qdev);
- #endif
- 
- #ifdef QL_STAT_DUMP
--extern void ql_dump_stat(struct ql_adapter *qdev);
-+void ql_dump_stat(struct ql_adapter *qdev);
- #define QL_DUMP_STAT(qdev) ql_dump_stat(qdev)
+ #ifdef CONFIG_TI_CPTS
+-extern void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+-extern void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
++void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
++void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
  #else
- #define QL_DUMP_STAT(qdev)
+ static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ {
+@@ -138,8 +138,7 @@ static inline void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ }
  #endif
  
- #ifdef QL_DEV_DUMP
--extern void ql_dump_qdev(struct ql_adapter *qdev);
-+void ql_dump_qdev(struct ql_adapter *qdev);
- #define QL_DUMP_QDEV(qdev) ql_dump_qdev(qdev)
- #else
- #define QL_DUMP_QDEV(qdev)
- #endif
+-extern int cpts_register(struct device *dev, struct cpts *cpts,
+-			 u32 mult, u32 shift);
+-extern void cpts_unregister(struct cpts *cpts);
++int cpts_register(struct device *dev, struct cpts *cpts, u32 mult, u32 shift);
++void cpts_unregister(struct cpts *cpts);
  
- #ifdef QL_CB_DUMP
--extern void ql_dump_wqicb(struct wqicb *wqicb);
--extern void ql_dump_tx_ring(struct tx_ring *tx_ring);
--extern void ql_dump_ricb(struct ricb *ricb);
--extern void ql_dump_cqicb(struct cqicb *cqicb);
--extern void ql_dump_rx_ring(struct rx_ring *rx_ring);
--extern void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
-+void ql_dump_wqicb(struct wqicb *wqicb);
-+void ql_dump_tx_ring(struct tx_ring *tx_ring);
-+void ql_dump_ricb(struct ricb *ricb);
-+void ql_dump_cqicb(struct cqicb *cqicb);
-+void ql_dump_rx_ring(struct rx_ring *rx_ring);
-+void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
- #define QL_DUMP_RICB(ricb) ql_dump_ricb(ricb)
- #define QL_DUMP_WQICB(wqicb) ql_dump_wqicb(wqicb)
- #define QL_DUMP_TX_RING(tx_ring) ql_dump_tx_ring(tx_ring)
-@@ -2314,9 +2312,9 @@ extern void ql_dump_hw_cb(struct ql_adapter *qdev, int size, u32 bit, u16 q_id);
  #endif
- 
- #ifdef QL_OB_DUMP
--extern void ql_dump_tx_desc(struct tx_buf_desc *tbd);
--extern void ql_dump_ob_mac_iocb(struct ob_mac_iocb_req *ob_mac_iocb);
--extern void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
-+void ql_dump_tx_desc(struct tx_buf_desc *tbd);
-+void ql_dump_ob_mac_iocb(struct ob_mac_iocb_req *ob_mac_iocb);
-+void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
- #define QL_DUMP_OB_MAC_IOCB(ob_mac_iocb) ql_dump_ob_mac_iocb(ob_mac_iocb)
- #define QL_DUMP_OB_MAC_RSP(ob_mac_rsp) ql_dump_ob_mac_rsp(ob_mac_rsp)
- #else
-@@ -2325,14 +2323,14 @@ extern void ql_dump_ob_mac_rsp(struct ob_mac_iocb_rsp *ob_mac_rsp);
- #endif
- 
- #ifdef QL_IB_DUMP
--extern void ql_dump_ib_mac_rsp(struct ib_mac_iocb_rsp *ib_mac_rsp);
-+void ql_dump_ib_mac_rsp(struct ib_mac_iocb_rsp *ib_mac_rsp);
- #define QL_DUMP_IB_MAC_RSP(ib_mac_rsp) ql_dump_ib_mac_rsp(ib_mac_rsp)
- #else
- #define QL_DUMP_IB_MAC_RSP(ib_mac_rsp)
- #endif
- 
- #ifdef	QL_ALL_DUMP
--extern void ql_dump_all(struct ql_adapter *qdev);
-+void ql_dump_all(struct ql_adapter *qdev);
- #define QL_DUMP_ALL(qdev) ql_dump_all(qdev)
- #else
- #define QL_DUMP_ALL(qdev)
 -- 
 1.8.1.2.459.gbcd45b4.dirty
