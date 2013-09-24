@@ -1,181 +1,244 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 01/27] net: use lists as arguments instead of bool upper
-Date: Tue, 24 Sep 2013 13:46:41 +0200
-Message-ID: <1380023227-9576-2-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 04/27] net: add netdev_adjacent->private and allow to use it
+Date: Tue, 24 Sep 2013 13:46:44 +0200
+Message-ID: <1380023227-9576-5-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <amwang@redhat.com>
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54020 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2267 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751038Ab3IXLq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:46:56 -0400
+	id S1751038Ab3IXLrB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:01 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we make use of bool upper when we want to specify if we want to
-work with upper/lower list. It's, however, harder to read, debug and
-occupies a lot more code.
+Currently, even though we can access any linked device, we can't attach
+anything to it, which is vital to properly manage them.
 
-Fix this by just passing the correct upper/lower_dev_list list_head pointer
-instead of bool upper, and work internally with it.
+To fix this, add a new void *private to netdev_adjacent and functions
+setting/getting it (per link), so that we can save, per example, bonding's
+slave structures there, per slave device.
+
+netdev_master_upper_dev_link_private(dev, upper_dev, private) links dev to
+upper dev and populates the neighbour link only with private.
+
+netdev_lower_dev_get_private{,_rcu}() returns the private, if found.
 
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
 CC: Jiri Pirko <jiri@resnulli.us>
 CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
-    RFC -> v4:
-    New patch.
+    v3  -> v4:
+    No change.
+    
+    v2  -> v3:
+    No change.
+    
+    v1  -> v2:
+    No changes.
+    
+    RFC -> v1:
+    rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
+    the naming of functions - to make the use the pattern
+    netdev_(all_)(lower|upper)_* .
 
- net/core/dev.c | 54 ++++++++++++++++++++++--------------------------------
- 1 file changed, 22 insertions(+), 32 deletions(-)
+ include/linux/netdevice.h |  7 +++++
+ net/core/dev.c            | 68 +++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 64 insertions(+), 11 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 514045c..75d5bea 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2839,8 +2839,15 @@ extern int netdev_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev);
+ extern int netdev_master_upper_dev_link(struct net_device *dev,
+ 					struct net_device *upper_dev);
++extern int netdev_master_upper_dev_link_private(struct net_device *dev,
++						struct net_device *upper_dev,
++						void *private);
+ extern void netdev_upper_dev_unlink(struct net_device *dev,
+ 				    struct net_device *upper_dev);
++extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++					      struct net_device *lower_dev);
++extern void *netdev_lower_dev_get_private(struct net_device *dev,
++					  struct net_device *lower_dev);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features, bool tx_path);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 5c713f2..9be7937 100644
+index 9290f09..c69ab74 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4385,12 +4385,9 @@ struct netdev_adjacent {
+@@ -4376,6 +4376,9 @@ struct netdev_adjacent {
+ 	/* counter for the number of times this device was added to us */
+ 	u16 ref_nr;
  
- static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
- 						 struct net_device *adj_dev,
--						 bool upper)
-+						 struct list_head *dev_list)
- {
- 	struct netdev_adjacent *adj;
--	struct list_head *dev_list;
--
--	dev_list = upper ? &dev->upper_dev_list : &dev->lower_dev_list;
- 
- 	list_for_each_entry(adj, dev_list, list) {
- 		if (adj->dev == adj_dev)
-@@ -4402,13 +4399,13 @@ static struct netdev_adjacent *__netdev_find_adj(struct net_device *dev,
- static inline struct netdev_adjacent *__netdev_find_upper(struct net_device *dev,
- 							  struct net_device *udev)
- {
--	return __netdev_find_adj(dev, udev, true);
-+	return __netdev_find_adj(dev, udev, &dev->upper_dev_list);
- }
- 
- static inline struct netdev_adjacent *__netdev_find_lower(struct net_device *dev,
- 							  struct net_device *ldev)
- {
--	return __netdev_find_adj(dev, ldev, false);
-+	return __netdev_find_adj(dev, ldev, &dev->lower_dev_list);
- }
- 
- /**
-@@ -4514,12 +4511,12 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- 
++	/* private field for the users */
++	void *private;
++
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ };
+@@ -4510,7 +4513,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
  static int __netdev_adjacent_dev_insert(struct net_device *dev,
  					struct net_device *adj_dev,
--					bool neighbour, bool master,
--					bool upper)
-+					struct list_head *dev_list,
-+					bool neighbour, bool master)
+ 					struct list_head *dev_list,
+-					bool master)
++					void *private, bool master)
  {
  	struct netdev_adjacent *adj;
  
--	adj = __netdev_find_adj(dev, adj_dev, upper);
-+	adj = __netdev_find_adj(dev, adj_dev, dev_list);
- 
- 	if (adj) {
- 		BUG_ON(neighbour);
-@@ -4538,19 +4535,14 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
+@@ -4528,6 +4531,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj->dev = adj_dev;
+ 	adj->master = master;
+ 	adj->ref_nr = 1;
++	adj->private = private;
  	dev_hold(adj_dev);
- 	pr_debug("dev_hold for %s, because of %s link added from %s to %s\n",
--		 adj_dev->name, upper ? "upper" : "lower", dev->name,
--		 adj_dev->name);
-+		 adj_dev->name, dev_list == &dev->upper_dev_list ?
-+		 "upper" : "lower", dev->name, adj_dev->name);
  
--	if (!upper) {
--		list_add_tail_rcu(&adj->list, &dev->lower_dev_list);
--		return 0;
--	}
--
--	/* Ensure that master upper link is always the first item in list. */
-+	/* Ensure that master link is always the first item in list. */
- 	if (master)
--		list_add_rcu(&adj->list, &dev->upper_dev_list);
-+		list_add_rcu(&adj->list, dev_list);
- 	else
--		list_add_tail_rcu(&adj->list, &dev->upper_dev_list);
-+		list_add_tail_rcu(&adj->list, dev_list);
- 
- 	return 0;
- }
-@@ -4559,27 +4551,25 @@ static inline int __netdev_upper_dev_insert(struct net_device *dev,
- 					    struct net_device *udev,
- 					    bool master, bool neighbour)
+ 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
+@@ -4574,15 +4578,17 @@ int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ 				     struct net_device *upper_dev,
+ 				     struct list_head *up_list,
+ 				     struct list_head *down_list,
+-				     bool master)
++				     void *private, bool master)
  {
--	return __netdev_adjacent_dev_insert(dev, udev, neighbour, master,
--					    true);
-+	return __netdev_adjacent_dev_insert(dev, udev, &dev->upper_dev_list,
-+					    neighbour, master);
+ 	int ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, master);
++	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
++					   master);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, false);
++	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
++					   false);
+ 	if (ret) {
+ 		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
+ 		return ret;
+@@ -4597,7 +4603,7 @@ int __netdev_adjacent_dev_link(struct net_device *dev,
+ 	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 						&dev->all_adj_list.upper,
+ 						&upper_dev->all_adj_list.lower,
+-						false);
++						NULL, false);
  }
  
- static inline int __netdev_lower_dev_insert(struct net_device *dev,
- 					    struct net_device *ldev,
- 					    bool neighbour)
+ void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
+@@ -4619,7 +4625,7 @@ void __netdev_adjacent_dev_unlink(struct net_device *dev,
+ 
+ int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 					 struct net_device *upper_dev,
+-					 bool master)
++					 void *private, bool master)
  {
--	return __netdev_adjacent_dev_insert(dev, ldev, neighbour, false,
--					    false);
-+	return __netdev_adjacent_dev_insert(dev, ldev, &dev->lower_dev_list,
-+					    neighbour, false);
+ 	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
+ 
+@@ -4629,7 +4635,7 @@ int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 					       &dev->adj_list.upper,
+ 					       &upper_dev->adj_list.lower,
+-					       master);
++					       private, master);
+ 	if (ret) {
+ 		__netdev_adjacent_dev_unlink(dev, upper_dev);
+ 		return ret;
+@@ -4648,7 +4654,8 @@ void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
  }
  
- void __netdev_adjacent_dev_remove(struct net_device *dev,
--				  struct net_device *adj_dev, bool upper)
-+				  struct net_device *adj_dev,
-+				  struct list_head *dev_list)
+ static int __netdev_upper_dev_link(struct net_device *dev,
+-				   struct net_device *upper_dev, bool master)
++				   struct net_device *upper_dev, bool master,
++				   void *private)
  {
- 	struct netdev_adjacent *adj;
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+ 	int ret = 0;
+@@ -4668,7 +4675,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (master && netdev_master_upper_dev_get(dev))
+ 		return -EBUSY;
  
--	if (upper)
--		adj = __netdev_find_upper(dev, adj_dev);
--	else
--		adj = __netdev_find_lower(dev, adj_dev);
-+	adj = __netdev_find_adj(dev, adj_dev, dev_list);
+-	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master);
++	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
++						   master);
+ 	if (ret)
+ 		return ret;
  
- 	if (!adj)
- 		BUG();
-@@ -4591,8 +4581,8 @@ void __netdev_adjacent_dev_remove(struct net_device *dev,
- 
- 	list_del_rcu(&adj->list);
- 	pr_debug("dev_put for %s, because of %s link removed from %s to %s\n",
--		 adj_dev->name, upper ? "upper" : "lower", dev->name,
--		 adj_dev->name);
-+		 adj_dev->name, dev_list == &dev->upper_dev_list ?
-+		 "upper" : "lower", dev->name, adj_dev->name);
- 	dev_put(adj_dev);
- 	kfree_rcu(adj, rcu);
- }
-@@ -4600,13 +4590,13 @@ void __netdev_adjacent_dev_remove(struct net_device *dev,
- static inline void __netdev_upper_dev_remove(struct net_device *dev,
- 					     struct net_device *udev)
+@@ -4759,7 +4767,7 @@ rollback_mesh:
+ int netdev_upper_dev_link(struct net_device *dev,
+ 			  struct net_device *upper_dev)
  {
--	return __netdev_adjacent_dev_remove(dev, udev, true);
-+	return __netdev_adjacent_dev_remove(dev, udev, &dev->upper_dev_list);
+-	return __netdev_upper_dev_link(dev, upper_dev, false);
++	return __netdev_upper_dev_link(dev, upper_dev, false, NULL);
  }
+ EXPORT_SYMBOL(netdev_upper_dev_link);
  
- static inline void __netdev_lower_dev_remove(struct net_device *dev,
- 					     struct net_device *ldev)
+@@ -4777,10 +4785,18 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
+ int netdev_master_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev)
  {
--	return __netdev_adjacent_dev_remove(dev, ldev, false);
-+	return __netdev_adjacent_dev_remove(dev, ldev, &dev->lower_dev_list);
+-	return __netdev_upper_dev_link(dev, upper_dev, true);
++	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
  }
+ EXPORT_SYMBOL(netdev_master_upper_dev_link);
  
- int __netdev_adjacent_dev_insert_link(struct net_device *dev,
++int netdev_master_upper_dev_link_private(struct net_device *dev,
++					 struct net_device *upper_dev,
++					 void *private)
++{
++	return __netdev_upper_dev_link(dev, upper_dev, true, private);
++}
++EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
++
+ /**
+  * netdev_upper_dev_unlink - Removes a link to upper device
+  * @dev: device
+@@ -4818,6 +4834,36 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
++void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++				       struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_find_adj_rcu(dev, lower_dev, &dev->adj_list.lower);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private_rcu);
++
++void *netdev_lower_dev_get_private(struct net_device *dev,
++				   struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_find_adj(dev, lower_dev, &dev->adj_list.lower);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.8.4
