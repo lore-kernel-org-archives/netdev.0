@@ -1,48 +1,44 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 10:03:25 -0700
-Message-ID: <CA+mtBx_tWS44q8jER+QtR5k4k2ieq99He6YdPF8KKBF4Z2+32w@mail.gmail.com>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
-	<1379980991.3165.37.camel@edumazet-glaptop>
-	<20130924023038.GA22393@order.stressinduktion.org>
-	<20130924033505.GB22393@order.stressinduktion.org>
-	<1380001118.3165.41.camel@edumazet-glaptop>
-	<20130924160145.GB26769@order.stressinduktion.org>
-	<1380039299.3165.91.camel@edumazet-glaptop>
-	<CA+mtBx9u3-mnULxTwyWAZA4gZ6Dg-PeYYVGZibwQi7toinHJ-A@mail.gmail.com>
-	<1380041185.3165.97.camel@edumazet-glaptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] powerpc/83xx: gianfar_ptp: select 1588 clock source
+ through dts file
+Date: Tue, 24 Sep 2013 19:14:10 +0200
+Message-ID: <20130924171410.GB4073@netboy>
+References: <1380008397-22980-1-git-send-email-aida.mynzhasova@skitlab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@lists.ozlabs.org, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:65355 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754191Ab3IXRD0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 13:03:26 -0400
-Received: by mail-ie0-f171.google.com with SMTP id at1so9180989iec.2
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 10:03:25 -0700 (PDT)
-In-Reply-To: <1380041185.3165.97.camel@edumazet-glaptop>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:34517 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754094Ab3IXROW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 13:14:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1380008397-22980-1-git-send-email-aida.mynzhasova@skitlab.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 24, 2013 at 9:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-09-24 at 09:35 -0700, Tom Herbert wrote:
->
->> We should really be using rxhash for that anyway, eliminate this
->> ehashfn.  This would entail adding rxhash argument in the various
->> udp_lookup functions.
->
-> Nope : Some NICs provide UDP rxhash only using L3  (source IP,
-> destination IP), not L4 (adding source & destination ports)
->
-Then the NIC won't set l4_rxhash and we'll rehash over 4-tuple when
-skb_get_rxhash is called.
+On Tue, Sep 24, 2013 at 11:39:57AM +0400, Aida Mynzhasova wrote:
+> Currently IEEE 1588 timer reference clock source is determined through
+> hard-coded value in gianfar_ptp driver. This patch allows to select ptp
+> clock source by means of device tree file node.
+> 
+> For instance:
+> 
+> 	fsl,cksel = <0>;
+> 
+> for using external (TSEC_TMR_CLK input) high precision timer
+> reference clock.
+> 
+> Other acceptable values:
+> 
+> 	<1> : eTSEC system clock
+> 	<2> : eTSEC1 transmit clock
+> 	<3> : RTC clock input
 
-> This is again a case where we want our own hashing.
->
->
->
+I think it would be useful to have this table in the binding document
+as well.
+
+Thanks,
+Richard
