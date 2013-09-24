@@ -1,181 +1,185 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [RFC PATCH 2/2] l2tp: add vlan pseudowire support
-Date: Tue, 24 Sep 2013 17:27:10 +0100
-Message-ID: <1380040030-6648-3-git-send-email-jchapman@katalix.com>
+Subject: [RFC PATCH 1/2] vlan: export functions to register/unregister vlan devices
+Date: Tue, 24 Sep 2013 17:27:09 +0100
+Message-ID: <1380040030-6648-2-git-send-email-jchapman@katalix.com>
 References: <1380040030-6648-1-git-send-email-jchapman@katalix.com>
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:42171 "EHLO bert.katalix.com"
+Received: from katalix.com ([82.103.140.233]:42170 "EHLO bert.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753432Ab3IXQ1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753032Ab3IXQ1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Sep 2013 12:27:16 -0400
 In-Reply-To: <1380040030-6648-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Register the l2tp_eth driver for netlink ops using the vlan pseudowire
-type. Add code to create/destroy a VLAN netdevice when the pseudowire
-type is VLAN. This requires new exports in the vlan code.
+Export two new symbols to let external code register and unregister
+vlan devices. Allow the caller to specify the name template for the
+new netdev instance.
 
-This results in two netdevices per vlan pseudowire:
-1. a master, which should never be used
-2. a vlan device, which is enslaved to the master device
-
-The session's ifname value is set to the VLAN netdevice name such
-that it is the name returned in session_get netlink requests. For vlan
-pseudowires, this should always be the interface that userspace
-configures.
+The new symbols are:
+vlan_register_device
+unregister_vlan_dev
 ---
- net/l2tp/l2tp_eth.c |   73 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 71 insertions(+), 2 deletions(-)
+ include/linux/if_vlan.h |   11 ++++++
+ net/8021q/vlan.c        |   82 ++++++++++++++++++++++++++++------------------
+ 2 files changed, 61 insertions(+), 32 deletions(-)
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 76125c5..aae38d9 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -17,6 +17,7 @@
- #include <linux/hash.h>
- #include <linux/l2tp.h>
- #include <linux/in.h>
-+#include <linux/if_vlan.h>
- #include <linux/etherdevice.h>
- #include <linux/spinlock.h>
- #include <net/sock.h>
-@@ -53,6 +54,7 @@ struct l2tp_eth {
- /* via l2tp_session_priv() */
- struct l2tp_eth_sess {
- 	struct net_device	*dev;
-+	struct net_device	*vlan_dev;
- };
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 715c343..c6431d5 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -101,6 +101,8 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
+ 				 const struct net_device *by_dev);
  
- /* per-net private data for this module */
-@@ -178,6 +180,50 @@ error:
- 	kfree_skb(skb);
+ extern bool vlan_uses_dev(const struct net_device *dev);
++extern int vlan_register_device(struct net_device *real_dev, u16 vlan_id, struct net_device **dev, char *name);
++extern void unregister_vlan_dev(struct net_device *dev, struct list_head *head);
+ #else
+ static inline struct net_device *
+ __vlan_find_dev_deep(struct net_device *real_dev,
+@@ -155,6 +157,15 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
+ {
+ 	return false;
+ }
++
++static inline int vlan_register_device(struct net_device *real_dev, u16 vlan_id, struct net_device **dev, char *name)
++{
++	return -EPROTONOSUPPORT;
++}
++
++static inline void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
++{
++}
+ #endif
+ 
+ static inline bool vlan_hw_offload_capable(netdev_features_t features,
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 61fc573..272157c 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -121,6 +121,7 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 	/* Get rid of the vlan's reference to real_dev */
+ 	dev_put(real_dev);
+ }
++EXPORT_SYMBOL(unregister_vlan_dev);
+ 
+ int vlan_check_real_dev(struct net_device *real_dev,
+ 			__be16 protocol, u16 vlan_id)
+@@ -204,18 +205,16 @@ out_vid_del:
+ 	return err;
  }
  
-+static int l2tp_vlan_create(struct l2tp_session *session, u16 vlan_id)
-+{
-+	struct l2tp_eth_sess *spriv;
-+	struct net_device *dev;
-+	struct net_device *vlan_dev;
-+	char name[IFNAMSIZ + 1];
-+	int rc;
-+
-+	spriv = l2tp_session_priv(session);
-+	dev = spriv->dev;
-+
-+	if (!vlan_id)
+-/*  Attach a VLAN device to a mac address (ie Ethernet Card).
+- *  Returns 0 if the device was created or a negative error code otherwise.
+- */
+-static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
++int vlan_register_device(struct net_device *real_dev, u16 vlan_id, struct net_device **dev, char *name)
+ {
+ 	struct net_device *new_dev;
+ 	struct vlan_dev_priv *vlan;
+ 	struct net *net = dev_net(real_dev);
+-	struct vlan_net *vn = net_generic(net, vlan_net_id);
+-	char name[IFNAMSIZ];
+ 	int err;
+ 
++	if (!dev || !name)
 +		return -EINVAL;
 +
-+	snprintf(name, IFNAMSIZ, "%s.%i", dev->name, vlan_id);
-+	rtnl_lock();
-+	rc = vlan_register_device(dev, vlan_id, &vlan_dev, name);
-+	rtnl_unlock();
-+	if (rc < 0)
-+		return rc;
+ 	if (vlan_id >= VLAN_VID_MASK)
+ 		return -ERANGE;
+ 
+@@ -223,32 +222,6 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 	if (err < 0)
+ 		return err;
+ 
+-	/* Gotta set up the fields for the device. */
+-	switch (vn->name_type) {
+-	case VLAN_NAME_TYPE_RAW_PLUS_VID:
+-		/* name will look like:	 eth1.0005 */
+-		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, vlan_id);
+-		break;
+-	case VLAN_NAME_TYPE_PLUS_VID_NO_PAD:
+-		/* Put our vlan.VID in the name.
+-		 * Name will look like:	 vlan5
+-		 */
+-		snprintf(name, IFNAMSIZ, "vlan%i", vlan_id);
+-		break;
+-	case VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD:
+-		/* Put our vlan.VID in the name.
+-		 * Name will look like:	 eth0.5
+-		 */
+-		snprintf(name, IFNAMSIZ, "%s.%i", real_dev->name, vlan_id);
+-		break;
+-	case VLAN_NAME_TYPE_PLUS_VID:
+-		/* Put our vlan.VID in the name.
+-		 * Name will look like:	 vlan0005
+-		 */
+-	default:
+-		snprintf(name, IFNAMSIZ, "vlan%.4i", vlan_id);
+-	}
+-
+ 	new_dev = alloc_netdev(sizeof(struct vlan_dev_priv), name, vlan_setup);
+ 
+ 	if (new_dev == NULL)
+@@ -273,12 +246,57 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 	if (err < 0)
+ 		goto out_free_newdev;
+ 
++	*dev = new_dev;
 +
-+	spriv->vlan_dev = vlan_dev;
-+	strlcpy(session->ifname, vlan_dev->name, IFNAMSIZ);
+ 	return 0;
+ 
+ out_free_newdev:
+ 	free_netdev(new_dev);
+ 	return err;
+ }
++EXPORT_SYMBOL(vlan_register_device);
 +
-+	return 0;
-+}
-+
-+static int l2tp_vlan_delete(struct l2tp_session *session)
++/*  Attach a VLAN device to a mac address (ie Ethernet Card).
++ *  Returns 0 if the device was created or a negative error code otherwise.
++ */
++static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
 +{
-+	struct l2tp_eth_sess *spriv;
-+	struct net_device *dev;
++	struct net_device *new_dev;
++	struct net *net = dev_net(real_dev);
++	struct vlan_net *vn = net_generic(net, vlan_net_id);
++	char name[IFNAMSIZ];
++	int err;
 +
-+	spriv = l2tp_session_priv(session);
-+	dev = spriv->dev;
-+
-+	rtnl_lock();
-+	unregister_vlan_dev(spriv->vlan_dev, NULL);
-+	rtnl_unlock();
-+	strlcpy(session->ifname, dev->name, IFNAMSIZ);
-+	spriv->vlan_dev = NULL;
-+
-+	return 0;
-+}
-+
- static void l2tp_eth_delete(struct l2tp_session *session)
- {
- 	struct l2tp_eth_sess *spriv;
-@@ -186,6 +232,8 @@ static void l2tp_eth_delete(struct l2tp_session *session)
- 	if (session) {
- 		spriv = l2tp_session_priv(session);
- 		dev = spriv->dev;
-+		if (spriv->vlan_dev)
-+			l2tp_vlan_delete(session);
- 		if (dev) {
- 			unregister_netdev(dev);
- 			spriv->dev = NULL;
-@@ -277,10 +325,18 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 	if (rc < 0)
- 		goto out_del_dev;
- 
--	__module_get(THIS_MODULE);
- 	/* Must be done after register_netdev() */
- 	strlcpy(session->ifname, dev->name, IFNAMSIZ);
- 
-+	if (cfg->pw_type == L2TP_PWTYPE_ETH_VLAN) {
-+		/* Create VLAN interface. Replaces session->ifname */
-+		rc = l2tp_vlan_create(session, cfg->vlan_id);
-+		if (rc < 0)
-+			goto out_unreg;
++	/* Gotta set up the fields for the device. */
++	switch (vn->name_type) {
++	case VLAN_NAME_TYPE_RAW_PLUS_VID:
++		/* name will look like:	 eth1.0005 */
++		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, vlan_id);
++		break;
++	case VLAN_NAME_TYPE_PLUS_VID_NO_PAD:
++		/* Put our vlan.VID in the name.
++		 * Name will look like:	 vlan5
++		 */
++		snprintf(name, IFNAMSIZ, "vlan%i", vlan_id);
++		break;
++	case VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD:
++		/* Put our vlan.VID in the name.
++		 * Name will look like:	 eth0.5
++		 */
++		snprintf(name, IFNAMSIZ, "%s.%i", real_dev->name, vlan_id);
++		break;
++	case VLAN_NAME_TYPE_PLUS_VID:
++		/* Put our vlan.VID in the name.
++		 * Name will look like:	 vlan0005
++		 */
++	default:
++		snprintf(name, IFNAMSIZ, "vlan%.4i", vlan_id);
 +	}
 +
-+	__module_get(THIS_MODULE);
++	err = vlan_register_device(real_dev, vlan_id, &new_dev, name);
 +
- 	dev_hold(dev);
- 	pn = l2tp_eth_pernet(dev_net(dev));
- 	spin_lock(&pn->l2tp_eth_lock);
-@@ -289,6 +345,8 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
++	return err;
++}
  
- 	return 0;
- 
-+out_unreg:
-+	unregister_netdev(dev);
- out_del_dev:
- 	free_netdev(dev);
- 	spriv->dev = NULL;
-@@ -328,6 +386,11 @@ static int __init l2tp_eth_init(void)
- 	err = l2tp_nl_register_ops(L2TP_PWTYPE_ETH, &l2tp_eth_nl_cmd_ops);
- 	if (err)
- 		goto out;
-+#if IS_ENABLED(CONFIG_VLAN_8021Q)
-+	err = l2tp_nl_register_ops(L2TP_PWTYPE_ETH_VLAN, &l2tp_eth_nl_cmd_ops);
-+	if (err)
-+		goto out;
-+#endif
- 
- 	err = register_pernet_device(&l2tp_eth_net_ops);
- 	if (err)
-@@ -338,6 +401,9 @@ static int __init l2tp_eth_init(void)
- 	return 0;
- 
- out_unreg:
-+#if IS_ENABLED(CONFIG_VLAN_8021Q)
-+	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH_VLAN);
-+#endif
- 	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
- out:
- 	return err;
-@@ -346,6 +412,9 @@ out:
- static void __exit l2tp_eth_exit(void)
- {
- 	unregister_pernet_device(&l2tp_eth_net_ops);
-+#if IS_ENABLED(CONFIG_VLAN_8021Q)
-+	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH_VLAN);
-+#endif
- 	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
- }
- 
-@@ -355,4 +424,4 @@ module_exit(l2tp_eth_exit);
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
- MODULE_DESCRIPTION("L2TP ethernet pseudowire driver");
--MODULE_VERSION("1.0");
-+MODULE_VERSION("1.1");
+ static void vlan_sync_address(struct net_device *dev,
+ 			      struct net_device *vlandev)
 -- 
 1.7.0.4
