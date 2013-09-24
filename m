@@ -1,24 +1,27 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 24/27] vlan: link the upper neighbour only after registering
-Date: Tue, 24 Sep 2013 13:47:04 +0200
-Message-ID: <1380023227-9576-25-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 25/27] vlan: unlink the upper neighbour before unregistering
+Date: Tue, 24 Sep 2013 13:47:05 +0200
+Message-ID: <1380023227-9576-26-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9504 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:62241 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753655Ab3IXLrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:36 -0400
+	id S1753655Ab3IXLri (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:38 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise users might access it without being fully registered, as per
-sysfs - it only inits in register_netdevice(), so is unusable till it is
-called.
+On netdev unregister we're removing also all of its sysfs-associated stuff,
+including the sysfs symlinks that are controlled by netdev neighbour code.
+Also, it's a subtle race condition - cause we can still access it after
+unregistering.
+
+Move the unlinking right before the unregistering to fix both.
 
 CC: Patrick McHardy <kaber@trash.net>
 CC: "David S. Miller" <davem@davemloft.net>
@@ -35,45 +38,32 @@ Notes:
     v1  -> v2:
     No changes.
     
-    RFC -> v1:
-    No changes.
+    RFC -> v2:
+    New patch.
 
- net/8021q/vlan.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ net/8021q/vlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 61fc573..69b4a35 100644
+index 69b4a35..b3d17d1 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -169,13 +169,13 @@ int register_vlan_dev(struct net_device *dev)
- 	if (err < 0)
- 		goto out_uninit_mvrp;
+@@ -98,14 +98,14 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 		vlan_gvrp_request_leave(dev);
  
--	err = netdev_upper_dev_link(real_dev, dev);
--	if (err)
--		goto out_uninit_mvrp;
--
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		goto out_upper_dev_unlink;
-+		goto out_uninit_mvrp;
+ 	vlan_group_set_device(grp, vlan->vlan_proto, vlan_id, NULL);
 +
-+	err = netdev_upper_dev_link(real_dev, dev);
-+	if (err)
-+		goto out_unregister_netdev;
++	netdev_upper_dev_unlink(real_dev, dev);
+ 	/* Because unregister_netdevice_queue() makes sure at least one rcu
+ 	 * grace period is respected before device freeing,
+ 	 * we dont need to call synchronize_net() here.
+ 	 */
+ 	unregister_netdevice_queue(dev, head);
  
- 	/* Account for reference in struct vlan_dev_priv */
- 	dev_hold(real_dev);
-@@ -191,8 +191,8 @@ int register_vlan_dev(struct net_device *dev)
- 
- 	return 0;
- 
--out_upper_dev_unlink:
 -	netdev_upper_dev_unlink(real_dev, dev);
-+out_unregister_netdev:
-+	unregister_netdevice(dev);
- out_uninit_mvrp:
- 	if (grp->nr_vlan_devs == 0)
+-
+ 	if (grp->nr_vlan_devs == 0) {
  		vlan_mvrp_uninit_applicant(real_dev);
+ 		vlan_gvrp_uninit_applicant(real_dev);
 -- 
 1.8.4
