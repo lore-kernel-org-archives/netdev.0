@@ -1,97 +1,57 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 00/27] bonding: use neighbours instead of own lists
-Date: Tue, 24 Sep 2013 13:46:40 +0200
-Message-ID: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
-Cc: jiri@resnulli.us, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 1/2] net: Toeplitz library functions
+Date: Tue, 24 Sep 2013 05:24:34 -0700
+Message-ID: <1380025474.3165.46.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7355@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12528 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752778Ab3IXLrA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:00 -0400
+Received: from mail-ye0-f181.google.com ([209.85.213.181]:50527 "EHLO
+	mail-ye0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721Ab3IXMYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 08:24:38 -0400
+Received: by mail-ye0-f181.google.com with SMTP id r14so1658091yen.12
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 05:24:37 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7355@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset introduces all the needed infrastructure, on top of current
-adjacent lists, to be able to remove bond's slave_list/slave->list. The
-overhead in memory/CPU is minimal, and after the patchset bonding can rely
-on its slave-related functions, given the proper locking. I've done some
-netperf benchmarks on a vm, and the delta was about 0.1gbps for 35gbps as a
-whole, so no speed fluctuations.
+On Tue, 2013-09-24 at 09:32 +0100, David Laight wrote:
+> > +static inline unsigned int
+> > +toeplitz_hash(const unsigned char *bytes,
+> > +	      struct toeplitz *toeplitz, int n)
+> > +{
+> > +	int i;
+> > +	unsigned int result = 0;
+> > +
+> > +	for (i = 0; i < n; i++)
+> > +		result ^= toeplitz->key_cache[i][bytes[i]];
+> > +
+> > +        return result;
+> > +};
+> 
+> That is a horrid hash function to be calculating in software.
+> 
+> The code looks very much like a simple 32bit CRC.
+> It isn't entirely clears exactly where the 'key' gets included,
+> but I suspect it is just xored with the data bytes.
+> 
+> Using in it hardware is probably fine - the hardware can do
+> it cheaply (in dedicated logic) as the frame arrives.
+> The CRC polynomial probably collapses to a few XOR operations
+> when done byte by byte (the hdlc crc16 collapses to 3 levels
+> of xor).
+> 
+> IIRC jhash() works on 32bit quantities - so has far fewer
+> maths operations and well as not having all the random data
+> accesses (cache misses and displacing other parts of the
+> working set from the cache).
 
-It also automatically creates lower/upper and master symlinks in dev's
-sysfs directory.
+Anyway, I really hope Toeplitz hash is not restricted to 0-255 range
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Dimitris Michailidis <dm@chelsio.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
----
-v3  -> v4:
-Per the feedback received, fix the comments to be kernel-doc style.
-As Ben Hutchings suggested, make the 'get next private after a
-specific private' function bonding-specific - it has virtually no uses
-outside bonding (and even in bonding I already have some patches of
-removing it).
-Also, remove the stupid 'bool upper' logic from everywhere in the logic -
-as Ben suggested, it's easier to pass the lists directly - and not only
-easier, it saved several hundred lines of code modified.
-Finally, make netdev_for_each_lower_private() safe for removal of the
-current member - it can be easily achieved and doesn't really need two
-versions, as in lists.
-
-v2  -> v3:
-Fix the commit subject for patch 08 - forgot the _continue in
-bond_for_each_slave_continue_reverse(), suggested by Cong Wang.
-This version is already ready for the inclusion, hopefully.
-Moved the changelog in cover letter to the bottom and cleaned it
-up a bit.
-
-v1  -> v2:
-Fix a bug when we could remove try to remove a neighbour twice - it was
-possible if we've had this neighbour already and added another devices
-which had this neighbour in its lists. Fix it by following the rule - there
-can be only one neighbour link, so add also _remove_neighbour() functions
-to the generic _remove()s to handle the neighbour only removing, and fix
-its refcounting while adding (all in patch 01).
-Also, fix a vlan bug when it called unregister netdevice before unlinking -
-it could possibly lead to a subte race condition - cause it was
-unregistered but still in global-accessible list.
-Rearrange sysfs/vlan patches so that first we fix vlan and only after we
-add sysfs stuff.
-
-RFC -> v1:
-I've added proper, consistent naming for all variables/functions, uninlined
-some helpers to get better backtraces, just in case (overhead is minimal,
-no hot paths), rearranged patches for better review, dropped bondings
-->prev and bond_for_each_slave_continue() functionality - to be able to
-RCUify it easier, and renamed slave_* sysfs links to lower_* sysfs links to
-maintain upper/lower naming. I've also dropped, thanks to bonding cleanup,
-some heavy and ugly/intrusive patches.
-
----
- drivers/net/bonding/bond_3ad.c                  |  54 ++--
- drivers/net/bonding/bond_alb.c                  |  81 ++---
- drivers/net/bonding/bond_alb.h                  |   4 +-
- drivers/net/bonding/bond_main.c                 | 296 +++++++++--------
- drivers/net/bonding/bond_procfs.c               |   5 +-
- drivers/net/bonding/bond_sysfs.c                |  62 +---
- drivers/net/bonding/bonding.h                   | 101 +++---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   3 +-
- include/linux/netdevice.h                       |  55 +++-
- net/8021q/vlan.c                                |  18 +-
- net/core/dev.c                                  | 403 +++++++++++++++++-------
- 11 files changed, 638 insertions(+), 444 deletions(-)
+Tom implementation is not Toeplitz, but a degenerated hash.
