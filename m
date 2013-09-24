@@ -1,58 +1,41 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 12:04:25 -0700
-Message-ID: <CA+mtBx8Nm_wQcizqD7ku5xONurqQaGZpqX0AafUrC7+4uU34xQ@mail.gmail.com>
-References: <CA+mtBx_y0hK69jcdY5e0MUzAa8hEPwExBDuK9Dn4Ceo5Hkn_iw@mail.gmail.com>
-	<20130924.113953.1275344954032811572.davem@redhat.com>
-	<CA+mtBx_AcmcNBDhRKVB8YDkSNdOwgJ3CXxBqpgxDw23X3m2rvQ@mail.gmail.com>
-	<20130924.140312.1944338200709799169.davem@redhat.com>
-	<20130924114853.00003935@unknown>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [net 5/6] i40e: better return values
+Date: Tue, 24 Sep 2013 12:09:06 -0700
+Message-ID: <20130924120906.00000efe@unknown>
+References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1380022486.3575.74.camel@joe-AO722>
+	<20130924.101231.1193830264265403478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@redhat.com>,
-	David Laight <David.Laight@aculab.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <joe@perches.com>, <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:33700 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754253Ab3IXTE0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 15:04:26 -0400
-Received: by mail-ie0-f180.google.com with SMTP id u16so9328714iet.39
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 12:04:26 -0700 (PDT)
-In-Reply-To: <20130924114853.00003935@unknown>
+Received: from mga11.intel.com ([192.55.52.93]:57794 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753005Ab3IXTJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 15:09:07 -0400
+In-Reply-To: <20130924.101231.1193830264265403478.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 24, 2013 at 11:48 AM, Jesse Brandeburg
-<jesse.brandeburg@intel.com> wrote:
-> On Tue, 24 Sep 2013 14:03:12 -0400 David Miller <davem@redhat.com> wrote:
-> ...
->> >> For security reasons we absolutely cannot use it for that purpose,
->> >> please stop claiming this.
->> >>
->> >> Any hash function which an attacker can reproduce is attackable.
->> >
-> ...
->> > that should be addressed.  It is possible to DoS attack through the
->> > steering mechanism.
->>
->> All of them are using a fixed, defined, key.
->
-> We selected the fixed key on purpose.  The existing mechanisms built
-> into the stack for preventing the impact of DOS attacks like NAPI
-> polling will prevent any actual damage even if someone sends lots of
-> packets on a single flow.  If someone overflows a receive queue that
-> CPU runs until it can't keep up and then hardware drops further
-> packets.  In this case even with a randomized seed key any single flow
-> can still be targeted at a queue, which is no different than a single
-> queue adapter.
->
-> I'm not convinced there is an actual impact in practice.
->
-But what is the purpose of using a fixed key, what are the benefits?
-A clever attacker could attack a specific queue with different
-4-tuples.  While this might be similar to a single flow attack, it
-will be much harder to detect and be used to attack multiple servers
-simultaneously in the say way (since they all share the same key).  I
-don't think we could deploy a NIC with a static RSS key.
+On Tue, 24 Sep 2013 10:12:31 -0400
+David Miller <davem@davemloft.net> wrote:
+> > Ick.  post_increment problem.
+> > 
+> > 	return ++num_tc;
+> > 
+> > There's nothing wrong with the original code
+> > unless this is a bugfix which should be documented
+> > better than "better return values".
+> 
+> Agreed, this style of coding is asking for a bug.
+> 
+> If you want to return "num_tc PLUS ONE" just say that:
+> 
+> 	return num_tc + 1;
+
+Oops! Obviously the original post-inc was not the intent. That was my
+bad. good catch Joe! will fix and resubmit.
