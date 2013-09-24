@@ -1,42 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 12:14:38 -0700
-Message-ID: <1380050078.3165.115.camel@edumazet-glaptop>
-References: <CA+mtBx_y0hK69jcdY5e0MUzAa8hEPwExBDuK9Dn4Ceo5Hkn_iw@mail.gmail.com>
-	 <20130924.113953.1275344954032811572.davem@redhat.com>
-	 <CA+mtBx_AcmcNBDhRKVB8YDkSNdOwgJ3CXxBqpgxDw23X3m2rvQ@mail.gmail.com>
-	 <20130924.140312.1944338200709799169.davem@redhat.com>
-	 <1380046245.2736.52.camel@bwh-desktop.uk.level5networks.com>
-	 <CA+mtBx83=X6k42oe4=-hD_coRoX72bJ05Kb5dDfRCDCdTzOH+A@mail.gmail.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH v4 net-next 06/27] bonding: modify
+ bond_get_slave_by_dev() to use neighbours
+Date: Tue, 24 Sep 2013 15:19:43 -0400 (EDT)
+Message-ID: <20130924.151943.1884204173373827600.davem@redhat.com>
+References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
+	<1380023227-9576-7-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@redhat.com>,
-	David Laight <David.Laight@aculab.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:32931 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449Ab3IXTOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 15:14:41 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so4974854pbb.34
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 12:14:40 -0700 (PDT)
-In-Reply-To: <CA+mtBx83=X6k42oe4=-hD_coRoX72bJ05Kb5dDfRCDCdTzOH+A@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754523Ab3IXTUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 15:20:50 -0400
+In-Reply-To: <1380023227-9576-7-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-24 at 11:24 -0700, Tom Herbert wrote:
-> >
-> There are some drivers are using fixed keys.  This is not good.  I'll
-> take a look at those.  It should be sufficient to randomly set the key
-> once at initialization.
-> 
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 24 Sep 2013 13:46:46 +0200
 
-If the software fallback (we need this for dumb NIC, or encapsulated
-traffic) is more expensive than jhash, I do not think we will ever use
-this Toeplitz thing.
+> -	return NULL;
+> +	return (struct slave *)netdev_lower_dev_get_private(bond->dev,
+> +							    slave_dev);
+>  }
 
-We can not use jhash or Toeplitz.
+void pointers never need to be cast, please remove this "struct slave *"
+cast.
