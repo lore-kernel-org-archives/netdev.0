@@ -1,37 +1,36 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net v4 1/1] xen-netback: Handle backend state transitions
- in a more robust way
-Date: Tue, 24 Sep 2013 17:12:55 +0100
-Message-ID: <20130924161255.GC14211@zion.uk.xensource.com>
-References: <1380037500-12174-1-git-send-email-paul.durrant@citrix.com>
- <1380037500-12174-2-git-send-email-paul.durrant@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] net: Toeplitz library functions
+Date: Tue, 24 Sep 2013 09:14:59 -0700
+Message-ID: <1380039299.3165.91.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+	 <1379980991.3165.37.camel@edumazet-glaptop>
+	 <20130924023038.GA22393@order.stressinduktion.org>
+	 <20130924033505.GB22393@order.stressinduktion.org>
+	 <1380001118.3165.41.camel@edumazet-glaptop>
+	 <20130924160145.GB26769@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64642 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038Ab3IXQM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:12:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1380037500-12174-2-git-send-email-paul.durrant@citrix.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:64809 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753844Ab3IXQPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:15:02 -0400
+Received: by mail-pa0-f48.google.com with SMTP id bj1so3861741pad.7
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:15:01 -0700 (PDT)
+In-Reply-To: <20130924160145.GB26769@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You forgot to fix those typos -- metback, transtions. :-)
+On Tue, 2013-09-24 at 18:01 +0200, Hannes Frederic Sowa wrote:
 
-On Tue, Sep 24, 2013 at 04:45:00PM +0100, Paul Durrant wrote:
-> When the frontend state changes metback now specifies its desired state to
+> inet(6)_ehashfn does get used by udp btw. But I do not understand the code,
+> yet. ;)
 
-metback
+Oh well, thats the SO_REUSEPORT thing. We do not really care, thats only
+used to try to steer udp flows on a given socket, but its a hint.
 
-[...]
-> + * The backend state starts in InitWait and the following transtions are
-
-transtions
-
-Wei.
+Presumably it should use a separate secret key.
