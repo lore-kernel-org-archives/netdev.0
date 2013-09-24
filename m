@@ -1,51 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] vxlan: Use RCU apis to access sk_user_data.
-Date: Tue, 24 Sep 2013 09:16:06 -0700
-Message-ID: <1380039366.3165.92.camel@edumazet-glaptop>
-References: <1380038979-24035-1-git-send-email-pshelar@nicira.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 1/2] net: Add function to get SW rxhash
+Date: Tue, 24 Sep 2013 09:20:51 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1309240915001.24581@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:56650 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753096Ab3IXQQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:16:09 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so4802067pdj.32
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:16:08 -0700 (PDT)
-In-Reply-To: <1380038979-24035-1-git-send-email-pshelar@nicira.com>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:49662 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856Ab3IXQUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:20:52 -0400
+Received: by mail-vc0-f202.google.com with SMTP id gd11so541022vcb.3
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:20:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-24 at 09:09 -0700, Pravin B Shelar wrote:
-> Use of RCU api makes vxlan code easier to understand.  It also
-> fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
-> In rare case without ACCESS_ONCE() compiler might omit vs on
-> sk_user_data dereference. Compiler can use vs as alias for
-> sk->sk_user_data, resulting in multiple sk_user_data dereference
-> in rcu read context which could change.
-> 
-> CC: Jesse Gross <jesse@nicira.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> v2:
-> Use RCU_INIT_POINTER
-> ---
->  drivers/net/vxlan.c |   11 ++++-------
->  include/net/sock.h  |    2 ++
->  2 files changed, 6 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index d1292fe..1fae0d6 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1,4 +1,4 @@
-> -/*
-> + /*
->   * VXLAN: Virtual eXtensible Local Area Network
->   *
+Some uses of skb_get_rxhash expect that the function will return
+a consistent value whether it is called on RX or TX paths. On RX
+path, we will use the rxhash if provided by the NIC, so this
+would not normally be the same result computed in TX path which is
+a software calculation.
 
+This patch adds skb_get_sw_rxhash to explicitly request a hash
+calculated by the stack, disregarding the hash provided by NIC.
 
-extra space ?
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/skbuff.h    | 11 ++++++++++-
+ net/core/flow_dissector.c |  1 +
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2ddb48d..917a590 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -488,6 +488,7 @@ struct sk_buff {
+ 	__u8			pfmemalloc:1;
+ 	__u8			ooo_okay:1;
+ 	__u8			l4_rxhash:1;
++	__u8			sw_rxhash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
+ 	__u8			no_fcs:1;
+@@ -498,7 +499,7 @@ struct sk_buff {
+ 	 * headers if needed
+ 	 */
+ 	__u8			encapsulation:1;
+-	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
++	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
+@@ -726,6 +727,14 @@ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ 	return skb->rxhash;
+ }
+ 
++static inline __u32 skb_get_sw_rxhash(struct sk_buff *skb)
++{
++	if (!skb->l4_rxhash && !skb->sw_rxhash)
++		__skb_get_rxhash(skb);
++
++	return skb->rxhash;
++}
++
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+ {
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 1929af8..8979121 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -200,6 +200,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
+ 		hash = 1;
+ 
+ 	skb->rxhash = hash;
++	skb->sw_rxhash = 1;
+ }
+ EXPORT_SYMBOL(__skb_get_rxhash);
+ 
+-- 
+1.8.4
