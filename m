@@ -1,33 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: linux-next: manual merge of the ipsec-next tree with the
- net-next tree
-Date: Tue, 24 Sep 2013 12:25:05 +0200
-Message-ID: <20130924102505.GS7660@secunet.com>
-References: <20130924121629.f818475ddf308b0494cfce2a@canb.auug.org.au>
+From: Kalle Valo <kvalo@adurom.com>
+Subject: Re: [PATCH 12/19] wireless: Change variable type to bool
+Date: Tue, 24 Sep 2013 13:54:49 +0300
+Message-ID: <87wqm6sd52.fsf@purkki.adurom.net>
+References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
+	<1379802471-30252-12-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fan Du <fan.du@windriver.com>, Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130924121629.f818475ddf308b0494cfce2a@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Peter Senna Tschudin <peter.senna@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from purkki.adurom.net ([80.68.90.206]:54699 "EHLO purkki.adurom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750757Ab3IXKyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 06:54:53 -0400
+In-Reply-To: <1379802471-30252-12-git-send-email-peter.senna@gmail.com> (Peter
+	Senna Tschudin's message of "Sun, 22 Sep 2013 00:27:44 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen.
+Peter Senna Tschudin <peter.senna@gmail.com> writes:
 
-On Tue, Sep 24, 2013 at 12:16:29PM +1000, Stephen Rothwell wrote:
-> Hi Steffen,
-> 
-> Today's linux-next merge of the ipsec-next tree got a conflict in
-> include/net/xfrm.h between commit d511337a1eda ("xfrm.h: Remove extern
-> from function prototypes") from the net-next tree and commit aba826958830
-> ("{ipv4,xfrm}: Introduce xfrm_tunnel_notifier for xfrm tunnel mode
-> callback") from the ipsec-next tree.
-> 
+> The variable continual is only assigned the values true and false.
+> Change its type to bool.
+>
+> The simplified semantic patch that find this problem is as
+> follows (http://coccinelle.lip6.fr/):
+>
+> @exists@
+> type T;
+> identifier b;
+> @@
+> - T
+> + bool
+>   b = ...;
+>   ... when any
+>   b = \(true\|false\)
+>
+> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+> ---
+>  drivers/net/wireless/rtlwifi/efuse.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks for the information, I'll do a rebase of the ipsec-next
-tree tomorrow.
+Please prefix the patch title with "rtlwifi:". We use "wireless:" for
+changes to net/wireless.
+
+-- 
+Kalle Valo
