@@ -1,91 +1,198 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net v3] vxlan: Use RCU apis to access sk_user_data.
-Date: Tue, 24 Sep 2013 10:25:40 -0700
-Message-ID: <1380043540-10417-1-git-send-email-pshelar@nicira.com>
-Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: netdev@vger.kernel.org
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
+Date: Wed, 25 Sep 2013 02:30:18 +0900
+Message-ID: <1380043818.4391.26.camel@localhost.localdomain>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita>
+	 <20130912.160033.779509034953932316.davem@davemloft.net>
+	 <1379074013.1678.16.camel@localhost.localdomain>
+	 <523744A6.5090001@redhat.com> <1379405552.6177.31.camel@ubuntu-vm-makita>
+	 <524052FC.5010301@redhat.com> <1380023107.3162.53.camel@ubuntu-vm-makita>
+	 <52419509.1020103@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
+	Patrick McHardy <kaber@trash.net>
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:50292 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753208Ab3IXRZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 13:25:51 -0400
-Received: by mail-ob0-f175.google.com with SMTP id uz6so5224775obc.6
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 10:25:50 -0700 (PDT)
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:59581 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753449Ab3IXRaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 13:30:24 -0400
+Received: by mail-pb0-f51.google.com with SMTP id jt11so4891475pbb.10
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 10:30:24 -0700 (PDT)
+In-Reply-To: <52419509.1020103@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use of RCU api makes vxlan code easier to understand.  It also
-fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
-In rare case without ACCESS_ONCE() compiler might omit vs on
-sk_user_data dereference.
-Compiler can use vs as alias for sk->sk_user_data, resulting in
-multiple sk_user_data dereference in rcu read context which
-could change.
+On Tue, 2013-09-24 at 09:35 -0400, Vlad Yasevich wrote:
+> On 09/24/2013 07:45 AM, Toshiaki Makita wrote:
+> > On Mon, 2013-09-23 at 10:41 -0400, Vlad Yasevich wrote:
+> >> On 09/17/2013 04:12 AM, Toshiaki Makita wrote:
+> >>> On Mon, 2013-09-16 at 13:49 -0400, Vlad Yasevich wrote:
+> >>>> On 09/13/2013 08:06 AM, Toshiaki Makita wrote:
+> >>>>> On Thu, 2013-09-12 at 16:00 -0400, David Miller wrote:
+> >>>>>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> >>>>>> Date: Tue, 10 Sep 2013 19:27:54 +0900
+> >>>>>>
+> >>>>>>> There seem to be some undesirable behaviors related with PVID.
+> >>>>>>> 1. It has no effect assigning PVID to a port. PVID cannot be applied
+> >>>>>>> to any frame regardless of whether we set it or not.
+> >>>>>>> 2. FDB entries learned via frames applied PVID are registered with
+> >>>>>>> VID 0 rather than VID value of PVID.
+> >>>>>>> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
+> >>>>>>> This leads interoperational problems such as sending frames with VID
+> >>>>>>> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
+> >>>>>>> 0 as they belong to VLAN 0, which is expected to be handled as they have
+> >>>>>>> no VID according to IEEE 802.1Q.
+> >>>>>>>
+> >>>>>>> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
+> >>>>>>> is fixed, because we cannot activate PVID due to it.
+> >>>>>>
+> >>>>>> Please work out the issues in patch #2 with Vlad and resubmit this
+> >>>>>> series.
+> >>>>>>
+> >>>>>> Thank you.
+> >>>>>
+> >>>>> I'm hovering between whether we should fix the issue by changing vlan 0
+> >>>>> interface behavior in 8021q module or enabling a bridge port to sending
+> >>>>> priority-tagged frames, or another better way.
+> >>>>>
+> >>>>> If you could comment it, I'd appreciate it :)
+> >>>>>
+> >>>>>
+> >>>>> BTW, I think what is discussed in patch #2 is another problem about
+> >>>>> handling priority-tags, and it exists without this patch set applied.
+> >>>>> It looks like that we should prepare another patch set than this to fix
+> >>>>> that problem.
+> >>>>>
+> >>>>> Should I include patches that fix the priority-tags problem in this
+> >>>>> patch set and resubmit them all together?
+> >>>>>
+> >>>>
+> >>>> I am thinking that we might need to do it in bridge and it looks like
+> >>>> the simplest way to do it is to have default priority regeneration table
+> >>>> (table 6-5 from 802.1Q doc).
+> >>>>
+> >>>> That way I think we would conform to the spec.
+> >>>>
+> >>>> -vlad
+> >>>
+> >>> Unfortunately I don't think the default priority regeneration table
+> >>> resolves the problem because IEEE 802.1Q says that a VLAN-aware bridge
+> >>> can transmit untagged or VLAN-tagged frames only (the end of section 7.5
+> >>> and 8.1.7).
+> >>>
+> >>> No mechanism to send priority-tagged frames is found as far as I can see
+> >>> the standard. I think the regenerated priority is used for outgoing PCP
+> >>> field only if egress policy is not untagged (i.e. transmitting as
+> >>> VLAN-tagged), and unused if untagged (Section 6.9.2 3rd/4th Paragraph).
+> >>>
+> >>> If we want to transmit priority-tagged frames from a bridge port, I
+> >>> think we need to implement a new (optional) feature that is above the
+> >>> standard, as I stated previously.
+> >>>
+> >>> How do you feel about adding a per-port policy that enables a bridge to
+> >>> send priority-tagged frames instead of untagged frames when egress
+> >>> policy for the port is untagged?
+> >>> With this change, we can transmit frames for a given vlan as either all
+> >>> untagged, all priority-tagged or all VLAN-tagged.
+> >>
+> >> That would work.  What I am thinking is that we do it by special casing
+> >> the vid 0 egress policy specification.  Let it be untagged by default
+> >> and if it is tagged, then we preserve the priority field and forward
+> >> it on.
+> >>
+> >> This keeps the API stable and doesn't require user/admin from knowing
+> >> exactly what happens.  Default operation conforms to the spec and allows
+> >> simple change to make it backward-compatible.
+> >>
+> >> What do you think.  I've done a simple prototype of this an it seems to
+> >> work with the VMs I am testing with.
+> >
+> > Are you saying that
+> > - by default, set the 0th bit of untagged_bitmap; and
+> > - if we unset the 0th bit and set the "vid"th bit, we transmit frames
+> > classified as belonging to VLAN "vid" as priority-tagged?
+> >
+> > If so, though it's attractive to keep current API, I'm worried about if
+> > it could be a bit confusing and not intuitive for kernel/iproute2
+> > developers that VID 0 has a special meaning only in the egress policy.
+> > Wouldn't it be better to adding a new member to struct net_port_vlans
+> > instead of using VID 0 of untagged_bitmap?
+> >
+> > Or are you saying that we use a new flag in struct net_port_vlans but
+> > use the BRIDGE_VLAN_INFO_UNTAGGED bit with VID 0 in netlink to set the
+> > flag?
+> >
+> > Even in that case, I'm afraid that it might be confusing for developers
+> > for the same reason. We are going to prohibit to specify VID with 0 (and
+> > 4095) in adding/deleting a FDB entry or a vlan filtering entry, but it
+> > would allow us to use VID 0 only when a vlan filtering entry is
+> > configured.
+> > I am thinking a new nlattr is a straightforward approach to configure
+> > it.
+> 
+> By making this an explicit attribute it makes vid 0 a special case for
+> any automatic tool that would provision such filtering.  Seeing vid 0
+> would mean that these tools would have to know that this would have to
+> be translated to a different attribute instead of setting the policy
+> values.
 
-CC: Jesse Gross <jesse@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
-v3:
-remove extra space
-User rcu_deref and rcu_assign api for accessing sk_user_data
-v2:
-Use RCU_INIT_POINTER
----
- drivers/net/vxlan.c |    9 +++------
- include/net/sock.h  |    5 +++++
- 2 files changed, 8 insertions(+), 6 deletions(-)
+Yes, I agree with you that we can do it by the way you explained.
+What I don't understand is the advantage of using vid 0 over another way
+such as adding a new nlattr.
+I think we can indicate transmitting priority-tags explicitly by such a
+nlattr. Using vid 0 seems to be easier to implement than a new nlattr,
+but, for me, it looks less intuitive and more difficult to maintain
+because we have to care about vid 0 instead of simply ignoring it.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d1292fe..2ef5b62 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -952,8 +952,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
- 
- 	spin_lock(&vn->sock_lock);
- 	hlist_del_rcu(&vs->hlist);
--	smp_wmb();
--	vs->sock->sk->sk_user_data = NULL;
-+	rcu_assign_sk_user_data(vs->sock->sk, NULL);
- 	vxlan_notify_del_rx_port(sk);
- 	spin_unlock(&vn->sock_lock);
- 
-@@ -1048,8 +1047,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	port = inet_sk(sk)->inet_sport;
- 
--	smp_read_barrier_depends();
--	vs = (struct vxlan_sock *)sk->sk_user_data;
-+	vs = rcu_dereference_sk_user_data(sk);
- 	if (!vs)
- 		goto drop;
- 
-@@ -2302,8 +2300,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	atomic_set(&vs->refcnt, 1);
- 	vs->rcv = rcv;
- 	vs->data = data;
--	smp_wmb();
--	vs->sock->sk->sk_user_data = vs;
-+	rcu_assign_sk_user_data(vs->sock->sk, vs);
- 
- 	spin_lock(&vn->sock_lock);
- 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 6ba2e7b..1d37a80 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -409,6 +409,11 @@ struct sock {
- 	void                    (*sk_destruct)(struct sock *sk);
- };
- 
-+#define __sk_user_data(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
-+
-+#define rcu_dereference_sk_user_data(sk)	rcu_dereference(__sk_user_data((sk)))
-+#define rcu_assign_sk_user_data(sk, ptr)	rcu_assign_pointer(__sk_user_data((sk)), ptr)
-+
- /*
-  * SK_CAN_REUSE and SK_NO_REUSE on a socket mean that the socket is OK
-  * or not whether his port will be reused by someone else. SK_FORCE_REUSE
--- 
-1.7.1
+Thanks,
+
+Toshiaki Makita
+
+> 
+> How it is implemented internally in the kernel isn't as big of an issue.
+> We can do it as a separate flag or as part of existing policy.
+> 
+> -vlad
+> 
+> >
+> > Thanks,
+> >
+> > Toshiaki Makita
+> >
+> >>
+> >> -vlad
+> >>
+> >>>
+> >>> Thanks,
+> >>>
+> >>> Toshiaki Makita
+> >>>
+> >>>>
+> >>>>>
+> >>>>> Thanks,
+> >>>>>
+> >>>>> Toshiaki Makita
+> >>>>>
+> >>>>>>
+> >>>>>> --
+> >>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>>>>> the body of a message to majordomo@vger.kernel.org
+> >>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>>>
+> >>>>>
+> >>>>>
+> >>>
+> >>>
+> >>> --
+> >>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>> the body of a message to majordomo@vger.kernel.org
+> >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>
+> >
+> >
+> 
