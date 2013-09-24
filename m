@@ -1,36 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce SO_MAX_PACING_RATE
-Date: Tue, 24 Sep 2013 08:14:00 -0700
-Message-ID: <1380035640.3165.68.camel@edumazet-glaptop>
-References: <1379949014.3165.24.camel@edumazet-glaptop>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next] tcp: fix dynamic right sizing
+Date: Tue, 24 Sep 2013 11:16:56 -0400 (EDT)
+Message-ID: <20130924.111656.573791642060379443.davem@redhat.com>
+References: <1379710618.3431.5.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Steinar H. Gunderson" <sesse@google.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	vanj@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:43418 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096Ab3IXPOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 11:14:03 -0400
-Received: by mail-pb0-f42.google.com with SMTP id un15so4716990pbc.29
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 08:14:02 -0700 (PDT)
-In-Reply-To: <1379949014.3165.24.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:54033 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751038Ab3IXPRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 11:17:08 -0400
+In-Reply-To: <1379710618.3431.5.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-23 at 08:10 -0700, Eric Dumazet wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 20 Sep 2013 13:56:58 -0700
 
-> +
-> +	case SO_MAX_PACING_RATE:
-> +		sk->sk_max_pacing_rate = val;
-> +		break;
-> +
+> Dynamic Right Sizing (DRS) is supposed to open TCP receive window
+> automatically, but suffers from two bugs, presented by order
+> of importance.
+> 
+> 1) tcp_rcv_space_adjust() fix :
+> 
+> Using twice the last received amount is very pessimistic,
+> because it doesn't allow fast recovery or proper slow start
+> ramp up, if sender wants to increase cwin by 100% every RTT.
+> 
+> copied = bytes received in previous RTT
+> 
+> 2*copied = bytes we expect to receive in next RTT
+> 
+> 4*copied = bytes we need to advertise in rwin at end of next RTT
+> 
+> DRS is one RTT late, it needs a 4x factor.
+> 
+> If sender is not using ABC, and increases cwin by 50% every rtt,
+> then we needed 1.5*1.5 = 2.25 factor.
+> This is probably why this bug was not really noticed.
+> 
+> 2) There is no window adjustment after first RTT. DRS triggers only
+>   after the second RTT.
+>   DRS needs two RTT to initialize, so tcp_fixup_rcvbuf() should setup
+>   sk_rcvbuf to allow proper window grow for first two RTT.
+> 
+> This patch increases TCP efficiency particularly for large RTT flows
+> when autotuning is used at the receiver, and more particularly
+> in presence of packet losses.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Cc: Van Jacobson <vanj@google.com>
 
-I'll send a v2, adding here :
-
-sk->sk_pacing_rate = min(sk->sk_pacing_rate, sk->max_pacing_rate);
-
-to enforce current limit for non TCP protocols.
+Looks good, applied, thanks Eric.
