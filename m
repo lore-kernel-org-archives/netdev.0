@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/5] tipc: make bearer and media naming consistent
-Date: Tue, 24 Sep 2013 04:27:45 -0500
-Message-ID: <1380014868-2797-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/5] tipc: avoid unnecessary lookup for tipc bearer instance
+Date: Tue, 24 Sep 2013 04:27:46 -0500
+Message-ID: <1380014868-2797-4-git-send-email-jon.maloy@ericsson.com>
 References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,400 +10,130 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp106.biz.mail.bf1.yahoo.com ([98.139.244.54]:29729 "HELO
+Received: from smtp106.biz.mail.bf1.yahoo.com ([98.139.244.54]:29741 "HELO
 	smtp106.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750752Ab3IXJew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 05:34:52 -0400
+	by vger.kernel.org with SMTP id S1752833Ab3IXJex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 05:34:53 -0400
 In-Reply-To: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-TIPC 'bearer' exists as an abstract concept, while 'media'
-is deemed a specific implementation of a bearer, such as Ethernet
-or Infiniband media. When a component inside TIPC wants to control
-a specific media, it only needs to access the generic bearer API
-to achieve this. However, in the current media implementations,
-the 'bearer' name is also extensively used in media specific
-function and variable names.
+tipc_block_bearer() currently takes a bearer name (const char*)
+as argument. This requires the function to make a lookup to find
+the pointer to the corresponding bearer struct. In the current
+code base this is not necessary, since the only two callers
+(tipc_continue(),recv_notification()) already have validated
+copies of this pointer, and hence can pass it directly in the
+function call.
 
-This may create confusion, so we choose to replace the term 'bearer'
-with 'media' in all function names, variable names, and prefixes
-where this is what really is meant.
-
-Note that this change is cosmetic only, and no runtime behaviour
-changes are made here.
+We change tipc_block_bearer() to directly take struct tipc_bearer*
+as argument instead.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c    |    4 ++--
- net/tipc/bearer.h    |    8 ++++----
- net/tipc/eth_media.c |   56 +++++++++++++++++++++++++-------------------------
- net/tipc/ib_media.c  |   46 ++++++++++++++++++++---------------------
- 4 files changed, 57 insertions(+), 57 deletions(-)
+ net/tipc/bearer.c    |   14 +++-----------
+ net/tipc/bearer.h    |    2 +-
+ net/tipc/eth_media.c |    6 +++---
+ net/tipc/ib_media.c  |    6 +++---
+ 4 files changed, 10 insertions(+), 18 deletions(-)
 
 diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 609c30c..09faa55 100644
+index 09faa55..3f9707a 100644
 --- a/net/tipc/bearer.c
 +++ b/net/tipc/bearer.c
-@@ -387,7 +387,7 @@ restart:
+@@ -420,23 +420,15 @@ exit:
+ }
  
- 	b_ptr = &tipc_bearers[bearer_id];
- 	strcpy(b_ptr->name, name);
--	res = m_ptr->enable_bearer(b_ptr);
-+	res = m_ptr->enable_media(b_ptr);
- 	if (res) {
- 		pr_warn("Bearer <%s> rejected, enable failure (%d)\n",
- 			name, -res);
-@@ -465,7 +465,7 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ /**
+- * tipc_block_bearer - Block the bearer with the given name, and reset all its links
++ * tipc_block_bearer - Block the bearer, and reset all its links
+  */
+-int tipc_block_bearer(const char *name)
++int tipc_block_bearer(struct tipc_bearer *b_ptr)
+ {
+-	struct tipc_bearer *b_ptr = NULL;
+ 	struct tipc_link *l_ptr;
+ 	struct tipc_link *temp_l_ptr;
+ 
+ 	read_lock_bh(&tipc_net_lock);
+-	b_ptr = tipc_bearer_find(name);
+-	if (!b_ptr) {
+-		pr_warn("Attempt to block unknown bearer <%s>\n", name);
+-		read_unlock_bh(&tipc_net_lock);
+-		return -EINVAL;
+-	}
+-
+-	pr_info("Blocking bearer <%s>\n", name);
++	pr_info("Blocking bearer <%s>\n", b_ptr->name);
  	spin_lock_bh(&b_ptr->lock);
  	b_ptr->blocked = 1;
--	b_ptr->media->disable_bearer(b_ptr);
-+	b_ptr->media->disable_media(b_ptr);
  	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
- 		tipc_link_delete(l_ptr);
- 	}
 diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 09c869a..f800e63 100644
+index f800e63..e5e04be 100644
 --- a/net/tipc/bearer.h
 +++ b/net/tipc/bearer.h
-@@ -75,8 +75,8 @@ struct tipc_bearer;
- /**
-  * struct tipc_media - TIPC media information available to internal users
-  * @send_msg: routine which handles buffer transmission
-- * @enable_bearer: routine which enables a bearer
-- * @disable_bearer: routine which disables a bearer
-+ * @enable_media: routine which enables a media
-+ * @disable_media: routine which disables a media
-  * @addr2str: routine which converts media address to string
-  * @addr2msg: routine which converts media address to protocol message area
-  * @msg2addr: routine which converts media address from protocol message area
-@@ -91,8 +91,8 @@ struct tipc_media {
- 	int (*send_msg)(struct sk_buff *buf,
- 			struct tipc_bearer *b_ptr,
- 			struct tipc_media_addr *dest);
--	int (*enable_bearer)(struct tipc_bearer *b_ptr);
--	void (*disable_bearer)(struct tipc_bearer *b_ptr);
-+	int (*enable_media)(struct tipc_bearer *b_ptr);
-+	void (*disable_media)(struct tipc_bearer *b_ptr);
- 	int (*addr2str)(struct tipc_media_addr *a, char *str_buf, int str_size);
- 	int (*addr2msg)(struct tipc_media_addr *a, char *msg_area);
- 	int (*msg2addr)(const struct tipc_bearer *b_ptr,
+@@ -163,7 +163,7 @@ int tipc_register_media(struct tipc_media *m_ptr);
+ 
+ void tipc_recv_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr);
+ 
+-int  tipc_block_bearer(const char *name);
++int  tipc_block_bearer(struct tipc_bearer *b_ptr);
+ void tipc_continue(struct tipc_bearer *tb_ptr);
+ 
+ int tipc_enable_bearer(const char *bearer_name, u32 disc_domain, u32 priority);
 diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 40ea40c..e048d49 100644
+index e048d49..c36c938 100644
 --- a/net/tipc/eth_media.c
 +++ b/net/tipc/eth_media.c
-@@ -2,7 +2,7 @@
-  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
-  *
-  * Copyright (c) 2001-2007, Ericsson AB
-- * Copyright (c) 2005-2008, 2011, Wind River Systems
-+ * Copyright (c) 2005-2008, 2011-2013, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -37,19 +37,19 @@
- #include "core.h"
- #include "bearer.h"
- 
--#define MAX_ETH_BEARERS		MAX_BEARERS
-+#define MAX_ETH_MEDIA		MAX_BEARERS
- 
- #define ETH_ADDR_OFFSET	4	/* message header offset of MAC address */
- 
- /**
-- * struct eth_bearer - Ethernet bearer data structure
-+ * struct eth_media - Ethernet bearer data structure
-  * @bearer: ptr to associated "generic" bearer structure
-  * @dev: ptr to associated Ethernet network device
-  * @tipc_packet_type: used in binding TIPC to Ethernet driver
-  * @setup: work item used when enabling bearer
-  * @cleanup: work item used when disabling bearer
-  */
--struct eth_bearer {
-+struct eth_media {
- 	struct tipc_bearer *bearer;
- 	struct net_device *dev;
- 	struct packet_type tipc_packet_type;
-@@ -58,7 +58,7 @@ struct eth_bearer {
- };
- 
- static struct tipc_media eth_media_info;
--static struct eth_bearer eth_bearers[MAX_ETH_BEARERS];
-+static struct eth_media eth_media_array[MAX_ETH_MEDIA];
- static int eth_started;
- 
- static int recv_notification(struct notifier_block *nb, unsigned long evt,
-@@ -100,7 +100,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
- 	if (!clone)
- 		return 0;
- 
--	dev = ((struct eth_bearer *)(tb_ptr->usr_handle))->dev;
-+	dev = ((struct eth_media *)(tb_ptr->usr_handle))->dev;
- 	delta = dev->hard_header_len - skb_headroom(buf);
- 
- 	if ((delta > 0) &&
-@@ -128,7 +128,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
- static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- 		    struct packet_type *pt, struct net_device *orig_dev)
- {
--	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
-+	struct eth_media *eb_ptr = (struct eth_media *)pt->af_packet_priv;
- 
- 	if (!net_eq(dev_net(dev), &init_net)) {
- 		kfree_skb(buf);
-@@ -147,24 +147,24 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- }
- 
- /**
-- * setup_bearer - setup association between Ethernet bearer and interface
-+ * setup_media - setup association between Ethernet bearer and interface
-  */
--static void setup_bearer(struct work_struct *work)
-+static void setup_media(struct work_struct *work)
- {
--	struct eth_bearer *eb_ptr =
--		container_of(work, struct eth_bearer, setup);
-+	struct eth_media *eb_ptr =
-+		container_of(work, struct eth_media, setup);
- 
- 	dev_add_pack(&eb_ptr->tipc_packet_type);
- }
- 
- /**
-- * enable_bearer - attach TIPC bearer to an Ethernet interface
-+ * enable_media - attach TIPC bearer to an Ethernet interface
-  */
--static int enable_bearer(struct tipc_bearer *tb_ptr)
-+static int enable_media(struct tipc_bearer *tb_ptr)
- {
- 	struct net_device *dev;
--	struct eth_bearer *eb_ptr = &eth_bearers[0];
--	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
-+	struct eth_media *eb_ptr = &eth_media_array[0];
-+	struct eth_media *stop = &eth_media_array[MAX_ETH_MEDIA];
- 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
- 	int pending_dev = 0;
- 
-@@ -188,7 +188,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
- 	eb_ptr->tipc_packet_type.func = recv_msg;
- 	eb_ptr->tipc_packet_type.af_packet_priv = eb_ptr;
- 	INIT_LIST_HEAD(&(eb_ptr->tipc_packet_type.list));
--	INIT_WORK(&eb_ptr->setup, setup_bearer);
-+	INIT_WORK(&eb_ptr->setup, setup_media);
- 	schedule_work(&eb_ptr->setup);
- 
- 	/* Associate TIPC bearer with Ethernet bearer */
-@@ -205,14 +205,14 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
- }
- 
- /**
-- * cleanup_bearer - break association between Ethernet bearer and interface
-+ * cleanup_media - break association between Ethernet bearer and interface
-  *
-  * This routine must be invoked from a work queue because it can sleep.
-  */
--static void cleanup_bearer(struct work_struct *work)
-+static void cleanup_media(struct work_struct *work)
- {
--	struct eth_bearer *eb_ptr =
--		container_of(work, struct eth_bearer, cleanup);
-+	struct eth_media *eb_ptr =
-+		container_of(work, struct eth_media, cleanup);
- 
- 	dev_remove_pack(&eb_ptr->tipc_packet_type);
- 	dev_put(eb_ptr->dev);
-@@ -220,18 +220,18 @@ static void cleanup_bearer(struct work_struct *work)
- }
- 
- /**
-- * disable_bearer - detach TIPC bearer from an Ethernet interface
-+ * disable_media - detach TIPC bearer from an Ethernet interface
-  *
-  * Mark Ethernet bearer as inactive so that incoming buffers are thrown away,
-  * then get worker thread to complete bearer cleanup.  (Can't do cleanup
-  * here because cleanup code needs to sleep and caller holds spinlocks.)
-  */
--static void disable_bearer(struct tipc_bearer *tb_ptr)
-+static void disable_media(struct tipc_bearer *tb_ptr)
- {
--	struct eth_bearer *eb_ptr = (struct eth_bearer *)tb_ptr->usr_handle;
-+	struct eth_media *eb_ptr = (struct eth_media *)tb_ptr->usr_handle;
- 
- 	eb_ptr->bearer = NULL;
--	INIT_WORK(&eb_ptr->cleanup, cleanup_bearer);
-+	INIT_WORK(&eb_ptr->cleanup, cleanup_media);
- 	schedule_work(&eb_ptr->cleanup);
- }
- 
-@@ -245,8 +245,8 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 			     void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct eth_bearer *eb_ptr = &eth_bearers[0];
--	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
-+	struct eth_media *eb_ptr = &eth_media_array[0];
-+	struct eth_media *stop = &eth_media_array[MAX_ETH_MEDIA];
- 
- 	if (!net_eq(dev_net(dev), &init_net))
- 		return NOTIFY_DONE;
-@@ -327,8 +327,8 @@ static int eth_msg2addr(const struct tipc_bearer *tb_ptr,
-  */
- static struct tipc_media eth_media_info = {
- 	.send_msg	= send_msg,
--	.enable_bearer	= enable_bearer,
--	.disable_bearer	= disable_bearer,
-+	.enable_media	= enable_media,
-+	.disable_media	= disable_media,
- 	.addr2str	= eth_addr2str,
- 	.addr2msg	= eth_addr2msg,
- 	.msg2addr	= eth_msg2addr,
+@@ -265,17 +265,17 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 		if (netif_carrier_ok(dev))
+ 			tipc_continue(eb_ptr->bearer);
+ 		else
+-			tipc_block_bearer(eb_ptr->bearer->name);
++			tipc_block_bearer(eb_ptr->bearer);
+ 		break;
+ 	case NETDEV_UP:
+ 		tipc_continue(eb_ptr->bearer);
+ 		break;
+ 	case NETDEV_DOWN:
+-		tipc_block_bearer(eb_ptr->bearer->name);
++		tipc_block_bearer(eb_ptr->bearer);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 	case NETDEV_CHANGEADDR:
+-		tipc_block_bearer(eb_ptr->bearer->name);
++		tipc_block_bearer(eb_ptr->bearer);
+ 		tipc_continue(eb_ptr->bearer);
+ 		break;
+ 	case NETDEV_UNREGISTER:
 diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index 9934a32..5545145 100644
+index 5545145..20b1aa4 100644
 --- a/net/tipc/ib_media.c
 +++ b/net/tipc/ib_media.c
-@@ -42,17 +42,17 @@
- #include "core.h"
- #include "bearer.h"
- 
--#define MAX_IB_BEARERS		MAX_BEARERS
-+#define MAX_IB_MEDIA		MAX_BEARERS
- 
- /**
-- * struct ib_bearer - Infiniband bearer data structure
-+ * struct ib_media - Infiniband media data structure
-  * @bearer: ptr to associated "generic" bearer structure
-  * @dev: ptr to associated Infiniband network device
-  * @tipc_packet_type: used in binding TIPC to Infiniband driver
-  * @cleanup: work item used when disabling bearer
-  */
- 
--struct ib_bearer {
-+struct ib_media {
- 	struct tipc_bearer *bearer;
- 	struct net_device *dev;
- 	struct packet_type tipc_packet_type;
-@@ -61,7 +61,7 @@ struct ib_bearer {
- };
- 
- static struct tipc_media ib_media_info;
--static struct ib_bearer ib_bearers[MAX_IB_BEARERS];
-+static struct ib_media ib_media_array[MAX_IB_MEDIA];
- static int ib_started;
- 
- /**
-@@ -93,7 +93,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
- 	if (!clone)
- 		return 0;
- 
--	dev = ((struct ib_bearer *)(tb_ptr->usr_handle))->dev;
-+	dev = ((struct ib_media *)(tb_ptr->usr_handle))->dev;
- 	delta = dev->hard_header_len - skb_headroom(buf);
- 
- 	if ((delta > 0) &&
-@@ -121,7 +121,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
- static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- 		    struct packet_type *pt, struct net_device *orig_dev)
- {
--	struct ib_bearer *ib_ptr = (struct ib_bearer *)pt->af_packet_priv;
-+	struct ib_media *ib_ptr = (struct ib_media *)pt->af_packet_priv;
- 
- 	if (!net_eq(dev_net(dev), &init_net)) {
- 		kfree_skb(buf);
-@@ -142,22 +142,22 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- /**
-  * setup_bearer - setup association between InfiniBand bearer and interface
-  */
--static void setup_bearer(struct work_struct *work)
-+static void setup_media(struct work_struct *work)
- {
--	struct ib_bearer *ib_ptr =
--		container_of(work, struct ib_bearer, setup);
-+	struct ib_media *ib_ptr =
-+		container_of(work, struct ib_media, setup);
- 
- 	dev_add_pack(&ib_ptr->tipc_packet_type);
- }
- 
- /**
-- * enable_bearer - attach TIPC bearer to an InfiniBand interface
-+ * enable_media - attach TIPC bearer to an InfiniBand interface
-  */
--static int enable_bearer(struct tipc_bearer *tb_ptr)
-+static int enable_media(struct tipc_bearer *tb_ptr)
- {
- 	struct net_device *dev;
--	struct ib_bearer *ib_ptr = &ib_bearers[0];
--	struct ib_bearer *stop = &ib_bearers[MAX_IB_BEARERS];
-+	struct ib_media *ib_ptr = &ib_media_array[0];
-+	struct ib_media *stop = &ib_media_array[MAX_IB_MEDIA];
- 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
- 	int pending_dev = 0;
- 
-@@ -181,7 +181,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
- 	ib_ptr->tipc_packet_type.func = recv_msg;
- 	ib_ptr->tipc_packet_type.af_packet_priv = ib_ptr;
- 	INIT_LIST_HEAD(&(ib_ptr->tipc_packet_type.list));
--	INIT_WORK(&ib_ptr->setup, setup_bearer);
-+	INIT_WORK(&ib_ptr->setup, setup_media);
- 	schedule_work(&ib_ptr->setup);
- 
- 	/* Associate TIPC bearer with InfiniBand bearer */
-@@ -204,8 +204,8 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
-  */
- static void cleanup_bearer(struct work_struct *work)
- {
--	struct ib_bearer *ib_ptr =
--		container_of(work, struct ib_bearer, cleanup);
-+	struct ib_media *ib_ptr =
-+		container_of(work, struct ib_media, cleanup);
- 
- 	dev_remove_pack(&ib_ptr->tipc_packet_type);
- 	dev_put(ib_ptr->dev);
-@@ -213,15 +213,15 @@ static void cleanup_bearer(struct work_struct *work)
- }
- 
- /**
-- * disable_bearer - detach TIPC bearer from an InfiniBand interface
-+ * disable_media - detach TIPC bearer from an InfiniBand interface
-  *
-  * Mark InfiniBand bearer as inactive so that incoming buffers are thrown away,
-  * then get worker thread to complete bearer cleanup.  (Can't do cleanup
-  * here because cleanup code needs to sleep and caller holds spinlocks.)
-  */
--static void disable_bearer(struct tipc_bearer *tb_ptr)
-+static void disable_media(struct tipc_bearer *tb_ptr)
- {
--	struct ib_bearer *ib_ptr = (struct ib_bearer *)tb_ptr->usr_handle;
-+	struct ib_media *ib_ptr = (struct ib_media *)tb_ptr->usr_handle;
- 
- 	ib_ptr->bearer = NULL;
- 	INIT_WORK(&ib_ptr->cleanup, cleanup_bearer);
-@@ -238,8 +238,8 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 			     void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct ib_bearer *ib_ptr = &ib_bearers[0];
--	struct ib_bearer *stop = &ib_bearers[MAX_IB_BEARERS];
-+	struct ib_media *ib_ptr = &ib_media_array[0];
-+	struct ib_media *stop = &ib_media_array[MAX_IB_MEDIA];
- 
- 	if (!net_eq(dev_net(dev), &init_net))
- 		return NOTIFY_DONE;
-@@ -323,8 +323,8 @@ static int ib_msg2addr(const struct tipc_bearer *tb_ptr,
-  */
- static struct tipc_media ib_media_info = {
- 	.send_msg	= send_msg,
--	.enable_bearer	= enable_bearer,
--	.disable_bearer	= disable_bearer,
-+	.enable_media	= enable_media,
-+	.disable_media	= disable_media,
- 	.addr2str	= ib_addr2str,
- 	.addr2msg	= ib_addr2msg,
- 	.msg2addr	= ib_msg2addr,
+@@ -258,17 +258,17 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 		if (netif_carrier_ok(dev))
+ 			tipc_continue(ib_ptr->bearer);
+ 		else
+-			tipc_block_bearer(ib_ptr->bearer->name);
++			tipc_block_bearer(ib_ptr->bearer);
+ 		break;
+ 	case NETDEV_UP:
+ 		tipc_continue(ib_ptr->bearer);
+ 		break;
+ 	case NETDEV_DOWN:
+-		tipc_block_bearer(ib_ptr->bearer->name);
++		tipc_block_bearer(ib_ptr->bearer);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 	case NETDEV_CHANGEADDR:
+-		tipc_block_bearer(ib_ptr->bearer->name);
++		tipc_block_bearer(ib_ptr->bearer);
+ 		tipc_continue(ib_ptr->bearer);
+ 		break;
+ 	case NETDEV_UNREGISTER:
 -- 
 1.7.9.5
