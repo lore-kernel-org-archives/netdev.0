@@ -1,60 +1,33 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] tcp: fix dynamic right sizing
-Date: Tue, 24 Sep 2013 11:16:56 -0400 (EDT)
-Message-ID: <20130924.111656.573791642060379443.davem@redhat.com>
-References: <1379710618.3431.5.camel@edumazet-glaptop>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: Re: [REGRESSION][BISECTED] skge: add dma_mapping check
+Date: Tue, 24 Sep 2013 11:16:58 -0400
+Message-ID: <5241ACEA.6010402@canonical.com>
+References: <1379494844.2294.12.camel@ThinkPad-X230.localdomain>	 <20130918220819.GA11989@electric-eye.fr.zoreil.com> <1379581391.2403.5.camel@ThinkPad-X230.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
-	vanj@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54033 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751038Ab3IXPRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 11:17:08 -0400
-In-Reply-To: <1379710618.3431.5.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mirko Lindner <mlindner@marvell.com>, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, member graysky <graysky@archlinux.us>,
+	Greg KH <gregkh@linuxfoundation.org>
+To: Igor Gnatenko <i.gnatenko.brain@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>, mpatocka@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1379581391.2403.5.camel@ThinkPad-X230.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 20 Sep 2013 13:56:58 -0700
+On 09/19/2013 05:03 AM, Igor Gnatenko wrote:
+> Please, send patch.
+>
+The patch is in mainline as of 3.12-rc2 as commit:
 
-> Dynamic Right Sizing (DRS) is supposed to open TCP receive window
-> automatically, but suffers from two bugs, presented by order
-> of importance.
-> 
-> 1) tcp_rcv_space_adjust() fix :
-> 
-> Using twice the last received amount is very pessimistic,
-> because it doesn't allow fast recovery or proper slow start
-> ramp up, if sender wants to increase cwin by 100% every RTT.
-> 
-> copied = bytes received in previous RTT
-> 
-> 2*copied = bytes we expect to receive in next RTT
-> 
-> 4*copied = bytes we need to advertise in rwin at end of next RTT
-> 
-> DRS is one RTT late, it needs a 4x factor.
-> 
-> If sender is not using ABC, and increases cwin by 50% every rtt,
-> then we needed 1.5*1.5 = 2.25 factor.
-> This is probably why this bug was not really noticed.
-> 
-> 2) There is no window adjustment after first RTT. DRS triggers only
->   after the second RTT.
->   DRS needs two RTT to initialize, so tcp_fixup_rcvbuf() should setup
->   sk_rcvbuf to allow proper window grow for first two RTT.
-> 
-> This patch increases TCP efficiency particularly for large RTT flows
-> when autotuning is used at the receiver, and more particularly
-> in presence of packet losses.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Cc: Van Jacobson <vanj@google.com>
+Author: Mikulas Patocka <mpatocka@redhat.com>
+Date:   Thu Sep 19 14:13:17 2013 -0400
 
-Looks good, applied, thanks Eric.
+    skge: fix broken driver
+
+I don't see that the commit was Cc'd to stable.  Mikulas, we might need
+to send a request directly to the stable maintainers and reqeust that
+the commit be pulled into stable, in case they didn't notice the request
+in the commit message.
