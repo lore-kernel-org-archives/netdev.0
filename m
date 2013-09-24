@@ -1,45 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/6] igb: Fix ethtool loopback test for 82580 copper
-Date: Tue, 24 Sep 2013 02:45:05 -0700
-Message-ID: <1380015910-25927-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 24 Sep 2013 02:45:04 -0700
+Message-ID: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:32601 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753801Ab3IXJpO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753414Ab3IXJpO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Sep 2013 05:45:14 -0400
-In-Reply-To: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+This series contains updates to igb and i40e.
 
-Add back 82580 loopback tests to ethtool.
+Todd provides a fix for 82580 devices in igb, where the ethtool
+loopback test was missing 82580 copper devices.
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 3 +++
- 1 file changed, 3 insertions(+)
+Jesse provides five fixes/cleanups to i40e based on feedback from
+Joe Perches and the community.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 48cbc83..86d5142 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1607,6 +1607,9 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
- 			igb_write_phy_reg(hw, I347AT4_PAGE_SELECT, 0);
- 			igb_write_phy_reg(hw, PHY_CONTROL, 0x4140);
- 		}
-+	} else if (hw->phy.type == e1000_phy_82580) {
-+		/* enable MII loopback */
-+		igb_write_phy_reg(hw, I82580_PHY_LBK_CTRL, 0x8041);
- 	}
- 
- 	/* add small delay to avoid loopback test failure */
+The following are changes since commit 9fe34f5d920b183ec063550e0f4ec854aa373316:
+  mrp: add periodictimer to allow retries when packets get lost
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Todd Fujinaka (1):
+  igb: Fix ethtool loopback test for 82580 copper
+
+Jesse Brandeburg (5):
+  i40e: use common failure flow
+  i40e: small clean ups from review
+  i40e: convert ret to aq_ret
+  i40e: better return values
+  i40e: clean up coccicheck reported errors
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c   | 162 +++++++++++++-------------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c  |   3 +
+ 4 files changed, 89 insertions(+), 85 deletions(-)
+
 -- 
 1.8.3.1
