@@ -1,51 +1,41 @@
-From: Kalle Valo <kvalo@adurom.com>
-Subject: Re: [PATCH 12/19] wireless: Change variable type to bool
-Date: Tue, 24 Sep 2013 13:54:49 +0300
-Message-ID: <87wqm6sd52.fsf@purkki.adurom.net>
-References: <1379802471-30252-1-git-send-email-peter.senna@gmail.com>
-	<1379802471-30252-12-git-send-email-peter.senna@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net 5/6] i40e: better return values
+Date: Tue, 24 Sep 2013 04:34:46 -0700
+Message-ID: <1380022486.3575.74.camel@joe-AO722>
+References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from purkki.adurom.net ([80.68.90.206]:54699 "EHLO purkki.adurom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750757Ab3IXKyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 06:54:53 -0400
-In-Reply-To: <1379802471-30252-12-git-send-email-peter.senna@gmail.com> (Peter
-	Senna Tschudin's message of "Sun, 22 Sep 2013 00:27:44 +0200")
+Received: from smtprelay0235.hostedemail.com ([216.40.44.235]:60889 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750836Ab3IXLeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 07:34:50 -0400
+In-Reply-To: <1380015910-25927-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Senna Tschudin <peter.senna@gmail.com> writes:
+On Tue, 2013-09-24 at 02:45 -0700, Jeff Kirsher wrote:
 
-> The variable continual is only assigned the values true and false.
-> Change its type to bool.
->
-> The simplified semantic patch that find this problem is as
-> follows (http://coccinelle.lip6.fr/):
->
-> @exists@
-> type T;
-> identifier b;
-> @@
-> - T
-> + bool
->   b = ...;
->   ... when any
->   b = \(true\|false\)
->
-> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-> ---
->  drivers/net/wireless/rtlwifi/efuse.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+[]
+> @@ -3339,9 +3345,7 @@ static u8 i40e_dcb_get_num_tc(struct i40e_dcbx_config *dcbcfg)
+>  	/* Traffic class index starts from zero so
+>  	 * increment to return the actual count
+>  	 */
+> -	num_tc++;
+> -
+> -	return num_tc;
+> +	return num_tc++;
 
-Please prefix the patch title with "rtlwifi:". We use "wireless:" for
-changes to net/wireless.
+Ick.  post_increment problem.
 
--- 
-Kalle Valo
+	return ++num_tc;
+
+There's nothing wrong with the original code
+unless this is a bugfix which should be documented
+better than "better return values".
