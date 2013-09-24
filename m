@@ -1,57 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Mon, 23 Sep 2013 17:03:11 -0700
-Message-ID: <1379980991.3165.37.camel@edumazet-glaptop>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Question on Netlink IPv6 routing table lookup
+Date: Tue, 24 Sep 2013 02:04:53 +0200
+Message-ID: <20130924000453.GB2593@order.stressinduktion.org>
+References: <52409953.8040208@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Fernando Gont <fernando@gont.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:52864 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446Ab3IXADN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 20:03:13 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kp14so2909837pab.6
-        for <netdev@vger.kernel.org>; Mon, 23 Sep 2013 17:03:13 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:46562 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752446Ab3IXAEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 20:04:55 -0400
+Content-Disposition: inline
+In-Reply-To: <52409953.8040208@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-23 at 15:41 -0700, Tom Herbert wrote:
+On Mon, Sep 23, 2013 at 04:41:07PM -0300, Fernando Gont wrote:
+> If that's not (currently) possible, should I expect RTA_SRC to work as
+> described above at some point in the future?
 
-> +#ifdef CONFIG_NET_TOEPLITZ
-> +	toeplitz_net = toeplitz_alloc();
-> +	if (!toeplitz_net)
-> +		goto out;
-> +
-> +	toeplitz_init(toeplitz_net, NULL);
-> +#endif
-> +
+The RTA_SRC attriute matches on sutrees in the ipv6 routing table:
 
-Hmm
+ip -6 r a default via fe80::1 dev eth0 from 2000::/64
+ip -6 r a default via fe80::2 dev eth0 from 2000:1:/64
 
-1) Security alert here.
+ip -6 r g :: from 2000::
+ip -6 r g :: from 2000:1::
 
-Many devices (lets say Android phones) have no entropy at this point,
-all devices will have same toeplitz key.
+...should return different routes. The from parameter is the RTA_SRC
+attribute.
 
-Check build_ehash_secret() for a possible point for the feeding of the
-key. (and commit 08dcdbf6a7b9d14c2302c5bd0c5390ddf122f664 )
+Greetings,
 
-If hardware toeplitz is ever used, we want to make sure every host uses
-a private and hidden Toeplitz key.
-
-2) Also it seems a given tuple would hash the same on different
-namespaces. Could be a problem if one particular TCP hash bucket is
-holding thousand of sockets.
-
-3) jhash() is fast, there is no possible cache line misses
-
-  With your implementation, toeplitz hashing 36 bytes could have a cost
-of 36 additional cache line misses.
-
-You do not see that on TCP_RR test because cpu caches are preloaded, but
-it will show on latency sensitive workload.
+  Hannes
