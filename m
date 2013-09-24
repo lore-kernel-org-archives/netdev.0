@@ -1,80 +1,46 @@
-From: Tom Herbert <therbert@google.com>
+From: David Miller <davem@redhat.com>
 Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 11:02:11 -0700
-Message-ID: <CA+mtBx8PJj1HgaoiOoJjQL6VmU4Rn7ctBpscr1YxpfrWW9VSbA@mail.gmail.com>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
-	<1379980991.3165.37.camel@edumazet-glaptop>
-	<20130924023038.GA22393@order.stressinduktion.org>
-	<20130924033505.GB22393@order.stressinduktion.org>
-	<1380001118.3165.41.camel@edumazet-glaptop>
-	<20130924160145.GB26769@order.stressinduktion.org>
-	<1380039299.3165.91.camel@edumazet-glaptop>
-	<CA+mtBx9u3-mnULxTwyWAZA4gZ6Dg-PeYYVGZibwQi7toinHJ-A@mail.gmail.com>
-	<1380041185.3165.97.camel@edumazet-glaptop>
-	<CA+mtBx_tWS44q8jER+QtR5k4k2ieq99He6YdPF8KKBF4Z2+32w@mail.gmail.com>
-	<1380044075.3165.108.camel@edumazet-glaptop>
+Date: Tue, 24 Sep 2013 14:03:12 -0400 (EDT)
+Message-ID: <20130924.140312.1944338200709799169.davem@redhat.com>
+References: <CA+mtBx_y0hK69jcdY5e0MUzAa8hEPwExBDuK9Dn4Ceo5Hkn_iw@mail.gmail.com>
+	<20130924.113953.1275344954032811572.davem@redhat.com>
+	<CA+mtBx_AcmcNBDhRKVB8YDkSNdOwgJ3CXxBqpgxDw23X3m2rvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@aculab.com, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:47172 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301Ab3IXSCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 14:02:12 -0400
-Received: by mail-ie0-f172.google.com with SMTP id x13so9534920ief.17
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 11:02:11 -0700 (PDT)
-In-Reply-To: <1380044075.3165.108.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:34335 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752649Ab3IXSDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 14:03:25 -0400
+In-Reply-To: <CA+mtBx_AcmcNBDhRKVB8YDkSNdOwgJ3CXxBqpgxDw23X3m2rvQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 24, 2013 at 10:34 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-09-24 at 10:03 -0700, Tom Herbert wrote:
->> On Tue, Sep 24, 2013 at 9:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2013-09-24 at 09:35 -0700, Tom Herbert wrote:
->> >
->> >> We should really be using rxhash for that anyway, eliminate this
->> >> ehashfn.  This would entail adding rxhash argument in the various
->> >> udp_lookup functions.
->> >
->> > Nope : Some NICs provide UDP rxhash only using L3  (source IP,
->> > destination IP), not L4 (adding source & destination ports)
->> >
->> Then the NIC won't set l4_rxhash and we'll rehash over 4-tuple when
->> skb_get_rxhash is called.
->
-> Yes, but then in this case you add cpu cycles for no reason.
->
-> If you have multiqueue NIC, you do not use RPS/RFS, so skb->rxhash might
-> be 0
->
-> hash = inet_ehashfn(net, daddr, hnum, saddr, sport);
->
-> is faster than the whole flow dissection game.
->
-But if we already have valid l4_rxhash we're just wasting time
-recomputing it (very like the same value).  So just do:
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 24 Sep 2013 08:54:24 -0700
 
-if (skb->l4_hash)
-    hash = skb->rxhash
-else
-    hash = inet_ehashfn(net, daddr, hnum, saddr, sport);
+> On Tue, Sep 24, 2013 at 8:39 AM, David Miller <davem@redhat.com> wrote:
+>> From: Tom Herbert <therbert@google.com>
+>> Date: Tue, 24 Sep 2013 08:22:55 -0700
+>>
+>>> We use this value for steering, and could use it for other uses like
+>>> connection lookup.
+>>
+>> For security reasons we absolutely cannot use it for that purpose,
+>> please stop claiming this.
+>>
+>> Any hash function which an attacker can reproduce is attackable.
+> 
+> The Toeplitz function uses a secret key whose length is based on the
+> input length.  96 bits in IPv4, 320 bits in IPv6.  I don't see how an
+> attacker can reproduce this if the key is random.  If the problem is
+> that devices are not being configured with a sufficiently random key
+> (some actually are using a fixed key :-( ), that's a separate issue
+> that should be addressed.  It is possible to DoS attack through the
+> steering mechanism.
 
-Even if we go the inet_ehashfn route in the packet, it's makes sense
-to store this in skb->rxhash so that subsequent functions don't need
-to compute the hash
-
-By the way, I believe there is an insidious in using the same hash
-value or even related hash values in multiple places for steering.
-Since we typically do something like hash % numqueues, we introduce
-bias if multiple steering levels look at the same bits.  With
-SO_REUSEPORT this might actually be beneficial since we could get port
-selection to match RSS locality, but this is not by design!
-
->
->
->
->
+All of them are using a fixed, defined, key.
