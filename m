@@ -1,46 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 24 Sep 2013 02:45:04 -0700
-Message-ID: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 3/6] i40e: small clean ups from review
+Date: Tue, 24 Sep 2013 02:45:07 -0700
+Message-ID: <1380015910-25927-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Joe Perches <joe@perches.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:32601 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753414Ab3IXJpO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 05:45:14 -0400
+	id S1753414Ab3IXJpP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 05:45:15 -0400
+In-Reply-To: <1380015910-25927-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to igb and i40e.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Todd provides a fix for 82580 devices in igb, where the ethtool
-loopback test was missing 82580 copper devices.
+As mentioned by Joe Perches clean up a loop flow.
 
-Jesse provides five fixes/cleanups to i40e based on feedback from
-Joe Perches and the community.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Joe Perches <joe@perches.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-The following are changes since commit 9fe34f5d920b183ec063550e0f4ec854aa373316:
-  mrp: add periodictimer to allow retries when packets get lost
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
-
-Todd Fujinaka (1):
-  igb: Fix ethtool loopback test for 82580 copper
-
-Jesse Brandeburg (5):
-  i40e: use common failure flow
-  i40e: small clean ups from review
-  i40e: convert ret to aq_ret
-  i40e: better return values
-  i40e: clean up coccicheck reported errors
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c |   7 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 162 +++++++++++++-------------
- drivers/net/ethernet/intel/igb/igb_ethtool.c  |   3 +
- 4 files changed, 89 insertions(+), 85 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 67f8fd5..865bc6b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -174,8 +174,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 			 u16 needed, u16 id)
+ {
+ 	int ret = -ENOMEM;
+-	int i = 0;
+-	int j = 0;
++	int i, j;
+ 
+ 	if (!pile || needed == 0 || id >= I40E_PILE_VALID_BIT) {
+ 		dev_info(&pf->pdev->dev,
+@@ -186,7 +185,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 
+ 	/* start the linear search with an imperfect hint */
+ 	i = pile->search_hint;
+-	while (i < pile->num_entries && ret < 0) {
++	while (i < pile->num_entries) {
+ 		/* skip already allocated entries */
+ 		if (pile->list[i] & I40E_PILE_VALID_BIT) {
+ 			i++;
+@@ -205,6 +204,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 				pile->list[i+j] = id | I40E_PILE_VALID_BIT;
+ 			ret = i;
+ 			pile->search_hint = i + j;
++			break;
+ 		} else {
+ 			/* not enough, so skip over it and continue looking */
+ 			i += j;
 -- 
 1.8.3.1
