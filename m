@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/4] cpsw: support for control module register
-Date: Tue, 24 Sep 2013 10:34:16 -0400 (EDT)
-Message-ID: <20130924.103416.2050021711877592417.davem@davemloft.net>
-References: <1379704841-32693-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH v3 -next 1/2] tcp: syncookies: reduce cookie lifetime
+ to 128 seconds
+Date: Tue, 24 Sep 2013 10:40:12 -0400 (EDT)
+Message-ID: <20130924.104012.113351985998037405.davem@davemloft.net>
+References: <1379709176-1625-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zonque@gmail.com, bcousson@baylibre.com,
-	tony@atomide.com, devicetree@vger.kernel.org,
-	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: mugunthanvnm@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1379704841-32693-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467Ab3IXOkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 10:40:15 -0400
+In-Reply-To: <1379709176-1625-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Sat, 21 Sep 2013 00:50:37 +0530
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 20 Sep 2013 22:32:55 +0200
 
-> This patch series adds the support for configuring GMII_SEL register
-> of control module to select the phy mode type and also to configure
-> the clock source for RMII phy mode whether to use internal clock or
-> the external clock from the phy itself.
+> We currently accept cookies that were created less than 4 minutes ago
+> (ie, cookies with counter delta 0-3).  Combined with the 8 mss table
+> values, this yields 32 possible values (out of 2**32) that will be valid.
 > 
-> Till now CPSW works as this configuration is done in U-Boot and carried
-> over to the kernel. But during suspend/resume Control module tends to
-> lose its configured value for GMII_SEL register in AM33xx PG1.0, so
-> if CPSW is used in RMII or RGMII mode, on resume cpsw is not working
-> as GMII_SEL register lost its configuration values.
+> Reducing the lifetime to < 2 minutes halves the guessing chance while
+> still providing a large enough period.
 > 
-> The initial version of the patch is done by Daniel Mack but as per
-> Tony's comment he wants it as a seperate driver as it is done in USB
-> control module. I have created a seperate driver for the same.
+> While at it, get rid of jiffies value -- they overflow too quickly on
+> 32 bit platforms.
+> 
+> getnstimeofday is used to create a counter that increments every 64s.
+> perf shows getnstimeofday cost is negible compared to sha_transform;
+> normal tcp initial sequence number generation uses getnstimeofday, too.
+> 
+> Reported-by: Jakob Lell <jakob@jakoblell.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Series applied, thanks.
+Applied.
