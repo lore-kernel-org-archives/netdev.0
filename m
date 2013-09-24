@@ -1,37 +1,148 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2 v2] net: Add function to get SW rxhash
-Date: Tue, 24 Sep 2013 14:30:03 -0700
-Message-ID: <1380058203.3165.121.camel@edumazet-glaptop>
-References: <alpine.DEB.2.02.1309241335380.23856@tomh.mtv.corp.google.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
+ specify an ip address to be primary or secondary ip on an interface
+Date: Tue, 24 Sep 2013 14:34:04 -0700
+Message-ID: <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com>
+References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
+	<alpine.LFD.2.00.1309242255350.1875@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:65201 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754536Ab3IXVaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 17:30:05 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so5522960pad.19
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 14:30:04 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1309241335380.23856@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1309242255350.1875@ja.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-24 at 13:42 -0700, Tom Herbert wrote:
-> Some uses of skb_get_rxhash expect that the function will return
-> a consistent value whether it is called on RX or TX paths. On RX
-> path, we will use the rxhash if provided by the NIC, so this
-> would not normally be the same result computed in TX path would be
-> a software calculation.
-> 
-> This patch adds skb_get_sw_rxhash to explicitly request a hash
-> calculated by the stack, disregarding the hash provided by NIC.
+Thanks Julian for the comments, I imagined it would not be so simple
+as it changed old behavior with ip binary and some actions in
+__inet_del_ifa() that I am not fully aware of. my intention is to
+preserve the old behavior and extend the flexibility, I am unable to
+come up with a good patch to achieve the intended behavior.
 
-As I said, I think this is overhead in network fast path.
+I had to patch the ip binary to sort of preserve original ip binary
+behavior with the kernel patch I provided., the ip command patch
+below:
 
-This can be done without adding a new skb field.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 1c3e4da..9f2802c 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1259,6 +1259,7 @@ static int ipaddr_modify(int cmd, int flags, int
+argc, char **argv)
+        req.n.nlmsg_flags = NLM_F_REQUEST | flags;
+        req.n.nlmsg_type = cmd;
+        req.ifa.ifa_family = preferred_family;
++       req.ifa.ifa_flags |= IFA_F_SECONDARY;
 
-I suspect tun should not use rxhash but a proper hash, as conntrack or
-tcp...
+        while (argc > 0) {
+                if (strcmp(*argv, "peer") == 0 ||
+@@ -1307,6 +1308,11 @@ static int ipaddr_modify(int cmd, int flags,
+int argc, char **argv)
+                                invarg("invalid scope value.", *argv);
+                        req.ifa.ifa_scope = scope;
+                        scoped = 1;
++                } else if (strcmp(*argv, "secondary") == 0 ||
++                           strcmp(*argv, "temporary") == 0) {
++                        req.ifa.ifa_flags |= IFA_F_SECONDARY;
++                } else if (strcmp(*argv, "primary") == 0) {
++                        req.ifa.ifa_flags &= ~IFA_F_SECONDARY;
+                } else if (strcmp(*argv, "dev") == 0) {
+                        NEXT_ARG();
+                        d = *argv;
+
+if someone can point me to the right patch directions or coming up
+with better patches, it is very much appreciated.
+
+
+On Tue, Sep 24, 2013 at 2:13 PM, Julian Anastasov <ja@ssi.bg> wrote:
+>
+>         Hello,
+>
+> On Tue, 24 Sep 2013, Vincent Li wrote:
+>
+>> the current behavior is when an IP is added to an interface, the primary
+>> or secondary attributes is depending on the order of ip added to the interface
+>> the first IP will be primary and second, third,... or alias IP will be secondary
+>> if the IP subnet matches
+>>
+>> this patch add the flexiblity to allow user to specify an argument 'primary' or 'secondary'
+>> (use 'ip addr add ip/mask primary|secondary dev ethX ' from iproute2 for example) to specify
+>> an IP address to be  primary or secondary.
+>>
+>> the reason for this patch is that we have a multi blade cluster platform sharing 'floating management ip'
+>> and also that each blade has its own management ip on the management interface, so whichever blade in the
+>> cluster becomes primary blade, the 'floating mangaement ip' follows it, and we want any of our traffic
+>> originated from the primary blade source from the 'floating management ip' for consistency. but in this
+>> case, since the local blade management ip is always the primary ip on the mangaement interface and 'floating
+>> management ip' is always secondary, kernel always choose the primary ip as source ip address. thus we would
+>> like to add the flexibility in kernel to allow us to specify which ip to be primary or secondary.
+>>
+>> Signed-off-by: Vincent Li <vincent.mc.li@gmail.com>
+>> ---
+>>  net/ipv4/devinet.c |    9 +++++++--
+>>  1 file changed, 7 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+>> index a1b5bcb..bfc702a 100644
+>> --- a/net/ipv4/devinet.c
+>> +++ b/net/ipv4/devinet.c
+>> @@ -440,9 +440,11 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+>>               return 0;
+>>       }
+>>
+>> -     ifa->ifa_flags &= ~IFA_F_SECONDARY;
+>>       last_primary = &in_dev->ifa_list;
+>>
+>> +     if((*last_primary) == NULL)
+>> +             ifa->ifa_flags &= ~IFA_F_SECONDARY;
+>> +
+>>       for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
+>>            ifap = &ifa1->ifa_next) {
+>>               if (!(ifa1->ifa_flags & IFA_F_SECONDARY) &&
+>> @@ -458,7 +460,10 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+>>                               inet_free_ifa(ifa);
+>>                               return -EINVAL;
+>>                       }
+>> -                     ifa->ifa_flags |= IFA_F_SECONDARY;
+>
+>         There is some confusion here, when ifa has
+> IFA_F_SECONDARY bit set, in the 'else' we set it again.
+> I guess the 'else' part is not needed.
+>
+>> +                        if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+>> +                                ifa1->ifa_flags |= IFA_F_SECONDARY;
+>> +                        else
+>> +                                ifa->ifa_flags |= IFA_F_SECONDARY;
+>
+>         It should not be so simple. You can not
+> just change the flag of existing address (ifa1) to secondary.
+> See __inet_del_ifa(), there are many more actions that
+> follow:
+>
+> - kernel routes that use this primary address
+> should be deleted and recreated with the new primary
+> address as source. This includes local routes to secondary
+> IPs.
+>
+> - RTM_NEWADDR should be sent, so that user space see
+> the IFA_F_SECONDARY flag
+>
+>         Some questions:
+>
+> - should we allow adding of secondary IPs when no primary
+> address exists for the subnet, it can happen when primary
+> for another subnet already exists
+>
+> - by default, existing 'ip addr' binaries will provide
+> address without IFA_F_SECONDARY flag. Before now we added
+> such addresses as last for the subnet, now the
+> behaviour changes, we start to add addresses in reverse
+> order. Is that true? I.e. before now the operation was
+> APPEND, now we need a way to provide PREPEND operation.
+>
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
