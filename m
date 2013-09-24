@@ -1,37 +1,89 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 18:01:45 +0200
-Message-ID: <20130924160145.GB26769@order.stressinduktion.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com> <1379980991.3165.37.camel@edumazet-glaptop> <20130924023038.GA22393@order.stressinduktion.org> <20130924033505.GB22393@order.stressinduktion.org> <1380001118.3165.41.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net v2] vxlan: Use RCU apis to access sk_user_data.
+Date: Tue, 24 Sep 2013 09:09:39 -0700
+Message-ID: <1380038979-24035-1-git-send-email-pshelar@nicira.com>
+Cc: eric.dumazet@gmail.com, Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47997 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752933Ab3IXQBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:01:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1380001118.3165.41.camel@edumazet-glaptop>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:45879 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753411Ab3IXQKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:10:04 -0400
+Received: by mail-ob0-f169.google.com with SMTP id wp4so5278575obc.0
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:09:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 23, 2013 at 10:38:38PM -0700, Eric Dumazet wrote:
-> On Tue, 2013-09-24 at 05:35 +0200, Hannes Frederic Sowa wrote:
-> 
-> > > build_ehash_secret builds up the data which seeds fragmentation ids, ephermal
-> > > port randomization etc. Could we drop the check of sock->type? I guess the
-> > > idea was that in-kernel sockets of type raw/udp do not seed the keys when no
-> > > entropy is available?
-> > 
-> > Would this be better (I checked inet_ehash_secret, ipv6_hash_secret
-> > and net_secret to actual get initialized)?
-> > 
-> 
-> inet_ehash_secret is used only to make jhash() for tcp ehash, not for
-> fragmentation ids or other uses (port randomization).
+Use of RCU api makes vxlan code easier to understand.  It also
+fixes bug due to missing ACCESS_ONCE() on sk_user_data dereference.
+In rare case without ACCESS_ONCE() compiler might omit vs on
+sk_user_data dereference. Compiler can use vs as alias for
+sk->sk_user_data, resulting in multiple sk_user_data dereference
+in rcu read context which could change.
 
-inet(6)_ehashfn does get used by udp btw. But I do not understand the code,
-yet. ;)
+CC: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v2:
+Use RCU_INIT_POINTER
+---
+ drivers/net/vxlan.c |   11 ++++-------
+ include/net/sock.h  |    2 ++
+ 2 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d1292fe..1fae0d6 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1,4 +1,4 @@
+-/*
++ /*
+  * VXLAN: Virtual eXtensible Local Area Network
+  *
+  * Copyright (c) 2012-2013 Vyatta Inc.
+@@ -952,8 +952,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+ 
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
+-	smp_wmb();
+-	vs->sock->sk->sk_user_data = NULL;
++	RCU_INIT_POINTER(sk_user_data_rcu(vs->sock->sk), NULL);
+ 	vxlan_notify_del_rx_port(sk);
+ 	spin_unlock(&vn->sock_lock);
+ 
+@@ -1048,8 +1047,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	port = inet_sk(sk)->inet_sport;
+ 
+-	smp_read_barrier_depends();
+-	vs = (struct vxlan_sock *)sk->sk_user_data;
++	vs = rcu_dereference(sk_user_data_rcu(sk));
+ 	if (!vs)
+ 		goto drop;
+ 
+@@ -2302,8 +2300,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	atomic_set(&vs->refcnt, 1);
+ 	vs->rcv = rcv;
+ 	vs->data = data;
+-	smp_wmb();
+-	vs->sock->sk->sk_user_data = vs;
++	rcu_assign_pointer(sk_user_data_rcu(vs->sock->sk), vs);
+ 
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6ba2e7b..ffd1356 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -409,6 +409,8 @@ struct sock {
+ 	void                    (*sk_destruct)(struct sock *sk);
+ };
+ 
++#define sk_user_data_rcu(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
++
+ /*
+  * SK_CAN_REUSE and SK_NO_REUSE on a socket mean that the socket is OK
+  * or not whether his port will be reused by someone else. SK_FORCE_REUSE
+-- 
+1.7.1
