@@ -1,69 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 04:30:38 +0200
-Message-ID: <20130924023038.GA22393@order.stressinduktion.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com> <1379980991.3165.37.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RESEND PATCH iproute2] vxlan: add ipv6 support
+Date: Tue, 24 Sep 2013 10:44:05 +0800
+Message-ID: <1379990645.19083.9.camel@cr0>
+References: <1379730924-12433-1-git-send-email-amwang@redhat.com>
+	 <20130923132049.7fa5673e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46699 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab3IXCak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Sep 2013 22:30:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1379980991.3165.37.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:17833 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753275Ab3IXCoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Sep 2013 22:44:15 -0400
+In-Reply-To: <20130923132049.7fa5673e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 23, 2013 at 05:03:11PM -0700, Eric Dumazet wrote:
-> On Mon, 2013-09-23 at 15:41 -0700, Tom Herbert wrote:
+On Mon, 2013-09-23 at 13:20 -0700, Stephen Hemminger wrote:
+> On Sat, 21 Sep 2013 10:35:24 +0800
+> Cong Wang <amwang@redhat.com> wrote:
 > 
-> > +#ifdef CONFIG_NET_TOEPLITZ
-> > +	toeplitz_net = toeplitz_alloc();
-> > +	if (!toeplitz_net)
-> > +		goto out;
-> > +
-> > +	toeplitz_init(toeplitz_net, NULL);
-> > +#endif
-> > +
+> > +			if (!inet_pton(AF_INET, *argv, &gaddr)) {
+> > +				if (!inet_pton(AF_INET6, *argv, &gaddr6)) {
+> > +					fprintf(stderr, "Invalid address \"%s\"\n", *argv);
+> > +					return -1;
+> > +				} else if (!IN6_IS_ADDR_MULTICAST(&gaddr6))
+> > +					invarg("invald group address", *argv);
+> > +			} else if (!IN_MULTICAST(ntohl(gaddr)))
+> > +					invarg("invald group address", *argv);
 > 
-> Hmm
+> This is ugly, can't it be done more generically by checking for ':' in address.
+> Or even use getaddrinfo.
 > 
-> 1) Security alert here.
+> Hate to have lots of special code to handle both address types.
 > 
-> Many devices (lets say Android phones) have no entropy at this point,
-> all devices will have same toeplitz key.
-> 
-> Check build_ehash_secret() for a possible point for the feeding of the
-> key. (and commit 08dcdbf6a7b9d14c2302c5bd0c5390ddf122f664 )
-> 
-> If hardware toeplitz is ever used, we want to make sure every host uses
-> a private and hidden Toeplitz key.
 
-I just had a look at it myself and have one question:
+Alright, I will introduce a helper function for it.
 
-ipv6/af_inet6.c:
-112         if (sock->type != SOCK_RAW &&
-113             sock->type != SOCK_DGRAM &&
-114             !inet_ehash_secret)
-115                 build_ehash_secret();
-
-ipv4/af_inet.c:
-289         if (unlikely(!inet_ehash_secret))
-290                 if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
-291                         build_ehash_secret();
-
-
-Why do we care about the sock->type?
-
-build_ehash_secret builds up the data which seeds fragmentation ids, ephermal
-port randomization etc. Could we drop the check of sock->type? I guess the
-idea was that in-kernel sockets of type raw/udp do not seed the keys when no
-entropy is available?
-
-Thanks,
-
-  Hannes
+Thanks!
