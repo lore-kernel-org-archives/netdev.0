@@ -1,59 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 17:38:59 +0100
-Message-ID: <1380040739.2736.37.camel@bwh-desktop.uk.level5networks.com>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7355@saturn3.aculab.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 2/2] tun: call skb_get_sw_rxhash
+Date: Tue, 24 Sep 2013 09:21:13 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1309240915390.24704@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <jesse.brandeburg@intel.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:40001 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369Ab3IXQjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:39:02 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7355@saturn3.aculab.com>
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:40876 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574Ab3IXQnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 12:43:03 -0400
+Received: by mail-qa0-f73.google.com with SMTP id cm18so457701qab.0
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 09:43:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-09-24 at 09:32 +0100, David Laight wrote:
-> > +static inline unsigned int
-> > +toeplitz_hash(const unsigned char *bytes,
-> > +	      struct toeplitz *toeplitz, int n)
-> > +{
-> > +	int i;
-> > +	unsigned int result = 0;
-> > +
-> > +	for (i = 0; i < n; i++)
-> > +		result ^= toeplitz->key_cache[i][bytes[i]];
-> > +
-> > +        return result;
-> > +};
-> 
-> That is a horrid hash function to be calculating in software.
-> 
-> The code looks very much like a simple 32bit CRC.
-> It isn't entirely clears exactly where the 'key' gets included,
-> but I suspect it is just xored with the data bytes.
+tun calls skb_get_rxhash on both transmit and receive side with the
+expectation that the calculation in symmetric. To ensure this
+property call skb_get_sw_rxhash instead (ignores hash provided by NIC
+on receive).
 
-Each input bit is multiplied by a 32-bit slice of the key and the
-products are then bitwise-summed (i.e. xored).
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/tun.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-[...]
-> I also thought the hash was arranged so that tx and rx packets
-> for a single connection hash to the same value?
-
-Not in general.  I think I saw that one of the BSDs (DragonflyBSD?)
-generates Toeplitz keys with this property and has an efficient software
-implementation that works for those keys.  But that significantly
-weakens the hash.
-
-Ben.
-
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 807815f..0619fdf 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -358,7 +358,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	rcu_read_lock();
+ 	numqueues = ACCESS_ONCE(tun->numqueues);
+ 
+-	txq = skb_get_rxhash(skb);
++	txq = skb_get_sw_rxhash(skb);
+ 	if (txq) {
+ 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
+ 		if (e)
+@@ -1138,7 +1138,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	skb_reset_network_header(skb);
+ 	skb_probe_transport_header(skb, 0);
+ 
+-	rxhash = skb_get_rxhash(skb);
++	rxhash = skb_get_sw_rxhash(skb);
+ 	netif_rx_ni(skb);
+ 
+ 	tun->dev->stats.rx_packets++;
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.4
