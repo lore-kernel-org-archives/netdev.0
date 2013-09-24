@@ -1,29 +1,52 @@
-From: Matthew Hall <mh@mhcomputing.net>
-Subject: Re: per-PID network stats files in /proc
-Date: Tue, 24 Sep 2013 13:44:42 -0700
-Message-ID: <20130924204442.GA5074@mhcomputing.net>
-References: <20130924201536.GA3555@mhcomputing.net>
- <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
+ specify an ip address to be primary or secondary ip on an interface
+Date: Tue, 24 Sep 2013 13:46:41 -0700
+Message-ID: <CAK3+h2y7v0i7AgK02GSy1apKKsi8n7is7U8oypx=uBf49Bubbg@mail.gmail.com>
+References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
+	<20130924.152833.434453431118381771.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from master.mhcomputing.net ([74.208.46.186]:49401 "EHLO
-	mail.mhcomputing.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753916Ab3IXUqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 16:46:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130924.152833.434453431118381771.davem@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 24, 2013 at 01:41:57PM -0700, Stephen Hemminger wrote:
-> No. because most of these would be associated with global state.
-> Even sockets can be shared between PID's.
+Ok, I will resend the patch with your suggestions.
 
-OK. So if this is true, then I feel compelled to ask, why does 
-/proc/PID/net/snmp exist in the first place, if it would never really work?
+Vincent
 
-Thanks,
-Matthew.
+On Tue, Sep 24, 2013 at 12:28 PM, David Miller <davem@redhat.com> wrote:
+> From: Vincent Li <vincent.mc.li@gmail.com>
+> Date: Tue, 24 Sep 2013 11:11:21 -0700
+>
+>> the current behavior is when an IP is added to an interface, the primary
+>> or secondary attributes is depending on the order of ip added to the interface
+>> the first IP will be primary and second, third,... or alias IP will be secondary
+>> if the IP subnet matches
+>>
+>> this patch add the flexiblity to allow user to specify an argument 'primary' or 'secondary'
+>> (use 'ip addr add ip/mask primary|secondary dev ethX ' from iproute2 for example) to specify
+>> an IP address to be  primary or secondary.
+>>
+>> the reason for this patch is that we have a multi blade cluster platform sharing 'floating management ip'
+>> and also that each blade has its own management ip on the management interface, so whichever blade in the
+>> cluster becomes primary blade, the 'floating mangaement ip' follows it, and we want any of our traffic
+>> originated from the primary blade source from the 'floating management ip' for consistency. but in this
+>> case, since the local blade management ip is always the primary ip on the mangaement interface and 'floating
+>> management ip' is always secondary, kernel always choose the primary ip as source ip address. thus we would
+>> like to add the flexibility in kernel to allow us to specify which ip to be primary or secondary.
+>>
+>> Signed-off-by: Vincent Li <vincent.mc.li@gmail.com>
+>
+> When submitting a patch, please:
+>
+> 1) Specify an appropriate prefix for your subject line, indicating the
+>    subsystem.  "ipv4: " might be appropriate here.
+>
+> 2) Format your commit message so that lines do not exceed 80 columns.
+>    People will read using ASCII text based tools in 80 column
+>    terminals.
