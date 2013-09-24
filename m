@@ -1,57 +1,106 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: per-PID network stats files in /proc
-Date: Tue, 24 Sep 2013 13:41:57 -0700
-Message-ID: <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
-References: <20130924201536.GA3555@mhcomputing.net>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 1/2 v2] net: Add function to get SW rxhash
+Date: Tue, 24 Sep 2013 13:42:07 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1309241335380.23856@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Matthew Hall <mh@mhcomputing.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:55971 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951Ab3IXUmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 16:42:01 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so5052367pbc.17
-        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 13:42:00 -0700 (PDT)
-In-Reply-To: <20130924201536.GA3555@mhcomputing.net>
+Received: from mail-ye0-f202.google.com ([209.85.213.202]:46782 "EHLO
+	mail-ye0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753951Ab3IXUmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 16:42:09 -0400
+Received: by mail-ye0-f202.google.com with SMTP id r14so589852yen.1
+        for <netdev@vger.kernel.org>; Tue, 24 Sep 2013 13:42:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Sep 2013 13:15:37 -0700
-Matthew Hall <mh@mhcomputing.net> wrote:
+Some uses of skb_get_rxhash expect that the function will return
+a consistent value whether it is called on RX or TX paths. On RX
+path, we will use the rxhash if provided by the NIC, so this
+would not normally be the same result computed in TX path would be
+a software calculation.
 
-> Hello,
-> 
-> I have an application that I'd like to make self-tuning, based upon the values 
-> of some of the network stats counters. Thus I went reading through a copy of 
-> linux-3.11.1 to look for some more information, and began exploring procfs as 
-> well.
-> 
-> I discovered some system-wide counters in /proc/net/snmp which are pretty 
-> interesting so I was trying to use the per-PID counters in 
-> /proc/net/PID/net/snmp as well.
-> 
-> Unfortunately I found that all of these files seem to be identical on my own 
-> system running Linux 3.2.0:
-> 
-> $ md5sum /proc/net/snmp /proc/1/net/snmp /proc/2/net/snmp
-> 8b92b426f860d0667a780cd8baabb7bf  /proc/net/snmp
-> 8b92b426f860d0667a780cd8baabb7bf  /proc/1/net/snmp
-> 8b92b426f860d0667a780cd8baabb7bf  /proc/2/net/snmp
-> 
-> I found the snmp_seq_show function in net/ipv4/proc.c which prints these 
-> statistics to see how it really worked, but then I was having a hard time 
-> finding out what's really calling this code since it hooks up to the /proc 
-> framework.
-> 
-> Is there some option one can change which enables gathering the network 
-> statistics per-PID, or per-socket? This would be a tremendous help for my 
-> application.
-> 
-> Thanks,
-> Matthew.
+This patch adds skb_get_sw_rxhash to explicitly request a hash
+calculated by the stack, disregarding the hash provided by NIC.
 
-No. because most of these would be associated with global state.
-Even sockets can be shared between PID's.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/skbuff.h    | 14 ++++++++++++--
+ net/core/flow_dissector.c |  1 +
+ net/core/skbuff.c         |  1 +
+ 3 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2ddb48d..fdde013 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -381,6 +381,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
+  *	@l4_rxhash: indicate rxhash is a canonical 4-tuple hash over transport
+  *		ports.
++ *	@sw_rxhash: indicate rxhash was computed by the stack
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+@@ -488,6 +489,7 @@ struct sk_buff {
+ 	__u8			pfmemalloc:1;
+ 	__u8			ooo_okay:1;
+ 	__u8			l4_rxhash:1;
++	__u8			sw_rxhash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
+ 	__u8			no_fcs:1;
+@@ -498,7 +500,7 @@ struct sk_buff {
+ 	 * headers if needed
+ 	 */
+ 	__u8			encapsulation:1;
+-	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
++	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
+@@ -720,7 +722,15 @@ extern unsigned int   skb_find_text(struct sk_buff *skb, unsigned int from,
+ extern void __skb_get_rxhash(struct sk_buff *skb);
+ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ {
+-	if (!skb->l4_rxhash)
++	if (!skb->l4_rxhash && !skb->sw_rxhash)
++		__skb_get_rxhash(skb);
++
++	return skb->rxhash;
++}
++
++static inline __u32 skb_get_sw_rxhash(struct sk_buff *skb)
++{
++	if (!skb->sw_rxhash)
+ 		__skb_get_rxhash(skb);
+ 
+ 	return skb->rxhash;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 1929af8..8979121 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -200,6 +200,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
+ 		hash = 1;
+ 
+ 	skb->rxhash = hash;
++	skb->sw_rxhash = 1;
+ }
+ EXPORT_SYMBOL(__skb_get_rxhash);
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d81cff1..5021318 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -706,6 +706,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->rxhash		= old->rxhash;
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->l4_rxhash		= old->l4_rxhash;
++	new->sw_rxhash		= old->sw_rxhash;
+ 	new->no_fcs		= old->no_fcs;
+ 	new->encapsulation	= old->encapsulation;
+ #ifdef CONFIG_XFRM
+-- 
+1.8.4
