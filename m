@@ -1,58 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] net: Toeplitz library functions
-Date: Tue, 24 Sep 2013 19:10:45 +0100
-Message-ID: <1380046245.2736.52.camel@bwh-desktop.uk.level5networks.com>
-References: <CA+mtBx_y0hK69jcdY5e0MUzAa8hEPwExBDuK9Dn4Ceo5Hkn_iw@mail.gmail.com>
-	 <20130924.113953.1275344954032811572.davem@redhat.com>
-	 <CA+mtBx_AcmcNBDhRKVB8YDkSNdOwgJ3CXxBqpgxDw23X3m2rvQ@mail.gmail.com>
-	 <20130924.140312.1944338200709799169.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <therbert@google.com>, <David.Laight@aculab.com>,
-	<netdev@vger.kernel.org>, <jesse.brandeburg@intel.com>
-To: David Miller <davem@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49779 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753208Ab3IXSKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Sep 2013 14:10:49 -0400
-In-Reply-To: <20130924.140312.1944338200709799169.davem@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to specify an ip address to be primary or secondary ip on an interface
+Date: Tue, 24 Sep 2013 11:11:21 -0700
+Message-ID: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Vincent Li <vincent.mc.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-24 at 14:03 -0400, David Miller wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Tue, 24 Sep 2013 08:54:24 -0700
-> 
-> > On Tue, Sep 24, 2013 at 8:39 AM, David Miller <davem@redhat.com> wrote:
-> >> From: Tom Herbert <therbert@google.com>
-> >> Date: Tue, 24 Sep 2013 08:22:55 -0700
-> >>
-> >>> We use this value for steering, and could use it for other uses like
-> >>> connection lookup.
-> >>
-> >> For security reasons we absolutely cannot use it for that purpose,
-> >> please stop claiming this.
-> >>
-> >> Any hash function which an attacker can reproduce is attackable.
-> > 
-> > The Toeplitz function uses a secret key whose length is based on the
-> > input length.  96 bits in IPv4, 320 bits in IPv6.  I don't see how an
-> > attacker can reproduce this if the key is random.  If the problem is
-> > that devices are not being configured with a sufficiently random key
-> > (some actually are using a fixed key :-( ), that's a separate issue
-> > that should be addressed.  It is possible to DoS attack through the
-> > steering mechanism.
-> 
-> All of them are using a fixed, defined, key.
+the current behavior is when an IP is added to an interface, the primary
+or secondary attributes is depending on the order of ip added to the interface
+the first IP will be primary and second, third,... or alias IP will be secondary
+if the IP subnet matches
 
-This is certainly false, as I know sfc randomises the key.  And the
-Microsoft RSS spec appears to require that the key is programmable.
+this patch add the flexiblity to allow user to specify an argument 'primary' or 'secondary'
+(use 'ip addr add ip/mask primary|secondary dev ethX ' from iproute2 for example) to specify
+an IP address to be  primary or secondary.
 
-Ben.
+the reason for this patch is that we have a multi blade cluster platform sharing 'floating management ip'
+and also that each blade has its own management ip on the management interface, so whichever blade in the
+cluster becomes primary blade, the 'floating mangaement ip' follows it, and we want any of our traffic
+originated from the primary blade source from the 'floating management ip' for consistency. but in this
+case, since the local blade management ip is always the primary ip on the mangaement interface and 'floating
+management ip' is always secondary, kernel always choose the primary ip as source ip address. thus we would
+like to add the flexibility in kernel to allow us to specify which ip to be primary or secondary.
 
+Signed-off-by: Vincent Li <vincent.mc.li@gmail.com>
+---
+ net/ipv4/devinet.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcb..bfc702a 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -440,9 +440,11 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 		return 0;
+ 	}
+ 
+-	ifa->ifa_flags &= ~IFA_F_SECONDARY;
+ 	last_primary = &in_dev->ifa_list;
+ 
++	if((*last_primary) == NULL)
++		ifa->ifa_flags &= ~IFA_F_SECONDARY;
++
+ 	for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
+ 	     ifap = &ifa1->ifa_next) {
+ 		if (!(ifa1->ifa_flags & IFA_F_SECONDARY) &&
+@@ -458,7 +460,10 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 				inet_free_ifa(ifa);
+ 				return -EINVAL;
+ 			}
+-			ifa->ifa_flags |= IFA_F_SECONDARY;
++                        if (!(ifa->ifa_flags & IFA_F_SECONDARY))
++                                ifa1->ifa_flags |= IFA_F_SECONDARY;
++                        else
++                                ifa->ifa_flags |= IFA_F_SECONDARY;
+ 		}
+ 	}
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.5
