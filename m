@@ -1,162 +1,97 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 07/27] net: add for_each iterators through neighbour lower link's private
-Date: Tue, 24 Sep 2013 13:46:47 +0200
-Message-ID: <1380023227-9576-8-git-send-email-vfalico@redhat.com>
-References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
-Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
+Subject: [PATCH v4 net-next 00/27] bonding: use neighbours instead of own lists
+Date: Tue, 24 Sep 2013 13:46:40 +0200
+Message-ID: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
+Cc: jiri@resnulli.us, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Dimitris Michailidis <dm@chelsio.com>,
 	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
 	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49245 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12528 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751057Ab3IXLrH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:07 -0400
-In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
+	id S1752778Ab3IXLrA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a possibility to iterate through netdev_adjacent's private, currently
-only for lower neighbours.
+This patchset introduces all the needed infrastructure, on top of current
+adjacent lists, to be able to remove bond's slave_list/slave->list. The
+overhead in memory/CPU is minimal, and after the patchset bonding can rely
+on its slave-related functions, given the proper locking. I've done some
+netperf benchmarks on a vm, and the delta was about 0.1gbps for 35gbps as a
+whole, so no speed fluctuations.
 
-Add both RCU and RTNL/other locking variants of iterators, and make the
-non-rcu variant to be safe from removal.
+It also automatically creates lower/upper and master symlinks in dev's
+sysfs directory.
 
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Dimitris Michailidis <dm@chelsio.com>
 CC: "David S. Miller" <davem@davemloft.net>
+CC: Patrick McHardy <kaber@trash.net>
 CC: Eric Dumazet <edumazet@google.com>
 CC: Jiri Pirko <jiri@resnulli.us>
 CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
 ---
+v3  -> v4:
+Per the feedback received, fix the comments to be kernel-doc style.
+As Ben Hutchings suggested, make the 'get next private after a
+specific private' function bonding-specific - it has virtually no uses
+outside bonding (and even in bonding I already have some patches of
+removing it).
+Also, remove the stupid 'bool upper' logic from everywhere in the logic -
+as Ben suggested, it's easier to pass the lists directly - and not only
+easier, it saved several hundred lines of code modified.
+Finally, make netdev_for_each_lower_private() safe for removal of the
+current member - it can be easily achieved and doesn't really need two
+versions, as in lists.
 
-Notes:
-    v3  -> v4:
-    Make netdev_for_each_lower_private() be safe for the entry removal, by
-    storing the ->next pointer in iter.
-    
-    v2  -> v3:
-    No change.
-    
-    v1  -> v2:
-    No changes.
-    
-    RFC -> v1:
-    rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
-    the naming of functions - to make the use the pattern
-    netdev_(all_)(lower|upper)_* . Also reword the commit message - I had to
-    read it three times to understand :-/, and move it closer to the beginning
-    of the patchset.
+v2  -> v3:
+Fix the commit subject for patch 08 - forgot the _continue in
+bond_for_each_slave_continue_reverse(), suggested by Cong Wang.
+This version is already ready for the inclusion, hopefully.
+Moved the changelog in cover letter to the bottom and cleaned it
+up a bit.
 
- include/linux/netdevice.h | 17 ++++++++++++++
- net/core/dev.c            | 60 ++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 76 insertions(+), 1 deletion(-)
+v1  -> v2:
+Fix a bug when we could remove try to remove a neighbour twice - it was
+possible if we've had this neighbour already and added another devices
+which had this neighbour in its lists. Fix it by following the rule - there
+can be only one neighbour link, so add also _remove_neighbour() functions
+to the generic _remove()s to handle the neighbour only removing, and fix
+its refcounting while adding (all in patch 01).
+Also, fix a vlan bug when it called unregister netdevice before unlinking -
+it could possibly lead to a subte race condition - cause it was
+unregistered but still in global-accessible list.
+Rearrange sysfs/vlan patches so that first we fix vlan and only after we
+add sysfs stuff.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 75d5bea..168974e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2833,6 +2833,23 @@ extern struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *d
- 	     updev; \
- 	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)))
- 
-+extern void *netdev_lower_get_next_private(struct net_device *dev,
-+					   struct list_head **iter);
-+extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
-+					       struct list_head **iter);
-+
-+#define netdev_for_each_lower_private(dev, priv, iter) \
-+	for (iter = (dev)->adj_list.lower.next, \
-+	     priv = netdev_lower_get_next_private(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_private(dev, &(iter)))
-+
-+#define netdev_for_each_lower_private_rcu(dev, priv, iter) \
-+	for (iter = &(dev)->adj_list.lower, \
-+	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
-+
- extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- extern int netdev_upper_dev_link(struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c69ab74..0aa844a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4466,7 +4466,8 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get);
- 
--/* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-+/**
-+ * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-  * @dev: device
-  * @iter: list_head ** of the current position
-  *
-@@ -4492,6 +4493,63 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
- EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
- 
- /**
-+ * netdev_lower_get_next_private - Get the next ->private from the
-+ *				   lower neighbour list
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold either hold the
-+ * RTNL lock or its own locking that guarantees that the neighbour lower
-+ * list will remain unchainged.
-+ */
-+void *netdev_lower_get_next_private(struct net_device *dev,
-+				    struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_entry(*iter, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	if (iter)
-+		*iter = lower->list.next;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_next_private);
-+
-+/**
-+ * netdev_lower_get_next_private_rcu - Get the next ->private from the
-+ *				       lower neighbour list, RCU
-+ *				       variant
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold RCU read lock.
-+ */
-+void *netdev_lower_get_next_private_rcu(struct net_device *dev,
-+					struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	if (iter)
-+		*iter = &lower->list;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
-+
-+/**
-  * netdev_master_upper_dev_get_rcu - Get master upper device
-  * @dev: device
-  *
--- 
-1.8.4
+RFC -> v1:
+I've added proper, consistent naming for all variables/functions, uninlined
+some helpers to get better backtraces, just in case (overhead is minimal,
+no hot paths), rearranged patches for better review, dropped bondings
+->prev and bond_for_each_slave_continue() functionality - to be able to
+RCUify it easier, and renamed slave_* sysfs links to lower_* sysfs links to
+maintain upper/lower naming. I've also dropped, thanks to bonding cleanup,
+some heavy and ugly/intrusive patches.
+
+---
+ drivers/net/bonding/bond_3ad.c                  |  54 ++--
+ drivers/net/bonding/bond_alb.c                  |  81 ++---
+ drivers/net/bonding/bond_alb.h                  |   4 +-
+ drivers/net/bonding/bond_main.c                 | 296 +++++++++--------
+ drivers/net/bonding/bond_procfs.c               |   5 +-
+ drivers/net/bonding/bond_sysfs.c                |  62 +---
+ drivers/net/bonding/bonding.h                   | 101 +++---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   3 +-
+ include/linux/netdevice.h                       |  55 +++-
+ net/8021q/vlan.c                                |  18 +-
+ net/core/dev.c                                  | 403 +++++++++++++++++-------
+ 11 files changed, 638 insertions(+), 444 deletions(-)
