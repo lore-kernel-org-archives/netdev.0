@@ -1,78 +1,80 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 21/27] bonding: add __bond_next_slave() which uses neighbours
-Date: Tue, 24 Sep 2013 13:47:01 +0200
-Message-ID: <1380023227-9576-22-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 19/27] bonding: convert first/last slave logic to use neighbours
+Date: Tue, 24 Sep 2013 13:46:59 +0200
+Message-ID: <1380023227-9576-20-git-send-email-vfalico@redhat.com>
 References: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17780 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21551 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750984Ab3IXLre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Sep 2013 07:47:34 -0400
+	id S1753549Ab3IXLr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Sep 2013 07:47:29 -0400
 In-Reply-To: <1380023227-9576-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new function, __bond_next_slave(), which uses neighbours to find the
-next slave after the slave provided. It will be further used to gradually
-go start using neighbour netdev_adjacent infrastructure instead of
-bonding's own lists.
+For that, use netdev_adjacent_get_private(list_head) on bond's lower
+neighbour list members. Also, add a small macro - bond_slave_list(bond),
+which returns the bond list via neighbour list.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
-    RFC -> v4:
-    New patch.
+    v3  -> v4:
+    No change.
+    
+    v2  -> v3:
+    No change.
+    
+    v1  -> v2:
+    No changes.
+    
+    RFC -> v1:
+    Rename neieghour_dev_list to adj_list.
 
- drivers/net/bonding/bonding.h | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+ drivers/net/bonding/bonding.h | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 5157153..db8d38a7 100644
+index 4b3878e..0b4c4ff 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -250,6 +250,34 @@ struct bonding {
- 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
+@@ -72,19 +72,24 @@
+ 	res; })
  
- /**
-+ * __bond_next_slave - get the next slave after the one provided
-+ * @bond - bonding struct
-+ * @slave - the slave provided
-+ *
-+ * Returns the next slave after the slave provided, first slave if the
-+ * slave provided is the last slave and NULL if slave is not found
-+ */
-+static inline struct slave *__bond_next_slave(struct bonding *bond,
-+					      struct slave *slave)
-+{
-+	struct slave *slave_iter;
-+	struct list_head *iter;
-+	bool found = false;
+ /* slave list primitives */
+-#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
++#define bond_slave_list(bond) (&(bond)->dev->adj_list.lower)
 +
-+	netdev_for_each_lower_private(bond->dev, slave_iter, iter) {
-+		if (found)
-+			return slave_iter;
-+		if (slave_iter == slave)
-+			found = true;
-+	}
-+
-+	if (found)
-+		return bond_first_slave(bond);
-+
-+	return NULL;
-+}
-+
-+/**
-  * Returns NULL if the net_device does not belong to any of the bond's slaves
-  *
-  * Caller must hold bond lock for read
++#define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
+ 
+ #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
+ 
+ /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
+ #define bond_first_slave(bond) \
+-	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
++	(bond_has_slaves(bond) ? \
++		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
++		NULL)
+ #define bond_last_slave(bond) \
+-	(list_empty(&(bond)->slave_list) ? NULL : \
+-					   bond_to_slave((bond)->slave_list.prev))
++	(bond_has_slaves(bond) ? \
++		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
++		NULL)
+ 
+-#define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
+-#define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
++#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
++#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+ 
+ /* Since bond_first/last_slave can return NULL, these can return NULL too */
+ #define bond_next_slave(bond, pos) \
 -- 
 1.8.4
