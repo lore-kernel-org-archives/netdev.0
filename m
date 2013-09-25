@@ -1,47 +1,49 @@
-From: Aleksander Morgado <aleksander@lanedo.com>
-Subject: [PATCH] net: qmi_wwan: fix Cinterion PLXX product ID
-Date: Wed, 25 Sep 2013 17:02:36 +0200
-Message-ID: <1380121356-28601-1-git-send-email-aleksander@lanedo.com>
-Cc: davem@davemloft.net, bjorn@mork.no, dcbw@redhat.com,
-	Aleksander Morgado <aleksander@lanedo.com>,
-	Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>,
-	Christian Schmiedl <christian.schmiedl@gemalto.com>,
-	Nicolaus Colberg <nicolaus.colberg@gemalto.com>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next 0/2] bonding: modify the current and add new hash functions
+Date: Wed, 25 Sep 2013 17:19:56 +0200
+Message-ID: <1380122398-7370-1-git-send-email-nikolay@redhat.com>
+Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanedo.com ([85.214.136.179]:57373 "EHLO lanedo.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41890 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755947Ab3IYPMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 11:12:54 -0400
+	id S1755819Ab3IYPXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 11:23:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cinterion PLXX LTE devices have a 0x0060 product ID, not 0x12d1.
+Hi all,
+This is a complete remake of my old patch that modified the bonding hash
+functions to use skb_flow_dissect which was suggested by Eric Dumazet.
+This time around I've left the old modes although using a new hash function
+again suggested by Eric, which is the same for all modes. The only
+difference is the way the headers are obtained. The old modes obtain them
+as before in order to address concerns about speed, but the 2 new ones use
+skb_flow_dissect. The unification of the hash function allows to remove a
+pointer from struct bonding and also a few extra functions that dealt with
+it. Two new functions are added which take care of the hashing based on
+bond->params.xmit_policy only:
+bond_xmit_hash() - global function, used by XOR and 3ad modes
+bond_flow_dissect() - used by bond_xmit_hash() to obtain the necessary
+headers and combine them according to bond->params.xmit_policy.
 
-The blacklisting in the serial/option driver does actually use the correct PID,
-as per commit 8ff10bdb14a52e3f25d4ce09e0582a8684c1a6db ('USB: Blacklisted
-Cinterion's PLxx WWAN Interface').
 
-CC: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
-CC: Christian Schmiedl <christian.schmiedl@gemalto.com>
-CC: Nicolaus Colberg <nicolaus.colberg@gemalto.com>
-Signed-off-by: Aleksander Morgado <aleksander@lanedo.com>
----
- drivers/net/usb/qmi_wwan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Best regards,
+ Nikolay Aleksandrov
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 6312332..3d6aaf7 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -714,7 +714,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
- 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
- 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
--	{QMI_FIXED_INTF(0x1e2d, 0x12d1, 4)},	/* Cinterion PLxx */
-+	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
- 
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+Nikolay Aleksandrov (2):
+  bonding: modify the old and add new xmit hash functions
+  bonding: document the new xmit policy modes and update the changed
+    ones
+
+ Documentation/networking/bonding.txt |  66 ++++++-----
+ drivers/net/bonding/bond_3ad.c       |   2 +-
+ drivers/net/bonding/bond_main.c      | 211 ++++++++++++++---------------------
+ drivers/net/bonding/bond_sysfs.c     |   2 -
+ drivers/net/bonding/bonding.h        |   3 +-
+ include/uapi/linux/if_bonding.h      |   2 +
+ 6 files changed, 122 insertions(+), 164 deletions(-)
+
 -- 
-1.8.3.1
+1.8.1.4
