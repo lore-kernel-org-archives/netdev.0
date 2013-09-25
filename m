@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v5 0/6] bonding: Patchset for rcu use in bonding
-Date: Wed, 25 Sep 2013 17:52:05 +0800
-Message-ID: <5242B245.2010105@huawei.com>
+Subject: [PATCH net-next v5 4/6] bonding: add rtnl lock for bonding_store_xmit_hash
+Date: Wed, 25 Sep 2013 17:52:25 +0800
+Message-ID: <5242B259.2080603@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,63 +12,45 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:35759 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753371Ab3IYJwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:52:44 -0400
+Received: from szxga03-in.huawei.com ([119.145.14.66]:27010 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755035Ab3IYJxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:53:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+the bonding_store_xmit_hash() could update bond's xmit_policy, and
+the xmit_policy is used in xmit path for xor mode, maybe it is hard
+to occur any problem, but just follow the logic "don't change anything
+slave-related without rtnl", so I think the rntl lock is fit here. :)
 
-The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
-restructure and add more rcu list function.
-add rtnl lock to protect bonding_store_xmit_hash().
-remove read lock in bond_3ad_lacpdu_recv().
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_sysfs.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-I test the patch well and no problems found till now.
-
-v1: add 1 patch named remove the no effect lock for bond_3ad_lacpdu_recv().
-    get the advice from Nikolay Aleksandrov, and modify some mistake in the code.
-
-v2: accept the Nikolay Aleksandrov's advise, modify the patch 05/06.
-    the new bond_for_each_slave_from will not use bond->slave_cnt and int cnt any more,
-    it test well.
-    move the rcu_dereference call of curr_active_slave after the lock avoid 
-    a race condition with the slave removal. 
-
-v3: according to the advise of Veaceslav Falico and David S. Miller, modify the patch 01/06 and patch 05/06.
-    add rcu protect for read bond->slave_list.
-    simplify the bond_for_each_slave_from() and  bond_for_each_slave_from_rcu()
-
-v4: thanks for Veaceslav Falico's patient guidance, fix the problem of patch 01/06 and
-patch 05/06.
-    restructure the bond_first_slave_rcu().
-    restructure the bond_for_each_slave() and bond_for_each_slave_rcu().
-
-v5: modifty the patch 01/06,05/06,06/06
-    restructure the bond_first_slave_rcu().
-    remove the bond_for_each_slave_from_rcu(), it is no need to use till now, and the restructure is really
-    hard work, so miss it, and rebuild the logic for bond_for_each_slave_from in rcu protect.
-
-Ding Tianhong (4):
-Wang Yufen (1):
-Yang Yingliang (1):
-  root (6):
-  bonding: simplify and use RCU protection for 3ad xmit path
-  bonding: remove the no effect lock for bond_3ad_lacpdu_recv()
-  bonding: replace read_lock to rcu_read_lock for
-  bond_3ad_get_active_agg_info()
-  bonding: add rtnl lock for bonding_store_xmit_hash
-  bonding: restructure and add rcu for bond_for_each_slave_next()
-  bonding: use RCU protection for alb xmit path
-
- drivers/net/bonding/bond_3ad.c   | 38 ++++++++++++---------------
- drivers/net/bonding/bond_alb.c   | 23 +++++++----------
- drivers/net/bonding/bond_main.c  |  6 ++---
- drivers/net/bonding/bond_sysfs.c |  4 +++
- drivers/net/bonding/bonding.h    | 56 +++++++++++++++++++++++++++++++++++-----
- 5 files changed, 82 insertions(+), 45 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 0f539de..deb1d8e 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -382,6 +382,9 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 	int new_value, ret = count;
+ 	struct bonding *bond = to_bond(d);
+ 
++	if (!rtnl_trylock())
++		return restart_syscall();
++
+ 	new_value = bond_parse_parm(buf, xmit_hashtype_tbl);
+ 	if (new_value < 0)  {
+ 		pr_err("%s: Ignoring invalid xmit hash policy value %.*s.\n",
+@@ -396,6 +399,7 @@ static ssize_t bonding_store_xmit_hash(struct device *d,
+ 			xmit_hashtype_tbl[new_value].modename, new_value);
+ 	}
+ 
++	rtnl_unlock();
+ 	return ret;
+ }
+ static DEVICE_ATTR(xmit_hash_policy, S_IRUGO | S_IWUSR,
 -- 
 1.8.2.1
