@@ -1,247 +1,107 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 04/27] net: add netdev_adjacent->private and allow to use it
-Date: Wed, 25 Sep 2013 09:20:09 +0200
-Message-ID: <1380093632-1842-5-git-send-email-vfalico@redhat.com>
-References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
-Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5936 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755Ab3IYHUg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:20:36 -0400
-In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
+Subject: [PATCH v2] powerpc/83xx: gianfar_ptp: select 1588 clock source through dts file
+Date: Wed, 25 Sep 2013 11:24:23 +0400
+Message-ID: <1380093863-5388-1-git-send-email-aida.mynzhasova@skitlab.ru>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently, even though we can access any linked device, we can't attach
-anything to it, which is vital to properly manage them.
+Currently IEEE 1588 timer reference clock source is determined through
+hard-coded value in gianfar_ptp driver. This patch allows to select ptp
+clock source by means of device tree file node.
 
-To fix this, add a new void *private to netdev_adjacent and functions
-setting/getting it (per link), so that we can save, per example, bonding's
-slave structures there, per slave device.
+For instance:
 
-netdev_master_upper_dev_link_private(dev, upper_dev, private) links dev to
-upper dev and populates the neighbour link only with private.
+	fsl,cksel = <0>;
 
-netdev_lower_dev_get_private{,_rcu}() returns the private, if found.
+for using external (TSEC_TMR_CLK input) high precision timer
+reference clock.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+Other acceptable values:
+
+	<1> : eTSEC system clock
+	<2> : eTSEC1 transmit clock
+	<3> : RTC clock input
+
+When this attribute isn't used, eTSEC system clock will serve as
+IEEE 1588 timer reference clock.
+
+Signed-off-by: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
 ---
+ Documentation/devicetree/bindings/net/fsl-tsec-phy.txt | 16 +++++++++++++++-
+ drivers/net/ethernet/freescale/gianfar_ptp.c           |  4 +++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
 
-Notes:
-    v4  -> v5
-    No change.
-    
-    v3  -> v4:
-    No change.
-    
-    v2  -> v3:
-    No change.
-    
-    v1  -> v2:
-    No changes.
-    
-    RFC -> v1:
-    rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
-    the naming of functions - to make the use the pattern
-    netdev_(all_)(lower|upper)_* .
-
- include/linux/netdevice.h |  7 +++++
- net/core/dev.c            | 68 +++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 64 insertions(+), 11 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 514045c..75d5bea 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2839,8 +2839,15 @@ extern int netdev_upper_dev_link(struct net_device *dev,
- 				 struct net_device *upper_dev);
- extern int netdev_master_upper_dev_link(struct net_device *dev,
- 					struct net_device *upper_dev);
-+extern int netdev_master_upper_dev_link_private(struct net_device *dev,
-+						struct net_device *upper_dev,
-+						void *private);
- extern void netdev_upper_dev_unlink(struct net_device *dev,
- 				    struct net_device *upper_dev);
-+extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
-+					      struct net_device *lower_dev);
-+extern void *netdev_lower_dev_get_private(struct net_device *dev,
-+					  struct net_device *lower_dev);
- extern int skb_checksum_help(struct sk_buff *skb);
- extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9290f09..c69ab74 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4376,6 +4376,9 @@ struct netdev_adjacent {
- 	/* counter for the number of times this device was added to us */
- 	u16 ref_nr;
+diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+index 2c6be03..eb06059 100644
+--- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
++++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+@@ -86,6 +86,7 @@ General Properties:
  
-+	/* private field for the users */
-+	void *private;
+ Clock Properties:
+ 
++  - fsl,cksel        Timer reference clock source.
+   - fsl,tclk-period  Timer reference clock period in nanoseconds.
+   - fsl,tmr-prsc     Prescaler, divides the output clock.
+   - fsl,tmr-add      Frequency compensation value.
+@@ -97,7 +98,7 @@ Clock Properties:
+   clock. You must choose these carefully for the clock to work right.
+   Here is how to figure good values:
+ 
+-  TimerOsc     = system clock               MHz
++  TimerOsc     = selected reference clock   MHz
+   tclk_period  = desired clock period       nanoseconds
+   NominalFreq  = 1000 / tclk_period         MHz
+   FreqDivRatio = TimerOsc / NominalFreq     (must be greater that 1.0)
+@@ -114,6 +115,18 @@ Clock Properties:
+   Pulse Per Second (PPS) signal, since this will be offered to the PPS
+   subsystem to synchronize the Linux clock.
+ 
++  "fsl,cksel" property allows to select different reference clock
++  sources:
 +
- 	struct list_head list;
- 	struct rcu_head rcu;
- };
-@@ -4510,7 +4513,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
- 					struct list_head *dev_list,
--					bool master)
-+					void *private, bool master)
- {
- 	struct netdev_adjacent *adj;
- 
-@@ -4528,6 +4531,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj->dev = adj_dev;
- 	adj->master = master;
- 	adj->ref_nr = 1;
-+	adj->private = private;
- 	dev_hold(adj_dev);
- 
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
-@@ -4574,15 +4578,17 @@ int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- 				     struct net_device *upper_dev,
- 				     struct list_head *up_list,
- 				     struct list_head *down_list,
--				     bool master)
-+				     void *private, bool master)
- {
- 	int ret;
- 
--	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, master);
-+	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
-+					   master);
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, false);
-+	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
-+					   false);
- 	if (ret) {
- 		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
- 		return ret;
-@@ -4597,7 +4603,7 @@ int __netdev_adjacent_dev_link(struct net_device *dev,
- 	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
- 						&dev->all_adj_list.upper,
- 						&upper_dev->all_adj_list.lower,
--						false);
-+						NULL, false);
- }
- 
- void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
-@@ -4619,7 +4625,7 @@ void __netdev_adjacent_dev_unlink(struct net_device *dev,
- 
- int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 					 struct net_device *upper_dev,
--					 bool master)
-+					 void *private, bool master)
- {
- 	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
- 
-@@ -4629,7 +4635,7 @@ int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
- 					       &dev->adj_list.upper,
- 					       &upper_dev->adj_list.lower,
--					       master);
-+					       private, master);
- 	if (ret) {
- 		__netdev_adjacent_dev_unlink(dev, upper_dev);
- 		return ret;
-@@ -4648,7 +4654,8 @@ void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
- }
- 
- static int __netdev_upper_dev_link(struct net_device *dev,
--				   struct net_device *upper_dev, bool master)
-+				   struct net_device *upper_dev, bool master,
-+				   void *private)
- {
- 	struct netdev_adjacent *i, *j, *to_i, *to_j;
- 	int ret = 0;
-@@ -4668,7 +4675,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (master && netdev_master_upper_dev_get(dev))
- 		return -EBUSY;
- 
--	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master);
-+	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
-+						   master);
- 	if (ret)
- 		return ret;
- 
-@@ -4759,7 +4767,7 @@ rollback_mesh:
- int netdev_upper_dev_link(struct net_device *dev,
- 			  struct net_device *upper_dev)
- {
--	return __netdev_upper_dev_link(dev, upper_dev, false);
-+	return __netdev_upper_dev_link(dev, upper_dev, false, NULL);
- }
- EXPORT_SYMBOL(netdev_upper_dev_link);
- 
-@@ -4777,10 +4785,18 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
- int netdev_master_upper_dev_link(struct net_device *dev,
- 				 struct net_device *upper_dev)
- {
--	return __netdev_upper_dev_link(dev, upper_dev, true);
-+	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_link);
- 
-+int netdev_master_upper_dev_link_private(struct net_device *dev,
-+					 struct net_device *upper_dev,
-+					 void *private)
-+{
-+	return __netdev_upper_dev_link(dev, upper_dev, true, private);
-+}
-+EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
++  <0> - external high precision timer reference clock (TSEC_TMR_CLK
++        input is used for this purpose);
++  <1> - eTSEC system clock;
++  <2> - eTSEC1 transmit clock;
++  <3> - RTC clock input.
 +
- /**
-  * netdev_upper_dev_unlink - Removes a link to upper device
-  * @dev: device
-@@ -4818,6 +4834,36 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
++  When this attribute is not used, eTSEC system clock will serve as
++  IEEE 1588 timer reference clock.
++
+ Example:
  
-+void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
-+				       struct net_device *lower_dev)
-+{
-+	struct netdev_adjacent *lower;
+ 	ptp_clock@24E00 {
+@@ -121,6 +134,7 @@ Example:
+ 		reg = <0x24E00 0xB0>;
+ 		interrupts = <12 0x8 13 0x8>;
+ 		interrupt-parent = < &ipic >;
++		fsl,cksel       = <1>;
+ 		fsl,tclk-period = <10>;
+ 		fsl,tmr-prsc    = <100>;
+ 		fsl,tmr-add     = <0x999999A4>;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index 098f133..e006a09 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -452,7 +452,9 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 	err = -ENODEV;
+ 
+ 	etsects->caps = ptp_gianfar_caps;
+-	etsects->cksel = DEFAULT_CKSEL;
 +
-+	if (!lower_dev)
-+		return NULL;
-+	lower = __netdev_find_adj_rcu(dev, lower_dev, &dev->adj_list.lower);
-+	if (!lower)
-+		return NULL;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_private_rcu);
-+
-+void *netdev_lower_dev_get_private(struct net_device *dev,
-+				   struct net_device *lower_dev)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	if (!lower_dev)
-+		return NULL;
-+	lower = __netdev_find_adj(dev, lower_dev, &dev->adj_list.lower);
-+	if (!lower)
-+		return NULL;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_dev_get_private);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
++	if (get_of_u32(node, "fsl,cksel", &etsects->cksel))
++		etsects->cksel = DEFAULT_CKSEL;
+ 
+ 	if (get_of_u32(node, "fsl,tclk-period", &etsects->tclk_period) ||
+ 	    get_of_u32(node, "fsl,tmr-prsc", &etsects->tmr_prsc) ||
 -- 
-1.8.4
+1.8.1.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
