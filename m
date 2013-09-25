@@ -1,389 +1,321 @@
-From: Merlin Davis <me.the.wizard@gmail.com>
-Subject: Re: Kernel Panic Sending Frames Using dev_queue_xmit()
-Date: Wed, 25 Sep 2013 14:29:40 -0700
-Message-ID: <CAFu7c2XDYR-SMiuqMxtqGhfM00nw8-h0Tr2uewN8+D1BptsayA@mail.gmail.com>
-References: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
-	<1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH RFC] net: introduce support for lazy initialization of secret keys
+Date: Wed, 25 Sep 2013 23:34:03 +0200
+Message-ID: <20130925213403.GF4904@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: fw@strlen.de, edumazet@google.com, davem@davemloft.net,
+	ycheng@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f52.google.com ([209.85.212.52]:40770 "EHLO
-	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755690Ab3IYV3l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 17:29:41 -0400
-Received: by mail-vb0-f52.google.com with SMTP id f12so223437vbg.39
-        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 14:29:40 -0700 (PDT)
-In-Reply-To: <1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:51244 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249Ab3IYVeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 17:34:08 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You are more likely to get help if you include the code in your email
-> rather than linking to it.
+net_get_random_once is a new macro which handles the initialization of
+secret keys at use-site. It is possible to call it in the fast path. Only
+the initialization depends on the spinlock and is rather slow. Otherwise
+it should get used just before the key is used to delay the entropy
+extration as late as possible to get better randomness. It returns true
+if the key got initialized.
 
-Understood.  Thank you for the protocol tip.  Here is the code
-(test_send.c) of the module causing the kernel panic when I send SKBs
-through dev_queue_xmit().  Below it are my notes (NOTES.txt) on the
-behavior, testing, etc.
+This patch splits the secret key for syncookies between ipv4 and ipv6
+and initializes them with net_get_random_once. This change was the reason
+I did this patch. I think the initialization of the syncookie_secret is
+way to early.
 
+Changed key initialization of tcp_fastopen cookies to net_get_random_once.
 
-test_send.c
-=3D=3D=3D=3D=3D=3D=3D=3D
+Also initialize the secret keys for tcp connection hashing via
+net_get_random_once.
 
-#include <linux/err.h>
-#include <linux/if_ether.h>
-#include <linux/kernel.h>
-#include <linux/kthread.h>
-#include <linux/module.h>
-#include <linux/netdevice.h>
-#include <linux/rcupdate.h>
-#include <linux/sched.h>
-#include <linux/skbuff.h>
-#include <linux/string.h>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
 
-#include <net/net_namespace.h>
+Please review carefully, especially the concurrency bits
+(I also did not test the fastopen changes, yet).
 
+I left net_get_random_once non-irq-safe because I hope I can spice up
+__net_get_random_once with get_random_bytes_busy_wait_initialized later on as
+soon as I get more feedback on that patch.
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Merlin Davis <me.the.wizard@gmail.com>");
+This patch depends on Eric Dumazet's patch: "net: net_secret should not depend on TCP"
+(currently in patchwork)
 
-static char* iface =3D "eth0";
-module_param(iface, charp, 0);
-MODULE_PARM_DESC(iface, "Name of output interface");
+Also, would it make sense to switch to static_keys in the net_get_random_once
+macro?
 
-static unsigned long n =3D 0;
-module_param(n, ulong, 0);
-MODULE_PARM_DESC(
-   n, "Number of packets to send (zero for continuous)");
+ include/linux/net.h        | 17 +++++++++++++++++
+ include/net/tcp.h          |  3 +--
+ net/core/secure_seq.c      | 14 ++------------
+ net/core/utils.c           | 16 ++++++++++++++++
+ net/ipv4/af_inet.c         | 10 ++--------
+ net/ipv4/syncookies.c      | 16 ++++++----------
+ net/ipv4/sysctl_net_ipv4.c |  5 +++++
+ net/ipv4/tcp_fastopen.c    | 21 ++++++++++-----------
+ net/ipv6/syncookies.c      | 10 ++++++++--
+ 9 files changed, 67 insertions(+), 45 deletions(-)
 
-
-static const unsigned int MAX_PENDING =3D 10u;
-
-static struct net_device* sendDev =3D NULL;
-static struct task_struct* sendThread =3D NULL;
-static unsigned long nSent =3D 0uL;
-static atomic_t nPending;
-static wait_queue_head_t sendWq;
-
-// Real ICMP echo response frame captured from eth0
-static char FRAME_DATA[] =3D
-   {
-      0x0a, 0x00, 0x27, 0x00, 0x00, 0x00, // dest MAC addr
-      0x08, 0x00, 0x27, 0x98, 0xa0, 0xea, // src MAC addr
-      0x08, 0x00,                         // IPv4
-
-      0x45,                    // v4, header length 20
-      0x00,                    // DCSP, ECN
-      0x00, 0x54,              // total IPv4 length 84
-      0xdc, 0x5a,              // ID
-      0x00, 0x00,              // flags, fragment offset
-      0x40,                    // TTL 64
-      0x01,                    // protocol ICMP
-      0xac, 0xf2,              // IPv4 header checksum
-      0xc0, 0xa8, 0x38, 0x0a,  // src IP addr
-      0xc0, 0xa8, 0x38, 0x01,  // dest IP addr
-
-      0x00,                    // echo reply
-      0x00,                    // code 0
-      0xf8, 0x17,              // ICMP header checksum
-      0x07, 0x80,              // echo ID
-      0x00, 0x0a,              // echo sequence number
-
-      // echo data
-      0x94, 0x89, 0x16, 0x52, 0x00, 0x00, 0x00, 0x00,
-      0x8d, 0xaf, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-      0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-      0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
-      0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
-      0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
-   };
-
-
-static void testSend_exit(void);
-static int testSendThreadfn(void* data);
-static void testSend_skb_destruct(struct sk_buff* skb);
-
-
-static int __init testSend_init(void)
-{
-   struct net* netNs =3D NULL;
-   int err =3D 0;
-
-   atomic_set(&nPending, 0);
-   init_waitqueue_head(&sendWq);
-
-   if (!iface)
-   {
-      printk(KERN_ERR
-             "test_send: Non-null device name must be "
-             "specified via iface=3D<name>\n");
-      err =3D -EINVAL;
-      goto err;
-   }
-
-   rcu_read_lock();
-   for_each_net_rcu(netNs)
-   {
-      sendDev =3D dev_get_by_name(netNs, iface);
-      if (sendDev)
-      {
-         break;
-      }
-   }
-   netNs =3D NULL;
-   rcu_read_unlock();
-
-   if (!sendDev)
-   {
-      printk(KERN_ERR "Invalid device name '%s'\n", iface);
-      err =3D -EINVAL;
-      goto err;
-   }
-
-   sendThread =3D kthread_run(testSendThreadfn, 0, "test_send");
-   if (IS_ERR(sendThread))
-   {
-      err =3D PTR_ERR(sendThread);
-      sendThread =3D NULL;
-      goto err;
-   }
-   // keep reference so we can kthread_stop() even after
-   //    thread returns
-   get_task_struct(sendThread);
-
-   return 0;
-
-err:
-   testSend_exit();
-   return err;
-}
-module_init(testSend_init);
-
-
-static void testSend_exit(void)
-{
-   if (sendThread)
-   {
-      kthread_stop(sendThread);
-      // cleanup extra reference kept for the kthread_stop()
-      put_task_struct(sendThread);
-      sendThread =3D NULL;
-   }
-
-   while (atomic_read(&nPending) > 0)
-   {
-      wait_event_interruptible(sendWq,
-                               atomic_read(&nPending) <=3D 0);
-   }
-
-   if (sendDev)
-   {
-      dev_put(sendDev);
-      sendDev =3D NULL;
-   }
-}
-static void __exit _testSend_exit(void)
-{
-   testSend_exit();
-   printk(KERN_INFO "test_send: Sent %lu frames\n", nSent);
-}
-module_exit(_testSend_exit);
-
-
-static int testSendThreadfn(void* data)
-{
-   int reservedSpace =3D max((int)LL_RESERVED_SPACE(sendDev),
-                           (int)sizeof(struct ethhdr));
-   int buffLen =3D reservedSpace - sizeof(struct ethhdr) +
-                 sizeof(FRAME_DATA) +
-                 sendDev->needed_tailroom;
-
-   while (!kthread_should_stop() && (n =3D=3D 0 || nSent < n))
-   {
-      struct sk_buff* skb =3D NULL;
-      int err =3D 0;
-
-      while (atomic_read(&nPending) >=3D MAX_PENDING)
-      {
-         wait_event_interruptible(
-            sendWq, atomic_read(&nPending) < MAX_PENDING);
-         if (kthread_should_stop())
-         {
-            goto out;
-         }
-      }
-
-      skb =3D alloc_skb(buffLen, GFP_KERNEL);
-      if (!skb)
-      {
-         printk(KERN_ERR "test_send: Couldn't allocate SKB\n");
-         schedule();
-         continue;
-      }
-
-      skb_reserve(skb, reservedSpace);
-      skb_reset_network_header(skb);
-      skb_put(skb, sizeof(FRAME_DATA) - sizeof(struct ethhdr));
-      skb_push(skb, sizeof(struct ethhdr));
-      skb_reset_mac_header(skb);
-      skb_reset_mac_len(skb);
-      err =3D skb_store_bits(skb,
-                           0,
-                           FRAME_DATA,
-                           sizeof(FRAME_DATA));
-      if (err)
-      {
-         printk(KERN_ERR
-                "test_send: Error %d storing to SKB\n", err);
-         schedule();
-         continue;
-      }
-
-      skb->dev =3D sendDev;
-      skb->protocol =3D htons(ETH_P_IP);
-      skb->destructor =3D testSend_skb_destruct;
-      skb_shinfo(skb)->destructor_arg =3D NULL;
-
-      // NOTE: Without this, the destructor is called twice and
-      //    there is an almost immediate kernel panic.  With it,
-      //    a kernel panic still occurs but takes a while to
-      //    manifest.
-      skb_get(skb);
-
-      atomic_inc(&nPending);
-      err =3D net_xmit_eval(dev_queue_xmit(skb));
-      if (err)
-      {
-         printk(KERN_ERR
-                "test_send: Error %d sending frame\n", err);
-         schedule();
-         continue;
-      }
-
-      ++nSent;
-
-      //printk(KERN_ERR "test_send: SENT SKB\n");
-   }
-out:
-
-   return 0;
-}
-
-static void testSend_skb_destruct(struct sk_buff* skb)
-{
-   //printk(KERN_ERR "test_send: DESTRUCTING SKB\n");
-   atomic_dec(&nPending);
-   wake_up_all(&sendWq);
-}
-
-
-NOTES.txt
-=3D=3D=3D=3D=3D=3D=3D=3D
-
-* Running on a VirtualBox VM with 64-bit Ubuntu 12.10 and the
-  3.5.0-40-generic kernel (and matching kernel headers for
-  module compilation).  The VM has been allocated 4 CPU cores
-  and 2GB of memory (it has no swap partition).  The module had
-  been tested on a previous kernel version (also 3.5.0-x) and
-  exhibited the same symptoms.  The network adapter set in
-  VirtualBox is the default "Intel PRO/1000 MT Desktop
-  (82540EM)", and uses the e1000 driver
-  (drivers/net/ethernet/intel/e1000).  However, other adapters
-  in VirtuaBox's list of choices that use different drivers have
-  also been tested with the same results.
-
-* I have also tested this code on bare metal with a network card
-  using Intel's igb driver and on a VM with a compiled 2.6.39
-  kernel using all default configuration parameters, with the
-  same results.
-
-* The idea of the module is to resend/replay frames previously
-  captured on the same network interface.  The frames are
-  byte-for-byte identical to one originally captured.  The
-  captured frame was an ICMP echo reply captured during ping
-  execution between the host machine and the VM, on the same
-  interface being tested (eth0 set to static 192.168.56.10/24 on
-  a VirtualBox host-only network); the packet was manually
-  inspected to verify it is a valid Ethernet/IPv4/ICMP/echo
-  reply message with correct checksums.  This small module is a
-  stripped down test case created after running into the problem
-  in a larger project (one which DOES send packets associated
-  with a socket).
-
-* The frames are sent without a socket, in a manner similar to
-  the way they are created and sent for IPv4 ARP.  In fact, the
-  frames are constructed and sent in a way that is almost
-  identical to the way net/ipv4/arp.c does it.  The exception is
-  that this module uses complete frame data including the
-  Ethernet header, unlike ARP which adds the hardware header
-  using dev_hard_header().  This module has been tested by
-  changing the code to use dev_hard_header() in an attempt to
-  diagnose the problem, but this does not change the behavior.
-
-* A kernel panic occurs after sending one or more frames using
-  this module.  The number of frames sent before the panic
-  occurs seems to vary, but it is inevitable that one occurs.
-  The panic does not always occur in the same place in kernel
-  code, but usually happens somewhere in __kfree_skb()=97perhaps
-  in skb_release_head_state() as "? skb_release_head_state+..."
-  is the last line of the kernel stack trace.  Sometimes,
-  though, it happens in the qdisk code for transmission or the
-  e1000 driver itself instead.  It is ALMOST always a "BUG:
-  unable to handle kernel NULL pointer dereference", but rarely
-  I have seen a general protection fault instead.
-
-* The first implementation sent SKBs endlessly and without
-  pause.  This caused a panic much quicker.  The code was then
-  changed to limit the number of outstanding SKBs pending in the
-  transmit code, similar to the way a socket's limited amount of
-  buffer space would (but done using a simple counter).  This
-  results in the same sort of panic, but after a longer period
-  of time since the sned rate is naturally lower.  Counting the
-  number of outstanding SKBs also resulted in the discovery of
-  an SKB reference counting problem.
-
-* Calling dev_queue_xmit() with an SKB is supposed to turn
-  ownership of the SKB over to the transmit code, according to
-  the API documentation in net/core/dev.c.  This would seem to
-  imply the reference count should be 1, and that reference is
-  turned over to the callee.  However, when the reference count
-  is only 1, the transmit code destructs each SKB twice, meaning
-  somewhere it must be decrementing the reference count and
-  assuming it is still positive, then later incrementing and
-  decrementing it again.  This causes an immediate kernel panic
-  in either the code to free the SKB or in a later memory
-  allocation operation.
-
-* When an SKB's reference count is incremented to 2 just before
-  calling dev_queue_xmit(), the destructor seems to be called
-  just once (this can be tested by uncommenting a couple of
-  printk's in the code and loading the module with parameter
-  "n=3Dx" to send x frames before terminating the send thread,
-  then checking the messages using dmesg, grep, wc, etc.).  With
-  this reference count fix the kernel panic still occurs, but
-  only after the relatively long and varying period of execution
-  mentioned above (generally after hundreds of thousands of
-  frames).  On the VM I am testing on, the panic usually happens
-  after somewhere between 15 seconds and 2 minutes.
-
-* My best guess is that SOMETHING is overwriting memory with
-  null bytes or random data or soemthing.  Is there something
-  wrong with the way the SKBs are being allocated, prepared,
-  turned over to the kernel for transmission, cleaned up, etc.?
-  If so, how is it different from the ARP implementation in a
-  way that causes a panic?  Or is this a defect in the kernel
-  code itself, in which case how can Linux machines stay stable
-  and running with significant uptimes?  Or is it just that this
-  is a very infrequent race condition of some sort and ARP
-  transmission is slow/infrequent enough that the mean time
-  before failure is very, very long?
-
-* I have attempted both kernel debugging and panic message
-  capture, but despite following all the instructions I can find
-  online for doing this with a VirtualBox VM, I cannot seem to
-  get the debugger to resume execution properly when debugging,
-  the emulated serial console to work, or a crash dump to appear
-  in the VM after restart.  So I seem to be stuck with code
-  inspection and good ol' printk-style debugging, unfortunately.
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 4f27575..2bfb8ca 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -243,6 +243,23 @@ do {								\
+ #define net_random()		prandom_u32()
+ #define net_srandom(seed)	prandom_seed((__force u32)(seed))
+ 
++bool __net_get_random_once(void *buf, int nbytes, bool *done,
++			   spinlock_t *lock);
++
++/* BE CAREFUL: this function is not interrupt safe */
++#define net_get_random_once(buf, nbytes)				\
++	({								\
++		static DEFINE_SPINLOCK(__lock);				\
++		static bool __done = false;				\
++		bool __ret = false;					\
++		if (unlikely(!__done))					\
++			__ret = __net_get_random_once(buf,		\
++						    nbytes,		\
++						    &__done,		\
++						    &__lock);		\
++		__ret;							\
++	})
++
+ extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				    struct kvec *vec, size_t num, size_t len);
+ extern int   	     kernel_recvmsg(struct socket *sock, struct msghdr *msg,
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index de870ee..2a26100 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -475,7 +475,6 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
+ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+ 
+ /* From syncookies.c */
+-extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ 		      u32 cookie);
+ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+@@ -1323,7 +1322,7 @@ extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ int tcp_fastopen_reset_cipher(void *key, unsigned int len);
+ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
+ 			     struct tcp_fastopen_cookie *foc);
+-
++void tcp_fastopen_init_key_once(bool publish);
+ #define TCP_FASTOPEN_KEY_LENGTH 16
+ 
+ /* Fastopen key context */
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 3f1ec15..b02fd16 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -7,6 +7,7 @@
+ #include <linux/hrtimer.h>
+ #include <linux/ktime.h>
+ #include <linux/string.h>
++#include <linux/net.h>
+ 
+ #include <net/secure_seq.h>
+ 
+@@ -16,18 +17,7 @@ static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
+ 
+ static void net_secret_init(void)
+ {
+-	u32 tmp;
+-	int i;
+-
+-	if (likely(net_secret[0]))
+-		return;
+-
+-	for (i = NET_SECRET_SIZE; i > 0;) {
+-		do {
+-			get_random_bytes(&tmp, sizeof(tmp));
+-		} while (!tmp);
+-		cmpxchg(&net_secret[--i], 0, tmp);
+-	}
++	net_get_random_once(net_secret, sizeof(net_secret));
+ }
+ 
+ #ifdef CONFIG_INET
+diff --git a/net/core/utils.c b/net/core/utils.c
+index aa88e23..f2fa223 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -338,3 +338,19 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ 				  csum_unfold(*sum)));
+ }
+ EXPORT_SYMBOL(inet_proto_csum_replace16);
++
++bool __net_get_random_once(void *buf, int nbytes, bool *done,
++			    spinlock_t *lock)
++{
++	spin_lock_bh(lock);
++	if (*done) {
++		spin_unlock_bh(lock);
++		return false;
++	}
++
++	get_random_bytes(buf, nbytes);
++	*done = true;
++	spin_unlock_bh(lock);
++	return true;
++}
++EXPORT_SYMBOL(__net_get_random_once);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index cfeb85c..1abd8c8 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -257,14 +257,8 @@ EXPORT_SYMBOL(ipv6_hash_secret);
+  */
+ void build_ehash_secret(void)
+ {
+-	u32 rnd;
+-
+-	do {
+-		get_random_bytes(&rnd, sizeof(rnd));
+-	} while (rnd == 0);
+-
+-	if (cmpxchg(&inet_ehash_secret, 0, rnd) == 0)
+-		get_random_bytes(&ipv6_hash_secret, sizeof(ipv6_hash_secret));
++	net_get_random_once(&inet_ehash_secret, sizeof(inet_ehash_secret));
++	net_get_random_once(&ipv6_hash_secret, sizeof(ipv6_hash_secret));
+ }
+ EXPORT_SYMBOL(build_ehash_secret);
+ 
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 15e0241..af79b84 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -25,15 +25,7 @@
+ 
+ extern int sysctl_tcp_syncookies;
+ 
+-__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+-EXPORT_SYMBOL(syncookie_secret);
+-
+-static __init int init_syncookies(void)
+-{
+-	get_random_bytes(syncookie_secret, sizeof(syncookie_secret));
+-	return 0;
+-}
+-__initcall(init_syncookies);
++static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ 
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+@@ -44,7 +36,11 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+-	__u32 *tmp = __get_cpu_var(ipv4_cookie_scratch);
++	__u32 *tmp;
++
++	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
++
++	tmp = __get_cpu_var(ipv4_cookie_scratch);
+ 
+ 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 540279f..d2b5140 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -267,6 +267,11 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 			ret = -EINVAL;
+ 			goto bad_key;
+ 		}
++		/* Generate a dummy secret but don't publish it. This
++		 * is needed so we don't regenerate a new key on the
++		 * first invocation of tcp_fastopen_cookie_gen
++		 */
++		tcp_fastopen_init_key_once(false);
+ 		tcp_fastopen_reset_cipher(user_key, TCP_FASTOPEN_KEY_LENGTH);
+ 	}
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index ab7bd35..2240103 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -14,6 +14,14 @@ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ 
+ static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
+ 
++void tcp_fastopen_init_key_once(bool publish)
++{
++	static __u8 key[TCP_FASTOPEN_KEY_LENGTH];
++
++	if (net_get_random_once(key, sizeof(key)) && publish)
++		tcp_fastopen_reset_cipher(key, sizeof(key));
++}
++
+ static void tcp_fastopen_ctx_free(struct rcu_head *head)
+ {
+ 	struct tcp_fastopen_context *ctx =
+@@ -70,6 +78,8 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
+ 	__be32 path[4] = { src, dst, 0, 0 };
+ 	struct tcp_fastopen_context *ctx;
+ 
++	tcp_fastopen_init_key_once(true);
++
+ 	rcu_read_lock();
+ 	ctx = rcu_dereference(tcp_fastopen_ctx);
+ 	if (ctx) {
+@@ -78,14 +88,3 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
+ 	}
+ 	rcu_read_unlock();
+ }
+-
+-static int __init tcp_fastopen_init(void)
+-{
+-	__u8 key[TCP_FASTOPEN_KEY_LENGTH];
+-
+-	get_random_bytes(key, sizeof(key));
+-	tcp_fastopen_reset_cipher(key, sizeof(key));
+-	return 0;
+-}
+-
+-late_initcall(tcp_fastopen_init);
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index d703218..a454cef 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -21,6 +21,8 @@
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+ 
++static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS];
++
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
+@@ -61,14 +63,18 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
+ 		       __be16 sport, __be16 dport, u32 count, int c)
+ {
+-	__u32 *tmp = __get_cpu_var(ipv6_cookie_scratch);
++	__u32 *tmp;
++
++	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
++
++	tmp = __get_cpu_var(ipv6_cookie_scratch);
+ 
+ 	/*
+ 	 * we have 320 bits of information to hash, copy in the remaining
+ 	 * 192 bits required for sha_transform, from the syncookie_secret
+ 	 * and overwrite the digest with the secret
+ 	 */
+-	memcpy(tmp + 10, syncookie_secret[c], 44);
++	memcpy(tmp + 10, syncookie6_secret[c], 44);
+ 	memcpy(tmp, saddr, 16);
+ 	memcpy(tmp + 4, daddr, 16);
+ 	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
+-- 
+1.8.3.1
