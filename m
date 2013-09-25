@@ -1,8 +1,8 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH tip/core/rcu 03/13] bridge: Apply
+Subject: [PATCH tip/core/rcu 12/13] bonding/bond_main: Apply
 	rcu_access_pointer() to avoid sparse false positive
-Date: Tue, 24 Sep 2013 18:35:06 -0700
-Message-ID: <1380072916-31557-3-git-send-email-paulmck@linux.vnet.ibm.com>
+Date: Tue, 24 Sep 2013 18:35:15 -0700
+Message-ID: <1380072916-31557-12-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20130925013451.GA31260@linux.vnet.ibm.com>
 	<1380072916-31557-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
@@ -33,12 +33,14 @@ From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the uses in
-br_multicast_del_pg() and br_multicast_new_port_group() are legitimate:
-They is assigning a pointer to an element from an RCU-protected list,
-and all elements of this list are already visible to caller.
+bond_change_active_slave(), bond_enslave(), and __bond_release_one()
+are legitimate: They are assigning a pointer to an element from an
+RCU-protected list (or a NULL pointer), and all elements of this list
+are already visible to caller.
 
-This commit therefore silences these false positives by laundering the
-pointers using rcu_access_pointer() as suggested by Josh Triplett.
+This commit therefore silences these false positives either by laundering
+the pointers using rcu_access_pointer() as suggested by Josh Triplett,
+or by using RCU_INIT_POINTER() for NULL pointer assignments.
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
@@ -47,30 +49,41 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: bridge@lists.linux-foundation.org
 Cc: netdev@vger.kernel.org
 ---
- net/bridge/br_multicast.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index d1c5786..314c81c 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -267,7 +267,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
- 		if (p != pg)
- 			continue;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 72df399..2f276b9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -890,7 +890,8 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 		if (new_active)
+ 			bond_set_slave_active_flags(new_active);
+ 	} else {
+-		rcu_assign_pointer(bond->curr_active_slave, new_active);
++		rcu_assign_pointer(bond->curr_active_slave,
++				   rcu_access_pointer(new_active));
+ 	}
  
--		rcu_assign_pointer(*pp, p->next);
-+		rcu_assign_pointer(*pp, rcu_access_pointer(p->next));
- 		hlist_del_init(&p->mglist);
- 		del_timer(&p->timer);
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
-@@ -646,7 +646,7 @@ struct net_bridge_port_group *br_multicast_new_port_group(
- 	p->addr = *group;
- 	p->port = port;
- 	p->state = state;
--	rcu_assign_pointer(p->next, next);
-+	rcu_assign_pointer(p->next, rcu_access_pointer(next));
- 	hlist_add_head(&p->mglist, &port->mglist);
- 	setup_timer(&p->timer, br_multicast_port_group_expired,
- 		    (unsigned long)p);
+ 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
+@@ -1601,7 +1602,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 * so we can change it without calling change_active_interface()
+ 		 */
+ 		if (!bond->curr_active_slave && new_slave->link == BOND_LINK_UP)
+-			rcu_assign_pointer(bond->curr_active_slave, new_slave);
++			rcu_assign_pointer(bond->curr_active_slave,
++					   rcu_access_pointer(new_slave));
+ 
+ 		break;
+ 	} /* switch(bond_mode) */
+@@ -1801,7 +1803,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	if (all) {
+-		rcu_assign_pointer(bond->curr_active_slave, NULL);
++		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
+ 	} else if (oldcurrent == slave) {
+ 		/*
+ 		 * Note that we hold RTNL over this sequence, so there
 -- 
 1.8.1.5
