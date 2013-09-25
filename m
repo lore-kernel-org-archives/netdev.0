@@ -1,22 +1,24 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 20/27] bonding: remove bond_prev_slave()
-Date: Wed, 25 Sep 2013 09:20:25 +0200
-Message-ID: <1380093632-1842-21-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 19/27] bonding: convert first/last slave logic to use neighbours
+Date: Wed, 25 Sep 2013 09:20:24 +0200
+Message-ID: <1380093632-1842-20-git-send-email-vfalico@redhat.com>
 References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21984 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46931 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753365Ab3IYHVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:21:04 -0400
+	id S1753128Ab3IYHVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 03:21:03 -0400
 In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't really need it, and it's really hard to RCUify the list->prev.
+For that, use netdev_adjacent_get_private(list_head) on bond's lower
+neighbour list members. Also, add a small macro - bond_slave_list(bond),
+which returns the bond list via neighbour list.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -37,68 +39,45 @@ Notes:
     No changes.
     
     RFC -> v1:
-    New patch.
+    Rename neieghour_dev_list to adj_list.
 
- drivers/net/bonding/bond_main.c | 9 +++------
- drivers/net/bonding/bonding.h   | 4 ----
- 2 files changed, 3 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bonding.h | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 06ffc8a..6aa345a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1255,7 +1255,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
--	struct slave *new_slave = NULL;
-+	struct slave *new_slave = NULL, *prev_slave;
- 	struct sockaddr addr;
- 	int link_reporting;
- 	int res = 0, i;
-@@ -1472,6 +1472,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 
- 	write_lock_bh(&bond->lock);
- 
-+	prev_slave = bond_last_slave(bond);
- 	bond_attach_slave(bond, new_slave);
- 
- 	new_slave->delay = 0;
-@@ -1566,9 +1567,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			 */
- 			bond_3ad_initialize(bond, 1000/AD_TIMER_INTERVAL);
- 		} else {
--			struct slave *prev_slave;
--
--			prev_slave = bond_prev_slave(bond, new_slave);
- 			SLAVE_AD_INFO(new_slave).id =
- 				SLAVE_AD_INFO(prev_slave).id + 1;
- 		}
-@@ -3506,9 +3504,8 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- 	 */
- 
- 	bond_for_each_slave(bond, slave, iter) {
--		pr_debug("s %p s->p %p c_m %p\n",
-+		pr_debug("s %p c_m %p\n",
- 			 slave,
--			 bond_prev_slave(bond, slave),
- 			 slave->dev->netdev_ops->ndo_change_mtu);
- 
- 		res = dev_set_mtu(slave->dev, new_mtu);
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 3eb464c..454d6af 100644
+index 170c7fc..3eb464c 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -96,10 +96,6 @@
- 	(bond_is_last_slave(bond, pos) ? bond_first_slave(bond) : \
- 					 bond_to_slave((pos)->list.next))
+@@ -72,19 +72,24 @@
+ 	res; })
  
--#define bond_prev_slave(bond, pos) \
--	(bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
--					  bond_to_slave((pos)->list.prev))
--
- /**
-  * bond_for_each_slave - iterate over all slaves
-  * @bond:	the bond holding this list
+ /* slave list primitives */
+-#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
++#define bond_slave_list(bond) (&(bond)->dev->adj_list.lower)
++
++#define bond_has_slaves(bond) !list_empty(bond_slave_list(bond))
+ 
+ #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
+ 
+ /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
+ #define bond_first_slave(bond) \
+-	list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
++	(bond_has_slaves(bond) ? \
++		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
++		NULL)
+ #define bond_last_slave(bond) \
+-	(list_empty(&(bond)->slave_list) ? NULL : \
+-					   bond_to_slave((bond)->slave_list.prev))
++	(bond_has_slaves(bond) ? \
++		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
++		NULL)
+ 
+-#define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
+-#define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
++#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
++#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+ 
+ /* Since bond_first/last_slave can return NULL, these can return NULL too */
+ #define bond_next_slave(bond, pos) \
 -- 
 1.8.4
