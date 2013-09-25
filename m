@@ -1,115 +1,33 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v5 5/6] bonding: remove the counter and simplify
- bond_for_each_slave_from()
-Date: Wed, 25 Sep 2013 17:52:31 +0800
-Message-ID: <5242B25F.7020505@huawei.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net v5 0/1] xen-netback: windows frontend compatibility fixes
+Date: Wed, 25 Sep 2013 10:59:27 +0100
+Message-ID: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:36657 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755111Ab3IYJyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:54:22 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:6971 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750832Ab3IYJ7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 05:59:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restructure the bond_for_each_slave_from(),
-remove the checking for bond->slave_cnt,
-make the new loop be more simple and racy.
+The following patches fix a couple more issues found when testing with
+Windows frontends.
 
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c  | 3 +--
- drivers/net/bonding/bond_main.c | 6 ++----
- drivers/net/bonding/bonding.h   | 6 +++---
- 3 files changed, 6 insertions(+), 9 deletions(-)
+v5:
+- Fix typos pointed out by Wei Liu
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index f428ef57..4813dc6 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct slave *rx_slave, *slave, *start_at;
--	int i = 0;
- 
- 	if (bond_info->next_rx_slave)
- 		start_at = bond_info->next_rx_slave;
-@@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
- 
- 	rx_slave = NULL;
- 
--	bond_for_each_slave_from(bond, slave, i, start_at) {
-+	bond_for_each_slave_from(bond, slave, start_at) {
- 		if (SLAVE_IS_OK(slave)) {
- 			if (!rx_slave) {
- 				rx_slave = slave;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 55bbb8b..fbe25bc 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	struct slave *new_active, *old_active;
- 	struct slave *bestslave = NULL;
- 	int mintime = bond->params.updelay;
--	int i;
- 
- 	new_active = bond->curr_active_slave;
- 
-@@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	/* remember where to stop iterating over the slaves */
- 	old_active = new_active;
- 
--	bond_for_each_slave_from(bond, new_active, i, old_active) {
-+	bond_for_each_slave_from(bond, new_active, old_active) {
- 		if (new_active->link == BOND_LINK_UP) {
- 			return new_active;
- 		} else if (new_active->link == BOND_LINK_BACK &&
-@@ -2756,7 +2755,6 @@ do_failover:
- static void bond_ab_arp_probe(struct bonding *bond)
- {
- 	struct slave *slave, *next_slave;
--	int i;
- 
- 	read_lock(&bond->curr_slave_lock);
- 
-@@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 
- 	/* search for next candidate */
- 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
--	bond_for_each_slave_from(bond, slave, i, next_slave) {
-+	bond_for_each_slave_from(bond, slave, next_slave) {
- 		if (IS_UP(slave->dev)) {
- 			slave->link = BOND_LINK_BACK;
- 			bond_set_slave_active_flags(slave);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index eb36f57..e5734ad 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -130,9 +130,9 @@
-  *
-  * Caller must hold bond->lock
-  */
--#define bond_for_each_slave_from(bond, pos, cnt, start) \
--	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
--	     cnt++, pos = bond_next_slave(bond, pos))
-+#define bond_for_each_slave_from(bond, pos, start) \
-+	for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
-+	    (pos) : (pos = NULL))
- 
- /**
-  * bond_for_each_slave - iterate over all slaves
--- 
-1.8.0
+v4:
+- Fix problem with hotplug failure noticed by Wei Liu
+
+v3:
+- Collapse both v2 patches into a single patch that introduces a new
+  function to handle backend state transtions. By doing this we ensure that
+  we always transition through intermediate states and that we don't attempt
+  repeated connects or disconnects.
+
+v2:
+- Add comment in 2/2 to note that state transitions from Connected to Closed
+  are incorrect.
