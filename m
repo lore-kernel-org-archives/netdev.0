@@ -1,24 +1,29 @@
-From: Marie Siggelin <marie.siggelin@lundby.goteborg.se>
-Subject: Re: Result Notification
-Date: Wed, 25 Sep 2013 23:48:03 +0200
-Message-ID: <OF2C80740D.A5FDE26F-ONC1257BF1.0077BF28-C1257BF1.0077C180@Intra-epost.goteborg.se>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Kernel Panic Sending Frames Using dev_queue_xmit()
+Date: Thu, 26 Sep 2013 00:03:51 +0200
+Message-ID: <20130925220351.GA4653@electric-eye.fr.zoreil.com>
+References: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
+ <1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
+ <CAFu7c2XDYR-SMiuqMxtqGhfM00nw8-h0Tr2uewN8+D1BptsayA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: info@national.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Merlin Davis <me.the.wizard@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx20.goteborg.se ([62.88.135.4]:45363 "EHLO mx20.goteborg.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752399Ab3IYWB5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 18:01:57 -0400
-Received: from lnhubsr2.goteborg.se (s002adh02.goteborg.se [10.1.11.42])
-	by s002is15mta.goteborg.se (8.13.8/8.13.8) with ESMTP id r8PLmOZT012903
-	for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 23:51:21 +0200
-In-Reply-To: 
-References: 
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38482 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888Ab3IYWD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 18:03:57 -0400
+Content-Disposition: inline
+In-Reply-To: <CAFu7c2XDYR-SMiuqMxtqGhfM00nw8-h0Tr2uewN8+D1BptsayA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=20
-Reply back to uk.larrywilliams@gmail.com=A0as soon as you receive  this=
- notification massage for your claims. Ticket Number: 3134231835667
+Merlin Davis <me.the.wizard@gmail.com> :
+[...]
+>       err = net_xmit_eval(dev_queue_xmit(skb));
+
+Macro expansion bug.
+
+-- 
+Ueimor
