@@ -1,23 +1,25 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 08/27] bonding: remove bond_for_each_slave_continue_reverse()
-Date: Wed, 25 Sep 2013 09:20:13 +0200
-Message-ID: <1380093632-1842-9-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 05/27] bonding: populate neighbour's private on enslave
+Date: Wed, 25 Sep 2013 09:20:10 +0200
+Message-ID: <1380093632-1842-6-git-send-email-vfalico@redhat.com>
 References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10865 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:18367 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752902Ab3IYHUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:20:43 -0400
+	id S1752841Ab3IYHUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 03:20:40 -0400
 In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We only use it in rollback scenarios and can easily use the standart
-bond_for_each_dev() instead.
+Use the new provided function when attaching the lower slave to populate
+its ->private with struct slave *new_slave. Also, move it to the end to
+be able to 'find' it only after it was completely initialized, and
+deinitialize in the first place on release.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -29,168 +31,110 @@ Notes:
     No change.
     
     v3  -> v4:
-    Remove the trailing semicolon after if:
-    +               if (rollback_slave == slave);
-    +                       break;
-    It was painful...
+    No change.
     
     v2  -> v3:
-    Add the forgotten _continue to the subject.
+    No change.
     
     v1  -> v2:
     No changes.
     
     RFC -> v1:
-    Move the patch right before we change bond_for_each_slave() conversion,
-    so that we don't have to convert bond_for_each_slave_reverse() too.
+    Move the patch right after the introduction of ->private, to immediately
+    use it - easier for review and more logical.
 
- drivers/net/bonding/bond_alb.c  | 14 ++++++++------
- drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++------------
- drivers/net/bonding/bonding.h   | 10 ----------
- 3 files changed, 30 insertions(+), 28 deletions(-)
+ drivers/net/bonding/bond_main.c | 30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 8524e33..6437657 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1246,9 +1246,9 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
-  */
- static int alb_set_mac_address(struct bonding *bond, void *addr)
- {
--	char tmp_addr[ETH_ALEN];
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	struct sockaddr sa;
-+	char tmp_addr[ETH_ALEN];
- 	int res;
- 
- 	if (bond->alb_info.rlb_enabled)
-@@ -1274,10 +1274,12 @@ unwind:
- 	sa.sa_family = bond->dev->type;
- 
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
--		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
--		dev_set_mac_address(slave->dev, &sa);
--		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
-+	bond_for_each_slave(bond, rollback_slave) {
-+		if (rollback_slave == slave)
-+			break;
-+		memcpy(tmp_addr, rollback_slave->dev->dev_addr, ETH_ALEN);
-+		dev_set_mac_address(rollback_slave->dev, &sa);
-+		memcpy(rollback_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
- 	}
- 
- 	return res;
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8e41416..d94b6c1 100644
+index 91c4ab8..8e41416 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -332,7 +332,7 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
- 				__be16 proto, u16 vid)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	int res;
+@@ -1233,11 +1233,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ }
  
- 	bond_for_each_slave(bond, slave) {
-@@ -344,9 +344,13 @@ static int bond_vlan_rx_add_vid(struct net_device *bond_dev,
+ static int bond_master_upper_dev_link(struct net_device *bond_dev,
+-				      struct net_device *slave_dev)
++				      struct net_device *slave_dev,
++				      struct slave *slave)
+ {
+ 	int err;
+ 
+-	err = netdev_master_upper_dev_link(slave_dev, bond_dev);
++	err = netdev_master_upper_dev_link_private(slave_dev, bond_dev, slave);
+ 	if (err)
+ 		return err;
+ 	slave_dev->flags |= IFF_SLAVE;
+@@ -1413,17 +1414,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
+-	res = bond_master_upper_dev_link(bond_dev, slave_dev);
+-	if (res) {
+-		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
+-		goto err_restore_mac;
+-	}
+-
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+ 		pr_debug("Opening slave %s failed\n", slave_dev->name);
+-		goto err_unset_master;
++		goto err_restore_mac;
+ 	}
+ 
+ 	new_slave->bond = bond;
+@@ -1637,6 +1632,13 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_dest_symlinks;
+ 	}
+ 
++	res = bond_master_upper_dev_link(bond_dev, slave_dev, new_slave);
++	if (res) {
++		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
++		goto err_unregister;
++	}
++
++
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+ 		bond_dev->name, slave_dev->name,
+ 		bond_is_active_slave(new_slave) ? "n active" : " backup",
+@@ -1646,6 +1648,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  	return 0;
  
- unwind:
--	/* unwind from the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave)
--		vlan_vid_del(slave->dev, proto, vid);
-+	/* unwind to the slave that failed */
-+	bond_for_each_slave(bond, rollback_slave) {
-+		if (rollback_slave == slave)
-+			break;
+ /* Undo stages on error */
++err_unregister:
++	netdev_rx_handler_unregister(slave_dev);
 +
-+		vlan_vid_del(rollback_slave->dev, proto, vid);
-+	}
+ err_dest_symlinks:
+ 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
  
- 	return res;
- }
-@@ -3468,7 +3472,7 @@ static int bond_neigh_setup(struct net_device *dev,
- static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
-+	struct slave *slave, *rollback_slave;
- 	int res = 0;
+@@ -1675,9 +1680,6 @@ err_close:
+ 	slave_dev->priv_flags &= ~IFF_BONDING;
+ 	dev_close(slave_dev);
  
- 	pr_debug("bond=%p, name=%s, new_mtu=%d\n", bond,
-@@ -3517,13 +3521,16 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- 
- unwind:
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
-+	bond_for_each_slave(bond, rollback_slave) {
- 		int tmp_res;
- 
--		tmp_res = dev_set_mtu(slave->dev, bond_dev->mtu);
-+		if (rollback_slave == slave)
-+			break;
-+
-+		tmp_res = dev_set_mtu(rollback_slave->dev, bond_dev->mtu);
- 		if (tmp_res) {
- 			pr_debug("unwind err %d dev %s\n",
--				 tmp_res, slave->dev->name);
-+				 tmp_res, rollback_slave->dev->name);
- 		}
- 	}
- 
-@@ -3540,8 +3547,8 @@ unwind:
- static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave, *rollback_slave;
- 	struct sockaddr *sa = addr, tmp_sa;
--	struct slave *slave;
- 	int res = 0;
- 
- 	if (bond->params.mode == BOND_MODE_ALB)
-@@ -3607,13 +3614,16 @@ unwind:
- 	tmp_sa.sa_family = bond_dev->type;
- 
- 	/* unwind from head to the slave that failed */
--	bond_for_each_slave_continue_reverse(bond, slave) {
-+	bond_for_each_slave(bond, rollback_slave) {
- 		int tmp_res;
- 
--		tmp_res = dev_set_mac_address(slave->dev, &tmp_sa);
-+		if (rollback_slave == slave)
-+			break;
-+
-+		tmp_res = dev_set_mac_address(rollback_slave->dev, &tmp_sa);
- 		if (tmp_res) {
- 			pr_debug("unwind err %d dev %s\n",
--				 tmp_res, slave->dev->name);
-+				 tmp_res, rollback_slave->dev->name);
- 		}
- 	}
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 90f4847..0b0c3df 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -120,16 +120,6 @@
- #define bond_for_each_slave_rcu(bond, pos) \
- 	list_for_each_entry_rcu(pos, &(bond)->slave_list, list)
- 
--/**
-- * bond_for_each_slave_reverse - iterate in reverse from a given position
-- * @bond:	the bond holding this list
-- * @pos:	slave to continue from
-- *
-- * Caller must hold bond->lock
-- */
--#define bond_for_each_slave_continue_reverse(bond, pos) \
--	list_for_each_entry_continue_reverse(pos, &(bond)->slave_list, list)
+-err_unset_master:
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
 -
- #ifdef CONFIG_NET_POLL_CONTROLLER
- extern atomic_t netpoll_block_tx;
+ err_restore_mac:
+ 	if (!bond->params.fail_over_mac) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+@@ -1748,6 +1750,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
  
+ 	write_unlock_bh(&bond->lock);
++
++	bond_upper_dev_unlink(bond_dev, slave_dev);
+ 	/* unregister rx_handler early so bond_handle_frame wouldn't be called
+ 	 * for this slave anymore.
+ 	 */
+@@ -1866,8 +1870,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+ 	}
+ 
+-	bond_upper_dev_unlink(bond_dev, slave_dev);
+-
+ 	slave_disable_netpoll(slave);
+ 
+ 	/* close slave before restoring its mac address */
 -- 
 1.8.4
