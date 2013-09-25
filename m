@@ -1,11 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/11] orinoco: Remove extern from function prototypes
-Date: Wed, 25 Sep 2013 12:37:28 -0700
-Message-ID: <53406cd734ec5293069acd9135440ff36a4bbdbc.1380137610.git.joe@perches.com>
+Subject: [PATCH 02/11] wan: Remove extern from function prototypes
+Date: Wed, 25 Sep 2013 12:37:20 -0700
+Message-ID: <65c8f953621acc51fd45662191ca21126b75d142.1380137609.git.joe@perches.com>
 References: <cover.1380137609.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1380137609.git.joe@perches.com>
@@ -22,50 +21,59 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/orinoco/orinoco.h | 31 ++++++++++++++-----------------
- 1 file changed, 14 insertions(+), 17 deletions(-)
+ drivers/net/wan/x25_asy.h |  2 +-
+ drivers/net/wan/z85230.h  | 27 +++++++++++++--------------
+ 2 files changed, 14 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco/orinoco.h b/drivers/net/wireless/orinoco/orinoco.h
-index 3bb936b..eebd2be 100644
---- a/drivers/net/wireless/orinoco/orinoco.h
-+++ b/drivers/net/wireless/orinoco/orinoco.h
-@@ -182,23 +182,20 @@ extern int orinoco_debug;
- /* Exported prototypes                                              */
- /********************************************************************/
+diff --git a/drivers/net/wan/x25_asy.h b/drivers/net/wan/x25_asy.h
+index 8f0fc2e..f57ee67 100644
+--- a/drivers/net/wan/x25_asy.h
++++ b/drivers/net/wan/x25_asy.h
+@@ -41,6 +41,6 @@ struct x25_asy {
  
--extern struct orinoco_private *alloc_orinocodev(
--	int sizeof_card, struct device *device,
--	int (*hard_reset)(struct orinoco_private *),
--	int (*stop_fw)(struct orinoco_private *, int));
--extern void free_orinocodev(struct orinoco_private *priv);
--extern int orinoco_init(struct orinoco_private *priv);
--extern int orinoco_if_add(struct orinoco_private *priv,
--			  unsigned long base_addr,
--			  unsigned int irq,
--			  const struct net_device_ops *ops);
--extern void orinoco_if_del(struct orinoco_private *priv);
--extern int orinoco_up(struct orinoco_private *priv);
--extern void orinoco_down(struct orinoco_private *priv);
--extern irqreturn_t orinoco_interrupt(int irq, void *dev_id);
--
--extern void __orinoco_ev_info(struct net_device *dev, struct hermes *hw);
--extern void __orinoco_ev_rx(struct net_device *dev, struct hermes *hw);
-+struct orinoco_private *alloc_orinocodev(int sizeof_card, struct device *device,
-+					 int (*hard_reset)(struct orinoco_private *),
-+					 int (*stop_fw)(struct orinoco_private *, int));
-+void free_orinocodev(struct orinoco_private *priv);
-+int orinoco_init(struct orinoco_private *priv);
-+int orinoco_if_add(struct orinoco_private *priv, unsigned long base_addr,
-+		   unsigned int irq, const struct net_device_ops *ops);
-+void orinoco_if_del(struct orinoco_private *priv);
-+int orinoco_up(struct orinoco_private *priv);
-+void orinoco_down(struct orinoco_private *priv);
-+irqreturn_t orinoco_interrupt(int irq, void *dev_id);
-+
-+void __orinoco_ev_info(struct net_device *dev, struct hermes *hw);
-+void __orinoco_ev_rx(struct net_device *dev, struct hermes *hw);
+ #define X25_ASY_MAGIC 0x5303
  
- int orinoco_process_xmit_skb(struct sk_buff *skb,
- 			     struct net_device *dev,
+-extern int x25_asy_init(struct net_device *dev);
++int x25_asy_init(struct net_device *dev);
+ 
+ #endif	/* _LINUX_X25_ASY.H */
+diff --git a/drivers/net/wan/z85230.h b/drivers/net/wan/z85230.h
+index f29d554..2416a9d 100644
+--- a/drivers/net/wan/z85230.h
++++ b/drivers/net/wan/z85230.h
+@@ -395,20 +395,19 @@ struct z8530_dev
+ extern u8 z8530_dead_port[];
+ extern u8 z8530_hdlc_kilostream_85230[];
+ extern u8 z8530_hdlc_kilostream[];
+-extern irqreturn_t z8530_interrupt(int, void *);
+-extern void z8530_describe(struct z8530_dev *, char *mapping, unsigned long io);
+-extern int z8530_init(struct z8530_dev *);
+-extern int z8530_shutdown(struct z8530_dev *);
+-extern int z8530_sync_open(struct net_device *, struct z8530_channel *);
+-extern int z8530_sync_close(struct net_device *, struct z8530_channel *);
+-extern int z8530_sync_dma_open(struct net_device *, struct z8530_channel *);
+-extern int z8530_sync_dma_close(struct net_device *, struct z8530_channel *);
+-extern int z8530_sync_txdma_open(struct net_device *, struct z8530_channel *);
+-extern int z8530_sync_txdma_close(struct net_device *, struct z8530_channel *);
+-extern int z8530_channel_load(struct z8530_channel *, u8 *);
+-extern netdev_tx_t z8530_queue_xmit(struct z8530_channel *c,
+-					  struct sk_buff *skb);
+-extern void z8530_null_rx(struct z8530_channel *c, struct sk_buff *skb);
++irqreturn_t z8530_interrupt(int, void *);
++void z8530_describe(struct z8530_dev *, char *mapping, unsigned long io);
++int z8530_init(struct z8530_dev *);
++int z8530_shutdown(struct z8530_dev *);
++int z8530_sync_open(struct net_device *, struct z8530_channel *);
++int z8530_sync_close(struct net_device *, struct z8530_channel *);
++int z8530_sync_dma_open(struct net_device *, struct z8530_channel *);
++int z8530_sync_dma_close(struct net_device *, struct z8530_channel *);
++int z8530_sync_txdma_open(struct net_device *, struct z8530_channel *);
++int z8530_sync_txdma_close(struct net_device *, struct z8530_channel *);
++int z8530_channel_load(struct z8530_channel *, u8 *);
++netdev_tx_t z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb);
++void z8530_null_rx(struct z8530_channel *c, struct sk_buff *skb);
+ 
+ 
+ /*
 -- 
 1.8.1.2.459.gbcd45b4.dirty
