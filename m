@@ -1,55 +1,56 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH tip/core/rcu 04/13] wireless: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Wed, 25 Sep 2013 11:26:08 -0700
-Message-ID: <20130925182608.GY9093@linux.vnet.ibm.com>
-References: <20130925013451.GA31260@linux.vnet.ibm.com>
-	<1380072916-31557-1-git-send-email-paulmck@linux.vnet.ibm.com>
-	<1380072916-31557-4-git-send-email-paulmck@linux.vnet.ibm.com>
-	<1380131303.2222.9.camel@bwh-desktop.uk.level5networks.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
-	laijs@cn.fujitsu.com, edumazet@google.com,
-	"David S. Miller" <davem@davemloft.net>, peterz@infradead.org,
-	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	josh@joshtriplett.org, dhowells@redhat.com, sbw@mit.edu,
-	niv@us.ibm.com, netdev@vger.kernel.org,
-	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
-	darren@dvhart.com, akpm@linux-foundation.org, mingo@kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1380131303.2222.9.camel@bwh-desktop.uk.level5networks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next v2 0/3] bonding: modify the current and add new hash functions
+Date: Wed, 25 Sep 2013 20:31:49 +0200
+Message-ID: <1380133912-1240-1-git-send-email-nikolay@redhat.com>
+Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, vfalico@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:65491 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751242Ab3IYSfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 14:35:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 25, 2013 at 06:48:23PM +0100, Ben Hutchings wrote:
-> On Tue, 2013-09-24 at 18:35 -0700, Paul E. McKenney wrote:
-> > From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> > 
-> > The sparse checking for rcu_assign_pointer() was recently upgraded
-> > to reject non-__kernel address spaces.  This also rejects __rcu,
-> > which is almost always the right thing to do.  However, the uses in
-> > cfg80211_combine_bsses() and cfg80211_bss_update() are legitimate:
-> > They is assigning a pointer to an element from an RCU-protected list,
-> [...]
-> 
-> 'They is'?  This error is also in the commit messsages for the bridge
-> and mac80211 patches, and maybe others that weren't sent to netdev.
+Hi all,
+This is a complete remake of my old patch that modified the bonding hash
+functions to use skb_flow_dissect which was suggested by Eric Dumazet.
+This time around I've left the old modes although using a new hash function
+again suggested by Eric, which is the same for all modes. The only
+difference is the way the headers are obtained. The old modes obtain them
+as before in order to address concerns about speed, but the 2 new ones use
+skb_flow_dissect. The unification of the hash function allows to remove a
+pointer from struct bonding and also a few extra functions that dealt with
+it. Two new functions are added which take care of the hashing based on
+bond->params.xmit_policy only:
+bond_xmit_hash() - global function, used by XOR and 3ad modes
+bond_flow_dissect() - used by bond_xmit_hash() to obtain the necessary
+headers and combine them according to bond->params.xmit_policy.
+Also factor out the ports extraction from skb_flow_dissect and add a new
+function - skb_flow_get_ports() which can be re-used.
 
-Good catch, fixed in four patches.  Yeah, English can be a bit
-unfriendly at times to text reuse.  The s/It/They/ should have been
-s/It is/They are/.  ;-)
+v2: add the flow_dissector patch and use skb_flow_get_ports in patch 02
 
-							Thanx, Paul
+Best regards,
+ Nikolay Aleksandrov
+
+
+Nikolay Aleksandrov (3):
+  flow_dissector: factor out the ports extraction in skb_flow_get_ports
+  bonding: modify the old and add new xmit hash policies
+  bonding: document the new xmit policy modes and update the changed
+    ones
+
+ Documentation/networking/bonding.txt |  66 ++++++------
+ drivers/net/bonding/bond_3ad.c       |   2 +-
+ drivers/net/bonding/bond_main.c      | 197 ++++++++++++-----------------------
+ drivers/net/bonding/bond_sysfs.c     |   2 -
+ drivers/net/bonding/bonding.h        |   3 +-
+ include/net/flow_keys.h              |   1 +
+ include/uapi/linux/if_bonding.h      |   2 +
+ net/core/flow_dissector.c            |  38 +++++--
+ 8 files changed, 136 insertions(+), 175 deletions(-)
+
+-- 
+1.8.1.4
