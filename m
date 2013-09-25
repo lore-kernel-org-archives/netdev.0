@@ -1,58 +1,38 @@
-From: Alexander Frolkin <avf@eldamar.org.uk>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Wed, 25 Sep 2013 10:01:50 +0100
-Message-ID: <20130925090150.GC19768@eldamar.org.uk>
-References: <20130923115139.GA15034@eldamar.org.uk>
- <524099BA.5020303@cogentembedded.com>
- <20130924093238.GD18494@eldamar.org.uk>
- <20130925003033.GG26081@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130925003033.GG26081@verge.net.au>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/2] net: qmi_wwan: add Telit LE920 newer firmware support
+Date: Wed, 25 Sep 2013 11:21:25 +0200
+Message-ID: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Newer firmware use a new pid and a different interface.
 
-> could you add some comments to the code or at least a description of the
-> algorithm to the above the function.  The intent of original code may not
-> have been obvious to the eye but this version certainly isn't obvious to
-> mine.
+Signed-off-by: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Sure.  I have a bad habit of assuming that if I understand something,
-then others automatically do too. :-)
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 6312332..5f6b6fa 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -714,6 +714,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+ 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
++	{QMI_FIXED_INTF(0x1bc7, 0x1201, 2)},	/* Telit LE920 */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x12d1, 4)},	/* Cinterion PLxx */
+ 
+ 	/* 4. Gobi 1000 devices */
+-- 
+1.8.4
 
-The original code went through the table, starting at the same place as
-the code without fallback and if that returned an unavailable
-realserver, it offset the hash by one and repeated the lookup, then added
-two, etc., up to IP_VS_SH_TAB_SIZE-1.  So the hash offset was 0,
-1, ..., IP_VS_SH_TAB_SIZE-1.
-
-The result is that if a server is down, all traffic destined for it
-would fall back onto the next server in the list.
-
-The new code also starts at the same place as the old code (offset 0),
-but if that fails, it uses the same fallback strategy as the old code,
-but the hash offset is now ihash, ihash + 1, ..., IP_VS_SH_TAB_SIZE-1,
-0, 1, ..., ihash - 1, i.e., it starts at ihash instead of 0 and loops
-around the table.  ihash could have been a random number, but choosing
-it to be something based on the source IP and port (in which case it may
-as well be the same hash [offset 0]) means that the behaviour will be
-the same on different directors. 
-
-This spreads the load of an unavailable server across the remaining
-servers instead of just moving it to the next one in the list.
-
-Hope that makes sense...
-
-I'll submit a patch with a comment shortly.
-
-
-Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
