@@ -1,33 +1,256 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v5 0/1] xen-netback: windows frontend compatibility fixes
-Date: Wed, 25 Sep 2013 10:59:27 +0100
-Message-ID: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net v5 1/1] xen-netback: Handle backend state transitions in a more robust way
+Date: Wed, 25 Sep 2013 10:59:28 +0100
+Message-ID: <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
+References: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:6971 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750832Ab3IYJ7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 05:59:32 -0400
+	id S1753371Ab3IYJ7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 05:59:33 -0400
+In-Reply-To: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patches fix a couple more issues found when testing with
-Windows frontends.
+When the frontend state changes netback now specifies its desired state to
+a new function, set_backend_state(), which transitions through any
+necessary intermediate states.
+This fixes an issue observed with some old Windows frontend drivers where
+they failed to transition through the Closing state and netback would not
+behave correctly.
 
-v5:
-- Fix typos pointed out by Wei Liu
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/xenbus.c |  143 ++++++++++++++++++++++++++++++--------
+ 1 file changed, 113 insertions(+), 30 deletions(-)
 
-v4:
-- Fix problem with hotplug failure noticed by Wei Liu
-
-v3:
-- Collapse both v2 patches into a single patch that introduces a new
-  function to handle backend state transtions. By doing this we ensure that
-  we always transition through intermediate states and that we don't attempt
-  repeated connects or disconnects.
-
-v2:
-- Add comment in 2/2 to note that state transitions from Connected to Closed
-  are incorrect.
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index a53782e..01329b2 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -24,6 +24,7 @@
+ struct backend_info {
+ 	struct xenbus_device *dev;
+ 	struct xenvif *vif;
++	enum xenbus_state state;
+ 	enum xenbus_state frontend_state;
+ 	struct xenbus_watch hotplug_status_watch;
+ 	u8 have_hotplug_status_watch:1;
+@@ -136,6 +137,8 @@ static int netback_probe(struct xenbus_device *dev,
+ 	if (err)
+ 		goto fail;
+ 
++	be->state = XenbusStateInitWait;
++
+ 	/* This kicks hotplug scripts, so do it immediately. */
+ 	backend_create_xenvif(be);
+ 
+@@ -208,24 +211,113 @@ static void backend_create_xenvif(struct backend_info *be)
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
+ }
+ 
+-
+-static void disconnect_backend(struct xenbus_device *dev)
++static void backend_disconnect(struct backend_info *be)
+ {
+-	struct backend_info *be = dev_get_drvdata(&dev->dev);
+-
+ 	if (be->vif)
+ 		xenvif_disconnect(be->vif);
+ }
+ 
+-static void destroy_backend(struct xenbus_device *dev)
++static void backend_connect(struct backend_info *be)
+ {
+-	struct backend_info *be = dev_get_drvdata(&dev->dev);
++	if (be->vif)
++		connect(be);
++}
+ 
+-	if (be->vif) {
+-		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+-		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+-		xenvif_free(be->vif);
+-		be->vif = NULL;
++static inline void backend_switch_state(struct backend_info *be,
++					enum xenbus_state state)
++{
++	struct xenbus_device *dev = be->dev;
++
++	pr_debug("%s -> %s\n", dev->nodename, xenbus_strstate(state));
++	be->state = state;
++
++	/* If we are waiting for a hotplug script then defer the
++	 * actual xenbus state change.
++	 */
++	if (!be->have_hotplug_status_watch)
++		xenbus_switch_state(dev, state);
++}
++
++/* Handle backend state transitions:
++ *
++ * The backend state starts in InitWait and the following transitions are
++ * allowed.
++ *
++ * InitWait -> Connected
++ *
++ *    ^    \         |
++ *    |     \        |
++ *    |      \       |
++ *    |       \      |
++ *    |        \     |
++ *    |         \    |
++ *    |          V   V
++ *
++ *  Closed  <-> Closing
++ *
++ * The state argument specifies the eventual state of the backend and the
++ * function transitions to that state via the shortest path.
++ */
++static void set_backend_state(struct backend_info *be,
++			      enum xenbus_state state)
++{
++	while (be->state != state) {
++		switch (be->state) {
++		case XenbusStateClosed:
++			switch (state) {
++			case XenbusStateInitWait:
++			case XenbusStateConnected:
++				pr_info("%s: prepare for reconnect\n",
++					be->dev->nodename);
++				backend_switch_state(be, XenbusStateInitWait);
++				break;
++			case XenbusStateClosing:
++				backend_switch_state(be, XenbusStateClosing);
++				break;
++			default:
++				BUG();
++			}
++			break;
++		case XenbusStateInitWait:
++			switch (state) {
++			case XenbusStateConnected:
++				backend_connect(be);
++				backend_switch_state(be, XenbusStateConnected);
++				break;
++			case XenbusStateClosing:
++			case XenbusStateClosed:
++				backend_switch_state(be, XenbusStateClosing);
++				break;
++			default:
++				BUG();
++			}
++			break;
++		case XenbusStateConnected:
++			switch (state) {
++			case XenbusStateInitWait:
++			case XenbusStateClosing:
++			case XenbusStateClosed:
++				backend_disconnect(be);
++				backend_switch_state(be, XenbusStateClosing);
++				break;
++			default:
++				BUG();
++			}
++			break;
++		case XenbusStateClosing:
++			switch (state) {
++			case XenbusStateInitWait:
++			case XenbusStateConnected:
++			case XenbusStateClosed:
++				backend_switch_state(be, XenbusStateClosed);
++				break;
++			default:
++				BUG();
++			}
++			break;
++		default:
++			BUG();
++		}
+ 	}
+ }
+ 
+@@ -237,40 +329,33 @@ static void frontend_changed(struct xenbus_device *dev,
+ {
+ 	struct backend_info *be = dev_get_drvdata(&dev->dev);
+ 
+-	pr_debug("frontend state %s\n", xenbus_strstate(frontend_state));
++	pr_debug("%s -> %s\n", dev->otherend, xenbus_strstate(frontend_state));
+ 
+ 	be->frontend_state = frontend_state;
+ 
+ 	switch (frontend_state) {
+ 	case XenbusStateInitialising:
+-		if (dev->state == XenbusStateClosed) {
+-			pr_info("%s: prepare for reconnect\n", dev->nodename);
+-			xenbus_switch_state(dev, XenbusStateInitWait);
+-		}
++		set_backend_state(be, XenbusStateInitWait);
+ 		break;
+ 
+ 	case XenbusStateInitialised:
+ 		break;
+ 
+ 	case XenbusStateConnected:
+-		if (dev->state == XenbusStateConnected)
+-			break;
+-		if (be->vif)
+-			connect(be);
++		set_backend_state(be, XenbusStateConnected);
+ 		break;
+ 
+ 	case XenbusStateClosing:
+-		disconnect_backend(dev);
+-		xenbus_switch_state(dev, XenbusStateClosing);
++		set_backend_state(be, XenbusStateClosing);
+ 		break;
+ 
+ 	case XenbusStateClosed:
+-		xenbus_switch_state(dev, XenbusStateClosed);
++		set_backend_state(be, XenbusStateClosed);
+ 		if (xenbus_dev_is_online(dev))
+ 			break;
+-		destroy_backend(dev);
+ 		/* fall through if not online */
+ 	case XenbusStateUnknown:
++		set_backend_state(be, XenbusStateClosed);
+ 		device_unregister(&dev->dev);
+ 		break;
+ 
+@@ -363,7 +448,9 @@ static void hotplug_status_changed(struct xenbus_watch *watch,
+ 	if (IS_ERR(str))
+ 		return;
+ 	if (len == sizeof("connected")-1 && !memcmp(str, "connected", len)) {
+-		xenbus_switch_state(be->dev, XenbusStateConnected);
++		/* Complete any pending state change */
++		xenbus_switch_state(be->dev, be->state);
++
+ 		/* Not interested in this watch anymore. */
+ 		unregister_hotplug_status_watch(be);
+ 	}
+@@ -393,12 +480,8 @@ static void connect(struct backend_info *be)
+ 	err = xenbus_watch_pathfmt(dev, &be->hotplug_status_watch,
+ 				   hotplug_status_changed,
+ 				   "%s/%s", dev->nodename, "hotplug-status");
+-	if (err) {
+-		/* Switch now, since we can't do a watch. */
+-		xenbus_switch_state(dev, XenbusStateConnected);
+-	} else {
++	if (!err)
+ 		be->have_hotplug_status_watch = 1;
+-	}
+ 
+ 	netif_wake_queue(be->vif->dev);
+ }
+-- 
+1.7.10.4
