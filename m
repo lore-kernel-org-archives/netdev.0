@@ -1,100 +1,74 @@
-From: Alexander Frolkin <avf@eldamar.org.uk>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Wed, 25 Sep 2013 10:26:38 +0100
-Message-ID: <20130925092638.GD19768@eldamar.org.uk>
-References: <20130923115139.GA15034@eldamar.org.uk>
- <524099BA.5020303@cogentembedded.com>
- <20130924093238.GD18494@eldamar.org.uk>
- <20130925003033.GG26081@verge.net.au>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v5 0/6] bonding: Patchset for rcu use in bonding
+Date: Wed, 25 Sep 2013 17:52:05 +0800
+Message-ID: <5242B245.2010105@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.eldamar.org.uk ([78.47.157.133]:36892 "EHLO
-	mx0.eldamar.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754459Ab3IYJ0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:26:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20130925003033.GG26081@verge.net.au>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:35759 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753371Ab3IYJwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:52:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Improve the SH fallback realserver selection strategy.
+Hi:
 
-With sh and sh-fallback, if a realserver is down, this attempts to
-distribute the traffic that would have gone to that server evenly
-among the remaining servers.
- 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
+restructure and add more rcu list function.
+add rtnl lock to protect bonding_store_xmit_hash().
+remove read lock in bond_3ad_lacpdu_recv().
 
---
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 3588fae..3d5ab7c 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -115,27 +115,47 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- }
- 
- 
--/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-+ *
-+ * The fallback strategy loops around the table starting from a "random"
-+ * point (in fact, it is chosen to be the original hash value to make the
-+ * algorithm deterministic) to find a new server.
-+ */
- static inline struct ip_vs_dest *
- ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- 		      const union nf_inet_addr *addr, __be16 port)
- {
--	unsigned int offset;
--	unsigned int hash;
-+	unsigned int offset, roffset;
-+	unsigned int hash, ihash;
- 	struct ip_vs_dest *dest;
- 
--	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
--		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
--		dest = rcu_dereference(s->buckets[hash].dest);
--		if (!dest)
--			break;
--		if (is_unavailable(dest))
--			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
--				      "%s:%d (offset %d)",
-+	/* first try the dest it's supposed to go to */
-+	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	dest = rcu_dereference(s->buckets[ihash].dest);
-+	if (!dest)
-+		return NULL;
-+	if (is_unavailable(dest)) {
-+		IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-+		      "%s:%d, reselecting",
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+		      ntohs(dest->port));
-+		/* if the original dest is unavailable, loop around the table
-+		 * starting from ihash to find a new dest
-+		 */
-+		for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-+			roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-+			hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
-+			dest = rcu_dereference(s->buckets[hash].dest);
-+			if (is_unavailable(dest))
-+				IP_VS_DBG_BUF(6, "SH: selected unavailable "
-+				      "server %s:%d (offset %d), reselecting",
- 				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
--				      ntohs(dest->port), offset);
--		else
--			return dest;
-+				      ntohs(dest->port), roffset);
-+			else
-+				return dest;
-+		}
-+	} else {
-+		return dest;
- 	}
- 
- 	return NULL;
+I test the patch well and no problems found till now.
+
+v1: add 1 patch named remove the no effect lock for bond_3ad_lacpdu_recv().
+    get the advice from Nikolay Aleksandrov, and modify some mistake in the code.
+
+v2: accept the Nikolay Aleksandrov's advise, modify the patch 05/06.
+    the new bond_for_each_slave_from will not use bond->slave_cnt and int cnt any more,
+    it test well.
+    move the rcu_dereference call of curr_active_slave after the lock avoid 
+    a race condition with the slave removal. 
+
+v3: according to the advise of Veaceslav Falico and David S. Miller, modify the patch 01/06 and patch 05/06.
+    add rcu protect for read bond->slave_list.
+    simplify the bond_for_each_slave_from() and  bond_for_each_slave_from_rcu()
+
+v4: thanks for Veaceslav Falico's patient guidance, fix the problem of patch 01/06 and
+patch 05/06.
+    restructure the bond_first_slave_rcu().
+    restructure the bond_for_each_slave() and bond_for_each_slave_rcu().
+
+v5: modifty the patch 01/06,05/06,06/06
+    restructure the bond_first_slave_rcu().
+    remove the bond_for_each_slave_from_rcu(), it is no need to use till now, and the restructure is really
+    hard work, so miss it, and rebuild the logic for bond_for_each_slave_from in rcu protect.
+
+Ding Tianhong (4):
+Wang Yufen (1):
+Yang Yingliang (1):
+  root (6):
+  bonding: simplify and use RCU protection for 3ad xmit path
+  bonding: remove the no effect lock for bond_3ad_lacpdu_recv()
+  bonding: replace read_lock to rcu_read_lock for
+  bond_3ad_get_active_agg_info()
+  bonding: add rtnl lock for bonding_store_xmit_hash
+  bonding: restructure and add rcu for bond_for_each_slave_next()
+  bonding: use RCU protection for alb xmit path
+
+ drivers/net/bonding/bond_3ad.c   | 38 ++++++++++++---------------
+ drivers/net/bonding/bond_alb.c   | 23 +++++++----------
+ drivers/net/bonding/bond_main.c  |  6 ++---
+ drivers/net/bonding/bond_sysfs.c |  4 +++
+ drivers/net/bonding/bonding.h    | 56 +++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 82 insertions(+), 45 deletions(-)
+
+-- 
+1.8.2.1
