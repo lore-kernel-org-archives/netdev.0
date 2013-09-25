@@ -1,46 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] random: introduce get_random_bytes_busy_wait_initialized
-Date: Wed, 25 Sep 2013 15:35:30 +0200
-Message-ID: <20130925133530.GD4904@order.stressinduktion.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com> <1379980991.3165.37.camel@edumazet-glaptop> <20130924023038.GA22393@order.stressinduktion.org> <20130924033505.GB22393@order.stressinduktion.org> <1380001118.3165.41.camel@edumazet-glaptop> <20130924054532.GA24446@order.stressinduktion.org> <1380028797.3165.65.camel@edumazet-glaptop> <20130925090034.GC4904@order.stressinduktion.org> <1380110810.3165.140.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com, tytso@mit.edu,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1380110810.3165.140.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aleksander Morgado <aleksander@lanedo.com>
+Subject: [PATCH] net: qmi_wwan: fix Cinterion PLXX product ID
+Date: Wed, 25 Sep 2013 17:02:36 +0200
+Message-ID: <1380121356-28601-1-git-send-email-aleksander@lanedo.com>
+Cc: davem@davemloft.net, bjorn@mork.no, dcbw@redhat.com,
+	Aleksander Morgado <aleksander@lanedo.com>,
+	Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>,
+	Christian Schmiedl <christian.schmiedl@gemalto.com>,
+	Nicolaus Colberg <nicolaus.colberg@gemalto.com>
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lanedo.com ([85.214.136.179]:57373 "EHLO lanedo.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755947Ab3IYPMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 11:12:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 25, 2013 at 05:06:50AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-09-25 at 11:00 +0200, Hannes Frederic Sowa wrote:
-> 
-> >  /*
-> > + * Busy loop until the nonblocking_pool is intialized and return
-> > + * random data in buf of size nbytes.
-> > + *
-> > + * This is used by the network stack to defer the extraction of
-> > + * entropy from the nonblocking_pool until the pool is initialized.
-> > + *
-> > + * We need to busy loop here, because we could be called from an
-> > + * atomic section.
-> > + */
-> > +void get_random_bytes_busy_wait_initialized(void *buf, int nbytes)
-> > +{
-> > +	while (!nonblocking_pool.initialized)
-> > +		cpu_relax();
-> > +	get_random_bytes(buf, nbytes);
-> > +}
-> 
-> No idea if this can work if called from IRQ context.
-> 
-> How is nonblocking_poll initialized if host has a single cpu ?
+Cinterion PLXX LTE devices have a 0x0060 product ID, not 0x12d1.
 
-We increase the entropy_count and can initialize the random pool from
-handle_irq_event.
+The blacklisting in the serial/option driver does actually use the correct PID,
+as per commit 8ff10bdb14a52e3f25d4ce09e0582a8684c1a6db ('USB: Blacklisted
+Cinterion's PLxx WWAN Interface').
 
-We can document that it should not get called from irq context and
-maybe add a WARN_ON(irqs_disabled())?
+CC: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
+CC: Christian Schmiedl <christian.schmiedl@gemalto.com>
+CC: Nicolaus Colberg <nicolaus.colberg@gemalto.com>
+Signed-off-by: Aleksander Morgado <aleksander@lanedo.com>
+---
+ drivers/net/usb/qmi_wwan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 6312332..3d6aaf7 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -714,7 +714,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+ 	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+-	{QMI_FIXED_INTF(0x1e2d, 0x12d1, 4)},	/* Cinterion PLxx */
++	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
+ 
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+-- 
+1.8.3.1
