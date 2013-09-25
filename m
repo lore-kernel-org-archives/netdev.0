@@ -1,28 +1,35 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 18/27] net: add a possibility to get private from netdev_adjacent->list
-Date: Wed, 25 Sep 2013 09:20:23 +0200
-Message-ID: <1380093632-1842-19-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 13/27] bonding: rework bond_find_best_slave() to use bond_for_each_slave()
+Date: Wed, 25 Sep 2013 09:20:18 +0200
+Message-ID: <1380093632-1842-14-git-send-email-vfalico@redhat.com>
 References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38042 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5412 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753252Ab3IYHU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:20:59 -0400
+	id S1753049Ab3IYHUx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 03:20:53 -0400
 In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be useful to get first/last element.
+bond_find_best_slave() does not have to be balanced - i.e. return the slave
+that is *after* some other slave, but rather return the best slave that
+suits, except of bond->primary_slave - in which case we just return it if
+it's suitable.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
+After that we just look through all the slaves and return either first up
+slave or the slave whose link came back earliest.
+
+We also don't care about curr_active_slave lock cause we use it in
+bond_should_change_active() only and there we take it right away - i.e. it
+won't go away.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -40,44 +47,70 @@ Notes:
     No changes.
     
     RFC -> v1:
-    No changes.
+    New patch.
 
- include/linux/netdevice.h |  1 +
- net/core/dev.c            | 10 ++++++++++
- 2 files changed, 11 insertions(+)
+ drivers/net/bonding/bond_main.c | 43 ++++++++++++-----------------------------
+ 1 file changed, 12 insertions(+), 31 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 168974e..b4cfb63 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- 	     priv; \
- 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
- 
-+extern void *netdev_adjacent_get_private(struct list_head *adj_list);
- extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- extern int netdev_upper_dev_link(struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0aa844a..acc1181 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4466,6 +4466,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get);
- 
-+void *netdev_adjacent_get_private(struct list_head *adj_list)
-+{
-+	struct netdev_adjacent *adj;
-+
-+	adj = list_entry(adj_list, struct netdev_adjacent, list);
-+
-+	return adj->private;
-+}
-+EXPORT_SYMBOL(netdev_adjacent_get_private);
-+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 85e99ae..6abbfac 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -785,43 +785,24 @@ static bool bond_should_change_active(struct bonding *bond)
  /**
-  * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-  * @dev: device
+  * find_best_interface - select the best available slave to be the active one
+  * @bond: our bonding struct
+- *
+- * Warning: Caller must hold curr_slave_lock for writing.
+  */
+ static struct slave *bond_find_best_slave(struct bonding *bond)
+ {
+-	struct slave *new_active, *old_active;
+-	struct slave *bestslave = NULL;
++	struct slave *slave, *bestslave = NULL;
++	struct list_head *iter;
+ 	int mintime = bond->params.updelay;
+-	int i;
+ 
+-	new_active = bond->curr_active_slave;
+-
+-	if (!new_active) { /* there were no active slaves left */
+-		new_active = bond_first_slave(bond);
+-		if (!new_active)
+-			return NULL; /* still no slave, return NULL */
+-	}
++	if (bond->primary_slave && bond->primary_slave->link == BOND_LINK_UP &&
++	    bond_should_change_active(bond))
++		return bond->primary_slave;
+ 
+-	if ((bond->primary_slave) &&
+-	    bond->primary_slave->link == BOND_LINK_UP &&
+-	    bond_should_change_active(bond)) {
+-		new_active = bond->primary_slave;
+-	}
+-
+-	/* remember where to stop iterating over the slaves */
+-	old_active = new_active;
+-
+-	bond_for_each_slave_from(bond, new_active, i, old_active) {
+-		if (new_active->link == BOND_LINK_UP) {
+-			return new_active;
+-		} else if (new_active->link == BOND_LINK_BACK &&
+-			   IS_UP(new_active->dev)) {
+-			/* link up, but waiting for stabilization */
+-			if (new_active->delay < mintime) {
+-				mintime = new_active->delay;
+-				bestslave = new_active;
+-			}
++	bond_for_each_slave(bond, slave, iter) {
++		if (slave->link == BOND_LINK_UP)
++			return slave;
++		if (slave->link == BOND_LINK_BACK && IS_UP(slave->dev) &&
++		    slave->delay < mintime) {
++			mintime = slave->delay;
++			bestslave = slave;
+ 		}
+ 	}
+ 
 -- 
 1.8.4
