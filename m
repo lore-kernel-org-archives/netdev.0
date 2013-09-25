@@ -1,50 +1,96 @@
-From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-Subject: [PATCH] iproute2: bridge: Close file with bridge monitor file
-Date: Wed, 25 Sep 2013 09:45:45 +0200
-Message-ID: <1380095145-6618-1-git-send-email-ppisar@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: SMSC 9303 support
+Date: Wed, 25 Sep 2013 09:24:34 +0100
+Message-ID: <CAGVrzcYnLjRRfakaEsJvHGdEEJrD5xpgBu4D9qOX4iYac+i=YA@mail.gmail.com>
+References: <524183D6.6040801@mlbassoc.com> <1380041488.2736.41.camel@bwh-desktop.uk.level5networks.com>
+ <5241C4F2.2040106@mlbassoc.com> <CAGVrzcbF+24ouTGxMwsu3-QCi=JeHEcS7BqBceGBX7Jf+e7BdQ@mail.gmail.com>
+ <5241E448.1060403@mlbassoc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-To: <netdev@vger.kernel.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: Gary Thomas <gary@mlbassoc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51586 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750955Ab3IYHqI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:46:08 -0400
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:53866 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940Ab3IYIZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 04:25:16 -0400
+Received: by mail-pb0-f43.google.com with SMTP id md4so5702374pbc.2
+        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 01:25:14 -0700 (PDT)
+In-Reply-To: <5241E448.1060403@mlbassoc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The `bridge monitor file FILENAME' reads dumped netlink messages from
-a file. But it forgot to close the file after using it. This patch
-fixes it.
+2013/9/24 Gary Thomas <gary@mlbassoc.com>:
+> On 2013-09-24 12:29, Florian Fainelli wrote:
+>>
+>> Hello,
+>>
+>> 2013/9/24 Gary Thomas <gary@mlbassoc.com>:
+>>>
+>>> On 2013-09-24 10:51, Ben Hutchings wrote:
+>>>>
+>>>>
+>>>> On Tue, 2013-09-24 at 06:21 -0600, Gary Thomas wrote:
+>>>>>
+>>>>>
+>>>>> I need to support the SMSC9303 in an embedded system.  I'm not
+>>>>> finding any [explicit] support for this device in the latest
+>>>>> mainline kernel.  Did I miss something?
+>>>>>
+>>>>> To be clear, the SMSC9303 is a 3-port managed ethernet switch
+>>>>> capable of supporting 802.1D/802.1Q directly. This switch is
+>>>>> driven by a single MAC via MII/RMII and exposes the other two
+>>>>> ports via physical PHYs.  What I need it to do is behave like
+>>>>> two external, separate devices.  I was thinking that what I need
+>>>>> to do is treat these as VLAN devices since the switch can manage
+>>>>> the routing.
+>>>>>
+>>>>> Does this seem like a reasonable approach?
+>>>>
+>>>>
+>>>>
+>>>> Linux has 'DSA' (Distributed Switch Architecture) which supports tagging
+>>>> of packets to indicate which switch port they are sent or received
+>>>> through.  This was originally added to support some Marvell switch chips
+>>>> and I don't know whether it would be suitable or extensible for this
+>>>> one.
+>>>
+>>>
+>>>
+>>> I've used the DSA stuff for years (worked directly with the Marvell folks
+>>> when it was being developed).  It might work for this device, I'll think
+>>> some more about using it although I was hoping for a lighter weight
+>>> solution.
+>>
+>>
+>> I do not think DSA is suitable for pure 802.1q switches such as this
+>> one. OpenWrt has an out of tree patch which adds some switch-specific
+>> operations that can be controlled over netlink (currently trying to
+>> get them in a shape where they can be submitted for mainline
+>> inclusion) [1], which I think is much more suitable than DSA or any
+>> other proprietary switch tagging mechanism.
+>>
+>> [1]:
+>> https://dev.openwrt.org/browser/trunk/target/linux/generic/files/drivers/net/phy/swconfig.c
+>>
+>
+> This looks interesting.  Do you have any more information on how to
+> integrate this and/or use it?
 
-Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
----
- bridge/monitor.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Here are a couple of drivers that implement these "switch ops", my
+favorite being b53 because it shows nicely how SPI, MDIO or MMIO
+switch can be supported within the same core:
 
-diff --git a/bridge/monitor.c b/bridge/monitor.c
-index e96fcaf..76e7d47 100644
---- a/bridge/monitor.c
-+++ b/bridge/monitor.c
-@@ -132,12 +132,15 @@ int do_monitor(int argc, char **argv)
-=20
- 	if (file) {
- 		FILE *fp;
-+		int err;
- 		fp =3D fopen(file, "r");
- 		if (fp =3D=3D NULL) {
- 			perror("Cannot fopen");
- 			exit(-1);
- 		}
--		return rtnl_from_file(fp, accept_msg, stdout);
-+		err =3D rtnl_from_file(fp, accept_msg, stdout);
-+		fclose(fp);
-+		return err;
- 	}
-=20
- 	if (rtnl_open(&rth, groups) < 0)
---=20
-1.8.3.1
+https://dev.openwrt.org/browser/trunk/target/linux/generic/files/drivers/net/phy/b53
+
+adm6996 is also pretty straight forward:
+
+https://dev.openwrt.org/browser/trunk/target/linux/generic/files/drivers/net/phy/adm6996.c
+
+and here is the user-space command line tool to query/control these
+(needs libnl):
+
+https://dev.openwrt.org/browser/trunk/package/network/config/swconfig/src
+-- 
+Florian
