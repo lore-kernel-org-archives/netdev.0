@@ -1,256 +1,181 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v5 1/1] xen-netback: Handle backend state transitions in a more robust way
-Date: Wed, 25 Sep 2013 10:59:28 +0100
-Message-ID: <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
-References: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 2/2] dev: always advertise rx_flags changes via netlink
+Date: Wed, 25 Sep 2013 12:02:45 +0200
+Message-ID: <1380103365-5185-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <20130924094707.41641042@nehalam.linuxnetplumber.net>
+ <1380103365-5185-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6971 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371Ab3IYJ7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 05:59:33 -0400
-In-Reply-To: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:36475 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754265Ab3IYKC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 06:02:57 -0400
+In-Reply-To: <1380103365-5185-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the frontend state changes netback now specifies its desired state to
-a new function, set_backend_state(), which transitions through any
-necessary intermediate states.
-This fixes an issue observed with some old Windows frontend drivers where
-they failed to transition through the Closing state and netback would not
-behave correctly.
+When flags IFF_PROMISC and IFF_ALLMULTI are changed, netlink messages are not
+consistent. For example, if a multicast daemon is running (flag IFF_ALLMULTI
+set in dev->flags but not dev->gflags, ie not exported to userspace) and then a
+user sets it via netlink (flag IFF_ALLMULTI set in dev->flags and dev->gflags, ie
+exported to userspace), no netlink message is sent.
+Same for IFF_PROMISC and because dev->promiscuity is exported via
+IFLA_PROMISCUITY, we may send a netlink message after each change of this
+counter.
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/xen-netback/xenbus.c |  143 ++++++++++++++++++++++++++++++--------
- 1 file changed, 113 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index a53782e..01329b2 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -24,6 +24,7 @@
- struct backend_info {
- 	struct xenbus_device *dev;
- 	struct xenvif *vif;
-+	enum xenbus_state state;
- 	enum xenbus_state frontend_state;
- 	struct xenbus_watch hotplug_status_watch;
- 	u8 have_hotplug_status_watch:1;
-@@ -136,6 +137,8 @@ static int netback_probe(struct xenbus_device *dev,
- 	if (err)
- 		goto fail;
- 
-+	be->state = XenbusStateInitWait;
-+
- 	/* This kicks hotplug scripts, so do it immediately. */
- 	backend_create_xenvif(be);
- 
-@@ -208,24 +211,113 @@ static void backend_create_xenvif(struct backend_info *be)
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
+v3: add patch #1
+    use __dev_notify_flags() to notify rxflags (note that notifier chains are
+    not called when flags IFF_PROMISC and IFF_ALLMULTI are changed)
+
+v2: rework the patch to avoid double notification
+
+ net/core/dev.c | 60 ++++++++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 37 insertions(+), 23 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1222309feeaa..b23aefcb3c42 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4822,7 +4822,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
+ 		ops->ndo_change_rx_flags(dev, flags);
  }
  
--
--static void disconnect_backend(struct xenbus_device *dev)
-+static void backend_disconnect(struct backend_info *be)
+-static int __dev_set_promiscuity(struct net_device *dev, int inc)
++static int __dev_set_promiscuity(struct net_device *dev, int inc, bool notify)
  {
--	struct backend_info *be = dev_get_drvdata(&dev->dev);
--
- 	if (be->vif)
- 		xenvif_disconnect(be->vif);
+ 	unsigned int old_flags = dev->flags;
+ 	kuid_t uid;
+@@ -4865,6 +4865,8 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
+ 
+ 		dev_change_rx_flags(dev, IFF_PROMISC);
+ 	}
++	if (notify)
++		__dev_notify_flags(dev, old_flags, IFF_PROMISC);
+ 	return 0;
  }
  
--static void destroy_backend(struct xenbus_device *dev)
-+static void backend_connect(struct backend_info *be)
- {
--	struct backend_info *be = dev_get_drvdata(&dev->dev);
-+	if (be->vif)
-+		connect(be);
-+}
+@@ -4884,7 +4886,7 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
+ 	unsigned int old_flags = dev->flags;
+ 	int err;
  
--	if (be->vif) {
--		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
--		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_free(be->vif);
--		be->vif = NULL;
-+static inline void backend_switch_state(struct backend_info *be,
-+					enum xenbus_state state)
-+{
-+	struct xenbus_device *dev = be->dev;
+-	err = __dev_set_promiscuity(dev, inc);
++	err = __dev_set_promiscuity(dev, inc, true);
+ 	if (err < 0)
+ 		return err;
+ 	if (dev->flags != old_flags)
+@@ -4893,22 +4895,9 @@ int dev_set_promiscuity(struct net_device *dev, int inc)
+ }
+ EXPORT_SYMBOL(dev_set_promiscuity);
+ 
+-/**
+- *	dev_set_allmulti	- update allmulti count on a device
+- *	@dev: device
+- *	@inc: modifier
+- *
+- *	Add or remove reception of all multicast frames to a device. While the
+- *	count in the device remains above zero the interface remains listening
+- *	to all interfaces. Once it hits zero the device reverts back to normal
+- *	filtering operation. A negative @inc value is used to drop the counter
+- *	when releasing a resource needing all multicasts.
+- *	Return 0 if successful or a negative errno code on error.
+- */
+-
+-int dev_set_allmulti(struct net_device *dev, int inc)
++static int __dev_set_allmulti(struct net_device *dev, int inc, bool notify)
+ {
+-	unsigned int old_flags = dev->flags;
++	unsigned int old_flags = dev->flags, old_gflags = dev->gflags;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -4931,9 +4920,30 @@ int dev_set_allmulti(struct net_device *dev, int inc)
+ 	if (dev->flags ^ old_flags) {
+ 		dev_change_rx_flags(dev, IFF_ALLMULTI);
+ 		dev_set_rx_mode(dev);
++		if (notify)
++			__dev_notify_flags(dev, old_flags,
++					   dev->gflags ^ old_gflags);
+ 	}
+ 	return 0;
+ }
 +
-+	pr_debug("%s -> %s\n", dev->nodename, xenbus_strstate(state));
-+	be->state = state;
-+
-+	/* If we are waiting for a hotplug script then defer the
-+	 * actual xenbus state change.
-+	 */
-+	if (!be->have_hotplug_status_watch)
-+		xenbus_switch_state(dev, state);
-+}
-+
-+/* Handle backend state transitions:
++/**
++ *	dev_set_allmulti	- update allmulti count on a device
++ *	@dev: device
++ *	@inc: modifier
 + *
-+ * The backend state starts in InitWait and the following transitions are
-+ * allowed.
-+ *
-+ * InitWait -> Connected
-+ *
-+ *    ^    \         |
-+ *    |     \        |
-+ *    |      \       |
-+ *    |       \      |
-+ *    |        \     |
-+ *    |         \    |
-+ *    |          V   V
-+ *
-+ *  Closed  <-> Closing
-+ *
-+ * The state argument specifies the eventual state of the backend and the
-+ * function transitions to that state via the shortest path.
++ *	Add or remove reception of all multicast frames to a device. While the
++ *	count in the device remains above zero the interface remains listening
++ *	to all interfaces. Once it hits zero the device reverts back to normal
++ *	filtering operation. A negative @inc value is used to drop the counter
++ *	when releasing a resource needing all multicasts.
++ *	Return 0 if successful or a negative errno code on error.
 + */
-+static void set_backend_state(struct backend_info *be,
-+			      enum xenbus_state state)
-+{
-+	while (be->state != state) {
-+		switch (be->state) {
-+		case XenbusStateClosed:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateConnected:
-+				pr_info("%s: prepare for reconnect\n",
-+					be->dev->nodename);
-+				backend_switch_state(be, XenbusStateInitWait);
-+				break;
-+			case XenbusStateClosing:
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateInitWait:
-+			switch (state) {
-+			case XenbusStateConnected:
-+				backend_connect(be);
-+				backend_switch_state(be, XenbusStateConnected);
-+				break;
-+			case XenbusStateClosing:
-+			case XenbusStateClosed:
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateConnected:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateClosing:
-+			case XenbusStateClosed:
-+				backend_disconnect(be);
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateClosing:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateConnected:
-+			case XenbusStateClosed:
-+				backend_switch_state(be, XenbusStateClosed);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		default:
-+			BUG();
-+		}
- 	}
- }
- 
-@@ -237,40 +329,33 @@ static void frontend_changed(struct xenbus_device *dev,
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
--	pr_debug("frontend state %s\n", xenbus_strstate(frontend_state));
-+	pr_debug("%s -> %s\n", dev->otherend, xenbus_strstate(frontend_state));
- 
- 	be->frontend_state = frontend_state;
- 
- 	switch (frontend_state) {
- 	case XenbusStateInitialising:
--		if (dev->state == XenbusStateClosed) {
--			pr_info("%s: prepare for reconnect\n", dev->nodename);
--			xenbus_switch_state(dev, XenbusStateInitWait);
--		}
-+		set_backend_state(be, XenbusStateInitWait);
- 		break;
- 
- 	case XenbusStateInitialised:
- 		break;
- 
- 	case XenbusStateConnected:
--		if (dev->state == XenbusStateConnected)
--			break;
--		if (be->vif)
--			connect(be);
-+		set_backend_state(be, XenbusStateConnected);
- 		break;
- 
- 	case XenbusStateClosing:
--		disconnect_backend(dev);
--		xenbus_switch_state(dev, XenbusStateClosing);
-+		set_backend_state(be, XenbusStateClosing);
- 		break;
- 
- 	case XenbusStateClosed:
--		xenbus_switch_state(dev, XenbusStateClosed);
-+		set_backend_state(be, XenbusStateClosed);
- 		if (xenbus_dev_is_online(dev))
- 			break;
--		destroy_backend(dev);
- 		/* fall through if not online */
- 	case XenbusStateUnknown:
-+		set_backend_state(be, XenbusStateClosed);
- 		device_unregister(&dev->dev);
- 		break;
- 
-@@ -363,7 +448,9 @@ static void hotplug_status_changed(struct xenbus_watch *watch,
- 	if (IS_ERR(str))
- 		return;
- 	if (len == sizeof("connected")-1 && !memcmp(str, "connected", len)) {
--		xenbus_switch_state(be->dev, XenbusStateConnected);
-+		/* Complete any pending state change */
-+		xenbus_switch_state(be->dev, be->state);
 +
- 		/* Not interested in this watch anymore. */
- 		unregister_hotplug_status_watch(be);
- 	}
-@@ -393,12 +480,8 @@ static void connect(struct backend_info *be)
- 	err = xenbus_watch_pathfmt(dev, &be->hotplug_status_watch,
- 				   hotplug_status_changed,
- 				   "%s/%s", dev->nodename, "hotplug-status");
--	if (err) {
--		/* Switch now, since we can't do a watch. */
--		xenbus_switch_state(dev, XenbusStateConnected);
--	} else {
-+	if (!err)
- 		be->have_hotplug_status_watch = 1;
--	}
++int dev_set_allmulti(struct net_device *dev, int inc)
++{
++	return __dev_set_allmulti(dev, inc, true);
++}
+ EXPORT_SYMBOL(dev_set_allmulti);
  
- 	netif_wake_queue(be->vif->dev);
+ /*
+@@ -4958,10 +4968,10 @@ void __dev_set_rx_mode(struct net_device *dev)
+ 		 * therefore calling __dev_set_promiscuity here is safe.
+ 		 */
+ 		if (!netdev_uc_empty(dev) && !dev->uc_promisc) {
+-			__dev_set_promiscuity(dev, 1);
++			__dev_set_promiscuity(dev, 1, false);
+ 			dev->uc_promisc = true;
+ 		} else if (netdev_uc_empty(dev) && dev->uc_promisc) {
+-			__dev_set_promiscuity(dev, -1);
++			__dev_set_promiscuity(dev, -1, false);
+ 			dev->uc_promisc = false;
+ 		}
+ 	}
+@@ -5050,9 +5060,13 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+ 
+ 	if ((flags ^ dev->gflags) & IFF_PROMISC) {
+ 		int inc = (flags & IFF_PROMISC) ? 1 : -1;
++		unsigned int old_flags = dev->flags;
+ 
+ 		dev->gflags ^= IFF_PROMISC;
+-		dev_set_promiscuity(dev, inc);
++
++		if (__dev_set_promiscuity(dev, inc, false) >= 0)
++			if (dev->flags != old_flags)
++				dev_set_rx_mode(dev);
+ 	}
+ 
+ 	/* NOTE: order of synchronization of IFF_PROMISC and IFF_ALLMULTI
+@@ -5063,7 +5077,7 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+ 		int inc = (flags & IFF_ALLMULTI) ? 1 : -1;
+ 
+ 		dev->gflags ^= IFF_ALLMULTI;
+-		dev_set_allmulti(dev, inc);
++		__dev_set_allmulti(dev, inc, false);
+ 	}
+ 
+ 	return ret;
+@@ -5105,13 +5119,13 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
+ int dev_change_flags(struct net_device *dev, unsigned int flags)
+ {
+ 	int ret;
+-	unsigned int changes, old_flags = dev->flags;
++	unsigned int changes, old_flags = dev->flags, old_gflags = dev->gflags;
+ 
+ 	ret = __dev_change_flags(dev, flags);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	changes = old_flags ^ dev->flags;
++	changes = (old_flags ^ dev->flags) | (old_gflags ^ dev->gflags);
+ 	__dev_notify_flags(dev, old_flags, changes);
+ 	return ret;
  }
 -- 
-1.7.10.4
+1.8.2.1
