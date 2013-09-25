@@ -1,37 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 1/2] ip_tunnel: Fix a memory corruption in
- ip_tunnel_xmit
-Date: Wed, 25 Sep 2013 04:56:03 -0700
-Message-ID: <1380110163.3165.138.camel@edumazet-glaptop>
-References: <20130925055418.GV7660@secunet.com>
+Subject: Re: [PATCH RFC] random: introduce
+ get_random_bytes_busy_wait_initialized
+Date: Wed, 25 Sep 2013 05:06:50 -0700
+Message-ID: <1380110810.3165.140.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+	 <1379980991.3165.37.camel@edumazet-glaptop>
+	 <20130924023038.GA22393@order.stressinduktion.org>
+	 <20130924033505.GB22393@order.stressinduktion.org>
+	 <1380001118.3165.41.camel@edumazet-glaptop>
+	 <20130924054532.GA24446@order.stressinduktion.org>
+	 <1380028797.3165.65.camel@edumazet-glaptop>
+	 <20130925090034.GC4904@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:45661 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755119Ab3IYL4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 07:56:06 -0400
-Received: by mail-pb0-f42.google.com with SMTP id un15so5956748pbc.29
-        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 04:56:05 -0700 (PDT)
-In-Reply-To: <20130925055418.GV7660@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com, tytso@mit.edu,
+	linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130925090034.GC4904@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-09-25 at 07:54 +0200, Steffen Klassert wrote:
-> We might extend the used aera of a skb beyond the total
-> headroom when we install the ipip header. Fix this by
-> calling skb_cow_head() unconditionally.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv4/ip_tunnel.c |   12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
+On Wed, 2013-09-25 at 11:00 +0200, Hannes Frederic Sowa wrote:
 
-Do you know or can we find when was the bug introduced ?
+>  /*
+> + * Busy loop until the nonblocking_pool is intialized and return
+> + * random data in buf of size nbytes.
+> + *
+> + * This is used by the network stack to defer the extraction of
+> + * entropy from the nonblocking_pool until the pool is initialized.
+> + *
+> + * We need to busy loop here, because we could be called from an
+> + * atomic section.
+> + */
+> +void get_random_bytes_busy_wait_initialized(void *buf, int nbytes)
+> +{
+> +	while (!nonblocking_pool.initialized)
+> +		cpu_relax();
+> +	get_random_bytes(buf, nbytes);
+> +}
 
-(commit id and title in your changelog would be really nice)
+No idea if this can work if called from IRQ context.
 
-Thanks !
+How is nonblocking_poll initialized if host has a single cpu ?
