@@ -1,850 +1,389 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC PATCH 2/2] ixgbe: enable l2 forwarding acceleration for macvlans
-Date: Wed, 25 Sep 2013 16:16:49 -0400
-Message-ID: <1380140209-24587-3-git-send-email-nhorman@tuxdriver.com>
-References: <20130911184441.26914.10336.stgit@nitbit.x32>
- <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>, john.fastabend@intel.com,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Merlin Davis <me.the.wizard@gmail.com>
+Subject: Re: Kernel Panic Sending Frames Using dev_queue_xmit()
+Date: Wed, 25 Sep 2013 14:29:40 -0700
+Message-ID: <CAFu7c2XDYR-SMiuqMxtqGhfM00nw8-h0Tr2uewN8+D1BptsayA@mail.gmail.com>
+References: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
+	<1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48757 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249Ab3IYURU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 16:17:20 -0400
-In-Reply-To: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-vb0-f52.google.com ([209.85.212.52]:40770 "EHLO
+	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755690Ab3IYV3l convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 17:29:41 -0400
+Received: by mail-vb0-f52.google.com with SMTP id f12so223437vbg.39
+        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 14:29:40 -0700 (PDT)
+In-Reply-To: <1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that l2 acceleration ops are in place from the prior patch, enable ixgbe to
-take advantage of these operations.  Allow it to allocate queues for a macvlan
-so that when we transmit a frame, we can do the switching in hardware inside the
-ixgbe card, rather than in software.
+> You are more likely to get help if you include the code in your email
+> rather than linking to it.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: john.fastabend@intel.com
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  32 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h     |  54 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |  15 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 360 +++++++++++++++++------
- 5 files changed, 374 insertions(+), 91 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
+Understood.  Thank you for the protocol tip.  Here is the code
+(test_send.c) of the module causing the kernel panic when I send SKBs
+through dev_queue_xmit().  Below it are my notes (NOTES.txt) on the
+behavior, testing, etc.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 0ac6b11..cfa6a8b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -244,6 +244,7 @@ struct ixgbe_ring {
- 	unsigned long last_rx_timestamp;
- 	unsigned long state;
- 	u8 __iomem *tail;
-+	struct net_device *vmdq_netdev;
- 	dma_addr_t dma;			/* phys. address of descriptor ring */
- 	unsigned int size;		/* length in bytes */
- 
-@@ -288,11 +289,15 @@ enum ixgbe_ring_f_enum {
- };
- 
- #define IXGBE_MAX_RSS_INDICES  16
--#define IXGBE_MAX_VMDQ_INDICES 64
-+#define IXGBE_MAX_VMDQ_INDICES 32
- #define IXGBE_MAX_FDIR_INDICES 63	/* based on q_vector limit */
- #define IXGBE_MAX_FCOE_INDICES  8
- #define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
- #define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
-+#define IXGBE_MAX_L2A_QUEUES 4
-+#define IXGBE_MAX_L2A_QUEUES 4
-+#define IXGBE_BAD_L2A_QUEUE 3
-+
- struct ixgbe_ring_feature {
- 	u16 limit;	/* upper limit on feature indices */
- 	u16 indices;	/* current value of indices */
-@@ -738,6 +743,7 @@ struct ixgbe_adapter {
- #endif /*CONFIG_DEBUG_FS*/
- 
- 	u8 default_up;
-+	unsigned long l2a_bitmask; /* Bitmask indicating in use pools */
- };
- 
- struct ixgbe_fdir_filter {
-@@ -747,6 +753,17 @@ struct ixgbe_fdir_filter {
- 	u16 action;
- };
- 
-+struct ixgbe_l2a_adapter {
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-+	struct net_device *netdev;
-+	struct ixgbe_adapter *real_adapter;
-+	unsigned int tx_base_queue;
-+	unsigned int rx_base_queue;
-+	struct net_device_stats net_stats;
-+	int pool;
-+	bool online;
-+};
-+
- enum ixgbe_state_t {
- 	__IXGBE_TESTING,
- 	__IXGBE_RESETTING,
-@@ -879,9 +896,14 @@ static inline void ixgbe_dbg_adapter_exit(struct ixgbe_adapter *adapter) {}
- static inline void ixgbe_dbg_init(void) {}
- static inline void ixgbe_dbg_exit(void) {}
- #endif /* CONFIG_DEBUG_FS */
-+static inline struct net_device *netdev_ring(const struct ixgbe_ring *ring)
-+{
-+	return ring->vmdq_netdev ? ring->vmdq_netdev : ring->netdev;
-+}
-+
- static inline struct netdev_queue *txring_txq(const struct ixgbe_ring *ring)
- {
--	return netdev_get_tx_queue(ring->netdev, ring->queue_index);
-+	return netdev_get_tx_queue(netdev_ring(ring), ring->queue_index);
- }
- 
- extern void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
-@@ -915,4 +937,10 @@ extern void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
- void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter);
- #endif
- 
-+int ixgbe_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd);
-+int ixgbe_write_uc_addr_list(struct net_device *netdev);
-+netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
-+				  struct ixgbe_adapter *adapter,
-+				  struct ixgbe_ring *tx_ring);
-+void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring);
- #endif /* _IXGBE_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index e8649ab..277af14 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -150,8 +150,8 @@ static const char ixgbe_gstrings_test[][ETH_GSTRING_LEN] = {
- };
- #define IXGBE_TEST_LEN sizeof(ixgbe_gstrings_test) / ETH_GSTRING_LEN
- 
--static int ixgbe_get_settings(struct net_device *netdev,
--                              struct ethtool_cmd *ecmd)
-+int ixgbe_get_settings(struct net_device *netdev,
-+		       struct ethtool_cmd *ecmd)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
-new file mode 100644
-index 0000000..2f36584
---- /dev/null
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
-@@ -0,0 +1,54 @@
-+/*******************************************************************************
-+
-+  Intel 10 Gigabit PCI Express Linux driver
-+  Copyright(c) 1999 - 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+#include "ixgbe.h"
-+
-+
-+static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
-+					   u64 qmask)
-+{
-+	u32 mask;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
-+		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
-+		break;
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		mask = (qmask & 0xFFFFFFFF);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
-+		mask = (qmask >> 32);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
-+		break;
-+	default:
-+		break;
-+	}
-+	/* skip the flush */
-+}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 90b4e10..e2dd635 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -500,7 +500,8 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
- #endif
- 
- 	/* only proceed if SR-IOV is enabled */
--	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
-+	    !(adapter->flags & IXGBE_FLAG_VMDQ_ENABLED))
- 		return false;
- 
- 	/* Add starting offset to total pool count */
-@@ -852,7 +853,11 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 
- 		/* apply Tx specific ring traits */
- 		ring->count = adapter->tx_ring_count;
--		ring->queue_index = txr_idx;
-+		if (adapter->num_rx_pools > 1)
-+			ring->queue_index =
-+				txr_idx % adapter->num_rx_queues_per_pool;
-+		else
-+			ring->queue_index = txr_idx;
- 
- 		/* assign ring to adapter */
- 		adapter->tx_ring[txr_idx] = ring;
-@@ -895,7 +900,11 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- #endif /* IXGBE_FCOE */
- 		/* apply Rx specific ring traits */
- 		ring->count = adapter->rx_ring_count;
--		ring->queue_index = rxr_idx;
-+		if (adapter->num_rx_pools > 1)
-+			ring->queue_index =
-+				rxr_idx % adapter->num_rx_queues_per_pool;
-+		else
-+			ring->queue_index = rxr_idx;
- 
- 		/* assign ring to adapter */
- 		adapter->rx_ring[rxr_idx] = ring;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0ade0cd..dccec86 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -52,6 +52,7 @@
- #include "ixgbe_common.h"
- #include "ixgbe_dcb_82599.h"
- #include "ixgbe_sriov.h"
-+#include "ixgbe_l2a.h"
- 
- char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-@@ -872,7 +873,8 @@ static u64 ixgbe_get_tx_completed(struct ixgbe_ring *ring)
- 
- static u64 ixgbe_get_tx_pending(struct ixgbe_ring *ring)
- {
--	struct ixgbe_adapter *adapter = netdev_priv(ring->netdev);
-+	struct net_device *dev = ring->netdev;
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
- 	u32 head = IXGBE_READ_REG(hw, IXGBE_TDH(ring->reg_idx));
-@@ -1055,7 +1057,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 			tx_ring->next_to_use, i,
- 			tx_ring->tx_buffer_info[i].time_stamp, jiffies);
- 
--		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+		netif_stop_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 
- 		e_info(probe,
- 		       "tx hang %d detected on queue %d, resetting adapter\n",
-@@ -1072,16 +1074,16 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 				  total_packets, total_bytes);
- 
- #define TX_WAKE_THRESHOLD (DESC_NEEDED * 2)
--	if (unlikely(total_packets && netif_carrier_ok(tx_ring->netdev) &&
-+	if (unlikely(total_packets && netif_carrier_ok(netdev_ring(tx_ring)) &&
- 		     (ixgbe_desc_unused(tx_ring) >= TX_WAKE_THRESHOLD))) {
- 		/* Make sure that anybody stopping the queue after this
- 		 * sees the new next_to_clean.
- 		 */
- 		smp_mb();
--		if (__netif_subqueue_stopped(tx_ring->netdev,
-+		if (__netif_subqueue_stopped(netdev_ring(tx_ring),
- 					     tx_ring->queue_index)
- 		    && !test_bit(__IXGBE_DOWN, &adapter->state)) {
--			netif_wake_subqueue(tx_ring->netdev,
-+			netif_wake_subqueue(netdev_ring(tx_ring),
- 					    tx_ring->queue_index);
- 			++tx_ring->tx_stats.restart_queue;
- 		}
-@@ -1226,7 +1228,7 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
- 				 union ixgbe_adv_rx_desc *rx_desc,
- 				 struct sk_buff *skb)
- {
--	if (ring->netdev->features & NETIF_F_RXHASH)
-+	if (netdev_ring(ring)->features & NETIF_F_RXHASH)
- 		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
- }
- 
-@@ -1260,10 +1262,12 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
- 				     union ixgbe_adv_rx_desc *rx_desc,
- 				     struct sk_buff *skb)
- {
-+	struct net_device *dev = netdev_ring(ring);
-+
- 	skb_checksum_none_assert(skb);
- 
- 	/* Rx csum disabled */
--	if (!(ring->netdev->features & NETIF_F_RXCSUM))
-+	if (!(dev->features & NETIF_F_RXCSUM))
- 		return;
- 
- 	/* if IP and error */
-@@ -1559,7 +1563,7 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 				     union ixgbe_adv_rx_desc *rx_desc,
- 				     struct sk_buff *skb)
- {
--	struct net_device *dev = rx_ring->netdev;
-+	struct net_device *dev = netdev_ring(rx_ring);
- 
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
-@@ -1739,7 +1743,7 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
- 				  union ixgbe_adv_rx_desc *rx_desc,
- 				  struct sk_buff *skb)
- {
--	struct net_device *netdev = rx_ring->netdev;
-+	struct net_device *netdev = netdev_ring(rx_ring);
- 
- 	/* verify that the packet does not have any known errors */
- 	if (unlikely(ixgbe_test_staterr(rx_desc,
-@@ -1905,7 +1909,7 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
- #endif
- 
- 		/* allocate a skb to store the frags */
--		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+		skb = netdev_alloc_skb_ip_align(netdev_ring(rx_ring),
- 						IXGBE_RX_HDR_SIZE);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_rx_buff_failed++;
-@@ -1986,6 +1990,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
- 	int ddp_bytes;
- 	unsigned int mss = 0;
-+	struct net_device *netdev = netdev_ring(rx_ring);
- #endif /* IXGBE_FCOE */
- 	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
- 
-@@ -2041,7 +2046,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			/* include DDPed FCoE data */
- 			if (ddp_bytes > 0) {
- 				if (!mss) {
--					mss = rx_ring->netdev->mtu -
-+					mss = netdev->mtu -
- 						sizeof(struct fcoe_hdr) -
- 						sizeof(struct fc_frame_header) -
- 						sizeof(struct fcoe_crc_eof);
-@@ -2455,58 +2460,6 @@ static void ixgbe_check_lsc(struct ixgbe_adapter *adapter)
- 	}
- }
- 
--static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
--					   u64 qmask)
--{
--	u32 mask;
--	struct ixgbe_hw *hw = &adapter->hw;
--
--	switch (hw->mac.type) {
--	case ixgbe_mac_82598EB:
--		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
--		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
--		break;
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		mask = (qmask & 0xFFFFFFFF);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
--		mask = (qmask >> 32);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
--		break;
--	default:
--		break;
--	}
--	/* skip the flush */
--}
--
--static inline void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter,
--					    u64 qmask)
--{
--	u32 mask;
--	struct ixgbe_hw *hw = &adapter->hw;
--
--	switch (hw->mac.type) {
--	case ixgbe_mac_82598EB:
--		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
--		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
--		break;
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		mask = (qmask & 0xFFFFFFFF);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
--		mask = (qmask >> 32);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
--		break;
--	default:
--		break;
--	}
--	/* skip the flush */
--}
--
- /**
-  * ixgbe_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-@@ -2946,6 +2899,7 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
- void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
- 			     struct ixgbe_ring *ring)
- {
-+	struct net_device *netdev = netdev_ring(ring);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u64 tdba = ring->dma;
- 	int wait_loop = 10;
-@@ -3005,7 +2959,7 @@ void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
- 		struct ixgbe_q_vector *q_vector = ring->q_vector;
- 
- 		if (q_vector)
--			netif_set_xps_queue(adapter->netdev,
-+			netif_set_xps_queue(netdev,
- 					    &q_vector->affinity_mask,
- 					    ring->queue_index);
- 	}
-@@ -3395,7 +3349,7 @@ static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int rss_i = adapter->ring_feature[RING_F_RSS].indices;
--	int p;
-+	u16 pool;
- 
- 	/* PSRTYPE must be initialized in non 82598 adapters */
- 	u32 psrtype = IXGBE_PSRTYPE_TCPHDR |
-@@ -3412,9 +3366,8 @@ static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
- 	else if (rss_i > 1)
- 		psrtype |= 1 << 29;
- 
--	for (p = 0; p < adapter->num_rx_pools; p++)
--		IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(p)),
--				psrtype);
-+	for_each_set_bit(pool, &adapter->l2a_bitmask, 32)
-+		IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(pool)), psrtype);
- }
- 
- static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
-@@ -3683,6 +3636,8 @@ static void ixgbe_vlan_strip_disable(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			if (adapter->rx_ring[i]->vmdq_netdev)
-+				continue;
- 			j = adapter->rx_ring[i]->reg_idx;
- 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
- 			vlnctrl &= ~IXGBE_RXDCTL_VME;
-@@ -3713,6 +3668,8 @@ static void ixgbe_vlan_strip_enable(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			if (adapter->rx_ring[i]->vmdq_netdev)
-+				continue;
- 			j = adapter->rx_ring[i]->reg_idx;
- 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
- 			vlnctrl |= IXGBE_RXDCTL_VME;
-@@ -3743,15 +3700,16 @@ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
-  *                0 on no addresses written
-  *                X on writing X addresses to the RAR table
-  **/
--static int ixgbe_write_uc_addr_list(struct net_device *netdev)
-+int ixgbe_write_uc_addr_list(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	unsigned int rar_entries = hw->mac.num_rar_entries - 1;
- 	int count = 0;
- 
--	/* In SR-IOV mode significantly less RAR entries are available */
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
-+	/* In SR-IOV/VMDQ modes significantly less RAR entries are available */
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED ||
-+	    adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
- 		rar_entries = IXGBE_MAX_PF_MACVLANS - 1;
- 
- 	/* return ENOMEM indicating insufficient memory for addresses */
-@@ -3772,6 +3730,7 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev)
- 			count++;
- 		}
- 	}
-+
- 	/* write the addresses in reverse order to avoid write combining */
- 	for (; rar_entries > 0 ; rar_entries--)
- 		hw->mac.ops.clear_rar(hw, rar_entries);
-@@ -4133,6 +4092,7 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 	ixgbe_configure_virtualization(adapter);
- 
- 	ixgbe_set_rx_mode(adapter->netdev);
-+
- 	ixgbe_restore_vlan(adapter);
- 
- 	switch (hw->mac.type) {
-@@ -4459,7 +4419,7 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
-  * ixgbe_clean_rx_ring - Free Rx Buffers per Queue
-  * @rx_ring: ring to free buffers from
-  **/
--static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
-+void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- {
- 	struct device *dev = rx_ring->dev;
- 	unsigned long size;
-@@ -4838,6 +4798,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		return -EIO;
- 	}
- 
-+	/* PF holds first pool slot */
-+	set_bit(0, &adapter->l2a_bitmask);
- 	set_bit(__IXGBE_DOWN, &adapter->state);
- 
- 	return 0;
-@@ -5143,7 +5105,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
- static int ixgbe_open(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	int err;
-+	int err, queues;
- 
- 	/* disallow open during test */
- 	if (test_bit(__IXGBE_TESTING, &adapter->state))
-@@ -5168,16 +5130,22 @@ static int ixgbe_open(struct net_device *netdev)
- 		goto err_req_irq;
- 
- 	/* Notify the stack of the actual queue counts. */
--	err = netif_set_real_num_tx_queues(netdev,
--					   adapter->num_rx_pools > 1 ? 1 :
--					   adapter->num_tx_queues);
-+	if (adapter->num_rx_pools > 1 &&
-+	    adapter->num_tx_queues > IXGBE_MAX_L2A_QUEUES)
-+		queues = IXGBE_MAX_L2A_QUEUES;
-+	else
-+		queues = adapter->num_tx_queues;
-+
-+	err = netif_set_real_num_tx_queues(netdev, queues);
- 	if (err)
- 		goto err_set_queues;
- 
--
--	err = netif_set_real_num_rx_queues(netdev,
--					   adapter->num_rx_pools > 1 ? 1 :
--					   adapter->num_rx_queues);
-+	if (adapter->num_rx_pools > 1 &&
-+	    adapter->num_rx_queues > IXGBE_MAX_L2A_QUEUES)
-+		queues = IXGBE_MAX_L2A_QUEUES;
-+	else
-+		queues = adapter->num_rx_queues;
-+	err = netif_set_real_num_rx_queues(netdev, queues);
- 	if (err)
- 		goto err_set_queues;
- 
-@@ -5215,7 +5183,6 @@ static int ixgbe_close(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
- 	ixgbe_ptp_stop(adapter);
--
- 	ixgbe_down(adapter);
- 	ixgbe_free_irq(adapter);
- 
-@@ -6576,7 +6543,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 
- static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
- {
--	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	netif_stop_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 	/* Herbert's original patch had:
- 	 *  smp_mb__after_netif_stop_queue();
- 	 * but since that doesn't exist yet, just open code it. */
-@@ -6588,7 +6555,7 @@ static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
- 		return -EBUSY;
- 
- 	/* A reprieve! - use start_queue because it doesn't call schedule */
--	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	netif_start_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 	++tx_ring->tx_stats.restart_queue;
- 	return 0;
- }
-@@ -6639,6 +6606,9 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 			  struct ixgbe_ring *tx_ring)
- {
- 	struct ixgbe_tx_buffer *first;
-+#ifdef IXGBE_FCOE
-+	struct net_device *dev;
-+#endif
- 	int tso;
- 	u32 tx_flags = 0;
- 	unsigned short f;
-@@ -6730,9 +6700,10 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	first->protocol = protocol;
- 
- #ifdef IXGBE_FCOE
-+	dev = netdev_ring(tx_ring);
- 	/* setup tx offload for FCoE */
- 	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
--	    (tx_ring->netdev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
-+	    (dev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
- 		tso = ixgbe_fso(tx_ring, first, &hdr_len);
- 		if (tso < 0)
- 			goto out_drop;
-@@ -7057,6 +7028,7 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	 */
- 	if (netif_running(dev))
- 		ixgbe_close(dev);
-+
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
- #ifdef CONFIG_IXGBE_DCB
-@@ -7305,6 +7277,219 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
- }
- 
-+static void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter, u64 qmask)
-+{
-+	u32 mask;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
-+		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
-+		break;
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		mask = (qmask & 0xFFFFFFFF);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
-+		mask = (qmask >> 32);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+static void ixgbe_add_mac_filter(struct ixgbe_adapter *adapter,
-+				 u8 *addr, u16 pool)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	unsigned int entry;
-+
-+	entry = hw->mac.num_rar_entries - pool;
-+	hw->mac.ops.set_rar(hw, entry, addr, VMDQ_P(pool), IXGBE_RAH_AV);
-+}
-+
-+static void ixgbe_l2a_psrtype(struct ixgbe_l2a_adapter *vadapter)
-+{
-+	struct ixgbe_adapter *adapter = vadapter->real_adapter;
-+	int rss_i = vadapter->netdev->real_num_rx_queues;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u16 pool = vadapter->pool;
-+	u32 psrtype = IXGBE_PSRTYPE_TCPHDR |
-+		      IXGBE_PSRTYPE_UDPHDR |
-+		      IXGBE_PSRTYPE_IPV4HDR |
-+		      IXGBE_PSRTYPE_L2HDR |
-+		      IXGBE_PSRTYPE_IPV6HDR;
-+
-+	if (hw->mac.type == ixgbe_mac_82598EB)
-+		return;
-+
-+	if (rss_i > 3)
-+		psrtype |= 2 << 29;
-+	else if (rss_i > 1)
-+		psrtype |= 1 << 29;
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(pool)), psrtype);
-+}
-+
-+static void ixgbe_enable_l2a_ring(struct ixgbe_adapter *adapter,
-+				  struct ixgbe_ring *rx_ring)
-+{
-+	ixgbe_configure_rx_ring(adapter, rx_ring);
-+}
-+
-+
-+static void ixgbe_disable_l2a_ring(struct ixgbe_l2a_adapter *vadapter,
-+				   struct ixgbe_ring *rx_ring)
-+{
-+	struct ixgbe_adapter *adapter = vadapter->real_adapter;
-+	int index = rx_ring->queue_index + vadapter->rx_base_queue;
-+
-+	/* shutdown specific queue receive and wait for dma to settle */
-+	ixgbe_disable_rx_queue(adapter, rx_ring);
-+	usleep_range(10000, 20000);
-+	ixgbe_irq_disable_queues(adapter, ((u64)1 << index));
-+	ixgbe_clean_rx_ring(rx_ring);
-+}
-+
-+int ixgbe_l2a_ring_up(struct net_device *vdev, struct ixgbe_l2a_adapter *accel)
-+{
-+	struct ixgbe_adapter *adapter = accel->real_adapter;
-+	unsigned int rxbase = accel->pool * adapter->num_rx_queues_per_pool;
-+	unsigned int txbase = accel->pool * adapter->num_rx_queues_per_pool;
-+	int err, i;
-+
-+
-+	accel->rx_base_queue = rxbase;
-+	accel->tx_base_queue = txbase;
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_l2a_ring(accel, adapter->rx_ring[rxbase + i]);
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++) {
-+		adapter->rx_ring[rxbase + i]->vmdq_netdev = vdev;
-+		ixgbe_enable_l2a_ring(adapter, adapter->rx_ring[rxbase + i]);
-+	}
-+
-+	for (i = 0; i < vdev->num_tx_queues; i++)
-+		adapter->tx_ring[txbase + i]->vmdq_netdev = vdev;
-+
-+	if (is_valid_ether_addr(vdev->dev_addr))
-+		ixgbe_add_mac_filter(adapter, vdev->dev_addr, accel->pool);
-+
-+	err = netif_set_real_num_tx_queues(vdev, vdev->num_tx_queues);
-+	if (err)
-+		goto err_set_queues;
-+	err = netif_set_real_num_rx_queues(vdev, vdev->num_rx_queues);
-+	if (err)
-+		goto err_set_queues;
-+
-+	ixgbe_l2a_psrtype(accel);
-+	netif_tx_start_all_queues(vdev);
-+	return 0;
-+err_set_queues:
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_l2a_ring(accel, adapter->rx_ring[rxbase + i]);
-+	return err;
-+}
-+
-+int ixgbe_l2a_ring_down(struct net_device *vdev, struct ixgbe_l2a_adapter *accel)
-+{
-+	struct ixgbe_adapter *adapter = accel->real_adapter;
-+	unsigned int rxbase = accel->rx_base_queue;
-+	int i;
-+
-+	netif_tx_stop_all_queues(vdev);
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_l2a_ring(accel, adapter->rx_ring[rxbase + i]);
-+
-+	return 0;
-+}
-+
-+static int ixgbe_l2a_add(struct net_device *pdev, struct net_device *vdev,
-+			 void *priv)
-+{
-+	struct ixgbe_l2a_adapter *l2a_adapter = priv;
-+	struct ixgbe_adapter *adapter = netdev_priv(pdev);
-+	int pool, vmdq_pool, base_queue;
-+	int err;
-+
-+	/* Check for hardware restriction on number of rx/tx queues */
-+	if (vdev->num_rx_queues != vdev->num_tx_queues ||
-+	    vdev->num_tx_queues > IXGBE_MAX_L2A_QUEUES ||
-+	    vdev->num_tx_queues == IXGBE_BAD_L2A_QUEUE) {
-+		netdev_info(pdev, "%s: Supports RX/TX Queue counts 1,2, and 4\n",
-+		       pdev->name);
-+		return -EINVAL;
-+	}
-+
-+	if (adapter->num_rx_pools > IXGBE_MAX_VMDQ_INDICES)
-+		return -EBUSY;
-+
-+	pool = find_first_zero_bit(&adapter->l2a_bitmask, 32);
-+	adapter->num_rx_pools++;
-+	set_bit(pool, &adapter->l2a_bitmask);
-+
-+	/* Enable VMDq flag so device will be set in VM mode */
-+	adapter->flags |= IXGBE_FLAG_VMDQ_ENABLED | IXGBE_FLAG_SRIOV_ENABLED;
-+	adapter->ring_feature[RING_F_VMDQ].limit = adapter->num_rx_pools;
-+	adapter->ring_feature[RING_F_VMDQ].offset = 0;
-+	adapter->ring_feature[RING_F_RSS].limit = IXGBE_MAX_L2A_QUEUES;
-+
-+	/* Force reinit of ring allocation with VMDQ enabled */
-+	ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
-+
-+	/* Configure VSI adapter structure */
-+	vmdq_pool = VMDQ_P(pool);
-+	base_queue = vmdq_pool * adapter->num_rx_queues_per_pool;
-+
-+	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
-+		   pool, adapter->num_rx_pools,
-+		   base_queue, base_queue + adapter->num_rx_queues_per_pool,
-+		   adapter->l2a_bitmask);
-+
-+	l2a_adapter->pool = pool;
-+	l2a_adapter->netdev = vdev;
-+	l2a_adapter->real_adapter = adapter;
-+	l2a_adapter->rx_base_queue = base_queue;
-+	l2a_adapter->tx_base_queue = base_queue;
-+
-+	err = ixgbe_l2a_ring_up(vdev, l2a_adapter);	
-+	return err;
-+}
-+
-+static void ixgbe_l2a_del(struct net_device *pdev, void *priv)
-+{
-+	struct ixgbe_l2a_adapter *l2a_adapter = priv; 
-+	struct ixgbe_adapter *adapter = l2a_adapter->real_adapter;
-+
-+	clear_bit(l2a_adapter->pool, &adapter->l2a_bitmask);
-+	adapter->num_rx_pools--;
-+
-+	ixgbe_l2a_ring_down(l2a_adapter->netdev, l2a_adapter);
-+
-+	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
-+		   l2a_adapter->pool, adapter->num_rx_pools,
-+		   l2a_adapter->rx_base_queue,
-+		   l2a_adapter->rx_base_queue + adapter->num_rx_queues_per_pool,
-+		   adapter->l2a_bitmask);
-+}
-+
-+netdev_tx_t ixgbe_l2a_xmit_frame(struct sk_buff *skb, void *priv)
-+{
-+	struct ixgbe_l2a_adapter *l2a_adapter = priv;
-+	struct ixgbe_ring *tx_ring;
-+	unsigned int queue;
-+
-+	queue = skb->queue_mapping + l2a_adapter->tx_base_queue;
-+	tx_ring = l2a_adapter->real_adapter->tx_ring[queue];
-+
-+	return ixgbe_xmit_frame_ring(skb, l2a_adapter->real_adapter, tx_ring);
-+}
-+
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7351,6 +7536,13 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
- };
- 
-+const struct l2_forwarding_accel_ops  ixgbe_l2a_ops = {
-+	.priv_size = sizeof(struct ixgbe_l2a_adapter),
-+	.l2_accel_add_dev = ixgbe_l2a_add,
-+	.l2_accel_del_dev = ixgbe_l2a_del,
-+	.l2_accel_xmit = ixgbe_l2a_xmit_frame,
-+};
-+
- /**
-  * ixgbe_enumerate_functions - Get the number of ports this device has
-  * @adapter: adapter structure
--- 
-1.8.3.1
+
+test_send.c
+=3D=3D=3D=3D=3D=3D=3D=3D
+
+#include <linux/err.h>
+#include <linux/if_ether.h>
+#include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/module.h>
+#include <linux/netdevice.h>
+#include <linux/rcupdate.h>
+#include <linux/sched.h>
+#include <linux/skbuff.h>
+#include <linux/string.h>
+
+#include <net/net_namespace.h>
+
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Merlin Davis <me.the.wizard@gmail.com>");
+
+static char* iface =3D "eth0";
+module_param(iface, charp, 0);
+MODULE_PARM_DESC(iface, "Name of output interface");
+
+static unsigned long n =3D 0;
+module_param(n, ulong, 0);
+MODULE_PARM_DESC(
+   n, "Number of packets to send (zero for continuous)");
+
+
+static const unsigned int MAX_PENDING =3D 10u;
+
+static struct net_device* sendDev =3D NULL;
+static struct task_struct* sendThread =3D NULL;
+static unsigned long nSent =3D 0uL;
+static atomic_t nPending;
+static wait_queue_head_t sendWq;
+
+// Real ICMP echo response frame captured from eth0
+static char FRAME_DATA[] =3D
+   {
+      0x0a, 0x00, 0x27, 0x00, 0x00, 0x00, // dest MAC addr
+      0x08, 0x00, 0x27, 0x98, 0xa0, 0xea, // src MAC addr
+      0x08, 0x00,                         // IPv4
+
+      0x45,                    // v4, header length 20
+      0x00,                    // DCSP, ECN
+      0x00, 0x54,              // total IPv4 length 84
+      0xdc, 0x5a,              // ID
+      0x00, 0x00,              // flags, fragment offset
+      0x40,                    // TTL 64
+      0x01,                    // protocol ICMP
+      0xac, 0xf2,              // IPv4 header checksum
+      0xc0, 0xa8, 0x38, 0x0a,  // src IP addr
+      0xc0, 0xa8, 0x38, 0x01,  // dest IP addr
+
+      0x00,                    // echo reply
+      0x00,                    // code 0
+      0xf8, 0x17,              // ICMP header checksum
+      0x07, 0x80,              // echo ID
+      0x00, 0x0a,              // echo sequence number
+
+      // echo data
+      0x94, 0x89, 0x16, 0x52, 0x00, 0x00, 0x00, 0x00,
+      0x8d, 0xaf, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+      0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+      0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+      0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+      0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+   };
+
+
+static void testSend_exit(void);
+static int testSendThreadfn(void* data);
+static void testSend_skb_destruct(struct sk_buff* skb);
+
+
+static int __init testSend_init(void)
+{
+   struct net* netNs =3D NULL;
+   int err =3D 0;
+
+   atomic_set(&nPending, 0);
+   init_waitqueue_head(&sendWq);
+
+   if (!iface)
+   {
+      printk(KERN_ERR
+             "test_send: Non-null device name must be "
+             "specified via iface=3D<name>\n");
+      err =3D -EINVAL;
+      goto err;
+   }
+
+   rcu_read_lock();
+   for_each_net_rcu(netNs)
+   {
+      sendDev =3D dev_get_by_name(netNs, iface);
+      if (sendDev)
+      {
+         break;
+      }
+   }
+   netNs =3D NULL;
+   rcu_read_unlock();
+
+   if (!sendDev)
+   {
+      printk(KERN_ERR "Invalid device name '%s'\n", iface);
+      err =3D -EINVAL;
+      goto err;
+   }
+
+   sendThread =3D kthread_run(testSendThreadfn, 0, "test_send");
+   if (IS_ERR(sendThread))
+   {
+      err =3D PTR_ERR(sendThread);
+      sendThread =3D NULL;
+      goto err;
+   }
+   // keep reference so we can kthread_stop() even after
+   //    thread returns
+   get_task_struct(sendThread);
+
+   return 0;
+
+err:
+   testSend_exit();
+   return err;
+}
+module_init(testSend_init);
+
+
+static void testSend_exit(void)
+{
+   if (sendThread)
+   {
+      kthread_stop(sendThread);
+      // cleanup extra reference kept for the kthread_stop()
+      put_task_struct(sendThread);
+      sendThread =3D NULL;
+   }
+
+   while (atomic_read(&nPending) > 0)
+   {
+      wait_event_interruptible(sendWq,
+                               atomic_read(&nPending) <=3D 0);
+   }
+
+   if (sendDev)
+   {
+      dev_put(sendDev);
+      sendDev =3D NULL;
+   }
+}
+static void __exit _testSend_exit(void)
+{
+   testSend_exit();
+   printk(KERN_INFO "test_send: Sent %lu frames\n", nSent);
+}
+module_exit(_testSend_exit);
+
+
+static int testSendThreadfn(void* data)
+{
+   int reservedSpace =3D max((int)LL_RESERVED_SPACE(sendDev),
+                           (int)sizeof(struct ethhdr));
+   int buffLen =3D reservedSpace - sizeof(struct ethhdr) +
+                 sizeof(FRAME_DATA) +
+                 sendDev->needed_tailroom;
+
+   while (!kthread_should_stop() && (n =3D=3D 0 || nSent < n))
+   {
+      struct sk_buff* skb =3D NULL;
+      int err =3D 0;
+
+      while (atomic_read(&nPending) >=3D MAX_PENDING)
+      {
+         wait_event_interruptible(
+            sendWq, atomic_read(&nPending) < MAX_PENDING);
+         if (kthread_should_stop())
+         {
+            goto out;
+         }
+      }
+
+      skb =3D alloc_skb(buffLen, GFP_KERNEL);
+      if (!skb)
+      {
+         printk(KERN_ERR "test_send: Couldn't allocate SKB\n");
+         schedule();
+         continue;
+      }
+
+      skb_reserve(skb, reservedSpace);
+      skb_reset_network_header(skb);
+      skb_put(skb, sizeof(FRAME_DATA) - sizeof(struct ethhdr));
+      skb_push(skb, sizeof(struct ethhdr));
+      skb_reset_mac_header(skb);
+      skb_reset_mac_len(skb);
+      err =3D skb_store_bits(skb,
+                           0,
+                           FRAME_DATA,
+                           sizeof(FRAME_DATA));
+      if (err)
+      {
+         printk(KERN_ERR
+                "test_send: Error %d storing to SKB\n", err);
+         schedule();
+         continue;
+      }
+
+      skb->dev =3D sendDev;
+      skb->protocol =3D htons(ETH_P_IP);
+      skb->destructor =3D testSend_skb_destruct;
+      skb_shinfo(skb)->destructor_arg =3D NULL;
+
+      // NOTE: Without this, the destructor is called twice and
+      //    there is an almost immediate kernel panic.  With it,
+      //    a kernel panic still occurs but takes a while to
+      //    manifest.
+      skb_get(skb);
+
+      atomic_inc(&nPending);
+      err =3D net_xmit_eval(dev_queue_xmit(skb));
+      if (err)
+      {
+         printk(KERN_ERR
+                "test_send: Error %d sending frame\n", err);
+         schedule();
+         continue;
+      }
+
+      ++nSent;
+
+      //printk(KERN_ERR "test_send: SENT SKB\n");
+   }
+out:
+
+   return 0;
+}
+
+static void testSend_skb_destruct(struct sk_buff* skb)
+{
+   //printk(KERN_ERR "test_send: DESTRUCTING SKB\n");
+   atomic_dec(&nPending);
+   wake_up_all(&sendWq);
+}
+
+
+NOTES.txt
+=3D=3D=3D=3D=3D=3D=3D=3D
+
+* Running on a VirtualBox VM with 64-bit Ubuntu 12.10 and the
+  3.5.0-40-generic kernel (and matching kernel headers for
+  module compilation).  The VM has been allocated 4 CPU cores
+  and 2GB of memory (it has no swap partition).  The module had
+  been tested on a previous kernel version (also 3.5.0-x) and
+  exhibited the same symptoms.  The network adapter set in
+  VirtualBox is the default "Intel PRO/1000 MT Desktop
+  (82540EM)", and uses the e1000 driver
+  (drivers/net/ethernet/intel/e1000).  However, other adapters
+  in VirtuaBox's list of choices that use different drivers have
+  also been tested with the same results.
+
+* I have also tested this code on bare metal with a network card
+  using Intel's igb driver and on a VM with a compiled 2.6.39
+  kernel using all default configuration parameters, with the
+  same results.
+
+* The idea of the module is to resend/replay frames previously
+  captured on the same network interface.  The frames are
+  byte-for-byte identical to one originally captured.  The
+  captured frame was an ICMP echo reply captured during ping
+  execution between the host machine and the VM, on the same
+  interface being tested (eth0 set to static 192.168.56.10/24 on
+  a VirtualBox host-only network); the packet was manually
+  inspected to verify it is a valid Ethernet/IPv4/ICMP/echo
+  reply message with correct checksums.  This small module is a
+  stripped down test case created after running into the problem
+  in a larger project (one which DOES send packets associated
+  with a socket).
+
+* The frames are sent without a socket, in a manner similar to
+  the way they are created and sent for IPv4 ARP.  In fact, the
+  frames are constructed and sent in a way that is almost
+  identical to the way net/ipv4/arp.c does it.  The exception is
+  that this module uses complete frame data including the
+  Ethernet header, unlike ARP which adds the hardware header
+  using dev_hard_header().  This module has been tested by
+  changing the code to use dev_hard_header() in an attempt to
+  diagnose the problem, but this does not change the behavior.
+
+* A kernel panic occurs after sending one or more frames using
+  this module.  The number of frames sent before the panic
+  occurs seems to vary, but it is inevitable that one occurs.
+  The panic does not always occur in the same place in kernel
+  code, but usually happens somewhere in __kfree_skb()=97perhaps
+  in skb_release_head_state() as "? skb_release_head_state+..."
+  is the last line of the kernel stack trace.  Sometimes,
+  though, it happens in the qdisk code for transmission or the
+  e1000 driver itself instead.  It is ALMOST always a "BUG:
+  unable to handle kernel NULL pointer dereference", but rarely
+  I have seen a general protection fault instead.
+
+* The first implementation sent SKBs endlessly and without
+  pause.  This caused a panic much quicker.  The code was then
+  changed to limit the number of outstanding SKBs pending in the
+  transmit code, similar to the way a socket's limited amount of
+  buffer space would (but done using a simple counter).  This
+  results in the same sort of panic, but after a longer period
+  of time since the sned rate is naturally lower.  Counting the
+  number of outstanding SKBs also resulted in the discovery of
+  an SKB reference counting problem.
+
+* Calling dev_queue_xmit() with an SKB is supposed to turn
+  ownership of the SKB over to the transmit code, according to
+  the API documentation in net/core/dev.c.  This would seem to
+  imply the reference count should be 1, and that reference is
+  turned over to the callee.  However, when the reference count
+  is only 1, the transmit code destructs each SKB twice, meaning
+  somewhere it must be decrementing the reference count and
+  assuming it is still positive, then later incrementing and
+  decrementing it again.  This causes an immediate kernel panic
+  in either the code to free the SKB or in a later memory
+  allocation operation.
+
+* When an SKB's reference count is incremented to 2 just before
+  calling dev_queue_xmit(), the destructor seems to be called
+  just once (this can be tested by uncommenting a couple of
+  printk's in the code and loading the module with parameter
+  "n=3Dx" to send x frames before terminating the send thread,
+  then checking the messages using dmesg, grep, wc, etc.).  With
+  this reference count fix the kernel panic still occurs, but
+  only after the relatively long and varying period of execution
+  mentioned above (generally after hundreds of thousands of
+  frames).  On the VM I am testing on, the panic usually happens
+  after somewhere between 15 seconds and 2 minutes.
+
+* My best guess is that SOMETHING is overwriting memory with
+  null bytes or random data or soemthing.  Is there something
+  wrong with the way the SKBs are being allocated, prepared,
+  turned over to the kernel for transmission, cleaned up, etc.?
+  If so, how is it different from the ARP implementation in a
+  way that causes a panic?  Or is this a defect in the kernel
+  code itself, in which case how can Linux machines stay stable
+  and running with significant uptimes?  Or is it just that this
+  is a very infrequent race condition of some sort and ARP
+  transmission is slow/infrequent enough that the mean time
+  before failure is very, very long?
+
+* I have attempted both kernel debugging and panic message
+  capture, but despite following all the instructions I can find
+  online for doing this with a VirtualBox VM, I cannot seem to
+  get the debugger to resume execution properly when debugging,
+  the emulated serial console to work, or a crash dump to appear
+  in the VM after restart.  So I seem to be stuck with code
+  inspection and good ol' printk-style debugging, unfortunately.
