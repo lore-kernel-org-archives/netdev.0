@@ -1,25 +1,28 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 17/27] bonding: convert bond_has_slaves() to use the neighbour list
-Date: Wed, 25 Sep 2013 09:20:22 +0200
-Message-ID: <1380093632-1842-18-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 18/27] net: add a possibility to get private from netdev_adjacent->list
+Date: Wed, 25 Sep 2013 09:20:23 +0200
+Message-ID: <1380093632-1842-19-git-send-email-vfalico@redhat.com>
 References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39847 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38042 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753131Ab3IYHU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753252Ab3IYHU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Sep 2013 03:20:59 -0400
 In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The same way as it was used for its own slave_list.
+It will be useful to get first/last element.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
@@ -37,23 +40,44 @@ Notes:
     No changes.
     
     RFC -> v1:
-    Use the renamed adj_list instead of neighbour_dev_list.
+    No changes.
 
- drivers/net/bonding/bonding.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index bcef15e..170c7fc 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -72,7 +72,7 @@
- 	res; })
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 168974e..b4cfb63 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2850,6 +2850,7 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
- /* slave list primitives */
--#define bond_has_slaves(bond) !list_empty(&(bond)->slave_list)
-+#define bond_has_slaves(bond) !list_empty(&(bond)->dev->adj_list.lower)
++extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+ extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ extern int netdev_upper_dev_link(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0aa844a..acc1181 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4466,6 +4466,16 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
  
- #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
- 
++void *netdev_adjacent_get_private(struct list_head *adj_list)
++{
++	struct netdev_adjacent *adj;
++
++	adj = list_entry(adj_list, struct netdev_adjacent, list);
++
++	return adj->private;
++}
++EXPORT_SYMBOL(netdev_adjacent_get_private);
++
+ /**
+  * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
 -- 
 1.8.4
