@@ -1,53 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH tip/core/rcu 04/13] wireless: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Wed, 25 Sep 2013 18:48:23 +0100
-Message-ID: <1380131303.2222.9.camel@bwh-desktop.uk.level5networks.com>
-References: <20130925013451.GA31260@linux.vnet.ibm.com>
-	<1380072916-31557-1-git-send-email-paulmck@linux.vnet.ibm.com>
-	<1380072916-31557-4-git-send-email-paulmck@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
-	laijs@cn.fujitsu.com, edumazet@google.com,
-	"David S. Miller" <davem@davemloft.net>, peterz@infradead.org,
-	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	josh@joshtriplett.org, dhowells@redhat.com, sbw@mit.edu,
-	niv@us.ibm.com, netdev@vger.kernel.org,
-	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
-	darren@dvhart.com, akpm@linux-foundation.org, mingo@kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1380072916-31557-4-git-send-email-paulmck@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 0/8 V4] rtlwifi: Patches to fix problems shown by smatch
+Date: Wed, 25 Sep 2013 12:57:41 -0500
+Message-ID: <1380131869-19185-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-09-24 at 18:35 -0700, Paul E. McKenney wrote:
-> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> 
-> The sparse checking for rcu_assign_pointer() was recently upgraded
-> to reject non-__kernel address spaces.  This also rejects __rcu,
-> which is almost always the right thing to do.  However, the uses in
-> cfg80211_combine_bsses() and cfg80211_bss_update() are legitimate:
-> They is assigning a pointer to an element from an RCU-protected list,
-[...]
+Fix smatch warnings and errors in the rtlwifi family of drivers.
 
-'They is'?  This error is also in the commit messsages for the bridge
-and mac80211 patches, and maybe others that weren't sent to netdev.
+V2 addresses comments by David Laight and Sergei Shtylyov.
+V3 addresses further comments by David, Sergei, and Kalle Valo. The
+   dead code is removed, and the variable is left in the struct.
+V4 Fixes extra line removed by accident from rtl8192de/hw.c as
+   noted by Sergei
 
-Ben.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+
+Larry Finger (8):
+  rtlwifi: rtl8192du: Fix smatch errors in /rtl8192de/dm.c
+  rtlwifi: rtl8192de: Fix smatch warnings in rtl8192de/hw.c
+  rtlwifi: rtl8192cu: Fix smatch warning in rtl8192cu/trx.c
+  rtlwifi: rtl8192_common: Fix smatch errors and warnings in
+    rtl8192c/dm_common.c
+  rtlwifi: Fix smatch warning in pci.c
+  rtlwifi: Fix smatch warnings in usb.c
+  rtlwifi: rtl8188ee: Fix smatch warning in rtl8188ee/hw.c
+  rtlwifi: Remove all remaining references to variable 'noise' in
+    rtl_stats struct
+
+ drivers/net/wireless/rtlwifi/pci.c                |  1 -
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c       |  1 +
+ drivers/net/wireless/rtlwifi/rtl8188ee/trx.c      |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 25 +----------------------
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c      |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/trx.c      |  2 --
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.c       |  8 ++++++--
+ drivers/net/wireless/rtlwifi/rtl8192de/hw.c       | 18 ----------------
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c      |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c      |  1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c      |  1 -
+ drivers/net/wireless/rtlwifi/usb.c                |  6 ++++--
+ 12 files changed, 12 insertions(+), 54 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
