@@ -1,174 +1,100 @@
-From: Fabio Porcedda <fabio.porcedda@gmail.com>
-Subject: [PATCH 2/2] net: qmi_wwan: fix checkpatch warnings
-Date: Wed, 25 Sep 2013 11:21:26 +0200
-Message-ID: <1380100886-16531-2-git-send-email-fabio.porcedda@gmail.com>
-References: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com>
-Cc: linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Dan Williams <dcbw@redhat.com>
-To: netdev@vger.kernel.org
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: Re: [PATCH] ipvs: improved SH fallback strategy
+Date: Wed, 25 Sep 2013 10:26:38 +0100
+Message-ID: <20130925092638.GD19768@eldamar.org.uk>
+References: <20130923115139.GA15034@eldamar.org.uk>
+ <524099BA.5020303@cogentembedded.com>
+ <20130924093238.GD18494@eldamar.org.uk>
+ <20130925003033.GG26081@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:41161 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989Ab3IYJVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:21:35 -0400
-In-Reply-To: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com>
+Received: from mx0.eldamar.org.uk ([78.47.157.133]:36892 "EHLO
+	mx0.eldamar.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754459Ab3IYJ0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 05:26:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20130925003033.GG26081@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Fabio Porcedda <fabio.porcedda@gmail.com>
----
- drivers/net/usb/qmi_wwan.c | 56 +++++++++++++++++++++++++++++-----------------
- 1 file changed, 36 insertions(+), 20 deletions(-)
+Improve the SH fallback realserver selection strategy.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 5f6b6fa..0e59f9e 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -143,16 +143,22 @@ static const struct net_device_ops qmi_wwan_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- };
+With sh and sh-fallback, if a realserver is down, this attempts to
+distribute the traffic that would have gone to that server evenly
+among the remaining servers.
  
--/* using a counter to merge subdriver requests with our own into a combined state */
-+/* using a counter to merge subdriver requests with our own into a
-+ * combined state
+Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+
+--
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 3588fae..3d5ab7c 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -115,27 +115,47 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ }
+ 
+ 
+-/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
++/* As ip_vs_sh_get, but with fallback if selected server is unavailable
++ *
++ * The fallback strategy loops around the table starting from a "random"
++ * point (in fact, it is chosen to be the original hash value to make the
++ * algorithm deterministic) to find a new server.
 + */
- static int qmi_wwan_manage_power(struct usbnet *dev, int on)
+ static inline struct ip_vs_dest *
+ ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ 		      const union nf_inet_addr *addr, __be16 port)
  {
- 	struct qmi_wwan_state *info = (void *)&dev->data;
- 	int rv = 0;
+-	unsigned int offset;
+-	unsigned int hash;
++	unsigned int offset, roffset;
++	unsigned int hash, ihash;
+ 	struct ip_vs_dest *dest;
  
--	dev_dbg(&dev->intf->dev, "%s() pmcount=%d, on=%d\n", __func__, atomic_read(&info->pmcount), on);
-+	dev_dbg(&dev->intf->dev, "%s() pmcount=%d, on=%d\n", __func__,
-+		atomic_read(&info->pmcount), on);
- 
--	if ((on && atomic_add_return(1, &info->pmcount) == 1) || (!on && atomic_dec_and_test(&info->pmcount))) {
--		/* need autopm_get/put here to ensure the usbcore sees the new value */
-+	if ((on && atomic_add_return(1, &info->pmcount) == 1) ||
-+	    (!on && atomic_dec_and_test(&info->pmcount))) {
-+		/* need autopm_get/put here to ensure the usbcore sees
-+		 * the new value
+-	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
+-		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
+-		dest = rcu_dereference(s->buckets[hash].dest);
+-		if (!dest)
+-			break;
+-		if (is_unavailable(dest))
+-			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+-				      "%s:%d (offset %d)",
++	/* first try the dest it's supposed to go to */
++	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
++	dest = rcu_dereference(s->buckets[ihash].dest);
++	if (!dest)
++		return NULL;
++	if (is_unavailable(dest)) {
++		IP_VS_DBG_BUF(6, "SH: selected unavailable server "
++		      "%s:%d, reselecting",
++		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
++		      ntohs(dest->port));
++		/* if the original dest is unavailable, loop around the table
++		 * starting from ihash to find a new dest
 +		 */
- 		rv = usb_autopm_get_interface(dev->intf);
- 		if (rv < 0)
- 			goto err;
-@@ -199,7 +205,8 @@ static int qmi_wwan_register_subdriver(struct usbnet *dev)
- 	atomic_set(&info->pmcount, 0);
- 
- 	/* register subdriver */
--	subdriver = usb_cdc_wdm_register(info->control, &dev->status->desc, 4096, &qmi_wwan_cdc_wdm_manage_power);
-+	subdriver = usb_cdc_wdm_register(info->control, &dev->status->desc,
-+					 4096, &qmi_wwan_cdc_wdm_manage_power);
- 	if (IS_ERR(subdriver)) {
- 		dev_err(&info->control->dev, "subdriver registration failed\n");
- 		rv = PTR_ERR(subdriver);
-@@ -228,7 +235,8 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
- 	struct usb_driver *driver = driver_of(intf);
- 	struct qmi_wwan_state *info = (void *)&dev->data;
- 
--	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) < sizeof(struct qmi_wwan_state)));
-+	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) <
-+		      sizeof(struct qmi_wwan_state)));
- 
- 	/* set up initial state */
- 	info->control = intf;
-@@ -250,7 +258,8 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
- 				goto err;
- 			}
- 			if (h->bLength != sizeof(struct usb_cdc_header_desc)) {
--				dev_dbg(&intf->dev, "CDC header len %u\n", h->bLength);
-+				dev_dbg(&intf->dev, "CDC header len %u\n",
-+					h->bLength);
- 				goto err;
- 			}
- 			break;
-@@ -260,7 +269,8 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
- 				goto err;
- 			}
- 			if (h->bLength != sizeof(struct usb_cdc_union_desc)) {
--				dev_dbg(&intf->dev, "CDC union len %u\n", h->bLength);
-+				dev_dbg(&intf->dev, "CDC union len %u\n",
-+					h->bLength);
- 				goto err;
- 			}
- 			cdc_union = (struct usb_cdc_union_desc *)buf;
-@@ -271,15 +281,15 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
- 				goto err;
- 			}
- 			if (h->bLength != sizeof(struct usb_cdc_ether_desc)) {
--				dev_dbg(&intf->dev, "CDC ether len %u\n",  h->bLength);
-+				dev_dbg(&intf->dev, "CDC ether len %u\n",
-+					h->bLength);
- 				goto err;
- 			}
- 			cdc_ether = (struct usb_cdc_ether_desc *)buf;
- 			break;
- 		}
- 
--		/*
--		 * Remember which CDC functional descriptors we've seen.  Works
-+		/* Remember which CDC functional descriptors we've seen.  Works
- 		 * for all types we care about, of which USB_CDC_ETHERNET_TYPE
- 		 * (0x0f) is the highest numbered
- 		 */
-@@ -293,10 +303,14 @@ next_desc:
- 
- 	/* Use separate control and data interfaces if we found a CDC Union */
- 	if (cdc_union) {
--		info->data = usb_ifnum_to_if(dev->udev, cdc_union->bSlaveInterface0);
--		if (desc->bInterfaceNumber != cdc_union->bMasterInterface0 || !info->data) {
--			dev_err(&intf->dev, "bogus CDC Union: master=%u, slave=%u\n",
--				cdc_union->bMasterInterface0, cdc_union->bSlaveInterface0);
-+		info->data = usb_ifnum_to_if(dev->udev,
-+					     cdc_union->bSlaveInterface0);
-+		if (desc->bInterfaceNumber != cdc_union->bMasterInterface0 ||
-+		    !info->data) {
-+			dev_err(&intf->dev,
-+				"bogus CDC Union: master=%u, slave=%u\n",
-+				cdc_union->bMasterInterface0,
-+				cdc_union->bSlaveInterface0);
- 			goto err;
- 		}
++		for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
++			roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
++			hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
++			dest = rcu_dereference(s->buckets[hash].dest);
++			if (is_unavailable(dest))
++				IP_VS_DBG_BUF(6, "SH: selected unavailable "
++				      "server %s:%d (offset %d), reselecting",
+ 				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+-				      ntohs(dest->port), offset);
+-		else
+-			return dest;
++				      ntohs(dest->port), roffset);
++			else
++				return dest;
++		}
++	} else {
++		return dest;
  	}
-@@ -374,8 +388,7 @@ static int qmi_wwan_suspend(struct usb_interface *intf, pm_message_t message)
- 	struct qmi_wwan_state *info = (void *)&dev->data;
- 	int ret;
  
--	/*
--	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
-+	/* Both usbnet_suspend() and subdriver->suspend() MUST return 0
- 	 * in system sleep context, otherwise, the resume callback has
- 	 * to recover device from previous suspend failure.
- 	 */
-@@ -383,7 +396,8 @@ static int qmi_wwan_suspend(struct usb_interface *intf, pm_message_t message)
- 	if (ret < 0)
- 		goto err;
- 
--	if (intf == info->control && info->subdriver && info->subdriver->suspend)
-+	if (intf == info->control && info->subdriver &&
-+	    info->subdriver->suspend)
- 		ret = info->subdriver->suspend(intf, message);
- 	if (ret < 0)
- 		usbnet_resume(intf);
-@@ -396,7 +410,8 @@ static int qmi_wwan_resume(struct usb_interface *intf)
- 	struct usbnet *dev = usb_get_intfdata(intf);
- 	struct qmi_wwan_state *info = (void *)&dev->data;
- 	int ret = 0;
--	bool callsub = (intf == info->control && info->subdriver && info->subdriver->resume);
-+	bool callsub = (intf == info->control && info->subdriver &&
-+			info->subdriver->resume);
- 
- 	if (callsub)
- 		ret = info->subdriver->resume(intf);
-@@ -777,7 +792,8 @@ static const struct usb_device_id products[] = {
- };
- MODULE_DEVICE_TABLE(usb, products);
- 
--static int qmi_wwan_probe(struct usb_interface *intf, const struct usb_device_id *prod)
-+static int qmi_wwan_probe(struct usb_interface *intf,
-+			  const struct usb_device_id *prod)
- {
- 	struct usb_device_id *id = (struct usb_device_id *)prod;
- 
--- 
-1.8.4
+ 	return NULL;
