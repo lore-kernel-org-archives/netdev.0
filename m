@@ -1,122 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH RFC] random: introduce get_random_bytes_busy_wait_initialized
-Date: Wed, 25 Sep 2013 11:00:34 +0200
-Message-ID: <20130925090034.GC4904@order.stressinduktion.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com> <1379980991.3165.37.camel@edumazet-glaptop> <20130924023038.GA22393@order.stressinduktion.org> <20130924033505.GB22393@order.stressinduktion.org> <1380001118.3165.41.camel@edumazet-glaptop> <20130924054532.GA24446@order.stressinduktion.org> <1380028797.3165.65.camel@edumazet-glaptop>
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: Re: [PATCH] ipvs: improved SH fallback strategy
+Date: Wed, 25 Sep 2013 10:01:50 +0100
+Message-ID: <20130925090150.GC19768@eldamar.org.uk>
+References: <20130923115139.GA15034@eldamar.org.uk>
+ <524099BA.5020303@cogentembedded.com>
+ <20130924093238.GD18494@eldamar.org.uk>
+ <20130925003033.GG26081@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com, tytso@mit.edu,
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1380028797.3165.65.camel@edumazet-glaptop>
+In-Reply-To: <20130925003033.GG26081@verge.net.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 24, 2013 at 06:19:57AM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> A host might need net_secret[] and never open a single socket. 
-> 
-> Problem added in commit aebda156a570782
-> ("net: defer net_secret[] initialization")
-> 
-> Based on prior patch from Hannes Frederic Sowa.
-> 
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Hi,
 
-Perhaps we can even do a bit better? This patch is a RFC and I could split the
-random and network parts if needed.
+> could you add some comments to the code or at least a description of the
+> algorithm to the above the function.  The intent of original code may not
+> have been obvious to the eye but this version certainly isn't obvious to
+> mine.
 
-[PATCH RFC] random: introduce get_random_bytes_busy_wait_initialized
+Sure.  I have a bad habit of assuming that if I understand something,
+then others automatically do too. :-)
 
-We want to use good entropy for initializing the secret keys used for
-hashing in the core network stack. So busy wait before extracting random
-data until the nonblocking_pool is initialized.
+The original code went through the table, starting at the same place as
+the code without fallback and if that returned an unavailable
+realserver, it offset the hash by one and repeated the lookup, then added
+two, etc., up to IP_VS_SH_TAB_SIZE-1.  So the hash offset was 0,
+1, ..., IP_VS_SH_TAB_SIZE-1.
 
-Further entropy is also gathered by interrupts, so we are guaranteed to
-make progress here.
+The result is that if a server is down, all traffic destined for it
+would fall back onto the next server in the list.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: "Theodore Ts'o" <tytso@mit.edu>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- drivers/char/random.c  | 18 ++++++++++++++++++
- include/linux/random.h |  1 +
- net/core/secure_seq.c  |  3 ++-
- net/ipv4/af_inet.c     |  2 +-
- 4 files changed, 22 insertions(+), 2 deletions(-)
+The new code also starts at the same place as the old code (offset 0),
+but if that fails, it uses the same fallback strategy as the old code,
+but the hash offset is now ihash, ihash + 1, ..., IP_VS_SH_TAB_SIZE-1,
+0, 1, ..., ihash - 1, i.e., it starts at ihash instead of 0 and loops
+around the table.  ihash could have been a random number, but choosing
+it to be something based on the source IP and port (in which case it may
+as well be the same hash [offset 0]) means that the behaviour will be
+the same on different directors. 
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index 7737b5b..50e8030 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1058,6 +1058,24 @@ void get_random_bytes(void *buf, int nbytes)
- EXPORT_SYMBOL(get_random_bytes);
- 
- /*
-+ * Busy loop until the nonblocking_pool is intialized and return
-+ * random data in buf of size nbytes.
-+ *
-+ * This is used by the network stack to defer the extraction of
-+ * entropy from the nonblocking_pool until the pool is initialized.
-+ *
-+ * We need to busy loop here, because we could be called from an
-+ * atomic section.
-+ */
-+void get_random_bytes_busy_wait_initialized(void *buf, int nbytes)
-+{
-+	while (!nonblocking_pool.initialized)
-+		cpu_relax();
-+	get_random_bytes(buf, nbytes);
-+}
-+EXPORT_SYMBOL(get_random_bytes_busy_wait_initialized);
-+
-+/*
-  * This function will use the architecture-specific hardware random
-  * number generator if it is available.  The arch-specific hw RNG will
-  * almost certainly be faster than what we can do in software, but it
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 3b9377d..0b7e7dd 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -15,6 +15,7 @@ extern void add_input_randomness(unsigned int type, unsigned int code,
- extern void add_interrupt_randomness(int irq, int irq_flags);
- 
- extern void get_random_bytes(void *buf, int nbytes);
-+void get_random_bytes_busy_wait_initialized(void *buf, int nbbytes);
- extern void get_random_bytes_arch(void *buf, int nbytes);
- void generate_random_uuid(unsigned char uuid_out[16]);
- 
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 3f1ec15..ac55cb7 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -24,7 +24,8 @@ static void net_secret_init(void)
- 
- 	for (i = NET_SECRET_SIZE; i > 0;) {
- 		do {
--			get_random_bytes(&tmp, sizeof(tmp));
-+			get_random_bytes_busy_wait_initialized(&tmp,
-+							       sizeof(tmp));
- 		} while (!tmp);
- 		cmpxchg(&net_secret[--i], 0, tmp);
- 	}
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index cfeb85c..3edd277 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -260,7 +260,7 @@ void build_ehash_secret(void)
- 	u32 rnd;
- 
- 	do {
--		get_random_bytes(&rnd, sizeof(rnd));
-+		get_random_bytes_busy_wait_initialized(&rnd, sizeof(rnd));
- 	} while (rnd == 0);
- 
- 	if (cmpxchg(&inet_ehash_secret, 0, rnd) == 0)
--- 
-1.8.3.1
+This spreads the load of an unavailable server across the remaining
+servers instead of just moving it to the next one in the list.
+
+Hope that makes sense...
+
+I'll submit a patch with a comment shortly.
+
+
+Alex
