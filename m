@@ -1,42 +1,50 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] moxa: drop free_irq of devm_request_irq allocated irq
-Date: Wed, 25 Sep 2013 15:33:29 +0800
-Message-ID: <CAPgLHd8YRP7kL_jNHi3J9jFn86f=Fv-AWWUY_aRGZQOgVTNPgg@mail.gmail.com>
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Subject: [PATCH] iproute2: bridge: Close file with bridge monitor file
+Date: Wed, 25 Sep 2013 09:45:45 +0200
+Message-ID: <1380095145-6618-1-git-send-email-ppisar@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: grant.likely@linaro.org, rob.herring@calxeda.com,
-	davem@davemloft.net, jg1.han@samsung.com, jonas.jensen@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f48.google.com ([209.85.214.48]:54724 "EHLO
-	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146Ab3IYHda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 03:33:30 -0400
-Received: by mail-bk0-f48.google.com with SMTP id my13so2077192bkb.7
-        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 00:33:29 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:51586 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750955Ab3IYHqI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 03:46:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+The `bridge monitor file FILENAME' reads dumped netlink messages from
+a file. But it forgot to close the file after using it. This patch
+fixes it.
 
-irq allocated with devm_request_irq should not be freed using
-free_irq, because doing so causes a dangling pointer, and a
-subsequent double free.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
 ---
- drivers/net/ethernet/moxa/moxart_ether.c | 1 -
- 1 file changed, 1 deletion(-)
+ bridge/monitor.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index 83c2091..9a7fcb5 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -531,7 +531,6 @@ static int moxart_remove(struct platform_device *pdev)
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 
- 	unregister_netdev(ndev);
--	free_irq(ndev->irq, ndev);
- 	moxart_mac_free_memory(ndev);
- 	free_netdev(ndev);
- 
+diff --git a/bridge/monitor.c b/bridge/monitor.c
+index e96fcaf..76e7d47 100644
+--- a/bridge/monitor.c
++++ b/bridge/monitor.c
+@@ -132,12 +132,15 @@ int do_monitor(int argc, char **argv)
+=20
+ 	if (file) {
+ 		FILE *fp;
++		int err;
+ 		fp =3D fopen(file, "r");
+ 		if (fp =3D=3D NULL) {
+ 			perror("Cannot fopen");
+ 			exit(-1);
+ 		}
+-		return rtnl_from_file(fp, accept_msg, stdout);
++		err =3D rtnl_from_file(fp, accept_msg, stdout);
++		fclose(fp);
++		return err;
+ 	}
+=20
+ 	if (rtnl_open(&rth, groups) < 0)
+--=20
+1.8.3.1
