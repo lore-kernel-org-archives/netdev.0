@@ -1,86 +1,80 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
- specify an ip address to be primary or secondary ip on an interface
-Date: Wed, 25 Sep 2013 10:08:29 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1309250925240.1971@ja.ssi.bg>
-References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com> <alpine.LFD.2.00.1309242255350.1875@ja.ssi.bg> <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com>
+From: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCHv2 0/4] Add DT support for fixed PHYs
+Date: Wed, 25 Sep 2013 09:12:35 +0200
+Message-ID: <CAH9NwWfBGHmZ+HfUndeh18NW+HyZ=c82W=O_4hJSOH-oZuM9jA@mail.gmail.com>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20130911064248.GI30088@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Vincent Li <vincent.mc.li@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130911064248.GI30088-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi
 
-	Hello,
+>> Hello,
+>>
+>> Here is a second version of the patch set that adds a Device Tree
+>> binding and the related code to support fixed PHYs. Marked as RFC,
+>> this patch set is obviously not intended for merging in 3.12.
+>>
+>> Since the first version, the changes have been:
+>>
+>>  * Instead of using a 'fixed-link' property inside the Ethernet device
+>>    DT node, with a fairly cryptic succession of integer values, we now
+>>    use a PHY subnode under the Ethernet device DT node, with explicit
+>>    properties to configure the duplex, speed, pause and other PHY
+>>    properties.
+>>
+>>  * The PHY address is automatically allocated by the kernel and no
+>>    longer visible in the Device Tree binding.
+>>
+>>  * The PHY device is created directly when the network driver calls
+>>    of_phy_connect_fixed_link(), and associated to the PHY DT node,
+>>    which allows the existing of_phy_connect() function to work,
+>>    without the need to use the deprecated of_phy_connect_fixed_link().
+>>
+>> The things I am not entirely happy with yet are:
+>>
+>>  * The PHY ID is hardcoded to 0xdeadbeef. Ideally, it should be a
+>>    properly reserved vendor/device identifier, but it isn't clear how
+>>    to get one allocated for this purpose.
+>>
+>>  * The fixed_phy_register() function in drivers/net/phy/fixed.c has
+>>    some OF references. So ideally, I would have preferred to put this
+>>    code in drivers/of/of_mdio.c, but to call get_phy_device(), we need
+>>    a reference to the mii_bus structure that represents the fixed MDIO
+>>    bus.
+>>
+>>  * There is some error management missing in fixed_phy_register(), but
+>>    it can certainly be added easily. This RFC is meant to sort out the
+>>    general idea.
+>
+> +1 for the general idea. This really looks good now. I've not much more
+> to say. Maybe someone from the devicetree corner has a few words for the
+> binding?
+>
 
-On Tue, 24 Sep 2013, Vincent Li wrote:
+I tested the whole series with an I.MX6D board with the FEC driver:
+fec 2188000.ethernet eth0: Freescale FEC PHY driver [Generic PHY]
+(mii_bus:phy_addr=fixed-0:00, irq=-1)
 
-> Thanks Julian for the comments, I imagined it would not be so simple
-> as it changed old behavior with ip binary and some actions in
-> __inet_del_ifa() that I am not fully aware of. my intention is to
-> preserve the old behavior and extend the flexibility, I am unable to
-> come up with a good patch to achieve the intended behavior.
+For me binding looks nice and I hope to see this patch series in 3.13.
 
-...
-
-> if someone can point me to the right patch directions or coming up
-> with better patches, it is very much appreciated.
-
-	My first idea was to use NLM_F_APPEND to implement
-'ip addr prepend' and 'ip addr append' but the default
-operation is 'append' without providing NLM_F_APPEND, so it
-does not work.
-
-	Another idea is to add new attribute IFA_PREFERENCE in
-include/uapi/linux/if_addr.h just before __IFA_MAX, integer,
-3 of the values are known. A preference for the used scope.
-
-/* Add as last, default */
-IFA_PREFERENCE_APPEND = 0,
-
-/* Add as last primary, before any present primary in subnet */
-IFA_PREFERENCE_PRIMARY = 128,
-
-/* First for scope */
-IFA_PREFERENCE_FIRST = 255,
-
-	We should keep it in ifa as priority, for
-sorting purposes. It can be 4-byte value, if user wants
-to copy user-defined order into preference.
-
-	Sorting order should be:
-
-- all primaries sorted by decreasing scope, decreasing
-priority and adding order
-
-- then all secondaries (IFA_F_SECONDARY) sorted by decreasing
-priority and adding order
-
-	Usage:
-
-ip addr add ... pref[erence] type_or_priority
-
-# Add floating IP (append at priority 128)
-# The primary mode is not guaranteed if another address from
-# the same subnet is already using the same or higher priority.
-ip addr add ... pref primary
-# More preferred primary
-ip addr add ... pref 129
-
-# Add first IP for scope
-ip addr add ... pref first
-
-	The scope has similar 'sorting' property but not
-for IPs in same subnet and it would be difficult to use
-it for global routes.
-
-	Thoughts?
-
-Regards
-
+Tested-by: Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 --
-Julian Anastasov <ja@ssi.bg>
+Christian Gmeiner, MSc
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
