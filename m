@@ -1,30 +1,35 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH RFC] net: introduce support for lazy initialization of
- secret keys
-Date: Thu, 26 Sep 2013 00:14:00 +0200
-Message-ID: <20130925221400.GD12025@breakpoint.cc>
-References: <20130925213403.GF4904@order.stressinduktion.org>
+From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Subject: Re: [PATCH 06/11] ipw2x00: Remove extern from function prototypes
+Date: Thu, 26 Sep 2013 02:24:32 +0400
+Message-ID: <CA++WF2PdHWvcsQtxaM-TLqqZ6PcU2uABeB-qnxmAC+FaQgHy0A@mail.gmail.com>
+References: <cover.1380137609.git.joe@perches.com>
+	<89eb744f1a77b32d6ec718618f356df3188403e7.1380137609.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40690 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752428Ab3IYWOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 18:14:02 -0400
-Received: from fw by Chamillionaire.breakpoint.cc with local (Exim 4.80)
-	(envelope-from <fw@strlen.de>)
-	id 1VOxLM-0005w4-Ek
-	for netdev@vger.kernel.org; Thu, 26 Sep 2013 00:14:00 +0200
-Content-Disposition: inline
-In-Reply-To: <20130925213403.GF4904@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <89eb744f1a77b32d6ec718618f356df3188403e7.1380137609.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> This patch splits the secret key for syncookies between ipv4 and ipv6
-> and initializes them with net_get_random_once. This change was the reason
-> I did this patch. I think the initialization of the syncookie_secret is
-> way to early.
+Hi Joe,
 
-Agreed, thanks for working on this.
+On 25 September 2013 23:37, Joe Perches <joe@perches.com> wrote:
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
+>
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+
+Looks fine, thanks.
+
+Stanislav.
