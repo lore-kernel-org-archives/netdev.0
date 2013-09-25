@@ -1,40 +1,42 @@
-From: Merlin Davis <me.the.wizard@gmail.com>
-Subject: Kernel Panic Sending Frames Using dev_queue_xmit()
-Date: Wed, 25 Sep 2013 00:32:55 -0700
-Message-ID: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] moxa: drop free_irq of devm_request_irq allocated irq
+Date: Wed, 25 Sep 2013 15:33:29 +0800
+Message-ID: <CAPgLHd8YRP7kL_jNHi3J9jFn86f=Fv-AWWUY_aRGZQOgVTNPgg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: grant.likely@linaro.org, rob.herring@calxeda.com,
+	davem@davemloft.net, jg1.han@samsung.com, jonas.jensen@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f179.google.com ([209.85.220.179]:38919 "EHLO
-	mail-vc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689Ab3IYHc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 03:32:56 -0400
-Received: by mail-vc0-f179.google.com with SMTP id ht10so4012045vcb.38
-        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 00:32:55 -0700 (PDT)
+Received: from mail-bk0-f48.google.com ([209.85.214.48]:54724 "EHLO
+	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146Ab3IYHda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 03:33:30 -0400
+Received: by mail-bk0-f48.google.com with SMTP id my13so2077192bkb.7
+        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 00:33:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am getting kernel panics in the 3.5.0 kernel (and 2.6.39) when
-sending Ethernet frames using allocated SKBs passed to
-dev_queue_xmit() from a kernel module.  I have trimmed the problem to
-a very small module that continually sends the same (captured and
-verified) frame from one net_device.  The frames are sent without a
-socket in I believe the same way that net/ipv4/arp.c creates and sends
-them.  The panic can occur after a few seconds or a few minutes, but
-always occurs.  It is USUALLY a "kernel NULL pointer dereference" and
-USUALLY occurs within __kfree_skb(), but both the error and the
-location can vary.  I have not been successful in capturing a complete
-oops message.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-There is a GitHub repository with the module, a makefile, and more
-notes about how I have tested and what I have tried at
-https://github.com/me-the-wizard/ksend
+irq allocated with devm_request_irq should not be freed using
+free_irq, because doing so causes a dangling pointer, and a
+subsequent double free.
 
-I do not know if there is something I am doing wrong with the SKBs or
-if I have stumbled upon a bug in the kernel.  After weeks of attempts
-I believe I have reached the limit of my ability to figure this out.
-Can anyone offer some guidance?
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/moxa/moxart_ether.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thank you,
-Merlin
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 83c2091..9a7fcb5 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -531,7 +531,6 @@ static int moxart_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 
+ 	unregister_netdev(ndev);
+-	free_irq(ndev->irq, ndev);
+ 	moxart_mac_free_memory(ndev);
+ 	free_netdev(ndev);
+ 
