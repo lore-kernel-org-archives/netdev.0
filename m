@@ -1,128 +1,78 @@
-From: Kumar Gala <galak@codeaurora.org>
-Subject: Re: [PATCH v2] powerpc/83xx: gianfar_ptp: select 1588 clock source through dts file
-Date: Wed, 25 Sep 2013 14:38:12 -0500
-Message-ID: <9B020778-D8FB-4D71-9647-4D1505DCAE1E@codeaurora.org>
-References: <1380093863-5388-1-git-send-email-aida.mynzhasova@skitlab.ru>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linuxppc-dev@lists.ozlabs.org, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, richardcochran@gmail.com
-To: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:58188 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754503Ab3IYTiR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 15:38:17 -0400
-In-Reply-To: <1380093863-5388-1-git-send-email-aida.mynzhasova@skitlab.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 09/11] mwifiex: Remove extern from function prototypes
+Date: Wed, 25 Sep 2013 12:37:27 -0700
+Message-ID: <b3a7cd194857b3dc099e8f8bb0ed97bb4a1b5fde.1380137610.git.joe@perches.com>
+References: <cover.1380137609.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Bing Zhao <bzhao@marvell.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1380137609.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+There are a mix of function prototypes with and without extern
+in the kernel sources.  Standardize on not using extern for
+function prototypes.
 
-On Sep 25, 2013, at 2:24 AM, Aida Mynzhasova wrote:
+Function prototypes don't need to be written with extern.
+extern is assumed by the compiler.  Its use is as unnecessary as
+using auto to declare automatic/local variables in a block.
 
-> Currently IEEE 1588 timer reference clock source is determined through
-> hard-coded value in gianfar_ptp driver. This patch allows to select ptp
-> clock source by means of device tree file node.
-> 
-> For instance:
-> 
-> 	fsl,cksel = <0>;
-> 
-> for using external (TSEC_TMR_CLK input) high precision timer
-> reference clock.
-> 
-> Other acceptable values:
-> 
-> 	<1> : eTSEC system clock
-> 	<2> : eTSEC1 transmit clock
-> 	<3> : RTC clock input
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/mwifiex/wmm.h | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
-Do these value match some register field to select which clk?  If so please add that to the document.
-
-- k
-
-> 
-> When this attribute isn't used, eTSEC system clock will serve as
-> IEEE 1588 timer reference clock.
-> 
-> Signed-off-by: Aida Mynzhasova <aida.mynzhasova@skitlab.ru>
-> ---
-> Documentation/devicetree/bindings/net/fsl-tsec-phy.txt | 16 +++++++++++++++-
-> drivers/net/ethernet/freescale/gianfar_ptp.c           |  4 +++-
-> 2 files changed, 18 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-> index 2c6be03..eb06059 100644
-> --- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-> +++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-> @@ -86,6 +86,7 @@ General Properties:
-> 
-> Clock Properties:
-> 
-> +  - fsl,cksel        Timer reference clock source.
->   - fsl,tclk-period  Timer reference clock period in nanoseconds.
->   - fsl,tmr-prsc     Prescaler, divides the output clock.
->   - fsl,tmr-add      Frequency compensation value.
-> @@ -97,7 +98,7 @@ Clock Properties:
->   clock. You must choose these carefully for the clock to work right.
->   Here is how to figure good values:
-> 
-> -  TimerOsc     = system clock               MHz
-> +  TimerOsc     = selected reference clock   MHz
->   tclk_period  = desired clock period       nanoseconds
->   NominalFreq  = 1000 / tclk_period         MHz
->   FreqDivRatio = TimerOsc / NominalFreq     (must be greater that 1.0)
-> @@ -114,6 +115,18 @@ Clock Properties:
->   Pulse Per Second (PPS) signal, since this will be offered to the PPS
->   subsystem to synchronize the Linux clock.
-> 
-> +  "fsl,cksel" property allows to select different reference clock
-> +  sources:
-> +
-> +  <0> - external high precision timer reference clock (TSEC_TMR_CLK
-> +        input is used for this purpose);
-> +  <1> - eTSEC system clock;
-> +  <2> - eTSEC1 transmit clock;
-> +  <3> - RTC clock input.
-> +
-> +  When this attribute is not used, eTSEC system clock will serve as
-> +  IEEE 1588 timer reference clock.
-> +
-> Example:
-> 
-> 	ptp_clock@24E00 {
-> @@ -121,6 +134,7 @@ Example:
-> 		reg = <0x24E00 0xB0>;
-> 		interrupts = <12 0x8 13 0x8>;
-> 		interrupt-parent = < &ipic >;
-> +		fsl,cksel       = <1>;
-> 		fsl,tclk-period = <10>;
-> 		fsl,tmr-prsc    = <100>;
-> 		fsl,tmr-add     = <0x999999A4>;
-> diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-> index 098f133..e006a09 100644
-> --- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-> +++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-> @@ -452,7 +452,9 @@ static int gianfar_ptp_probe(struct platform_device *dev)
-> 	err = -ENODEV;
-> 
-> 	etsects->caps = ptp_gianfar_caps;
-> -	etsects->cksel = DEFAULT_CKSEL;
-> +
-> +	if (get_of_u32(node, "fsl,cksel", &etsects->cksel))
-> +		etsects->cksel = DEFAULT_CKSEL;
-> 
-> 	if (get_of_u32(node, "fsl,tclk-period", &etsects->tclk_period) ||
-> 	    get_of_u32(node, "fsl,tmr-prsc", &etsects->tmr_prsc) ||
-> -- 
-> 1.8.1.2
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+diff --git a/drivers/net/wireless/mwifiex/wmm.h b/drivers/net/wireless/mwifiex/wmm.h
+index 644d6e0..0f129d4 100644
+--- a/drivers/net/wireless/mwifiex/wmm.h
++++ b/drivers/net/wireless/mwifiex/wmm.h
+@@ -83,11 +83,10 @@ mwifiex_wmm_is_ra_list_empty(struct list_head *ra_list_hhead)
+ }
+ 
+ void mwifiex_wmm_add_buf_txqueue(struct mwifiex_private *priv,
+-					struct sk_buff *skb);
++				 struct sk_buff *skb);
+ void mwifiex_ralist_add(struct mwifiex_private *priv, u8 *ra);
+ void mwifiex_rotate_priolists(struct mwifiex_private *priv,
+-			      struct mwifiex_ra_list_tbl *ra,
+-			      int tid);
++			      struct mwifiex_ra_list_tbl *ra, int tid);
+ 
+ int mwifiex_wmm_lists_empty(struct mwifiex_adapter *adapter);
+ void mwifiex_wmm_process_tx(struct mwifiex_adapter *adapter);
+@@ -95,21 +94,18 @@ int mwifiex_is_ralist_valid(struct mwifiex_private *priv,
+ 			    struct mwifiex_ra_list_tbl *ra_list, int tid);
+ 
+ u8 mwifiex_wmm_compute_drv_pkt_delay(struct mwifiex_private *priv,
+-					     const struct sk_buff *skb);
++				     const struct sk_buff *skb);
+ void mwifiex_wmm_init(struct mwifiex_adapter *adapter);
+ 
+-extern u32 mwifiex_wmm_process_association_req(struct mwifiex_private *priv,
+-						 u8 **assoc_buf,
+-						 struct ieee_types_wmm_parameter
+-						 *wmmie,
+-						 struct ieee80211_ht_cap
+-						 *htcap);
++u32 mwifiex_wmm_process_association_req(struct mwifiex_private *priv,
++					u8 **assoc_buf,
++					struct ieee_types_wmm_parameter *wmmie,
++					struct ieee80211_ht_cap *htcap);
+ 
+ void mwifiex_wmm_setup_queue_priorities(struct mwifiex_private *priv,
+-					struct ieee_types_wmm_parameter
+-					*wmm_ie);
++					struct ieee_types_wmm_parameter *wmm_ie);
+ void mwifiex_wmm_setup_ac_downgrade(struct mwifiex_private *priv);
+-extern int mwifiex_ret_wmm_get_status(struct mwifiex_private *priv,
+-				      const struct host_cmd_ds_command *resp);
++int mwifiex_ret_wmm_get_status(struct mwifiex_private *priv,
++			       const struct host_cmd_ds_command *resp);
+ 
+ #endif /* !_MWIFIEX_WMM_H_ */
 -- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
+1.8.1.2.459.gbcd45b4.dirty
