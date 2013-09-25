@@ -1,99 +1,141 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v3 1/2] dev: update __dev_notify_flags() to send rtnl msg
-Date: Wed, 25 Sep 2013 12:02:44 +0200
-Message-ID: <1380103365-5185-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20130924094707.41641042@nehalam.linuxnetplumber.net>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: stephen@networkplumber.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v5 5/6] bonding: remove the counter and simplify
+ bond_for_each_slave_from()
+Date: Wed, 25 Sep 2013 12:10:17 +0200
+Message-ID: <20130925101016.GA23575@redhat.com>
+References: <5242B25F.7020505@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:36474 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750832Ab3IYKC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 06:02:57 -0400
-In-Reply-To: <20130924094707.41641042@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:10849 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754790Ab3IYKMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 06:12:13 -0400
+Content-Disposition: inline
+In-Reply-To: <5242B25F.7020505@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch only prepares the next one, there is no functional change.
-Now, __dev_notify_flags() can also be used to notify flags changes via
-rtnetlink.
+On Wed, Sep 25, 2013 at 05:52:31PM +0800, Ding Tianhong wrote:
+>Restructure the bond_for_each_slave_from(),
+>remove the checking for bond->slave_cnt,
+>make the new loop be more simple and racy.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+The whole bond_for_each_slave_from() should be removed and replaced with a
+standard bond_for_each_slave() - which is already in the process:
 
-v3: add patch #1
-    use __dev_notify_flags() to notify rxflags (note that notifier chains are
-    not called when flags IFF_PROMISC and IFF_ALLMULTI are changed)
+http://patchwork.ozlabs.org/patch/277701/
+http://patchwork.ozlabs.org/patch/277717/
+http://patchwork.ozlabs.org/patch/277716/
+http://patchwork.ozlabs.org/patch/277702/
+http://patchwork.ozlabs.org/patch/277703/
 
-v2: rework the patch to avoid double notification
+After that we're ready to use the standard and less painful
+list_for_each_entry() analogue - bond_for_each_slave() - which can
+afterwards be easily RCUified by just replacing bond_for_each_slave() with
+bond_for_each_slave_rcu().
 
- include/linux/netdevice.h |  4 +++-
- net/core/dev.c            | 11 ++++++-----
- net/core/rtnetlink.c      |  3 +--
- 3 files changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3de49aca4519..4466db0cb673 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2368,7 +2368,9 @@ extern int		dev_ethtool(struct net *net, struct ifreq *);
- extern unsigned int	dev_get_flags(const struct net_device *);
- extern int		__dev_change_flags(struct net_device *, unsigned int flags);
- extern int		dev_change_flags(struct net_device *, unsigned int);
--extern void		__dev_notify_flags(struct net_device *, unsigned int old_flags);
-+void			__dev_notify_flags(struct net_device *,
-+					   unsigned int old_flags,
-+					   unsigned int gchanges);
- extern int		dev_change_name(struct net_device *, const char *);
- extern int		dev_set_alias(struct net_device *, const char *, size_t);
- extern int		dev_change_net_namespace(struct net_device *,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5c713f2239cc..1222309feeaa 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5069,10 +5069,14 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
- 	return ret;
- }
- 
--void __dev_notify_flags(struct net_device *dev, unsigned int old_flags)
-+void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
-+			unsigned int gchanges)
- {
- 	unsigned int changes = dev->flags ^ old_flags;
- 
-+	if (gchanges)
-+		rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges);
-+
- 	if (changes & IFF_UP) {
- 		if (dev->flags & IFF_UP)
- 			call_netdevice_notifiers(NETDEV_UP, dev);
-@@ -5108,10 +5112,7 @@ int dev_change_flags(struct net_device *dev, unsigned int flags)
- 		return ret;
- 
- 	changes = old_flags ^ dev->flags;
--	if (changes)
--		rtmsg_ifinfo(RTM_NEWLINK, dev, changes);
--
--	__dev_notify_flags(dev, old_flags);
-+	__dev_notify_flags(dev, old_flags, changes);
- 	return ret;
- }
- EXPORT_SYMBOL(dev_change_flags);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2a0e21de3060..4aedf03da052 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1647,9 +1647,8 @@ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
- 	}
- 
- 	dev->rtnl_link_state = RTNL_LINK_INITIALIZED;
--	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
- 
--	__dev_notify_flags(dev, old_flags);
-+	__dev_notify_flags(dev, old_flags, ~0U);
- 	return 0;
- }
- EXPORT_SYMBOL(rtnl_configure_link);
--- 
-1.8.2.1
+>
+>Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>---
+> drivers/net/bonding/bond_alb.c  | 3 +--
+> drivers/net/bonding/bond_main.c | 6 ++----
+> drivers/net/bonding/bonding.h   | 6 +++---
+> 3 files changed, 6 insertions(+), 9 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index f428ef57..4813dc6 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -383,7 +383,6 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> 	struct slave *rx_slave, *slave, *start_at;
+>-	int i = 0;
+>
+> 	if (bond_info->next_rx_slave)
+> 		start_at = bond_info->next_rx_slave;
+>@@ -392,7 +391,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+>
+> 	rx_slave = NULL;
+>
+>-	bond_for_each_slave_from(bond, slave, i, start_at) {
+>+	bond_for_each_slave_from(bond, slave, start_at) {
+> 		if (SLAVE_IS_OK(slave)) {
+> 			if (!rx_slave) {
+> 				rx_slave = slave;
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 55bbb8b..fbe25bc 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -782,7 +782,6 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+> 	struct slave *new_active, *old_active;
+> 	struct slave *bestslave = NULL;
+> 	int mintime = bond->params.updelay;
+>-	int i;
+>
+> 	new_active = bond->curr_active_slave;
+>
+>@@ -801,7 +800,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+> 	/* remember where to stop iterating over the slaves */
+> 	old_active = new_active;
+>
+>-	bond_for_each_slave_from(bond, new_active, i, old_active) {
+>+	bond_for_each_slave_from(bond, new_active, old_active) {
+> 		if (new_active->link == BOND_LINK_UP) {
+> 			return new_active;
+> 		} else if (new_active->link == BOND_LINK_BACK &&
+>@@ -2756,7 +2755,6 @@ do_failover:
+> static void bond_ab_arp_probe(struct bonding *bond)
+> {
+> 	struct slave *slave, *next_slave;
+>-	int i;
+>
+> 	read_lock(&bond->curr_slave_lock);
+>
+>@@ -2788,7 +2786,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
+>
+> 	/* search for next candidate */
+> 	next_slave = bond_next_slave(bond, bond->current_arp_slave);
+>-	bond_for_each_slave_from(bond, slave, i, next_slave) {
+>+	bond_for_each_slave_from(bond, slave, next_slave) {
+> 		if (IS_UP(slave->dev)) {
+> 			slave->link = BOND_LINK_BACK;
+> 			bond_set_slave_active_flags(slave);
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index eb36f57..e5734ad 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -130,9 +130,9 @@
+>  *
+>  * Caller must hold bond->lock
+>  */
+>-#define bond_for_each_slave_from(bond, pos, cnt, start) \
+>-	for (cnt = 0, pos = start; pos && cnt < (bond)->slave_cnt; \
+>-	     cnt++, pos = bond_next_slave(bond, pos))
+>+#define bond_for_each_slave_from(bond, pos, start) \
+>+	for (pos = start; pos; (pos = bond_next_slave(bond, pos)) != start ? \
+>+	    (pos) : (pos = NULL))
+>
+> /**
+>  * bond_for_each_slave - iterate over all slaves
+>-- 
+>1.8.0
+>
+>
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
