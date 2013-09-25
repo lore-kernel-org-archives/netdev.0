@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v5 net-next 07/27] net: add for_each iterators through neighbour lower link's private
-Date: Wed, 25 Sep 2013 09:20:12 +0200
-Message-ID: <1380093632-1842-8-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v5 net-next 04/27] net: add netdev_adjacent->private and allow to use it
+Date: Wed, 25 Sep 2013 09:20:09 +0200
+Message-ID: <1380093632-1842-5-git-send-email-vfalico@redhat.com>
 References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,19 +9,25 @@ Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
 	Alexander Duyck <alexander.h.duyck@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35079 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5936 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752844Ab3IYHUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 03:20:41 -0400
+	id S1752755Ab3IYHUg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Sep 2013 03:20:36 -0400
 In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a possibility to iterate through netdev_adjacent's private, currently
-only for lower neighbours.
+Currently, even though we can access any linked device, we can't attach
+anything to it, which is vital to properly manage them.
 
-Add both RCU and RTNL/other locking variants of iterators, and make the
-non-rcu variant to be safe from removal.
+To fix this, add a new void *private to netdev_adjacent and functions
+setting/getting it (per link), so that we can save, per example, bonding's
+slave structures there, per slave device.
+
+netdev_master_upper_dev_link_private(dev, upper_dev, private) links dev to
+upper dev and populates the neighbour link only with private.
+
+netdev_lower_dev_get_private{,_rcu}() returns the private, if found.
 
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
@@ -35,8 +41,7 @@ Notes:
     No change.
     
     v3  -> v4:
-    Make netdev_for_each_lower_private() be safe for the entry removal, by
-    storing the ->next pointer in iter.
+    No change.
     
     v2  -> v3:
     No change.
@@ -47,119 +52,196 @@ Notes:
     RFC -> v1:
     rename neighbour_dev_list/all_dev_list to adj_list/all_adj_list and rework
     the naming of functions - to make the use the pattern
-    netdev_(all_)(lower|upper)_* . Also reword the commit message - I had to
-    read it three times to understand :-/, and move it closer to the beginning
-    of the patchset.
+    netdev_(all_)(lower|upper)_* .
 
- include/linux/netdevice.h | 17 ++++++++++++++
- net/core/dev.c            | 60 ++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 76 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h |  7 +++++
+ net/core/dev.c            | 68 +++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 64 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 75d5bea..168974e 100644
+index 514045c..75d5bea 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2833,6 +2833,23 @@ extern struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *d
- 	     updev; \
- 	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)))
- 
-+extern void *netdev_lower_get_next_private(struct net_device *dev,
-+					   struct list_head **iter);
-+extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
-+					       struct list_head **iter);
-+
-+#define netdev_for_each_lower_private(dev, priv, iter) \
-+	for (iter = (dev)->adj_list.lower.next, \
-+	     priv = netdev_lower_get_next_private(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_private(dev, &(iter)))
-+
-+#define netdev_for_each_lower_private_rcu(dev, priv, iter) \
-+	for (iter = &(dev)->adj_list.lower, \
-+	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
-+
- extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- extern int netdev_upper_dev_link(struct net_device *dev,
+@@ -2839,8 +2839,15 @@ extern int netdev_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev);
+ extern int netdev_master_upper_dev_link(struct net_device *dev,
+ 					struct net_device *upper_dev);
++extern int netdev_master_upper_dev_link_private(struct net_device *dev,
++						struct net_device *upper_dev,
++						void *private);
+ extern void netdev_upper_dev_unlink(struct net_device *dev,
+ 				    struct net_device *upper_dev);
++extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++					      struct net_device *lower_dev);
++extern void *netdev_lower_dev_get_private(struct net_device *dev,
++					  struct net_device *lower_dev);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features, bool tx_path);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index c69ab74..0aa844a 100644
+index 9290f09..c69ab74 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4466,7 +4466,8 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+@@ -4376,6 +4376,9 @@ struct netdev_adjacent {
+ 	/* counter for the number of times this device was added to us */
+ 	u16 ref_nr;
+ 
++	/* private field for the users */
++	void *private;
++
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ };
+@@ -4510,7 +4513,7 @@ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+ 					struct list_head *dev_list,
+-					bool master)
++					void *private, bool master)
+ {
+ 	struct netdev_adjacent *adj;
+ 
+@@ -4528,6 +4531,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj->dev = adj_dev;
+ 	adj->master = master;
+ 	adj->ref_nr = 1;
++	adj->private = private;
+ 	dev_hold(adj_dev);
+ 
+ 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
+@@ -4574,15 +4578,17 @@ int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ 				     struct net_device *upper_dev,
+ 				     struct list_head *up_list,
+ 				     struct list_head *down_list,
+-				     bool master)
++				     void *private, bool master)
+ {
+ 	int ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, master);
++	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
++					   master);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, false);
++	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
++					   false);
+ 	if (ret) {
+ 		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
+ 		return ret;
+@@ -4597,7 +4603,7 @@ int __netdev_adjacent_dev_link(struct net_device *dev,
+ 	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 						&dev->all_adj_list.upper,
+ 						&upper_dev->all_adj_list.lower,
+-						false);
++						NULL, false);
  }
- EXPORT_SYMBOL(netdev_master_upper_dev_get);
  
--/* netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-+/**
-+ * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-  * @dev: device
-  * @iter: list_head ** of the current position
-  *
-@@ -4492,6 +4493,63 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
- EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
+ void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
+@@ -4619,7 +4625,7 @@ void __netdev_adjacent_dev_unlink(struct net_device *dev,
  
+ int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 					 struct net_device *upper_dev,
+-					 bool master)
++					 void *private, bool master)
+ {
+ 	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
+ 
+@@ -4629,7 +4635,7 @@ int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 					       &dev->adj_list.upper,
+ 					       &upper_dev->adj_list.lower,
+-					       master);
++					       private, master);
+ 	if (ret) {
+ 		__netdev_adjacent_dev_unlink(dev, upper_dev);
+ 		return ret;
+@@ -4648,7 +4654,8 @@ void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
+ }
+ 
+ static int __netdev_upper_dev_link(struct net_device *dev,
+-				   struct net_device *upper_dev, bool master)
++				   struct net_device *upper_dev, bool master,
++				   void *private)
+ {
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+ 	int ret = 0;
+@@ -4668,7 +4675,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (master && netdev_master_upper_dev_get(dev))
+ 		return -EBUSY;
+ 
+-	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, master);
++	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
++						   master);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -4759,7 +4767,7 @@ rollback_mesh:
+ int netdev_upper_dev_link(struct net_device *dev,
+ 			  struct net_device *upper_dev)
+ {
+-	return __netdev_upper_dev_link(dev, upper_dev, false);
++	return __netdev_upper_dev_link(dev, upper_dev, false, NULL);
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_link);
+ 
+@@ -4777,10 +4785,18 @@ EXPORT_SYMBOL(netdev_upper_dev_link);
+ int netdev_master_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev)
+ {
+-	return __netdev_upper_dev_link(dev, upper_dev, true);
++	return __netdev_upper_dev_link(dev, upper_dev, true, NULL);
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_link);
+ 
++int netdev_master_upper_dev_link_private(struct net_device *dev,
++					 struct net_device *upper_dev,
++					 void *private)
++{
++	return __netdev_upper_dev_link(dev, upper_dev, true, private);
++}
++EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
++
  /**
-+ * netdev_lower_get_next_private - Get the next ->private from the
-+ *				   lower neighbour list
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold either hold the
-+ * RTNL lock or its own locking that guarantees that the neighbour lower
-+ * list will remain unchainged.
-+ */
-+void *netdev_lower_get_next_private(struct net_device *dev,
-+				    struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_entry(*iter, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	if (iter)
-+		*iter = lower->list.next;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_next_private);
-+
-+/**
-+ * netdev_lower_get_next_private_rcu - Get the next ->private from the
-+ *				       lower neighbour list, RCU
-+ *				       variant
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent->private from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold RCU read lock.
-+ */
-+void *netdev_lower_get_next_private_rcu(struct net_device *dev,
-+					struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	if (iter)
-+		*iter = &lower->list;
-+
-+	return lower->private;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
-+
-+/**
-  * netdev_master_upper_dev_get_rcu - Get master upper device
+  * netdev_upper_dev_unlink - Removes a link to upper device
   * @dev: device
-  *
+@@ -4818,6 +4834,36 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
++void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++				       struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_find_adj_rcu(dev, lower_dev, &dev->adj_list.lower);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private_rcu);
++
++void *netdev_lower_dev_get_private(struct net_device *dev,
++				   struct net_device *lower_dev)
++{
++	struct netdev_adjacent *lower;
++
++	if (!lower_dev)
++		return NULL;
++	lower = __netdev_find_adj(dev, lower_dev, &dev->adj_list.lower);
++	if (!lower)
++		return NULL;
++
++	return lower->private;
++}
++EXPORT_SYMBOL(netdev_lower_dev_get_private);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.8.4
