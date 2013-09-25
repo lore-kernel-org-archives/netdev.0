@@ -1,28 +1,86 @@
-From: <BarrettDavis@robertwill.onmicrosoft.com>
-Subject: Let the moment last as much as you want.
-Date: Wed, 25 Sep 2013 06:44:25 +0000
-Message-ID: <515de19c-7936-4dd0-bcc3-9eed96a9092b@DBXPR01MB046.eurprd01.prod.exchangelabs.com>
-Mime-Version: 1.1
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.103]:60240
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750822Ab3IYGo2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 02:44:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
+ specify an ip address to be primary or secondary ip on an interface
+Date: Wed, 25 Sep 2013 10:08:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1309250925240.1971@ja.ssi.bg>
+References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com> <alpine.LFD.2.00.1309242255350.1875@ja.ssi.bg> <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Vincent Li <vincent.mc.li@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-		Dear Customer,
+	Hello,
 
-Sometimes things happen much quicker than you would love to.
+On Tue, 24 Sep 2013, Vincent Li wrote:
 
-Let the moment last as much as you want.
+> Thanks Julian for the comments, I imagined it would not be so simple
+> as it changed old behavior with ip binary and some actions in
+> __inet_del_ifa() that I am not fully aware of. my intention is to
+> preserve the old behavior and extend the flexibility, I am unable to
+> come up with a good patch to achieve the intended behavior.
 
-http://translate.googleusercontent.com/translate_c?depth=1&hl=auto&sl=de&url=www.google.dk&u=http://onlineshop57.yolasite.com/store&usg=ALkJrhjsEp2wEy6D4p3zB8y4lFpDcS7xmg
+...
 
-Best Regards, 
-		
+> if someone can point me to the right patch directions or coming up
+> with better patches, it is very much appreciated.
+
+	My first idea was to use NLM_F_APPEND to implement
+'ip addr prepend' and 'ip addr append' but the default
+operation is 'append' without providing NLM_F_APPEND, so it
+does not work.
+
+	Another idea is to add new attribute IFA_PREFERENCE in
+include/uapi/linux/if_addr.h just before __IFA_MAX, integer,
+3 of the values are known. A preference for the used scope.
+
+/* Add as last, default */
+IFA_PREFERENCE_APPEND = 0,
+
+/* Add as last primary, before any present primary in subnet */
+IFA_PREFERENCE_PRIMARY = 128,
+
+/* First for scope */
+IFA_PREFERENCE_FIRST = 255,
+
+	We should keep it in ifa as priority, for
+sorting purposes. It can be 4-byte value, if user wants
+to copy user-defined order into preference.
+
+	Sorting order should be:
+
+- all primaries sorted by decreasing scope, decreasing
+priority and adding order
+
+- then all secondaries (IFA_F_SECONDARY) sorted by decreasing
+priority and adding order
+
+	Usage:
+
+ip addr add ... pref[erence] type_or_priority
+
+# Add floating IP (append at priority 128)
+# The primary mode is not guaranteed if another address from
+# the same subnet is already using the same or higher priority.
+ip addr add ... pref primary
+# More preferred primary
+ip addr add ... pref 129
+
+# Add first IP for scope
+ip addr add ... pref first
+
+	The scope has similar 'sorting' property but not
+for IPs in same subnet and it would be difficult to use
+it for global routes.
+
+	Thoughts?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
