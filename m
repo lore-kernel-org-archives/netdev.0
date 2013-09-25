@@ -1,51 +1,50 @@
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Subject: [PATCH] hamradio: baycom: remove deprecated IRQF_DISABLED
-Date: Wed, 25 Sep 2013 20:17:45 +0200
-Message-ID: <1380133065-13712-1-git-send-email-michael.opdenacker@free-electrons.com>
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Michael Opdenacker <michael.opdenacker@free-electrons.com>
-To: t.sailer@alumni.ethz.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Kernel Panic Sending Frames Using dev_queue_xmit()
+Date: Wed, 25 Sep 2013 19:19:34 +0100
+Message-ID: <1380133174.2222.13.camel@bwh-desktop.uk.level5networks.com>
+References: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Merlin Davis <me.the.wizard@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:57273 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754459Ab3IYSTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 14:19:37 -0400
+In-Reply-To: <CAFu7c2V+gubfzG4HdWtPWJ-w2x3J-RToUT2mdahcKSgn66fDzg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch proposes to remove the IRQF_DISABLED flag
-from drivers/net/hamradio/baycom_*
+On Wed, 2013-09-25 at 00:32 -0700, Merlin Davis wrote:
+> I am getting kernel panics in the 3.5.0 kernel (and 2.6.39) when
+> sending Ethernet frames using allocated SKBs passed to
+> dev_queue_xmit() from a kernel module.  I have trimmed the problem to
+> a very small module that continually sends the same (captured and
+> verified) frame from one net_device.  The frames are sent without a
+> socket in I believe the same way that net/ipv4/arp.c creates and sends
+> them.  The panic can occur after a few seconds or a few minutes, but
+> always occurs.  It is USUALLY a "kernel NULL pointer dereference" and
+> USUALLY occurs within __kfree_skb(), but both the error and the
+> location can vary.  I have not been successful in capturing a complete
+> oops message.
+> 
+> There is a GitHub repository with the module, a makefile, and more
+> notes about how I have tested and what I have tried at
+> https://github.com/me-the-wizard/ksend
+>
+> I do not know if there is something I am doing wrong with the SKBs or
+> if I have stumbled upon a bug in the kernel.  After weeks of attempts
+> I believe I have reached the limit of my ability to figure this out.
+> Can anyone offer some guidance?
 
-It's a NOOP since 2.6.35 and it will be removed one day.
+You are more likely to get help if you include the code in your email
+rather than linking to it.
 
-Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
----
- drivers/net/hamradio/baycom_ser_fdx.c | 2 +-
- drivers/net/hamradio/baycom_ser_hdx.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Ben.
 
-diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
-index a974727..636b65c 100644
---- a/drivers/net/hamradio/baycom_ser_fdx.c
-+++ b/drivers/net/hamradio/baycom_ser_fdx.c
-@@ -445,7 +445,7 @@ static int ser12_open(struct net_device *dev)
- 	outb(0, FCR(dev->base_addr));  /* disable FIFOs */
- 	outb(0x0d, MCR(dev->base_addr));
- 	outb(0, IER(dev->base_addr));
--	if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED | IRQF_SHARED,
-+	if (request_irq(dev->irq, ser12_interrupt, IRQF_SHARED,
- 			"baycom_ser_fdx", dev)) {
- 		release_region(dev->base_addr, SER12_EXTENT);
- 		return -EBUSY;
-diff --git a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
-index e349d86..f9a8976 100644
---- a/drivers/net/hamradio/baycom_ser_hdx.c
-+++ b/drivers/net/hamradio/baycom_ser_hdx.c
-@@ -490,7 +490,7 @@ static int ser12_open(struct net_device *dev)
- 	outb(0, FCR(dev->base_addr));  /* disable FIFOs */
- 	outb(0x0d, MCR(dev->base_addr));
- 	outb(0, IER(dev->base_addr));
--	if (request_irq(dev->irq, ser12_interrupt, IRQF_DISABLED | IRQF_SHARED,
-+	if (request_irq(dev->irq, ser12_interrupt, IRQF_SHARED,
- 			"baycom_ser12", dev)) {
- 		release_region(dev->base_addr, SER12_EXTENT);       
- 		return -EBUSY;
 -- 
-1.8.1.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
