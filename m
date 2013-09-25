@@ -1,46 +1,28 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net 2/2] ip_tunnel: Add fallback tunnels to the hash lists
-Date: Wed, 25 Sep 2013 07:55:19 +0200
-Message-ID: <20130925055519.GW7660@secunet.com>
-References: <20130925055418.GV7660@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: <BarrettDavis@robertwill.onmicrosoft.com>
+Subject: Let the moment last as much as you want.
+Date: Wed, 25 Sep 2013 06:44:25 +0000
+Message-ID: <515de19c-7936-4dd0-bcc3-9eed96a9092b@DBXPR01MB046.eurprd01.prod.exchangelabs.com>
+Mime-Version: 1.1
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49293 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751135Ab3IYFzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Sep 2013 01:55:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20130925055418.GV7660@secunet.com>
+Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.103]:60240
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750822Ab3IYGo2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 02:44:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we can not update the tunnel parameters of
-the fallback tunnels because we don't find them in the
-hash lists. Fix this by adding them on initialization.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/ip_tunnel.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+		Dear Customer,
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index b8ce640..f2348f2 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -853,8 +853,10 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
- 	/* FB netdevice is special: we have one, and only one per netns.
- 	 * Allowing to move it to another netns is clearly unsafe.
- 	 */
--	if (!IS_ERR(itn->fb_tunnel_dev))
-+	if (!IS_ERR(itn->fb_tunnel_dev)) {
- 		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+		ip_tunnel_add(itn, netdev_priv(itn->fb_tunnel_dev));
-+	}
- 	rtnl_unlock();
- 
- 	return PTR_RET(itn->fb_tunnel_dev);
--- 
-1.7.9.5
+Sometimes things happen much quicker than you would love to.
+
+Let the moment last as much as you want.
+
+http://translate.googleusercontent.com/translate_c?depth=1&hl=auto&sl=de&url=www.google.dk&u=http://onlineshop57.yolasite.com/store&usg=ALkJrhjsEp2wEy6D4p3zB8y4lFpDcS7xmg
+
+Best Regards, 
+		
