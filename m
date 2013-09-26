@@ -1,57 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sh_eth: NAPI requires netif_receive_skb()
-Date: Thu, 26 Sep 2013 09:59:19 -0700
-Message-ID: <1380214759.3165.201.camel@edumazet-glaptop>
-References: <201309030303.11381.sergei.shtylyov@cogentembedded.com>
-	 <20130904.141252.532474080722830977.davem@davemloft.net>
-	 <Pine.LNX.4.64.1309261751200.11968@axis700.grange>
+From: David Miller <davem@redhat.com>
+Subject: Re: rx_dropped count for USB ethernet interfaces
+Date: Thu, 26 Sep 2013 13:21:25 -0400 (EDT)
+Message-ID: <20130926.132125.1343558938307288175.davem@redhat.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B735B@saturn3.aculab.com>
+	<20130925.144640.1661224048195310923.davem@davemloft.net>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B735E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1309261751200.11968@axis700.grange>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14687 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753827Ab3IZRVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 13:21:30 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B735E@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-26 at 18:12 +0200, Guennadi Liakhovetski wrote:
-> Hi
-> 
-> On Wed, 4 Sep 2013, David Miller wrote:
-> 
-> > From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> > Date: Tue, 3 Sep 2013 03:03:10 +0400
-> > 
-> > > Driver supporting NAPI should use NAPI-specific function for receiving packets,
-> > > so netif_rx() should be changed to netif_receive_skb().
-> > > 
-> > > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> This patch breaks NFS boot on Armadillo800eva for me. Network 
-> communication slows down to a crawl with
-> 
-> net eth0: Receive FIFO Overflow
-> nfs: server 192.168.x.y not responding, still trying
-> 
-> With this patch reverted (e.g. in today's Linus tree snapshot) boot is 
-> restored.
+From: "David Laight" <David.Laight@ACULAB.COM>
+Date: Thu, 26 Sep 2013 10:32:24 +0100
 
-RX_RING_SIZE is 64
+> It isn't exactly useful behaviour though.
 
-This driver refills the Rx ring buffers only _after_ the loop to drain
-ready buffers. This was OK with the previous behavior (netif_rx() is
-damn fast)
+In your opinion.
 
-With this low amount of buffers, underrun can happen with the new code,
-as netif_receive_skb() adds delay during the drain.
+We have tracepoints for people who want more fine grained drops
+in these kinds of situations.
 
-Most likely driver needs to refill buffers one by one (or small batches)
-instead of in one go after the drain.
-
-
-
-
-
+Also, the behavior of this statistic has existed for more than a
+decade so changing it is really not in the cards.  Therefore any
+discussion about what would have been the best samentic to choose from
+the beginning is moot.
