@@ -1,109 +1,176 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 6/7] tcp: switch tcp_fastopen key generation to net_get_random_once
-Date: Fri, 27 Sep 2013 01:32:22 +0200
-Message-ID: <1380238343-4318-7-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next 2/7] ipv6: split inet6_ehashfn to hash functions per compilation unit
+Date: Fri, 27 Sep 2013 01:32:18 +0200
+Message-ID: <1380238343-4318-3-git-send-email-hannes@stressinduktion.org>
 References: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Yuchung Cheng <ycheng@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54012 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:53997 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752961Ab3IZXcf (ORCPT
+	with ESMTP id S1752125Ab3IZXcf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:32:35 -0400
 In-Reply-To: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changed key initialization of tcp_fastopen cookies to net_get_random_once.
+This patch splits the inet6_ehashfn into separate ones in
+ipv6/inet6_hashtables.o and ipv6/udp.o.
 
-If the user sets a custom key net_get_random_once must be called at
-least once to ensure we don't overwrite the user provided key when the
-first cookie is generated later on.
-
-Cc: Yuchung Cheng <ycheng@google.com>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/tcp.h          |  2 +-
- net/ipv4/sysctl_net_ipv4.c |  5 +++++
- net/ipv4/tcp_fastopen.c    | 21 ++++++++++-----------
- 3 files changed, 16 insertions(+), 12 deletions(-)
+ include/net/inet6_hashtables.h | 29 +++++++----------------------
+ include/net/ipv6.h             |  4 ++--
+ net/ipv6/inet6_hashtables.c    | 25 +++++++++++++++++++++++++
+ net/ipv6/udp.c                 | 20 ++++++++++++++++----
+ 4 files changed, 50 insertions(+), 28 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9299560..2a26100 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1322,7 +1322,7 @@ extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- int tcp_fastopen_reset_cipher(void *key, unsigned int len);
- void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 			     struct tcp_fastopen_cookie *foc);
--
-+void tcp_fastopen_init_key_once(bool publish);
- #define TCP_FASTOPEN_KEY_LENGTH 16
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+index f52fa88..ae06135 100644
+--- a/include/net/inet6_hashtables.h
++++ b/include/net/inet6_hashtables.h
+@@ -28,29 +28,14 @@
  
- /* Fastopen key context */
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 540279f..d2b5140 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -267,6 +267,11 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
- 			ret = -EINVAL;
- 			goto bad_key;
- 		}
-+		/* Generate a dummy secret but don't publish it. This
-+		 * is needed so we don't regenerate a new key on the
-+		 * first invocation of tcp_fastopen_cookie_gen
-+		 */
-+		tcp_fastopen_init_key_once(false);
- 		tcp_fastopen_reset_cipher(user_key, TCP_FASTOPEN_KEY_LENGTH);
- 	}
+ struct inet_hashinfo;
  
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index ab7bd35..316bfdc 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -14,6 +14,14 @@ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- 
- static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
- 
-+void tcp_fastopen_init_key_once(bool publish)
-+{
-+	static u8 key[TCP_FASTOPEN_KEY_LENGTH];
-+
-+	if (net_get_random_once(key, sizeof(key)) && publish)
-+		tcp_fastopen_reset_cipher(key, sizeof(key));
-+}
-+
- static void tcp_fastopen_ctx_free(struct rcu_head *head)
+-static inline unsigned int inet6_ehashfn(struct net *net,
+-				const struct in6_addr *laddr, const u16 lport,
+-				const struct in6_addr *faddr, const __be16 fport)
++static inline unsigned int __inet6_ehashfn(const u32 lhash,
++				    const u16 lport,
++				    const u32 fhash,
++				    const __be16 fport,
++				    const u32 initval)
  {
- 	struct tcp_fastopen_context *ctx =
-@@ -70,6 +78,8 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 	__be32 path[4] = { src, dst, 0, 0 };
- 	struct tcp_fastopen_context *ctx;
- 
-+	tcp_fastopen_init_key_once(true);
-+
- 	rcu_read_lock();
- 	ctx = rcu_dereference(tcp_fastopen_ctx);
- 	if (ctx) {
-@@ -78,14 +88,3 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 	}
- 	rcu_read_unlock();
- }
+-	u32 ports = (((u32)lport) << 16) | (__force u32)fport;
 -
--static int __init tcp_fastopen_init(void)
--{
--	__u8 key[TCP_FASTOPEN_KEY_LENGTH];
--
--	get_random_bytes(key, sizeof(key));
--	tcp_fastopen_reset_cipher(key, sizeof(key));
--	return 0;
+-	return jhash_3words((__force u32)laddr->s6_addr32[3],
+-			    ipv6_addr_jhash(faddr),
+-			    ports,
+-			    inet_ehash_secret + net_hash_mix(net));
 -}
 -
--late_initcall(tcp_fastopen_init);
+-static inline int inet6_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const struct ipv6_pinfo *np = inet6_sk(sk);
+-	const struct in6_addr *laddr = &np->rcv_saddr;
+-	const struct in6_addr *faddr = &np->daddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++	const u32 ports = (((u32)lport) << 16) | (__force u32)fport;
++	return jhash_3words(lhash, fhash, ports, initval);
+ }
+ 
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *twp);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index fe1c7f6..a35055f 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -539,14 +539,14 @@ static inline u32 ipv6_addr_hash(const struct in6_addr *a)
+ }
+ 
+ /* more secured version of ipv6_addr_hash() */
+-static inline u32 ipv6_addr_jhash(const struct in6_addr *a)
++static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
+ {
+ 	u32 v = (__force u32)a->s6_addr32[0] ^ (__force u32)a->s6_addr32[1];
+ 
+ 	return jhash_3words(v,
+ 			    (__force u32)a->s6_addr32[2],
+ 			    (__force u32)a->s6_addr32[3],
+-			    ipv6_hash_secret);
++			    initval);
+ }
+ 
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 32b4a16..0b8e101 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -23,6 +23,31 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
++
++static int inet6_sk_ehashfn(const struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	const struct ipv6_pinfo *np = inet6_sk(sk);
++	const struct in6_addr *laddr = &np->rcv_saddr;
++	const struct in6_addr *faddr = &np->daddr;
++	const __u16 lport = inet->inet_num;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
++
++	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++}
++
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *tw)
+ {
+ 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index f405815..df32619 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -53,6 +53,18 @@
+ #include <trace/events/skb.h>
+ #include "udp_impl.h"
+ 
++static unsigned int udp6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
++
+ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
+ {
+ 	const struct in6_addr *sk_rcv_saddr6 = &inet6_sk(sk)->rcv_saddr;
+@@ -219,8 +231,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			} else if (score == SCORE2_MAX)
+ 				goto exact_match;
+@@ -300,8 +312,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
 -- 
 1.8.3.1
