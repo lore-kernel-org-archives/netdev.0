@@ -1,121 +1,113 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC net] bridge: clean the nf_bridge status when
- forwarding the skb
-Date: Thu, 26 Sep 2013 14:32:48 -0700
-Message-ID: <20130926143248.2799b4ea@nehalam.linuxnetplumber.net>
-References: <1380226790-513-1-git-send-email-antonio@meshcoding.com>
-	<20130926141021.3cde0f0f@nehalam.linuxnetplumber.net>
-	<20130926211648.GB1228@open-mesh.com>
+Subject: Fw: [Bug 62171] New: Kernel In local_bh_enable in case of Vlan
+ Tagged ICMP Packets
+Date: Thu, 26 Sep 2013 14:38:09 -0700
+Message-ID: <20130926143809.6b68ac36@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Antonio Quartulli <antonio@open-mesh.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130926211648.GB1228@open-mesh.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: gautam06acharya@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35105 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754035Ab3IZViN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 17:38:13 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kp14so1900687pab.10
+        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 14:38:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Sep 2013 23:16:48 +0200
-Antonio Quartulli <antonio@open-mesh.com> wrote:
+I suspect this bug is against a kernel which is outside the window of versions
+that upstream developers care about, but forwarding it anyway.
 
-> On Thu, Sep 26, 2013 at 02:10:21PM -0700, Stephen Hemminger wrote:
-> > On Thu, 26 Sep 2013 22:19:50 +0200
-> > Antonio Quartulli <antonio@meshcoding.com> wrote:
-> > 
-> > > From: Antonio Quartulli <antonio@open-mesh.com>
-> > > 
-> > > Even if enslaving a bridge interface into another bridge is
-> > > forbidden, it is still possible to create a chain of
-> > > virtual interfaces including two distinct bridges.
-> > > 
-> > > In this case, the skb entering the second bridge could have
-> > > the nf_bridge field already set due to a previous operation
-> > > and consequently lead to a wrong processing of the packet
-> > > itself.
-> > > 
-> > > To prevent this behaviour release and set to NULL the
-> > > nf_bridge field of the skb when exiting the bridge interface.
-> > > 
-> > > Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-> > > ---
-> > > 
-> > > I am not sure if this is a wanted behaviour or a real BUG. I found this
-> > > "misbehaviour" while testing batman-adv with the following configuration:
-> > > 
-> > > - br0 (bridge interface) having bat0 and eth0 as slaves
-> > > - bat0 (which is a virtual interface provided by the batman-adv module and that
-> > >   works similarly to a bridge - to some extends) having br1 as slave
-> > > - br1 (second bridge interface) having eth1 as slave
-> > > 
-> > > Then follow these events:
-> > > - a broadcast packet arrives on eth0
-> > > - the skb enters br0 and skb->nf_bridge gets initialised and used
-> > > - the skb enters bat0 and the packet *gets encapsulated in the batman-adv packet
-> > >   which adds a batman-adv header and another Ethernet header*
-> > > - the skb enters br1 and gets ruined because nf_bridge_maybe_copy_header() (in
-> > >   br_dev_queue_push_xmit()) will try to restore an header that does not make
-> > >   sense anymore.
-> > > 
-> > > With this patch the nf_bridge gets de-initialised before exiting br0 and
-> > > therefore it is processed properly inside br1: nf_bridge_maybe_copy_header()
-> > > does not take place at all because nf_bridge is never initialised (the packet is
-> > > non-IP since it is a batman-adv packet)
-> > > 
-> > > To the developers of the bridge module I would like to ask:
-> > > 1) is skb->nf_bridge allowed to be non NULL when entering br_dev_xmit() ? If so,
-> > >    when is this supposed to happen?
-> > > 
-> > > 2) do you think this patch is logically correct but the nf_bridge release should
-> > >    be done in batman-adv since it is the one re-encapsulating the packet?
-> > > 
-> > > 
-> > > I hope I have made the problem clear.
-> > > 
-> > > Best regards,
-> > > 
-> > > 
-> > >  net/bridge/br_forward.c | 5 +++++
-> > >  1 file changed, 5 insertions(+)
-> > > 
-> > > diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-> > > index 4b81b14..65864bc 100644
-> > > --- a/net/bridge/br_forward.c
-> > > +++ b/net/bridge/br_forward.c
-> > > @@ -49,6 +49,11 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
-> > >  	} else {
-> > >  		skb_push(skb, ETH_HLEN);
-> > >  		br_drop_fake_rtable(skb);
-> > > +
-> > > +		/* clean the NF bridge data */
-> > > +		nf_bridge_put(skb->nf_bridge);
-> > > +		skb->nf_bridge = NULL;
-> > > +
-> > >  		dev_queue_xmit(skb);
-> > >  	}
-> > >  
-> 
-> Regarding CONFIG_BRIDGE_NETFILTER you are right, thanks.
-> 
-> > 
-> > I think the header will also be garbage if bridge on bridge with netfilter is used.
-> > See nf_bridge_save_header.
-> 
-> What header are you referring to? nf_bridge_save_header() saves the header in
-> skb->nf_bridge->data, which is freed during nf_bridge_put() (assuming
-> ->use reached 0).
-> 
-> 
+The 2.6.27.18 kernel is from Feb 2009!
 
-If bridge is stacked the original ether header will get overwritten by the second
-call to save_header.
+Begin forwarded message:
+
+Date: Thu, 26 Sep 2013 06:22:51 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 62171] New: Kernel In local_bh_enable in case of Vlan Tagged ICMP Packets
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=62171
+
+            Bug ID: 62171
+           Summary: Kernel In local_bh_enable in case of Vlan Tagged ICMP
+                    Packets
+           Product: Networking
+           Version: 2.5
+    Kernel Version: Linux 2.6.27.18
+          Hardware: Mips64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: gautam06acharya@gmail.com
+        Regression: No
+
+Hi,
+
+Kernel In based on Linux Version 2.6.27.18, Cavium octeon Board is used. In SMP
+mode but one one cpu is loaded with Linux Kernel.
+
+Its getting crashed in WARN_ON_ONCE in _local_bh_enable_ip called from
+local_bh_enable.
+
+Please Find Below Stack Trace Regarding this Crash:
+
+[<ffffffff81154108>] warn_on_slowpath+0x58/0x90
+
+[<ffffffff8115bd20>] local_bh_enable+0x88/0xf8
+
+[<ffffffff81344a44>] dev_queue_xmit+0x144/0x688
+
+[<ffffffff81301f04>] bond_dev_queue_xmit+0x44/0x178
+
+[<ffffffff81302408>] bond_xmit_activebackup+0xb0/0xe8
+
+[<ffffffff81344ea4>] dev_queue_xmit+0x5a4/0x688
+
+[<ffffffff813d59b4>] vlan_dev_hwaccel_hard_start_xmit+0x8c/0xa0
+
+[<ffffffff81344ea4>] dev_queue_xmit+0x5a4/0x688
+
+[<ffffffff81377cbc>] ip_push_pending_frames+0x37c/0x4c0
+
+[<ffffffff813a0768>] icmp_reply+0x170/0x290
+
+[<ffffffff813a0a58>] icmp_echo+0x58/0x68
+
+[<ffffffff813a11b4>] icmp_rcv+0x334/0x390
+
+[<ffffffff813721a4>] ip_local_deliver_finish+0x13c/0x2d8
+
+[<ffffffff813718c4>] ip_rcv_finish+0x134/0x510
+
+[<ffffffff81343af4>] netif_receive_skb+0x41c/0x5d8
+
+[<ffffffff81343d58>] process_backlog+0xa8/0x160
+
+[<ffffffff8134186c>] net_rx_action+0x194/0x2e8
+
+[<ffffffff8115b71c>] __do_softirq+0x114/0x288
+
+[<ffffffff8115b910>] do_softirq+0x80/0x98
+
+[<ffffffff8115bb8c>] irq_exit+0x64/0x78
+
+[<ffffffff81100e40>] plat_irq_dispatch+0xd0/0x1d0
+
+[<ffffffff81120c80>] ret_from_irq+0x0/0x4
+
+[<ffffffff81120ea0>] r4k_wait+0x20/0x40
+
+[<ffffffff81123414>] cpu_idle+0x34/0x60
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
