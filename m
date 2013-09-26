@@ -1,223 +1,77 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v5 1/6] bonding: simplify and use RCU protection
- for 3ad xmit path
-Date: Thu, 26 Sep 2013 10:33:28 +0800
-Message-ID: <52439CF8.7080209@huawei.com>
-References: <5242B24F.5000309@huawei.com> <20130925105000.GC23575@redhat.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: Re: [PATCH] moxa: drop free_irq of devm_request_irq allocated irq
+Date: Thu, 26 Sep 2013 11:36:39 +0900
+Message-ID: <001a01ceba61$3aaf3cc0$b00db640$%han@samsung.com>
+References: <CAPgLHd8YRP7kL_jNHi3J9jFn86f=Fv-AWWUY_aRGZQOgVTNPgg@mail.gmail.com>
+ <000001ceba51$f8b45c10$ea1d1430$%han@samsung.com>
+ <CAPgLHd9VXaPx18ujDKbUik6XjOsnARcK-C-orCOynyJaWFREjw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: 'Jonas Jensen' <jonas.jensen@gmail.com>,
+	"'David S. Miller'" <davem@davemloft.net>,
+	'Grant Likely' <grant.likely@linaro.org>,
+	rob.herring@calxeda.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, 'Sachin Kamat' <sachin.kamat@linaro.org>,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: 'Wei Yongjun' <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6432 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754705Ab3IZCdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 22:33:50 -0400
-In-Reply-To: <20130925105000.GC23575@redhat.com>
+Received: from mailout2.samsung.com ([203.254.224.25]:50777 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281Ab3IZCgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 22:36:42 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MTP00GL7OKVSE00@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Thu, 26 Sep 2013 11:36:40 +0900 (KST)
+In-reply-to: <CAPgLHd9VXaPx18ujDKbUik6XjOsnARcK-C-orCOynyJaWFREjw@mail.gmail.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/9/25 18:50, Veaceslav Falico wrote:
-> On Wed, Sep 25, 2013 at 05:52:15PM +0800, Ding Tianhong wrote:
->> The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
->> (bonding: initial RCU conversion) has convert the roundrobin, active-backup,
->> broadcast and xor xmit path to rcu protection, the performance will be better
->> for these mode, so this time, convert xmit path for 3ad mode.
->>
->> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
->> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
->> Cc: Veaceslav Falico <vfalico@redhat.com>
->> ---
->> drivers/net/bonding/bond_3ad.c | 32 ++++++++++++++------------------
->> drivers/net/bonding/bonding.h  | 30 +++++++++++++++++++++++++++++-
->> 2 files changed, 43 insertions(+), 19 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->> index 0d8f427..13f1deb 100644
->> --- a/drivers/net/bonding/bond_3ad.c
->> +++ b/drivers/net/bonding/bond_3ad.c
->> @@ -143,7 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
->>  */
->> static inline struct port *__get_first_port(struct bonding *bond)
->> {
->> -    struct slave *first_slave = bond_first_slave(bond);
->> +    struct slave *first_slave = bond_first_slave_rcu(bond);
->>
->>     return first_slave ? &(SLAVE_AD_INFO(first_slave).port) : NULL;
->> }
->> @@ -163,7 +163,7 @@ static inline struct port *__get_next_port(struct port *port)
->>     // If there's no bond for this port, or this is the last slave
->>     if (bond == NULL)
->>         return NULL;
->> -    slave_next = bond_next_slave(bond, slave);
->> +    slave_next = bond_next_slave_rcu(bond, slave);
->>     if (!slave_next || bond_is_first_slave(bond, slave_next))
->>         return NULL;
->>
->> @@ -2417,16 +2417,14 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
->>
->> int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->> {
->> -    struct slave *slave, *start_at;
->>     struct bonding *bond = netdev_priv(dev);
->> +    struct slave *slave;
->>     int slave_agg_no;
->>     int slaves_in_agg;
->>     int agg_id;
->> -    int i;
->>     struct ad_info ad_info;
->>     int res = 1;
->>
->> -    read_lock(&bond->lock);
->>     if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
->>         pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
->>              dev->name);
->> @@ -2444,13 +2442,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->>
->>     slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
->>
->> -    bond_for_each_slave(bond, slave) {
->> +    bond_for_each_slave_rcu(bond, slave) {
->>         struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
->>
->>         if (agg && (agg->aggregator_identifier == agg_id)) {
->> -            slave_agg_no--;
->> -            if (slave_agg_no < 0)
->> -                break;
->> +            if (--slave_agg_no < 0) {
->> +                if (SLAVE_IS_OK(slave)) {
->> +                    res = bond_dev_queue_xmit(bond,
->> +                        skb, slave->dev);
->> +                    goto out;
->> +                }
->> +            }
->>         }
->>     }
->>
->> @@ -2460,23 +2462,17 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->>         goto out;
->>     }
->>
->> -    start_at = slave;
->> -
->> -    bond_for_each_slave_from(bond, slave, i, start_at) {
->> -        int slave_agg_id = 0;
->> +    bond_for_each_slave_rcu(bond, slave) {
->>         struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
->>
->> -        if (agg)
->> -            slave_agg_id = agg->aggregator_identifier;
->> -
->> -        if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
->> +        if (SLAVE_IS_OK(slave) && agg &&
->> +            agg->aggregator_identifier == agg_id) {
->>             res = bond_dev_queue_xmit(bond, skb, slave->dev);
->>             break;
->>         }
->>     }
->>
->> out:
->> -    read_unlock(&bond->lock);
->>     if (res) {
->>         /* no suitable interface, frame not sent */
->>         kfree_skb(skb);
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index 03cf3fd..eb36f57 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -74,13 +74,31 @@
->> /* slave list primitives */
->> #define bond_to_slave(ptr) list_entry(ptr, struct slave, list)
->>
->> +/* slave list primitives, Caller must hold rcu_read_lock */
->> +#define bond_to_slave_rcu(ptr) list_entry_rcu(ptr, struct slave, list)
->> +
->> +/* bond_is_empty return NULL if slave list is empty*/
->> +#define bond_is_empty(bond) \
->> +    (list_empty(&(bond)->slave_list))
->> +
->> +/* bond_is_empty_rcu return NULL if slave list is empty*/
->> +#define bond_is_empty_rcu(bond) \
->> +    (!list_first_or_null_rcu(&(bond)->slave_list, struct slave, list))
+On Thursday, September 26, 2013 11:13 AM, Wei Yongjun wrote:
+> On 09/26/2013 08:47 AM, Jingoo Han wrote:
+> > On Wednesday, September 25, 2013 4:33 PM, Wei Yongjun wrote:
+> >> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >>
+> >> irq allocated with devm_request_irq should not be freed using
+> >> free_irq, because doing so causes a dangling pointer, and a
+> >> subsequent double free.
+> >>
+> >> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >> ---
+> >>  drivers/net/ethernet/moxa/moxart_ether.c | 1 -
+> >>  1 file changed, 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+> >> index 83c2091..9a7fcb5 100644
+> >> --- a/drivers/net/ethernet/moxa/moxart_ether.c
+> >> +++ b/drivers/net/ethernet/moxa/moxart_ether.c
+> >> @@ -531,7 +531,6 @@ static int moxart_remove(struct platform_device *pdev)
+> >>  	struct net_device *ndev = platform_get_drvdata(pdev);
+> >>
+> >>  	unregister_netdev(ndev);
+> >> -	free_irq(ndev->irq, ndev);
+> >>  	moxart_mac_free_memory(ndev);
+> >>  	free_netdev(ndev);
+> > CC'ed Sachin Kamat,
+> >
+> > In this case, the free_irq() will be called, after calling
+> > free_netdev(). 'ndev' is freed by free_netdev(). Then, 'ndev->irq'
+> > is used by free_irq(). Is it right?
+> >
+> > In my humble opinion, it seems to make the problem.
+> >
 > 
-> Useless/dangerous function. It's not used in this patch and there can be no
-> constructs like:
-> 
-> 1 if (!bond_is_empty_rcu(bond)) {
-> 2     slave = bond_first_slave_rcu(bond);
-> 3     do_something(slave);
-> 
+> devm_request_irq() has recorded the irq and dev_id, so free_irq() by devm_*
+> will not touch 'ndev' which has been freed by free_netdev().
+> So, if we not need to call free_irq() before free_netdev(), there will be
+> no problem.
 
-agree, forgot to remove it.
+However, 'dev_id' is a pointer, not a value.
+It seems to make the problem that references the invalid pointer.
 
-> because between 1) and 2) the slave can go away, and we'll end up with
-> slave == NULL.
-> 
->> +
->> /* IMPORTANT: bond_first/last_slave can return NULL in case of an empty list */
->> #define bond_first_slave(bond) \
->>     list_first_entry_or_null(&(bond)->slave_list, struct slave, list)
->> #define bond_last_slave(bond) \
->> -    (list_empty(&(bond)->slave_list) ? NULL : \
->> +    (bond_is_empty(bond) ? NULL : \
->>                        bond_to_slave((bond)->slave_list.prev))
->>
->> +/**
->> + * IMPORTANT: bond_first/last_slave_rcu can return NULL in case of an empty list
->> + * Caller must hold rcu_read_lock
->> + */
->> +#define bond_first_slave_rcu(bond) \
->> +    list_first_or_null_rcu(&(bond)->slave_list, struct slave, list);
-> 
-> bond_first_slave_or_null_rcu() ?
-> 
-
-both is suitable.
-
->> +
->> #define bond_is_first_slave(bond, pos) ((pos)->list.prev == &(bond)->slave_list)
->> #define bond_is_last_slave(bond, pos) ((pos)->list.next == &(bond)->slave_list)
->>
->> @@ -93,6 +111,16 @@
->>     (bond_is_first_slave(bond, pos) ? bond_last_slave(bond) : \
->>                       bond_to_slave((pos)->list.prev))
->>
->> +/* Since bond_first/last_slave_rcu can return NULL, these can return NULL too */
->> +#define bond_next_slave_rcu(bond, pos) \
->> +    ({struct list_head *__slave_list = &(bond)->slave_list; \
->> +     struct list_head __rcu *__next = list_next_rcu(__slave_list); \
->> +     struct list_head __rcu *__pos_next = list_next_rcu(&(pos)->list); \
->> +     likely(__pos_next != __slave_list) ? \
->> +     container_of(__pos_next, struct slave, list) : \
->> +     container_of(__next, struct slave, list); \
->> +     })
-> 
-> And if bond has no slaves, whilst pos being the slave that has just
-> detached? Then bond->slave_list->next == pos->list->next ==
-> &bond->slave_list, and we'll return the container_of(bond->slave_list),
-> which is garbage, but not NULL.
-> 
->> +
->> /**
->>  * bond_for_each_slave_from - iterate the slaves list from a starting point
->>  * @bond:    the bond holding this list.
->> -- 
->> 1.8.0
->>
->>
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+Best regards,
+Jingoo Han
