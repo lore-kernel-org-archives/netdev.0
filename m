@@ -1,94 +1,116 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v5 1/1] xen-netback: Handle backend state
- transitions in a more robust way
-Date: Thu, 26 Sep 2013 10:51:08 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0114155@AMSPEX01CL01.citrite.net>
-References: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
-	 <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
- <1380190642.29483.44.camel@kazak.uk.xensource.com>
+From: Archit Taneja <archit@ti.com>
+Subject: Re: [PATCH 39/51] DMA-API: others: use dma_set_coherent_mask()
+Date: Thu, 26 Sep 2013 16:21:36 +0530
+Message-ID: <524411B8.4070000@ti.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <E1VMnNq-0007s4-HN@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:18200 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756614Ab3IZKvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 06:51:11 -0400
-In-Reply-To: <1380190642.29483.44.camel@kazak.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Kukjin Kim <kgene.kim@samsung.com>,
+ Joonyoung Shim <jy0922.shim@samsung.com>, David Airlie <airlied@linux.ie>,
+ Seung-Woo Kim <sw0312.kim@samsung.com>, Rob Clark <robdclark@gmail.com>,
+ Inki Dae <inki.dae@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>,
+ "Valkeinen, Tomi" <tomi.valkeinen@ti.com>, Tejun Heo <tj@kernel.org>
+To: Russell King <rmk+kernel@arm.linux.org.uk>, <alsa-devel@alsa-project.org>,
+ <b43-dev@lists.infradead.org>, <devel@driverdev.osuosl.org>,
+ <devicetree@vger.kernel.org>, <dri-devel@lists.freedesktop.org>,
+ <e1000-devel@lists.sourceforge.net>,
+ <linux-arm-kernel@lists.infradead.org>, <linux-crypto@vger.kernel.org>,
+ <linux-doc@vger.kernel.org>, <linux-fbdev@vger.kernel.org>,
+ <linux-ide@vger.kernel.org>, <linux-media@vger.kernel.org>,
+ <linux-mmc@vger.kernel.org>, <linux-nvme@lists.infradead.org>,
+ <linux-omap@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+ <linux-samsung-soc@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+ <linux-tegra@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+ <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+ Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+ <uclinux-dist-devel@blackfin.uclinux.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <E1VMnNq-0007s4-HN@rmk-PC.arm.linux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMjYgU2VwdGVtYmVyIDIwMTMgMTE6MTcNCj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogeGVu
-LWRldmVsQGxpc3RzLnhlbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFdlaSBMaXU7IERh
-dmlkIFZyYWJlbA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCB2NSAxLzFdIHhlbi1uZXRiYWNr
-OiBIYW5kbGUgYmFja2VuZCBzdGF0ZQ0KPiB0cmFuc2l0aW9ucyBpbiBhIG1vcmUgcm9idXN0IHdh
-eQ0KPiANCj4gT24gV2VkLCAyMDEzLTA5LTI1IGF0IDEwOjU5ICswMTAwLCBQYXVsIER1cnJhbnQg
-d3JvdGU6DQo+ID4gV2hlbiB0aGUgZnJvbnRlbmQgc3RhdGUgY2hhbmdlcyBuZXRiYWNrIG5vdyBz
-cGVjaWZpZXMgaXRzIGRlc2lyZWQgc3RhdGUNCj4gdG8NCj4gPiBhIG5ldyBmdW5jdGlvbiwgc2V0
-X2JhY2tlbmRfc3RhdGUoKSwgd2hpY2ggdHJhbnNpdGlvbnMgdGhyb3VnaCBhbnkNCj4gPiBuZWNl
-c3NhcnkgaW50ZXJtZWRpYXRlIHN0YXRlcy4NCj4gPiBUaGlzIGZpeGVzIGFuIGlzc3VlIG9ic2Vy
-dmVkIHdpdGggc29tZSBvbGQgV2luZG93cyBmcm9udGVuZCBkcml2ZXJzDQo+IHdoZXJlDQo+ID4g
-dGhleSBmYWlsZWQgdG8gdHJhbnNpdGlvbiB0aHJvdWdoIHRoZSBDbG9zaW5nIHN0YXRlIGFuZCBu
-ZXRiYWNrIHdvdWxkIG5vdA0KPiA+IGJlaGF2ZSBjb3JyZWN0bHkuDQo+IA0KPiBJJ20gc29tZXdo
-YXQgdGVycmlmaWVkIG9mIGJyZWFraW5nIGNvbXBhdGliaWxpdHkgd2l0aCBzb21lIG9sZCBvcg0K
-PiBvYnNjdXJlIGZyb250ZW5kIGhlcmUuIEkgZG9uJ3QgdGhpbmsgaXQgaXMgcmVhc29uYWJsZSB0
-byB0cnkgYW5kIHRlc3QNCj4gYWxsIG9mIHRob3NlIHNvIEkgZ3Vlc3Mgd2UnbGwganVzdCBoYXZl
-IHRvIGRlYWwgd2l0aCB0aGF0IHdoZW4gaXQNCj4gaGFwcGVucy4uLg0KPiANCj4gPiBTaWduZWQt
-b2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBhdWwuZHVycmFudEBjaXRyaXguY29tPg0KPiA+IENjOiBJ
-YW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiA+IENjOiBXZWkgTGl1IDx3
-ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+IENjOiBEYXZpZCBWcmFiZWwgPGRhdmlkLnZyYWJlbEBj
-aXRyaXguY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMu
-YyB8ICAxNDMNCj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0NCj4gPiAg
-MSBmaWxlIGNoYW5nZWQsIDExMyBpbnNlcnRpb25zKCspLCAzMCBkZWxldGlvbnMoLSkNCj4gPg0K
-PiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyBiL2RyaXZl
-cnMvbmV0L3hlbi0NCj4gbmV0YmFjay94ZW5idXMuYw0KPiA+IGluZGV4IGE1Mzc4MmUuLjAxMzI5
-YjIgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMNCj4g
-PiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYw0KPiA+IEBAIC0yNCw2ICsy
-NCw3IEBADQo+ID4gIHN0cnVjdCBiYWNrZW5kX2luZm8gew0KPiA+ICAJc3RydWN0IHhlbmJ1c19k
-ZXZpY2UgKmRldjsNCj4gPiAgCXN0cnVjdCB4ZW52aWYgKnZpZjsNCj4gPiArCWVudW0geGVuYnVz
-X3N0YXRlIHN0YXRlOw0KPiANCj4gVGhpcyBjYW5ub3QganVzdCBiZSByZWFkIGZyb20geGVuc3Rv
-cmUgYmVjYXVzZSBvZiB0aGUNCj4gd2FpdC1mb3ItaG90cGx1Zy1zY3JpcHQgZGVmZXJyYWwgc3R1
-ZmYsIHJpZ2h0Pw0KPiANCg0KWWVzLCB0aGF0J3MgcmlnaHQuDQoNCj4gSSdtIG5vdCBzdXJlIGl0
-IGlzIHdvcnRoIGNsYXJpZnlpbmcgdGhhdCwgZWl0aGVyIGJ5IGEgY29tbWVudCBvciBieQ0KPiBu
-YW1pbmcgaXQgZGVmZXJyZWRfc3RhdGVfY2hhbmdlIG9yIHNvbWV0aGluZz8NCj4gDQoNCkl04oCZ
-cyB0aGUgeGVuYnVzIHN0YXRlIHRoYXQncyBkZWZlcnJlZCwgdGhlIGJhY2tlbmQgc3RhdGUgbGVh
-ZHMgc28gSSBjb3VsZCBuYW1lIGl0ICdkZXNpcmVkX3N0YXRlJyBvciAndGFyZ2V0X3N0YXRlJyBw
-ZXJoYXBzOyBwcm9iYWJseSBhIGJpdCB1Z2x5IHNvIEknbGwgYWRkIGEgY29tbWVudCBhYm92ZSB0
-aGF0IGZpZWxkIEkgdGhpbmsuDQoNCj4gPiAtc3RhdGljIHZvaWQgZGVzdHJveV9iYWNrZW5kKHN0
-cnVjdCB4ZW5idXNfZGV2aWNlICpkZXYpDQo+ID4gK3N0YXRpYyB2b2lkIGJhY2tlbmRfY29ubmVj
-dChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkNCj4gPiAgew0KPiA+IC0Jc3RydWN0IGJhY2tlbmRf
-aW5mbyAqYmUgPSBkZXZfZ2V0X2RydmRhdGEoJmRldi0+ZGV2KTsNCj4gPiArCWlmIChiZS0+dmlm
-KQ0KPiA+ICsJCWNvbm5lY3QoYmUpOw0KPiA+ICt9DQo+ID4NCj4gPiAtCWlmIChiZS0+dmlmKSB7
-DQo+ID4gLQkJa29iamVjdF91ZXZlbnQoJmRldi0+ZGV2LmtvYmosIEtPQkpfT0ZGTElORSk7DQo+
-ID4gLQkJeGVuYnVzX3JtKFhCVF9OSUwsIGRldi0+bm9kZW5hbWUsICJob3RwbHVnLXN0YXR1cyIp
-Ow0KPiA+IC0JCXhlbnZpZl9mcmVlKGJlLT52aWYpOw0KPiA+IC0JCWJlLT52aWYgPSBOVUxMOw0K
-PiANCj4gV2hlcmUgZGlkIHRoaXMgdWV2ZW50IG9mZmxpbmluZyBmdW5jdGlvbmFsaXR5IGVuZCB1
-cD8NCj4gDQoNCkl0J3MgZG9uZSBpbiBuZXRiYWNrX3JlbW92ZSgpIC4NCg0KPiA+ICtzdGF0aWMg
-aW5saW5lIHZvaWQgYmFja2VuZF9zd2l0Y2hfc3RhdGUoc3RydWN0IGJhY2tlbmRfaW5mbyAqYmUs
-DQo+ID4gKwkJCQkJZW51bSB4ZW5idXNfc3RhdGUgc3RhdGUpDQo+ID4gK3sNCj4gPiArCXN0cnVj
-dCB4ZW5idXNfZGV2aWNlICpkZXYgPSBiZS0+ZGV2Ow0KPiA+ICsNCj4gPiArCXByX2RlYnVnKCIl
-cyAtPiAlc1xuIiwgZGV2LT5ub2RlbmFtZSwgeGVuYnVzX3N0cnN0YXRlKHN0YXRlKSk7DQo+ID4g
-KwliZS0+c3RhdGUgPSBzdGF0ZTsNCj4gPiArDQo+ID4gKwkvKiBJZiB3ZSBhcmUgd2FpdGluZyBm
-b3IgYSBob3RwbHVnIHNjcmlwdCB0aGVuIGRlZmVyIHRoZQ0KPiA+ICsJICogYWN0dWFsIHhlbmJ1
-cyBzdGF0ZSBjaGFuZ2UuDQo+IA0KPiBJcyB0aGUgcmlnaHQvd2lzZSByZWdhcmRsZXNzIG9mIHRo
-ZSBzdGF0ZSB3ZSBhcmUgbW92aW5nIHRvbz8gTWlnaHQgdGhlDQo+IHN0YXRlIGNoYW5nZSBoYXZl
-IGVmZmVjdGl2ZWx5ICJjYW5jZWxsZWQiIHRoZSBuZWVkIHRvIHdhaXQgZm9yIHRoZQ0KPiBzY3Jp
-cHQ/DQo+IA0KPiBUaGUgcHJldmlvdXMgY29kZSBvbmx5IGRlZmVycmVkIHdoZW4gbW92aW5nIHRv
-IENvbm5lY3RlZC4gSWYgd2UgYXJlIG5vdw0KPiBtb3ZpbmcgdG8gQ2xvc2VkL0Nsb3NpbmcgZG8g
-d2Ugc3RpbGwgbmVlZCB0byB3YWl0Pw0KPiANCg0KSSBkZWJhdGVkIGFib3V0IHRoaXM7IHdlIG5l
-dmVyIHJlYWxseSBkZWFsdCB3aXRoIHRoaXMgYmVmb3JlLiBJIHRoaW5rIGl0J3MgbGVnaXRpbWF0
-ZSBmb3IgdGhlIGZyb250ZW5kIHRvIGdpdmUgdXAgd2FpdGluZyBmb3IgYSBiYWNrZW5kIGhvdHBs
-dWcgc28gd2Ugc2hvdWxkIGJlIGFibGUgdG8gZ28gZnJvbSBJbml0V2FpdCB0byBDbG9zaW5nLCBz
-byBpbiB0aGlzIGNhc2UgYmUtPnN0YXRlIHdpbGwgYmUgQ2xvc2luZyB3aGVuIHRoZSBzY3JpcHQg
-KGhvcGVmdWxseSkgZmluaXNoZXMuIFRodXMgd2UgbW92ZSB0byB0aGF0IHdoZW4gdGhlIHdhdGNo
-IGZpcmVzIHJhdGhlciB0aGFuIHRvIENvbm5lY3RlZC4gVGhlbiB0aGUgZnJvbnRlbmQgY2FuIG1v
-dmUgdG8gQ2xvc2VkLiBJZiB0aGUgaG90cGx1ZyBzY3JpcHQgbmV2ZXIgZmluaXNoZXMgdGhlbiBJ
-IGRvbid0IHRoaW5rIHdlJ3JlIGFueSBtb3JlIHNjcmV3ZWQgdGhhbiB3ZSB3ZXJlIGJlZm9yZS4N
-Cg0KICBQYXVsDQoNCj4gDQo+IElhbi4NCg0K
+Hi,
+
+On Friday 20 September 2013 04:41 AM, Russell King wrote:
+> The correct way for a driver to specify the coherent DMA mask is
+> not to directly access the field in the struct device, but to use
+> dma_set_coherent_mask().  Only arch and bus code should access this
+> member directly.
+>
+> Convert all direct write accesses to using the correct API.
+>
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> ---
+>   drivers/ata/pata_ixp4xx_cf.c             |    5 ++++-
+>   drivers/gpu/drm/exynos/exynos_drm_drv.c  |    6 +++++-
+>   drivers/gpu/drm/omapdrm/omap_dmm_tiler.c |    5 +++--
+>   3 files changed, 12 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/ata/pata_ixp4xx_cf.c b/drivers/ata/pata_ixp4xx_cf.c
+> index 1ec53f8..ddf470c 100644
+> --- a/drivers/ata/pata_ixp4xx_cf.c
+> +++ b/drivers/ata/pata_ixp4xx_cf.c
+> @@ -144,6 +144,7 @@ static int ixp4xx_pata_probe(struct platform_device *pdev)
+>   	struct ata_host *host;
+>   	struct ata_port *ap;
+>   	struct ixp4xx_pata_data *data = dev_get_platdata(&pdev->dev);
+> +	int ret;
+>
+>   	cs0 = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>   	cs1 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> @@ -157,7 +158,9 @@ static int ixp4xx_pata_probe(struct platform_device *pdev)
+>   		return -ENOMEM;
+>
+>   	/* acquire resources and fill host */
+> -	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+> +	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+> +	if (ret)
+> +		return ret;
+>
+>   	data->cs0 = devm_ioremap(&pdev->dev, cs0->start, 0x1000);
+>   	data->cs1 = devm_ioremap(&pdev->dev, cs1->start, 0x1000);
+> diff --git a/drivers/gpu/drm/exynos/exynos_drm_drv.c b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+> index bb82ef7..81192d0 100644
+> --- a/drivers/gpu/drm/exynos/exynos_drm_drv.c
+> +++ b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+> @@ -286,7 +286,11 @@ static struct drm_driver exynos_drm_driver = {
+>
+>   static int exynos_drm_platform_probe(struct platform_device *pdev)
+>   {
+> -	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+> +	int ret;
+> +
+> +	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+> +	if (ret)
+> +		return ret;
+>
+>   	return drm_platform_init(&exynos_drm_driver, pdev);
+>   }
+> diff --git a/drivers/gpu/drm/omapdrm/omap_dmm_tiler.c b/drivers/gpu/drm/omapdrm/omap_dmm_tiler.c
+> index acf6678..701c4c1 100644
+> --- a/drivers/gpu/drm/omapdrm/omap_dmm_tiler.c
+> +++ b/drivers/gpu/drm/omapdrm/omap_dmm_tiler.c
+> @@ -664,8 +664,9 @@ static int omap_dmm_probe(struct platform_device *dev)
+>   	}
+>
+>   	/* set dma mask for device */
+> -	/* NOTE: this is a workaround for the hwmod not initializing properly */
+> -	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+> +	ret = dma_set_coherent_mask(&dev->dev, DMA_BIT_MASK(32));
+> +	if (ret)
+> +		goto fail;
+
+Tested with omapdrm on omap4 panda es board.
+
+Thanks,
+Archit
