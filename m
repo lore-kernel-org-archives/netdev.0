@@ -1,59 +1,89 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 00/51] DMA mask changes
-Date: Thu, 26 Sep 2013 22:23:08 +0200
-Message-ID: <CACna6rxkpYzdD8_Jfi22vA2suUa3k-JM65_gCySQpp4crVCoPg@mail.gmail.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alsa-devel@alsa-project.org, b43-dev <b43-dev@lists.infradead.org>,
-	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-	devicetree@vger.kernel.org,
-	dri-devel <dri-devel@lists.freedesktop.org>,
-	e1000-devel@lists.sourceforge.net,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	linux-crypto@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-fbdev@vger.kernel.org, linux-ide@vger.kernel.org,
-	linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
-	linux-nvme@lists.infradead.org, linux-omap@vger.kernel.org,
-	linux ppc dev <linuxppc-dev@lists.ozlabs.org>,
-	linux-samsung-soc@vger.kernel.org,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-ne
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [RFC net] bridge: clean the nf_bridge status when forwarding the skb
+Date: Thu, 26 Sep 2013 22:19:50 +0200
+Message-ID: <1380226790-513-1-git-send-email-antonio@meshcoding.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Antonio Quartulli <antonio@open-mesh.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s2.neomailbox.net ([178.209.62.154]:25981 "EHLO
+	s2.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752951Ab3IZVBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 17:01:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/9/19 Russell King - ARM Linux <linux@arm.linux.org.uk>:
-> This email is only being sent to the mailing lists in question, not t=
-o
-> anyone personally.  The list of individuals is far to great to do tha=
-t.
-> I'm hoping no mailing lists reject the patches based on the number of
-> recipients.
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Huh, I think it was enough to send only 3 patches to the b43-dev@. Like=
-:
-[PATCH 01/51] DMA-API: provide a helper to set both DMA and coherent DM=
-A masks
-[PATCH 14/51] DMA-API: net: b43: (...)
-[PATCH 15/51] DMA-API: net: b43legacy: (...)
-;)
+Even if enslaving a bridge interface into another bridge is
+forbidden, it is still possible to create a chain of
+virtual interfaces including two distinct bridges.
 
-I believe Joe has some nice script for doing it that way. When fixing
-some coding style / formatting, he sends only related patches to the
-given ML.
+In this case, the skb entering the second bridge could have
+the nf_bridge field already set due to a previous operation
+and consequently lead to a wrong processing of the packet
+itself.
 
---=20
-Rafa=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-omap" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To prevent this behaviour release and set to NULL the
+nf_bridge field of the skb when exiting the bridge interface.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+---
+
+I am not sure if this is a wanted behaviour or a real BUG. I found this
+"misbehaviour" while testing batman-adv with the following configuration:
+
+- br0 (bridge interface) having bat0 and eth0 as slaves
+- bat0 (which is a virtual interface provided by the batman-adv module and that
+  works similarly to a bridge - to some extends) having br1 as slave
+- br1 (second bridge interface) having eth1 as slave
+
+Then follow these events:
+- a broadcast packet arrives on eth0
+- the skb enters br0 and skb->nf_bridge gets initialised and used
+- the skb enters bat0 and the packet *gets encapsulated in the batman-adv packet
+  which adds a batman-adv header and another Ethernet header*
+- the skb enters br1 and gets ruined because nf_bridge_maybe_copy_header() (in
+  br_dev_queue_push_xmit()) will try to restore an header that does not make
+  sense anymore.
+
+With this patch the nf_bridge gets de-initialised before exiting br0 and
+therefore it is processed properly inside br1: nf_bridge_maybe_copy_header()
+does not take place at all because nf_bridge is never initialised (the packet is
+non-IP since it is a batman-adv packet)
+
+To the developers of the bridge module I would like to ask:
+1) is skb->nf_bridge allowed to be non NULL when entering br_dev_xmit() ? If so,
+   when is this supposed to happen?
+
+2) do you think this patch is logically correct but the nf_bridge release should
+   be done in batman-adv since it is the one re-encapsulating the packet?
+
+
+I hope I have made the problem clear.
+
+Best regards,
+
+
+ net/bridge/br_forward.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 4b81b14..65864bc 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -49,6 +49,11 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+ 	} else {
+ 		skb_push(skb, ETH_HLEN);
+ 		br_drop_fake_rtable(skb);
++
++		/* clean the NF bridge data */
++		nf_bridge_put(skb->nf_bridge);
++		skb->nf_bridge = NULL;
++
+ 		dev_queue_xmit(skb);
+ 	}
+ 
+-- 
+1.8.1.5
