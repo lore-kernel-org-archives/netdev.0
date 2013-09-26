@@ -1,14 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/3] netfilter: Remove extern from function prototypes
-Date: Thu, 26 Sep 2013 15:18:31 -0700
-Message-ID: <a0f4ecf3494c9869d20f606e7e2b2f50f0e67a7f.1380233637.git.joe@perches.com>
+Subject: [PATCH 3/3] [networking]device.h: Remove extern from function prototypes
+Date: Thu, 26 Sep 2013 15:18:33 -0700
+Message-ID: <f629d208d27a22f495b7734eede585b5d207e912.1380233637.git.joe@perches.com>
 References: <cover.1380233637.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+	Jes Sorensen <jes@trained-monkey.org>,
+	linux-kernel@vger.kernel.org, linux-hippi@sunsite.dk
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1380233637.git.joe@perches.com>
@@ -25,447 +22,863 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/linux/netfilter.h                        |  10 +-
- include/linux/netfilter/nf_conntrack_common.h    |   2 +-
- include/linux/netfilter/nf_conntrack_h323.h      |  14 +--
- include/linux/netfilter/nf_conntrack_proto_gre.h |   4 +-
- include/linux/netfilter/nf_conntrack_sip.h       |  57 +++++-----
- include/linux/netfilter/nfnetlink.h              |  28 ++---
- include/linux/netfilter/nfnetlink_acct.h         |   6 +-
- include/linux/netfilter/x_tables.h               | 128 +++++++++++------------
- include/linux/netfilter_bridge.h                 |   4 +-
- include/linux/netfilter_ipv4.h                   |   6 +-
- include/linux/netfilter_ipv6.h                   |  10 +-
- 11 files changed, 133 insertions(+), 136 deletions(-)
+ include/linux/etherdevice.h |  35 ++--
+ include/linux/fcdevice.h    |   2 +-
+ include/linux/fddidevice.h  |   7 +-
+ include/linux/hippidevice.h |  10 +-
+ include/linux/inetdevice.h  |  28 +--
+ include/linux/netdevice.h   | 432 +++++++++++++++++++++-----------------------
+ 6 files changed, 248 insertions(+), 266 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 708fe72ab9..61223c5 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -35,7 +35,7 @@ static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
- 	result->all[3] = a1->all[3] & mask->all[3];
- }
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index d8b5124..fc4a9aa 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -28,27 +28,24 @@
+ #include <asm/unaligned.h>
  
--extern int netfilter_init(void);
-+int netfilter_init(void);
+ #ifdef __KERNEL__
+-extern __be16		eth_type_trans(struct sk_buff *skb, struct net_device *dev);
++__be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
+ extern const struct header_ops eth_header_ops;
  
- /* Largest hook number + 1 */
- #define NF_MAX_HOOKS 8
-@@ -208,7 +208,7 @@ int compat_nf_getsockopt(struct sock *sk, u_int8_t pf, int optval,
- /* Call this before modifying an existing packet: ensures it is
-    modifiable and linear to the point you care about (writable_len).
-    Returns true or false. */
--extern int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
-+int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
+-extern int eth_header(struct sk_buff *skb, struct net_device *dev,
+-		      unsigned short type,
+-		      const void *daddr, const void *saddr, unsigned len);
+-extern int eth_rebuild_header(struct sk_buff *skb);
+-extern int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
+-extern int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh, __be16 type);
+-extern void eth_header_cache_update(struct hh_cache *hh,
+-				    const struct net_device *dev,
+-				    const unsigned char *haddr);
+-extern int eth_prepare_mac_addr_change(struct net_device *dev, void *p);
+-extern void eth_commit_mac_addr_change(struct net_device *dev, void *p);
+-extern int eth_mac_addr(struct net_device *dev, void *p);
+-extern int eth_change_mtu(struct net_device *dev, int new_mtu);
+-extern int eth_validate_addr(struct net_device *dev);
+-
+-
+-
+-extern struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
++int eth_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
++	       const void *daddr, const void *saddr, unsigned len);
++int eth_rebuild_header(struct sk_buff *skb);
++int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
++int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh,
++		     __be16 type);
++void eth_header_cache_update(struct hh_cache *hh, const struct net_device *dev,
++			     const unsigned char *haddr);
++int eth_prepare_mac_addr_change(struct net_device *dev, void *p);
++void eth_commit_mac_addr_change(struct net_device *dev, void *p);
++int eth_mac_addr(struct net_device *dev, void *p);
++int eth_change_mtu(struct net_device *dev, int new_mtu);
++int eth_validate_addr(struct net_device *dev);
++
++struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
+ 					    unsigned int rxqs);
+ #define alloc_etherdev(sizeof_priv) alloc_etherdev_mq(sizeof_priv, 1)
+ #define alloc_etherdev_mq(sizeof_priv, count) alloc_etherdev_mqs(sizeof_priv, count, count)
+diff --git a/include/linux/fcdevice.h b/include/linux/fcdevice.h
+index e460ef8..5009fa1 100644
+--- a/include/linux/fcdevice.h
++++ b/include/linux/fcdevice.h
+@@ -27,7 +27,7 @@
+ #include <linux/if_fc.h>
  
- struct flowi;
- struct nf_queue_entry;
-@@ -269,8 +269,8 @@ nf_checksum_partial(struct sk_buff *skb, unsigned int hook,
- 	return csum;
- }
+ #ifdef __KERNEL__
+-extern struct net_device *alloc_fcdev(int sizeof_priv);
++struct net_device *alloc_fcdev(int sizeof_priv);
+ #endif
  
--extern int nf_register_afinfo(const struct nf_afinfo *afinfo);
--extern void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
-+int nf_register_afinfo(const struct nf_afinfo *afinfo);
-+void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
+ #endif	/* _LINUX_FCDEVICE_H */
+diff --git a/include/linux/fddidevice.h b/include/linux/fddidevice.h
+index 155bafd..9a79f01 100644
+--- a/include/linux/fddidevice.h
++++ b/include/linux/fddidevice.h
+@@ -25,10 +25,9 @@
+ #include <linux/if_fddi.h>
  
- #include <net/flow.h>
- extern void (*nf_nat_decode_session_hook)(struct sk_buff *, struct flowi *);
-@@ -315,7 +315,7 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
+ #ifdef __KERNEL__
+-extern __be16	fddi_type_trans(struct sk_buff *skb,
+-				struct net_device *dev);
+-extern int fddi_change_mtu(struct net_device *dev, int new_mtu);
+-extern struct net_device *alloc_fddidev(int sizeof_priv);
++__be16 fddi_type_trans(struct sk_buff *skb, struct net_device *dev);
++int fddi_change_mtu(struct net_device *dev, int new_mtu);
++struct net_device *alloc_fddidev(int sizeof_priv);
+ #endif
  
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- extern void (*ip_ct_attach)(struct sk_buff *, const struct sk_buff *) __rcu;
--extern void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
-+void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
- extern void (*nf_ct_destroy)(struct nf_conntrack *) __rcu;
- 
- struct nf_conn;
-diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
-index 127d0b9..2755057 100644
---- a/include/linux/netfilter/nf_conntrack_common.h
-+++ b/include/linux/netfilter/nf_conntrack_common.h
-@@ -23,6 +23,6 @@ struct ip_conntrack_stat {
+ #endif	/* _LINUX_FDDIDEVICE_H */
+diff --git a/include/linux/hippidevice.h b/include/linux/hippidevice.h
+index f148e49..8ec23fb 100644
+--- a/include/linux/hippidevice.h
++++ b/include/linux/hippidevice.h
+@@ -31,11 +31,11 @@ struct hippi_cb {
+ 	__u32	ifield;
  };
  
- /* call to create an explicit dependency on nf_conntrack. */
--extern void need_conntrack(void);
-+void need_conntrack(void);
+-extern __be16 hippi_type_trans(struct sk_buff *skb, struct net_device *dev);
+-extern int hippi_change_mtu(struct net_device *dev, int new_mtu);
+-extern int hippi_mac_addr(struct net_device *dev, void *p);
+-extern int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p);
+-extern struct net_device *alloc_hippi_dev(int sizeof_priv);
++__be16 hippi_type_trans(struct sk_buff *skb, struct net_device *dev);
++int hippi_change_mtu(struct net_device *dev, int new_mtu);
++int hippi_mac_addr(struct net_device *dev, void *p);
++int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p);
++struct net_device *alloc_hippi_dev(int sizeof_priv);
+ #endif
  
- #endif /* _NF_CONNTRACK_COMMON_H */
-diff --git a/include/linux/netfilter/nf_conntrack_h323.h b/include/linux/netfilter/nf_conntrack_h323.h
-index f381020..858d9b2 100644
---- a/include/linux/netfilter/nf_conntrack_h323.h
-+++ b/include/linux/netfilter/nf_conntrack_h323.h
-@@ -29,13 +29,13 @@ struct nf_ct_h323_master {
- 
- struct nf_conn;
- 
--extern int get_h225_addr(struct nf_conn *ct, unsigned char *data,
--			 TransportAddress *taddr,
--			 union nf_inet_addr *addr, __be16 *port);
--extern void nf_conntrack_h245_expect(struct nf_conn *new,
--				     struct nf_conntrack_expect *this);
--extern void nf_conntrack_q931_expect(struct nf_conn *new,
--				     struct nf_conntrack_expect *this);
-+int get_h225_addr(struct nf_conn *ct, unsigned char *data,
-+		  TransportAddress *taddr, union nf_inet_addr *addr,
-+		  __be16 *port);
-+void nf_conntrack_h245_expect(struct nf_conn *new,
-+			      struct nf_conntrack_expect *this);
-+void nf_conntrack_q931_expect(struct nf_conn *new,
-+			      struct nf_conntrack_expect *this);
- extern int (*set_h245_addr_hook) (struct sk_buff *skb, unsigned int protoff,
- 				  unsigned char **data, int dataoff,
- 				  H245_TransportAddress *taddr,
-diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
-index 6a0664c..ec2ffaf 100644
---- a/include/linux/netfilter/nf_conntrack_proto_gre.h
-+++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
-@@ -87,8 +87,8 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
- /* delete keymap entries */
- void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
- 
--extern void nf_ct_gre_keymap_flush(struct net *net);
--extern void nf_nat_need_gre(void);
-+void nf_ct_gre_keymap_flush(struct net *net);
-+void nf_nat_need_gre(void);
- 
- #endif /* __KERNEL__ */
- #endif /* _CONNTRACK_PROTO_GRE_H */
-diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
-index ba7f571..5cac020 100644
---- a/include/linux/netfilter/nf_conntrack_sip.h
-+++ b/include/linux/netfilter/nf_conntrack_sip.h
-@@ -157,35 +157,34 @@ extern unsigned int (*nf_nat_sdp_media_hook)(struct sk_buff *skb,
- 					     unsigned int medialen,
- 					     union nf_inet_addr *rtp_addr);
- 
--extern int ct_sip_parse_request(const struct nf_conn *ct,
--				const char *dptr, unsigned int datalen,
--				unsigned int *matchoff, unsigned int *matchlen,
--				union nf_inet_addr *addr, __be16 *port);
--extern int ct_sip_get_header(const struct nf_conn *ct, const char *dptr,
--			     unsigned int dataoff, unsigned int datalen,
--			     enum sip_header_types type,
--			     unsigned int *matchoff, unsigned int *matchlen);
--extern int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
--				   unsigned int *dataoff, unsigned int datalen,
--				   enum sip_header_types type, int *in_header,
--				   unsigned int *matchoff, unsigned int *matchlen,
--				   union nf_inet_addr *addr, __be16 *port);
--extern int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
--				      unsigned int dataoff, unsigned int datalen,
--				      const char *name,
--				      unsigned int *matchoff, unsigned int *matchlen,
--				      union nf_inet_addr *addr, bool delim);
--extern int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
--					unsigned int off, unsigned int datalen,
--					const char *name,
--					unsigned int *matchoff, unsigned int *matchen,
--					unsigned int *val);
--
--extern int ct_sip_get_sdp_header(const struct nf_conn *ct, const char *dptr,
--				 unsigned int dataoff, unsigned int datalen,
--				 enum sdp_header_types type,
--				 enum sdp_header_types term,
--				 unsigned int *matchoff, unsigned int *matchlen);
-+int ct_sip_parse_request(const struct nf_conn *ct, const char *dptr,
-+			 unsigned int datalen, unsigned int *matchoff,
-+			 unsigned int *matchlen, union nf_inet_addr *addr,
-+			 __be16 *port);
-+int ct_sip_get_header(const struct nf_conn *ct, const char *dptr,
-+		      unsigned int dataoff, unsigned int datalen,
-+		      enum sip_header_types type, unsigned int *matchoff,
-+		      unsigned int *matchlen);
-+int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
-+			    unsigned int *dataoff, unsigned int datalen,
-+			    enum sip_header_types type, int *in_header,
-+			    unsigned int *matchoff, unsigned int *matchlen,
-+			    union nf_inet_addr *addr, __be16 *port);
-+int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
-+			       unsigned int dataoff, unsigned int datalen,
-+			       const char *name, unsigned int *matchoff,
-+			       unsigned int *matchlen, union nf_inet_addr *addr,
-+			       bool delim);
-+int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
-+				 unsigned int off, unsigned int datalen,
-+				 const char *name, unsigned int *matchoff,
-+				 unsigned int *matchen, unsigned int *val);
-+
-+int ct_sip_get_sdp_header(const struct nf_conn *ct, const char *dptr,
-+			  unsigned int dataoff, unsigned int datalen,
-+			  enum sdp_header_types type,
-+			  enum sdp_header_types term,
-+			  unsigned int *matchoff, unsigned int *matchlen);
- 
- #endif /* __KERNEL__ */
- #endif /* __NF_CONNTRACK_SIP_H__ */
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index cadb740..4f68cd7 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -25,20 +25,20 @@ struct nfnetlink_subsystem {
- 	const struct nfnl_callback *cb;	/* callback for individual types */
+ #endif	/* _LINUX_HIPPIDEVICE_H */
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 79640e0..0d678ae 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -147,25 +147,27 @@ struct in_ifaddr {
+ 	unsigned long		ifa_tstamp; /* updated timestamp */
  };
  
--extern int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
--extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
--
--extern int nfnetlink_has_listeners(struct net *net, unsigned int group);
--extern struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
--					   u32 dst_portid, gfp_t gfp_mask);
--extern int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
--			  unsigned int group, int echo, gfp_t flags);
--extern int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
--extern int nfnetlink_unicast(struct sk_buff *skb, struct net *net,
--			     u32 portid, int flags);
--
--extern void nfnl_lock(__u8 subsys_id);
--extern void nfnl_unlock(__u8 subsys_id);
-+int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
-+int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
-+
-+int nfnetlink_has_listeners(struct net *net, unsigned int group);
-+struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
-+				    u32 dst_portid, gfp_t gfp_mask);
-+int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
-+		   unsigned int group, int echo, gfp_t flags);
-+int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
-+int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u32 portid,
-+		      int flags);
-+
-+void nfnl_lock(__u8 subsys_id);
-+void nfnl_unlock(__u8 subsys_id);
+-extern int register_inetaddr_notifier(struct notifier_block *nb);
+-extern int unregister_inetaddr_notifier(struct notifier_block *nb);
++int register_inetaddr_notifier(struct notifier_block *nb);
++int unregister_inetaddr_notifier(struct notifier_block *nb);
  
- #define MODULE_ALIAS_NFNL_SUBSYS(subsys) \
- 	MODULE_ALIAS("nfnetlink-subsys-" __stringify(subsys))
-diff --git a/include/linux/netfilter/nfnetlink_acct.h b/include/linux/netfilter/nfnetlink_acct.h
-index bb4bbc9..b2e85e5 100644
---- a/include/linux/netfilter/nfnetlink_acct.h
-+++ b/include/linux/netfilter/nfnetlink_acct.h
-@@ -6,8 +6,8 @@
+-extern void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
+-					struct ipv4_devconf *devconf);
++void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
++				 struct ipv4_devconf *devconf);
  
- struct nf_acct;
- 
--extern struct nf_acct *nfnl_acct_find_get(const char *filter_name);
--extern void nfnl_acct_put(struct nf_acct *acct);
--extern void nfnl_acct_update(const struct sk_buff *skb, struct nf_acct *nfacct);
-+struct nf_acct *nfnl_acct_find_get(const char *filter_name);
-+void nfnl_acct_put(struct nf_acct *acct);
-+void nfnl_acct_update(const struct sk_buff *skb, struct nf_acct *nfacct);
- 
- #endif /* _NFNL_ACCT_H */
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index dd49566..a3e215b 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -229,50 +229,48 @@ struct xt_table_info {
- 
- #define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
- 			  + nr_cpu_ids * sizeof(char *))
--extern int xt_register_target(struct xt_target *target);
--extern void xt_unregister_target(struct xt_target *target);
--extern int xt_register_targets(struct xt_target *target, unsigned int n);
--extern void xt_unregister_targets(struct xt_target *target, unsigned int n);
--
--extern int xt_register_match(struct xt_match *target);
--extern void xt_unregister_match(struct xt_match *target);
--extern int xt_register_matches(struct xt_match *match, unsigned int n);
--extern void xt_unregister_matches(struct xt_match *match, unsigned int n);
--
--extern int xt_check_match(struct xt_mtchk_param *,
--			  unsigned int size, u_int8_t proto, bool inv_proto);
--extern int xt_check_target(struct xt_tgchk_param *,
--			   unsigned int size, u_int8_t proto, bool inv_proto);
--
--extern struct xt_table *xt_register_table(struct net *net,
--					  const struct xt_table *table,
--					  struct xt_table_info *bootstrap,
--					  struct xt_table_info *newinfo);
--extern void *xt_unregister_table(struct xt_table *table);
--
--extern struct xt_table_info *xt_replace_table(struct xt_table *table,
--					      unsigned int num_counters,
--					      struct xt_table_info *newinfo,
--					      int *error);
--
--extern struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
--extern struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
--extern struct xt_match *xt_request_find_match(u8 af, const char *name,
--					      u8 revision);
--extern struct xt_target *xt_request_find_target(u8 af, const char *name,
--						u8 revision);
--extern int xt_find_revision(u8 af, const char *name, u8 revision,
--			    int target, int *err);
--
--extern struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
--					   const char *name);
--extern void xt_table_unlock(struct xt_table *t);
--
--extern int xt_proto_init(struct net *net, u_int8_t af);
--extern void xt_proto_fini(struct net *net, u_int8_t af);
--
--extern struct xt_table_info *xt_alloc_table_info(unsigned int size);
--extern void xt_free_table_info(struct xt_table_info *info);
-+int xt_register_target(struct xt_target *target);
-+void xt_unregister_target(struct xt_target *target);
-+int xt_register_targets(struct xt_target *target, unsigned int n);
-+void xt_unregister_targets(struct xt_target *target, unsigned int n);
-+
-+int xt_register_match(struct xt_match *target);
-+void xt_unregister_match(struct xt_match *target);
-+int xt_register_matches(struct xt_match *match, unsigned int n);
-+void xt_unregister_matches(struct xt_match *match, unsigned int n);
-+
-+int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
-+		   bool inv_proto);
-+int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
-+		    bool inv_proto);
-+
-+struct xt_table *xt_register_table(struct net *net,
-+				   const struct xt_table *table,
-+				   struct xt_table_info *bootstrap,
-+				   struct xt_table_info *newinfo);
-+void *xt_unregister_table(struct xt_table *table);
-+
-+struct xt_table_info *xt_replace_table(struct xt_table *table,
-+				       unsigned int num_counters,
-+				       struct xt_table_info *newinfo,
-+				       int *error);
-+
-+struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
-+struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
-+struct xt_match *xt_request_find_match(u8 af, const char *name, u8 revision);
-+struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision);
-+int xt_find_revision(u8 af, const char *name, u8 revision, int target,
-+		     int *err);
-+
-+struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
-+				    const char *name);
-+void xt_table_unlock(struct xt_table *t);
-+
-+int xt_proto_init(struct net *net, u_int8_t af);
-+void xt_proto_fini(struct net *net, u_int8_t af);
-+
-+struct xt_table_info *xt_alloc_table_info(unsigned int size);
-+void xt_free_table_info(struct xt_table_info *info);
- 
- /**
-  * xt_recseq - recursive seqcount for netfilter use
-@@ -353,8 +351,8 @@ static inline unsigned long ifname_compare_aligned(const char *_a,
- 	return ret;
+-extern struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref);
++struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref);
+ static inline struct net_device *ip_dev_find(struct net *net, __be32 addr)
+ {
+ 	return __ip_dev_find(net, addr, true);
  }
  
--extern struct nf_hook_ops *xt_hook_link(const struct xt_table *, nf_hookfn *);
--extern void xt_hook_unlink(const struct xt_table *, struct nf_hook_ops *);
-+struct nf_hook_ops *xt_hook_link(const struct xt_table *, nf_hookfn *);
-+void xt_hook_unlink(const struct xt_table *, struct nf_hook_ops *);
+-extern int		inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b);
+-extern int		devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+-extern void		devinet_init(void);
+-extern struct in_device	*inetdev_by_index(struct net *, int);
+-extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+-extern __be32		inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local, int scope);
+-extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
++int inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b);
++int devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
++void devinet_init(void);
++struct in_device *inetdev_by_index(struct net *, int);
++__be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
++__be32 inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local,
++			 int scope);
++struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
++				    __be32 mask);
  
- #ifdef CONFIG_COMPAT
- #include <net/compat.h>
-@@ -414,25 +412,25 @@ struct _compat_xt_align {
- 
- #define COMPAT_XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _compat_xt_align))
- 
--extern void xt_compat_lock(u_int8_t af);
--extern void xt_compat_unlock(u_int8_t af);
--
--extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
--extern void xt_compat_flush_offsets(u_int8_t af);
--extern void xt_compat_init_offsets(u_int8_t af, unsigned int number);
--extern int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
--
--extern int xt_compat_match_offset(const struct xt_match *match);
--extern int xt_compat_match_from_user(struct xt_entry_match *m,
--				     void **dstptr, unsigned int *size);
--extern int xt_compat_match_to_user(const struct xt_entry_match *m,
--				   void __user **dstptr, unsigned int *size);
--
--extern int xt_compat_target_offset(const struct xt_target *target);
--extern void xt_compat_target_from_user(struct xt_entry_target *t,
--				       void **dstptr, unsigned int *size);
--extern int xt_compat_target_to_user(const struct xt_entry_target *t,
--				    void __user **dstptr, unsigned int *size);
-+void xt_compat_lock(u_int8_t af);
-+void xt_compat_unlock(u_int8_t af);
-+
-+int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
-+void xt_compat_flush_offsets(u_int8_t af);
-+void xt_compat_init_offsets(u_int8_t af, unsigned int number);
-+int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
-+
-+int xt_compat_match_offset(const struct xt_match *match);
-+int xt_compat_match_from_user(struct xt_entry_match *m, void **dstptr,
-+			      unsigned int *size);
-+int xt_compat_match_to_user(const struct xt_entry_match *m,
-+			    void __user **dstptr, unsigned int *size);
-+
-+int xt_compat_target_offset(const struct xt_target *target);
-+void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
-+				unsigned int *size);
-+int xt_compat_target_to_user(const struct xt_entry_target *t,
-+			     void __user **dstptr, unsigned int *size);
- 
- #endif /* CONFIG_COMPAT */
- #endif /* _X_TABLES_H */
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index dfb4d9e..8ab1c27 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -25,7 +25,7 @@ enum nf_br_hook_priorities {
- #define BRNF_PPPoE			0x20
- 
- /* Only used in br_forward.c */
--extern int nf_bridge_copy_header(struct sk_buff *skb);
-+int nf_bridge_copy_header(struct sk_buff *skb);
- static inline int nf_bridge_maybe_copy_header(struct sk_buff *skb)
+ static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
  {
- 	if (skb->nf_bridge &&
-@@ -53,7 +53,7 @@ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- 	return 0;
+@@ -218,7 +220,7 @@ static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
+ 	return rtnl_dereference(dev->ip_ptr);
  }
  
--extern int br_handle_frame_finish(struct sk_buff *skb);
-+int br_handle_frame_finish(struct sk_buff *skb);
- /* Only used in br_device.c */
- static inline int br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
+-extern void in_dev_finish_destroy(struct in_device *idev);
++void in_dev_finish_destroy(struct in_device *idev);
+ 
+ static inline void in_dev_put(struct in_device *idev)
  {
-diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
-index dfaf116..6e4591b 100644
---- a/include/linux/netfilter_ipv4.h
-+++ b/include/linux/netfilter_ipv4.h
-@@ -6,7 +6,7 @@
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b4cfb63..5f01af3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,8 +60,8 @@ struct wireless_dev;
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
  
- #include <uapi/linux/netfilter_ipv4.h>
+-extern void netdev_set_default_ethtool_ops(struct net_device *dev,
+-					   const struct ethtool_ops *ops);
++void netdev_set_default_ethtool_ops(struct net_device *dev,
++				    const struct ethtool_ops *ops);
  
--extern int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type);
--extern __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
--				   unsigned int dataoff, u_int8_t protocol);
-+int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type);
-+__sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
-+		       unsigned int dataoff, u_int8_t protocol);
- #endif /*__LINUX_IP_NETFILTER_H*/
-diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
-index 2d4df6ce..64dad1cc 100644
---- a/include/linux/netfilter_ipv6.h
-+++ b/include/linux/netfilter_ipv6.h
-@@ -11,12 +11,12 @@
+ /* hardware address assignment types */
+ #define NET_ADDR_PERM		0	/* address is permanent (default) */
+@@ -298,7 +298,7 @@ struct netdev_boot_setup {
+ };
+ #define NETDEV_BOOT_SETUP_MAX 8
  
- 
- #ifdef CONFIG_NETFILTER
--extern int ip6_route_me_harder(struct sk_buff *skb);
--extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
--				    unsigned int dataoff, u_int8_t protocol);
-+int ip6_route_me_harder(struct sk_buff *skb);
-+__sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
-+			unsigned int dataoff, u_int8_t protocol);
- 
--extern int ipv6_netfilter_init(void);
--extern void ipv6_netfilter_fini(void);
-+int ipv6_netfilter_init(void);
-+void ipv6_netfilter_fini(void);
+-extern int __init netdev_boot_setup(char *str);
++int __init netdev_boot_setup(char *str);
  
  /*
-  * Hook functions for ipv6 to allow xt_* modules to be built-in even
+  * Structure for NAPI scheduling similar to tasklet but with weighting
+@@ -394,7 +394,7 @@ enum rx_handler_result {
+ typedef enum rx_handler_result rx_handler_result_t;
+ typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
+ 
+-extern void __napi_schedule(struct napi_struct *n);
++void __napi_schedule(struct napi_struct *n);
+ 
+ static inline bool napi_disable_pending(struct napi_struct *n)
+ {
+@@ -445,8 +445,8 @@ static inline bool napi_reschedule(struct napi_struct *napi)
+  *
+  * Mark NAPI processing as complete.
+  */
+-extern void __napi_complete(struct napi_struct *n);
+-extern void napi_complete(struct napi_struct *n);
++void __napi_complete(struct napi_struct *n);
++void napi_complete(struct napi_struct *n);
+ 
+ /**
+  *	napi_by_id - lookup a NAPI by napi_id
+@@ -455,7 +455,7 @@ extern void napi_complete(struct napi_struct *n);
+  * lookup @napi_id in napi_hash table
+  * must be called under rcu_read_lock()
+  */
+-extern struct napi_struct *napi_by_id(unsigned int napi_id);
++struct napi_struct *napi_by_id(unsigned int napi_id);
+ 
+ /**
+  *	napi_hash_add - add a NAPI to global hashtable
+@@ -463,7 +463,7 @@ extern struct napi_struct *napi_by_id(unsigned int napi_id);
+  *
+  * generate a new napi_id and store a @napi under it in napi_hash
+  */
+-extern void napi_hash_add(struct napi_struct *napi);
++void napi_hash_add(struct napi_struct *napi);
+ 
+ /**
+  *	napi_hash_del - remove a NAPI from global table
+@@ -472,7 +472,7 @@ extern void napi_hash_add(struct napi_struct *napi);
+  * Warning: caller must observe rcu grace period
+  * before freeing memory containing @napi
+  */
+-extern void napi_hash_del(struct napi_struct *napi);
++void napi_hash_del(struct napi_struct *napi);
+ 
+ /**
+  *	napi_disable - prevent NAPI from scheduling
+@@ -664,8 +664,8 @@ static inline void rps_reset_sock_flow(struct rps_sock_flow_table *table,
+ extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
+ 
+ #ifdef CONFIG_RFS_ACCEL
+-extern bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
+-				u32 flow_id, u16 filter_id);
++bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index, u32 flow_id,
++			 u16 filter_id);
+ #endif
+ 
+ /* This structure contains an instance of an RX queue. */
+@@ -1497,9 +1497,9 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
+ 		f(dev, &dev->_tx[i], arg);
+ }
+ 
+-extern struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+-					   struct sk_buff *skb);
+-extern u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb);
++struct netdev_queue *netdev_pick_tx(struct net_device *dev,
++				    struct sk_buff *skb);
++u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb);
+ 
+ /*
+  * Net namespace inlines
+@@ -1683,8 +1683,8 @@ struct packet_offload {
+ #define NETDEV_CHANGEUPPER	0x0015
+ #define NETDEV_RESEND_IGMP	0x0016
+ 
+-extern int register_netdevice_notifier(struct notifier_block *nb);
+-extern int unregister_netdevice_notifier(struct notifier_block *nb);
++int register_netdevice_notifier(struct notifier_block *nb);
++int unregister_netdevice_notifier(struct notifier_block *nb);
+ 
+ struct netdev_notifier_info {
+ 	struct net_device *dev;
+@@ -1707,9 +1707,9 @@ netdev_notifier_info_to_dev(const struct netdev_notifier_info *info)
+ 	return info->dev;
+ }
+ 
+-extern int call_netdevice_notifiers_info(unsigned long val, struct net_device *dev,
+-					 struct netdev_notifier_info *info);
+-extern int call_netdevice_notifiers(unsigned long val, struct net_device *dev);
++int call_netdevice_notifiers_info(unsigned long val, struct net_device *dev,
++				  struct netdev_notifier_info *info);
++int call_netdevice_notifiers(unsigned long val, struct net_device *dev);
+ 
+ 
+ extern rwlock_t				dev_base_lock;		/* Device list lock */
+@@ -1764,54 +1764,52 @@ static inline struct net_device *first_net_device_rcu(struct net *net)
+ 	return lh == &net->dev_base_head ? NULL : net_device_entry(lh);
+ }
+ 
+-extern int 			netdev_boot_setup_check(struct net_device *dev);
+-extern unsigned long		netdev_boot_base(const char *prefix, int unit);
+-extern struct net_device *dev_getbyhwaddr_rcu(struct net *net, unsigned short type,
+-					      const char *hwaddr);
+-extern struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type);
+-extern struct net_device *__dev_getfirstbyhwtype(struct net *net, unsigned short type);
+-extern void		dev_add_pack(struct packet_type *pt);
+-extern void		dev_remove_pack(struct packet_type *pt);
+-extern void		__dev_remove_pack(struct packet_type *pt);
+-extern void		dev_add_offload(struct packet_offload *po);
+-extern void		dev_remove_offload(struct packet_offload *po);
+-extern void		__dev_remove_offload(struct packet_offload *po);
+-
+-extern struct net_device	*dev_get_by_flags_rcu(struct net *net, unsigned short flags,
+-						      unsigned short mask);
+-extern struct net_device	*dev_get_by_name(struct net *net, const char *name);
+-extern struct net_device	*dev_get_by_name_rcu(struct net *net, const char *name);
+-extern struct net_device	*__dev_get_by_name(struct net *net, const char *name);
+-extern int		dev_alloc_name(struct net_device *dev, const char *name);
+-extern int		dev_open(struct net_device *dev);
+-extern int		dev_close(struct net_device *dev);
+-extern void		dev_disable_lro(struct net_device *dev);
+-extern int		dev_loopback_xmit(struct sk_buff *newskb);
+-extern int		dev_queue_xmit(struct sk_buff *skb);
+-extern int		register_netdevice(struct net_device *dev);
+-extern void		unregister_netdevice_queue(struct net_device *dev,
+-						   struct list_head *head);
+-extern void		unregister_netdevice_many(struct list_head *head);
++int netdev_boot_setup_check(struct net_device *dev);
++unsigned long netdev_boot_base(const char *prefix, int unit);
++struct net_device *dev_getbyhwaddr_rcu(struct net *net, unsigned short type,
++				       const char *hwaddr);
++struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type);
++struct net_device *__dev_getfirstbyhwtype(struct net *net, unsigned short type);
++void dev_add_pack(struct packet_type *pt);
++void dev_remove_pack(struct packet_type *pt);
++void __dev_remove_pack(struct packet_type *pt);
++void dev_add_offload(struct packet_offload *po);
++void dev_remove_offload(struct packet_offload *po);
++void __dev_remove_offload(struct packet_offload *po);
++
++struct net_device *dev_get_by_flags_rcu(struct net *net, unsigned short flags,
++					unsigned short mask);
++struct net_device *dev_get_by_name(struct net *net, const char *name);
++struct net_device *dev_get_by_name_rcu(struct net *net, const char *name);
++struct net_device *__dev_get_by_name(struct net *net, const char *name);
++int dev_alloc_name(struct net_device *dev, const char *name);
++int dev_open(struct net_device *dev);
++int dev_close(struct net_device *dev);
++void dev_disable_lro(struct net_device *dev);
++int dev_loopback_xmit(struct sk_buff *newskb);
++int dev_queue_xmit(struct sk_buff *skb);
++int register_netdevice(struct net_device *dev);
++void unregister_netdevice_queue(struct net_device *dev, struct list_head *head);
++void unregister_netdevice_many(struct list_head *head);
+ static inline void unregister_netdevice(struct net_device *dev)
+ {
+ 	unregister_netdevice_queue(dev, NULL);
+ }
+ 
+-extern int 		netdev_refcnt_read(const struct net_device *dev);
+-extern void		free_netdev(struct net_device *dev);
+-extern void		synchronize_net(void);
+-extern int		init_dummy_netdev(struct net_device *dev);
++int netdev_refcnt_read(const struct net_device *dev);
++void free_netdev(struct net_device *dev);
++void synchronize_net(void);
++int init_dummy_netdev(struct net_device *dev);
+ 
+-extern struct net_device	*dev_get_by_index(struct net *net, int ifindex);
+-extern struct net_device	*__dev_get_by_index(struct net *net, int ifindex);
+-extern struct net_device	*dev_get_by_index_rcu(struct net *net, int ifindex);
+-extern int		netdev_get_name(struct net *net, char *name, int ifindex);
+-extern int		dev_restart(struct net_device *dev);
++struct net_device *dev_get_by_index(struct net *net, int ifindex);
++struct net_device *__dev_get_by_index(struct net *net, int ifindex);
++struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
++int netdev_get_name(struct net *net, char *name, int ifindex);
++int dev_restart(struct net_device *dev);
+ #ifdef CONFIG_NETPOLL_TRAP
+-extern int		netpoll_trap(void);
++int netpoll_trap(void);
+ #endif
+-extern int	       skb_gro_receive(struct sk_buff **head,
+-				       struct sk_buff *skb);
++int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
+ 
+ static inline unsigned int skb_gro_offset(const struct sk_buff *skb)
+ {
+@@ -1883,7 +1881,7 @@ static inline int dev_parse_header(const struct sk_buff *skb,
+ }
+ 
+ typedef int gifconf_func_t(struct net_device * dev, char __user * bufptr, int len);
+-extern int		register_gifconf(unsigned int family, gifconf_func_t * gifconf);
++int register_gifconf(unsigned int family, gifconf_func_t *gifconf);
+ static inline int unregister_gifconf(unsigned int family)
+ {
+ 	return register_gifconf(family, NULL);
+@@ -1954,7 +1952,7 @@ static inline void input_queue_tail_incr_save(struct softnet_data *sd,
+ 
+ DECLARE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
+ 
+-extern void __netif_schedule(struct Qdisc *q);
++void __netif_schedule(struct Qdisc *q);
+ 
+ static inline void netif_schedule_queue(struct netdev_queue *txq)
+ {
+@@ -2274,8 +2272,8 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
+ }
+ 
+ #ifdef CONFIG_XPS
+-extern int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask,
+-			       u16 index);
++int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask,
++			u16 index);
+ #else
+ static inline int netif_set_xps_queue(struct net_device *dev,
+ 				      struct cpumask *mask,
+@@ -2306,12 +2304,10 @@ static inline bool netif_is_multiqueue(const struct net_device *dev)
+ 	return dev->num_tx_queues > 1;
+ }
+ 
+-extern int netif_set_real_num_tx_queues(struct net_device *dev,
+-					unsigned int txq);
++int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq);
+ 
+ #ifdef CONFIG_RPS
+-extern int netif_set_real_num_rx_queues(struct net_device *dev,
+-					unsigned int rxq);
++int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq);
+ #else
+ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+ 						unsigned int rxq)
+@@ -2338,28 +2334,27 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ }
+ 
+ #define DEFAULT_MAX_NUM_RSS_QUEUES	(8)
+-extern int netif_get_num_default_rss_queues(void);
++int netif_get_num_default_rss_queues(void);
+ 
+ /* Use this variant when it is known for sure that it
+  * is executing from hardware interrupt context or with hardware interrupts
+  * disabled.
+  */
+-extern void dev_kfree_skb_irq(struct sk_buff *skb);
++void dev_kfree_skb_irq(struct sk_buff *skb);
+ 
+ /* Use this variant in places where it could be invoked
+  * from either hardware interrupt or other context, with hardware interrupts
+  * either disabled or enabled.
+  */
+-extern void dev_kfree_skb_any(struct sk_buff *skb);
++void dev_kfree_skb_any(struct sk_buff *skb);
+ 
+-extern int		netif_rx(struct sk_buff *skb);
+-extern int		netif_rx_ni(struct sk_buff *skb);
+-extern int		netif_receive_skb(struct sk_buff *skb);
+-extern gro_result_t	napi_gro_receive(struct napi_struct *napi,
+-					 struct sk_buff *skb);
+-extern void		napi_gro_flush(struct napi_struct *napi, bool flush_old);
+-extern struct sk_buff *	napi_get_frags(struct napi_struct *napi);
+-extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
++int netif_rx(struct sk_buff *skb);
++int netif_rx_ni(struct sk_buff *skb);
++int netif_receive_skb(struct sk_buff *skb);
++gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
++void napi_gro_flush(struct napi_struct *napi, bool flush_old);
++struct sk_buff *napi_get_frags(struct napi_struct *napi);
++gro_result_t napi_gro_frags(struct napi_struct *napi);
+ 
+ static inline void napi_free_frags(struct napi_struct *napi)
+ {
+@@ -2367,40 +2362,35 @@ static inline void napi_free_frags(struct napi_struct *napi)
+ 	napi->skb = NULL;
+ }
+ 
+-extern int netdev_rx_handler_register(struct net_device *dev,
+-				      rx_handler_func_t *rx_handler,
+-				      void *rx_handler_data);
+-extern void netdev_rx_handler_unregister(struct net_device *dev);
+-
+-extern bool		dev_valid_name(const char *name);
+-extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
+-extern int		dev_ethtool(struct net *net, struct ifreq *);
+-extern unsigned int	dev_get_flags(const struct net_device *);
+-extern int		__dev_change_flags(struct net_device *, unsigned int flags);
+-extern int		dev_change_flags(struct net_device *, unsigned int);
+-extern void		__dev_notify_flags(struct net_device *, unsigned int old_flags);
+-extern int		dev_change_name(struct net_device *, const char *);
+-extern int		dev_set_alias(struct net_device *, const char *, size_t);
+-extern int		dev_change_net_namespace(struct net_device *,
+-						 struct net *, const char *);
+-extern int		dev_set_mtu(struct net_device *, int);
+-extern void		dev_set_group(struct net_device *, int);
+-extern int		dev_set_mac_address(struct net_device *,
+-					    struct sockaddr *);
+-extern int		dev_change_carrier(struct net_device *,
+-					   bool new_carrier);
+-extern int		dev_get_phys_port_id(struct net_device *dev,
+-					     struct netdev_phys_port_id *ppid);
+-extern int		dev_hard_start_xmit(struct sk_buff *skb,
+-					    struct net_device *dev,
+-					    struct netdev_queue *txq);
+-extern int		dev_forward_skb(struct net_device *dev,
+-					struct sk_buff *skb);
++int netdev_rx_handler_register(struct net_device *dev,
++			       rx_handler_func_t *rx_handler,
++			       void *rx_handler_data);
++void netdev_rx_handler_unregister(struct net_device *dev);
++
++bool dev_valid_name(const char *name);
++int dev_ioctl(struct net *net, unsigned int cmd, void __user *);
++int dev_ethtool(struct net *net, struct ifreq *);
++unsigned int dev_get_flags(const struct net_device *);
++int __dev_change_flags(struct net_device *, unsigned int flags);
++int dev_change_flags(struct net_device *, unsigned int);
++void __dev_notify_flags(struct net_device *, unsigned int old_flags);
++int dev_change_name(struct net_device *, const char *);
++int dev_set_alias(struct net_device *, const char *, size_t);
++int dev_change_net_namespace(struct net_device *, struct net *, const char *);
++int dev_set_mtu(struct net_device *, int);
++void dev_set_group(struct net_device *, int);
++int dev_set_mac_address(struct net_device *, struct sockaddr *);
++int dev_change_carrier(struct net_device *, bool new_carrier);
++int dev_get_phys_port_id(struct net_device *dev,
++			 struct netdev_phys_port_id *ppid);
++int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
++			struct netdev_queue *txq);
++int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+ 
+ extern int		netdev_budget;
+ 
+ /* Called by rtnetlink.c:rtnl_unlock() */
+-extern void netdev_run_todo(void);
++void netdev_run_todo(void);
+ 
+ /**
+  *	dev_put - release reference to device
+@@ -2433,9 +2423,9 @@ static inline void dev_hold(struct net_device *dev)
+  * kind of lower layer not just hardware media.
+  */
+ 
+-extern void linkwatch_init_dev(struct net_device *dev);
+-extern void linkwatch_fire_event(struct net_device *dev);
+-extern void linkwatch_forget_dev(struct net_device *dev);
++void linkwatch_init_dev(struct net_device *dev);
++void linkwatch_fire_event(struct net_device *dev);
++void linkwatch_forget_dev(struct net_device *dev);
+ 
+ /**
+  *	netif_carrier_ok - test if carrier present
+@@ -2448,13 +2438,13 @@ static inline bool netif_carrier_ok(const struct net_device *dev)
+ 	return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
+ }
+ 
+-extern unsigned long dev_trans_start(struct net_device *dev);
++unsigned long dev_trans_start(struct net_device *dev);
+ 
+-extern void __netdev_watchdog_up(struct net_device *dev);
++void __netdev_watchdog_up(struct net_device *dev);
+ 
+-extern void netif_carrier_on(struct net_device *dev);
++void netif_carrier_on(struct net_device *dev);
+ 
+-extern void netif_carrier_off(struct net_device *dev);
++void netif_carrier_off(struct net_device *dev);
+ 
+ /**
+  *	netif_dormant_on - mark device as dormant.
+@@ -2522,9 +2512,9 @@ static inline bool netif_device_present(struct net_device *dev)
+ 	return test_bit(__LINK_STATE_PRESENT, &dev->state);
+ }
+ 
+-extern void netif_device_detach(struct net_device *dev);
++void netif_device_detach(struct net_device *dev);
+ 
+-extern void netif_device_attach(struct net_device *dev);
++void netif_device_attach(struct net_device *dev);
+ 
+ /*
+  * Network interface message level settings
+@@ -2733,98 +2723,93 @@ static inline void netif_addr_unlock_bh(struct net_device *dev)
+ 
+ /* These functions live elsewhere (drivers/net/net_init.c, but related) */
+ 
+-extern void		ether_setup(struct net_device *dev);
++void ether_setup(struct net_device *dev);
+ 
+ /* Support for loadable net-drivers */
+-extern struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+-				       void (*setup)(struct net_device *),
+-				       unsigned int txqs, unsigned int rxqs);
++struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
++				    void (*setup)(struct net_device *),
++				    unsigned int txqs, unsigned int rxqs);
+ #define alloc_netdev(sizeof_priv, name, setup) \
+ 	alloc_netdev_mqs(sizeof_priv, name, setup, 1, 1)
+ 
+ #define alloc_netdev_mq(sizeof_priv, name, setup, count) \
+ 	alloc_netdev_mqs(sizeof_priv, name, setup, count, count)
+ 
+-extern int		register_netdev(struct net_device *dev);
+-extern void		unregister_netdev(struct net_device *dev);
++int register_netdev(struct net_device *dev);
++void unregister_netdev(struct net_device *dev);
+ 
+ /* General hardware address lists handling functions */
+-extern int __hw_addr_add_multiple(struct netdev_hw_addr_list *to_list,
+-				  struct netdev_hw_addr_list *from_list,
+-				  int addr_len, unsigned char addr_type);
+-extern void __hw_addr_del_multiple(struct netdev_hw_addr_list *to_list,
+-				   struct netdev_hw_addr_list *from_list,
+-				   int addr_len, unsigned char addr_type);
+-extern int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
+-			  struct netdev_hw_addr_list *from_list,
+-			  int addr_len);
+-extern void __hw_addr_unsync(struct netdev_hw_addr_list *to_list,
+-			     struct netdev_hw_addr_list *from_list,
+-			     int addr_len);
+-extern void __hw_addr_flush(struct netdev_hw_addr_list *list);
+-extern void __hw_addr_init(struct netdev_hw_addr_list *list);
++int __hw_addr_add_multiple(struct netdev_hw_addr_list *to_list,
++			   struct netdev_hw_addr_list *from_list,
++			   int addr_len, unsigned char addr_type);
++void __hw_addr_del_multiple(struct netdev_hw_addr_list *to_list,
++			    struct netdev_hw_addr_list *from_list,
++			    int addr_len, unsigned char addr_type);
++int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
++		   struct netdev_hw_addr_list *from_list, int addr_len);
++void __hw_addr_unsync(struct netdev_hw_addr_list *to_list,
++		      struct netdev_hw_addr_list *from_list, int addr_len);
++void __hw_addr_flush(struct netdev_hw_addr_list *list);
++void __hw_addr_init(struct netdev_hw_addr_list *list);
+ 
+ /* Functions used for device addresses handling */
+-extern int dev_addr_add(struct net_device *dev, const unsigned char *addr,
+-			unsigned char addr_type);
+-extern int dev_addr_del(struct net_device *dev, const unsigned char *addr,
+-			unsigned char addr_type);
+-extern int dev_addr_add_multiple(struct net_device *to_dev,
+-				 struct net_device *from_dev,
+-				 unsigned char addr_type);
+-extern int dev_addr_del_multiple(struct net_device *to_dev,
+-				 struct net_device *from_dev,
+-				 unsigned char addr_type);
+-extern void dev_addr_flush(struct net_device *dev);
+-extern int dev_addr_init(struct net_device *dev);
++int dev_addr_add(struct net_device *dev, const unsigned char *addr,
++		 unsigned char addr_type);
++int dev_addr_del(struct net_device *dev, const unsigned char *addr,
++		 unsigned char addr_type);
++int dev_addr_add_multiple(struct net_device *to_dev,
++			  struct net_device *from_dev, unsigned char addr_type);
++int dev_addr_del_multiple(struct net_device *to_dev,
++			  struct net_device *from_dev, unsigned char addr_type);
++void dev_addr_flush(struct net_device *dev);
++int dev_addr_init(struct net_device *dev);
+ 
+ /* Functions used for unicast addresses handling */
+-extern int dev_uc_add(struct net_device *dev, const unsigned char *addr);
+-extern int dev_uc_add_excl(struct net_device *dev, const unsigned char *addr);
+-extern int dev_uc_del(struct net_device *dev, const unsigned char *addr);
+-extern int dev_uc_sync(struct net_device *to, struct net_device *from);
+-extern int dev_uc_sync_multiple(struct net_device *to, struct net_device *from);
+-extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
+-extern void dev_uc_flush(struct net_device *dev);
+-extern void dev_uc_init(struct net_device *dev);
++int dev_uc_add(struct net_device *dev, const unsigned char *addr);
++int dev_uc_add_excl(struct net_device *dev, const unsigned char *addr);
++int dev_uc_del(struct net_device *dev, const unsigned char *addr);
++int dev_uc_sync(struct net_device *to, struct net_device *from);
++int dev_uc_sync_multiple(struct net_device *to, struct net_device *from);
++void dev_uc_unsync(struct net_device *to, struct net_device *from);
++void dev_uc_flush(struct net_device *dev);
++void dev_uc_init(struct net_device *dev);
+ 
+ /* Functions used for multicast addresses handling */
+-extern int dev_mc_add(struct net_device *dev, const unsigned char *addr);
+-extern int dev_mc_add_global(struct net_device *dev, const unsigned char *addr);
+-extern int dev_mc_add_excl(struct net_device *dev, const unsigned char *addr);
+-extern int dev_mc_del(struct net_device *dev, const unsigned char *addr);
+-extern int dev_mc_del_global(struct net_device *dev, const unsigned char *addr);
+-extern int dev_mc_sync(struct net_device *to, struct net_device *from);
+-extern int dev_mc_sync_multiple(struct net_device *to, struct net_device *from);
+-extern void dev_mc_unsync(struct net_device *to, struct net_device *from);
+-extern void dev_mc_flush(struct net_device *dev);
+-extern void dev_mc_init(struct net_device *dev);
++int dev_mc_add(struct net_device *dev, const unsigned char *addr);
++int dev_mc_add_global(struct net_device *dev, const unsigned char *addr);
++int dev_mc_add_excl(struct net_device *dev, const unsigned char *addr);
++int dev_mc_del(struct net_device *dev, const unsigned char *addr);
++int dev_mc_del_global(struct net_device *dev, const unsigned char *addr);
++int dev_mc_sync(struct net_device *to, struct net_device *from);
++int dev_mc_sync_multiple(struct net_device *to, struct net_device *from);
++void dev_mc_unsync(struct net_device *to, struct net_device *from);
++void dev_mc_flush(struct net_device *dev);
++void dev_mc_init(struct net_device *dev);
+ 
+ /* Functions used for secondary unicast and multicast support */
+-extern void		dev_set_rx_mode(struct net_device *dev);
+-extern void		__dev_set_rx_mode(struct net_device *dev);
+-extern int		dev_set_promiscuity(struct net_device *dev, int inc);
+-extern int		dev_set_allmulti(struct net_device *dev, int inc);
+-extern void		netdev_state_change(struct net_device *dev);
+-extern void		netdev_notify_peers(struct net_device *dev);
+-extern void		netdev_features_change(struct net_device *dev);
++void dev_set_rx_mode(struct net_device *dev);
++void __dev_set_rx_mode(struct net_device *dev);
++int dev_set_promiscuity(struct net_device *dev, int inc);
++int dev_set_allmulti(struct net_device *dev, int inc);
++void netdev_state_change(struct net_device *dev);
++void netdev_notify_peers(struct net_device *dev);
++void netdev_features_change(struct net_device *dev);
+ /* Load a device via the kmod */
+-extern void		dev_load(struct net *net, const char *name);
+-extern struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+-					       struct rtnl_link_stats64 *storage);
+-extern void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+-				    const struct net_device_stats *netdev_stats);
++void dev_load(struct net *net, const char *name);
++struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
++					struct rtnl_link_stats64 *storage);
++void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
++			     const struct net_device_stats *netdev_stats);
+ 
+ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+ extern int		weight_p;
+ extern int		bpf_jit_enable;
+ 
+-extern bool netdev_has_upper_dev(struct net_device *dev,
+-				 struct net_device *upper_dev);
+-extern bool netdev_has_any_upper_dev(struct net_device *dev);
+-extern struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+-							    struct list_head **iter);
++bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
++bool netdev_has_any_upper_dev(struct net_device *dev);
++struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
++						     struct list_head **iter);
+ 
+ /* iterate through upper list, must be called under RCU read lock */
+ #define netdev_for_each_all_upper_dev_rcu(dev, updev, iter) \
+@@ -2833,10 +2818,10 @@ extern struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *d
+ 	     updev; \
+ 	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)))
+ 
+-extern void *netdev_lower_get_next_private(struct net_device *dev,
+-					   struct list_head **iter);
+-extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+-					       struct list_head **iter);
++void *netdev_lower_get_next_private(struct net_device *dev,
++				    struct list_head **iter);
++void *netdev_lower_get_next_private_rcu(struct net_device *dev,
++					struct list_head **iter);
+ 
+ #define netdev_for_each_lower_private(dev, priv, iter) \
+ 	for (iter = (dev)->adj_list.lower.next, \
+@@ -2850,27 +2835,26 @@ extern void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+ 
+-extern void *netdev_adjacent_get_private(struct list_head *adj_list);
+-extern struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+-extern struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+-extern int netdev_upper_dev_link(struct net_device *dev,
++void *netdev_adjacent_get_private(struct list_head *adj_list);
++struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
++struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
++int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
++int netdev_master_upper_dev_link(struct net_device *dev,
+ 				 struct net_device *upper_dev);
+-extern int netdev_master_upper_dev_link(struct net_device *dev,
+-					struct net_device *upper_dev);
+-extern int netdev_master_upper_dev_link_private(struct net_device *dev,
+-						struct net_device *upper_dev,
+-						void *private);
+-extern void netdev_upper_dev_unlink(struct net_device *dev,
+-				    struct net_device *upper_dev);
+-extern void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
+-					      struct net_device *lower_dev);
+-extern void *netdev_lower_dev_get_private(struct net_device *dev,
+-					  struct net_device *lower_dev);
+-extern int skb_checksum_help(struct sk_buff *skb);
+-extern struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+-	netdev_features_t features, bool tx_path);
+-extern struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
+-					  netdev_features_t features);
++int netdev_master_upper_dev_link_private(struct net_device *dev,
++					 struct net_device *upper_dev,
++					 void *private);
++void netdev_upper_dev_unlink(struct net_device *dev,
++			     struct net_device *upper_dev);
++void *netdev_lower_dev_get_private_rcu(struct net_device *dev,
++				       struct net_device *lower_dev);
++void *netdev_lower_dev_get_private(struct net_device *dev,
++				   struct net_device *lower_dev);
++int skb_checksum_help(struct sk_buff *skb);
++struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
++				  netdev_features_t features, bool tx_path);
++struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
++				    netdev_features_t features);
+ 
+ static inline
+ struct sk_buff *skb_gso_segment(struct sk_buff *skb, netdev_features_t features)
+@@ -2892,30 +2876,30 @@ static inline bool can_checksum_protocol(netdev_features_t features,
+ }
+ 
+ #ifdef CONFIG_BUG
+-extern void netdev_rx_csum_fault(struct net_device *dev);
++void netdev_rx_csum_fault(struct net_device *dev);
+ #else
+ static inline void netdev_rx_csum_fault(struct net_device *dev)
+ {
+ }
+ #endif
+ /* rx skb timestamps */
+-extern void		net_enable_timestamp(void);
+-extern void		net_disable_timestamp(void);
++void net_enable_timestamp(void);
++void net_disable_timestamp(void);
+ 
+ #ifdef CONFIG_PROC_FS
+-extern int __init dev_proc_init(void);
++int __init dev_proc_init(void);
+ #else
+ #define dev_proc_init() 0
+ #endif
+ 
+-extern int netdev_class_create_file(struct class_attribute *class_attr);
+-extern void netdev_class_remove_file(struct class_attribute *class_attr);
++int netdev_class_create_file(struct class_attribute *class_attr);
++void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
+ extern struct kobj_ns_type_operations net_ns_type_operations;
+ 
+-extern const char *netdev_drivername(const struct net_device *dev);
++const char *netdev_drivername(const struct net_device *dev);
+ 
+-extern void linkwatch_run_queue(void);
++void linkwatch_run_queue(void);
+ 
+ static inline netdev_features_t netdev_get_wanted_features(
+ 	struct net_device *dev)
+@@ -3007,22 +2991,22 @@ static inline const char *netdev_name(const struct net_device *dev)
+ 	return dev->name;
+ }
+ 
+-extern __printf(3, 4)
++__printf(3, 4)
+ int netdev_printk(const char *level, const struct net_device *dev,
+ 		  const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_emerg(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_alert(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_crit(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_err(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_warn(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_notice(const struct net_device *dev, const char *format, ...);
+-extern __printf(2, 3)
++__printf(2, 3)
+ int netdev_info(const struct net_device *dev, const char *format, ...);
+ 
+ #define MODULE_ALIAS_NETDEV(device) \
 -- 
 1.8.1.2.459.gbcd45b4.dirty
