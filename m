@@ -1,107 +1,131 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v3 1/3] flow_dissector: factor out the ports extraction in skb_flow_get_ports
-Date: Thu, 26 Sep 2013 16:09:40 +0200
-Message-ID: <1380204582-27144-2-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v3 3/3] bonding: document the new xmit policy modes and update the changed ones
+Date: Thu, 26 Sep 2013 16:09:42 +0200
+Message-ID: <1380204582-27144-4-git-send-email-nikolay@redhat.com>
 References: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
 Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
 	eric.dumazet@gmail.com, vfalico@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54726 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42718 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751164Ab3IZONY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751184Ab3IZONY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Sep 2013 10:13:24 -0400
 In-Reply-To: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out the code that extracts the ports from skb_flow_dissect and
-add a new function skb_flow_get_ports which can be re-used.
+Add new documentation for encap2+3 and encap3+4, also update the formula
+for the old modes due to the changes.
 
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
-v2: new patch
-v3: fix a bug in skb_flow_dissect where thoff didn't have poff added by
-    modifying thoff directly in skb_flow_get_ports as it's done anyway.
-    Also add the necessary export symbol for skb_flow_get_ports.
-This seems like a good idea because there're other users that can re-use
-it later as well.
+v2, v3: no change
 
- include/net/flow_keys.h   |  1 +
- net/core/flow_dissector.c | 41 ++++++++++++++++++++++++++++++-----------
- 2 files changed, 31 insertions(+), 11 deletions(-)
+ Documentation/networking/bonding.txt | 66 ++++++++++++++++++++----------------
+ 1 file changed, 36 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index ac2439d..4db84ae 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -14,4 +14,5 @@ struct flow_keys {
- };
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 9b28e71..3856ed2 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -743,21 +743,16 @@ xmit_hash_policy
+ 		protocol information to generate the hash.
  
- bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
-+__be32 skb_flow_get_ports(const struct sk_buff *skb, int *thoff, u8 ip_proto);
- #endif
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1929af8..7785398 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -25,9 +25,37 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
- 	memcpy(&flow->src, &iph->saddr, sizeof(flow->src) + sizeof(flow->dst));
- }
+ 		Uses XOR of hardware MAC addresses and IP addresses to
+-		generate the hash.  The IPv4 formula is
++		generate the hash.  The formula is
  
-+/**
-+ * skb_flow_get_ports - extract the upper layer ports and return them
-+ * @skb: buffer to extract the ports from
-+ * @thoff: pointer to transport header offset
-+ * @ip_proto: protocol for which to get port offset
-+ *
-+ * The function will try to retrieve the ports at offset thoff + poff where poff
-+ * is the protocol port offset returned from proto_ports_offset, and if poff is
-+ * more than or equal to 0 it'll add it to the value at the thoff address
-+ */
-+__be32 skb_flow_get_ports(const struct sk_buff *skb, int *thoff, u8 ip_proto)
-+{
-+	int poff = proto_ports_offset(ip_proto);
-+
-+	if (poff >= 0) {
-+		__be32 *ports, _ports;
-+
-+		*thoff += poff;
-+		ports = skb_header_pointer(skb, *thoff, sizeof(_ports),
-+					   &_ports);
-+		if (ports)
-+			return *ports;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(skb_flow_get_ports);
-+
- bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
- {
--	int poff, nhoff = skb_network_offset(skb);
-+	int nhoff = skb_network_offset(skb);
- 	u8 ip_proto;
- 	__be16 proto = skb->protocol;
+-		(((source IP XOR dest IP) AND 0xffff) XOR
+-			( source MAC XOR destination MAC ))
+-				modulo slave count
++		hash = source MAC XOR destination MAC
++		hash = hash XOR source IP XOR destination IP
++		hash = hash XOR (hash RSHIFT 16)
++		hash = hash XOR (hash RSHIFT 8)
++		And then hash is reduced modulo slave count.
  
-@@ -150,16 +178,7 @@ ipv6:
- 	}
- 
- 	flow->ip_proto = ip_proto;
--	poff = proto_ports_offset(ip_proto);
--	if (poff >= 0) {
--		__be32 *ports, _ports;
+-		The IPv6 formula is
 -
--		nhoff += poff;
--		ports = skb_header_pointer(skb, nhoff, sizeof(_ports), &_ports);
--		if (ports)
--			flow->ports = *ports;
--	}
+-		hash = (source ip quad 2 XOR dest IP quad 2) XOR
+-		       (source ip quad 3 XOR dest IP quad 3) XOR
+-		       (source ip quad 4 XOR dest IP quad 4)
 -
-+	flow->ports = skb_flow_get_ports(skb, &nhoff, ip_proto);
- 	flow->thoff = (u16) nhoff;
+-		(((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
+-			XOR (source MAC XOR destination MAC))
+-				modulo slave count
++		If the protocol is IPv6 then the source and destination
++		addresses are first hashed using ipv6_addr_hash.
  
- 	return true;
+ 		This algorithm will place all traffic to a particular
+ 		network peer on the same slave.  For non-IP traffic,
+@@ -779,21 +774,16 @@ xmit_hash_policy
+ 		slaves, although a single connection will not span
+ 		multiple slaves.
+ 
+-		The formula for unfragmented IPv4 TCP and UDP packets is
+-
+-		((source port XOR dest port) XOR
+-			 ((source IP XOR dest IP) AND 0xffff)
+-				modulo slave count
++		The formula for unfragmented TCP and UDP packets is
+ 
+-		The formula for unfragmented IPv6 TCP and UDP packets is
++		hash = source port, destination port (as in the header)
++		hash = hash XOR source IP XOR destination IP
++		hash = hash XOR (hash RSHIFT 16)
++		hash = hash XOR (hash RSHIFT 8)
++		And then hash is reduced modulo slave count.
+ 
+-		hash = (source port XOR dest port) XOR
+-		       ((source ip quad 2 XOR dest IP quad 2) XOR
+-			(source ip quad 3 XOR dest IP quad 3) XOR
+-			(source ip quad 4 XOR dest IP quad 4))
+-
+-		((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
+-			modulo slave count
++		If the protocol is IPv6 then the source and destination
++		addresses are first hashed using ipv6_addr_hash.
+ 
+ 		For fragmented TCP or UDP packets and all other IPv4 and
+ 		IPv6 protocol traffic, the source and destination port
+@@ -801,10 +791,6 @@ xmit_hash_policy
+ 		formula is the same as for the layer2 transmit hash
+ 		policy.
+ 
+-		The IPv4 policy is intended to mimic the behavior of
+-		certain switches, notably Cisco switches with PFC2 as
+-		well as some Foundry and IBM products.
+-
+ 		This algorithm is not fully 802.3ad compliant.  A
+ 		single TCP or UDP conversation containing both
+ 		fragmented and unfragmented packets will see packets
+@@ -815,6 +801,26 @@ xmit_hash_policy
+ 		conversations.  Other implementations of 802.3ad may
+ 		or may not tolerate this noncompliance.
+ 
++	encap2+3
++
++		This policy uses the same formula as layer2+3 but it
++		relies on skb_flow_dissect to obtain the header fields
++		which might result in the use of inner headers if an
++		encapsulation protocol is used. For example this will
++		improve the performance for tunnel users because the
++		packets will be distributed according to the encapsulated
++		flows.
++
++	encap3+4
++
++		This policy uses the same formula as layer3+4 but it
++		relies on skb_flow_dissect to obtain the header fields
++		which might result in the use of inner headers if an
++		encapsulation protocol is used. For example this will
++		improve the performance for tunnel users because the
++		packets will be distributed according to the encapsulated
++		flows.
++
+ 	The default value is layer2.  This option was added in bonding
+ 	version 2.6.3.  In earlier versions of bonding, this parameter
+ 	does not exist, and the layer2 policy is the only policy.  The
 -- 
 1.8.1.4
