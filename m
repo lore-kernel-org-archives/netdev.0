@@ -1,117 +1,55 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v3 1/3] flow_dissector: factor out the ports
- extraction in skb_flow_get_ports
-Date: Thu, 26 Sep 2013 16:36:31 +0200
-Message-ID: <20130926143631.GE4783@redhat.com>
-References: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
- <1380204582-27144-2-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Oussama Ghorbel <oghorbell@gmail.com>
+Subject: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Thu, 26 Sep 2013 15:51:48 +0100
+Message-ID: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oussama Ghorbel <oghorbell@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46516 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750792Ab3IZOi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 10:38:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1380204582-27144-2-git-send-email-nikolay@redhat.com>
+Received: from mail-wi0-f194.google.com ([209.85.212.194]:64101 "EHLO
+	mail-wi0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930Ab3IZOwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 10:52:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 26, 2013 at 04:09:40PM +0200, Nikolay Aleksandrov wrote:
->Factor out the code that extracts the ports from skb_flow_dissect and
->add a new function skb_flow_get_ports which can be re-used.
->
->Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+The (inner) MTU of a ipip6 (IPv4-in-IPv6) tunnel cannot be set below 1280, which is the minimum MTU in IPv6.
+However, there should be no IPv6 on the tunnel interface at all, so the IPv6 rules should not apply.
+More info at https://bugzilla.kernel.org/show_bug.cgi?id=15530
 
-Reviewed-by: Veaceslav Falico <vfalico@redhat.com>
+This patch allows to check the minimum MTU for ipv6 tunnel according to these rules:
+ -In case the tunnel is configured with ipip6 mode the minimum MTU is 68.
+ -In case the tunnel is configured with ip6ip6 or any mode the minimum MTU is 1280.
 
->---
->v2: new patch
->v3: fix a bug in skb_flow_dissect where thoff didn't have poff added by
->    modifying thoff directly in skb_flow_get_ports as it's done anyway.
->    Also add the necessary export symbol for skb_flow_get_ports.
->This seems like a good idea because there're other users that can re-use
->it later as well.
->
-> include/net/flow_keys.h   |  1 +
-> net/core/flow_dissector.c | 41 ++++++++++++++++++++++++++++++-----------
-> 2 files changed, 31 insertions(+), 11 deletions(-)
->
->diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
->index ac2439d..4db84ae 100644
->--- a/include/net/flow_keys.h
->+++ b/include/net/flow_keys.h
->@@ -14,4 +14,5 @@ struct flow_keys {
-> };
->
-> bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
->+__be32 skb_flow_get_ports(const struct sk_buff *skb, int *thoff, u8 ip_proto);
-> #endif
->diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->index 1929af8..7785398 100644
->--- a/net/core/flow_dissector.c
->+++ b/net/core/flow_dissector.c
->@@ -25,9 +25,37 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
-> 	memcpy(&flow->src, &iph->saddr, sizeof(flow->src) + sizeof(flow->dst));
-> }
->
->+/**
->+ * skb_flow_get_ports - extract the upper layer ports and return them
->+ * @skb: buffer to extract the ports from
->+ * @thoff: pointer to transport header offset
->+ * @ip_proto: protocol for which to get port offset
->+ *
->+ * The function will try to retrieve the ports at offset thoff + poff where poff
->+ * is the protocol port offset returned from proto_ports_offset, and if poff is
->+ * more than or equal to 0 it'll add it to the value at the thoff address
->+ */
->+__be32 skb_flow_get_ports(const struct sk_buff *skb, int *thoff, u8 ip_proto)
->+{
->+	int poff = proto_ports_offset(ip_proto);
->+
->+	if (poff >= 0) {
->+		__be32 *ports, _ports;
->+
->+		*thoff += poff;
->+		ports = skb_header_pointer(skb, *thoff, sizeof(_ports),
->+					   &_ports);
->+		if (ports)
->+			return *ports;
->+	}
->+
->+	return 0;
->+}
->+EXPORT_SYMBOL(skb_flow_get_ports);
->+
-> bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
-> {
->-	int poff, nhoff = skb_network_offset(skb);
->+	int nhoff = skb_network_offset(skb);
-> 	u8 ip_proto;
-> 	__be16 proto = skb->protocol;
->
->@@ -150,16 +178,7 @@ ipv6:
-> 	}
->
-> 	flow->ip_proto = ip_proto;
->-	poff = proto_ports_offset(ip_proto);
->-	if (poff >= 0) {
->-		__be32 *ports, _ports;
->-
->-		nhoff += poff;
->-		ports = skb_header_pointer(skb, nhoff, sizeof(_ports), &_ports);
->-		if (ports)
->-			flow->ports = *ports;
->-	}
->-
->+	flow->ports = skb_flow_get_ports(skb, &nhoff, ip_proto);
-> 	flow->thoff = (u16) nhoff;
->
-> 	return true;
->-- 
->1.8.1.4
->
+Signed-off-by: Oussama Ghorbel <oghorbell@gmail.com>
+---
+ net/ipv6/ip6_tunnel.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 1e55866..a66ead2 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1423,8 +1423,14 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ static int
+ ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	if (new_mtu < IPV6_MIN_MTU) {
+-		return -EINVAL;
++	struct ip6_tnl *t = netdev_priv(dev);
++
++	if (t->parms.proto == IPPROTO_IPIP) {
++		if (new_mtu < 68)
++			return -EINVAL;
++	} else {
++		if (new_mtu < IPV6_MIN_MTU)
++			return -EINVAL;
+ 	}
+ 	dev->mtu = new_mtu;
+ 	return 0;
+-- 
+1.7.9.5
