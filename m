@@ -1,10 +1,14 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/3] net.h/skbuff.h: Remove extern from function prototypes
-Date: Thu, 26 Sep 2013 15:18:32 -0700
-Message-ID: <7965bd4d71ef7cf1db00afb9e406ddfc13443c13.1380233637.git.joe@perches.com>
+Subject: [PATCH 1/3] netfilter: Remove extern from function prototypes
+Date: Thu, 26 Sep 2013 15:18:31 -0700
+Message-ID: <a0f4ecf3494c9869d20f606e7e2b2f50f0e67a7f.1380233637.git.joe@perches.com>
 References: <cover.1380233637.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1380233637.git.joe@perches.com>
@@ -21,577 +25,447 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/linux/net.h    |  82 ++++++++--------
- include/linux/skbuff.h | 250 ++++++++++++++++++++++---------------------------
- 2 files changed, 148 insertions(+), 184 deletions(-)
+ include/linux/netfilter.h                        |  10 +-
+ include/linux/netfilter/nf_conntrack_common.h    |   2 +-
+ include/linux/netfilter/nf_conntrack_h323.h      |  14 +--
+ include/linux/netfilter/nf_conntrack_proto_gre.h |   4 +-
+ include/linux/netfilter/nf_conntrack_sip.h       |  57 +++++-----
+ include/linux/netfilter/nfnetlink.h              |  28 ++---
+ include/linux/netfilter/nfnetlink_acct.h         |   6 +-
+ include/linux/netfilter/x_tables.h               | 128 +++++++++++------------
+ include/linux/netfilter_bridge.h                 |   4 +-
+ include/linux/netfilter_ipv4.h                   |   6 +-
+ include/linux/netfilter_ipv6.h                   |  10 +-
+ 11 files changed, 133 insertions(+), 136 deletions(-)
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 4f27575..ca9ec85 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -195,27 +195,23 @@ enum {
- 	SOCK_WAKE_URG,
- };
- 
--extern int	     sock_wake_async(struct socket *sk, int how, int band);
--extern int	     sock_register(const struct net_proto_family *fam);
--extern void	     sock_unregister(int family);
--extern int	     __sock_create(struct net *net, int family, int type, int proto,
--				 struct socket **res, int kern);
--extern int	     sock_create(int family, int type, int proto,
--				 struct socket **res);
--extern int	     sock_create_kern(int family, int type, int proto,
--				      struct socket **res);
--extern int	     sock_create_lite(int family, int type, int proto,
--				      struct socket **res); 
--extern void	     sock_release(struct socket *sock);
--extern int   	     sock_sendmsg(struct socket *sock, struct msghdr *msg,
--				  size_t len);
--extern int	     sock_recvmsg(struct socket *sock, struct msghdr *msg,
--				  size_t size, int flags);
--extern struct file  *sock_alloc_file(struct socket *sock, int flags, const char *dname);
--extern struct socket *sockfd_lookup(int fd, int *err);
--extern struct socket *sock_from_file(struct file *file, int *err);
-+int sock_wake_async(struct socket *sk, int how, int band);
-+int sock_register(const struct net_proto_family *fam);
-+void sock_unregister(int family);
-+int __sock_create(struct net *net, int family, int type, int proto,
-+		  struct socket **res, int kern);
-+int sock_create(int family, int type, int proto, struct socket **res);
-+int sock_create_kern(int family, int type, int proto, struct socket **res);
-+int sock_create_lite(int family, int type, int proto, struct socket **res);
-+void sock_release(struct socket *sock);
-+int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len);
-+int sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
-+		 int flags);
-+struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname);
-+struct socket *sockfd_lookup(int fd, int *err);
-+struct socket *sock_from_file(struct file *file, int *err);
- #define		     sockfd_put(sock) fput(sock->file)
--extern int	     net_ratelimit(void);
-+int net_ratelimit(void);
- 
- #define net_ratelimited_function(function, ...)			\
- do {								\
-@@ -243,32 +239,28 @@ do {								\
- #define net_random()		prandom_u32()
- #define net_srandom(seed)	prandom_seed((__force u32)(seed))
- 
--extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
--				    struct kvec *vec, size_t num, size_t len);
--extern int   	     kernel_recvmsg(struct socket *sock, struct msghdr *msg,
--				    struct kvec *vec, size_t num,
--				    size_t len, int flags);
-+int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
-+		   size_t num, size_t len);
-+int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
-+		   size_t num, size_t len, int flags);
- 
--extern int kernel_bind(struct socket *sock, struct sockaddr *addr,
--		       int addrlen);
--extern int kernel_listen(struct socket *sock, int backlog);
--extern int kernel_accept(struct socket *sock, struct socket **newsock,
--			 int flags);
--extern int kernel_connect(struct socket *sock, struct sockaddr *addr,
--			  int addrlen, int flags);
--extern int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
--			      int *addrlen);
--extern int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
--			      int *addrlen);
--extern int kernel_getsockopt(struct socket *sock, int level, int optname,
--			     char *optval, int *optlen);
--extern int kernel_setsockopt(struct socket *sock, int level, int optname,
--			     char *optval, unsigned int optlen);
--extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
--			   size_t size, int flags);
--extern int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
--extern int kernel_sock_shutdown(struct socket *sock,
--				enum sock_shutdown_cmd how);
-+int kernel_bind(struct socket *sock, struct sockaddr *addr, int addrlen);
-+int kernel_listen(struct socket *sock, int backlog);
-+int kernel_accept(struct socket *sock, struct socket **newsock, int flags);
-+int kernel_connect(struct socket *sock, struct sockaddr *addr, int addrlen,
-+		   int flags);
-+int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
-+		       int *addrlen);
-+int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
-+		       int *addrlen);
-+int kernel_getsockopt(struct socket *sock, int level, int optname, char *optval,
-+		      int *optlen);
-+int kernel_setsockopt(struct socket *sock, int level, int optname, char *optval,
-+		      unsigned int optlen);
-+int kernel_sendpage(struct socket *sock, struct page *page, int offset,
-+		    size_t size, int flags);
-+int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
-+int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
- 
- #define MODULE_ALIAS_NETPROTO(proto) \
- 	MODULE_ALIAS("net-pf-" __stringify(proto))
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2ddb48d..6d56840 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -585,8 +585,8 @@ static inline void skb_dst_set(struct sk_buff *skb, struct dst_entry *dst)
- 	skb->_skb_refdst = (unsigned long)dst;
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 708fe72ab9..61223c5 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -35,7 +35,7 @@ static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
+ 	result->all[3] = a1->all[3] & mask->all[3];
  }
  
--extern void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
--				bool force);
-+void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
-+			 bool force);
+-extern int netfilter_init(void);
++int netfilter_init(void);
  
- /**
-  * skb_dst_set_noref - sets skb dst, hopefully, without taking reference
-@@ -634,20 +634,20 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
- 	return (struct rtable *)skb_dst(skb);
+ /* Largest hook number + 1 */
+ #define NF_MAX_HOOKS 8
+@@ -208,7 +208,7 @@ int compat_nf_getsockopt(struct sock *sk, u_int8_t pf, int optval,
+ /* Call this before modifying an existing packet: ensures it is
+    modifiable and linear to the point you care about (writable_len).
+    Returns true or false. */
+-extern int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
++int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
+ 
+ struct flowi;
+ struct nf_queue_entry;
+@@ -269,8 +269,8 @@ nf_checksum_partial(struct sk_buff *skb, unsigned int hook,
+ 	return csum;
  }
  
--extern void kfree_skb(struct sk_buff *skb);
--extern void kfree_skb_list(struct sk_buff *segs);
--extern void skb_tx_error(struct sk_buff *skb);
--extern void consume_skb(struct sk_buff *skb);
--extern void	       __kfree_skb(struct sk_buff *skb);
-+void kfree_skb(struct sk_buff *skb);
-+void kfree_skb_list(struct sk_buff *segs);
-+void skb_tx_error(struct sk_buff *skb);
-+void consume_skb(struct sk_buff *skb);
-+void  __kfree_skb(struct sk_buff *skb);
- extern struct kmem_cache *skbuff_head_cache;
+-extern int nf_register_afinfo(const struct nf_afinfo *afinfo);
+-extern void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
++int nf_register_afinfo(const struct nf_afinfo *afinfo);
++void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
  
--extern void kfree_skb_partial(struct sk_buff *skb, bool head_stolen);
--extern bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
--			     bool *fragstolen, int *delta_truesize);
-+void kfree_skb_partial(struct sk_buff *skb, bool head_stolen);
-+bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
-+		      bool *fragstolen, int *delta_truesize);
- 
--extern struct sk_buff *__alloc_skb(unsigned int size,
--				   gfp_t priority, int flags, int node);
--extern struct sk_buff *build_skb(void *data, unsigned int frag_size);
-+struct sk_buff *__alloc_skb(unsigned int size, gfp_t priority, int flags,
-+			    int node);
-+struct sk_buff *build_skb(void *data, unsigned int frag_size);
- static inline struct sk_buff *alloc_skb(unsigned int size,
- 					gfp_t priority)
- {
-@@ -660,41 +660,33 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 	return __alloc_skb(size, priority, SKB_ALLOC_FCLONE, NUMA_NO_NODE);
- }
- 
--extern struct sk_buff *__alloc_skb_head(gfp_t priority, int node);
-+struct sk_buff *__alloc_skb_head(gfp_t priority, int node);
- static inline struct sk_buff *alloc_skb_head(gfp_t priority)
- {
- 	return __alloc_skb_head(priority, -1);
- }
- 
--extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
--extern int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask);
--extern struct sk_buff *skb_clone(struct sk_buff *skb,
--				 gfp_t priority);
--extern struct sk_buff *skb_copy(const struct sk_buff *skb,
--				gfp_t priority);
--extern struct sk_buff *__pskb_copy(struct sk_buff *skb,
--				 int headroom, gfp_t gfp_mask);
--
--extern int	       pskb_expand_head(struct sk_buff *skb,
--					int nhead, int ntail,
--					gfp_t gfp_mask);
--extern struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
--					    unsigned int headroom);
--extern struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
--				       int newheadroom, int newtailroom,
--				       gfp_t priority);
--extern int	       skb_to_sgvec(struct sk_buff *skb,
--				    struct scatterlist *sg, int offset,
--				    int len);
--extern int	       skb_cow_data(struct sk_buff *skb, int tailbits,
--				    struct sk_buff **trailer);
--extern int	       skb_pad(struct sk_buff *skb, int pad);
-+struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
-+int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask);
-+struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t priority);
-+struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t priority);
-+struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask);
-+
-+int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail, gfp_t gfp_mask);
-+struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
-+				     unsigned int headroom);
-+struct sk_buff *skb_copy_expand(const struct sk_buff *skb, int newheadroom,
-+				int newtailroom, gfp_t priority);
-+int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset,
-+		 int len);
-+int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
-+int skb_pad(struct sk_buff *skb, int pad);
- #define dev_kfree_skb(a)	consume_skb(a)
- 
--extern int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
--			int getfrag(void *from, char *to, int offset,
--			int len,int odd, struct sk_buff *skb),
--			void *from, int length);
-+int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
-+			    int getfrag(void *from, char *to, int offset,
-+					int len, int odd, struct sk_buff *skb),
-+			    void *from, int length);
- 
- struct skb_seq_state {
- 	__u32		lower_offset;
-@@ -706,18 +698,17 @@ struct skb_seq_state {
- 	__u8		*frag_data;
- };
- 
--extern void	      skb_prepare_seq_read(struct sk_buff *skb,
--					   unsigned int from, unsigned int to,
--					   struct skb_seq_state *st);
--extern unsigned int   skb_seq_read(unsigned int consumed, const u8 **data,
--				   struct skb_seq_state *st);
--extern void	      skb_abort_seq_read(struct skb_seq_state *st);
-+void skb_prepare_seq_read(struct sk_buff *skb, unsigned int from,
-+			  unsigned int to, struct skb_seq_state *st);
-+unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
-+			  struct skb_seq_state *st);
-+void skb_abort_seq_read(struct skb_seq_state *st);
- 
--extern unsigned int   skb_find_text(struct sk_buff *skb, unsigned int from,
--				    unsigned int to, struct ts_config *config,
--				    struct ts_state *state);
-+unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
-+			   unsigned int to, struct ts_config *config,
-+			   struct ts_state *state);
- 
--extern void __skb_get_rxhash(struct sk_buff *skb);
-+void __skb_get_rxhash(struct sk_buff *skb);
- static inline __u32 skb_get_rxhash(struct sk_buff *skb)
- {
- 	if (!skb->l4_rxhash)
-@@ -1095,7 +1086,8 @@ static inline void skb_queue_head_init_class(struct sk_buff_head *list,
-  *	The "__skb_xxxx()" functions are the non-atomic ones that
-  *	can only be called with interrupts disabled.
-  */
--extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list);
-+void skb_insert(struct sk_buff *old, struct sk_buff *newsk,
-+		struct sk_buff_head *list);
- static inline void __skb_insert(struct sk_buff *newsk,
- 				struct sk_buff *prev, struct sk_buff *next,
- 				struct sk_buff_head *list)
-@@ -1201,8 +1193,8 @@ static inline void __skb_queue_after(struct sk_buff_head *list,
- 	__skb_insert(newsk, prev, prev->next, list);
- }
- 
--extern void skb_append(struct sk_buff *old, struct sk_buff *newsk,
--		       struct sk_buff_head *list);
-+void skb_append(struct sk_buff *old, struct sk_buff *newsk,
-+		struct sk_buff_head *list);
- 
- static inline void __skb_queue_before(struct sk_buff_head *list,
- 				      struct sk_buff *next,
-@@ -1221,7 +1213,7 @@ static inline void __skb_queue_before(struct sk_buff_head *list,
-  *
-  *	A buffer cannot be placed on two lists at the same time.
-  */
--extern void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk);
-+void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk);
- static inline void __skb_queue_head(struct sk_buff_head *list,
- 				    struct sk_buff *newsk)
- {
-@@ -1238,7 +1230,7 @@ static inline void __skb_queue_head(struct sk_buff_head *list,
-  *
-  *	A buffer cannot be placed on two lists at the same time.
-  */
--extern void skb_queue_tail(struct sk_buff_head *list, struct sk_buff *newsk);
-+void skb_queue_tail(struct sk_buff_head *list, struct sk_buff *newsk);
- static inline void __skb_queue_tail(struct sk_buff_head *list,
- 				   struct sk_buff *newsk)
- {
-@@ -1249,7 +1241,7 @@ static inline void __skb_queue_tail(struct sk_buff_head *list,
-  * remove sk_buff from list. _Must_ be called atomically, and with
-  * the list known..
-  */
--extern void	   skb_unlink(struct sk_buff *skb, struct sk_buff_head *list);
-+void skb_unlink(struct sk_buff *skb, struct sk_buff_head *list);
- static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
- {
- 	struct sk_buff *next, *prev;
-@@ -1270,7 +1262,7 @@ static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
-  *	so must be used with appropriate locks held only. The head item is
-  *	returned or %NULL if the list is empty.
-  */
--extern struct sk_buff *skb_dequeue(struct sk_buff_head *list);
-+struct sk_buff *skb_dequeue(struct sk_buff_head *list);
- static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
- {
- 	struct sk_buff *skb = skb_peek(list);
-@@ -1287,7 +1279,7 @@ static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
-  *	so must be used with appropriate locks held only. The tail item is
-  *	returned or %NULL if the list is empty.
-  */
--extern struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list);
-+struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list);
- static inline struct sk_buff *__skb_dequeue_tail(struct sk_buff_head *list)
- {
- 	struct sk_buff *skb = skb_peek_tail(list);
-@@ -1373,8 +1365,8 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
- 	skb_shinfo(skb)->nr_frags = i + 1;
- }
- 
--extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
--			    int off, int size, unsigned int truesize);
-+void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
-+		     int size, unsigned int truesize);
- 
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
-@@ -1418,7 +1410,7 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
- /*
-  *	Add data to an sk_buff
-  */
--extern unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
-+unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
- static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
- {
- 	unsigned char *tmp = skb_tail_pointer(skb);
-@@ -1428,7 +1420,7 @@ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
- 	return tmp;
- }
- 
--extern unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
-+unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
- static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
- {
- 	skb->data -= len;
-@@ -1436,7 +1428,7 @@ static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
- 	return skb->data;
- }
- 
--extern unsigned char *skb_pull(struct sk_buff *skb, unsigned int len);
-+unsigned char *skb_pull(struct sk_buff *skb, unsigned int len);
- static inline unsigned char *__skb_pull(struct sk_buff *skb, unsigned int len)
- {
- 	skb->len -= len;
-@@ -1449,7 +1441,7 @@ static inline unsigned char *skb_pull_inline(struct sk_buff *skb, unsigned int l
- 	return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
- }
- 
--extern unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta);
-+unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta);
- 
- static inline unsigned char *__pskb_pull(struct sk_buff *skb, unsigned int len)
- {
-@@ -1753,7 +1745,7 @@ static inline int pskb_network_may_pull(struct sk_buff *skb, unsigned int len)
- #define NET_SKB_PAD	max(32, L1_CACHE_BYTES)
- #endif
- 
--extern int ___pskb_trim(struct sk_buff *skb, unsigned int len);
-+int ___pskb_trim(struct sk_buff *skb, unsigned int len);
- 
- static inline void __skb_trim(struct sk_buff *skb, unsigned int len)
- {
-@@ -1765,7 +1757,7 @@ static inline void __skb_trim(struct sk_buff *skb, unsigned int len)
- 	skb_set_tail_pointer(skb, len);
- }
- 
--extern void skb_trim(struct sk_buff *skb, unsigned int len);
-+void skb_trim(struct sk_buff *skb, unsigned int len);
- 
- static inline int __pskb_trim(struct sk_buff *skb, unsigned int len)
- {
-@@ -1838,7 +1830,7 @@ static inline int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
-  *	the list and one reference dropped. This function does not take the
-  *	list lock and the caller must hold the relevant locks to use it.
-  */
--extern void skb_queue_purge(struct sk_buff_head *list);
-+void skb_queue_purge(struct sk_buff_head *list);
- static inline void __skb_queue_purge(struct sk_buff_head *list)
- {
- 	struct sk_buff *skb;
-@@ -1850,11 +1842,10 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
- #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
- #define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
- 
--extern void *netdev_alloc_frag(unsigned int fragsz);
-+void *netdev_alloc_frag(unsigned int fragsz);
- 
--extern struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
--					  unsigned int length,
--					  gfp_t gfp_mask);
-+struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int length,
-+				   gfp_t gfp_mask);
- 
- /**
-  *	netdev_alloc_skb - allocate an skbuff for rx on a specific device
-@@ -2342,60 +2333,42 @@ static inline void skb_frag_add_head(struct sk_buff *skb, struct sk_buff *frag)
- #define skb_walk_frags(skb, iter)	\
- 	for (iter = skb_shinfo(skb)->frag_list; iter; iter = iter->next)
- 
--extern struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
--					   int *peeked, int *off, int *err);
--extern struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
--					 int noblock, int *err);
--extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
--				     struct poll_table_struct *wait);
--extern int	       skb_copy_datagram_iovec(const struct sk_buff *from,
--					       int offset, struct iovec *to,
--					       int size);
--extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
--							int hlen,
--							struct iovec *iov);
--extern int	       skb_copy_datagram_from_iovec(struct sk_buff *skb,
--						    int offset,
--						    const struct iovec *from,
--						    int from_offset,
--						    int len);
--extern int	       zerocopy_sg_from_iovec(struct sk_buff *skb,
--					      const struct iovec *frm,
--					      int offset,
--					      size_t count);
--extern int	       skb_copy_datagram_const_iovec(const struct sk_buff *from,
--						     int offset,
--						     const struct iovec *to,
--						     int to_offset,
--						     int size);
--extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
--extern void	       skb_free_datagram_locked(struct sock *sk,
--						struct sk_buff *skb);
--extern int	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
--					 unsigned int flags);
--extern __wsum	       skb_checksum(const struct sk_buff *skb, int offset,
--				    int len, __wsum csum);
--extern int	       skb_copy_bits(const struct sk_buff *skb, int offset,
--				     void *to, int len);
--extern int	       skb_store_bits(struct sk_buff *skb, int offset,
--				      const void *from, int len);
--extern __wsum	       skb_copy_and_csum_bits(const struct sk_buff *skb,
--					      int offset, u8 *to, int len,
--					      __wsum csum);
--extern int             skb_splice_bits(struct sk_buff *skb,
--						unsigned int offset,
--						struct pipe_inode_info *pipe,
--						unsigned int len,
--						unsigned int flags);
--extern void	       skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
--extern void	       skb_split(struct sk_buff *skb,
--				 struct sk_buff *skb1, const u32 len);
--extern int	       skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
--				 int shiftlen);
--extern void	       skb_scrub_packet(struct sk_buff *skb, bool xnet);
--
--extern struct sk_buff *skb_segment(struct sk_buff *skb,
--				   netdev_features_t features);
-+struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
-+				    int *peeked, int *off, int *err);
-+struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock,
-+				  int *err);
-+unsigned int datagram_poll(struct file *file, struct socket *sock,
-+			   struct poll_table_struct *wait);
-+int skb_copy_datagram_iovec(const struct sk_buff *from, int offset,
-+			    struct iovec *to, int size);
-+int skb_copy_and_csum_datagram_iovec(struct sk_buff *skb, int hlen,
-+				     struct iovec *iov);
-+int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
-+				 const struct iovec *from, int from_offset,
-+				 int len);
-+int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *frm,
-+			   int offset, size_t count);
-+int skb_copy_datagram_const_iovec(const struct sk_buff *from, int offset,
-+				  const struct iovec *to, int to_offset,
-+				  int size);
-+void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
-+void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
-+int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags);
-+__wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
-+		    __wsum csum);
-+int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
-+int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
-+__wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
-+			      int len, __wsum csum);
-+int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
-+		    struct pipe_inode_info *pipe, unsigned int len,
-+		    unsigned int flags);
-+void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
-+void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
-+int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
-+void skb_scrub_packet(struct sk_buff *skb, bool xnet);
-+
-+struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
- 
- static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
- 				       int len, void *buffer)
-@@ -2440,7 +2413,7 @@ static inline void skb_copy_to_linear_data_offset(struct sk_buff *skb,
- 	memcpy(skb->data + offset, from, len);
- }
- 
--extern void skb_init(void);
-+void skb_init(void);
- 
- static inline ktime_t skb_get_ktime(const struct sk_buff *skb)
- {
-@@ -2483,12 +2456,12 @@ static inline ktime_t net_invalid_timestamp(void)
- 	return ktime_set(0, 0);
- }
- 
--extern void skb_timestamping_init(void);
-+void skb_timestamping_init(void);
- 
- #ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
- 
--extern void skb_clone_tx_timestamp(struct sk_buff *skb);
--extern bool skb_defer_rx_timestamp(struct sk_buff *skb);
-+void skb_clone_tx_timestamp(struct sk_buff *skb);
-+bool skb_defer_rx_timestamp(struct sk_buff *skb);
- 
- #else /* CONFIG_NETWORK_PHY_TIMESTAMPING */
- 
-@@ -2529,8 +2502,8 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
-  * generates a software time stamp (otherwise), then queues the clone
-  * to the error queue of the socket.  Errors are silently ignored.
-  */
--extern void skb_tstamp_tx(struct sk_buff *orig_skb,
--			struct skb_shared_hwtstamps *hwtstamps);
-+void skb_tstamp_tx(struct sk_buff *orig_skb,
-+		   struct skb_shared_hwtstamps *hwtstamps);
- 
- static inline void sw_tx_timestamp(struct sk_buff *skb)
- {
-@@ -2562,8 +2535,8 @@ static inline void skb_tx_timestamp(struct sk_buff *skb)
-  */
- void skb_complete_wifi_ack(struct sk_buff *skb, bool acked);
- 
--extern __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
--extern __sum16 __skb_checksum_complete(struct sk_buff *skb);
-+__sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
-+__sum16 __skb_checksum_complete(struct sk_buff *skb);
- 
- static inline int skb_csum_unnecessary(const struct sk_buff *skb)
- {
-@@ -2593,7 +2566,7 @@ static inline __sum16 skb_checksum_complete(struct sk_buff *skb)
- }
+ #include <net/flow.h>
+ extern void (*nf_nat_decode_session_hook)(struct sk_buff *, struct flowi *);
+@@ -315,7 +315,7 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
  
  #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
--extern void nf_conntrack_destroy(struct nf_conntrack *nfct);
-+void nf_conntrack_destroy(struct nf_conntrack *nfct);
- static inline void nf_conntrack_put(struct nf_conntrack *nfct)
- {
- 	if (nfct && atomic_dec_and_test(&nfct->use))
-@@ -2732,9 +2705,8 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
- 	return skb->queue_mapping != 0;
+ extern void (*ip_ct_attach)(struct sk_buff *, const struct sk_buff *) __rcu;
+-extern void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
++void nf_ct_attach(struct sk_buff *, const struct sk_buff *);
+ extern void (*nf_ct_destroy)(struct nf_conntrack *) __rcu;
+ 
+ struct nf_conn;
+diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
+index 127d0b9..2755057 100644
+--- a/include/linux/netfilter/nf_conntrack_common.h
++++ b/include/linux/netfilter/nf_conntrack_common.h
+@@ -23,6 +23,6 @@ struct ip_conntrack_stat {
+ };
+ 
+ /* call to create an explicit dependency on nf_conntrack. */
+-extern void need_conntrack(void);
++void need_conntrack(void);
+ 
+ #endif /* _NF_CONNTRACK_COMMON_H */
+diff --git a/include/linux/netfilter/nf_conntrack_h323.h b/include/linux/netfilter/nf_conntrack_h323.h
+index f381020..858d9b2 100644
+--- a/include/linux/netfilter/nf_conntrack_h323.h
++++ b/include/linux/netfilter/nf_conntrack_h323.h
+@@ -29,13 +29,13 @@ struct nf_ct_h323_master {
+ 
+ struct nf_conn;
+ 
+-extern int get_h225_addr(struct nf_conn *ct, unsigned char *data,
+-			 TransportAddress *taddr,
+-			 union nf_inet_addr *addr, __be16 *port);
+-extern void nf_conntrack_h245_expect(struct nf_conn *new,
+-				     struct nf_conntrack_expect *this);
+-extern void nf_conntrack_q931_expect(struct nf_conn *new,
+-				     struct nf_conntrack_expect *this);
++int get_h225_addr(struct nf_conn *ct, unsigned char *data,
++		  TransportAddress *taddr, union nf_inet_addr *addr,
++		  __be16 *port);
++void nf_conntrack_h245_expect(struct nf_conn *new,
++			      struct nf_conntrack_expect *this);
++void nf_conntrack_q931_expect(struct nf_conn *new,
++			      struct nf_conntrack_expect *this);
+ extern int (*set_h245_addr_hook) (struct sk_buff *skb, unsigned int protoff,
+ 				  unsigned char **data, int dataoff,
+ 				  H245_TransportAddress *taddr,
+diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
+index 6a0664c..ec2ffaf 100644
+--- a/include/linux/netfilter/nf_conntrack_proto_gre.h
++++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
+@@ -87,8 +87,8 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ /* delete keymap entries */
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
+ 
+-extern void nf_ct_gre_keymap_flush(struct net *net);
+-extern void nf_nat_need_gre(void);
++void nf_ct_gre_keymap_flush(struct net *net);
++void nf_nat_need_gre(void);
+ 
+ #endif /* __KERNEL__ */
+ #endif /* _CONNTRACK_PROTO_GRE_H */
+diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
+index ba7f571..5cac020 100644
+--- a/include/linux/netfilter/nf_conntrack_sip.h
++++ b/include/linux/netfilter/nf_conntrack_sip.h
+@@ -157,35 +157,34 @@ extern unsigned int (*nf_nat_sdp_media_hook)(struct sk_buff *skb,
+ 					     unsigned int medialen,
+ 					     union nf_inet_addr *rtp_addr);
+ 
+-extern int ct_sip_parse_request(const struct nf_conn *ct,
+-				const char *dptr, unsigned int datalen,
+-				unsigned int *matchoff, unsigned int *matchlen,
+-				union nf_inet_addr *addr, __be16 *port);
+-extern int ct_sip_get_header(const struct nf_conn *ct, const char *dptr,
+-			     unsigned int dataoff, unsigned int datalen,
+-			     enum sip_header_types type,
+-			     unsigned int *matchoff, unsigned int *matchlen);
+-extern int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
+-				   unsigned int *dataoff, unsigned int datalen,
+-				   enum sip_header_types type, int *in_header,
+-				   unsigned int *matchoff, unsigned int *matchlen,
+-				   union nf_inet_addr *addr, __be16 *port);
+-extern int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
+-				      unsigned int dataoff, unsigned int datalen,
+-				      const char *name,
+-				      unsigned int *matchoff, unsigned int *matchlen,
+-				      union nf_inet_addr *addr, bool delim);
+-extern int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
+-					unsigned int off, unsigned int datalen,
+-					const char *name,
+-					unsigned int *matchoff, unsigned int *matchen,
+-					unsigned int *val);
+-
+-extern int ct_sip_get_sdp_header(const struct nf_conn *ct, const char *dptr,
+-				 unsigned int dataoff, unsigned int datalen,
+-				 enum sdp_header_types type,
+-				 enum sdp_header_types term,
+-				 unsigned int *matchoff, unsigned int *matchlen);
++int ct_sip_parse_request(const struct nf_conn *ct, const char *dptr,
++			 unsigned int datalen, unsigned int *matchoff,
++			 unsigned int *matchlen, union nf_inet_addr *addr,
++			 __be16 *port);
++int ct_sip_get_header(const struct nf_conn *ct, const char *dptr,
++		      unsigned int dataoff, unsigned int datalen,
++		      enum sip_header_types type, unsigned int *matchoff,
++		      unsigned int *matchlen);
++int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
++			    unsigned int *dataoff, unsigned int datalen,
++			    enum sip_header_types type, int *in_header,
++			    unsigned int *matchoff, unsigned int *matchlen,
++			    union nf_inet_addr *addr, __be16 *port);
++int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
++			       unsigned int dataoff, unsigned int datalen,
++			       const char *name, unsigned int *matchoff,
++			       unsigned int *matchlen, union nf_inet_addr *addr,
++			       bool delim);
++int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
++				 unsigned int off, unsigned int datalen,
++				 const char *name, unsigned int *matchoff,
++				 unsigned int *matchen, unsigned int *val);
++
++int ct_sip_get_sdp_header(const struct nf_conn *ct, const char *dptr,
++			  unsigned int dataoff, unsigned int datalen,
++			  enum sdp_header_types type,
++			  enum sdp_header_types term,
++			  unsigned int *matchoff, unsigned int *matchlen);
+ 
+ #endif /* __KERNEL__ */
+ #endif /* __NF_CONNTRACK_SIP_H__ */
+diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+index cadb740..4f68cd7 100644
+--- a/include/linux/netfilter/nfnetlink.h
++++ b/include/linux/netfilter/nfnetlink.h
+@@ -25,20 +25,20 @@ struct nfnetlink_subsystem {
+ 	const struct nfnl_callback *cb;	/* callback for individual types */
+ };
+ 
+-extern int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
+-extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
+-
+-extern int nfnetlink_has_listeners(struct net *net, unsigned int group);
+-extern struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
+-					   u32 dst_portid, gfp_t gfp_mask);
+-extern int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
+-			  unsigned int group, int echo, gfp_t flags);
+-extern int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
+-extern int nfnetlink_unicast(struct sk_buff *skb, struct net *net,
+-			     u32 portid, int flags);
+-
+-extern void nfnl_lock(__u8 subsys_id);
+-extern void nfnl_unlock(__u8 subsys_id);
++int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
++int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
++
++int nfnetlink_has_listeners(struct net *net, unsigned int group);
++struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
++				    u32 dst_portid, gfp_t gfp_mask);
++int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
++		   unsigned int group, int echo, gfp_t flags);
++int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
++int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u32 portid,
++		      int flags);
++
++void nfnl_lock(__u8 subsys_id);
++void nfnl_unlock(__u8 subsys_id);
+ 
+ #define MODULE_ALIAS_NFNL_SUBSYS(subsys) \
+ 	MODULE_ALIAS("nfnetlink-subsys-" __stringify(subsys))
+diff --git a/include/linux/netfilter/nfnetlink_acct.h b/include/linux/netfilter/nfnetlink_acct.h
+index bb4bbc9..b2e85e5 100644
+--- a/include/linux/netfilter/nfnetlink_acct.h
++++ b/include/linux/netfilter/nfnetlink_acct.h
+@@ -6,8 +6,8 @@
+ 
+ struct nf_acct;
+ 
+-extern struct nf_acct *nfnl_acct_find_get(const char *filter_name);
+-extern void nfnl_acct_put(struct nf_acct *acct);
+-extern void nfnl_acct_update(const struct sk_buff *skb, struct nf_acct *nfacct);
++struct nf_acct *nfnl_acct_find_get(const char *filter_name);
++void nfnl_acct_put(struct nf_acct *acct);
++void nfnl_acct_update(const struct sk_buff *skb, struct nf_acct *nfacct);
+ 
+ #endif /* _NFNL_ACCT_H */
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index dd49566..a3e215b 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -229,50 +229,48 @@ struct xt_table_info {
+ 
+ #define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
+ 			  + nr_cpu_ids * sizeof(char *))
+-extern int xt_register_target(struct xt_target *target);
+-extern void xt_unregister_target(struct xt_target *target);
+-extern int xt_register_targets(struct xt_target *target, unsigned int n);
+-extern void xt_unregister_targets(struct xt_target *target, unsigned int n);
+-
+-extern int xt_register_match(struct xt_match *target);
+-extern void xt_unregister_match(struct xt_match *target);
+-extern int xt_register_matches(struct xt_match *match, unsigned int n);
+-extern void xt_unregister_matches(struct xt_match *match, unsigned int n);
+-
+-extern int xt_check_match(struct xt_mtchk_param *,
+-			  unsigned int size, u_int8_t proto, bool inv_proto);
+-extern int xt_check_target(struct xt_tgchk_param *,
+-			   unsigned int size, u_int8_t proto, bool inv_proto);
+-
+-extern struct xt_table *xt_register_table(struct net *net,
+-					  const struct xt_table *table,
+-					  struct xt_table_info *bootstrap,
+-					  struct xt_table_info *newinfo);
+-extern void *xt_unregister_table(struct xt_table *table);
+-
+-extern struct xt_table_info *xt_replace_table(struct xt_table *table,
+-					      unsigned int num_counters,
+-					      struct xt_table_info *newinfo,
+-					      int *error);
+-
+-extern struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
+-extern struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
+-extern struct xt_match *xt_request_find_match(u8 af, const char *name,
+-					      u8 revision);
+-extern struct xt_target *xt_request_find_target(u8 af, const char *name,
+-						u8 revision);
+-extern int xt_find_revision(u8 af, const char *name, u8 revision,
+-			    int target, int *err);
+-
+-extern struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
+-					   const char *name);
+-extern void xt_table_unlock(struct xt_table *t);
+-
+-extern int xt_proto_init(struct net *net, u_int8_t af);
+-extern void xt_proto_fini(struct net *net, u_int8_t af);
+-
+-extern struct xt_table_info *xt_alloc_table_info(unsigned int size);
+-extern void xt_free_table_info(struct xt_table_info *info);
++int xt_register_target(struct xt_target *target);
++void xt_unregister_target(struct xt_target *target);
++int xt_register_targets(struct xt_target *target, unsigned int n);
++void xt_unregister_targets(struct xt_target *target, unsigned int n);
++
++int xt_register_match(struct xt_match *target);
++void xt_unregister_match(struct xt_match *target);
++int xt_register_matches(struct xt_match *match, unsigned int n);
++void xt_unregister_matches(struct xt_match *match, unsigned int n);
++
++int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
++		   bool inv_proto);
++int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
++		    bool inv_proto);
++
++struct xt_table *xt_register_table(struct net *net,
++				   const struct xt_table *table,
++				   struct xt_table_info *bootstrap,
++				   struct xt_table_info *newinfo);
++void *xt_unregister_table(struct xt_table *table);
++
++struct xt_table_info *xt_replace_table(struct xt_table *table,
++				       unsigned int num_counters,
++				       struct xt_table_info *newinfo,
++				       int *error);
++
++struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
++struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
++struct xt_match *xt_request_find_match(u8 af, const char *name, u8 revision);
++struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision);
++int xt_find_revision(u8 af, const char *name, u8 revision, int target,
++		     int *err);
++
++struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
++				    const char *name);
++void xt_table_unlock(struct xt_table *t);
++
++int xt_proto_init(struct net *net, u_int8_t af);
++void xt_proto_fini(struct net *net, u_int8_t af);
++
++struct xt_table_info *xt_alloc_table_info(unsigned int size);
++void xt_free_table_info(struct xt_table_info *info);
+ 
+ /**
+  * xt_recseq - recursive seqcount for netfilter use
+@@ -353,8 +351,8 @@ static inline unsigned long ifname_compare_aligned(const char *_a,
+ 	return ret;
  }
  
--extern u16 __skb_tx_hash(const struct net_device *dev,
--			 const struct sk_buff *skb,
--			 unsigned int num_tx_queues);
-+u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
-+		  unsigned int num_tx_queues);
+-extern struct nf_hook_ops *xt_hook_link(const struct xt_table *, nf_hookfn *);
+-extern void xt_hook_unlink(const struct xt_table *, struct nf_hook_ops *);
++struct nf_hook_ops *xt_hook_link(const struct xt_table *, nf_hookfn *);
++void xt_hook_unlink(const struct xt_table *, struct nf_hook_ops *);
  
- #ifdef CONFIG_XFRM
- static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
-@@ -2788,7 +2760,7 @@ static inline bool skb_is_gso_v6(const struct sk_buff *skb)
- 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
+ #ifdef CONFIG_COMPAT
+ #include <net/compat.h>
+@@ -414,25 +412,25 @@ struct _compat_xt_align {
+ 
+ #define COMPAT_XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _compat_xt_align))
+ 
+-extern void xt_compat_lock(u_int8_t af);
+-extern void xt_compat_unlock(u_int8_t af);
+-
+-extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
+-extern void xt_compat_flush_offsets(u_int8_t af);
+-extern void xt_compat_init_offsets(u_int8_t af, unsigned int number);
+-extern int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
+-
+-extern int xt_compat_match_offset(const struct xt_match *match);
+-extern int xt_compat_match_from_user(struct xt_entry_match *m,
+-				     void **dstptr, unsigned int *size);
+-extern int xt_compat_match_to_user(const struct xt_entry_match *m,
+-				   void __user **dstptr, unsigned int *size);
+-
+-extern int xt_compat_target_offset(const struct xt_target *target);
+-extern void xt_compat_target_from_user(struct xt_entry_target *t,
+-				       void **dstptr, unsigned int *size);
+-extern int xt_compat_target_to_user(const struct xt_entry_target *t,
+-				    void __user **dstptr, unsigned int *size);
++void xt_compat_lock(u_int8_t af);
++void xt_compat_unlock(u_int8_t af);
++
++int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
++void xt_compat_flush_offsets(u_int8_t af);
++void xt_compat_init_offsets(u_int8_t af, unsigned int number);
++int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
++
++int xt_compat_match_offset(const struct xt_match *match);
++int xt_compat_match_from_user(struct xt_entry_match *m, void **dstptr,
++			      unsigned int *size);
++int xt_compat_match_to_user(const struct xt_entry_match *m,
++			    void __user **dstptr, unsigned int *size);
++
++int xt_compat_target_offset(const struct xt_target *target);
++void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
++				unsigned int *size);
++int xt_compat_target_to_user(const struct xt_entry_target *t,
++			     void __user **dstptr, unsigned int *size);
+ 
+ #endif /* CONFIG_COMPAT */
+ #endif /* _X_TABLES_H */
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index dfb4d9e..8ab1c27 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -25,7 +25,7 @@ enum nf_br_hook_priorities {
+ #define BRNF_PPPoE			0x20
+ 
+ /* Only used in br_forward.c */
+-extern int nf_bridge_copy_header(struct sk_buff *skb);
++int nf_bridge_copy_header(struct sk_buff *skb);
+ static inline int nf_bridge_maybe_copy_header(struct sk_buff *skb)
+ {
+ 	if (skb->nf_bridge &&
+@@ -53,7 +53,7 @@ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
+ 	return 0;
  }
  
--extern void __skb_warn_lro_forwarding(const struct sk_buff *skb);
-+void __skb_warn_lro_forwarding(const struct sk_buff *skb);
- 
- static inline bool skb_warn_if_lro(const struct sk_buff *skb)
+-extern int br_handle_frame_finish(struct sk_buff *skb);
++int br_handle_frame_finish(struct sk_buff *skb);
+ /* Only used in br_device.c */
+ static inline int br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
  {
+diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
+index dfaf116..6e4591b 100644
+--- a/include/linux/netfilter_ipv4.h
++++ b/include/linux/netfilter_ipv4.h
+@@ -6,7 +6,7 @@
+ 
+ #include <uapi/linux/netfilter_ipv4.h>
+ 
+-extern int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type);
+-extern __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
+-				   unsigned int dataoff, u_int8_t protocol);
++int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type);
++__sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
++		       unsigned int dataoff, u_int8_t protocol);
+ #endif /*__LINUX_IP_NETFILTER_H*/
+diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+index 2d4df6ce..64dad1cc 100644
+--- a/include/linux/netfilter_ipv6.h
++++ b/include/linux/netfilter_ipv6.h
+@@ -11,12 +11,12 @@
+ 
+ 
+ #ifdef CONFIG_NETFILTER
+-extern int ip6_route_me_harder(struct sk_buff *skb);
+-extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+-				    unsigned int dataoff, u_int8_t protocol);
++int ip6_route_me_harder(struct sk_buff *skb);
++__sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
++			unsigned int dataoff, u_int8_t protocol);
+ 
+-extern int ipv6_netfilter_init(void);
+-extern void ipv6_netfilter_fini(void);
++int ipv6_netfilter_init(void);
++void ipv6_netfilter_fini(void);
+ 
+ /*
+  * Hook functions for ipv6 to allow xt_* modules to be built-in even
 -- 
 1.8.1.2.459.gbcd45b4.dirty
