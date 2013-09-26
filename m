@@ -1,24 +1,32 @@
-From: Marie Siggelin <marie.siggelin@lundby.goteborg.se>
-Subject: RE: Result Notification.
-Date: Thu, 26 Sep 2013 14:12:50 +0200
-Message-ID: <OF4A78441A.DC8444C0-ONC1257BF2.004316BF-C1257BF2.004317F0@Intra-epost.goteborg.se>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net v6 1/1] xen-netback: Handle backend state
+ transitions in a more robust way
+Date: Thu, 26 Sep 2013 14:07:20 +0100
+Message-ID: <1380200840.29483.82.camel@kazak.uk.xensource.com>
+References: <1380193792-9751-1-git-send-email-paul.durrant@citrix.com>
+	 <1380193792-9751-2-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: info@uknational.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s002is01spam.goteborg.se ([62.88.135.3]:8226 "EHLO
-	mx10.goteborg.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756642Ab3IZMPz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 08:15:55 -0400
-Received: from lnhubsr2.goteborg.se (lnhubsr2.goteborg.se [10.1.11.42])
-	by s002is15mta.goteborg.se (8.13.8/8.13.8) with ESMTP id r8QCAIDJ023068
-	for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 14:15:28 +0200
-In-Reply-To: 
-References: 
+Received: from smtp.citrix.com ([66.165.176.89]:40594 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756676Ab3IZNHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 09:07:23 -0400
+In-Reply-To: <1380193792-9751-2-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=20
-Reply back to result.ukunit@gmail.com=A0as soon as you receive  this no=
-tification massage for your claims. Ticket Number: 3134231835667
+On Thu, 2013-09-26 at 12:09 +0100, Paul Durrant wrote:
+> When the frontend state changes netback now specifies its desired state to
+> a new function, set_backend_state(), which transitions through any
+> necessary intermediate states.
+> This fixes an issue observed with some old Windows frontend drivers where
+> they failed to transition through the Closing state and netback would not
+> behave correctly.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
