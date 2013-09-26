@@ -1,72 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Thu, 26 Sep 2013 23:05:06 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
-References: <20130923115139.GA15034@eldamar.org.uk> <524099BA.5020303@cogentembedded.com> <20130924093238.GD18494@eldamar.org.uk> <20130925003033.GG26081@verge.net.au> <20130925092638.GD19768@eldamar.org.uk> <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
- <20130926100540.GB27583@eldamar.org.uk>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH v5 net-next 00/27] bonding: use neighbours instead of
+ own lists
+Date: Thu, 26 Sep 2013 16:02:56 -0400 (EDT)
+Message-ID: <20130926.160256.371775655310136113.davem@redhat.com>
+References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Frolkin <avf@eldamar.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, fubar@us.ibm.com,
+	andy@greyhouse.net, dm@chelsio.com, kaber@trash.net,
+	edumazet@google.com, alexander.h.duyck@intel.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46827 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751727Ab3IZUAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 16:00:31 -0400
-In-Reply-To: <20130926100540.GB27583@eldamar.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:15952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750854Ab3IZUDM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 16:03:12 -0400
+In-Reply-To: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Wed, 25 Sep 2013 09:20:05 +0200
 
-	Hello,
-
-On Thu, 26 Sep 2013, Alexander Frolkin wrote:
-
-> Improve the SH fallback realserver selection strategy.
+> This patchset introduces all the needed infrastructure, on top of current
+> adjacent lists, to be able to remove bond's slave_list/slave->list. The
+> overhead in memory/CPU is minimal, and after the patchset bonding can rely
+> on its slave-related functions, given the proper locking. I've done some
+> netperf benchmarks on a vm, and the delta was about 0.1gbps for 35gbps as a
+> whole, so no speed fluctuations.
 > 
-> With sh and sh-fallback, if a realserver is down, this attempts to
-> distribute the traffic that would have gone to that server evenly
-> among the remaining servers.
+> It also automatically creates lower/upper and master symlinks in dev's
+> sysfs directory.
 > 
-> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: Dimitris Michailidis <dm@chelsio.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Patrick McHardy <kaber@trash.net>
+> CC: Eric Dumazet <edumazet@google.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-	Looks correct to me, just fix the below indentations.
-Also, please use version number for your patches, eg.
-[PATCHv2] ipvs: ...
-
-> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-> index 3588fae..533ea53 100644
-> --- a/net/netfilter/ipvs/ip_vs_sh.c
-> +++ b/net/netfilter/ipvs/ip_vs_sh.c
-
-> +	IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> +		"%s:%d, reselecting",
-> +		IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +		ntohs(dest->port));
-
-	Indentation:
-
-	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
-		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-
-
-> +		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-> +			"server %s:%d (offset %d), reselecting",
-> +			IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +			ntohs(dest->port),
-> +			roffset);
-
-	Indentation:
-
-		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-			      "server %s:%d (offset %d), reselecting",
-			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-			      ntohs(dest->port), roffset);
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Ok, looks good to me, series applied, thanks!
