@@ -1,26 +1,28 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC net] bridge: clean the nf_bridge status when forwarding
- the skb
-Date: Thu, 26 Sep 2013 14:08:31 -0700
-Message-ID: <20130926140831.36063454@nehalam.linuxnetplumber.net>
+Subject: Re: [RFC net] bridge: clean the nf_bridge status when
+ forwarding the skb
+Date: Thu, 26 Sep 2013 14:10:21 -0700
+Message-ID: <20130926141021.3cde0f0f@nehalam.linuxnetplumber.net>
 References: <1380226790-513-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>,
 	Antonio Quartulli <antonio@open-mesh.com>
 To: Antonio Quartulli <antonio@meshcoding.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:62417 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387Ab3IZVIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 17:08:37 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so1857125pab.22
-        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 14:08:36 -0700 (PDT)
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1380226790-513-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 On Thu, 26 Sep 2013 22:19:50 +0200
 Antonio Quartulli <antonio@meshcoding.com> wrote:
@@ -97,5 +99,5 @@ Antonio Quartulli <antonio@meshcoding.com> wrote:
 >  	}
 >  
 
-You need to bracket this with CONFIG_BRIDGE_NETFILTER
-since nf_bridge is only in skbuff if that option is enabled.
+I think the header will also be garbage if bridge on bridge with netfilter is used.
+See nf_bridge_save_header.
