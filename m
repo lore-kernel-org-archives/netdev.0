@@ -1,61 +1,164 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: Re: [PATCH] moxa: drop free_irq of devm_request_irq allocated irq
-Date: Thu, 26 Sep 2013 10:12:53 +0800
-Message-ID: <CAPgLHd9VXaPx18ujDKbUik6XjOsnARcK-C-orCOynyJaWFREjw@mail.gmail.com>
-References: <CAPgLHd8YRP7kL_jNHi3J9jFn86f=Fv-AWWUY_aRGZQOgVTNPgg@mail.gmail.com>
-	<000001ceba51$f8b45c10$ea1d1430$%han@samsung.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v5 net-next 11/27] bonding: rework bond_3ad_xmit_xor()
+ to use bond_for_each_slave() only
+Date: Thu, 26 Sep 2013 10:31:35 +0800
+Message-ID: <52439C87.6050809@huawei.com>
+References: <1380093632-1842-1-git-send-email-vfalico@redhat.com> <1380093632-1842-12-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: jonas.jensen@gmail.com, davem@davemloft.net,
-	grant.likely@linaro.org, rob.herring@calxeda.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	sachin.kamat@linaro.org
-To: jg1.han@samsung.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jiri@resnulli.us>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f42.google.com ([209.85.214.42]:51075 "EHLO
-	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853Ab3IZCMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 22:12:55 -0400
-Received: by mail-bk0-f42.google.com with SMTP id my10so172849bkb.15
-        for <netdev@vger.kernel.org>; Wed, 25 Sep 2013 19:12:53 -0700 (PDT)
-In-Reply-To: <000001ceba51$f8b45c10$ea1d1430$%han@samsung.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:5367 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754553Ab3IZCdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Sep 2013 22:33:02 -0400
+In-Reply-To: <1380093632-1842-12-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2013 08:47 AM, Jingoo Han wrote:
-> On Wednesday, September 25, 2013 4:33 PM, Wei Yongjun wrote:
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->>
->> irq allocated with devm_request_irq should not be freed using
->> free_irq, because doing so causes a dangling pointer, and a
->> subsequent double free.
->>
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> ---
->>  drivers/net/ethernet/moxa/moxart_ether.c | 1 -
->>  1 file changed, 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
->> index 83c2091..9a7fcb5 100644
->> --- a/drivers/net/ethernet/moxa/moxart_ether.c
->> +++ b/drivers/net/ethernet/moxa/moxart_ether.c
->> @@ -531,7 +531,6 @@ static int moxart_remove(struct platform_device *pdev)
->>  	struct net_device *ndev = platform_get_drvdata(pdev);
->>
->>  	unregister_netdev(ndev);
->> -	free_irq(ndev->irq, ndev);
->>  	moxart_mac_free_memory(ndev);
->>  	free_netdev(ndev);
-> CC'ed Sachin Kamat,
->
-> In this case, the free_irq() will be called, after calling
-> free_netdev(). 'ndev' is freed by free_netdev(). Then, 'ndev->irq'
-> is used by free_irq(). Is it right?
->
-> In my humble opinion, it seems to make the problem.
->
+On 2013/9/25 15:20, Veaceslav Falico wrote:
+> Currently, there are two loops - first we find the first slave in an
+> aggregator after the xmit_hash_policy() returned number, and after that we
+> loop from that slave, over bonding head, and till that slave to find any
+> suitable slave to send the packet through.
+> 
+> Replace it by just one bond_for_each_slave() loop, which first loops
+> through the requested number of slaves, saving the first suitable one, and
+> after that we've hit the requested number of slaves to skip - search for
+> any up slave to send the packet through. If we don't find such kind of
+> slave - then just send the packet through the first suitable slave found.
+> 
+> Logic remains unchainged, and we skip two loops. Also, refactor it a bit
+> for readability.
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+> 
+> Notes:
+>     v4  -> v5
+>     No change.
+>     
+>     v3  -> v4:
+>     No change.
+>     
+>     v2  -> v3:
+>     No change.
+>     
+>     v1  -> v2:
+>     No changes.
+>     
+>     RFC -> v1:
+>     New patch.
+> 
+>  drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
+>  1 file changed, 22 insertions(+), 24 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index 3847aee..c861ee7 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+>  
+>  int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  {
+> -	struct slave *slave, *start_at;
+>  	struct bonding *bond = netdev_priv(dev);
+> +	struct slave *slave, *first_ok_slave;
+> +	struct aggregator *agg;
+> +	struct ad_info ad_info;
+>  	struct list_head *iter;
+> -	int slave_agg_no;
+>  	int slaves_in_agg;
+> -	int agg_id;
+> -	int i;
+> -	struct ad_info ad_info;
+> +	int slave_agg_no;
+>  	int res = 1;
+> +	int agg_id;
+>  
+>  	read_lock(&bond->lock);
+>  	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+> @@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  	agg_id = ad_info.aggregator_id;
+>  
+>  	if (slaves_in_agg == 0) {
+> -		/*the aggregator is empty*/
+>  		pr_debug("%s: Error: active aggregator is empty\n", dev->name);
+>  		goto out;
+>  	}
+>  
+>  	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
+> +	first_ok_slave = NULL;
+>  
+>  	bond_for_each_slave(bond, slave, iter) {
+> -		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+> +		agg = SLAVE_AD_INFO(slave).port.aggregator;
+> +		if (!agg || agg->aggregator_identifier != agg_id)
+> +			continue;
+>  
+> -		if (agg && (agg->aggregator_identifier == agg_id)) {
+> +		if (slave_agg_no >= 0) {
+> +			if (!first_ok_slave && SLAVE_IS_OK(slave))
+> +				first_ok_slave = slave;
+>  			slave_agg_no--;
+> -			if (slave_agg_no < 0)
+> -				break;
+> +			continue;
+> +		}
+> +
+> +		if (SLAVE_IS_OK(slave)) {
+> +			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+> +			goto out;
+>  		}
 
-devm_request_irq() has recorded the irq and dev_id, so free_irq() by devm_*
-will not touch 'ndev' which has been freed by free_netdev().
-So, if we not need to call free_irq() before free_netdev(), there will be
-no problem.
+I think you miss something, you will send skb always by the first suitable port,
+it could not support load balance.
+pls consult my function.
+ 		if (agg && (agg->aggregator_identifier == agg_id)) {
+-			slave_agg_no--;
+-			if (slave_agg_no < 0)
+-				break;
++			if (--slave_agg_no < 0) {
++				if (SLAVE_IS_OK(slave)) {
++					res = bond_dev_queue_xmit(bond,
++						skb, slave->dev);
++					goto out;
++				}
++			}
+ 		}
+ 	}
+
+>  	}
+>  
+> @@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  		goto out;
+>  	}
+>  
+> -	start_at = slave;
+> -
+> -	bond_for_each_slave_from(bond, slave, i, start_at) {
+> -		int slave_agg_id = 0;
+> -		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+> -
+> -		if (agg)
+> -			slave_agg_id = agg->aggregator_identifier;
+> -
+> -		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
+> -			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+> -			break;
+> -		}
+> -	}
+> +	/* we couldn't find any suitable slave after the agg_no, so use the
+> +	 * first suitable found, if found. */
+> +	if (first_ok_slave)
+> +		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+>  
+>  out:
+>  	read_unlock(&bond->lock);
+> 
