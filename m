@@ -1,57 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4] [RFC] net: Explicitly initialize u64_stats_sync
- structures for lockdep
-Date: Thu, 26 Sep 2013 12:46:03 -0700
-Message-ID: <1380224763.3165.208.camel@edumazet-glaptop>
-References: <1380220464-28840-1-git-send-email-john.stultz@linaro.org>
-		 <1380220464-28840-2-git-send-email-john.stultz@linaro.org>
-	 <1380223585.3165.205.camel@edumazet-glaptop> <52448C46.2050107@linaro.org>
-	 <52448D58.9060503@linaro.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: improved SH fallback strategy
+Date: Thu, 26 Sep 2013 23:05:06 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
+References: <20130923115139.GA15034@eldamar.org.uk> <524099BA.5020303@cogentembedded.com> <20130924093238.GD18494@eldamar.org.uk> <20130925003033.GG26081@verge.net.au> <20130925092638.GD19768@eldamar.org.uk> <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
+ <20130926100540.GB27583@eldamar.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	Patrick McHardy <kaber@trash.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Jesse Gross <jesse@nicira.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: John Stultz <john.stultz@linaro.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Frolkin <avf@eldamar.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:43647 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925Ab3IZTqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 15:46:06 -0400
-In-Reply-To: <52448D58.9060503@linaro.org>
+Received: from ja.ssi.bg ([178.16.129.10]:46827 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751727Ab3IZUAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 16:00:31 -0400
+In-Reply-To: <20130926100540.GB27583@eldamar.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-26 at 12:39 -0700, John Stultz wrote:
 
-> > No objection, though I worry that will obscure the lockdep key name,
-> > causing all the u64_stat_sync locks to appear the same.
-> >
-> > I'll give it a quick shot to see if the compiler inlines it well enough
-> > to preserve the name.
-> Yea, unfortunately this causes the reports to all look like:
+	Hello,
+
+On Thu, 26 Sep 2013, Alexander Frolkin wrote:
+
+> Improve the SH fallback realserver selection strategy.
 > 
-
+> With sh and sh-fallback, if a realserver is down, this attempts to
+> distribute the traffic that would have gone to that server evenly
+> among the remaining servers.
 > 
-> So I suspect using the macro is the best approach here. Is that ok?
+> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 
-Oh well, right :)
+	Looks correct to me, just fix the below indentations.
+Also, please use version number for your patches, eg.
+[PATCHv2] ipvs: ...
+
+> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+> index 3588fae..533ea53 100644
+> --- a/net/netfilter/ipvs/ip_vs_sh.c
+> +++ b/net/netfilter/ipvs/ip_vs_sh.c
+
+> +	IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+> +		"%s:%d, reselecting",
+> +		IP_VS_DBG_ADDR(svc->af, &dest->addr),
+> +		ntohs(dest->port));
+
+	Indentation:
+
+	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
+		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
+
+
+> +		IP_VS_DBG_BUF(6, "SH: selected unavailable "
+> +			"server %s:%d (offset %d), reselecting",
+> +			IP_VS_DBG_ADDR(svc->af, &dest->addr),
+> +			ntohs(dest->port),
+> +			roffset);
+
+	Indentation:
+
+		IP_VS_DBG_BUF(6, "SH: selected unavailable "
+			      "server %s:%d (offset %d), reselecting",
+			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+			      ntohs(dest->port), roffset);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
