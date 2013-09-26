@@ -1,96 +1,96 @@
-From: Alexander Frolkin <avf@eldamar.org.uk>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Thu, 26 Sep 2013 11:05:40 +0100
-Message-ID: <20130926100540.GB27583@eldamar.org.uk>
-References: <20130923115139.GA15034@eldamar.org.uk>
- <524099BA.5020303@cogentembedded.com>
- <20130924093238.GD18494@eldamar.org.uk>
- <20130925003033.GG26081@verge.net.au>
- <20130925092638.GD19768@eldamar.org.uk>
- <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net v5 1/1] xen-netback: Handle backend state
+ transitions in a more robust way
+Date: Thu, 26 Sep 2013 11:17:22 +0100
+Message-ID: <1380190642.29483.44.camel@kazak.uk.xensource.com>
+References: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
+	 <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:22923 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755578Ab3IZKRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 06:17:24 -0400
+In-Reply-To: <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Improve the SH fallback realserver selection strategy.
+On Wed, 2013-09-25 at 10:59 +0100, Paul Durrant wrote:
+> When the frontend state changes netback now specifies its desired state to
+> a new function, set_backend_state(), which transitions through any
+> necessary intermediate states.
+> This fixes an issue observed with some old Windows frontend drivers where
+> they failed to transition through the Closing state and netback would not
+> behave correctly.
 
-With sh and sh-fallback, if a realserver is down, this attempts to
-distribute the traffic that would have gone to that server evenly
-among the remaining servers.
+I'm somewhat terrified of breaking compatibility with some old or
+obscure frontend here. I don't think it is reasonable to try and test
+all of those so I guess we'll just have to deal with that when it
+happens...
 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> ---
+>  drivers/net/xen-netback/xenbus.c |  143 ++++++++++++++++++++++++++++++--------
+>  1 file changed, 113 insertions(+), 30 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+> index a53782e..01329b2 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -24,6 +24,7 @@
+>  struct backend_info {
+>  	struct xenbus_device *dev;
+>  	struct xenvif *vif;
+> +	enum xenbus_state state;
 
---
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 3588fae..533ea53 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -115,27 +115,49 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- }
- 
- 
--/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-+ *
-+ * The fallback strategy loops around the table starting from a "random"
-+ * point (in fact, it is chosen to be the original hash value to make the
-+ * algorithm deterministic) to find a new server.
-+ */
- static inline struct ip_vs_dest *
- ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- 		      const union nf_inet_addr *addr, __be16 port)
- {
--	unsigned int offset;
--	unsigned int hash;
-+	unsigned int offset, roffset;
-+	unsigned int hash, ihash;
- 	struct ip_vs_dest *dest;
- 
-+	/* first try the dest it's supposed to go to */
-+	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	dest = rcu_dereference(s->buckets[ihash].dest);
-+	if (!dest)
-+		return NULL;
-+	if (!is_unavailable(dest))
-+		return dest;
-+
-+	IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-+		"%s:%d, reselecting",
-+		IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+		ntohs(dest->port));
-+
-+	/* if the original dest is unavailable, loop around the table
-+	 * starting from ihash to find a new dest
-+	 */
- 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
--		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-+		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-+		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
- 		dest = rcu_dereference(s->buckets[hash].dest);
- 		if (!dest)
- 			break;
--		if (is_unavailable(dest))
--			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
--				      "%s:%d (offset %d)",
--				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
--				      ntohs(dest->port), offset);
--		else
-+		if (!is_unavailable(dest))
- 			return dest;
-+		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-+			"server %s:%d (offset %d), reselecting",
-+			IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+			ntohs(dest->port),
-+			roffset);
- 	}
- 
- 	return NULL;
+This cannot just be read from xenstore because of the
+wait-for-hotplug-script deferral stuff, right?
+
+I'm not sure it is worth clarifying that, either by a comment or by
+naming it deferred_state_change or something?
+
+> -static void destroy_backend(struct xenbus_device *dev)
+> +static void backend_connect(struct backend_info *be)
+>  {
+> -	struct backend_info *be = dev_get_drvdata(&dev->dev);
+> +	if (be->vif)
+> +		connect(be);
+> +}
+>  
+> -	if (be->vif) {
+> -		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+> -		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+> -		xenvif_free(be->vif);
+> -		be->vif = NULL;
+
+Where did this uevent offlining functionality end up?
+
+> +static inline void backend_switch_state(struct backend_info *be,
+> +					enum xenbus_state state)
+> +{
+> +	struct xenbus_device *dev = be->dev;
+> +
+> +	pr_debug("%s -> %s\n", dev->nodename, xenbus_strstate(state));
+> +	be->state = state;
+> +
+> +	/* If we are waiting for a hotplug script then defer the
+> +	 * actual xenbus state change.
+
+Is the right/wise regardless of the state we are moving too? Might the
+state change have effectively "cancelled" the need to wait for the
+script?
+
+The previous code only deferred when moving to Connected. If we are now
+moving to Closed/Closing do we still need to wait?
+
+
+Ian.
