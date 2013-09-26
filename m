@@ -1,32 +1,63 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: BUG: MARK in OUTPUT + ip_tunnel causes kernel panic
-Date: Thu, 26 Sep 2013 20:27:46 +0200
-Message-ID: <CAKfDRXiEpbjEx9fNjNQZBfrkB7U8rvf87=F7ykpRK-E4g74kBw@mail.gmail.com>
-References: <CAKfDRXgJwyhE6sg1Ej=S35A+-dnPiU9TBA69zb-n7hGXgG+Sxg@mail.gmail.com>
-	<loom.20130925T095425-819@post.gmane.org>
-	<20130925085947.GY7660@secunet.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ARM: shmobile: Lager: add Micrel KSZ8041 PHY fixup
+Date: Thu, 26 Sep 2013 22:28:31 +0400
+Message-ID: <52447CCF.8000301@cogentembedded.com>
+References: <201309140429.23474.sergei.shtylyov@cogentembedded.com> <CANqRtoTiHQ3EVDZ8POCkyN2ga95rF=u5ERfYsdZbX+toqAWmaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Konstantin Kuzov <master.nosferatu@gmail.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:38430 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753202Ab3IZS1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 14:27:47 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so1680346pab.22
-        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 11:27:46 -0700 (PDT)
-In-Reply-To: <20130925085947.GY7660@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Simon Horman [Horms]" <horms@verge.net.au>,
+	SH-Linux <linux-sh@vger.kernel.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+	netdev <netdev@vger.kernel.org>
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CANqRtoTiHQ3EVDZ8POCkyN2ga95rF=u5ERfYsdZbX+toqAWmaQ@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 25, 2013 at 10:59 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> Can you please try the patch below?
-> I've posted the same patch already to netdev in the morning.
+Hello.
 
-Thank you very much for this patch. I am currently travelling, but
-will give it a try when I am back in the office next week.
+On 09/26/2013 10:50 AM, Magnus Damm wrote:
 
--Kristian
+>> Currently on the Lager board NFS timeouts/delays are seen when booting.  That
+>> turned out to happen because the SoC's ETH_LINK signal turns on and off after
+>> each packet.  It is connected to Micrel KSZ8041 PHY's LED0 signal. Ether LEDs
+>> on the Lager board are named LINK and ACTIVE which corresponds to non-default
+>> 01 setting of the PHY control register 1 bits 14-15. The 'sh_eth' driver resets
+>> the PHY when opening the network device, so we have to set the mentioned bits
+>> back to 01 from the default 00 value which causes bouncing of ETH_LINK.  That
+>> can be achieved using the PHY platform fixup mechanism if we also modify the
+>> driver to use it..
+
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> Hi Sergei,
+
+> Thanks for your efforts on this. Nice to see that Ethernet for Lager
+> board support is improving.
+
+> Can you please share with us with link speeds you tested? I suspect
+
+    100 Mbit/s, full duplex.
+
+> that this patch is only needed for some case, like for instance 100
+> MBit Full Duplex.
+
+    Hm, why? :-O
+
+> Fixing the PHY settings makes sense even though only
+> a single mode needs it, but knowing which link speeds that are known
+> to work would help a lot.
+
+    This patch should not depend on the link speed and duplex settings.
+
+> Cheers,
+
+> / magnus
+
+WBR, Sergei
+
