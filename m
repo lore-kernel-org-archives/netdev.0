@@ -1,56 +1,70 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 00/11 - GIT PULL] drivers: net: Last block of Remove
- extern from function prototypes
-Date: Thu, 26 Sep 2013 11:02:56 -0700
-Message-ID: <1380218576.17366.76.camel@joe-AO722>
-References: <cover.1380137609.git.joe@perches.com>
-	 <20130926.134408.91633054642517467.davem@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net 2/2] ip_tunnel: Add fallback tunnels to the hash lists
+Date: Thu, 26 Sep 2013 11:24:07 -0700
+Message-ID: <CALnjE+pu6CEwB+p3TNH56N09Cwabr9QbaKotKiwbfyLvZUsSpA@mail.gmail.com>
+References: <20130925055418.GV7660@secunet.com>
+	<20130925055519.GW7660@secunet.com>
+	<CALnjE+rrm3Vzov4sUjBfEKHwzRb6MfTRhkA_B96yuNGpgFgiCg@mail.gmail.com>
+	<20130926081344.GA7660@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org, ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130926.134408.91633054642517467.davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:44355 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753278Ab3IZSYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 14:24:13 -0400
+Received: by mail-qa0-f50.google.com with SMTP id j7so1081237qaq.16
+        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 11:24:08 -0700 (PDT)
+In-Reply-To: <20130926081344.GA7660@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-26 at 13:44 -0400, David Miller wrote:
-> From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> Date: Wed, 25 Sep 2013 12:37:18 -0700
-[]
-> Pulled, thanks Joe.
-> That should be about it for networking right?
+On Thu, Sep 26, 2013 at 1:13 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Wed, Sep 25, 2013 at 09:03:11AM -0700, Pravin Shelar wrote:
+>> On Tue, Sep 24, 2013 at 10:55 PM, Steffen Klassert
+>> <steffen.klassert@secunet.com> wrote:
+>> > Currently we can not update the tunnel parameters of
+>> > the fallback tunnels because we don't find them in the
+>> > hash lists. Fix this by adding them on initialization.
+>> >
+>> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> > ---
+>> >  net/ipv4/ip_tunnel.c |    4 +++-
+>> >  1 file changed, 3 insertions(+), 1 deletion(-)
+>> >
+>> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+>> > index b8ce640..f2348f2 100644
+>> > --- a/net/ipv4/ip_tunnel.c
+>> > +++ b/net/ipv4/ip_tunnel.c
+>> > @@ -853,8 +853,10 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+>> >         /* FB netdevice is special: we have one, and only one per netns.
+>> >          * Allowing to move it to another netns is clearly unsafe.
+>> >          */
+>> > -       if (!IS_ERR(itn->fb_tunnel_dev))
+>> > +       if (!IS_ERR(itn->fb_tunnel_dev)) {
+>> >                 itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+>> > +               ip_tunnel_add(itn, netdev_priv(itn->fb_tunnel_dev));
+>> > +       }
+>> >         rtnl_unlock();
+>> >
+>> fallback tunnel s not required to be in hash table, Its is returned if
+>> none of hashed tunnels are matched, ref ip_tunnel_lookup().
+>> Can you post command to reproduce this issue?
+>>
+>
+> Something like
+>
+> ip tunnel change tunl0 mode ipip remote 0.0.0.0 local 0.0.0.0 ttl 0 tos 1
+>
+> worked until v3.9 and stopped working with v3.10.
 
-Yes for drivers/net/...
-
-There are some more files like:
-
-include/linux/etherdevice.h
-include/linux/inetdevice.h
-include/linux/net.h
-include/linux/netdevice.h
-include/linux/skbuff.h
-
-and some netfilter ones:
-
-include/linux/netfilter*.h
-include/linux/netfilter/...
-
-and maybe a few others like:
-
-include/linux/atmdev.h
-include/linux/fddidevice.h
-
-that I was planning on converting then submitting.
-
-Want those in one more pull request or
-maybe individually?
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OK, I see the bug, tunnel exact match lookup does not check fb tunnel.
+There are two options.
+1. Fix ip_tunnel_find() to check for fb tunnel.
+2. Add fb tunnel to hash table, which is what ur patch does.
+I think your patch is better solution as it get rid of special case.
+But patch is not complete. It needs to remove fb tunnel checks on
+netdev unregister.
