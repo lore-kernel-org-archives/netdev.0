@@ -1,74 +1,58 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 28/51] DMA-API: sound: fix dma mask handling in a lot
- of drivers
-Date: Thu, 26 Sep 2013 08:54:25 +0100
-Message-ID: <20130926075425.GX25647@n2100.arm.linux.org.uk>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
- <E1VMm9m-0007ij-ER@rmk-PC.arm.linux.org.uk> <s5h1u4cf2bo.wl%tiwai@suse.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net 2/2] ip_tunnel: Add fallback tunnels to the hash lists
+Date: Thu, 26 Sep 2013 10:13:44 +0200
+Message-ID: <20130926081344.GA7660@secunet.com>
+References: <20130925055418.GV7660@secunet.com>
+ <20130925055519.GW7660@secunet.com>
+ <CALnjE+rrm3Vzov4sUjBfEKHwzRb6MfTRhkA_B96yuNGpgFgiCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
- linux-mmc@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-nvme@lists.infradead.org, Jaroslav Kysela <perex@perex.cz>,
- Peter Ujfalusi <peter.ujfalusi@ti.com>, linux-ide@vger.kernel.org,
- Kukjin Kim <kgene.kim@samsung.com>, devel@driverdev.osuosl.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- e1000-devel@lists.sourceforge.net, b43-dev@lists.infradead.org,
- linux-media@vger.kernel.org, devicetree@vger.kernel.org,
- Haojian Zhuang <haojian.zhuang@gmail.com>, Timur Tabi <timur@tabi.org>,
- Mark Brown <broonie@kernel.org>, dri-devel@lists.freedesktop.org,
- Ben Dooks <ben-linux@fluff.org>, linux-tegra@vger.kernel.org,
- linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
- Eric Miao <eric.y.miao@gmail.com>, Sangbeom Kim <sbkim73@sa
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:32910 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755226Ab3IZINr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 04:13:47 -0400
 Content-Disposition: inline
-In-Reply-To: <s5h1u4cf2bo.wl%tiwai@suse.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CALnjE+rrm3Vzov4sUjBfEKHwzRb6MfTRhkA_B96yuNGpgFgiCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 26, 2013 at 09:51:23AM +0200, Takashi Iwai wrote:
-> Hi,
+On Wed, Sep 25, 2013 at 09:03:11AM -0700, Pravin Shelar wrote:
+> On Tue, Sep 24, 2013 at 10:55 PM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > Currently we can not update the tunnel parameters of
+> > the fallback tunnels because we don't find them in the
+> > hash lists. Fix this by adding them on initialization.
+> >
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> > ---
+> >  net/ipv4/ip_tunnel.c |    4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> > index b8ce640..f2348f2 100644
+> > --- a/net/ipv4/ip_tunnel.c
+> > +++ b/net/ipv4/ip_tunnel.c
+> > @@ -853,8 +853,10 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
+> >         /* FB netdevice is special: we have one, and only one per netns.
+> >          * Allowing to move it to another netns is clearly unsafe.
+> >          */
+> > -       if (!IS_ERR(itn->fb_tunnel_dev))
+> > +       if (!IS_ERR(itn->fb_tunnel_dev)) {
+> >                 itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+> > +               ip_tunnel_add(itn, netdev_priv(itn->fb_tunnel_dev));
+> > +       }
+> >         rtnl_unlock();
+> >
+> fallback tunnel s not required to be in hash table, Its is returned if
+> none of hashed tunnels are matched, ref ip_tunnel_lookup().
+> Can you post command to reproduce this issue?
 > 
-> sorry for the lat response, as I've been traveling in the last weeks.
-> 
-> At Thu, 19 Sep 2013 22:53:02 +0100,
-> Russell King wrote:
-> > 
-> > This code sequence is unsafe in modules:
-> > 
-> > static u64 mask = DMA_BIT_MASK(something);
-> > ...
-> > 	if (!dev->dma_mask)
-> > 		dev->dma_mask = &mask;
-> > 
-> > as if a module is reloaded, the mask will be pointing at the original
-> > module's mask address, and this can lead to oopses.  Moreover, they
-> > all follow this with:
-> > 
-> > 	if (!dev->coherent_dma_mask)
-> > 		dev->coherent_dma_mask = mask;
-> > 
-> > where 'mask' is the same value as the statically defined mask, and this
-> > bypasses the architecture's check on whether the DMA mask is possible.
-> > 
-> > Fix these issues by using the new dma_coerce_coherent_and_mask()
-> > function.
-> > 
-> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> 
-> Applied with Mark's ack now.
 
-Which is a very stupid thing to do because you won't have
-dma_coerce_coherent_and_mask() in your tree, so all these drivers
-will fail to build for you.
+Something like
+
+ip tunnel change tunl0 mode ipip remote 0.0.0.0 local 0.0.0.0 ttl 0 tos 1
+
+worked until v3.9 and stopped working with v3.10.
