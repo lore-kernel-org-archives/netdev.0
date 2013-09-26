@@ -1,161 +1,89 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 1/7] ipv4: split inet_ehashfn to hash functions per compilation unit
-Date: Fri, 27 Sep 2013 01:32:17 +0200
-Message-ID: <1380238343-4318-2-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next 3/7] net: introduce new macro net_get_random_once
+Date: Fri, 27 Sep 2013 01:32:19 +0200
+Message-ID: <1380238343-4318-4-git-send-email-hannes@stressinduktion.org>
 References: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53992 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:54001 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164Ab3IZXce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:32:34 -0400
+	with ESMTP id S1752926Ab3IZXcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:32:35 -0400
 In-Reply-To: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This duplicates a bit of code but let's us easily introduce
-separate secret keys later. The separate compilation units are
-ipv4/inet_hashtabbles.o, ipv4/udp.o and rds/connection.o.
+net_get_random_once is a new macro which handles the initialization
+of secret keys. It is possible to call it in the fast path. Only the
+initialization depends on the spinlock and is rather slow. Otherwise
+it should get used just before the key is used to delay the entropy
+extration as late as possible to get better randomness. It returns true
+if the key got initialized.
 
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/inet_sock.h    | 22 ++++++----------------
- net/ipv4/inet_hashtables.c | 21 +++++++++++++++++++++
- net/ipv4/udp.c             | 16 ++++++++++++----
- net/rds/connection.c       |  6 +++---
- 4 files changed, 42 insertions(+), 23 deletions(-)
+ include/linux/net.h | 14 ++++++++++++++
+ net/core/utils.c    | 21 +++++++++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 636d203..fba0b23 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -205,26 +205,16 @@ extern u32 inet_ehash_secret;
- extern u32 ipv6_hash_secret;
- void build_ehash_secret(void);
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 4f27575..d14fad5 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -243,6 +243,20 @@ do {								\
+ #define net_random()		prandom_u32()
+ #define net_srandom(seed)	prandom_seed((__force u32)(seed))
  
--static inline unsigned int inet_ehashfn(struct net *net,
--					const __be32 laddr, const __u16 lport,
--					const __be32 faddr, const __be16 fport)
-+static inline unsigned int __inet_ehashfn(const __be32 laddr,
-+					  const __u16 lport,
-+					  const __be32 faddr,
-+					  const __be16 fport,
-+					  u32 initval)
- {
- 	return jhash_3words((__force __u32) laddr,
- 			    (__force __u32) faddr,
- 			    ((__u32) lport) << 16 | (__force __u32)fport,
--			    inet_ehash_secret + net_hash_mix(net));
--}
--
--static inline int inet_sk_ehashfn(const struct sock *sk)
--{
--	const struct inet_sock *inet = inet_sk(sk);
--	const __be32 laddr = inet->inet_rcv_saddr;
--	const __u16 lport = inet->inet_num;
--	const __be32 faddr = inet->inet_daddr;
--	const __be16 fport = inet->inet_dport;
--	struct net *net = sock_net(sk);
--
--	return inet_ehashfn(net, laddr, lport, faddr, fport);
-+			    initval);
++bool __net_get_random_once(void *buf, int nbytes, bool *done);
++
++/* BE CAREFUL: this function is not interrupt safe */
++#define net_get_random_once(buf, nbytes)				\
++	({								\
++		static bool ___done = false;				\
++		bool ___ret = false;					\
++		if (unlikely(!___done))					\
++			___ret = __net_get_random_once(buf,		\
++						       nbytes,		\
++						       &___done);	\
++		___ret;							\
++	})
++
+ extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				    struct kvec *vec, size_t num, size_t len);
+ extern int   	     kernel_recvmsg(struct socket *sock, struct msghdr *msg,
+diff --git a/net/core/utils.c b/net/core/utils.c
+index aa88e23..b420547 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -338,3 +338,24 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ 				  csum_unfold(*sum)));
  }
- 
- static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 7bd8983..f29bdf6 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -24,6 +24,27 @@
- #include <net/secure_seq.h>
- #include <net/ip.h>
- 
-+static unsigned int inet_ehashfn(struct net *net, const __be32 laddr,
-+				 const __u16 lport, const __be32 faddr,
-+				 const __be16 fport)
+ EXPORT_SYMBOL(inet_proto_csum_replace16);
++
++bool __net_get_random_once(void *buf, int nbytes, bool *done)
 +{
-+	return __inet_ehashfn(laddr, lport, faddr, fport,
-+			      inet_ehash_secret + net_hash_mix(net));
++	static DEFINE_SPINLOCK(lock);
++
++	spin_lock_bh(&lock);
++	if (*done) {
++		spin_unlock_bh(&lock);
++		return false;
++	}
++
++	get_random_bytes(buf, nbytes);
++	/* Make sure random data is published before toggeling done.
++	 * There is no corresponding rmb.
++	 */
++	smp_wmb();
++	*done = true;
++	spin_unlock_bh(&lock);
++	return true;
 +}
-+
-+
-+static unsigned int inet_sk_ehashfn(const struct sock *sk)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const __be32 laddr = inet->inet_rcv_saddr;
-+	const __u16 lport = inet->inet_num;
-+	const __be32 faddr = inet->inet_daddr;
-+	const __be16 fport = inet->inet_dport;
-+	struct net *net = sock_net(sk);
-+
-+	return inet_ehashfn(net, laddr, lport, faddr, fport);
-+}
-+
- /*
-  * Allocate and initialize a new local port bind bucket.
-  * The bindhash mutex for snum's hash chain must be held here.
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 74d2c95..86b43f5 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -406,6 +406,14 @@ static inline int compute_score2(struct sock *sk, struct net *net,
- 	return score;
- }
- 
-+static unsigned int udp_ehashfn(struct net *net, const __be32 laddr,
-+				 const __u16 lport, const __be32 faddr,
-+				 const __be16 fport)
-+{
-+	return __inet_ehashfn(laddr, lport, faddr, fport,
-+			      inet_ehash_secret + net_hash_mix(net));
-+}
-+
- 
- /* called with read_rcu_lock() */
- static struct sock *udp4_lib_lookup2(struct net *net,
-@@ -429,8 +437,8 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--				hash = inet_ehashfn(net, daddr, hnum,
--						    saddr, sport);
-+				hash = udp_ehashfn(net, daddr, hnum,
-+						   saddr, sport);
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -510,8 +518,8 @@ begin:
- 			badness = score;
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--				hash = inet_ehashfn(net, daddr, hnum,
--						    saddr, sport);
-+				hash = udp_ehashfn(net, daddr, hnum,
-+						   saddr, sport);
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 642ad42..45e2366 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -52,9 +52,9 @@ static struct kmem_cache *rds_conn_slab;
- static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
- {
- 	/* Pass NULL, don't need struct net for hash */
--	unsigned long hash = inet_ehashfn(NULL,
--					  be32_to_cpu(laddr), 0,
--					  be32_to_cpu(faddr), 0);
-+	unsigned long hash = __inet_ehashfn(be32_to_cpu(laddr), 0,
-+					    be32_to_cpu(faddr), 0,
-+					    inet_ehash_secret);
- 	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
- }
- 
++EXPORT_SYMBOL(__net_get_random_once);
 -- 
 1.8.3.1
