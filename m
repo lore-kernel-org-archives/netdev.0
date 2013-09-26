@@ -1,215 +1,31 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/2] {ipv4,xfrm}: Introduce xfrm_tunnel_notifier for xfrm tunnel mode callback
-Date: Thu, 26 Sep 2013 10:58:43 +0200
-Message-ID: <1380185923-8976-3-git-send-email-steffen.klassert@secunet.com>
-References: <1380185923-8976-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] xfrm: Force SA to be lookup again if SA in
+ acquire state
+Date: Thu, 26 Sep 2013 11:03:01 +0200
+Message-ID: <20130926090301.GC7660@secunet.com>
+References: <1379927905-17289-1-git-send-email-fan.du@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:34324 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:34518 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993Ab3IZI7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 04:59:14 -0400
-In-Reply-To: <1380185923-8976-1-git-send-email-steffen.klassert@secunet.com>
+	id S1754502Ab3IZJDM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 05:03:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1379927905-17289-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
+On Mon, Sep 23, 2013 at 05:18:25PM +0800, Fan Du wrote:
+> If SA is in the process of acquiring, which indicates this SA is more
+> promising and precise than the fall back option, i.e. using wild card
+> source address for searching less suitable SA.
+> 
+> So, here bail out, and try again.
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-Some thoughts on IPv4 VTI implementation:
-
-The connection between VTI receiving part and xfrm tunnel mode input process
-is hardly a "xfrm_tunnel", xfrm_tunnel is used in places where, e.g ipip/sit
-and xfrm4_tunnel, acts like a true "tunnel" device.
-
-In addition, IMHO, VTI doesn't need vti_err to do something meaningful, as all
-VTI needs is just a notifier to be called whenever xfrm_input ingress a packet
-to update statistics.
-
-A IPsec protected packet is first handled by protocol handlers, e.g AH/ESP,
-to check packet authentication or encryption rightness. PMTU update is taken
-care of in this stage by protocol error handler.
-
-Then the packet is rearranged properly depending on whether it's transport
-mode or tunnel mode packed by mode "input" handler. The VTI handler code
-takes effects in this stage in tunnel mode only. So it neither need propagate
-PMTU, as it has already been done if necessary, nor the VTI handler is
-qualified as a xfrm_tunnel.
-
-So this patch introduces xfrm_tunnel_notifier and meanwhile wipe out vti_err
-code.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: David S. Miller <davem@davemloft.net>
-Reviewed-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h           |   10 +++++--
- net/ipv4/ip_vti.c            |   67 +-----------------------------------------
- net/ipv4/xfrm4_mode_tunnel.c |   16 +++++-----
- 3 files changed, 17 insertions(+), 76 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 89d3d8a..c7afa6e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1352,6 +1352,12 @@ struct xfrm_tunnel {
- 	int priority;
- };
- 
-+struct xfrm_tunnel_notifier {
-+	int (*handler)(struct sk_buff *skb);
-+	struct xfrm_tunnel_notifier __rcu *next;
-+	int priority;
-+};
-+
- struct xfrm6_tunnel {
- 	int (*handler)(struct sk_buff *skb);
- 	int (*err_handler)(struct sk_buff *skb, struct inet6_skb_parm *opt,
-@@ -1495,8 +1501,8 @@ extern int xfrm4_output(struct sk_buff *skb);
- extern int xfrm4_output_finish(struct sk_buff *skb);
- extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
--extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
--extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
-+extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
-+extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
- extern int xfrm6_extract_header(struct sk_buff *skb);
- extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index e805e7b..91f69bc 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -49,70 +49,6 @@ static struct rtnl_link_ops vti_link_ops __read_mostly;
- static int vti_net_id __read_mostly;
- static int vti_tunnel_init(struct net_device *dev);
- 
--static int vti_err(struct sk_buff *skb, u32 info)
--{
--
--	/* All the routers (except for Linux) return only
--	 * 8 bytes of packet payload. It means, that precise relaying of
--	 * ICMP in the real Internet is absolutely infeasible.
--	 */
--	struct net *net = dev_net(skb->dev);
--	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
--	struct iphdr *iph = (struct iphdr *)skb->data;
--	const int type = icmp_hdr(skb)->type;
--	const int code = icmp_hdr(skb)->code;
--	struct ip_tunnel *t;
--	int err;
--
--	switch (type) {
--	default:
--	case ICMP_PARAMETERPROB:
--		return 0;
--
--	case ICMP_DEST_UNREACH:
--		switch (code) {
--		case ICMP_SR_FAILED:
--		case ICMP_PORT_UNREACH:
--			/* Impossible event. */
--			return 0;
--		default:
--			/* All others are translated to HOST_UNREACH. */
--			break;
--		}
--		break;
--	case ICMP_TIME_EXCEEDED:
--		if (code != ICMP_EXC_TTL)
--			return 0;
--		break;
--	}
--
--	err = -ENOENT;
--
--	t = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
--			     iph->daddr, iph->saddr, 0);
--	if (t == NULL)
--		goto out;
--
--	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
--		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
--				 t->parms.link, 0, IPPROTO_IPIP, 0);
--		err = 0;
--		goto out;
--	}
--
--	err = 0;
--	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
--		goto out;
--
--	if (time_before(jiffies, t->err_time + IPTUNNEL_ERR_TIMEO))
--		t->err_count++;
--	else
--		t->err_count = 1;
--	t->err_time = jiffies;
--out:
--	return err;
--}
--
- /* We dont digest the packet therefore let the packet pass */
- static int vti_rcv(struct sk_buff *skb)
- {
-@@ -296,9 +232,8 @@ static void __net_init vti_fb_tunnel_init(struct net_device *dev)
- 	iph->ihl		= 5;
- }
- 
--static struct xfrm_tunnel vti_handler __read_mostly = {
-+static struct xfrm_tunnel_notifier vti_handler __read_mostly = {
- 	.handler	=	vti_rcv,
--	.err_handler	=	vti_err,
- 	.priority	=	1,
- };
- 
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index eb1dd4d..b82cde1 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -16,13 +16,13 @@
- #include <net/xfrm.h>
- 
- /* Informational hook. The decap is still done here. */
--static struct xfrm_tunnel __rcu *rcv_notify_handlers __read_mostly;
-+static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
- static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
- 
--int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
-+int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
- {
--	struct xfrm_tunnel __rcu **pprev;
--	struct xfrm_tunnel *t;
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
- 	int ret = -EEXIST;
- 	int priority = handler->priority;
- 
-@@ -50,10 +50,10 @@ err:
- }
- EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
- 
--int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler)
-+int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
- {
--	struct xfrm_tunnel __rcu **pprev;
--	struct xfrm_tunnel *t;
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
- 	int ret = -ENOENT;
- 
- 	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
-@@ -134,7 +134,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- {
--	struct xfrm_tunnel *handler;
-+	struct xfrm_tunnel_notifier *handler;
- 	int err = -EINVAL;
- 
- 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
--- 
-1.7.9.5
+This looks ok, I'll take this into ipsec-next as soon as I can
+update the tree.
