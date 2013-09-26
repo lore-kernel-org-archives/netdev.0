@@ -1,43 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH] net: flow_dissector: fix thoff for IPPROTO_AH
-Date: Thu, 26 Sep 2013 17:48:43 +0200
-Message-ID: <5244575B.8060309@redhat.com>
-References: <1380204582-27144-1-git-send-email-nikolay@redhat.com>  <1380204582-27144-2-git-send-email-nikolay@redhat.com>  <1380209227.3165.176.camel@edumazet-glaptop> <1380210246.3165.184.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH]
+Date: Thu, 26 Sep 2013 08:53:19 -0700
+Message-ID: <1380210799.3165.187.camel@edumazet-glaptop>
+References: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
+	  <1380204582-27144-2-git-send-email-nikolay@redhat.com>
+	 <1380209227.3165.176.camel@edumazet-glaptop> <52445553.1030308@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
 	davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
 	vfalico@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25487 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750761Ab3IZPxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 11:53:18 -0400
-In-Reply-To: <1380210246.3165.184.camel@edumazet-glaptop>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:55392 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685Ab3IZPxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 11:53:24 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so1333519pde.24
+        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 08:53:23 -0700 (PDT)
+In-Reply-To: <52445553.1030308@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2013 05:44 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit 8ed781668dd49 ("flow_keys: include thoff into flow_keys for
-> later usage"), we missed that existing code was using nhoff as a
-> temporary variable that could not always contain transport header
-> offset.
-> 
-> This is not a problem for TCP/UDP because port offset (@poff)
-> is 0 for these protocols.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
+On Thu, 2013-09-26 at 17:40 +0200, Nikolay Aleksandrov wrote:
+> > 
+> 1 question, I might be missing something but proto_ports_offset() gets the SPI
+> with that 4 byte offset as is written in the comments, in every other case
+> proto_ports_offset() is 0, so why would we want the SPI in the ->ports field ?
+> And even then isn't it supposed to be 16 bits (2 bytes) and not 4, since we need
+> to pass over "next header" (8 bits) and length (8 bits) ?
 
-1 question about my current patchset, can I leave it to get reviewed and if
-applied to post a follow-up for net-next that fixes the issue, or would you
-prefer a v4 that integrates the fix ?
-Anyway for this one,
+struct ip_auth_hdr {
+        __u8  nexthdr;
+        __u8  hdrlen;           /* This one is measured in 32 bit units! */
+        __be16 reserved;
+        __be32 spi;
+        __be32 seq_no;          /* Sequence number */
+        __u8  auth_data[0];     /* Variable len but >=4. Mind the 64 bit alignment! */
+};
 
-Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+offsetof(spi, struct ...) = 4
