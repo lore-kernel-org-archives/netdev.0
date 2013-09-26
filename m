@@ -1,62 +1,161 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Introduce support to lazy initialize mostly static keys
-Date: Fri, 27 Sep 2013 01:32:16 +0200
-Message-ID: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next 1/7] ipv4: split inet_ehashfn to hash functions per compilation unit
+Date: Fri, 27 Sep 2013 01:32:17 +0200
+Message-ID: <1380238343-4318-2-git-send-email-hannes@stressinduktion.org>
+References: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53989 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:53992 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab3IZXc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:32:29 -0400
-Received: from kernel.localhost (localhost.localdomain [127.0.0.1])
-	by order.stressinduktion.org (Postfix) with ESMTP id A4A211A0C242
-	for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 01:32:28 +0200 (CEST)
+	with ESMTP id S1751164Ab3IZXce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:32:34 -0400
+In-Reply-To: <1380238343-4318-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+This duplicates a bit of code but let's us easily introduce
+separate secret keys later. The separate compilation units are
+ipv4/inet_hashtabbles.o, ipv4/udp.o and rds/connection.o.
 
-This series implements support for delaying the initialization of secret
-keys, e.g. used for hashing, for as long as possible. This functionality
-is implemented by a new macro, net_get_random_bytes.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/inet_sock.h    | 22 ++++++----------------
+ net/ipv4/inet_hashtables.c | 21 +++++++++++++++++++++
+ net/ipv4/udp.c             | 16 ++++++++++++----
+ net/rds/connection.c       |  6 +++---
+ 4 files changed, 42 insertions(+), 23 deletions(-)
 
-I already used it to protect the socket hashes, the syncookie secret
-(most important) and the tcp_fastopen secrets.
-
-This series depends on a patch from Eric Dumazet (already in patchworks):
-"net: net_secret should not depend on TCP"
-
-Included patches:
-  ipv4: split inet_ehashfn to one hash
-  ipv6: split inet6_ehashfn to one hash
-  net: introduce new macro net_get_random_once
-  inet: split syncookie keys for ipv4 and ipv6 and
-  inet: convert inet_ehash_secret and
-  tcp: switch tcp_fastopen key generation to
-  net: switch net_secret key generation to
-
-Diffstat:
- include/linux/net.h            |   14 ++++++++++++++
- include/net/inet6_hashtables.h |   29 +++++++----------------------
- include/net/inet_sock.h        |   26 ++++++--------------------
- include/net/ipv6.h             |    4 ++--
- include/net/tcp.h              |    3 +--
- net/core/secure_seq.c          |   14 ++------------
- net/core/utils.c               |   21 +++++++++++++++++++++
- net/ipv4/af_inet.c             |   27 ---------------------------
- net/ipv4/inet_hashtables.c     |   25 +++++++++++++++++++++++++
- net/ipv4/syncookies.c          |   15 +++++----------
- net/ipv4/sysctl_net_ipv4.c     |    5 +++++
- net/ipv4/tcp_fastopen.c        |   21 ++++++++++-----------
- net/ipv4/udp.c                 |   22 +++++++++++++++++-----
- net/ipv6/af_inet6.c            |    5 -----
- net/ipv6/inet6_hashtables.c    |   40 +++++++++++++++++++++++++++++++++++++---
- net/ipv6/syncookies.c          |   12 +++++++++---
- net/ipv6/udp.c                 |   37 ++++++++++++++++++++++++++++++-------
- net/rds/connection.c           |   18 ++++++++++++------
- 18 files changed, 203 insertions(+), 135 deletions(-)
-
-
-Greetings,
-
-  Hannes
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 636d203..fba0b23 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -205,26 +205,16 @@ extern u32 inet_ehash_secret;
+ extern u32 ipv6_hash_secret;
+ void build_ehash_secret(void);
+ 
+-static inline unsigned int inet_ehashfn(struct net *net,
+-					const __be32 laddr, const __u16 lport,
+-					const __be32 faddr, const __be16 fport)
++static inline unsigned int __inet_ehashfn(const __be32 laddr,
++					  const __u16 lport,
++					  const __be32 faddr,
++					  const __be16 fport,
++					  u32 initval)
+ {
+ 	return jhash_3words((__force __u32) laddr,
+ 			    (__force __u32) faddr,
+ 			    ((__u32) lport) << 16 | (__force __u32)fport,
+-			    inet_ehash_secret + net_hash_mix(net));
+-}
+-
+-static inline int inet_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const __be32 laddr = inet->inet_rcv_saddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be32 faddr = inet->inet_daddr;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet_ehashfn(net, laddr, lport, faddr, fport);
++			    initval);
+ }
+ 
+ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 7bd8983..f29bdf6 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -24,6 +24,27 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
++{
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
++}
++
++
++static unsigned int inet_sk_ehashfn(const struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	const __be32 laddr = inet->inet_rcv_saddr;
++	const __u16 lport = inet->inet_num;
++	const __be32 faddr = inet->inet_daddr;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
++
++	return inet_ehashfn(net, laddr, lport, faddr, fport);
++}
++
+ /*
+  * Allocate and initialize a new local port bind bucket.
+  * The bindhash mutex for snum's hash chain must be held here.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 74d2c95..86b43f5 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -406,6 +406,14 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+ 	return score;
+ }
+ 
++static unsigned int udp_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
++{
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
++}
++
+ 
+ /* called with read_rcu_lock() */
+ static struct sock *udp4_lib_lookup2(struct net *net,
+@@ -429,8 +437,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+@@ -510,8 +518,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 642ad42..45e2366 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -52,9 +52,9 @@ static struct kmem_cache *rds_conn_slab;
+ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
+ {
+ 	/* Pass NULL, don't need struct net for hash */
+-	unsigned long hash = inet_ehashfn(NULL,
+-					  be32_to_cpu(laddr), 0,
+-					  be32_to_cpu(faddr), 0);
++	unsigned long hash = __inet_ehashfn(be32_to_cpu(laddr), 0,
++					    be32_to_cpu(faddr), 0,
++					    inet_ehash_secret);
+ 	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
+ }
+ 
+-- 
+1.8.3.1
