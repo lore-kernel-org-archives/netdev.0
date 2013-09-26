@@ -1,80 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] moxa: drop free_irq of devm_request_irq allocated irq
-Date: Thu, 26 Sep 2013 15:02:51 +0100
-Message-ID: <1380204171.1571.5.camel@bwh-desktop.uk.level5networks.com>
-References: <CAPgLHd8YRP7kL_jNHi3J9jFn86f=Fv-AWWUY_aRGZQOgVTNPgg@mail.gmail.com>
-	 <000001ceba51$f8b45c10$ea1d1430$%han@samsung.com>
-	 <CAPgLHd9VXaPx18ujDKbUik6XjOsnARcK-C-orCOynyJaWFREjw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <jg1.han@samsung.com>, <jonas.jensen@gmail.com>,
-	<davem@davemloft.net>, <grant.likely@linaro.org>,
-	<rob.herring@calxeda.com>, <yongjun_wei@trendmicro.com.cn>,
-	<netdev@vger.kernel.org>, <sachin.kamat@linaro.org>
-To: Wei Yongjun <weiyj.lk@gmail.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next v3 0/3] bonding: modify the current and add new hash functions
+Date: Thu, 26 Sep 2013 16:09:39 +0200
+Message-ID: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
+Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, vfalico@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51581 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750744Ab3IZODA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 10:03:00 -0400
-In-Reply-To: <CAPgLHd9VXaPx18ujDKbUik6XjOsnARcK-C-orCOynyJaWFREjw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61142 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750756Ab3IZONS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 10:13:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-09-26 at 10:12 +0800, Wei Yongjun wrote:
-> On 09/26/2013 08:47 AM, Jingoo Han wrote:
-> > On Wednesday, September 25, 2013 4:33 PM, Wei Yongjun wrote:
-> >> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >>
-> >> irq allocated with devm_request_irq should not be freed using
-> >> free_irq, because doing so causes a dangling pointer, and a
-> >> subsequent double free.
-> >>
-> >> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >> ---
-> >>  drivers/net/ethernet/moxa/moxart_ether.c | 1 -
-> >>  1 file changed, 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-> >> index 83c2091..9a7fcb5 100644
-> >> --- a/drivers/net/ethernet/moxa/moxart_ether.c
-> >> +++ b/drivers/net/ethernet/moxa/moxart_ether.c
-> >> @@ -531,7 +531,6 @@ static int moxart_remove(struct platform_device *pdev)
-> >>  	struct net_device *ndev = platform_get_drvdata(pdev);
-> >>
-> >>  	unregister_netdev(ndev);
-> >> -	free_irq(ndev->irq, ndev);
-> >>  	moxart_mac_free_memory(ndev);
-> >>  	free_netdev(ndev);
-> > CC'ed Sachin Kamat,
-> >
-> > In this case, the free_irq() will be called, after calling
-> > free_netdev(). 'ndev' is freed by free_netdev(). Then, 'ndev->irq'
-> > is used by free_irq(). Is it right?
-> >
-> > In my humble opinion, it seems to make the problem.
-> >
-> 
-> devm_request_irq() has recorded the irq and dev_id, so free_irq() by devm_*
-> will not touch 'ndev' which has been freed by free_netdev().
-> So, if we not need to call free_irq() before free_netdev(), there will be
-> no problem.
+Hi all,
+This is a complete remake of my old patch that modified the bonding hash
+functions to use skb_flow_dissect which was suggested by Eric Dumazet.
+This time around I've left the old modes although using a new hash function
+again suggested by Eric, which is the same for all modes. The only
+difference is the way the headers are obtained. The old modes obtain them
+as before in order to address concerns about speed, but the 2 new ones use
+skb_flow_dissect. The unification of the hash function allows to remove a
+pointer from struct bonding and also a few extra functions that dealt with
+it. Two new functions are added which take care of the hashing based on
+bond->params.xmit_policy only:
+bond_xmit_hash() - global function, used by XOR and 3ad modes
+bond_flow_dissect() - used by bond_xmit_hash() to obtain the necessary
+headers and combine them according to bond->params.xmit_policy.
+Also factor out the ports extraction from skb_flow_dissect and add a new
+function - skb_flow_get_ports() which can be re-used.
 
-What if this is a shared IRQ?  Then if free_irq() is not called here:
+v2: add the flow_dissector patch and use skb_flow_get_ports in patch 02
+v3: fix a bug in the flow_dissector patch that caused a different thoff
+    by modifying the thoff argument in skb_flow_get_ports directly, most
+    of the users already do it anyway.
+    Also add the necessary export symbol for skb_flow_get_ports.
 
-- The IRQ handler might still be called after free_netdev()
-- The memory containing ndev could also be reallocated to another device
-sharing the IRQ, so that it it uses the same dev_id for its IRQ handler
+Best regards,
+ Nikolay Aleksandrov
 
-Maybe you can be sure that this device will never share an IRQ.  But it
-still doesn't look like good practice to rely on this.  Perhaps there
-should be devm functions for netdevs too, so it wouldn't be necessary to
-free either IRQ or netdev explicitly.
 
-Ben.
+Nikolay Aleksandrov (3):
+  flow_dissector: factor out the ports extraction in skb_flow_get_ports
+  bonding: modify the old and add new xmit hash policies
+  bonding: document the new xmit policy modes and update the changed
+    ones
+
+ Documentation/networking/bonding.txt |  66 ++++++------
+ drivers/net/bonding/bond_3ad.c       |   2 +-
+ drivers/net/bonding/bond_main.c      | 197 ++++++++++++-----------------------
+ drivers/net/bonding/bond_sysfs.c     |   2 -
+ drivers/net/bonding/bonding.h        |   3 +-
+ include/net/flow_keys.h              |   1 +
+ include/uapi/linux/if_bonding.h      |   2 +
+ net/core/flow_dissector.c            |  41 ++++++--
+ 8 files changed, 139 insertions(+), 175 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.4
