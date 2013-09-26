@@ -1,58 +1,96 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: rx_dropped count for USB ethernet interfaces
-Date: Thu, 26 Sep 2013 10:32:24 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B735E@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B735B@saturn3.aculab.com> <20130925.144640.1661224048195310923.davem@davemloft.net>
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: Re: [PATCH] ipvs: improved SH fallback strategy
+Date: Thu, 26 Sep 2013 11:05:40 +0100
+Message-ID: <20130926100540.GB27583@eldamar.org.uk>
+References: <20130923115139.GA15034@eldamar.org.uk>
+ <524099BA.5020303@cogentembedded.com>
+ <20130924093238.GD18494@eldamar.org.uk>
+ <20130925003033.GG26081@verge.net.au>
+ <20130925092638.GD19768@eldamar.org.uk>
+ <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37858 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751483Ab3IZJfI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 05:35:08 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 22755-10 for <netdev@vger.kernel.org>;
- Thu, 26 Sep 2013 10:35:02 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130925.144640.1661224048195310923.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
+Improve the SH fallback realserver selection strategy.
 
-> > Edited slightly...
-> > We are seeing the 'rx_dropped' count increasing on ethernet interfaces.
-> > 
-> > Now I thought that rx_dropped was a count of the number of packets
-> > that the MAC driver/hardware discarded - typically because the rx
-> > ring had no buffers. This could include packets dropped in the
-> > receive stack due to other memory limits.
-> >
-> > However it looks as though Linux is also counting rx_dropped if
-> > the packet can't be delivered to a protocol.
-> 
-> This is expected and correct behavior.
+With sh and sh-fallback, if a realserver is down, this attempts to
+distribute the traffic that would have gone to that server evenly
+among the remaining servers.
 
-It isn't exactly useful behaviour though.
-Two different things are being counted together.
+Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 
-Packets dropped by the hardware (or by ENOMEM errors) are packets
-that haven't been delivered to the protocol stack - so cause
-some kind of protocol recovery actions.
-If any of these are happening there is usually something wrong
-with the system/network.
-
-Packets for which there is no protocol are largely boring.
-Especially if they are multicast packets.
-
-A compromise might be to only count packets that are directed
-to the interface's MAC address.
-In this case there is at least some expectation that the system
-should process the packet.
-
-	David
+--
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 3588fae..533ea53 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -115,27 +115,49 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ }
+ 
+ 
+-/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
++/* As ip_vs_sh_get, but with fallback if selected server is unavailable
++ *
++ * The fallback strategy loops around the table starting from a "random"
++ * point (in fact, it is chosen to be the original hash value to make the
++ * algorithm deterministic) to find a new server.
++ */
+ static inline struct ip_vs_dest *
+ ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ 		      const union nf_inet_addr *addr, __be16 port)
+ {
+-	unsigned int offset;
+-	unsigned int hash;
++	unsigned int offset, roffset;
++	unsigned int hash, ihash;
+ 	struct ip_vs_dest *dest;
+ 
++	/* first try the dest it's supposed to go to */
++	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
++	dest = rcu_dereference(s->buckets[ihash].dest);
++	if (!dest)
++		return NULL;
++	if (!is_unavailable(dest))
++		return dest;
++
++	IP_VS_DBG_BUF(6, "SH: selected unavailable server "
++		"%s:%d, reselecting",
++		IP_VS_DBG_ADDR(svc->af, &dest->addr),
++		ntohs(dest->port));
++
++	/* if the original dest is unavailable, loop around the table
++	 * starting from ihash to find a new dest
++	 */
+ 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
+-		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
++		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
++		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
+ 		dest = rcu_dereference(s->buckets[hash].dest);
+ 		if (!dest)
+ 			break;
+-		if (is_unavailable(dest))
+-			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+-				      "%s:%d (offset %d)",
+-				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+-				      ntohs(dest->port), offset);
+-		else
++		if (!is_unavailable(dest))
+ 			return dest;
++		IP_VS_DBG_BUF(6, "SH: selected unavailable "
++			"server %s:%d (offset %d), reselecting",
++			IP_VS_DBG_ADDR(svc->af, &dest->addr),
++			ntohs(dest->port),
++			roffset);
+ 	}
+ 
+ 	return NULL;
