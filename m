@@ -1,97 +1,94 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] net: qmi_wwan: fix checkpatch warnings
-Date: Thu, 26 Sep 2013 12:41:48 +0200
-Message-ID: <87y56jn9ub.fsf@nemi.mork.no>
-References: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com>
-	<1380100886-16531-2-git-send-email-fabio.porcedda@gmail.com>
-	<877ge5own8.fsf@nemi.mork.no>
-	<CAHkwnC-05BdptYjw0H+k=tc5fXq1Tc5pJyDQLGEvUZA5fy2NHQ@mail.gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v5 1/1] xen-netback: Handle backend state
+ transitions in a more robust way
+Date: Thu, 26 Sep 2013 10:51:08 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0114155@AMSPEX01CL01.citrite.net>
+References: <1380103168-12067-1-git-send-email-paul.durrant@citrix.com>
+	 <1380103168-12067-2-git-send-email-paul.durrant@citrix.com>
+ <1380190642.29483.44.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Dan Williams <dcbw@redhat.com>
-To: Fabio Porcedda <fabio.porcedda@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38384 "EHLO canardo.mork.no"
+Received: from smtp.citrix.com ([66.165.176.89]:18200 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756687Ab3IZKmB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 06:42:01 -0400
-In-Reply-To: <CAHkwnC-05BdptYjw0H+k=tc5fXq1Tc5pJyDQLGEvUZA5fy2NHQ@mail.gmail.com>
-	(Fabio Porcedda's message of "Thu, 26 Sep 2013 11:06:37 +0200")
+	id S1756614Ab3IZKvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 06:51:11 -0400
+In-Reply-To: <1380190642.29483.44.camel@kazak.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46abio Porcedda <fabio.porcedda@gmail.com> writes:
-
-> Hi Bj=C3=B8rn,
-> thanks for reviewing.
->
-> On Wed, Sep 25, 2013 at 3:31 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrot=
-e:
->> Sorry, I really don't see the point of this.  Yes, the lines are lon=
-ger
->> than 80 columns, but breaking them don't improve the readability at
->> all.  On the contrary, IMHO.
->>
->> So NAK from me for this part.
->
-> Which changes do you think do not improve the readability?
-
-Anything that breaks a previously unbroken argument list will reduce th=
-e
-readability in my opinion.  The lines can of course not be unlimited,
-but there is no need to set the limit as low as 80 columns.  Feedback
-I've got from developers using e.g. 80 column braille devices is that
-longer lines isn't really a problem for them either.
-
-The point is that the properly broken lines aren't that much more
-readable than a line broken by your terminal, even if you set it to 80
-columns.  You do of course not get the proper indendation of the broken
-lines, but you get a terminal hint telling you that it is a continuatio=
-n
-line.  Which is often better that having to figure it out based on the
-code.
-
-This isn't to say that I don't think writing shorter lines is a goal.
-I'd really like the code to be nice and compact, avoiding this
-discussion completely by just keeping every line shorter than 80.  But
-I'm just not that good a programmer :-)
-
-I'd surely appreciate any patch moving the code in that direction.
-
-> I'm sure that at least some of them actually improve the readability.
-
-Yes, reformatting the comments improves the readability.  I just don't
-think that makes any sense on it's own, if the surrounding lines are
-kept longer.
-
-If the code can be rewritten to actually *be* shorter than 80 columns
-instead of just breaking too long code lines, then that is a definite
-improvement.  You didn't have many examples of this, I believe.  But
-reducing the indent level, removing unnecessary function parameters, or
-splitting declaration and initialization are changes which often reduce
-the line length while improving the readability at the same time.
-Breaking lines rarely do.
-
-This is the only one of your code changes which I can be convinced to
-agreeing may improve readability:
-
--     if ((on && atomic_add_return(1, &info->pmcount) =3D=3D 1) || (!on=
- && atomic_dec_and_test(&info->pmcount))) {
-+     if ((on && atomic_add_return(1, &info->pmcount) =3D=3D 1) ||
-+         (!on && atomic_dec_and_test(&info->pmcount))) {
-
-
-But it mostly points out a piece of code which is too complex in the
-first place, begging to be rewritten in a more elegant form.
-
-Just for the record:  All this is of course only my personal opinions,
-and I am fine with being overridden even if I originally wrote the ugly
-code :-)
-
-David decides.
-
-
-Bj=C3=B8rn
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMjYgU2VwdGVtYmVyIDIwMTMgMTE6MTcNCj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogeGVu
+LWRldmVsQGxpc3RzLnhlbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFdlaSBMaXU7IERh
+dmlkIFZyYWJlbA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCB2NSAxLzFdIHhlbi1uZXRiYWNr
+OiBIYW5kbGUgYmFja2VuZCBzdGF0ZQ0KPiB0cmFuc2l0aW9ucyBpbiBhIG1vcmUgcm9idXN0IHdh
+eQ0KPiANCj4gT24gV2VkLCAyMDEzLTA5LTI1IGF0IDEwOjU5ICswMTAwLCBQYXVsIER1cnJhbnQg
+d3JvdGU6DQo+ID4gV2hlbiB0aGUgZnJvbnRlbmQgc3RhdGUgY2hhbmdlcyBuZXRiYWNrIG5vdyBz
+cGVjaWZpZXMgaXRzIGRlc2lyZWQgc3RhdGUNCj4gdG8NCj4gPiBhIG5ldyBmdW5jdGlvbiwgc2V0
+X2JhY2tlbmRfc3RhdGUoKSwgd2hpY2ggdHJhbnNpdGlvbnMgdGhyb3VnaCBhbnkNCj4gPiBuZWNl
+c3NhcnkgaW50ZXJtZWRpYXRlIHN0YXRlcy4NCj4gPiBUaGlzIGZpeGVzIGFuIGlzc3VlIG9ic2Vy
+dmVkIHdpdGggc29tZSBvbGQgV2luZG93cyBmcm9udGVuZCBkcml2ZXJzDQo+IHdoZXJlDQo+ID4g
+dGhleSBmYWlsZWQgdG8gdHJhbnNpdGlvbiB0aHJvdWdoIHRoZSBDbG9zaW5nIHN0YXRlIGFuZCBu
+ZXRiYWNrIHdvdWxkIG5vdA0KPiA+IGJlaGF2ZSBjb3JyZWN0bHkuDQo+IA0KPiBJJ20gc29tZXdo
+YXQgdGVycmlmaWVkIG9mIGJyZWFraW5nIGNvbXBhdGliaWxpdHkgd2l0aCBzb21lIG9sZCBvcg0K
+PiBvYnNjdXJlIGZyb250ZW5kIGhlcmUuIEkgZG9uJ3QgdGhpbmsgaXQgaXMgcmVhc29uYWJsZSB0
+byB0cnkgYW5kIHRlc3QNCj4gYWxsIG9mIHRob3NlIHNvIEkgZ3Vlc3Mgd2UnbGwganVzdCBoYXZl
+IHRvIGRlYWwgd2l0aCB0aGF0IHdoZW4gaXQNCj4gaGFwcGVucy4uLg0KPiANCj4gPiBTaWduZWQt
+b2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBhdWwuZHVycmFudEBjaXRyaXguY29tPg0KPiA+IENjOiBJ
+YW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiA+IENjOiBXZWkgTGl1IDx3
+ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+IENjOiBEYXZpZCBWcmFiZWwgPGRhdmlkLnZyYWJlbEBj
+aXRyaXguY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMu
+YyB8ICAxNDMNCj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0NCj4gPiAg
+MSBmaWxlIGNoYW5nZWQsIDExMyBpbnNlcnRpb25zKCspLCAzMCBkZWxldGlvbnMoLSkNCj4gPg0K
+PiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyBiL2RyaXZl
+cnMvbmV0L3hlbi0NCj4gbmV0YmFjay94ZW5idXMuYw0KPiA+IGluZGV4IGE1Mzc4MmUuLjAxMzI5
+YjIgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMNCj4g
+PiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYw0KPiA+IEBAIC0yNCw2ICsy
+NCw3IEBADQo+ID4gIHN0cnVjdCBiYWNrZW5kX2luZm8gew0KPiA+ICAJc3RydWN0IHhlbmJ1c19k
+ZXZpY2UgKmRldjsNCj4gPiAgCXN0cnVjdCB4ZW52aWYgKnZpZjsNCj4gPiArCWVudW0geGVuYnVz
+X3N0YXRlIHN0YXRlOw0KPiANCj4gVGhpcyBjYW5ub3QganVzdCBiZSByZWFkIGZyb20geGVuc3Rv
+cmUgYmVjYXVzZSBvZiB0aGUNCj4gd2FpdC1mb3ItaG90cGx1Zy1zY3JpcHQgZGVmZXJyYWwgc3R1
+ZmYsIHJpZ2h0Pw0KPiANCg0KWWVzLCB0aGF0J3MgcmlnaHQuDQoNCj4gSSdtIG5vdCBzdXJlIGl0
+IGlzIHdvcnRoIGNsYXJpZnlpbmcgdGhhdCwgZWl0aGVyIGJ5IGEgY29tbWVudCBvciBieQ0KPiBu
+YW1pbmcgaXQgZGVmZXJyZWRfc3RhdGVfY2hhbmdlIG9yIHNvbWV0aGluZz8NCj4gDQoNCkl04oCZ
+cyB0aGUgeGVuYnVzIHN0YXRlIHRoYXQncyBkZWZlcnJlZCwgdGhlIGJhY2tlbmQgc3RhdGUgbGVh
+ZHMgc28gSSBjb3VsZCBuYW1lIGl0ICdkZXNpcmVkX3N0YXRlJyBvciAndGFyZ2V0X3N0YXRlJyBw
+ZXJoYXBzOyBwcm9iYWJseSBhIGJpdCB1Z2x5IHNvIEknbGwgYWRkIGEgY29tbWVudCBhYm92ZSB0
+aGF0IGZpZWxkIEkgdGhpbmsuDQoNCj4gPiAtc3RhdGljIHZvaWQgZGVzdHJveV9iYWNrZW5kKHN0
+cnVjdCB4ZW5idXNfZGV2aWNlICpkZXYpDQo+ID4gK3N0YXRpYyB2b2lkIGJhY2tlbmRfY29ubmVj
+dChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkNCj4gPiAgew0KPiA+IC0Jc3RydWN0IGJhY2tlbmRf
+aW5mbyAqYmUgPSBkZXZfZ2V0X2RydmRhdGEoJmRldi0+ZGV2KTsNCj4gPiArCWlmIChiZS0+dmlm
+KQ0KPiA+ICsJCWNvbm5lY3QoYmUpOw0KPiA+ICt9DQo+ID4NCj4gPiAtCWlmIChiZS0+dmlmKSB7
+DQo+ID4gLQkJa29iamVjdF91ZXZlbnQoJmRldi0+ZGV2LmtvYmosIEtPQkpfT0ZGTElORSk7DQo+
+ID4gLQkJeGVuYnVzX3JtKFhCVF9OSUwsIGRldi0+bm9kZW5hbWUsICJob3RwbHVnLXN0YXR1cyIp
+Ow0KPiA+IC0JCXhlbnZpZl9mcmVlKGJlLT52aWYpOw0KPiA+IC0JCWJlLT52aWYgPSBOVUxMOw0K
+PiANCj4gV2hlcmUgZGlkIHRoaXMgdWV2ZW50IG9mZmxpbmluZyBmdW5jdGlvbmFsaXR5IGVuZCB1
+cD8NCj4gDQoNCkl0J3MgZG9uZSBpbiBuZXRiYWNrX3JlbW92ZSgpIC4NCg0KPiA+ICtzdGF0aWMg
+aW5saW5lIHZvaWQgYmFja2VuZF9zd2l0Y2hfc3RhdGUoc3RydWN0IGJhY2tlbmRfaW5mbyAqYmUs
+DQo+ID4gKwkJCQkJZW51bSB4ZW5idXNfc3RhdGUgc3RhdGUpDQo+ID4gK3sNCj4gPiArCXN0cnVj
+dCB4ZW5idXNfZGV2aWNlICpkZXYgPSBiZS0+ZGV2Ow0KPiA+ICsNCj4gPiArCXByX2RlYnVnKCIl
+cyAtPiAlc1xuIiwgZGV2LT5ub2RlbmFtZSwgeGVuYnVzX3N0cnN0YXRlKHN0YXRlKSk7DQo+ID4g
+KwliZS0+c3RhdGUgPSBzdGF0ZTsNCj4gPiArDQo+ID4gKwkvKiBJZiB3ZSBhcmUgd2FpdGluZyBm
+b3IgYSBob3RwbHVnIHNjcmlwdCB0aGVuIGRlZmVyIHRoZQ0KPiA+ICsJICogYWN0dWFsIHhlbmJ1
+cyBzdGF0ZSBjaGFuZ2UuDQo+IA0KPiBJcyB0aGUgcmlnaHQvd2lzZSByZWdhcmRsZXNzIG9mIHRo
+ZSBzdGF0ZSB3ZSBhcmUgbW92aW5nIHRvbz8gTWlnaHQgdGhlDQo+IHN0YXRlIGNoYW5nZSBoYXZl
+IGVmZmVjdGl2ZWx5ICJjYW5jZWxsZWQiIHRoZSBuZWVkIHRvIHdhaXQgZm9yIHRoZQ0KPiBzY3Jp
+cHQ/DQo+IA0KPiBUaGUgcHJldmlvdXMgY29kZSBvbmx5IGRlZmVycmVkIHdoZW4gbW92aW5nIHRv
+IENvbm5lY3RlZC4gSWYgd2UgYXJlIG5vdw0KPiBtb3ZpbmcgdG8gQ2xvc2VkL0Nsb3NpbmcgZG8g
+d2Ugc3RpbGwgbmVlZCB0byB3YWl0Pw0KPiANCg0KSSBkZWJhdGVkIGFib3V0IHRoaXM7IHdlIG5l
+dmVyIHJlYWxseSBkZWFsdCB3aXRoIHRoaXMgYmVmb3JlLiBJIHRoaW5rIGl0J3MgbGVnaXRpbWF0
+ZSBmb3IgdGhlIGZyb250ZW5kIHRvIGdpdmUgdXAgd2FpdGluZyBmb3IgYSBiYWNrZW5kIGhvdHBs
+dWcgc28gd2Ugc2hvdWxkIGJlIGFibGUgdG8gZ28gZnJvbSBJbml0V2FpdCB0byBDbG9zaW5nLCBz
+byBpbiB0aGlzIGNhc2UgYmUtPnN0YXRlIHdpbGwgYmUgQ2xvc2luZyB3aGVuIHRoZSBzY3JpcHQg
+KGhvcGVmdWxseSkgZmluaXNoZXMuIFRodXMgd2UgbW92ZSB0byB0aGF0IHdoZW4gdGhlIHdhdGNo
+IGZpcmVzIHJhdGhlciB0aGFuIHRvIENvbm5lY3RlZC4gVGhlbiB0aGUgZnJvbnRlbmQgY2FuIG1v
+dmUgdG8gQ2xvc2VkLiBJZiB0aGUgaG90cGx1ZyBzY3JpcHQgbmV2ZXIgZmluaXNoZXMgdGhlbiBJ
+IGRvbid0IHRoaW5rIHdlJ3JlIGFueSBtb3JlIHNjcmV3ZWQgdGhhbiB3ZSB3ZXJlIGJlZm9yZS4N
+Cg0KICBQYXVsDQoNCj4gDQo+IElhbi4NCg0K
