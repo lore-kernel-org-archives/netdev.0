@@ -1,150 +1,212 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v5 2/6] bonding: remove the no effect lock for
- bond_3ad_lacpdu_recv()
-Date: Thu, 26 Sep 2013 14:19:26 +0800
-Message-ID: <5243D1EE.6020608@huawei.com>
-References: <5242B253.2070002@huawei.com> <20130925103300.GB23575@redhat.com> <5243A127.80404@huawei.com> <11033.1380169422@death.nxdomain>
+Subject: Re: [PATCH v5 net-next 11/27] bonding: rework bond_3ad_xmit_xor()
+ to use bond_for_each_slave() only
+Date: Thu, 26 Sep 2013 14:39:11 +0800
+Message-ID: <5243D68F.4090806@huawei.com>
+References: <1380093632-1842-1-git-send-email-vfalico@redhat.com> <1380093632-1842-12-git-send-email-vfalico@redhat.com> <52439C87.6050809@huawei.com> <20130926054317.GA2547@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Nikolay Aleksandrov" <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: <netdev@vger.kernel.org>, <jiri@resnulli.us>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:17691 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34868 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985Ab3IZGT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 02:19:56 -0400
-In-Reply-To: <11033.1380169422@death.nxdomain>
+	with ESMTP id S1752755Ab3IZGjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 02:39:24 -0400
+In-Reply-To: <20130926054317.GA2547@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/9/26 12:23, Jay Vosburgh wrote:
-> Ding Tianhong <dingtianhong@huawei.com> wrote:
+On 2013/9/26 13:43, Veaceslav Falico wrote:
+> On Thu, Sep 26, 2013 at 10:31:35AM +0800, Ding Tianhong wrote:
 > 
->> On 2013/9/25 18:33, Veaceslav Falico wrote:
->>> On Wed, Sep 25, 2013 at 05:52:19PM +0800, Ding Tianhong wrote:
->>>> There is no pointer needed read lock protection, remove the unnecessary lock
->>>> and improve performance for the 3ad recv path.
+> First of all - thanks a lot for the review! Answered below.
 > 
-> 	How much does removing the lock around the LACPDU receive
-> processing improve performance?  This is not high rate traffic; the
-> "fast" rate is one LACPDU per second (per port); the default rate is one
-> every 30 seconds.
+>> On 2013/9/25 15:20, Veaceslav Falico wrote:
+>>> Currently, there are two loops - first we find the first slave in an
+>>> aggregator after the xmit_hash_policy() returned number, and after that we
+>>> loop from that slave, over bonding head, and till that slave to find any
+>>> suitable slave to send the packet through.
+>>>
+>>> Replace it by just one bond_for_each_slave() loop, which first loops
+>>> through the requested number of slaves, saving the first suitable one, and
+>>> after that we've hit the requested number of slaves to skip - search for
+>>> any up slave to send the packet through. If we don't find such kind of
+>>> slave - then just send the packet through the first suitable slave found.
+>>>
+>>> Logic remains unchainged, and we skip two loops. Also, refactor it a bit
+>>> for readability.
+>>>
+>>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>>> CC: Andy Gospodarek <andy@greyhouse.net>
+>>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>>> ---
+>>>
+>>> Notes:
+>>>     v4  -> v5
+>>>     No change.
+>>>
+>>>     v3  -> v4:
+>>>     No change.
+>>>
+>>>     v2  -> v3:
+>>>     No change.
+>>>
+>>>     v1  -> v2:
+>>>     No changes.
+>>>
+>>>     RFC -> v1:
+>>>     New patch.
+>>>
+>>>  drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
+>>>  1 file changed, 22 insertions(+), 24 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>>> index 3847aee..c861ee7 100644
+>>> --- a/drivers/net/bonding/bond_3ad.c
+>>> +++ b/drivers/net/bonding/bond_3ad.c
+>>> @@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+>>>
+>>>  int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>>  {
+>>> -    struct slave *slave, *start_at;
+>>>      struct bonding *bond = netdev_priv(dev);
+>>> +    struct slave *slave, *first_ok_slave;
+>>> +    struct aggregator *agg;
+>>> +    struct ad_info ad_info;
+>>>      struct list_head *iter;
+>>> -    int slave_agg_no;
+>>>      int slaves_in_agg;
+>>> -    int agg_id;
+>>> -    int i;
+>>> -    struct ad_info ad_info;
+>>> +    int slave_agg_no;
+>>>      int res = 1;
+>>> +    int agg_id;
+>>>
+>>>      read_lock(&bond->lock);
+>>>      if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+>>> @@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>>      agg_id = ad_info.aggregator_id;
+>>>
+>>>      if (slaves_in_agg == 0) {
+>>> -        /*the aggregator is empty*/
+>>>          pr_debug("%s: Error: active aggregator is empty\n", dev->name);
+>>>          goto out;
+>>>      }
+>>>
+>>>      slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
+>>> +    first_ok_slave = NULL;
+>>>
+>>>      bond_for_each_slave(bond, slave, iter) {
+>>> -        struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+>>> +        agg = SLAVE_AD_INFO(slave).port.aggregator;
+>>> +        if (!agg || agg->aggregator_identifier != agg_id)
+>>> +            continue;
+>>>
+>>> -        if (agg && (agg->aggregator_identifier == agg_id)) {
+>>> +        if (slave_agg_no >= 0) {
+>>> +            if (!first_ok_slave && SLAVE_IS_OK(slave))
+>>> +                first_ok_slave = slave;
+>>>              slave_agg_no--;
+>>> -            if (slave_agg_no < 0)
+>>> -                break;
+>>> +            continue;
+>>> +        }
+> 
+> [1]        ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 
+>>> +
+>>> +        if (SLAVE_IS_OK(slave)) {
+>>> +            res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>>> +            goto out;
+>>>          }
+> 
+> [2]        ^^^^^^^^^^^^^^^^^^^^^^^^^
+>
+
+>>
+>> I think you miss something, you will send skb always by the first suitable port,
+>> it could not support load balance.
+> 
+> Well, yes, it will send always by the first suitable port AFTER
+> slave_agg_no, returned by the xmit_hash_policy(), which is the whole point
+> in the hash function and in the load balance.
+> 
+> It will first loop through the slaves, decrementing slave_agg_no to a
+> negative value, while saving the first good to send slave, as shown in [1].
+> Notice the "continue;":
+> 
+> if (slave_agg_no >= 0) {
+>     if (!first_ok_slave && SLAVE_IS_OK(slave))
+>         first_ok_slave = slave;
+>     slave_agg_no--;
+>     continue;
+> }
 > 
 
-agree.
+yes, I got your opinion, tnanks.
 
->>> I don't really understand it. Here's the code path:
+> Once we hit the negative value - which means we've skipped enough slaves,
+> as requested by the hash function - we can start looking for the first
+> slave that is good to send AFTER those all skipped slaves, as shown in [2].
+> 
+> Down the patch we also use that 'first_ok_slave' - in case we didn't find
+> any suitable one after we've skipped first slave_agg_no and till the last
+> slave, so it implements the same 'circular' logic as was in
+> bond_for_each_slave_from().
+> 
+>> pls consult my function.
+>>         if (agg && (agg->aggregator_identifier == agg_id)) {
+>> -            slave_agg_no--;
+>> -            if (slave_agg_no < 0)
+>> -                break;
+>> +            if (--slave_agg_no < 0) {
+>> +                if (SLAVE_IS_OK(slave)) {
+>> +                    res = bond_dev_queue_xmit(bond,
+>> +                        skb, slave->dev);
+>> +                    goto out;
+>> +                }
+>> +            }
+> 
+> I'll review your function in your patch.
+> 
+>>         }
+>>     }
+>>
+>>>      }
 >>>
->>> rx_handler (holding rcu_read_lock()) -> bond_handle_frame() ->
->>> bond->recv_probe -> bond_3ad_lacpdu_recv(). So we're holding only the
->>> rcu_read_lock() there. What stops us from racing with
->>> bond_3ad_unbind_slave(), for example?
+>>> @@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>>          goto out;
+>>>      }
 >>>
->>> As in:
+>>> -    start_at = slave;
+>>> -
+>>> -    bond_for_each_slave_from(bond, slave, i, start_at) {
+>>> -        int slave_agg_id = 0;
+>>> -        struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+>>> -
+>>> -        if (agg)
+>>> -            slave_agg_id = agg->aggregator_identifier;
+>>> -
+>>> -        if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
+>>> -            res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>>> -            break;
+>>> -        }
+>>> -    }
+>>> +    /* we couldn't find any suitable slave after the agg_no, so use the
+>>> +     * first suitable found, if found. */
+>>> +    if (first_ok_slave)
+>>> +        res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
 >>>
->>> CPU0                CPU1
->>> --------            -----------
->>> ...                bond_3ad_unbind_slave()
->>> bond_3ad_rx_indication()    ...
->>> if (!port->slave) {        ...            //slave is ok
->>>                 port->slave = NULL;
->>> ad_marker_info_received()    ...
->>> ad_marker_send()        ...
->>> slave = port->slave;        ...
->>> skb->dev = slave->dev;        ...
->>>        ^^^ NULL pointer dereference.
->>>
->>>
->>> I'm not saying that this approach is wrong, maybe I'm missing something,
->>> but when removing locks it's usually a good thing to do - to comment it in
->>> depth in the commit message why it's not already needed.
+>>>  out:
+>>>      read_unlock(&bond->lock);
 >>>
 >>
->> no, it will not happend, pls review the cold:
->> 	netdev_rx_handler_unregister(slave_dev);
->> 	write_lock_bh(&bond->lock);
 >>
->> 	/* Inform AD package of unbinding of slave. */
->> 	if (bond->params.mode == BOND_MODE_8023AD) {
->> 		/* must be called before the slave is
->> 		 * detached from the list
->> 		 */
->> 		bond_3ad_unbind_slave(slave);
->> 	}
->> netdev_rx_handler_unregiste() will remvoe the rx_handle before the bond_3ad_unbind_slave(),
->> it was safe to run bond_3ad_rx_indication(). 
-> 
-> 	I'm not sure this is safe if bond_3ad_rx_indication is started
-> prior to the unbind, e.g.,
-> 
-> CPU 0				CPU 1
-> ----				-----
-> bond_3ad_rx_indication
-> [ pass port->slave test ]
-> [ ... ]				rx_handler_unregister
-> 
-> [ state machine lock could be
->   contended, forcing us to wait ]
-> __get_state_machine_lock
-> 
-> 				write_lock(&bond->lock)
-> 				bond_3ad_unbind_slave()
-> 				[ ... ]
-> 				port->slave = NULL;
-> 
-> [ got the lock ]
-> ad_rx_machine(lacpdu, port)
-> [ detect loopback ]
-> pr_err(... port->slave->bond->dev->name)
-> 
-> 	or that ad_marker case that Veaceslav describes.
-> 
-> 	-J
-> 
-
-yes, I miss one thing here, there  is no rcu_read_lock() here, so when enter
-bond_3ad_unbind_slave(), bond_3ad_rx_indication() was running.
-we should miss the patch, thanks.
-
->> Best regards
->> Ding Tianhong
->>
-
-
-
->>
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
->>>> ---
->>>> drivers/net/bonding/bond_3ad.c | 2 --
->>>> 1 file changed, 2 deletions(-)
->>>>
->>>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->>>> index 7a3860f..c134f43 100644
->>>> --- a/drivers/net/bonding/bond_3ad.c
->>>> +++ b/drivers/net/bonding/bond_3ad.c
->>>> @@ -2494,9 +2494,7 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
->>>>     if (!lacpdu)
->>>>         return ret;
->>>>
->>>> -    read_lock(&bond->lock);
->>>>     ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
->>>> -    read_unlock(&bond->lock);
->>>>     return ret;
->>>> }
->>>>
->>>> -- 
->>>> 1.8.2.1
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
 > 
 > .
 > 
