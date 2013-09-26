@@ -1,8 +1,8 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [PATCH net v6 1/1] xen-netback: Handle backend state
  transitions in a more robust way
-Date: Thu, 26 Sep 2013 14:07:20 +0100
-Message-ID: <1380200840.29483.82.camel@kazak.uk.xensource.com>
+Date: Thu, 26 Sep 2013 14:07:33 +0100
+Message-ID: <1380200853.29483.83.camel@kazak.uk.xensource.com>
 References: <1380193792-9751-1-git-send-email-paul.durrant@citrix.com>
 	 <1380193792-9751-2-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
@@ -13,10 +13,10 @@ Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
 	David Vrabel <david.vrabel@citrix.com>
 To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:40594 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:1167 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756676Ab3IZNHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 09:07:23 -0400
+	id S1757071Ab3IZNHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 09:07:36 -0400
 In-Reply-To: <1380193792-9751-2-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -30,3 +30,5 @@ On Thu, 2013-09-26 at 12:09 +0100, Paul Durrant wrote:
 > behave correctly.
 > 
 > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
