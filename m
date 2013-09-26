@@ -1,42 +1,64 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 7/7] sysfs: @name comes before @ns
-Date: Thu, 26 Sep 2013 15:32:59 -0700
-Message-ID: <20130926223259.GA29433@kroah.com>
-References: <1378952949-7900-1-git-send-email-tj@kernel.org>
- <1378952949-7900-8-git-send-email-tj@kernel.org>
- <87a9ji4sk0.fsf@xmission.com>
- <20130912034943.GB4723@mtj.dyndns.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Introduce support to lazy initialize mostly static keys
+Date: Fri, 27 Sep 2013 01:16:57 +0200
+Message-ID: <1380236199-3726-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org, kay@vrfy.org, netdev@vger.kernel.org,
-	lizefan@huawei.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: edumazet@google.com, davem@davemloft.net, fw@strlen.de,
+	ycheng@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:53963 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753064Ab3IZXQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 19:16:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20130912034943.GB4723@mtj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 11, 2013 at 11:49:43PM -0400, Tejun Heo wrote:
-> Hello, Eric.
-> 
-> On Wed, Sep 11, 2013 at 08:39:27PM -0700, Eric W. Biederman wrote:
-> > @ns is more significant so it should come first.
-> > 
-> > Where do we have the backwards convention of putting @name first?
-> 
-> Because @ns is optional and you end up with stupid stuff like
-> 
-> 	sysfs_xxx_ns(@param, @ns, @name)
-> 	sysfs_xxx(@param, @name)
-> 
-> You put optional params after the mandatory ones.  It may be difficult
-> to accept for you but @ns is a *clearly* optional thing for sysfs.
+Hi!
 
-Sorry Eric, but I agree with Tejun here, the optional part is @ns, not
-name, so it should go at the end.
+This series implements support for delaying the initialization of secret
+keys, e.g. used for hashing, for as long as possible. This functionality
+is implemented by a new macro, net_get_random_bytes.
 
-thanks,
+I already used it to protect the socket hashes, the syncookie secret
+(most important) and the tcp_fastopen secrets.
 
-greg k-h
+This series depends on a patch from Eric Dumazet (already in patchworks):
+"net: net_secret should not depend on TCP"
+
+Included patches:
+  ipv4: split inet_ehashfn to one hash
+  ipv6: split inet6_ehashfn to one hash
+  net: introduce new macro net_get_random_once
+  inet: split syncookie keys for ipv4 and ipv6 and
+  inet: convert inet_ehash_secret and
+  tcp: switch tcp_fastopen key generation to
+  net: switch net_secret key generation to
+
+Diffstat:
+ include/linux/net.h            |   14 ++++++++++++++
+ include/net/inet6_hashtables.h |   29 +++++++----------------------
+ include/net/inet_sock.h        |   26 ++++++--------------------
+ include/net/ipv6.h             |    4 ++--
+ include/net/tcp.h              |    3 +--
+ net/core/secure_seq.c          |   14 ++------------
+ net/core/utils.c               |   21 +++++++++++++++++++++
+ net/ipv4/af_inet.c             |   27 ---------------------------
+ net/ipv4/inet_hashtables.c     |   25 +++++++++++++++++++++++++
+ net/ipv4/syncookies.c          |   15 +++++----------
+ net/ipv4/sysctl_net_ipv4.c     |    5 +++++
+ net/ipv4/tcp_fastopen.c        |   21 ++++++++++-----------
+ net/ipv4/udp.c                 |   22 +++++++++++++++++-----
+ net/ipv6/af_inet6.c            |    5 -----
+ net/ipv6/inet6_hashtables.c    |   40 +++++++++++++++++++++++++++++++++++++---
+ net/ipv6/syncookies.c          |   12 +++++++++---
+ net/ipv6/udp.c                 |   37 ++++++++++++++++++++++++++++++-------
+ net/rds/connection.c           |   18 ++++++++++++------
+ 18 files changed, 203 insertions(+), 135 deletions(-)
+
+
+Greetings,
+
+  Hannes
