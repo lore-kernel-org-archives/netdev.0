@@ -1,48 +1,32 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 2/7] rtlwifi: rtl8192cu: Convert to use new rtl_phy_scan_operation_backup() routine
-Date: Thu, 26 Sep 2013 13:25:28 -0500
-Message-ID: <1380219933-16784-3-git-send-email-Larry.Finger@lwfinger.net>
-References: <1380219933-16784-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: BUG: MARK in OUTPUT + ip_tunnel causes kernel panic
+Date: Thu, 26 Sep 2013 20:27:46 +0200
+Message-ID: <CAKfDRXiEpbjEx9fNjNQZBfrkB7U8rvf87=F7ykpRK-E4g74kBw@mail.gmail.com>
+References: <CAKfDRXgJwyhE6sg1Ej=S35A+-dnPiU9TBA69zb-n7hGXgG+Sxg@mail.gmail.com>
+	<loom.20130925T095425-819@post.gmane.org>
+	<20130925085947.GY7660@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Konstantin Kuzov <master.nosferatu@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:63123 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753503Ab3IZS0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 14:26:04 -0400
-In-Reply-To: <1380219933-16784-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:38430 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753202Ab3IZS1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 14:27:47 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ld10so1680346pab.22
+        for <netdev@vger.kernel.org>; Thu, 26 Sep 2013 11:27:46 -0700 (PDT)
+In-Reply-To: <20130925085947.GY7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the routine exists in driver rtlwifi, convert rtl8192cu to use it.
+On Wed, Sep 25, 2013 at 10:59 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> Can you please try the patch below?
+> I've posted the same patch already to netdev in the morning.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Thank you very much for this patch. I am currently travelling, but
+will give it a try when I am back in the office next week.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-index 2bd5985..9936de7 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-@@ -31,6 +31,7 @@
- #include "../core.h"
- #include "../usb.h"
- #include "../efuse.h"
-+#include "../base.h"
- #include "reg.h"
- #include "def.h"
- #include "phy.h"
-@@ -117,7 +118,7 @@ static struct rtl_hal_ops rtl8192cu_hal_ops = {
- 	.set_bw_mode = rtl92c_phy_set_bw_mode,
- 	.switch_channel = rtl92c_phy_sw_chnl,
- 	.dm_watchdog = rtl92c_dm_watchdog,
--	.scan_operation_backup = rtl92c_phy_scan_operation_backup,
-+	.scan_operation_backup = rtl_phy_scan_operation_backup,
- 	.set_rf_power_state = rtl92cu_phy_set_rf_power_state,
- 	.led_control = rtl92cu_led_control,
- 	.enable_hw_sec = rtl92cu_enable_hw_security_config,
--- 
-1.8.1.4
+-Kristian
