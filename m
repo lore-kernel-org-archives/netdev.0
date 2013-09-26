@@ -1,261 +1,54 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v6 1/1] xen-netback: Handle backend state transitions in a more robust way
-Date: Thu, 26 Sep 2013 12:09:52 +0100
-Message-ID: <1380193792-9751-2-git-send-email-paul.durrant@citrix.com>
-References: <1380193792-9751-1-git-send-email-paul.durrant@citrix.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/2] net: qmi_wwan: fix checkpatch warnings
+Date: Thu, 26 Sep 2013 12:29:06 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B735F@saturn3.aculab.com>
+References: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com><1380100886-16531-2-git-send-email-fabio.porcedda@gmail.com><877ge5own8.fsf@nemi.mork.no><CAHkwnC-05BdptYjw0H+k=tc5fXq1Tc5pJyDQLGEvUZA5fy2NHQ@mail.gmail.com> <87y56jn9ub.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Dan Williams" <dcbw@redhat.com>
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"Fabio Porcedda" <fabio.porcedda@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:6811 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756301Ab3IZLVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 07:21:51 -0400
-In-Reply-To: <1380193792-9751-1-git-send-email-paul.durrant@citrix.com>
+Received: from mx0.aculab.com ([213.249.233.131]:45819 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756554Ab3IZLf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 07:35:28 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 28399-04 for <netdev@vger.kernel.org>;
+ Thu, 26 Sep 2013 12:35:25 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <87y56jn9ub.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the frontend state changes netback now specifies its desired state to
-a new function, set_backend_state(), which transitions through any
-necessary intermediate states.
-This fixes an issue observed with some old Windows frontend drivers where
-they failed to transition through the Closing state and netback would not
-behave correctly.
-
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netback/xenbus.c |  148 ++++++++++++++++++++++++++++++--------
- 1 file changed, 118 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index a53782e..b45bce2 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -24,6 +24,12 @@
- struct backend_info {
- 	struct xenbus_device *dev;
- 	struct xenvif *vif;
-+
-+	/* This is the state that will be reflected in xenstore when any
-+	 * active hotplug script completes.
-+	 */
-+	enum xenbus_state state;
-+
- 	enum xenbus_state frontend_state;
- 	struct xenbus_watch hotplug_status_watch;
- 	u8 have_hotplug_status_watch:1;
-@@ -136,6 +142,8 @@ static int netback_probe(struct xenbus_device *dev,
- 	if (err)
- 		goto fail;
- 
-+	be->state = XenbusStateInitWait;
-+
- 	/* This kicks hotplug scripts, so do it immediately. */
- 	backend_create_xenvif(be);
- 
-@@ -208,24 +216,113 @@ static void backend_create_xenvif(struct backend_info *be)
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
- }
- 
--
--static void disconnect_backend(struct xenbus_device *dev)
-+static void backend_disconnect(struct backend_info *be)
- {
--	struct backend_info *be = dev_get_drvdata(&dev->dev);
--
- 	if (be->vif)
- 		xenvif_disconnect(be->vif);
- }
- 
--static void destroy_backend(struct xenbus_device *dev)
-+static void backend_connect(struct backend_info *be)
- {
--	struct backend_info *be = dev_get_drvdata(&dev->dev);
-+	if (be->vif)
-+		connect(be);
-+}
- 
--	if (be->vif) {
--		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
--		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
--		xenvif_free(be->vif);
--		be->vif = NULL;
-+static inline void backend_switch_state(struct backend_info *be,
-+					enum xenbus_state state)
-+{
-+	struct xenbus_device *dev = be->dev;
-+
-+	pr_debug("%s -> %s\n", dev->nodename, xenbus_strstate(state));
-+	be->state = state;
-+
-+	/* If we are waiting for a hotplug script then defer the
-+	 * actual xenbus state change.
-+	 */
-+	if (!be->have_hotplug_status_watch)
-+		xenbus_switch_state(dev, state);
-+}
-+
-+/* Handle backend state transitions:
-+ *
-+ * The backend state starts in InitWait and the following transitions are
-+ * allowed.
-+ *
-+ * InitWait -> Connected
-+ *
-+ *    ^    \         |
-+ *    |     \        |
-+ *    |      \       |
-+ *    |       \      |
-+ *    |        \     |
-+ *    |         \    |
-+ *    |          V   V
-+ *
-+ *  Closed  <-> Closing
-+ *
-+ * The state argument specifies the eventual state of the backend and the
-+ * function transitions to that state via the shortest path.
-+ */
-+static void set_backend_state(struct backend_info *be,
-+			      enum xenbus_state state)
-+{
-+	while (be->state != state) {
-+		switch (be->state) {
-+		case XenbusStateClosed:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateConnected:
-+				pr_info("%s: prepare for reconnect\n",
-+					be->dev->nodename);
-+				backend_switch_state(be, XenbusStateInitWait);
-+				break;
-+			case XenbusStateClosing:
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateInitWait:
-+			switch (state) {
-+			case XenbusStateConnected:
-+				backend_connect(be);
-+				backend_switch_state(be, XenbusStateConnected);
-+				break;
-+			case XenbusStateClosing:
-+			case XenbusStateClosed:
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateConnected:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateClosing:
-+			case XenbusStateClosed:
-+				backend_disconnect(be);
-+				backend_switch_state(be, XenbusStateClosing);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		case XenbusStateClosing:
-+			switch (state) {
-+			case XenbusStateInitWait:
-+			case XenbusStateConnected:
-+			case XenbusStateClosed:
-+				backend_switch_state(be, XenbusStateClosed);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
-+		default:
-+			BUG();
-+		}
- 	}
- }
- 
-@@ -237,40 +334,33 @@ static void frontend_changed(struct xenbus_device *dev,
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
--	pr_debug("frontend state %s\n", xenbus_strstate(frontend_state));
-+	pr_debug("%s -> %s\n", dev->otherend, xenbus_strstate(frontend_state));
- 
- 	be->frontend_state = frontend_state;
- 
- 	switch (frontend_state) {
- 	case XenbusStateInitialising:
--		if (dev->state == XenbusStateClosed) {
--			pr_info("%s: prepare for reconnect\n", dev->nodename);
--			xenbus_switch_state(dev, XenbusStateInitWait);
--		}
-+		set_backend_state(be, XenbusStateInitWait);
- 		break;
- 
- 	case XenbusStateInitialised:
- 		break;
- 
- 	case XenbusStateConnected:
--		if (dev->state == XenbusStateConnected)
--			break;
--		if (be->vif)
--			connect(be);
-+		set_backend_state(be, XenbusStateConnected);
- 		break;
- 
- 	case XenbusStateClosing:
--		disconnect_backend(dev);
--		xenbus_switch_state(dev, XenbusStateClosing);
-+		set_backend_state(be, XenbusStateClosing);
- 		break;
- 
- 	case XenbusStateClosed:
--		xenbus_switch_state(dev, XenbusStateClosed);
-+		set_backend_state(be, XenbusStateClosed);
- 		if (xenbus_dev_is_online(dev))
- 			break;
--		destroy_backend(dev);
- 		/* fall through if not online */
- 	case XenbusStateUnknown:
-+		set_backend_state(be, XenbusStateClosed);
- 		device_unregister(&dev->dev);
- 		break;
- 
-@@ -363,7 +453,9 @@ static void hotplug_status_changed(struct xenbus_watch *watch,
- 	if (IS_ERR(str))
- 		return;
- 	if (len == sizeof("connected")-1 && !memcmp(str, "connected", len)) {
--		xenbus_switch_state(be->dev, XenbusStateConnected);
-+		/* Complete any pending state change */
-+		xenbus_switch_state(be->dev, be->state);
-+
- 		/* Not interested in this watch anymore. */
- 		unregister_hotplug_status_watch(be);
- 	}
-@@ -393,12 +485,8 @@ static void connect(struct backend_info *be)
- 	err = xenbus_watch_pathfmt(dev, &be->hotplug_status_watch,
- 				   hotplug_status_changed,
- 				   "%s/%s", dev->nodename, "hotplug-status");
--	if (err) {
--		/* Switch now, since we can't do a watch. */
--		xenbus_switch_state(dev, XenbusStateConnected);
--	} else {
-+	if (!err)
- 		be->have_hotplug_status_watch = 1;
--	}
- 
- 	netif_wake_queue(be->vif->dev);
- }
--- 
-1.7.10.4
+PiBBbnl0aGluZyB0aGF0IGJyZWFrcyBhIHByZXZpb3VzbHkgdW5icm9rZW4gYXJndW1lbnQgbGlz
+dCB3aWxsIHJlZHVjZSB0aGUNCj4gcmVhZGFiaWxpdHkgaW4gbXkgb3Bpbmlvbi4gIFRoZSBsaW5l
+cyBjYW4gb2YgY291cnNlIG5vdCBiZSB1bmxpbWl0ZWQsDQo+IGJ1dCB0aGVyZSBpcyBubyBuZWVk
+IHRvIHNldCB0aGUgbGltaXQgYXMgbG93IGFzIDgwIGNvbHVtbnMuICBGZWVkYmFjaw0KPiBJJ3Zl
+IGdvdCBmcm9tIGRldmVsb3BlcnMgdXNpbmcgZS5nLiA4MCBjb2x1bW4gYnJhaWxsZSBkZXZpY2Vz
+IGlzIHRoYXQNCj4gbG9uZ2VyIGxpbmVzIGlzbid0IHJlYWxseSBhIHByb2JsZW0gZm9yIHRoZW0g
+ZWl0aGVyLg0KDQpUaGUgbWFpbiByZWFzb24gZm9yIGxpbWl0aW5nIHRoZSBsaW5lIGxlbmd0aCBp
+cyBzbyB0aGF0IHRoaW5ncyBsb29rDQonc2Vuc2libGUnIHdoZW4geW91IGhhdmUgYSBsb3Qgb2Yg
+c2NyZWVuIHdpbmRvd3MgZGlzcGxheWluZyBkaWZmZXJlbnQNCmZpbGVzLiBZb3UgZG9uJ3Qgd2Fu
+dCB3cmFwcGVkIGNvZGUsIGFuZCB5b3UgZGVmaW5pdGVseSBkb24ndCB3YW50DQp0aGUgUkhTIG9m
+IGxvbmcgbGluZXMgaGlkZGVuLg0KV2l0aCBhIDE2MDB4MTIwMCBtb25pdG9yIEknbGwgZGlzcGxh
+eSBzaXggODB4NDAgd2luZG93cyAoYW5kIHByb2JhYmx5DQpoYXZlIHNvbWUgbW9yZSBwYXJ0aWFs
+bHkgdmlzaWJsZSBvbmVzKS4NCg0KUGVyc29uYWxseSBJIGluZGVudCBjb250aW51YXRpb24gbGlu
+ZXMgYnkgNCBjaGFycyBpZiB1c2luZyA4IGNoYXINCidub3JtYWwnIGluZGVudGF0aW9uIGFuZCA4
+IGNoYXJzIGlmIHVzaW5nIDQuIFRoaXMgZ2l2ZXMgYSBsb3QgbW9yZQ0Kcm9vbSBvbiB0aGUgY29u
+dGludWF0aW9uIGxpbmVzIHRoYW4gdGhlIExpbnV4ICdsaW5lIHVwIHdpdGggdGhlDQpwcmV2aW91
+cyBsaW5lJy4NCg0KPiBUaGlzIGlzIHRoZSBvbmx5IG9uZSBvZiB5b3VyIGNvZGUgY2hhbmdlcyB3
+aGljaCBJIGNhbiBiZSBjb252aW5jZWQgdG8NCj4gYWdyZWVpbmcgbWF5IGltcHJvdmUgcmVhZGFi
+aWxpdHk6DQo+IA0KPiAtICAgICBpZiAoKG9uICYmIHx8ICghb24gJiYgYXRvbWljX2RlY19hbmRf
+dGVzdCgmaW5mby0+cG1jb3VudCkpKSB7DQo+ICsgICAgIGlmICgob24gJiYgYXRvbWljX2FkZF9y
+ZXR1cm4oMSwgJmluZm8tPnBtY291bnQpID09IDEpIHx8DQo+ICsgICAgICAgICAoIW9uICYmIGF0
+b21pY19kZWNfYW5kX3Rlc3QoJmluZm8tPnBtY291bnQpKSkgew0KDQpUaGF0IGNhbiBiZSB3cml0
+dGVuIHN1Y2NpbmN0bHkgYXM6DQoJaWYgKG9uID8gYXRvbWljX2FkZF9yZXR1cm4oMSwgJmluZm8t
+PnBtY291bnQpID09IDEpDQoJICAgICAgIDogYXRvbWljX2RlY19hbmRfdGVzdCgmaW5mby0+cG1j
+b3VudCkpIHsNCmFsdGhvdWdoIHRoYXQgY29uc3RydWN0IGlzIHNvbWV3aGF0IGZyb3duZWQgdXBv
+biENCg0KCURhdmlkDQoNCg==
