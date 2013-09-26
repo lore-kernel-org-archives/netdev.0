@@ -1,122 +1,206 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: improved SH fallback strategy
-Date: Thu, 26 Sep 2013 08:30:14 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
-References: <20130923115139.GA15034@eldamar.org.uk> <524099BA.5020303@cogentembedded.com> <20130924093238.GD18494@eldamar.org.uk> <20130925003033.GG26081@verge.net.au> <20130925092638.GD19768@eldamar.org.uk>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v5 net-next 11/27] bonding: rework bond_3ad_xmit_xor() to
+ use bond_for_each_slave() only
+Date: Thu, 26 Sep 2013 07:43:17 +0200
+Message-ID: <20130926054317.GA2547@redhat.com>
+References: <1380093632-1842-1-git-send-email-vfalico@redhat.com>
+ <1380093632-1842-12-git-send-email-vfalico@redhat.com>
+ <52439C87.6050809@huawei.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Frolkin <avf@eldamar.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130925092638.GD19768@eldamar.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36914 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750933Ab3IZFpN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 01:45:13 -0400
+Content-Disposition: inline
+In-Reply-To: <52439C87.6050809@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Sep 26, 2013 at 10:31:35AM +0800, Ding Tianhong wrote:
 
-	Hello,
+First of all - thanks a lot for the review! Answered below.
 
-On Wed, 25 Sep 2013, Alexander Frolkin wrote:
+>On 2013/9/25 15:20, Veaceslav Falico wrote:
+>> Currently, there are two loops - first we find the first slave in an
+>> aggregator after the xmit_hash_policy() returned number, and after that we
+>> loop from that slave, over bonding head, and till that slave to find any
+>> suitable slave to send the packet through.
+>>
+>> Replace it by just one bond_for_each_slave() loop, which first loops
+>> through the requested number of slaves, saving the first suitable one, and
+>> after that we've hit the requested number of slaves to skip - search for
+>> any up slave to send the packet through. If we don't find such kind of
+>> slave - then just send the packet through the first suitable slave found.
+>>
+>> Logic remains unchainged, and we skip two loops. Also, refactor it a bit
+>> for readability.
+>>
+>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>> ---
+>>
+>> Notes:
+>>     v4  -> v5
+>>     No change.
+>>
+>>     v3  -> v4:
+>>     No change.
+>>
+>>     v2  -> v3:
+>>     No change.
+>>
+>>     v1  -> v2:
+>>     No changes.
+>>
+>>     RFC -> v1:
+>>     New patch.
+>>
+>>  drivers/net/bonding/bond_3ad.c | 46 ++++++++++++++++++++----------------------
+>>  1 file changed, 22 insertions(+), 24 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>> index 3847aee..c861ee7 100644
+>> --- a/drivers/net/bonding/bond_3ad.c
+>> +++ b/drivers/net/bonding/bond_3ad.c
+>> @@ -2417,15 +2417,15 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+>>
+>>  int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>  {
+>> -	struct slave *slave, *start_at;
+>>  	struct bonding *bond = netdev_priv(dev);
+>> +	struct slave *slave, *first_ok_slave;
+>> +	struct aggregator *agg;
+>> +	struct ad_info ad_info;
+>>  	struct list_head *iter;
+>> -	int slave_agg_no;
+>>  	int slaves_in_agg;
+>> -	int agg_id;
+>> -	int i;
+>> -	struct ad_info ad_info;
+>> +	int slave_agg_no;
+>>  	int res = 1;
+>> +	int agg_id;
+>>
+>>  	read_lock(&bond->lock);
+>>  	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+>> @@ -2438,20 +2438,28 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>  	agg_id = ad_info.aggregator_id;
+>>
+>>  	if (slaves_in_agg == 0) {
+>> -		/*the aggregator is empty*/
+>>  		pr_debug("%s: Error: active aggregator is empty\n", dev->name);
+>>  		goto out;
+>>  	}
+>>
+>>  	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
+>> +	first_ok_slave = NULL;
+>>
+>>  	bond_for_each_slave(bond, slave, iter) {
+>> -		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+>> +		agg = SLAVE_AD_INFO(slave).port.aggregator;
+>> +		if (!agg || agg->aggregator_identifier != agg_id)
+>> +			continue;
+>>
+>> -		if (agg && (agg->aggregator_identifier == agg_id)) {
+>> +		if (slave_agg_no >= 0) {
+>> +			if (!first_ok_slave && SLAVE_IS_OK(slave))
+>> +				first_ok_slave = slave;
+>>  			slave_agg_no--;
+>> -			if (slave_agg_no < 0)
+>> -				break;
+>> +			continue;
+>> +		}
 
-> Improve the SH fallback realserver selection strategy.
-> 
-> With sh and sh-fallback, if a realserver is down, this attempts to
-> distribute the traffic that would have gone to that server evenly
-> among the remaining servers.
->  
-> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-> 
-> --
-> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-> index 3588fae..3d5ab7c 100644
-> --- a/net/netfilter/ipvs/ip_vs_sh.c
-> +++ b/net/netfilter/ipvs/ip_vs_sh.c
-> @@ -115,27 +115,47 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
->  }
->  
->  
-> -/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-> +/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-> + *
-> + * The fallback strategy loops around the table starting from a "random"
-> + * point (in fact, it is chosen to be the original hash value to make the
-> + * algorithm deterministic) to find a new server.
-> + */
->  static inline struct ip_vs_dest *
->  ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
->  		      const union nf_inet_addr *addr, __be16 port)
->  {
-> -	unsigned int offset;
-> -	unsigned int hash;
-> +	unsigned int offset, roffset;
-> +	unsigned int hash, ihash;
->  	struct ip_vs_dest *dest;
->  
-> -	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> -		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-> -		dest = rcu_dereference(s->buckets[hash].dest);
-> -		if (!dest)
-> -			break;
-> -		if (is_unavailable(dest))
-> -			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> -				      "%s:%d (offset %d)",
-> +	/* first try the dest it's supposed to go to */
-> +	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-> +	dest = rcu_dereference(s->buckets[ihash].dest);
-> +	if (!dest)
-> +		return NULL;
+[1]		^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	Can we reduce the indentation here, eg:
+>> +
+>> +		if (SLAVE_IS_OK(slave)) {
+>> +			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>> +			goto out;
+>>  		}
 
-	if (!is_unavailable(dest))
-		return dest;
-	IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-	...
-	for ()...
-	...
-	return NULL;
+[2]		^^^^^^^^^^^^^^^^^^^^^^^^^
 
-> +	if (is_unavailable(dest)) {
-> +		IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> +		      "%s:%d, reselecting",
-> +		      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +		      ntohs(dest->port));
-> +		/* if the original dest is unavailable, loop around the table
-> +		 * starting from ihash to find a new dest
-> +		 */
-> +		for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> +			roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-> +			hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
-> +			dest = rcu_dereference(s->buckets[hash].dest);
+>
+>I think you miss something, you will send skb always by the first suitable port,
+>it could not support load balance.
 
-	Every result of rcu_dereference should be checked
-for NULL (no dests anymore):
-			if (!dest)
-				break;
+Well, yes, it will send always by the first suitable port AFTER
+slave_agg_no, returned by the xmit_hash_policy(), which is the whole point
+in the hash function and in the load balance.
 
-	Then make sure there is correct indentation
-for IP_VS_DBG_BUF parameters.
+It will first loop through the slaves, decrementing slave_agg_no to a
+negative value, while saving the first good to send slave, as shown in [1].
+Notice the "continue;":
 
-> +			if (is_unavailable(dest))
-> +				IP_VS_DBG_BUF(6, "SH: selected unavailable "
-> +				      "server %s:%d (offset %d), reselecting",
->  				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> -				      ntohs(dest->port), offset);
-> -		else
-> -			return dest;
-> +				      ntohs(dest->port), roffset);
-> +			else
-> +				return dest;
-> +		}
-> +	} else {
-> +		return dest;
->  	}
->  
->  	return NULL;
+if (slave_agg_no >= 0) {
+	if (!first_ok_slave && SLAVE_IS_OK(slave))
+		first_ok_slave = slave;
+	slave_agg_no--;
+	continue;
+}
 
-Regards
+Once we hit the negative value - which means we've skipped enough slaves,
+as requested by the hash function - we can start looking for the first
+slave that is good to send AFTER those all skipped slaves, as shown in [2].
 
---
-Julian Anastasov <ja@ssi.bg>
+Down the patch we also use that 'first_ok_slave' - in case we didn't find
+any suitable one after we've skipped first slave_agg_no and till the last
+slave, so it implements the same 'circular' logic as was in
+bond_for_each_slave_from().
+
+>pls consult my function.
+> 		if (agg && (agg->aggregator_identifier == agg_id)) {
+>-			slave_agg_no--;
+>-			if (slave_agg_no < 0)
+>-				break;
+>+			if (--slave_agg_no < 0) {
+>+				if (SLAVE_IS_OK(slave)) {
+>+					res = bond_dev_queue_xmit(bond,
+>+						skb, slave->dev);
+>+					goto out;
+>+				}
+>+			}
+
+I'll review your function in your patch.
+
+> 		}
+> 	}
+>
+>>  	}
+>>
+>> @@ -2461,20 +2469,10 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>>  		goto out;
+>>  	}
+>>
+>> -	start_at = slave;
+>> -
+>> -	bond_for_each_slave_from(bond, slave, i, start_at) {
+>> -		int slave_agg_id = 0;
+>> -		struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
+>> -
+>> -		if (agg)
+>> -			slave_agg_id = agg->aggregator_identifier;
+>> -
+>> -		if (SLAVE_IS_OK(slave) && agg && (slave_agg_id == agg_id)) {
+>> -			res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>> -			break;
+>> -		}
+>> -	}
+>> +	/* we couldn't find any suitable slave after the agg_no, so use the
+>> +	 * first suitable found, if found. */
+>> +	if (first_ok_slave)
+>> +		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+>>
+>>  out:
+>>  	read_unlock(&bond->lock);
+>>
+>
+>
