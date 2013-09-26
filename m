@@ -1,48 +1,59 @@
-From: Matthew Hall <mh@mhcomputing.net>
-Subject: Re: per-PID network stats files in /proc
-Date: Thu, 26 Sep 2013 13:12:52 -0700
-Message-ID: <20130926201252.GA32748@mhcomputing.net>
-References: <20130924201536.GA3555@mhcomputing.net>
- <20130924134157.4fc22806@nehalam.linuxnetplumber.net>
- <20130924204442.GA5074@mhcomputing.net>
- <20130924140435.5881cf76@nehalam.linuxnetplumber.net>
- <20130924212238.GA6673@mhcomputing.net>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 00/51] DMA mask changes
+Date: Thu, 26 Sep 2013 22:23:08 +0200
+Message-ID: <CACna6rxkpYzdD8_Jfi22vA2suUa3k-JM65_gCySQpp4crVCoPg@mail.gmail.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from master.mhcomputing.net ([74.208.46.186]:49428 "EHLO
-	mail.mhcomputing.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854Ab3IZUOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Sep 2013 16:14:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20130924212238.GA6673@mhcomputing.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alsa-devel@alsa-project.org, b43-dev <b43-dev@lists.infradead.org>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	devicetree@vger.kernel.org,
+	dri-devel <dri-devel@lists.freedesktop.org>,
+	e1000-devel@lists.sourceforge.net,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linux-crypto@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-fbdev@vger.kernel.org, linux-ide@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
+	linux-nvme@lists.infradead.org, linux-omap@vger.kernel.org,
+	linux ppc dev <linuxppc-dev@lists.ozlabs.org>,
+	linux-samsung-soc@vger.kernel.org,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-ne
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 24, 2013 at 02:22:39PM -0700, Matthew Hall wrote:
-> On Tue, Sep 24, 2013 at 02:04:35PM -0700, Stephen Hemminger wrote:
-> > You could do what you want by putting each process in own network
-> > namespace, but that might be more work than you want to bother with.
-> 
-> Putting my one process or group of processes into one namespace, separate from 
-> the one the rest of the system uses, could be perfectly OK actually.
-> 
-> So I'm going to look into this and see if it's possible. At least it would 
-> give me a better route than where I am right now.
-> 
-> Thanks!
-> Matthew.
+2013/9/19 Russell King - ARM Linux <linux@arm.linux.org.uk>:
+> This email is only being sent to the mailing lists in question, not t=
+o
+> anyone personally.  The list of individuals is far to great to do tha=
+t.
+> I'm hoping no mailing lists reject the patches based on the number of
+> recipients.
 
-Hi Stephen,
+Huh, I think it was enough to send only 3 patches to the b43-dev@. Like=
+:
+[PATCH 01/51] DMA-API: provide a helper to set both DMA and coherent DM=
+A masks
+[PATCH 14/51] DMA-API: net: b43: (...)
+[PATCH 15/51] DMA-API: net: b43legacy: (...)
+;)
 
-I took a look at this possibility and it seems very powerful but not so easy 
-to use. Is there a way to make a netns that's like a "child node" of another 
-netns, and inherits all the settings of the default one, unless I configured 
-separate settings for this "child netns"? Otherwise the netns has to duplicate 
-everything already configured on the host system even if it's unchanged from 
-the standard settings.
+I believe Joe has some nice script for doing it that way. When fixing
+some coding style / formatting, he sends only related patches to the
+given ML.
 
-Thanks,
-Matthew.
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-omap" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
