@@ -1,41 +1,48 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 00/11 - GIT PULL] drivers: net: Last block of Remove
- extern from function prototypes
-Date: Thu, 26 Sep 2013 13:44:08 -0400 (EDT)
-Message-ID: <20130926.134408.91633054642517467.davem@redhat.com>
-References: <cover.1380137609.git.joe@perches.com>
+Subject: Re: [PATCH net-next] net: neighbour: use source address of last
+ enqueued packet for solicitation
+Date: Thu, 26 Sep 2013 13:46:55 -0400 (EDT)
+Message-ID: <20130926.134655.889702001911014781.davem@redhat.com>
+References: <20130921043234.GA13307@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wimax@linuxwimax.org, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, ath9k-devel@venema.h4ckr.net,
-	brcm80211-dev-list@broadcom.com
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54245 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29782 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751578Ab3IZRot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 13:44:49 -0400
-In-Reply-To: <cover.1380137609.git.joe@perches.com>
+	id S1751690Ab3IZRrH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 13:47:07 -0400
+In-Reply-To: <20130921043234.GA13307@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 25 Sep 2013 12:37:18 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 21 Sep 2013 06:32:34 +0200
 
-> The following changes since commit 294da3abaa73a0b69fd54e442b0b5bd9455b7be6:
+> Currently we always use the first member of the arp_queue to determine
+> the sender ip address of the arp packet (or in case of IPv6 - source
+> address of the ndisc packet). This skb is fixed as long as the queue is
+> not drained by a complete purge because of a timeout or by a successful
+> response.
 > 
->   irda: Remove extern from function prototypes (2013-09-24 12:54:17 -0700)
+> If the first packet enqueued on the arp_queue is from a local application
+> with a manually set source address and the to be discovered system
+> does some kind of uRPF checks on the source address in the arp packet
+> the resolving process hangs until a timeout and restarts. This hurts
+> communication with the participating network node.
 > 
-> are available in the git repository at:
+> This could be mitigated a bit if we use the latest enqueued skb's
+> source address for the resolving process, which is not as static as
+> the arp_queue's head. This change of the source address could result in
+> better recovery of a failed solicitation.
 > 
->   git://repo.or.cz/linux-2.6/trivial-mods.git 20130925_dn_externs_3
-> 
-> for you to fetch changes up to a958df5dc3065ce517726dc54087639e13ffee8f:
-> 
->   rtlwifi: Remove extern from function prototypes (2013-09-24 18:06:51 -0700)
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Reviewed-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Pulled, thanks Joe.
-
-That should be about it for networking right?
+Applied, but honestly I think the tail packet has just as much chance
+to come from an application with a manually set source address as
+the head one.
