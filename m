@@ -1,131 +1,267 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v3 3/3] bonding: document the new xmit policy modes and update the changed ones
-Date: Thu, 26 Sep 2013 16:09:42 +0200
-Message-ID: <1380204582-27144-4-git-send-email-nikolay@redhat.com>
-References: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
-Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, vfalico@redhat.com
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 0/4] bridge: Fix problems around the PVID
+Date: Thu, 26 Sep 2013 10:22:26 -0400
+Message-ID: <52444322.40408@redhat.com>
+References: <1378808874.3988.2.camel@ubuntu-vm-makita>  <20130912.160033.779509034953932316.davem@davemloft.net>  <1379074013.1678.16.camel@localhost.localdomain>  <523744A6.5090001@redhat.com> <1379405552.6177.31.camel@ubuntu-vm-makita>  <524052FC.5010301@redhat.com> <1380023107.3162.53.camel@ubuntu-vm-makita>  <52419509.1020103@redhat.com>  <1380043818.4391.26.camel@localhost.localdomain>  <5241D20C.3060500@redhat.com> <1380191899.3716.31.camel@ubuntu-vm-makita>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
+	Patrick McHardy <kaber@trash.net>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42718 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:64272 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184Ab3IZONY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Sep 2013 10:13:24 -0400
-In-Reply-To: <1380204582-27144-1-git-send-email-nikolay@redhat.com>
+	id S1750788Ab3IZOWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Sep 2013 10:22:34 -0400
+In-Reply-To: <1380191899.3716.31.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new documentation for encap2+3 and encap3+4, also update the formula
-for the old modes due to the changes.
+On 09/26/2013 06:38 AM, Toshiaki Makita wrote:
+> On Tue, 2013-09-24 at 13:55 -0400, Vlad Yasevich wrote:
+>> On 09/24/2013 01:30 PM, Toshiaki Makita wrote:
+>>> On Tue, 2013-09-24 at 09:35 -0400, Vlad Yasevich wrote:
+>>>> On 09/24/2013 07:45 AM, Toshiaki Makita wrote:
+>>>>> On Mon, 2013-09-23 at 10:41 -0400, Vlad Yasevich wrote:
+>>>>>> On 09/17/2013 04:12 AM, Toshiaki Makita wrote:
+>>>>>>> On Mon, 2013-09-16 at 13:49 -0400, Vlad Yasevich wrote:
+>>>>>>>> On 09/13/2013 08:06 AM, Toshiaki Makita wrote:
+>>>>>>>>> On Thu, 2013-09-12 at 16:00 -0400, David Miller wrote:
+>>>>>>>>>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>>>>>>>> Date: Tue, 10 Sep 2013 19:27:54 +0900
+>>>>>>>>>>
+>>>>>>>>>>> There seem to be some undesirable behaviors related with PVID.
+>>>>>>>>>>> 1. It has no effect assigning PVID to a port. PVID cannot be applied
+>>>>>>>>>>> to any frame regardless of whether we set it or not.
+>>>>>>>>>>> 2. FDB entries learned via frames applied PVID are registered with
+>>>>>>>>>>> VID 0 rather than VID value of PVID.
+>>>>>>>>>>> 3. We can set 0 or 4095 as a PVID that are not allowed in IEEE 802.1Q.
+>>>>>>>>>>> This leads interoperational problems such as sending frames with VID
+>>>>>>>>>>> 4095, which is not allowed in IEEE 802.1Q, and treating frames with VID
+>>>>>>>>>>> 0 as they belong to VLAN 0, which is expected to be handled as they have
+>>>>>>>>>>> no VID according to IEEE 802.1Q.
+>>>>>>>>>>>
+>>>>>>>>>>> Note: 2nd and 3rd problems are potential and not exposed unless 1st problem
+>>>>>>>>>>> is fixed, because we cannot activate PVID due to it.
+>>>>>>>>>>
+>>>>>>>>>> Please work out the issues in patch #2 with Vlad and resubmit this
+>>>>>>>>>> series.
+>>>>>>>>>>
+>>>>>>>>>> Thank you.
+>>>>>>>>>
+>>>>>>>>> I'm hovering between whether we should fix the issue by changing vlan 0
+>>>>>>>>> interface behavior in 8021q module or enabling a bridge port to sending
+>>>>>>>>> priority-tagged frames, or another better way.
+>>>>>>>>>
+>>>>>>>>> If you could comment it, I'd appreciate it :)
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> BTW, I think what is discussed in patch #2 is another problem about
+>>>>>>>>> handling priority-tags, and it exists without this patch set applied.
+>>>>>>>>> It looks like that we should prepare another patch set than this to fix
+>>>>>>>>> that problem.
+>>>>>>>>>
+>>>>>>>>> Should I include patches that fix the priority-tags problem in this
+>>>>>>>>> patch set and resubmit them all together?
+>>>>>>>>>
+>>>>>>>>
+>>>>>>>> I am thinking that we might need to do it in bridge and it looks like
+>>>>>>>> the simplest way to do it is to have default priority regeneration table
+>>>>>>>> (table 6-5 from 802.1Q doc).
+>>>>>>>>
+>>>>>>>> That way I think we would conform to the spec.
+>>>>>>>>
+>>>>>>>> -vlad
+>>>>>>>
+>>>>>>> Unfortunately I don't think the default priority regeneration table
+>>>>>>> resolves the problem because IEEE 802.1Q says that a VLAN-aware bridge
+>>>>>>> can transmit untagged or VLAN-tagged frames only (the end of section 7.5
+>>>>>>> and 8.1.7).
+>>>>>>>
+>>>>>>> No mechanism to send priority-tagged frames is found as far as I can see
+>>>>>>> the standard. I think the regenerated priority is used for outgoing PCP
+>>>>>>> field only if egress policy is not untagged (i.e. transmitting as
+>>>>>>> VLAN-tagged), and unused if untagged (Section 6.9.2 3rd/4th Paragraph).
+>>>>>>>
+>>>>>>> If we want to transmit priority-tagged frames from a bridge port, I
+>>>>>>> think we need to implement a new (optional) feature that is above the
+>>>>>>> standard, as I stated previously.
+>>>>>>>
+>>>>>>> How do you feel about adding a per-port policy that enables a bridge to
+>>>>>>> send priority-tagged frames instead of untagged frames when egress
+>>>>>>> policy for the port is untagged?
+>>>>>>> With this change, we can transmit frames for a given vlan as either all
+>>>>>>> untagged, all priority-tagged or all VLAN-tagged.
+>>>>>>
+>>>>>> That would work.  What I am thinking is that we do it by special casing
+>>>>>> the vid 0 egress policy specification.  Let it be untagged by default
+>>>>>> and if it is tagged, then we preserve the priority field and forward
+>>>>>> it on.
+>>>>>>
+>>>>>> This keeps the API stable and doesn't require user/admin from knowing
+>>>>>> exactly what happens.  Default operation conforms to the spec and allows
+>>>>>> simple change to make it backward-compatible.
+>>>>>>
+>>>>>> What do you think.  I've done a simple prototype of this an it seems to
+>>>>>> work with the VMs I am testing with.
+>>>>>
+>>>>> Are you saying that
+>>>>> - by default, set the 0th bit of untagged_bitmap; and
+>>>>> - if we unset the 0th bit and set the "vid"th bit, we transmit frames
+>>>>> classified as belonging to VLAN "vid" as priority-tagged?
+>>>>>
+>>>>> If so, though it's attractive to keep current API, I'm worried about if
+>>>>> it could be a bit confusing and not intuitive for kernel/iproute2
+>>>>> developers that VID 0 has a special meaning only in the egress policy.
+>>>>> Wouldn't it be better to adding a new member to struct net_port_vlans
+>>>>> instead of using VID 0 of untagged_bitmap?
+>>>>>
+>>>>> Or are you saying that we use a new flag in struct net_port_vlans but
+>>>>> use the BRIDGE_VLAN_INFO_UNTAGGED bit with VID 0 in netlink to set the
+>>>>> flag?
+>>>>>
+>>>>> Even in that case, I'm afraid that it might be confusing for developers
+>>>>> for the same reason. We are going to prohibit to specify VID with 0 (and
+>>>>> 4095) in adding/deleting a FDB entry or a vlan filtering entry, but it
+>>>>> would allow us to use VID 0 only when a vlan filtering entry is
+>>>>> configured.
+>>>>> I am thinking a new nlattr is a straightforward approach to configure
+>>>>> it.
+>>>>
+>>>> By making this an explicit attribute it makes vid 0 a special case for
+>>>> any automatic tool that would provision such filtering.  Seeing vid 0
+>>>> would mean that these tools would have to know that this would have to
+>>>> be translated to a different attribute instead of setting the policy
+>>>> values.
+>>>
+>>> Yes, I agree with you that we can do it by the way you explained.
+>>> What I don't understand is the advantage of using vid 0 over another way
+>>> such as adding a new nlattr.
+>>> I think we can indicate transmitting priority-tags explicitly by such a
+>>> nlattr. Using vid 0 seems to be easier to implement than a new nlattr,
+>>> but, for me, it looks less intuitive and more difficult to maintain
+>>> because we have to care about vid 0 instead of simply ignoring it.
+>>>
+>>
+>> The point I am trying to make is that regardless of the approach someone
+>> has to know what to do when enabling priority tagged frames.  You
+>> proposal would require the administrator or config tool to have that
+>> knowledge.  Example is:
+>> 	Admin does: bridge vlan set priority on dev eth0
+>>           Automated app:
+>> 		if (vid == 0)
+>> 			/* Turn on priority tagged frame support */
+>>
+>> My proposal would require the bridge filtering implementation to have it.
+>> 	user tool: bridge vlan add vid 0 tagged
+>> 	Automated app:  No special case.
+>>
+>> IMO its better to have 1 piece code handling the special case then
+>> putting it multiple places.
+>
+> Thank you for the detailed explanation.
+> Now I understand your intention.
+>
+> I have one question about your proposal.
+> I guess the way to enable priority-tagged is something like
+> 	bridge vlan add vid 10 dev eth0
+> 	bridge vlan add vid 10 dev vnet0 pvid untagged
+> 	bridge vlan add vid 0 dev vnet0 tagged
+> where vnet0 has sub interface vnet0.0.
+>
+> Here the admin have to know the egress policy is applied to a frame
+> twice in a certain order when it is transmitted from the port vnet0
+> attached, that is, first, a frame with vid 10 get untagged, and then, an
+> untagged frame get priority-tagged.
+>
+> This behavior looks difficult to know without previous knowledge.
+> Any good idea to avoid such a need for the admin's additional knowledge?
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-v2, v3: no change
+To me, the fact that there is vnet0.0 (or typically, there is eth0.0 in 
+the guest or on the remote host) already tells the admin vlan 0 has to 
+be tagged.  The fact that we codify this in the policy makes it explicit.
 
- Documentation/networking/bonding.txt | 66 ++++++++++++++++++++----------------
- 1 file changed, 36 insertions(+), 30 deletions(-)
+However, I can see strong argument to be made for an addition egress 
+policy attribute that could be for instance:
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 9b28e71..3856ed2 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -743,21 +743,16 @@ xmit_hash_policy
- 		protocol information to generate the hash.
- 
- 		Uses XOR of hardware MAC addresses and IP addresses to
--		generate the hash.  The IPv4 formula is
-+		generate the hash.  The formula is
- 
--		(((source IP XOR dest IP) AND 0xffff) XOR
--			( source MAC XOR destination MAC ))
--				modulo slave count
-+		hash = source MAC XOR destination MAC
-+		hash = hash XOR source IP XOR destination IP
-+		hash = hash XOR (hash RSHIFT 16)
-+		hash = hash XOR (hash RSHIFT 8)
-+		And then hash is reduced modulo slave count.
- 
--		The IPv6 formula is
--
--		hash = (source ip quad 2 XOR dest IP quad 2) XOR
--		       (source ip quad 3 XOR dest IP quad 3) XOR
--		       (source ip quad 4 XOR dest IP quad 4)
--
--		(((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
--			XOR (source MAC XOR destination MAC))
--				modulo slave count
-+		If the protocol is IPv6 then the source and destination
-+		addresses are first hashed using ipv6_addr_hash.
- 
- 		This algorithm will place all traffic to a particular
- 		network peer on the same slave.  For non-IP traffic,
-@@ -779,21 +774,16 @@ xmit_hash_policy
- 		slaves, although a single connection will not span
- 		multiple slaves.
- 
--		The formula for unfragmented IPv4 TCP and UDP packets is
--
--		((source port XOR dest port) XOR
--			 ((source IP XOR dest IP) AND 0xffff)
--				modulo slave count
-+		The formula for unfragmented TCP and UDP packets is
- 
--		The formula for unfragmented IPv6 TCP and UDP packets is
-+		hash = source port, destination port (as in the header)
-+		hash = hash XOR source IP XOR destination IP
-+		hash = hash XOR (hash RSHIFT 16)
-+		hash = hash XOR (hash RSHIFT 8)
-+		And then hash is reduced modulo slave count.
- 
--		hash = (source port XOR dest port) XOR
--		       ((source ip quad 2 XOR dest IP quad 2) XOR
--			(source ip quad 3 XOR dest IP quad 3) XOR
--			(source ip quad 4 XOR dest IP quad 4))
--
--		((hash >> 24) XOR (hash >> 16) XOR (hash >> 8) XOR hash)
--			modulo slave count
-+		If the protocol is IPv6 then the source and destination
-+		addresses are first hashed using ipv6_addr_hash.
- 
- 		For fragmented TCP or UDP packets and all other IPv4 and
- 		IPv6 protocol traffic, the source and destination port
-@@ -801,10 +791,6 @@ xmit_hash_policy
- 		formula is the same as for the layer2 transmit hash
- 		policy.
- 
--		The IPv4 policy is intended to mimic the behavior of
--		certain switches, notably Cisco switches with PFC2 as
--		well as some Foundry and IBM products.
--
- 		This algorithm is not fully 802.3ad compliant.  A
- 		single TCP or UDP conversation containing both
- 		fragmented and unfragmented packets will see packets
-@@ -815,6 +801,26 @@ xmit_hash_policy
- 		conversations.  Other implementations of 802.3ad may
- 		or may not tolerate this noncompliance.
- 
-+	encap2+3
-+
-+		This policy uses the same formula as layer2+3 but it
-+		relies on skb_flow_dissect to obtain the header fields
-+		which might result in the use of inner headers if an
-+		encapsulation protocol is used. For example this will
-+		improve the performance for tunnel users because the
-+		packets will be distributed according to the encapsulated
-+		flows.
-+
-+	encap3+4
-+
-+		This policy uses the same formula as layer3+4 but it
-+		relies on skb_flow_dissect to obtain the header fields
-+		which might result in the use of inner headers if an
-+		encapsulation protocol is used. For example this will
-+		improve the performance for tunnel users because the
-+		packets will be distributed according to the encapsulated
-+		flows.
-+
- 	The default value is layer2.  This option was added in bonding
- 	version 2.6.3.  In earlier versions of bonding, this parameter
- 	does not exist, and the layer2 policy is the only policy.  The
--- 
-1.8.1.4
+	bridge vlan add vid 10 dev eth0 pvid
+	bridge vlan add vid 10 dev vnet0 pvid untagged prio_tag
+
+But this has the same connotations as wrt to egress policy.  The 2 
+policies are applied:
+  (1) untag the frame.
+  (2) add priority_tag.
+
+(2) only happens if initial fame received on eth0 was priority tagged.
+
+I think I am ok with either approach.  Explicit vid 0 policy is easier
+for automatic provisioning.   The flag based one is easier for admin/
+manual provisioning.
+
+-vlad.
+
+-vlad
+
+
+
+
+>
+>>
+>> Thanks
+>> -vlad
+>>
+>>> Thanks,
+>>>
+>>> Toshiaki Makita
+>>>
+>>>>
+>>>> How it is implemented internally in the kernel isn't as big of an issue.
+>>>> We can do it as a separate flag or as part of existing policy.
+>>>>
+>>>> -vlad
+>>>>
+>>>>>
+>>>>> Thanks,
+>>>>>
+>>>>> Toshiaki Makita
+>>>>>
+>>>>>>
+>>>>>> -vlad
+>>>>>>
+>>>>>>>
+>>>>>>> Thanks,
+>>>>>>>
+>>>>>>> Toshiaki Makita
+>>>>>>>
+>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> Thanks,
+>>>>>>>>>
+>>>>>>>>> Toshiaki Makita
+>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> --
+>>>>>>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>> --
+>>>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>
+>>>
+>
+>
