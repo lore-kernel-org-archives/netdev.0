@@ -1,87 +1,71 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH 1/4] [RFC] net: Explicitly initialize u64_stats_sync
- structures for lockdep
-Date: Fri, 27 Sep 2013 07:44:55 +0200
-Message-ID: <20130927054455.GA6597@gmail.com>
-References: <1380220464-28840-1-git-send-email-john.stultz@linaro.org>
- <1380220464-28840-2-git-send-email-john.stultz@linaro.org>
- <1380223585.3165.205.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/5] tipc: silence sparse warnings
+Date: Fri, 27 Sep 2013 01:59:08 -0400 (EDT)
+Message-ID: <20130927.015908.1293107524454870319.davem@davemloft.net>
+References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
+	<1380014868-2797-2-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Stultz <john.stultz@linaro.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	Patrick McHardy <kaber@trash.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Jesse Gross <jesse@nicira.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net, andreas.bofjall@ericsson.com
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:61453 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824Ab3I0FpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 01:45:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1380223585.3165.205.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50225 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab3I0F7N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 01:59:13 -0400
+In-Reply-To: <1380014868-2797-2-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue, 24 Sep 2013 04:27:44 -0500
 
-* Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Ying Xue <ying.xue@windriver.com>
+>=20
+> Eliminate below sparse warnings:
+>=20
+> net/tipc/link.c:1210:37: warning: cast removes address space of expre=
+ssion
+> net/tipc/link.c:1218:59: warning: incorrect type in argument 2 (diffe=
+rent address spaces)
+> net/tipc/link.c:1218:59:    expected void const [noderef] <asn:1>*fro=
+m
+> net/tipc/link.c:1218:59:    got unsigned char const [usertype] *[assi=
+gned] sect_crs
+> net/tipc/msg.c:96:61: warning: incorrect type in argument 3 (differen=
+t address spaces)
+> net/tipc/msg.c:96:61:    expected void const *from
+> net/tipc/msg.c:96:61:    got void [noderef] <asn:1>*const iov_base
+> net/tipc/socket.c:341:49: warning: Using plain integer as NULL pointe=
+r
+> net/tipc/socket.c:1371:36: warning: Using plain integer as NULL point=
+er
+> net/tipc/socket.c:1694:57: warning: Using plain integer as NULL point=
+er
+>=20
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Andreas Bofj=E4ll <andreas.bofjall@ericsson.com>
+> Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-> On Thu, 2013-09-26 at 11:34 -0700, John Stultz wrote:
-> > In order to enable lockdep on seqcount/seqlock structures, we
-> > must explicitly initialize any locks.
-> > 
-> 
-> > diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
-> > index 8da8c4e..c450e11 100644
-> > --- a/include/linux/u64_stats_sync.h
-> > +++ b/include/linux/u64_stats_sync.h
-> > @@ -67,6 +67,13 @@ struct u64_stats_sync {
-> >  #endif
-> >  };
-> >  
-> > +
-> > +#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
-> > +#define u64_stats_init(syncp)	seqcount_init(syncp.seq)
-> > +#else
-> > +#define u64_stats_init(syncp)
-> > +#endif
-> > +
-> 
-> I would prefer a function.
+These warnings are not just for fun, and they are certainly not an
+invitation to stick casts all over the place to make them go away.
 
-C cannot pass along symbolic names, unfortunately, so we are stuck with 
-1970's tech and the C preprocessor.
+They indicate real problems in the TIPC code.
 
-There's a way to make such macros look a tiny bit more structured and thus 
-be more palatable:
+There really are user pointers in the iovecs here, and that's why the
+iov_base member is annotated with "__user".
 
-#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
-# define u64_stats_init(syncp) seqcount_init(syncp.seq)
-#else
-# define u64_stats_init(syncp)
-#endif
+These iovecs carry pointers that come from userspace via socket calls.
 
-Note, the 'else' branch should probably be:
+And you absolutely cannot pass user pointers to skb_copy_to_linear_data=
+()
+and friends as they access the source pointer using memcpy().
 
-# define u64_stats_init(syncp) do { } while (0)
+You have to use the proper interfaces for accessing userspace memory,
+ones that have their arguments annotated with __user.
 
-Thanks,
-
-	Ingo
+I'm not applying this series, sorry.
