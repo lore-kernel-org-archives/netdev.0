@@ -1,51 +1,41 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v1] USBNET: fix handling padding packet
-Date: Sat, 28 Sep 2013 07:51:32 +0800
-Message-ID: <CACVXFVNrv9i-0TnBbL++Tc50digGAKfuPD0cW2T7M-kB+AciMQ@mail.gmail.com>
-References: <1379941175-10500-1-git-send-email-ming.lei@canonical.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 2/2] ipv4 igmp: use del_timer_sync instead of del_timer in ip_mc_down
+Date: Sat, 28 Sep 2013 03:15:32 +0400
+Message-ID: <20130927231532.GA23750@ms2.inr.ac.ru>
+References: <1378363404-37749-1-git-send-email-noureddine@aristanetworks.com> <20130905084312.091f73b7@nehalam.linuxnetplumber.net> <CAO7SqHA4LJhy_NBkPLViJB3s7hM85qd88pmjy3hq-hCCuQstaA@mail.gmail.com> <CAO7SqHA5pBs7Tmop1ukS_AEXO8K9Np7odo20QdTYHBg2qoV49Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1379941175-10500-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@aristanetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:44131 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754204Ab3I1AOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 20:14:03 -0400
+Content-Disposition: inline
+In-Reply-To: <CAO7SqHA5pBs7Tmop1ukS_AEXO8K9Np7odo20QdTYHBg2qoV49Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 23, 2013 at 8:59 PM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> Commit 638c5115a7949(USBNET: support DMA SG) introduces DMA SG
-> if the usb host controller is capable of building packet from
-> discontinuous buffers, but missed handling padding packet when
-> building DMA SG.
->
-> This patch attachs the pre-allocated padding packet at the
-> end of the sg list, so padding packet can be sent to device
-> if drivers require that.
->
-> Reported-by: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
-> Acked-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
-> v1:
->         - fix bug in case of dev->can_dma_sg and !urb->num_sgs
+On Fri, Sep 27, 2013 at 04:04:00PM -0700, Salam Noureddine wrote:
+> 				I don't quite understand the reason
+> for having __in_dev_put decrement the refcnt without destroying the
+> in_device in case it reaches 0. If the timer handler assumes it cannot
+> be the last one to hold a reference then that would mean it doesn't
+> need the reference in the first place.
 
-David, could you queue this patch in your tree? And it should fix
-regression caused by commit 638c5115a7949(USBNET: support
-DMA SG), since I found that without the padding the device can't
-send out packets successfully if their length is dividable by max
-packet size, and the problem can be observed with icmp sending:
+I would like to explain this, because this can result in a big mistake.
 
- $ping -s 974 another_machine  #from host with ax99179_178a attached
+Timer takes reference, when it _can_ be the last sometimes.
 
+When we do del_timer() and know for sure that someone holds refcnt, we can just
+decrese it. In this cae it is obvious: we sit in context whcih deals with in_dev,
+so that reference from timer acannot be the last: caller of the function holds refcnt.
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But in another places timer _expires_ and that last reference is dropped by in_dev_put().
+
+Alexey
