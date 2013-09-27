@@ -1,69 +1,110 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 0/9] bonding: remove bond_next_slave()
-Date: Fri, 27 Sep 2013 16:11:56 +0200
-Message-ID: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 1/9] bonding: remove __get_next_port()
+Date: Fri, 27 Sep 2013 16:11:57 +0200
+Message-ID: <1380291125-5671-2-git-send-email-vfalico@redhat.com>
+References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Cc: nikolay@redhat.com, bhutchings@solarflare.com,
+	Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29523 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31698 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751329Ab3I0OLq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 10:11:46 -0400
+	id S1751993Ab3I0OLs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 10:11:48 -0400
+In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(on top of "[PATCH net-next 0/2] bonding: fix 3ad slave (de)init" - the
-patchset is essential)
+Currently this function is only used in constructs like
 
-Hi,
+for (port = __get_first_port(bond); port; port = __get_next_port(port))
 
-As Ben Hutchings and Nikolay Aleksandrov correctly noted -
-bond_next_slave() already is not O(1), but rather O(n), so it's only useful
-for one-off operations and shouldn't be used widely - for example, for list
-traversal, which will take O(n^2) time, which will be disastrous for any
-hot path with a large number of slaves.
-
-Currently, bond_next_slave() is used several times in 802.3ad and for
-seq_read - bond_info_seq_next().
-
-The 802.3ad part uses it only in constructs like:
-
-for (X = __get_first_X(); X; X = __get_next_X()) {
-
-where __get_next_X() uses bond_next_slave().
-
-This for can (and should) actually be replaced by the standard
+which is basicly the same as
 
 bond_for_each_slave(bond, slave, iter) {
-	X = __get_X_by_slave(slave);
+	port = &(SLAVE_AD_INFO(slave).port);
 
-it's faster, easier to read, debug and maintain. Also, removes a lot of
-code lines.
+but a more time consuming.
 
-After replacing it, the only user of bond_next_slave() is
-bond_info_seq_next() - which can, actually, implement it by itself, and not
-call another function.
-
-So, that way, we can completely remove the bond_next_slave(), cleanup and
-optimize a bit.
-
-p.s. the 802.3ad code is horrible, both style-wise and from the logical
-point of view - so I've decided to *not* change anything except that what
-this patch is intended to provide. The cleanup and some refactoring should
-be done in another patchset, which I've began to work on already.
-
-Thank you!
+Remove the function and convert the users to bond_for_each_slave().
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
 ---
- drivers/net/bonding/bond_3ad.c    | 137 ++++++++++++++------------------------
- drivers/net/bonding/bond_main.c   |   2 +-
- drivers/net/bonding/bond_procfs.c |  16 +++--
- drivers/net/bonding/bonding.h     |  31 ---------
- 4 files changed, 62 insertions(+), 124 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 34 +++++++++-------------------------
+ 1 file changed, 9 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 2715ea8..c1535f8 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -149,28 +149,6 @@ static inline struct port *__get_first_port(struct bonding *bond)
+ }
+ 
+ /**
+- * __get_next_port - get the next port in the bond
+- * @port: the port we're looking at
+- *
+- * Return the port of the slave that is next in line of @port's slave in the
+- * bond, or %NULL if it can't be found.
+- */
+-static inline struct port *__get_next_port(struct port *port)
+-{
+-	struct bonding *bond = __get_bond_by_port(port);
+-	struct slave *slave = port->slave, *slave_next;
+-
+-	// If there's no bond for this port, or this is the last slave
+-	if (bond == NULL)
+-		return NULL;
+-	slave_next = bond_next_slave(bond, slave);
+-	if (!slave_next || bond_is_first_slave(bond, slave_next))
+-		return NULL;
+-
+-	return &(SLAVE_AD_INFO(slave_next).port);
+-}
+-
+-/**
+  * __get_first_agg - get the first aggregator in the bond
+  * @bond: the bond we're looking at
+  *
+@@ -2113,8 +2091,10 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    ad_work.work);
+-	struct port *port;
+ 	struct aggregator *aggregator;
++	struct list_head *iter;
++	struct slave *slave;
++	struct port *port;
+ 
+ 	read_lock(&bond->lock);
+ 
+@@ -2139,7 +2119,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	}
+ 
+ 	// for each port run the state machines
+-	for (port = __get_first_port(bond); port; port = __get_next_port(port)) {
++	bond_for_each_slave(bond, slave, iter) {
++		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (!port->slave) {
+ 			pr_warning("%s: Warning: Found an uninitialized port\n",
+ 				   bond->dev->name);
+@@ -2384,9 +2365,12 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
+ 				   struct ad_info *ad_info)
+ {
+ 	struct aggregator *aggregator = NULL;
++	struct list_head *iter;
++	struct slave *slave;
+ 	struct port *port;
+ 
+-	for (port = __get_first_port(bond); port; port = __get_next_port(port)) {
++	bond_for_each_slave(bond, slave, iter) {
++		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (port->aggregator && port->aggregator->is_active) {
+ 			aggregator = port->aggregator;
+ 			break;
+-- 
+1.8.4
