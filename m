@@ -1,67 +1,85 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH v2.40 2/7] odp: Allow VLAN actions after MPLS actions
-Date: Fri, 27 Sep 2013 12:21:08 -0700
-Message-ID: <20130927192108.GA17506@nicira.com>
-References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
- <1380241116-7661-3-git-send-email-horms@verge.net.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] Allow userspace code to use flag IFA_F_SECONDARY to
+ specify an ip address to be primary or secondary ip on an interface
+Date: Fri, 27 Sep 2013 22:26:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1309272221210.1725@ja.ssi.bg>
+References: <1380046281-6012-1-git-send-email-vincent.mc.li@gmail.com> <alpine.LFD.2.00.1309242255350.1875@ja.ssi.bg> <CAK3+h2y8eAKFC7BbnDwfZLzTw=t-G9qWSqznp4ggwDy7R_O6Ag@mail.gmail.com> <alpine.LFD.2.00.1309250925240.1971@ja.ssi.bg>
+ <CAK3+h2wYw92KR-Bzxesb5hNW2ua4GmVLeywJ__uPyqMW-+p8pA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:58229 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753819Ab3I0TVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 15:21:14 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so3173872pab.36
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 12:21:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1380241116-7661-3-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Vincent Li <vincent.mc.li@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK3+h2wYw92KR-Bzxesb5hNW2ua4GmVLeywJ__uPyqMW-+p8pA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:
-> From: Joe Stringer <joe@wand.net.nz>
-> 
-> OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the
-> presence of VLAN tags. To allow correct behaviour to be committed in
-> each situation, this patch adds a second round of VLAN tag action
-> handling to commit_odp_actions(), which occurs after MPLS actions. This
-> is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
-> 
-> When an push_mpls action is composed, the flow's current VLAN state is
-> stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
-> a VLAN tag is present, it is stripped; if not, then there is no change.
-> Any later modifications to the VLAN state is written to xin->vlan_tci.
-> When committing the actions, flow->vlan_tci is used before MPLS actions,
-> and xin->vlan_tci is used afterwards. This retains the current datapath
-> behaviour, but allows VLAN actions to be applied in a more flexible
-> manner.
-> 
-> Signed-off-by: Joe Stringer <joe@wand.net.nz>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-The commit message talks about handling OpenFlow 1.2 and 1.3 both
-properly, but I don't see how the code distinguishes between the cases.
-Can you explain?  Maybe this is something added in a later patch, in
-which case it would be nice to mention that in the commit message.
+	Hello,
 
-There seems to be a typo in the comment in vlan_tci_restore() here:
-> +    /* If MPLS actions were executed after MPLS, copy the final vlan_tci out
-> +     * and restore the intermediate VLAN state. */
+On Wed, 25 Sep 2013, Vincent Li wrote:
 
-I was a little confused by the new local variable 'vlan_tci' in
-do_xlate_actions().  Partly this was because the fact that I didn't find
-it obvious that sometimes it points to different VLAN tags.  I think
-this would be easier to see if it were initially assigned just under the
-big comment rather than in an initializer, so that one would know to
-look at the comment.
+> I think it is good idea to add these preferences flags and sorted
+> them, but my code knowledge is limited to implement it  as I am still
+> learning, I can help testing :)
 
-Thanks,
+	I can try it, if such idea looks good enough to
+others.
 
-Ben.
+> On Wed, Sep 25, 2013 at 12:08 AM, Julian Anastasov <ja@ssi.bg> wrote:
+>
+> >         My first idea was to use NLM_F_APPEND to implement
+> > 'ip addr prepend' and 'ip addr append' but the default
+> > operation is 'append' without providing NLM_F_APPEND, so it
+> > does not work.
+> >
+> >         Another idea is to add new attribute IFA_PREFERENCE in
+> > include/uapi/linux/if_addr.h just before __IFA_MAX, integer,
+> > 3 of the values are known. A preference for the used scope.
+> >
+> > /* Add as last, default */
+> > IFA_PREFERENCE_APPEND = 0,
+> >
+> > /* Add as last primary, before any present primary in subnet */
+> > IFA_PREFERENCE_PRIMARY = 128,
+> >
+> > /* First for scope */
+> > IFA_PREFERENCE_FIRST = 255,
+> >
+> >         We should keep it in ifa as priority, for
+> > sorting purposes. It can be 4-byte value, if user wants
+> > to copy user-defined order into preference.
+> >
+> >         Sorting order should be:
+> >
+> > - all primaries sorted by decreasing scope, decreasing
+> > priority and adding order
+> >
+> > - then all secondaries (IFA_F_SECONDARY) sorted by decreasing
+> > priority and adding order
+> >
+> >         Usage:
+> >
+> > ip addr add ... pref[erence] type_or_priority
+> >
+> > # Add floating IP (append at priority 128)
+> > # The primary mode is not guaranteed if another address from
+> > # the same subnet is already using the same or higher priority.
+> > ip addr add ... pref primary
+> > # More preferred primary
+> > ip addr add ... pref 129
+> >
+> > # Add first IP for scope
+> > ip addr add ... pref first
+> >
+> >         The scope has similar 'sorting' property but not
+> > for IPs in same subnet and it would be difficult to use
+> > it for global routes.
+> >
+> >         Thoughts?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
