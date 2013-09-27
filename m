@@ -1,96 +1,132 @@
-From: Alexander Frolkin <avf@eldamar.org.uk>
-Subject: Re: [PATCHv2] ipvs: improved SH fallback strategy
-Date: Fri, 27 Sep 2013 11:06:23 +0100
-Message-ID: <20130927100622.GC28974@eldamar.org.uk>
-References: <20130923115139.GA15034@eldamar.org.uk>
- <524099BA.5020303@cogentembedded.com>
- <20130924093238.GD18494@eldamar.org.uk>
- <20130925003033.GG26081@verge.net.au>
- <20130925092638.GD19768@eldamar.org.uk>
- <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
- <20130926100540.GB27583@eldamar.org.uk>
- <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: TSQ can use a dynamic limit
+Date: Fri, 27 Sep 2013 03:28:54 -0700
+Message-ID: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com>
+	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
+	 <1378486840.31445.36.camel@edumazet-glaptop>
+	 <1378574494.26319.14.camel@edumazet-glaptop> <522E4080.2050802@citrix.com>
+	 <1378763815.26319.39.camel@edumazet-glaptop>
+	 <loom.20130921T045654-573@post.gmane.org>
+	 <20130921150327.GA9078@zion.uk.xensource.com>
+	 <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
+	 <1379861902.3431.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f182.google.com ([209.85.213.182]:55333 "EHLO
+	mail-ye0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871Ab3I0K26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 06:28:58 -0400
+Received: by mail-ye0-f182.google.com with SMTP id l10so773153yen.41
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 03:28:57 -0700 (PDT)
+In-Reply-To: <1379861902.3431.12.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Improve the SH fallback realserver selection strategy.
+From: Eric Dumazet <edumazet@google.com>
 
-With sh and sh-fallback, if a realserver is down, this attempts to
-distribute the traffic that would have gone to that server evenly
-among the remaining servers.
+When TCP Small Queues was added, we used a sysctl to limit amount of
+packets queues on Qdisc/device queues for a given TCP flow.
 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+Problem is this limit is either too big for low rates, or too small
+for high rates.
 
---
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 3588fae..cc65b2f 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -115,27 +115,46 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- }
+Now TCP stack has rate estimation in sk->sk_pacing_rate, and TSO 
+auto sizing, it can better control number of packets in Qdisc/device
+queues.
+
+New limit is two packets or at least 1 to 2 ms worth of packets.
+
+Low rates flows benefit from this patch by having even smaller
+number of packets in queues, allowing for faster recovery,
+better RTT estimations.
+
+High rates flows benefit from this patch by allowing more than 2 packets
+in flight as we had reports this was a limiting factor to reach line
+rate. [ In particular if TX completion is delayed because of coalescing
+parameters ]
+
+Example for a single flow on 10Gbp link controlled by FQ/pacing
+
+14 packets in flight instead of 2
+
+$ tc -s -d qd
+qdisc fq 8001: dev eth0 root refcnt 32 limit 10000p flow_limit 100p
+buckets 1024 quantum 3028 initial_quantum 15140 
+ Sent 1168459366606 bytes 771822841 pkt (dropped 0, overlimits 0
+requeues 6822476) 
+ rate 9346Mbit 771713pps backlog 953820b 14p requeues 6822476 
+  2047 flow, 2046 inactive, 1 throttled, delay 15673 ns
+  2372 gc, 0 highprio, 0 retrans, 9739249 throttled, 0 flows_plimit
+
+Note that sk_pacing_rate is currently set to twice the actual rate, but
+this might be refined in the future when a flow is in congestion
+avoidance.
+
+Additional change : skb->destructor should be set to tcp_wfree().
+
+A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_output.c |   17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7c83cb8..c20e406 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -895,8 +895,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
  
+ 	skb_orphan(skb);
+ 	skb->sk = sk;
+-	skb->destructor = (sysctl_tcp_limit_output_bytes > 0) ?
+-			  tcp_wfree : sock_wfree;
++	skb->destructor = tcp_wfree;
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
  
--/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-+ *
-+ * The fallback strategy loops around the table starting from a "random"
-+ * point (in fact, it is chosen to be the original hash value to make the
-+ * algorithm deterministic) to find a new server.
-+ */
- static inline struct ip_vs_dest *
- ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- 		      const union nf_inet_addr *addr, __be16 port)
- {
--	unsigned int offset;
--	unsigned int hash;
-+	unsigned int offset, roffset;
-+	unsigned int hash, ihash;
- 	struct ip_vs_dest *dest;
+ 	/* Build TCP header and checksum it. */
+@@ -1840,7 +1839,6 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
  
-+	/* first try the dest it's supposed to go to */
-+	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	dest = rcu_dereference(s->buckets[ihash].dest);
-+	if (!dest)
-+		return NULL;
-+	if (!is_unavailable(dest))
-+		return dest;
+-
+ 		tso_segs = tcp_init_tso_segs(sk, skb, mss_now);
+ 		BUG_ON(!tso_segs);
+ 
+@@ -1869,13 +1867,20 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 				break;
+ 		}
+ 
+-		/* TSQ : sk_wmem_alloc accounts skb truesize,
+-		 * including skb overhead. But thats OK.
++		/* TCP Small Queues :
++		 * Control number of packets in qdisc/devices to two packets / or ~1 ms.
++		 * This allows for :
++		 *  - better RTT estimation and ACK scheduling
++		 *  - faster recovery
++		 *  - high rates
+ 		 */
+-		if (atomic_read(&sk->sk_wmem_alloc) >= sysctl_tcp_limit_output_bytes) {
++		limit = max(skb->truesize, sk->sk_pacing_rate >> 10);
 +
-+	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-+
-+	/* if the original dest is unavailable, loop around the table
-+	 * starting from ihash to find a new dest
-+	 */
- 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
--		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-+		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-+		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
- 		dest = rcu_dereference(s->buckets[hash].dest);
- 		if (!dest)
++		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+ 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
  			break;
--		if (is_unavailable(dest))
--			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
--				      "%s:%d (offset %d)",
--				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
--				      ntohs(dest->port), offset);
--		else
-+		if (!is_unavailable(dest))
- 			return dest;
-+		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-+			      "server %s:%d (offset %d), reselecting",
-+			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+			      ntohs(dest->port), roffset);
- 	}
- 
- 	return NULL;
-
+ 		}
++
+ 		limit = mss_now;
+ 		if (tso_segs > 1 && !tcp_urg_mode(tp))
+ 			limit = tcp_mss_split_point(sk, skb, mss_now,
