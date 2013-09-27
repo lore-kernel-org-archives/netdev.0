@@ -1,76 +1,37 @@
-From: Oussama Ghorbel <oghorbell@gmail.com>
-Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
-Date: Fri, 27 Sep 2013 17:36:45 +0100
-Message-ID: <CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
-References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
-	<20130927083730.GC28287@order.stressinduktion.org>
-	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
-	<20130927105856.GF28287@order.stressinduktion.org>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [PATCH v2.40 1/7] odp: Only pass vlan_tci to commit_vlan_action()
+Date: Fri, 27 Sep 2013 09:56:46 -0700
+Message-ID: <20130927165646.GO492@nicira.com>
+References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
+ <1380241116-7661-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Oussama Ghorbel <oghorbell@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130927105856.GF28287@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:45324 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753004Ab3I0Q4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 12:56:52 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2817455pdj.8
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 09:56:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1380241116-7661-2-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please see my comments below
+On Fri, Sep 27, 2013 at 09:18:30AM +0900, Simon Horman wrote:
+> From: Joe Stringer <joe@wand.net.nz>
+> 
+> This allows for future patches to pass different tci values to
+> commit_vlan_action() without passing an entire flow structure.
+> 
+> Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Regards,
-Oussama
-
-On Fri, Sep 27, 2013 at 11:58 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Fri, Sep 27, 2013 at 11:45:48AM +0100, Oussama Ghorbel wrote:
->> The ip6_tunnel.c module would be then dependent on ip_tunnel.c and may
->> be it would not be good thing?
->
-> It could just be a static inline in some shared header. So there would
-> be no compile-time dependency.
->
-
-The higher limit of mtu in ip_tunnel_change_mtu() is a calculated value.
-This high limit is calculated using the netdev priv struct ip_tunnel
-(field hlen).
-This netdev priv struct is different in ipv6, it's a ip6_tnl struct.
-Therefore implementing a beautiful function like
-ip_tunnel_valid_mtu(struct net_device *dev, int mtu) won't be
-feasible, unless we implement it in macro or something like like
-ip_tunnel_valid_mtu(struct net_device *dev, int hlen, int mtu) which
-seems not very nice ...
-What do yo think?
-
->> As I have check in v3.10 there is no call from ip6_tunnel to ip_tunnel...
->>
->> For information, there is no check for the maximum MTU for ipv4 in the
->> patch as this is not done for ipv6.
->
-> I understand, but it would be better to limit the MTU here. There is a
-> (non-jumo) IPV6_MAXPLEN constant.
->
-> Looking through the source it seems grev6 does actually check this,
-> so it would not hurt adding them here, too.
-
-what if jumbograms is used, in that case, we can't use IPV6_MAXPLEN.
-the limit would be the the full unsigned int.
-However checking the higher limit for ipv4 would be useful.
-
-Please also note in case the tunnel mode is any (ipv4 or ipv6 means
-ip6_tnl.parms.proto = 0), then we will be required to take the most
-restrict limit from both ipv4 and ipv6 which means the lower limit
-will be 1280 and the higher limit will be about 65535
-Do you agree on this?
-
->
-> Otherwise, I think your patch is fine.
->
-> Greetings,
->
->   Hannes
->
+Applied, thanks.
