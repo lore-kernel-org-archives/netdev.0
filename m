@@ -1,119 +1,67 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next] xfrm: Simplify SA looking up when using wildcard
- source address
-Date: Fri, 27 Sep 2013 16:35:44 +0800
-Message-ID: <52454360.6020305@windriver.com>
-References: <1379927917-17365-1-git-send-email-fan.du@windriver.com> <20130924114551.GT7660@secunet.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Fri, 27 Sep 2013 10:37:30 +0200
+Message-ID: <20130927083730.GC28287@order.stressinduktion.org>
+References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:47102 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155Ab3I0IgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:36:05 -0400
-In-Reply-To: <20130924114551.GT7660@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oussama Ghorbel <oghorbell@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Sep 26, 2013 at 03:51:48PM +0100, Oussama Ghorbel wrote:
+> The (inner) MTU of a ipip6 (IPv4-in-IPv6) tunnel cannot be set below 1280, which is the minimum MTU in IPv6.
+> However, there should be no IPv6 on the tunnel interface at all, so the IPv6 rules should not apply.
+> More info at https://bugzilla.kernel.org/show_bug.cgi?id=15530
+> 
+> This patch allows to check the minimum MTU for ipv6 tunnel according to these rules:
+>  -In case the tunnel is configured with ipip6 mode the minimum MTU is 68.
+>  -In case the tunnel is configured with ip6ip6 or any mode the minimum MTU is 1280.
+> 
+> Signed-off-by: Oussama Ghorbel <oghorbell@gmail.com>
+> ---
+>  net/ipv6/ip6_tunnel.c |   10 ++++++++--
+>  1 file changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 1e55866..a66ead2 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -1423,8 +1423,14 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>  static int
+>  ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
+>  {
+> -	if (new_mtu < IPV6_MIN_MTU) {
+> -		return -EINVAL;
+> +	struct ip6_tnl *t = netdev_priv(dev);
+> +
+> +	if (t->parms.proto == IPPROTO_IPIP) {
+> +		if (new_mtu < 68)
+> +			return -EINVAL;
 
+Maybe you could have a look at ip_tunnel_change_mtu in ipv4/ip_tunnel.c,
+generalize this check as e.g. ip_tunnel_valid_mtu or something and use it
+here? Maybe an af-independent ip_tunnel_max_mtu()?
 
-On 2013=E5=B9=B409=E6=9C=8824=E6=97=A5 19:45, Steffen Klassert wrote:
-> On Mon, Sep 23, 2013 at 05:18:37PM +0800, Fan Du wrote:
->> I'm not quite sure I get this "wildcard source address" right,
->> IMHO if a host needs to protect every traffic for a given remote hos=
-t,
->> then the source address is wildcard address, i.e. all ZEROs.
->> (Please correct me if I'm bloodly wrong=E3=80=82=E3=80=82=E3=80=82)
->
-> The above does not belong to a commit message, really.
-> If you are not sure and you want comments on your patch,
-> mark your patch as RFC. You should be sure that your patch
-> is correct when you submit, at least in the moment you
-> send it. I know that this can change a second after,
-> but in that moment you should be sure.
+> +	} else {
+> +		if (new_mtu < IPV6_MIN_MTU)
+> +			return -EINVAL;
 
-One day without embarrassment is not my day :)
-Have sent v2, please kindly review.
+This check could also be used here, then.
 
-Thanks
+>  	}
+>  	dev->mtu = new_mtu;
+>  	return 0;
 
->>
->> Here is the argument if above statement stands true:
->> __xfrm4/6_state_addr_check is a four steps check, all we need to do
->> is checking whether the destination address match. Passing saddr fro=
-m
->> flow is worst option, as the checking needs to reach the fourth step=
-=2E
->>
->> So, simply this process by only checking destination address only wh=
-en
->> using wildcard source address for looking up SAs.
->>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> ---
->
-> If you have further comments on your patch that should not be
-> included in the commit message, you can add them here.
->
->>   include/net/xfrm.h    |   31 +++++++++++++++++++++++++++++++
->>   net/xfrm/xfrm_state.c |    2 +-
->>   2 files changed, 32 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
->> index e253bf0..fdb9343 100644
->> --- a/include/net/xfrm.h
->> +++ b/include/net/xfrm.h
->> @@ -1282,6 +1282,37 @@ xfrm_state_addr_check(const struct xfrm_state=
- *x,
->>   }
->>
->>   static __inline__ int
->> +__xfrm4_state_daddr_check(const struct xfrm_state *x,
->> +                                const xfrm_address_t *daddr)
->> +{
->> +        return ((daddr->a4 =3D=3D x->id.daddr.a4) ? 1 : 0);
->> +}
->> +
->> +static __inline__ int
->> +__xfrm6_state_daddr_check(const struct xfrm_state *x,
->> +                         const xfrm_address_t *daddr)
->> +{
->> +        if (ipv6_addr_equal((struct in6_addr *)daddr, (struct in6_a=
-ddr *)&x->id.daddr))
->> +                return 1;
->> +        else
->> +                return 0;
->> +}
->> +
->> +static __inline__ int
->> +xfrm_state_daddr_check(const struct xfrm_state *x,
->> +                      const xfrm_address_t *daddr,
->> +                      unsigned short family)
->> +{
->> +        switch (family) {
->> +        case AF_INET:
->> +                return __xfrm4_state_daddr_check(x, daddr);
->> +        case AF_INET6:
->> +                return __xfrm6_state_daddr_check(x, daddr);
->> +        }
->> +        return 0;
->> +}
->
-> You used whitespaces where you should use tabs in the whole patch.
-> Please do the formating right to avoid cleanup patches.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Thanks,
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+  Hannes
