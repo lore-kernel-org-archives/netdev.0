@@ -1,70 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net v2 2/6] i40e: use common failure flow
-Date: Fri, 27 Sep 2013 05:35:54 -0700
-Message-ID: <1380285358-15685-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Joe Perches <joe@perches.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net v2 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 27 Sep 2013 05:35:52 -0700
+Message-ID: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:20970 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751304Ab3I0MgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 08:36:03 -0400
-In-Reply-To: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751185Ab3I0MgC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 08:36:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This series contains updates to igb and i40e.
 
-As mentioned by Joe Perches, we should be using
-foo = alloc(...)
-if (!foo)
-	return -ENOMEM;
+Todd provides a fix for 82580 devices in igb, where the ethtool
+loopback test was missing 82580 copper devices.
 
-return 0;
+Jesse provides five fixes/cleanups to i40e based on feedback from
+Joe Perches and the community.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Joe Perches <joe@perches.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+v2: fixed up patch 5 in the series based on feedback from Joe Perches
+    and David Miller
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 601d482..67f8fd5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -101,10 +101,10 @@ int i40e_allocate_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem,
- 	mem->size = ALIGN(size, alignment);
- 	mem->va = dma_zalloc_coherent(&pf->pdev->dev, mem->size,
- 				      &mem->pa, GFP_KERNEL);
--	if (mem->va)
--		return 0;
-+	if (!mem->va)
-+		return -ENOMEM;
- 
--	return -ENOMEM;
-+	return 0;
- }
- 
- /**
-@@ -136,10 +136,10 @@ int i40e_allocate_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem,
- 	mem->size = size;
- 	mem->va = kzalloc(size, GFP_KERNEL);
- 
--	if (mem->va)
--		return 0;
-+	if (!mem->va)
-+		return -ENOMEM;
- 
--	return -ENOMEM;
-+	return 0;
- }
- 
- /**
+The following are changes since commit f875691640cd3fa67f7ad1d3130ff9fa7fdca042:
+  Merge branch 'fixes-for-3.12' of git://gitorious.org/linux-can/linux-can
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Jesse Brandeburg (5):
+  i40e: use common failure flow
+  i40e: small clean ups from review
+  i40e: convert ret to aq_ret
+  i40e: better return values
+  i40e: clean up coccicheck reported errors
+
+Todd Fujinaka (1):
+  igb: Fix ethtool loopback test for 82580 copper
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c   | 162 +++++++++++++-------------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c  |   3 +
+ 4 files changed, 89 insertions(+), 85 deletions(-)
+
 -- 
 1.8.3.1
