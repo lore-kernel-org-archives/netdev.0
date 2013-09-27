@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net v2 6/6] i40e: clean up coccicheck reported errors
-Date: Fri, 27 Sep 2013 05:35:58 -0700
-Message-ID: <1380285358-15685-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net v2 4/6] i40e: convert ret to aq_ret
+Date: Fri, 27 Sep 2013 05:35:56 -0700
+Message-ID: <1380285358-15685-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,79 +10,276 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:42483 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203Ab3I0MgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 08:36:05 -0400
+	id S1751832Ab3I0MgE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 08:36:04 -0400
 In-Reply-To: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-coccicheck shows:
+When calling admin queue functions the driver should use aq_ret
+variable to help make clear that the return value is not a regular
+return variable.
 
-drivers/net/ethernet/intel/i40e/i40e_adminq.c:704:2-8: Replace memcpy
-with struct assignment
-drivers/net/ethernet/intel/i40e/i40e_adminq.c:763:1-7: Replace memcpy
-with struct assignment
-drivers/net/ethernet/intel/i40e/i40e_adminq.c:810:2-8: Replace memcpy
-with struct assignment
-drivers/net/ethernet/intel/i40e/i40e_common.c:510:2-8: Replace memcpy
-with struct assignment
-
-Fix each of them with a *a = *b;
+This allows for clean up of the return types that were previously
+converted to int.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c | 7 +++----
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 107 ++++++++++++++--------------
+ 1 file changed, 52 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 0c524fa..cfef7fc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -701,8 +701,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 865bc6b..60c7152 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1388,7 +1388,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 	bool add_happened = false;
+ 	int filter_list_len = 0;
+ 	u32 changed_flags = 0;
+-	i40e_status ret = 0;
++	i40e_status aq_ret = 0;
+ 	struct i40e_pf *pf;
+ 	int num_add = 0;
+ 	int num_del = 0;
+@@ -1449,28 +1449,28 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  
- 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
- 	if (cmd_details) {
--		memcpy(details, cmd_details,
--		       sizeof(struct i40e_asq_cmd_details));
-+		*details = *cmd_details;
+ 			/* flush a full buffer */
+ 			if (num_del == filter_list_len) {
+-				ret = i40e_aq_remove_macvlan(&pf->hw,
++				aq_ret = i40e_aq_remove_macvlan(&pf->hw,
+ 					    vsi->seid, del_list, num_del,
+ 					    NULL);
+ 				num_del = 0;
+ 				memset(del_list, 0, sizeof(*del_list));
  
- 		/* If the cmd_details are defined copy the cookie.  The
- 		 * cpu_to_le32 is not needed here because the data is ignored
-@@ -760,7 +759,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 	desc_on_ring = I40E_ADMINQ_DESC(hw->aq.asq, hw->aq.asq.next_to_use);
+-				if (ret)
++				if (aq_ret)
+ 					dev_info(&pf->pdev->dev,
+ 						 "ignoring delete macvlan error, err %d, aq_err %d while flushing a full buffer\n",
+-						 ret,
++						 aq_ret,
+ 						 pf->hw.aq.asq_last_status);
+ 			}
+ 		}
+ 		if (num_del) {
+-			ret = i40e_aq_remove_macvlan(&pf->hw, vsi->seid,
++			aq_ret = i40e_aq_remove_macvlan(&pf->hw, vsi->seid,
+ 						     del_list, num_del, NULL);
+ 			num_del = 0;
  
- 	/* if the desc is available copy the temp desc to the right place */
--	memcpy(desc_on_ring, desc, sizeof(struct i40e_aq_desc));
-+	*desc_on_ring = *desc;
+-			if (ret)
++			if (aq_ret)
+ 				dev_info(&pf->pdev->dev,
+ 					 "ignoring delete macvlan error, err %d, aq_err %d\n",
+-					 ret, pf->hw.aq.asq_last_status);
++					 aq_ret, pf->hw.aq.asq_last_status);
+ 		}
  
- 	/* if buff is not NULL assume indirect command */
- 	if (buff != NULL) {
-@@ -807,7 +806,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		kfree(del_list);
+@@ -1515,32 +1515,30 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  
- 	/* if ready, copy the desc back to temp */
- 	if (i40e_asq_done(hw)) {
--		memcpy(desc, desc_on_ring, sizeof(struct i40e_aq_desc));
-+		*desc = *desc_on_ring;
- 		if (buff != NULL)
- 			memcpy(buff, dma_buff->va, buff_size);
- 		retval = le16_to_cpu(desc->retval);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index c21df7b..1e4ea13 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -507,7 +507,7 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
+ 			/* flush a full buffer */
+ 			if (num_add == filter_list_len) {
+-				ret = i40e_aq_add_macvlan(&pf->hw,
+-							  vsi->seid,
+-							  add_list,
+-							  num_add,
+-							  NULL);
++				aq_ret = i40e_aq_add_macvlan(&pf->hw, vsi->seid,
++							     add_list, num_add,
++							     NULL);
+ 				num_add = 0;
  
- 	/* save link status information */
- 	if (link)
--		memcpy(link, hw_link_info, sizeof(struct i40e_link_status));
-+		*link = *hw_link_info;
+-				if (ret)
++				if (aq_ret)
+ 					break;
+ 				memset(add_list, 0, sizeof(*add_list));
+ 			}
+ 		}
+ 		if (num_add) {
+-			ret = i40e_aq_add_macvlan(&pf->hw, vsi->seid,
+-						  add_list, num_add, NULL);
++			aq_ret = i40e_aq_add_macvlan(&pf->hw, vsi->seid,
++						     add_list, num_add, NULL);
+ 			num_add = 0;
+ 		}
+ 		kfree(add_list);
+ 		add_list = NULL;
  
- 	/* flag cleared so helper functions don't call AQ again */
- 	hw->phy.get_link_info = false;
+-		if (add_happened && (!ret)) {
++		if (add_happened && (!aq_ret)) {
+ 			/* do nothing */;
+-		} else if (add_happened && (ret)) {
++		} else if (add_happened && (aq_ret)) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "add filter failed, err %d, aq_err %d\n",
+-				 ret, pf->hw.aq.asq_last_status);
++				 aq_ret, pf->hw.aq.asq_last_status);
+ 			if ((pf->hw.aq.asq_last_status == I40E_AQ_RC_ENOSPC) &&
+ 			    !test_bit(__I40E_FILTER_OVERFLOW_PROMISC,
+ 				      &vsi->state)) {
+@@ -1556,28 +1554,27 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 	if (changed_flags & IFF_ALLMULTI) {
+ 		bool cur_multipromisc;
+ 		cur_multipromisc = !!(vsi->current_netdev_flags & IFF_ALLMULTI);
+-		ret = i40e_aq_set_vsi_multicast_promiscuous(&vsi->back->hw,
+-							    vsi->seid,
+-							    cur_multipromisc,
+-							    NULL);
+-		if (ret)
++		aq_ret = i40e_aq_set_vsi_multicast_promiscuous(&vsi->back->hw,
++							       vsi->seid,
++							       cur_multipromisc,
++							       NULL);
++		if (aq_ret)
+ 			dev_info(&pf->pdev->dev,
+ 				 "set multi promisc failed, err %d, aq_err %d\n",
+-				 ret, pf->hw.aq.asq_last_status);
++				 aq_ret, pf->hw.aq.asq_last_status);
+ 	}
+ 	if ((changed_flags & IFF_PROMISC) || promisc_forced_on) {
+ 		bool cur_promisc;
+ 		cur_promisc = (!!(vsi->current_netdev_flags & IFF_PROMISC) ||
+ 			       test_bit(__I40E_FILTER_OVERFLOW_PROMISC,
+ 					&vsi->state));
+-		ret = i40e_aq_set_vsi_unicast_promiscuous(&vsi->back->hw,
+-							  vsi->seid,
+-							  cur_promisc,
+-							  NULL);
+-		if (ret)
++		aq_ret = i40e_aq_set_vsi_unicast_promiscuous(&vsi->back->hw,
++							     vsi->seid,
++							     cur_promisc, NULL);
++		if (aq_ret)
+ 			dev_info(&pf->pdev->dev,
+ 				 "set uni promisc failed, err %d, aq_err %d\n",
+-				 ret, pf->hw.aq.asq_last_status);
++				 aq_ret, pf->hw.aq.asq_last_status);
+ 	}
+ 
+ 	clear_bit(__I40E_CONFIG_BUSY, &vsi->state);
+@@ -1936,10 +1933,10 @@ static void i40e_restore_vlan(struct i40e_vsi *vsi)
+  * @vsi: the vsi being adjusted
+  * @vid: the vlan id to set as a PVID
+  **/
+-i40e_status i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid)
++int i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid)
+ {
+ 	struct i40e_vsi_context ctxt;
+-	i40e_status ret;
++	i40e_status aq_ret;
+ 
+ 	vsi->info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_VLAN_VALID);
+ 	vsi->info.pvid = cpu_to_le16(vid);
+@@ -1948,14 +1945,15 @@ i40e_status i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid)
+ 
+ 	ctxt.seid = vsi->seid;
+ 	memcpy(&ctxt.info, &vsi->info, sizeof(vsi->info));
+-	ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
+-	if (ret) {
++	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
++	if (aq_ret) {
+ 		dev_info(&vsi->back->pdev->dev,
+ 			 "%s: update vsi failed, aq_err=%d\n",
+ 			 __func__, vsi->back->hw.aq.asq_last_status);
++		return -ENOENT;
+ 	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ /**
+@@ -3451,28 +3449,27 @@ static int i40e_vsi_get_bw_info(struct i40e_vsi *vsi)
+ 	struct i40e_aqc_query_vsi_bw_config_resp bw_config = {0};
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_hw *hw = &pf->hw;
++	i40e_status aq_ret;
+ 	u32 tc_bw_max;
+-	int ret;
+ 	int i;
+ 
+ 	/* Get the VSI level BW configuration */
+-	ret = i40e_aq_query_vsi_bw_config(hw, vsi->seid, &bw_config, NULL);
+-	if (ret) {
++	aq_ret = i40e_aq_query_vsi_bw_config(hw, vsi->seid, &bw_config, NULL);
++	if (aq_ret) {
+ 		dev_info(&pf->pdev->dev,
+ 			 "couldn't get pf vsi bw config, err %d, aq_err %d\n",
+-			 ret, pf->hw.aq.asq_last_status);
+-		return ret;
++			 aq_ret, pf->hw.aq.asq_last_status);
++		return -EINVAL;
+ 	}
+ 
+ 	/* Get the VSI level BW configuration per TC */
+-	ret = i40e_aq_query_vsi_ets_sla_config(hw, vsi->seid,
+-					       &bw_ets_config,
+-					       NULL);
+-	if (ret) {
++	aq_ret = i40e_aq_query_vsi_ets_sla_config(hw, vsi->seid, &bw_ets_config,
++					          NULL);
++	if (aq_ret) {
+ 		dev_info(&pf->pdev->dev,
+ 			 "couldn't get pf vsi ets bw config, err %d, aq_err %d\n",
+-			 ret, pf->hw.aq.asq_last_status);
+-		return ret;
++			 aq_ret, pf->hw.aq.asq_last_status);
++		return -EINVAL;
+ 	}
+ 
+ 	if (bw_config.tc_valid_bits != bw_ets_config.tc_valid_bits) {
+@@ -3494,7 +3491,7 @@ static int i40e_vsi_get_bw_info(struct i40e_vsi *vsi)
+ 		/* 3 bits out of 4 for each TC */
+ 		vsi->bw_ets_max_quanta[i] = (u8)((tc_bw_max >> (i*4)) & 0x7);
+ 	}
+-	return ret;
++	return 0;
+ }
+ 
+ /**
+@@ -3505,30 +3502,30 @@ static int i40e_vsi_get_bw_info(struct i40e_vsi *vsi)
+  *
+  * Returns 0 on success, negative value on failure
+  **/
+-static int i40e_vsi_configure_bw_alloc(struct i40e_vsi *vsi,
+-				       u8 enabled_tc,
++static int i40e_vsi_configure_bw_alloc(struct i40e_vsi *vsi, u8 enabled_tc,
+ 				       u8 *bw_share)
+ {
+ 	struct i40e_aqc_configure_vsi_tc_bw_data bw_data;
+-	int i, ret = 0;
++	i40e_status aq_ret;
++	int i;
+ 
+ 	bw_data.tc_valid_bits = enabled_tc;
+ 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
+ 		bw_data.tc_bw_credits[i] = bw_share[i];
+ 
+-	ret = i40e_aq_config_vsi_tc_bw(&vsi->back->hw, vsi->seid,
+-				       &bw_data, NULL);
+-	if (ret) {
++	aq_ret = i40e_aq_config_vsi_tc_bw(&vsi->back->hw, vsi->seid, &bw_data,
++					  NULL);
++	if (aq_ret) {
+ 		dev_info(&vsi->back->pdev->dev,
+ 			 "%s: AQ command Config VSI BW allocation per TC failed = %d\n",
+ 			 __func__, vsi->back->hw.aq.asq_last_status);
+-		return ret;
++		return -EINVAL;
+ 	}
+ 
+ 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
+ 		vsi->info.qs_handle[i] = bw_data.qs_handles[i];
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ /**
 -- 
 1.8.3.1
