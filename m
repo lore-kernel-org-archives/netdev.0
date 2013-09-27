@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 3/9] bonding: make ad_port_selection_logic() use bond_for_each_slave()
-Date: Fri, 27 Sep 2013 16:11:59 +0200
-Message-ID: <1380291125-5671-4-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 7/9] bonding: remove unused __get_next_agg()
+Date: Fri, 27 Sep 2013 16:12:03 +0200
+Message-ID: <1380291125-5671-8-git-send-email-vfalico@redhat.com>
 References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Veaceslav Falico <vfalico@redhat.com>,
@@ -9,63 +9,55 @@ Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45527 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42113 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752318Ab3I0OLv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 10:11:51 -0400
+	id S1752643Ab3I0OL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 10:11:59 -0400
 In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, ad_port_selection_logic() uses
-
-for (aggregator = __get_first_agg(port); aggregator;
-     aggregator = __get_next_agg(aggregator)) {
-
-construct, however it's suboptimal, difficult to read and understand.
-
-Change it to a standard bond_for_each_slave(), so that we won't need
-__get_first/next_agg() and have it more readable.
+It has no users, so it's safe to remove it completely.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 22 ----------------------
+ 1 file changed, 22 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 0f86d2b..8b64ed4 100644
+index 6dbb84d..c62606a 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -1239,12 +1239,17 @@ static void ad_port_selection_logic(struct port *port)
- {
- 	struct aggregator *aggregator, *free_aggregator = NULL, *temp_aggregator;
- 	struct port *last_port = NULL, *curr_port;
-+	struct list_head *iter;
-+	struct bonding *bond;
-+	struct slave *slave;
- 	int found = 0;
+@@ -155,28 +155,6 @@ static inline struct aggregator *__get_first_agg(struct port *port)
+ 	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
+ }
  
- 	// if the port is already Selected, do nothing
- 	if (port->sm_vars & AD_PORT_SELECTED)
- 		return;
- 
-+	bond = __get_bond_by_port(port);
-+
- 	// if the port is connected to other aggregator, detach it
- 	if (port->aggregator) {
- 		// detach the port from its former aggregator
-@@ -1285,8 +1290,8 @@ static void ad_port_selection_logic(struct port *port)
- 		}
- 	}
- 	// search on all aggregators for a suitable aggregator for this port
--	for (aggregator = __get_first_agg(port); aggregator;
--	     aggregator = __get_next_agg(aggregator)) {
-+	bond_for_each_slave(bond, slave, iter) {
-+		aggregator = &(SLAVE_AD_INFO(slave).aggregator);
- 
- 		// keep a free aggregator for later use(if needed)
- 		if (!aggregator->lag_ports) {
+-/**
+- * __get_next_agg - get the next aggregator in the bond
+- * @aggregator: the aggregator we're looking at
+- *
+- * Return the aggregator of the slave that is next in line of @aggregator's
+- * slave in the bond, or %NULL if it can't be found.
+- */
+-static inline struct aggregator *__get_next_agg(struct aggregator *aggregator)
+-{
+-	struct slave *slave = aggregator->slave, *slave_next;
+-	struct bonding *bond = bond_get_bond_by_slave(slave);
+-
+-	// If there's no bond for this aggregator, or this is the last slave
+-	if (bond == NULL)
+-		return NULL;
+-	slave_next = bond_next_slave(bond, slave);
+-	if (!slave_next || bond_is_first_slave(bond, slave_next))
+-		return NULL;
+-
+-	return &(SLAVE_AD_INFO(slave_next).aggregator);
+-}
+-
+ /*
+  * __agg_has_partner
+  *
 -- 
 1.8.4
