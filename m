@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 2/9] bonding: remove __get_first_port()
-Date: Fri, 27 Sep 2013 16:11:58 +0200
-Message-ID: <1380291125-5671-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 4/9] bonding: make __get_active_agg() use bond_for_each_slave()
+Date: Fri, 27 Sep 2013 16:12:00 +0200
+Message-ID: <1380291125-5671-5-git-send-email-vfalico@redhat.com>
 References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Veaceslav Falico <vfalico@redhat.com>,
@@ -9,63 +9,58 @@ Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8827 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31703 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752155Ab3I0OLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 10:11:49 -0400
+	id S1752458Ab3I0OLz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 10:11:55 -0400
 In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we have only one user of it, so it's kind of useless and just
-obfusicates things.
+Currently we're relying on suboptimal construct
 
-Remove it and move the logic to the only user -
-bond_3ad_state_machine_handler().
+for (; aggregator; aggregator = __get_next_agg(aggregator)) {
+
+where aggregator is an argument of __get_active_agg() which is _always_ the
+first slave's aggregator - judging by all the callers, comments in the
+ad_agg_selection_logic() and by logic.
+
+Convert it to use the standard bond_for_each_slave().
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 18 ++++--------------
- 1 file changed, 4 insertions(+), 14 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index c1535f8..0f86d2b 100644
+index 8b64ed4..1109d82 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -136,19 +136,6 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
+@@ -720,16 +720,15 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
+  */
+ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
+ {
+-	struct aggregator *retval = NULL;
++	struct bonding *bond = aggregator->slave->bond;
++	struct list_head *iter;
++	struct slave *slave;
+ 
+-	for (; aggregator; aggregator = __get_next_agg(aggregator)) {
+-		if (aggregator->is_active) {
+-			retval = aggregator;
+-			break;
+-		}
+-	}
++	bond_for_each_slave(bond, slave, iter)
++		if (SLAVE_AD_INFO(slave).aggregator.is_active)
++			return &(SLAVE_AD_INFO(slave).aggregator);
+ 
+-	return retval;
++	return NULL;
  }
  
  /**
-- * __get_first_port - get the first port in the bond
-- * @bond: the bond we're looking at
-- *
-- * Return the port of the first slave in @bond, or %NULL if it can't be found.
-- */
--static inline struct port *__get_first_port(struct bonding *bond)
--{
--	struct slave *first_slave = bond_first_slave(bond);
--
--	return first_slave ? &(SLAVE_AD_INFO(first_slave).port) : NULL;
--}
--
--/**
-  * __get_first_agg - get the first aggregator in the bond
-  * @bond: the bond we're looking at
-  *
-@@ -2104,8 +2091,11 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 
- 	// check if agg_select_timer timer after initialize is timed out
- 	if (BOND_AD_INFO(bond).agg_select_timer && !(--BOND_AD_INFO(bond).agg_select_timer)) {
-+		slave = bond_first_slave(bond);
-+		port = slave ? &(SLAVE_AD_INFO(slave).port) : NULL;
-+
- 		// select the active aggregator for the bond
--		if ((port = __get_first_port(bond))) {
-+		if (port) {
- 			if (!port->slave) {
- 				pr_warning("%s: Warning: bond's first port is uninitialized\n",
- 					   bond->dev->name);
 -- 
 1.8.4
