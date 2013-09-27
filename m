@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: phy: at803x: add suspend/resume callbacks
-Date: Fri, 27 Sep 2013 17:28:47 -0400 (EDT)
-Message-ID: <20130927.172847.499277297343578722.davem@davemloft.net>
-References: <1379775182-1271-2-git-send-email-zonque@gmail.com>
-	<523E877F.4050906@ti.com>
-	<5245D31C.4080104@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ipv6: avoid high order memory allocations
+ for /proc/net/ipv6_route
+Date: Fri, 27 Sep 2013 17:33:02 -0400 (EDT)
+Message-ID: <20130927.173302.304054571363734165.davem@davemloft.net>
+References: <20130921145559.GA20730@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org, ujhelyi.m@gmail.com,
-	sergei.shtylyov@cogentembedded.com
-To: zonque@gmail.com
+Cc: netdev@vger.kernel.org, greearb@candelatech.com, kaber@trash.net,
+	yoshfuji@linux-ipv6.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50750 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50843 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753639Ab3I0V2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 17:28:49 -0400
-In-Reply-To: <5245D31C.4080104@gmail.com>
+	with ESMTP id S1754537Ab3I0VdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 17:33:04 -0400
+In-Reply-To: <20130921145559.GA20730@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Mack <zonque@gmail.com>
-Date: Fri, 27 Sep 2013 20:49:00 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 21 Sep 2013 16:55:59 +0200
 
-> On 22.09.2013 08:00, Mugunthan V N wrote:
->> On Saturday 21 September 2013 08:23 PM, Daniel Mack wrote:
->>> When WOL is enabled, the chip can't be put into power-down (BMCR_PDOWN)
->>> mode, as that will also switch off the MAC, which consequently leads to
->>> a link loss.
->>>
->>> Use BMCR_ISOLATE in that case, which will at least save us some
->>> milliamperes in comparison to normal operation mode.
->>>
->>> Signed-off-by: Daniel Mack <zonque@gmail.com>
->> Looks good to me
->> 
->> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Dumping routes on a system with lots rt6_infos in the fibs causes up to
+> 11-order allocations in seq_file (which fail). While we could switch
+> there to vmalloc we could just implement the streaming interface for
+> /proc/net/ipv6_route. This patch switches /proc/net/ipv6_route from
+> single_open_net to seq_open_net.
 > 
-> Thanks :)
+> loff_t *pos tracks dst entries.
 > 
-> David, can you take these two patches with Mugunthan's Acked-by: or do
-> you want me to resend them?
+> Also kill never used struct rt6_proc_arg and now unused function
+> fib6_clean_all_ro.
+> 
+> Cc: Ben Greear <greearb@candelatech.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Both applied to net-next, thanks.
+Applied, nice work.
