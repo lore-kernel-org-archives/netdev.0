@@ -1,70 +1,96 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next 1/5] tipc: silence sparse
-	warnings
-Date: Fri, 27 Sep 2013 17:48:33 +0800
-Message-ID: <52455471.8060102@windriver.com>
-References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
-	<1380014868-2797-2-git-send-email-jon.maloy@ericsson.com>
-	<20130927.015908.1293107524454870319.davem@davemloft.net>
-	<52453B51.5070702@windriver.com> <52453E8D.2020705@ericsson.com>
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: Re: [PATCHv2] ipvs: improved SH fallback strategy
+Date: Fri, 27 Sep 2013 11:06:23 +0100
+Message-ID: <20130927100622.GC28974@eldamar.org.uk>
+References: <20130923115139.GA15034@eldamar.org.uk>
+ <524099BA.5020303@cogentembedded.com>
+ <20130924093238.GD18494@eldamar.org.uk>
+ <20130925003033.GG26081@verge.net.au>
+ <20130925092638.GD19768@eldamar.org.uk>
+ <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
+ <20130926100540.GB27583@eldamar.org.uk>
+ <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Andreas_Bofj=E4ll?= <andreas.bofjall@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <52453E8D.2020705@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/27/2013 04:15 PM, Andreas Bofj=E4ll wrote:
-> On 09/27/2013 10:01 AM, Ying Xue wrote:
->> Good point!
->> It's better for us to use memcpy_fromiovecend() instead of
->> skb_copy_to_linear_data() and its friends.
->>
->> We will submit another version to correct this error soon.
-> =
+Improve the SH fallback realserver selection strategy.
 
-> I could be wrong here, but I think you should also remove the entire
-> cast on line 1210 in link.c:
-> =
+With sh and sh-fallback, if a realserver is down, this attempts to
+distribute the traffic that would have gone to that server evenly
+among the remaining servers.
 
-> sect_crs =3D msg_sect[curr_sect].iov_base;
-> =
+Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 
-> There should be no reason to cast there since you made sect_crs into
-> const unchar* __user and msg_sect[].iov_base is void* __user.
-> =
+--
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 3588fae..cc65b2f 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -115,27 +115,46 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ }
+ 
+ 
+-/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
++/* As ip_vs_sh_get, but with fallback if selected server is unavailable
++ *
++ * The fallback strategy loops around the table starting from a "random"
++ * point (in fact, it is chosen to be the original hash value to make the
++ * algorithm deterministic) to find a new server.
++ */
+ static inline struct ip_vs_dest *
+ ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+ 		      const union nf_inet_addr *addr, __be16 port)
+ {
+-	unsigned int offset;
+-	unsigned int hash;
++	unsigned int offset, roffset;
++	unsigned int hash, ihash;
+ 	struct ip_vs_dest *dest;
+ 
++	/* first try the dest it's supposed to go to */
++	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
++	dest = rcu_dereference(s->buckets[ihash].dest);
++	if (!dest)
++		return NULL;
++	if (!is_unavailable(dest))
++		return dest;
++
++	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
++		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
++
++	/* if the original dest is unavailable, loop around the table
++	 * starting from ihash to find a new dest
++	 */
+ 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
+-		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
++		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
++		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
+ 		dest = rcu_dereference(s->buckets[hash].dest);
+ 		if (!dest)
+ 			break;
+-		if (is_unavailable(dest))
+-			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
+-				      "%s:%d (offset %d)",
+-				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+-				      ntohs(dest->port), offset);
+-		else
++		if (!is_unavailable(dest))
+ 			return dest;
++		IP_VS_DBG_BUF(6, "SH: selected unavailable "
++			      "server %s:%d (offset %d), reselecting",
++			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
++			      ntohs(dest->port), roffset);
+ 	}
+ 
+ 	return NULL;
 
-
-You are right, thank you for your nice reminder!
-
-Regards,
-Ying
-
-> /Andreas
-> =
-
-> =
-
-
-
----------------------------------------------------------------------------=
----
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most fr=
-om =
-
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=3D60133471&iu=3D/4140/ostg.cl=
-ktrk
