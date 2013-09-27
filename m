@@ -1,42 +1,44 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net 7/7] be2net: Fix to display the VLAN priority for a VF
-Date: Fri, 27 Sep 2013 15:18:56 -0500
-Message-ID: <20130927201856.GA4616@emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Paul Marks <pmarks@google.com>
+Subject: Re: [PATCH] ipv6: Fix preferred_lft not updating in some cases
+Date: Fri, 27 Sep 2013 13:28:06 -0700
+Message-ID: <CAHaKRvJDZJjuv4sALmQAotk5EUMfYPiLN=8_noWCRQYOW+bxSA@mail.gmail.com>
+References: <1380147175-14874-1-git-send-email-pmarks@google.com> <20130927081604.GB28287@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Paul Marks <pmarks@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:29061 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751605Ab3I0US7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 16:18:59 -0400
-Content-Disposition: inline
+Received: from mail-qe0-f49.google.com ([209.85.128.49]:47517 "EHLO
+	mail-qe0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab3I0U21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 16:28:27 -0400
+Received: by mail-qe0-f49.google.com with SMTP id s14so2178605qeb.8
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 13:28:26 -0700 (PDT)
+In-Reply-To: <20130927081604.GB28287@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VLAN priority is not being displayed for a VF currently when user executes
-"ip link show" command. This patch fixes it.
+On Fri, Sep 27, 2013 at 1:16 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Wed, Sep 25, 2013 at 03:12:55PM -0700, Paul Marks wrote:
+>> -                                     if (prefered_lft != ifp->prefered_lft) {
+>
+> Wouldn't the easiest solution be to just drop this if and execute the two
+> lines below unconditionally?
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Yes, that's also correct.  But is it not better to have simpler code
+than shorter diffs?  Should we transliterate English to C, or think
+about what the algorithm is actually doing?  The fact that this bug
+has gone unnoticed provides some evidence that the code may have been
+too complicated.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index ad593ca..2c38cc4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1201,8 +1201,8 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
- 
- 	vi->vf = vf;
- 	vi->tx_rate = vf_cfg->tx_rate;
--	vi->vlan = vf_cfg->vlan_tag;
--	vi->qos = 0;
-+	vi->vlan = vf_cfg->vlan_tag & VLAN_VID_MASK;
-+	vi->qos = vf_cfg->vlan_tag >> VLAN_PRIO_SHIFT;
- 	memcpy(&vi->mac, vf_cfg->mac_addr, ETH_ALEN);
- 
- 	return 0;
--- 
-1.8.1.2
+>> +                             const u32 minimum_lft = min(
+>> +                                     stored_lft, (u32)MIN_VALID_LIFETIME);
+>> +                             valid_lft = max(valid_lft, minimum_lft);
+>
+> Quick question: Don't we need a prefered_lft = min(preferred_lft, valid_lft)
+> here?
+
+The invariant is (preferred_lft <= valid_lft), and valid_lft can only
+get bigger, so I don't think there's a problem.
