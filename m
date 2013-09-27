@@ -1,173 +1,71 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH net 1/1] qlcnic: Fix register device in FAILED state for 82xx.
-Date: Fri, 27 Sep 2013 02:12:36 -0400
-Message-ID: <1380262356-26221-1-git-send-email-sucheta.chakraborty@qlogic.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net 1/2] ip_tunnel: Fix a memory corruption in
+ ip_tunnel_xmit
+Date: Fri, 27 Sep 2013 09:45:30 +0200
+Message-ID: <20130927074530.GD7660@secunet.com>
+References: <20130925055418.GV7660@secunet.com>
+ <CALnjE+q1=EJGBBC9KC4_hcj2SPhSPQ3xNVt6RVFN2hZPFYM2TA@mail.gmail.com>
+ <20130926082552.GB7660@secunet.com>
+ <CALnjE+ofaXQa3gsPPxqdWZeBxgML6M1vnC9mmc5dufwy0gJO-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:48916 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751113Ab3I0Gm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 02:42:27 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:37787 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751258Ab3I0Hpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 03:45:33 -0400
+Content-Disposition: inline
+In-Reply-To: <CALnjE+ofaXQa3gsPPxqdWZeBxgML6M1vnC9mmc5dufwy0gJO-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Commit 7e2cf4feba058476324dc545e3d1b316998c91e6
-  ("qlcnic: change driver hardware interface mechanism")
-  has overwritten
-  commit b43e5ee76a4320c070cf0fe65cf4927198fbb4d1
-  ("qlcnic: Register device in FAILED state")
+On Thu, Sep 26, 2013 at 11:25:01AM -0700, Pravin Shelar wrote:
+> On Thu, Sep 26, 2013 at 1:25 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > On Wed, Sep 25, 2013 at 09:55:50AM -0700, Pravin Shelar wrote:
+> >> On Tue, Sep 24, 2013 at 10:54 PM, Steffen Klassert
+> >> <steffen.klassert@secunet.com> wrote:
+> >> > We might extend the used aera of a skb beyond the total
+> >> > headroom when we install the ipip header. Fix this by
+> >> > calling skb_cow_head() unconditionally.
+> >> >
+> >> It is better to call skb_cow_head() from ipip_tunnel_xmit() as it is
+> >> consistent with gre.
+> >
+> > I think this would just move the bug from ipip to gre. ipgre_xmit()
+> > uses dev->needed_headroom which is based on the guessed output device
+> > in ip_tunnel_bind_dev(). If the device we get from the route lookup
+> > in ip_tunnel_xmit() is different from the guessed one and the resulting
+> > max_headroom is bigger than dev->needed_headroom, we run into that bug
+> > because skb_cow_head() will not be called with the updated
+> > dev->needed_headroom.
+> >
+> Thats why ip_tunnel_xmit() update dev->needed_headroom.
+> Just to be clear I was talking abt calling skb_cow_head with
+> dev->needed_headroom in ipip_xmit and leave ip_tunnel_xmit as it is.
+> So that most of cases we will not need to adjust headroom in ip_tunnel
+> xmit.
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  8 +++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 39 ++++++++++++++++++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  | 12 +++++++
- 3 files changed, 57 insertions(+), 2 deletions(-)
+skb_cow_head() does not do much if there is enough headroom, so
+calling it here is uncritical. But we should adjust the headroom
+as soon as we know that it is insufficient.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 4d7ad00..ebe4c86 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1794,3 +1794,11 @@ const struct ethtool_ops qlcnic_sriov_vf_ethtool_ops = {
- 	.set_msglevel		= qlcnic_set_msglevel,
- 	.get_msglevel		= qlcnic_get_msglevel,
- };
-+
-+const struct ethtool_ops qlcnic_ethtool_failed_ops = {
-+	.get_settings		= qlcnic_get_settings,
-+	.get_drvinfo		= qlcnic_get_drvinfo,
-+	.set_msglevel		= qlcnic_set_msglevel,
-+	.get_msglevel		= qlcnic_get_msglevel,
-+	.set_dump		= qlcnic_set_dump,
-+};
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index c4c5023..21d00a0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -431,6 +431,9 @@ static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
- 	while (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
- 		usleep_range(10000, 11000);
- 
-+	if (!adapter->fw_work.work.func)
-+		return;
-+
- 	cancel_delayed_work_sync(&adapter->fw_work);
- }
- 
-@@ -2275,8 +2278,9 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		adapter->portnum = adapter->ahw->pci_func;
- 		err = qlcnic_start_firmware(adapter);
- 		if (err) {
--			dev_err(&pdev->dev, "Loading fw failed.Please Reboot\n");
--			goto err_out_free_hw;
-+			dev_err(&pdev->dev, "Loading fw failed.Please Reboot\n"
-+				"\t\tIf reboot doesn't help, try flashing the card\n");
-+			goto err_out_maintenance_mode;
- 		}
- 
- 		qlcnic_get_multiq_capability(adapter);
-@@ -2408,6 +2412,22 @@ err_out_disable_pdev:
- 	pci_set_drvdata(pdev, NULL);
- 	pci_disable_device(pdev);
- 	return err;
-+
-+err_out_maintenance_mode:
-+	netdev->netdev_ops = &qlcnic_netdev_failed_ops;
-+	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_failed_ops);
-+	err = register_netdev(netdev);
-+
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to register net device\n");
-+		qlcnic_clr_all_drv_state(adapter, 0);
-+		goto err_out_free_hw;
-+	}
-+
-+	pci_set_drvdata(pdev, adapter);
-+	qlcnic_add_sysfs(adapter);
-+
-+	return 0;
- }
- 
- static void qlcnic_remove(struct pci_dev *pdev)
-@@ -2518,8 +2538,16 @@ static int qlcnic_resume(struct pci_dev *pdev)
- static int qlcnic_open(struct net_device *netdev)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	u32 state;
- 	int err;
- 
-+	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD) {
-+		netdev_err(netdev, "%s: Device is in FAILED state\n", __func__);
-+
-+		return -EIO;
-+	}
-+
- 	netif_carrier_off(netdev);
- 
- 	err = qlcnic_attach(adapter);
-@@ -3228,6 +3256,13 @@ void qlcnic_82xx_dev_request_reset(struct qlcnic_adapter *adapter, u32 key)
- 		return;
- 
- 	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD) {
-+		netdev_err(adapter->netdev, "%s: Device is in FAILED state\n",
-+			   __func__);
-+		qlcnic_api_unlock(adapter);
-+
-+		return;
-+	}
- 
- 	if (state == QLCNIC_DEV_READY) {
- 		QLC_SHARED_REG_WR32(adapter, QLCNIC_CRB_DEV_STATE,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index c6165d0..019f437 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -1272,6 +1272,7 @@ void qlcnic_remove_sysfs_entries(struct qlcnic_adapter *adapter)
- void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
-+	u32 state;
- 
- 	if (device_create_bin_file(dev, &bin_attr_port_stats))
- 		dev_info(dev, "failed to create port stats sysfs entry");
-@@ -1285,8 +1286,13 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- 	if (device_create_bin_file(dev, &bin_attr_mem))
- 		dev_info(dev, "failed to create mem sysfs entry\n");
- 
-+	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD)
-+		return;
-+
- 	if (device_create_bin_file(dev, &bin_attr_pci_config))
- 		dev_info(dev, "failed to create pci config sysfs entry");
-+
- 	if (device_create_file(dev, &dev_attr_beacon))
- 		dev_info(dev, "failed to create beacon sysfs entry");
- 
-@@ -1307,6 +1313,7 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
-+	u32 state;
- 
- 	device_remove_bin_file(dev, &bin_attr_port_stats);
- 
-@@ -1315,6 +1322,11 @@ void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- 	device_remove_file(dev, &dev_attr_diag_mode);
- 	device_remove_bin_file(dev, &bin_attr_crb);
- 	device_remove_bin_file(dev, &bin_attr_mem);
-+
-+	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD)
-+		return;
-+
- 	device_remove_bin_file(dev, &bin_attr_pci_config);
- 	device_remove_file(dev, &dev_attr_beacon);
- 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
--- 
-1.8.1.4
+Also, I really wonder how you want to adjust the headroom in
+ipip_tunnel_xmit() to a correct value. We know the needed
+headroom after the route lookup in ip_tunnel_xmit() and
+we have to adust it here because ip_tunnel_xmit() calls
+iptunnel_xmit() which does a __skb_push() before it
+installs the IP header.
+
+Please keep in mind tat this is a bug fix that might be interesting
+for stable too, we should try to keep the changes at a minimum.
+
+Another thing that I noticed, with commit 0e6fbc5b
+(ip_tunnels: extend iptunnel_xmit()) you moved the IP header
+installation to iptunnel_xmit() and changed skb_push()
+to __skb_push(). This made this bug quite hard to track
+down because instead of triggering a skb under panic,
+it did a silent memory corruption and crashed at random
+other places. Maybe we should change this back to skb_push().
