@@ -1,45 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net v2 1/6] igb: Fix ethtool loopback test for 82580 copper
-Date: Fri, 27 Sep 2013 05:35:53 -0700
-Message-ID: <1380285358-15685-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next 1/2] bonding: correctly verify for the first slave in bond_enslave
+Date: Fri, 27 Sep 2013 15:10:57 +0200
+Message-ID: <1380287458-3488-2-git-send-email-vfalico@redhat.com>
+References: <1380287458-3488-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57204 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11010 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203Ab3I0MgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 08:36:03 -0400
-In-Reply-To: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751638Ab3I0NKm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 09:10:42 -0400
+In-Reply-To: <1380287458-3488-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+After commit 1f718f0f4f97145f4072d2d72dcf85069ca7226d ("bonding: populate
+neighbour's private on enslave"), we've moved the actual 'linking' in the
+end of the function - so that, once linked, the slave is ready to be used,
+and is not still in the process of enslaving.
 
-Add back 82580 loopback tests to ethtool.
+However, 802.3ad verified if it's the first slave by looking at the
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+if (bond_first_slave(bond) == new_slave)
+
+which, because we've moved the linking to the end, became broken - on the
+first slave bond_first_slave(bond) returns NULL.
+
+Fix this by verifying if the prev_slave, that equals bond_last_slave(), is
+actually populated - if it is - then it's not the first slave, and vice
+versa.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 48cbc83..86d5142 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1607,6 +1607,9 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
- 			igb_write_phy_reg(hw, I347AT4_PAGE_SELECT, 0);
- 			igb_write_phy_reg(hw, PHY_CONTROL, 0x4140);
- 		}
-+	} else if (hw->phy.type == e1000_phy_82580) {
-+		/* enable MII loopback */
-+		igb_write_phy_reg(hw, I82580_PHY_LBK_CTRL, 0x8041);
- 	}
- 
- 	/* add small delay to avoid loopback test failure */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d5c3153..0367f80 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1557,7 +1557,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 */
+ 		bond_set_slave_inactive_flags(new_slave);
+ 		/* if this is the first slave */
+-		if (bond_first_slave(bond) == new_slave) {
++		if (!prev_slave) {
+ 			SLAVE_AD_INFO(new_slave).id = 1;
+ 			/* Initialize AD with the number of times that the AD timer is called in 1 second
+ 			 * can be called only after the mac address of the bond is set
 -- 
-1.8.3.1
+1.8.4
