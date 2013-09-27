@@ -1,63 +1,90 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 2/9] bonding: remove __get_first_port()
-Date: Fri, 27 Sep 2013 17:05:17 +0200
-Message-ID: <20130927150517.GA833@redhat.com>
-References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
- <1380291125-5671-3-git-send-email-vfalico@redhat.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7365@saturn3.aculab.com>
- <20130927145825.GA14139@redhat.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: TSQ can use a dynamic limit
+Date: Fri, 27 Sep 2013 11:08:28 -0400
+Message-ID: <CADVnQymat61=w1QhZZc4Nfnm9cmcnT6GsRpcT5DVa-KxEwnqsQ@mail.gmail.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com>
+	<1378472268.31445.15.camel@edumazet-glaptop>
+	<522A049A.7000105@citrix.com>
+	<1378486840.31445.36.camel@edumazet-glaptop>
+	<1378574494.26319.14.camel@edumazet-glaptop>
+	<522E4080.2050802@citrix.com>
+	<1378763815.26319.39.camel@edumazet-glaptop>
+	<loom.20130921T045654-573@post.gmane.org>
+	<20130921150327.GA9078@zion.uk.xensource.com>
+	<CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
+	<1379861902.3431.12.camel@edumazet-glaptop>
+	<1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, nikolay@redhat.com,
-	bhutchings@solarflare.com, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41657 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752643Ab3I0PHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 11:07:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20130927145825.GA14139@redhat.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:41800 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185Ab3I0PIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 11:08:30 -0400
+Received: by mail-ee0-f49.google.com with SMTP id d41so1295577eek.36
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 08:08:29 -0700 (PDT)
+In-Reply-To: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 27, 2013 at 04:58:25PM +0200, Veaceslav Falico wrote:
->On Fri, Sep 27, 2013 at 03:50:12PM +0100, David Laight wrote:
->>>@@ -2104,8 +2091,11 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>>
->>> 	// check if agg_select_timer timer after initialize is timed out
->>> 	if (BOND_AD_INFO(bond).agg_select_timer && !(--BOND_AD_INFO(bond).agg_select_timer)) {
->>>+		slave = bond_first_slave(bond);
->>>+		port = slave ? &(SLAVE_AD_INFO(slave).port) : NULL;
->>>+
->>> 		// select the active aggregator for the bond
->>>-		if ((port = __get_first_port(bond))) {
->>>+		if (port) {
->>> 			if (!port->slave) {
->>> 				pr_warning("%s: Warning: bond's first port is uninitialized\n",
->>> 					   bond->dev->name);
->>>--
->>
->>Looks like that could be:
->>		slave = bond_first_slave(bond);
->>		if (slave) {
->>			port = SLAVE_AD_INFO(slave).port;
->>and I assume 'slave == port->slave' so there is no need for the latter check?
+On Fri, Sep 27, 2013 at 6:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
->I've also fallen to this trap at first - slave->port can (virtually) be
->NULL, and this way we'll panic on "if (!port->slave)".
-
-Err, forgot to address the 'slave == port->slave' - yes, virtually it
-should be - if it's initialized (and, it should be) - however, as I've
-stated in the cover letter - there are *tons* of cleanups/optimizations of
-these kind that might be done here - and not to mix cleanups/optimizations
-with the thing that these patches should do (remove bond_next_slave) - I've
-decided to leave it as close to the original as possible.
-
+> When TCP Small Queues was added, we used a sysctl to limit amount of
+> packets queues on Qdisc/device queues for a given TCP flow.
 >
->>
->>	David
->>
->>
->>
+> Problem is this limit is either too big for low rates, or too small
+> for high rates.
+>
+> Now TCP stack has rate estimation in sk->sk_pacing_rate, and TSO
+> auto sizing, it can better control number of packets in Qdisc/device
+> queues.
+>
+> New limit is two packets or at least 1 to 2 ms worth of packets.
+>
+> Low rates flows benefit from this patch by having even smaller
+> number of packets in queues, allowing for faster recovery,
+> better RTT estimations.
+>
+> High rates flows benefit from this patch by allowing more than 2 packets
+> in flight as we had reports this was a limiting factor to reach line
+> rate. [ In particular if TX completion is delayed because of coalescing
+> parameters ]
+>
+> Example for a single flow on 10Gbp link controlled by FQ/pacing
+>
+> 14 packets in flight instead of 2
+>
+> $ tc -s -d qd
+> qdisc fq 8001: dev eth0 root refcnt 32 limit 10000p flow_limit 100p
+> buckets 1024 quantum 3028 initial_quantum 15140
+>  Sent 1168459366606 bytes 771822841 pkt (dropped 0, overlimits 0
+> requeues 6822476)
+>  rate 9346Mbit 771713pps backlog 953820b 14p requeues 6822476
+>   2047 flow, 2046 inactive, 1 throttled, delay 15673 ns
+>   2372 gc, 0 highprio, 0 retrans, 9739249 throttled, 0 flows_plimit
+>
+> Note that sk_pacing_rate is currently set to twice the actual rate, but
+> this might be refined in the future when a flow is in congestion
+> avoidance.
+>
+> Additional change : skb->destructor should be set to tcp_wfree().
+>
+> A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
