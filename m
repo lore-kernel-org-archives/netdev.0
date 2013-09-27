@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 8/9] bonding: don't use bond_next_slave() in bond_info_seq_next()
-Date: Fri, 27 Sep 2013 16:12:04 +0200
-Message-ID: <1380291125-5671-9-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 3/9] bonding: make ad_port_selection_logic() use bond_for_each_slave()
+Date: Fri, 27 Sep 2013 16:11:59 +0200
+Message-ID: <1380291125-5671-4-git-send-email-vfalico@redhat.com>
 References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Veaceslav Falico <vfalico@redhat.com>,
@@ -9,57 +9,63 @@ Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29423 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45527 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752458Ab3I0OMA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 10:12:00 -0400
+	id S1752318Ab3I0OLv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 10:11:51 -0400
 In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't need the circular loop there and it's the only current user of
-bond_next_slave() - so just use the standard bond_for_each_slave().
+Currently, ad_port_selection_logic() uses
+
+for (aggregator = __get_first_agg(port); aggregator;
+     aggregator = __get_next_agg(aggregator)) {
+
+construct, however it's suboptimal, difficult to read and understand.
+
+Change it to a standard bond_for_each_slave(), so that we won't need
+__get_first/next_agg() and have it more readable.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_procfs.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 7af5646..fb868d6 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -31,17 +31,25 @@ static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
- static void *bond_info_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 0f86d2b..8b64ed4 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -1239,12 +1239,17 @@ static void ad_port_selection_logic(struct port *port)
  {
- 	struct bonding *bond = seq->private;
--	struct slave *slave = v;
+ 	struct aggregator *aggregator, *free_aggregator = NULL, *temp_aggregator;
+ 	struct port *last_port = NULL, *curr_port;
 +	struct list_head *iter;
++	struct bonding *bond;
 +	struct slave *slave;
-+	bool found = false;
+ 	int found = 0;
  
- 	++*pos;
- 	if (v == SEQ_START_TOKEN)
- 		return bond_first_slave(bond);
+ 	// if the port is already Selected, do nothing
+ 	if (port->sm_vars & AD_PORT_SELECTED)
+ 		return;
  
--	if (bond_is_last_slave(bond, slave))
-+	if (bond_is_last_slave(bond, v))
- 		return NULL;
--	slave = bond_next_slave(bond, slave);
- 
--	return slave;
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (found)
-+			return slave;
-+		if (slave == v)
-+			found = true;
-+	}
++	bond = __get_bond_by_port(port);
 +
-+	return NULL;
- }
+ 	// if the port is connected to other aggregator, detach it
+ 	if (port->aggregator) {
+ 		// detach the port from its former aggregator
+@@ -1285,8 +1290,8 @@ static void ad_port_selection_logic(struct port *port)
+ 		}
+ 	}
+ 	// search on all aggregators for a suitable aggregator for this port
+-	for (aggregator = __get_first_agg(port); aggregator;
+-	     aggregator = __get_next_agg(aggregator)) {
++	bond_for_each_slave(bond, slave, iter) {
++		aggregator = &(SLAVE_AD_INFO(slave).aggregator);
  
- static void bond_info_seq_stop(struct seq_file *seq, void *v)
+ 		// keep a free aggregator for later use(if needed)
+ 		if (!aggregator->lag_ports) {
 -- 
 1.8.4
