@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 5/9] bonding: make ad_agg_selection_logic() use bond_for_each_slave()
-Date: Fri, 27 Sep 2013 16:12:01 +0200
-Message-ID: <1380291125-5671-6-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 8/9] bonding: don't use bond_next_slave() in bond_info_seq_next()
+Date: Fri, 27 Sep 2013 16:12:04 +0200
+Message-ID: <1380291125-5671-9-git-send-email-vfalico@redhat.com>
 References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Veaceslav Falico <vfalico@redhat.com>,
@@ -9,85 +9,57 @@ Cc: nikolay@redhat.com, bhutchings@solarflare.com,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62660 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29423 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752706Ab3I0OL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 10:11:57 -0400
+	id S1752458Ab3I0OMA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 10:12:00 -0400
 In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert all instances of
-
-for (agg = __get_first_agg(); agg; agg = __get_next_port)
-
-to the standard bond_for_each_slave(). Also, remove the useless checks
-before calling bond_3ad_set_carrier() - if we have something NULL - it
-would fire long ago, in __get_first/next_port(), per example.
+We don't need the circular loop there and it's the only current user of
+bond_next_slave() - so just use the standard bond_for_each_slave().
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_procfs.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 1109d82..6cd1444 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1484,19 +1484,23 @@ static int agg_device_up(const struct aggregator *agg)
- static void ad_agg_selection_logic(struct aggregator *agg)
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 7af5646..fb868d6 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -31,17 +31,25 @@ static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
+ static void *bond_info_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  {
- 	struct aggregator *best, *active, *origin;
-+	struct bonding *bond = agg->slave->bond;
+ 	struct bonding *bond = seq->private;
+-	struct slave *slave = v;
 +	struct list_head *iter;
 +	struct slave *slave;
- 	struct port *port;
++	bool found = false;
  
- 	origin = agg;
- 	active = __get_active_agg(agg);
- 	best = (active && agg_device_up(active)) ? active : NULL;
+ 	++*pos;
+ 	if (v == SEQ_START_TOKEN)
+ 		return bond_first_slave(bond);
  
--	do {
+-	if (bond_is_last_slave(bond, slave))
++	if (bond_is_last_slave(bond, v))
+ 		return NULL;
+-	slave = bond_next_slave(bond, slave);
+ 
+-	return slave;
 +	bond_for_each_slave(bond, slave, iter) {
-+		agg = &(SLAVE_AD_INFO(slave).aggregator);
-+
- 		agg->is_active = 0;
- 
- 		if (agg->num_of_ports && agg_device_up(agg))
- 			best = ad_agg_selection_test(best, agg);
--
--	} while ((agg = __get_next_agg(agg)));
++		if (found)
++			return slave;
++		if (slave == v)
++			found = true;
 +	}
- 
- 	if (best &&
- 	    __get_agg_selection_mode(best->lag_ports) == BOND_AD_STABLE) {
-@@ -1534,8 +1538,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 			 best->lag_ports, best->slave,
- 			 best->slave ? best->slave->dev->name : "NULL");
- 
--		for (agg = __get_first_agg(best->lag_ports); agg;
--		     agg = __get_next_agg(agg)) {
-+		bond_for_each_slave(bond, slave, iter) {
-+			agg = &(SLAVE_AD_INFO(slave).aggregator);
- 
- 			pr_debug("Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
- 				 agg->aggregator_identifier, agg->num_of_ports,
-@@ -1583,13 +1587,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 		}
- 	}
- 
--	if (origin->slave) {
--		struct bonding *bond;
--
--		bond = bond_get_bond_by_slave(origin->slave);
--		if (bond)
--			bond_3ad_set_carrier(bond);
--	}
-+	bond_3ad_set_carrier(bond);
++
++	return NULL;
  }
  
- /**
+ static void bond_info_seq_stop(struct seq_file *seq, void *v)
 -- 
 1.8.4
