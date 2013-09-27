@@ -1,51 +1,88 @@
-From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH v3] powerpc/83xx: gianfar_ptp: select 1588 clock source through dts file
-Date: Fri, 27 Sep 2013 10:28:01 -0500
-Message-ID: <21CA07A6-8B3D-49E9-8D9A-F63607FAC8EF@kernel.crashing.org>
-References: <1380289227-12029-1-git-send-email-aida.mynzhasova@skitlab.ru>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1380289227-12029-1-git-send-email-aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] bonding: Fix broken promiscuity reference counting issue
+Date: Fri, 27 Sep 2013 12:22:15 -0400
+Message-ID: <1380298935-32140-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Mark Wu <wudxw@linux.vnet.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49189 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591Ab3I0QYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 12:24:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Recently grabbed this report:
+https://bugzilla.redhat.com/show_bug.cgi?id=1005567
 
-On Sep 27, 2013, at 8:40 AM, Aida Mynzhasova wrote:
+Of an issue in which the bonding driver, with an attached vlan encountered the
+following errors when bond0 was taken down and back up:
 
-> Currently IEEE 1588 timer reference clock source is determined through
-> hard-coded value in gianfar_ptp driver. This patch allows to select ptp
-> clock source by means of device tree file node.
-> 
-> For instance:
-> 
-> 	fsl,cksel = <0>;
-> 
-> for using external (TSEC_TMR_CLK input) high precision timer
-> reference clock.
-> 
-> Other acceptable values:
-> 
-> 	<1> : eTSEC system clock
-> 	<2> : eTSEC1 transmit clock
-> 	<3> : RTC clock input
-> 
-> When this attribute isn't used, eTSEC system clock will serve as
-> IEEE 1588 timer reference clock.
-> 
-> Signed-off-by: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
-> ---
-> Documentation/devicetree/bindings/net/fsl-tsec-phy.txt | 18 +++++++++++++++++-
-> drivers/net/ethernet/freescale/gianfar_ptp.c           |  4 +++-
-> 2 files changed, 20 insertions(+), 2 deletions(-)
+dummy1: promiscuity touches roof, set promiscuity failed. promiscuity feature of
+device might be broken.
 
-Acked-by: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+The error occurs because, during __bond_release_one, if we release our last
+slave, we take on a random mac address and issue a NETDEV_CHANGEADDR
+notification.  With an attached vlan, the vlan may see that the vlan and bond
+mac address were in sync, but no longer are.  This triggers a call to dev_uc_add
+and dev_set_rx_mode, which enables IFF_PROMISC on the bond device.  Then, when
+we complete __bond_release_one, we use the current state of the bond flags to
+determine if we should decrement the promiscuity of the releasing slave.  But
+since the bond changed promiscuity state during the release operation, we
+incorrectly decrement the slave promisc count when it wasn't in promiscuous mode
+to begin with, causing the above error
 
-- k--
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fix is pretty simple, just cache the bonding flags at the start of the function
+and use those when determining the need to set promiscuity.
+
+This is also needed for the ALLMULTI flag
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Mark Wu <wudxw@linux.vnet.ibm.com>
+CC: "David S. Miller" <davem@davemloft.net>
+Reported-by: Mark Wu <wudxw@linux.vnet.ibm.com>
+---
+ drivers/net/bonding/bond_main.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d5c3153..5373a8d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1710,6 +1710,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave, *oldcurrent;
+ 	struct sockaddr addr;
++	int old_flags = bond_dev->flags;
+ 	netdev_features_t old_features = bond_dev->features;
+ 
+ 	/* slave is not a slave or master is not master of this slave */
+@@ -1841,12 +1842,18 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	 * bond_change_active_slave(..., NULL)
+ 	 */
+ 	if (!USES_PRIMARY(bond->params.mode)) {
+-		/* unset promiscuity level from slave */
+-		if (bond_dev->flags & IFF_PROMISC)
++		/* unset promiscuity level from slave
++		 * NOTE: The NETDEV_CHANGEADDR call above may change the value
++		 * of the IFF_PROMISC flag in the bond_dev, but we need the
++		 * value of that flag before that change, as that was the value
++		 * when this slave was attached, so we cache at the start of the
++		 * function and use it here. Same goes for ALLMULTI below
++		 */
++		if (old_flags & IFF_PROMISC)
+ 			dev_set_promiscuity(slave_dev, -1);
+ 
+ 		/* unset allmulti level from slave */
+-		if (bond_dev->flags & IFF_ALLMULTI)
++		if (old_flags & IFF_ALLMULTI)
+ 			dev_set_allmulti(slave_dev, -1);
+ 
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+-- 
+1.8.3.1
