@@ -1,63 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: question about map_read_chunks()
-Date: Fri, 27 Sep 2013 15:21:08 +0300
-Message-ID: <20130927122108.GF6247@mwanda>
-References: <20120220095019.GA21338@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Bruce Fields" <bfields@redhat.com>, netdev@vger.kernel.org,
-	linux-nfs@vger.kernel.org
-To: Tom Tucker <tom@ogc.us>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net v2 3/6] i40e: small clean ups from review
+Date: Fri, 27 Sep 2013 05:35:55 -0700
+Message-ID: <1380285358-15685-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Joe Perches <joe@perches.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:28027 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753216Ab3I0MVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 08:21:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20120220095019.GA21338@elgon.mountain>
+Received: from mga02.intel.com ([134.134.136.20]:57204 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751384Ab3I0MgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Sep 2013 08:36:03 -0400
+In-Reply-To: <1380285358-15685-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have looked at this again, and I still worry that it looks like a bug.
-(remote security related blah blah blah).
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-regards,
-dan carpenter
+As mentioned by Joe Perches clean up a loop flow.
 
-On Mon, Feb 20, 2012 at 12:50:19PM +0300, Dan Carpenter wrote:
-> I had a couple questions about some map_read_chunks().
-> 
-> net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
-> 
->    150          ch_bytes = ntohl(ch->rc_target.rs_length);
->                 ^^^^^^^^
-> It look like this is 32 bits from the network?
-> 
->    151          head->arg.head[0] = rqstp->rq_arg.head[0];
->    152          head->arg.tail[0] = rqstp->rq_arg.tail[0];
->    153          head->arg.pages = &head->pages[head->count];
->    154          head->hdr_count = head->count; /* save count of hdr pages */
->    155          head->arg.page_base = 0;
->    156          head->arg.page_len = ch_bytes;
->    157          head->arg.len = rqstp->rq_arg.len + ch_bytes;
->                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Can overflow.
->    158          head->arg.buflen = rqstp->rq_arg.buflen + ch_bytes;
->                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Same.  I didn't follow it through to see if an overflow matters.  Does
-> it?
-> 
->    159          head->count++;
->    160          chl_map->ch[0].start = 0;
->    161          while (byte_count) {
->    162                  rpl_map->sge[sge_no].iov_base =
->    163                          page_address(rqstp->rq_arg.pages[page_no]) + page_off;
->    164                  sge_bytes = min_t(int, PAGE_SIZE-page_off, ch_bytes);
->                                           ^^^
-> This is the wrong cast to use.  A large ch_bytes would be counted as a
-> negative value and get around the cap here.
-> 
->    165                  rpl_map->sge[sge_no].iov_len = sge_bytes;
-> 
-> regards,
-> dan carpenter
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Joe Perches <joe@perches.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 67f8fd5..865bc6b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -174,8 +174,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 			 u16 needed, u16 id)
+ {
+ 	int ret = -ENOMEM;
+-	int i = 0;
+-	int j = 0;
++	int i, j;
+ 
+ 	if (!pile || needed == 0 || id >= I40E_PILE_VALID_BIT) {
+ 		dev_info(&pf->pdev->dev,
+@@ -186,7 +185,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 
+ 	/* start the linear search with an imperfect hint */
+ 	i = pile->search_hint;
+-	while (i < pile->num_entries && ret < 0) {
++	while (i < pile->num_entries) {
+ 		/* skip already allocated entries */
+ 		if (pile->list[i] & I40E_PILE_VALID_BIT) {
+ 			i++;
+@@ -205,6 +204,7 @@ static int i40e_get_lump(struct i40e_pf *pf, struct i40e_lump_tracking *pile,
+ 				pile->list[i+j] = id | I40E_PILE_VALID_BIT;
+ 			ret = i;
+ 			pile->search_hint = i + j;
++			break;
+ 		} else {
+ 			/* not enough, so skip over it and continue looking */
+ 			i += j;
+-- 
+1.8.3.1
