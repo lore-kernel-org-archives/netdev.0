@@ -1,80 +1,53 @@
-From: "Steinar H. Gunderson" <sesse@google.com>
-Subject: Re: [PATCH net-next] net: introduce SO_MAX_PACING_RATE
-Date: Fri, 27 Sep 2013 23:16:08 +0200
-Message-ID: <20130927211604.GA929@imap.gmail.com>
-References: <1379949014.3165.24.camel@edumazet-glaptop>
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Subject: Re: [PATCH 2/2] ipv4 igmp: use del_timer_sync instead of del_timer in ip_mc_down
+Date: Fri, 27 Sep 2013 16:28:01 -0700
+Message-ID: <CAO7SqHAuyyJXrm5q3_2PW--aQpTjk+j7O_iZ6sg8E_xVBd_4Mg@mail.gmail.com>
+References: <1378363404-37749-1-git-send-email-noureddine@aristanetworks.com>
+	<20130905084312.091f73b7@nehalam.linuxnetplumber.net>
+	<CAO7SqHA4LJhy_NBkPLViJB3s7hM85qd88pmjy3hq-hCCuQstaA@mail.gmail.com>
+	<CAO7SqHA5pBs7Tmop1ukS_AEXO8K9Np7odo20QdTYHBg2qoV49Q@mail.gmail.com>
+	<20130927231532.GA23750@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f74.google.com ([74.125.82.74]:65085 "EHLO
-	mail-wg0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270Ab3I0XUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 19:20:48 -0400
-Received: by mail-wg0-f74.google.com with SMTP id k14so159205wgh.3
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 16:20:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1379949014.3165.24.camel@edumazet-glaptop>
+Received: from mail-vb0-f41.google.com ([209.85.212.41]:60637 "EHLO
+	mail-vb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753003Ab3I0X2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 19:28:02 -0400
+Received: by mail-vb0-f41.google.com with SMTP id g17so2378806vbg.0
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 16:28:01 -0700 (PDT)
+In-Reply-To: <20130927231532.GA23750@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 23, 2013 at 08:10:14AM -0700, Eric Dumazet wrote:
-> SO_MAX_PACING_RATE offers the application the ability to cap the
-> rate computed by transport layer. Value is in bytes per second.
+Thanks for the explanation. Currenlty, __in_dev_put is both used in
+timer handler function and in ip_mc_down where del_timer is invoked. I
+guess we need to change the timer handler so it uses in_dev_put to do
+proper cleanup in cases where it runs past the call to ip_mc_down and
+has the last reference.
 
-I tried this (the first version) on top of 3.12-rc2, but it doesn't actually
-appear to work.
-
-The setsockopt goes through:
-
-  [pid 30501] setsockopt(11, SOL_SOCKET, 0x2f /* SO_??? */, [1920000], 4) = 0
-
-And the fq scheduler is active on the machine:
-
-  pannekake:~> sudo tc qdisc
-  qdisc fq 8001: dev eth0 root refcnt 2 limit 10000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140 
-
-Yet the packets come out way too close on the wire, as measured by tcpdump
-(I have tso/gso off):  
-
-  23:11:13.687773 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 706316:707764, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687787 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 707764:709212, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687793 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 709212:710660, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687799 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 710660:712108, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687804 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 712108:713556, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687809 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 713556:715004, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687814 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 715004:716452, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687819 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 716452:717900, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687825 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 717900:719348, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687830 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 719348:720796, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687835 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 720796:722244, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687840 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 722244:723692, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687845 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 723692:725140, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687850 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 725140:726588, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687855 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 726588:728036, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687860 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 728036:729484, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687864 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 729484:730932, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687869 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 730932:732380, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687874 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 732380:733828, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687878 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 733828:735276, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687883 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 735276:736724, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687888 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 736724:738172, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687893 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 738172:739620, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687902 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 739620:741068, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.687921 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 741068:742516, ack 1, win 114, options [nop,nop,TS val 5666415 ecr 46581981], length 1448
-  23:11:13.688818 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 742516:743964, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.688833 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 743964:745412, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.689780 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 745412:746860, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.689794 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 746860:748308, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.690647 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 748308:749756, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.690660 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 749756:751204, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.691493 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 751204:752652, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.691505 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 752652:754100, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-  23:11:13.692299 IP 193.35.52.50.9094 > 178.83.234.79.51249: Flags [.], seq 754100:755548, ack 1, win 114, options [nop,nop,TS val 5666416 ecr 46581981], length 1448
-
-/* Steinar */
--- 
-Software Engineer, Google Switzerland
+On Fri, Sep 27, 2013 at 4:15 PM, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+> On Fri, Sep 27, 2013 at 04:04:00PM -0700, Salam Noureddine wrote:
+>>                               I don't quite understand the reason
+>> for having __in_dev_put decrement the refcnt without destroying the
+>> in_device in case it reaches 0. If the timer handler assumes it cannot
+>> be the last one to hold a reference then that would mean it doesn't
+>> need the reference in the first place.
+>
+> I would like to explain this, because this can result in a big mistake.
+>
+> Timer takes reference, when it _can_ be the last sometimes.
+>
+> When we do del_timer() and know for sure that someone holds refcnt, we can just
+> decrese it. In this cae it is obvious: we sit in context whcih deals with in_dev,
+> so that reference from timer acannot be the last: caller of the function holds refcnt.
+>
+> But in another places timer _expires_ and that last reference is dropped by in_dev_put().
+>
+> Alexey
