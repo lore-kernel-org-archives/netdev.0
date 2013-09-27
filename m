@@ -1,135 +1,54 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net 3/7] be2net: Fix VLAN promiscuous mode programming
-Date: Fri, 27 Sep 2013 15:17:58 -0500
-Message-ID: <20130927201758.GA4548@emulex.com>
+Subject: [PATCH net 4/7] be2net: Fix number of VLANs supported in UMC mode
+ for BE3-R.
+Date: Fri, 27 Sep 2013 15:18:16 -0500
+Message-ID: <20130927201816.GA4565@emulex.com>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:29050 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509Ab3I0USB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 16:18:01 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:14700 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752508Ab3I0UST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 16:18:19 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the interface runs out of the allocated entries in VLAN table,
-we program the interface in VLAN promiscuous mode.
-Use OPCODE_COMMON_NTWK_RX_FILTER to set VLAN Promiscuous mode
-instead of OPCODE_COMMON_NTWK_VLAN_CONFIG.
+In BE3-R, when UMC is enabled, the number of VLANs that can be added
+to the interface is reduced to 15.
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |  1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |  9 ++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |  2 ++
- drivers/net/ethernet/emulex/benet/be_main.c | 34 ++++++++++++++++++++++++-----
- 4 files changed, 40 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      | 1 +
+ drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
+ 2 files changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index ace5050..95d303d 100644
+index 95d303d..db02023 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -333,6 +333,7 @@ enum vf_state {
+@@ -88,6 +88,7 @@ static inline char *nic_name(struct pci_dev *pdev)
+ #define BE_MIN_MTU		256
  
- #define BE_FLAGS_LINK_STATUS_INIT		1
- #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
-+#define BE_FLAGS_VLAN_PROMISC			(1 << 4)
- #define BE_FLAGS_NAPI_ENABLED			(1 << 9)
- #define BE_UC_PMAC_COUNT		30
- #define BE_VF_UC_PMAC_COUNT		2
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 1ab5dab..bd0e0c0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -180,6 +180,9 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 			dev_err(&adapter->pdev->dev,
- 				"opcode %d-%d failed:status %d-%d\n",
- 				opcode, subsystem, compl_status, extd_status);
-+
-+			if (extd_status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
-+				return extd_status;
- 		}
- 	}
- done:
-@@ -1812,6 +1815,12 @@ int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
- 	} else if (flags & IFF_ALLMULTI) {
- 		req->if_flags_mask = req->if_flags =
- 				cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
-+	} else if (flags & BE_FLAGS_VLAN_PROMISC) {
-+		req->if_flags_mask = cpu_to_le32(BE_IF_FLAGS_VLAN_PROMISCUOUS);
-+
-+		if (value == ON)
-+			req->if_flags =
-+				cpu_to_le32(BE_IF_FLAGS_VLAN_PROMISCUOUS);
- 	} else {
- 		struct netdev_hw_addr *ha;
- 		int i = 0;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 51a93bd..108ca8a 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -60,6 +60,8 @@ enum {
- 	MCC_STATUS_NOT_SUPPORTED = 66
- };
+ #define BE_NUM_VLANS_SUPPORTED	64
++#define BE_UMC_NUM_VLANS_SUPPORTED	15
+ #define BE_MAX_EQD		96u
+ #define	BE_MAX_TX_FRAG_COUNT	30
  
-+#define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
-+
- #define CQE_STATUS_COMPL_MASK		0xFFFF
- #define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
- #define CQE_STATUS_EXTD_MASK		0xFFFF
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 31fa13b..036f583 100644
+index 036f583..2962d2f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1013,18 +1013,40 @@ static int be_vid_config(struct be_adapter *adapter)
- 	status = be_cmd_vlan_config(adapter, adapter->if_handle,
- 				    vids, num, 1, 0);
+@@ -2985,6 +2985,8 @@ static void BEx_get_resources(struct be_adapter *adapter,
  
--	/* Set to VLAN promisc mode as setting VLAN filter failed */
- 	if (status) {
--		dev_info(&adapter->pdev->dev, "Exhausted VLAN HW filters.\n");
--		dev_info(&adapter->pdev->dev, "Disabling HW VLAN filtering.\n");
--		goto set_vlan_promisc;
-+		/* Set to VLAN promisc mode as setting VLAN filter failed */
-+		if (status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
-+			goto set_vlan_promisc;
-+		dev_err(&adapter->pdev->dev,
-+			"Setting HW VLAN filtering failed.\n");
-+	} else {
-+		if (adapter->flags & BE_FLAGS_VLAN_PROMISC) {
-+			/* hw VLAN filtering re-enabled. */
-+			status = be_cmd_rx_filter(adapter,
-+						  BE_FLAGS_VLAN_PROMISC, OFF);
-+			if (!status) {
-+				dev_info(&adapter->pdev->dev,
-+					 "Disabling VLAN Promiscuous mode.\n");
-+				adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
-+				dev_info(&adapter->pdev->dev,
-+					 "Re-Enabling HW VLAN filtering\n");
-+			}
-+		}
- 	}
- 
- 	return status;
- 
- set_vlan_promisc:
--	status = be_cmd_vlan_config(adapter, adapter->if_handle,
--				    NULL, 0, 1, 1);
-+	dev_warn(&adapter->pdev->dev, "Exhausted VLAN HW filters.\n");
-+
-+	status = be_cmd_rx_filter(adapter, BE_FLAGS_VLAN_PROMISC, ON);
-+	if (!status) {
-+		dev_info(&adapter->pdev->dev, "Enable VLAN Promiscuous mode\n");
-+		dev_info(&adapter->pdev->dev, "Disabling HW VLAN filtering\n");
-+		adapter->flags |= BE_FLAGS_VLAN_PROMISC;
-+	} else
-+		dev_err(&adapter->pdev->dev,
-+			"Failed to enable VLAN Promiscuous mode.\n");
- 	return status;
- }
- 
+ 	if (adapter->function_mode & FLEX10_MODE)
+ 		res->max_vlans = BE_NUM_VLANS_SUPPORTED/8;
++	else if (adapter->function_mode & UMC_ENABLED)
++		res->max_vlans = BE_UMC_NUM_VLANS_SUPPORTED;
+ 	else
+ 		res->max_vlans = BE_NUM_VLANS_SUPPORTED;
+ 	res->max_mcast_mac = BE_MAX_MC;
 -- 
 1.8.1.2
