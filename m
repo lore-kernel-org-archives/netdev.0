@@ -1,42 +1,87 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: [PATCH 08/11] iwlwifi: Remove extern from function prototypes
-Date: Fri, 27 Sep 2013 04:25:54 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB301DB4D7E@HASMSX103.ger.corp.intel.com>
-References: <cover.1380137609.git.joe@perches.com>
- <b3818394ccdf68d834ca1060c1d5a1fc44e2daee.1380137610.git.joe@perches.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH 1/4] [RFC] net: Explicitly initialize u64_stats_sync
+ structures for lockdep
+Date: Fri, 27 Sep 2013 07:44:55 +0200
+Message-ID: <20130927054455.GA6597@gmail.com>
+References: <1380220464-28840-1-git-send-email-john.stultz@linaro.org>
+ <1380220464-28840-2-git-send-email-john.stultz@linaro.org>
+ <1380223585.3165.205.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b3818394ccdf68d834ca1060c1d5a1fc44e2daee.1380137610.git.joe@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Stultz <john.stultz@linaro.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Mirko Lindner <mlindner@marvell.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Roger Luethi <rl@hellgate.ch>,
+	Patrick McHardy <kaber@trash.net>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>, Jesse Gross <jesse@nicira.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:61453 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824Ab3I0FpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 01:45:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1380223585.3165.205.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Subject: [PATCH 08/11] iwlwifi: Remove extern from function prototypes
-> 
-> There are a mix of function prototypes with and without extern in the kernel
-> sources.  Standardize on not using extern for function prototypes.
-> 
-> Function prototypes don't need to be written with extern.
-> extern is assumed by the compiler.  Its use is as unnecessary as using auto to
-> declare automatic/local variables in a block.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/wireless/iwlwifi/dvm/agn.h | 2 +-
-> drivers/net/wireless/iwlwifi/dvm/dev.h | 2 +-
-> drivers/net/wireless/iwlwifi/dvm/rs.h  | 8 ++++----
-> drivers/net/wireless/iwlwifi/mvm/rs.h  | 9 ++++-----
->  4 files changed, 10 insertions(+), 11 deletions(-)
-> 
 
-ACK
+* Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Thu, 2013-09-26 at 11:34 -0700, John Stultz wrote:
+> > In order to enable lockdep on seqcount/seqlock structures, we
+> > must explicitly initialize any locks.
+> > 
+> 
+> > diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
+> > index 8da8c4e..c450e11 100644
+> > --- a/include/linux/u64_stats_sync.h
+> > +++ b/include/linux/u64_stats_sync.h
+> > @@ -67,6 +67,13 @@ struct u64_stats_sync {
+> >  #endif
+> >  };
+> >  
+> > +
+> > +#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
+> > +#define u64_stats_init(syncp)	seqcount_init(syncp.seq)
+> > +#else
+> > +#define u64_stats_init(syncp)
+> > +#endif
+> > +
+> 
+> I would prefer a function.
+
+C cannot pass along symbolic names, unfortunately, so we are stuck with 
+1970's tech and the C preprocessor.
+
+There's a way to make such macros look a tiny bit more structured and thus 
+be more palatable:
+
+#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
+# define u64_stats_init(syncp) seqcount_init(syncp.seq)
+#else
+# define u64_stats_init(syncp)
+#endif
+
+Note, the 'else' branch should probably be:
+
+# define u64_stats_init(syncp) do { } while (0)
+
+Thanks,
+
+	Ingo
