@@ -1,29 +1,32 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6: strange routing behaviors on a multi-interfaces setup
-Date: Fri, 27 Sep 2013 10:50:28 +0200
-Message-ID: <20130927085028.GE28287@order.stressinduktion.org>
-References: <374AB8DA-F970-4652-B147-2094B56BE5F0@sekil.fr>
+From: Dirk Kraft <dirk.kraft@gmail.com>
+Subject: Re: Bug - regression - Via velocity interface coming up freezes kernel
+Date: Fri, 27 Sep 2013 11:10:37 +0200
+Message-ID: <CAFES+i+9Wk6GMo8jMPH4uAz0AFi16RCWaRjG2YOyjRiBnx7OVQ@mail.gmail.com>
+References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
+	<20130922221109.GA14246@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Emmanuel Thierry <ml@sekil.fr>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54682 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878Ab3I0Iu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:50:29 -0400
-Content-Disposition: inline
-In-Reply-To: <374AB8DA-F970-4652-B147-2094B56BE5F0@sekil.fr>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:38756 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479Ab3I0JKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 05:10:38 -0400
+Received: by mail-we0-f177.google.com with SMTP id t60so2326862wes.22
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 02:10:37 -0700 (PDT)
+In-Reply-To: <20130922221109.GA14246@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 25, 2013 at 06:53:07PM +0200, Emmanuel Thierry wrote:
-> I experienced these problems on a 3.11.1 kernel but they look to be quite recurrent in the past versions as well. 
+Hi,
 
-A current solution would be to bind the socket to an interface
-(SO_BINDTODEVICE) from user-space. I'll look if we can make the next hop
-selection more fine grained.
+My machine has now been running for multiple days with the proposed
+patch. I was not able to see any warnings/error messages or any bad
+behavior.
 
-Greetings,
+For me the proposed patch fixes the problem and I could not see any
+new problems being introduced.
 
-  Hannes
+Thanks,
+Dirk
