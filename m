@@ -1,106 +1,67 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCHv2] ipvs: improved SH fallback strategy
-Date: Fri, 27 Sep 2013 22:20:42 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1309272218180.1725@ja.ssi.bg>
-References: <20130923115139.GA15034@eldamar.org.uk> <524099BA.5020303@cogentembedded.com> <20130924093238.GD18494@eldamar.org.uk> <20130925003033.GG26081@verge.net.au> <20130925092638.GD19768@eldamar.org.uk> <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
- <20130926100540.GB27583@eldamar.org.uk> <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg> <20130927100622.GC28974@eldamar.org.uk>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [PATCH v2.40 2/7] odp: Allow VLAN actions after MPLS actions
+Date: Fri, 27 Sep 2013 12:21:08 -0700
+Message-ID: <20130927192108.GA17506@nicira.com>
+References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
+ <1380241116-7661-3-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Frolkin <avf@eldamar.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:60685 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754359Ab3I0TPi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 15:15:38 -0400
-In-Reply-To: <20130927100622.GC28974@eldamar.org.uk>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:58229 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753819Ab3I0TVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 15:21:14 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ld10so3173872pab.36
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 12:21:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1380241116-7661-3-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Fri, 27 Sep 2013, Alexander Frolkin wrote:
-
-> Improve the SH fallback realserver selection strategy.
+On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:
+> From: Joe Stringer <joe@wand.net.nz>
 > 
-> With sh and sh-fallback, if a realserver is down, this attempts to
-> distribute the traffic that would have gone to that server evenly
-> among the remaining servers.
+> OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the
+> presence of VLAN tags. To allow correct behaviour to be committed in
+> each situation, this patch adds a second round of VLAN tag action
+> handling to commit_odp_actions(), which occurs after MPLS actions. This
+> is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
 > 
-> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+> When an push_mpls action is composed, the flow's current VLAN state is
+> stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
+> a VLAN tag is present, it is stripped; if not, then there is no change.
+> Any later modifications to the VLAN state is written to xin->vlan_tci.
+> When committing the actions, flow->vlan_tci is used before MPLS actions,
+> and xin->vlan_tci is used afterwards. This retains the current datapath
+> behaviour, but allows VLAN actions to be applied in a more flexible
+> manner.
+> 
+> Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-	Thanks! Looks good to me.
+The commit message talks about handling OpenFlow 1.2 and 1.3 both
+properly, but I don't see how the code distinguishes between the cases.
+Can you explain?  Maybe this is something added in a later patch, in
+which case it would be nice to mention that in the commit message.
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
+There seems to be a typo in the comment in vlan_tci_restore() here:
+> +    /* If MPLS actions were executed after MPLS, copy the final vlan_tci out
+> +     * and restore the intermediate VLAN state. */
 
-> --
-> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-> index 3588fae..cc65b2f 100644
-> --- a/net/netfilter/ipvs/ip_vs_sh.c
-> +++ b/net/netfilter/ipvs/ip_vs_sh.c
-> @@ -115,27 +115,46 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
->  }
->  
->  
-> -/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-> +/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-> + *
-> + * The fallback strategy loops around the table starting from a "random"
-> + * point (in fact, it is chosen to be the original hash value to make the
-> + * algorithm deterministic) to find a new server.
-> + */
->  static inline struct ip_vs_dest *
->  ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
->  		      const union nf_inet_addr *addr, __be16 port)
->  {
-> -	unsigned int offset;
-> -	unsigned int hash;
-> +	unsigned int offset, roffset;
-> +	unsigned int hash, ihash;
->  	struct ip_vs_dest *dest;
->  
-> +	/* first try the dest it's supposed to go to */
-> +	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-> +	dest = rcu_dereference(s->buckets[ihash].dest);
-> +	if (!dest)
-> +		return NULL;
-> +	if (!is_unavailable(dest))
-> +		return dest;
-> +
-> +	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
-> +		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-> +
-> +	/* if the original dest is unavailable, loop around the table
-> +	 * starting from ihash to find a new dest
-> +	 */
->  	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> -		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-> +		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-> +		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
->  		dest = rcu_dereference(s->buckets[hash].dest);
->  		if (!dest)
->  			break;
-> -		if (is_unavailable(dest))
-> -			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> -				      "%s:%d (offset %d)",
-> -				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> -				      ntohs(dest->port), offset);
-> -		else
-> +		if (!is_unavailable(dest))
->  			return dest;
-> +		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-> +			      "server %s:%d (offset %d), reselecting",
-> +			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +			      ntohs(dest->port), roffset);
->  	}
->  
->  	return NULL;
+I was a little confused by the new local variable 'vlan_tci' in
+do_xlate_actions().  Partly this was because the fact that I didn't find
+it obvious that sometimes it points to different VLAN tags.  I think
+this would be easier to see if it were initially assigned just under the
+big comment rather than in an initializer, so that one would know to
+look at the comment.
 
-Regards
+Thanks,
 
---
-Julian Anastasov <ja@ssi.bg>
+Ben.
