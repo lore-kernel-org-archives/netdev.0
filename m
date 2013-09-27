@@ -1,129 +1,61 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: Fix preferred_lft not updating in some cases
-Date: Fri, 27 Sep 2013 10:16:04 +0200
-Message-ID: <20130927081604.GB28287@order.stressinduktion.org>
-References: <1380147175-14874-1-git-send-email-pmarks@google.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 00/51] DMA mask changes
+Date: Fri, 27 Sep 2013 09:27:04 +0100
+Message-ID: <20130927082703.GZ25647@n2100.arm.linux.org.uk>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <CACna6rxkpYzdD8_Jfi22vA2suUa3k-JM65_gCySQpp4crVCoPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org, lorenzo@google.com
-To: Paul Marks <pmarks@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54593 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852Ab3I0IQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:16:06 -0400
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ linux-nvme@lists.infradead.org, linux-ide@vger.kernel.org,
+ "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ linux-samsung-soc@vger.kernel.org,
+ Linux SCSI List <linux-scsi@vger.kernel.org>,
+ e1000-devel@lists.sourceforge.net, b43-dev <b43-dev@lists.infradead.org>,
+ linux-media@vger.kernel.org, devicetree@vger.kernel.org,
+ dri-devel <dri-devel@lists.freedesktop.org>, linux-tegra@vger.kernel.org,
+ linux-omap@vger.kernel.org,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+ Network Development <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+ "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+ linux-crypto@vger.kernel.org, uclinux-dist-devel@black
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
 Content-Disposition: inline
-In-Reply-To: <1380147175-14874-1-git-send-email-pmarks@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACna6rxkpYzdD8_Jfi22vA2suUa3k-JM65_gCySQpp4crVCoPg@mail.gmail.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 25, 2013 at 03:12:55PM -0700, Paul Marks wrote:
-> Consider the scenario where an IPv6 router is advertising a fixed
-> preferred_lft of 1800 seconds, while the valid_lft begins at 3600
-> seconds and counts down in realtime.
-> 
-> A client should reset its preferred_lft to 1800 every time the RA is
-> received, but a bug is causing Linux to ignore the update.
-> 
-> The core problem is here:
->   if (prefered_lft != ifp->prefered_lft) {
-> 
-> Note that ifp->prefered_lft is an offset, so it doesn't decrease over
-> time.  Thus, the comparison is always (1800 != 1800), which fails to
-> trigger an update.
-> 
-> The most direct solution would be to compute a "stored_prefered_lft",
-> and use that value in the comparison.  But I think that trying to filter
-> out unnecessary updates here is a premature optimization.  In order for
-> the filter to apply, both of these would need to hold:
-> 
->   - The advertised valid_lft and preferred_lft are both declining in
->     real time.
->   - No clock skew exists between the router & client.
-> 
-> So in this patch, I've set "update_lft = 1" unconditionally, which
-> allows the surrounding code to be greatly simplified.
-
-I actually find this much harder to follow when verifying against the RFC.
-
-> Signed-off-by: Paul Marks <pmarks@google.com>
-> ---
->  net/ipv6/addrconf.c | 52 +++++++++++++++-------------------------------------
->  1 file changed, 15 insertions(+), 37 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index d6ff126..9a5052c 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2193,43 +2193,21 @@ ok:
->  			else
->  				stored_lft = 0;
->  			if (!update_lft && !create && stored_lft) {
-> -				if (valid_lft > MIN_VALID_LIFETIME ||
-> -				    valid_lft > stored_lft)
-> -					update_lft = 1;
-> -				else if (stored_lft <= MIN_VALID_LIFETIME) {
-> -					/* valid_lft <= stored_lft is always true */
-> -					/*
-> -					 * RFC 4862 Section 5.5.3e:
-> -					 * "Note that the preferred lifetime of
-> -					 *  the corresponding address is always
-> -					 *  reset to the Preferred Lifetime in
-> -					 *  the received Prefix Information
-> -					 *  option, regardless of whether the
-> -					 *  valid lifetime is also reset or
-> -					 *  ignored."
-> -					 *
-> -					 *  So if the preferred lifetime in
-> -					 *  this advertisement is different
-> -					 *  than what we have stored, but the
-> -					 *  valid lifetime is invalid, just
-> -					 *  reset prefered_lft.
-> -					 *
-> -					 *  We must set the valid lifetime
-> -					 *  to the stored lifetime since we'll
-> -					 *  be updating the timestamp below,
-> -					 *  else we'll set it back to the
-> -					 *  minimum.
-> -					 */
-> -					if (prefered_lft != ifp->prefered_lft) {
-
-Wouldn't the easiest solution be to just drop this if and execute the two
-lines below unconditionally?
-
-> -						valid_lft = stored_lft;
-> -						update_lft = 1;
-> -					}
-> -				} else {
-> -					valid_lft = MIN_VALID_LIFETIME;
-> -					if (valid_lft < prefered_lft)
-> -						prefered_lft = valid_lft;
-> -					update_lft = 1;
-> -				}
-> +				const u32 minimum_lft = min(
-> +					stored_lft, (u32)MIN_VALID_LIFETIME);
-> +				valid_lft = max(valid_lft, minimum_lft);
-
-Quick question: Don't we need a prefered_lft = min(preferred_lft, valid_lft)
-here?
-
-> +
-> +				/* RFC4862 Section 5.5.3e:
-> +				 * "Note that the preferred lifetime of the
-> +				 *  corresponding address is always reset to
-> +				 *  the Preferred Lifetime in the received
-> +				 *  Prefix Information option, regardless of
-> +				 *  whether the valid lifetime is also reset or
-> +				 *  ignored."
-> +				 *
-> +				 * So we should always update prefered_lft here.
-> +				 */
-> +				update_lft = 1;
->  			}
->  
->  			if (update_lft) {
-
-Thanks,
-
-  Hannes
+T24gVGh1LCBTZXAgMjYsIDIwMTMgYXQgMTA6MjM6MDhQTSArMDIwMCwgUmFmYcWCIE1pxYJlY2tp
+IHdyb3RlOgo+IDIwMTMvOS8xOSBSdXNzZWxsIEtpbmcgLSBBUk0gTGludXggPGxpbnV4QGFybS5s
+aW51eC5vcmcudWs+Ogo+ID4gVGhpcyBlbWFpbCBpcyBvbmx5IGJlaW5nIHNlbnQgdG8gdGhlIG1h
+aWxpbmcgbGlzdHMgaW4gcXVlc3Rpb24sIG5vdCB0bwo+ID4gYW55b25lIHBlcnNvbmFsbHkuICBU
+aGUgbGlzdCBvZiBpbmRpdmlkdWFscyBpcyBmYXIgdG8gZ3JlYXQgdG8gZG8gdGhhdC4KPiA+IEkn
+bSBob3Bpbmcgbm8gbWFpbGluZyBsaXN0cyByZWplY3QgdGhlIHBhdGNoZXMgYmFzZWQgb24gdGhl
+IG51bWJlciBvZgo+ID4gcmVjaXBpZW50cy4KPiAKPiBIdWgsIEkgdGhpbmsgaXQgd2FzIGVub3Vn
+aCB0byBzZW5kIG9ubHkgMyBwYXRjaGVzIHRvIHRoZSBiNDMtZGV2QC4gTGlrZToKPiBbUEFUQ0gg
+MDEvNTFdIERNQS1BUEk6IHByb3ZpZGUgYSBoZWxwZXIgdG8gc2V0IGJvdGggRE1BIGFuZCBjb2hl
+cmVudCBETUEgbWFza3MKPiBbUEFUQ0ggMTQvNTFdIERNQS1BUEk6IG5ldDogYjQzOiAoLi4uKQo+
+IFtQQVRDSCAxNS81MV0gRE1BLUFQSTogbmV0OiBiNDNsZWdhY3k6ICguLi4pCj4gOykKPiAKPiBJ
+IGJlbGlldmUgSm9lIGhhcyBzb21lIG5pY2Ugc2NyaXB0IGZvciBkb2luZyBpdCB0aGF0IHdheS4g
+V2hlbiBmaXhpbmcKPiBzb21lIGNvZGluZyBzdHlsZSAvIGZvcm1hdHRpbmcsIGhlIHNlbmRzIG9u
+bHkgcmVsYXRlZCBwYXRjaGVzIHRvIHRoZQo+IGdpdmVuIE1MLgoKSWYgSSBkaWQgdGhhdCwgdGhl
+biB0aGUgbWFpbGluZyBsaXN0cyB3b3VsZCBub3QgZ2V0IHRoZSBmaXJzdCBwYXRjaCwKYmVjYXVz
+ZSBhbG1vc3Qgbm9uZSBvZiB0aGUgbGlzdHMgd291bGQgYmUgcmVmZXJyZWQgdG8gYnkgcGF0Y2gg
+MS4KCk1vcmVvdmVyLCBwZW9wbGUgY29tcGxhaW4gd2hlbiB0aGV5IGRvbid0IGhhdmUgYWNjZXNz
+IHRvIHRoZSBmdWxsCnBhdGNoIHNlcmllcyAtIHRoZXkgYXNzdW1lIHBhdGNoZXMgYXJlIG1pc3Np
+bmcgZm9yIHNvbWUgcmVhc29uLCBhbmQKdGhleSBhc2sgZm9yIHRoZSByZXN0IG9mIHRoZSBzZXJp
+ZXMuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkFsc2Et
+ZGV2ZWwgbWFpbGluZyBsaXN0CkFsc2EtZGV2ZWxAYWxzYS1wcm9qZWN0Lm9yZwpodHRwOi8vbWFp
+bG1hbi5hbHNhLXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8vYWxzYS1kZXZlbAo=
