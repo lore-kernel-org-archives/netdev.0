@@ -1,88 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] bonding: Fix broken promiscuity reference counting issue
-Date: Fri, 27 Sep 2013 12:22:15 -0400
-Message-ID: <1380298935-32140-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Mark Wu <wudxw@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49189 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752591Ab3I0QYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 12:24:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oussama Ghorbel <oghorbell@gmail.com>
+Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Fri, 27 Sep 2013 17:36:45 +0100
+Message-ID: <CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
+References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+	<20130927083730.GC28287@order.stressinduktion.org>
+	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
+	<20130927105856.GF28287@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: Oussama Ghorbel <oghorbell@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130927105856.GF28287@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recently grabbed this report:
-https://bugzilla.redhat.com/show_bug.cgi?id=1005567
+Please see my comments below
 
-Of an issue in which the bonding driver, with an attached vlan encountered the
-following errors when bond0 was taken down and back up:
+Regards,
+Oussama
 
-dummy1: promiscuity touches roof, set promiscuity failed. promiscuity feature of
-device might be broken.
+On Fri, Sep 27, 2013 at 11:58 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Fri, Sep 27, 2013 at 11:45:48AM +0100, Oussama Ghorbel wrote:
+>> The ip6_tunnel.c module would be then dependent on ip_tunnel.c and may
+>> be it would not be good thing?
+>
+> It could just be a static inline in some shared header. So there would
+> be no compile-time dependency.
+>
 
-The error occurs because, during __bond_release_one, if we release our last
-slave, we take on a random mac address and issue a NETDEV_CHANGEADDR
-notification.  With an attached vlan, the vlan may see that the vlan and bond
-mac address were in sync, but no longer are.  This triggers a call to dev_uc_add
-and dev_set_rx_mode, which enables IFF_PROMISC on the bond device.  Then, when
-we complete __bond_release_one, we use the current state of the bond flags to
-determine if we should decrement the promiscuity of the releasing slave.  But
-since the bond changed promiscuity state during the release operation, we
-incorrectly decrement the slave promisc count when it wasn't in promiscuous mode
-to begin with, causing the above error
+The higher limit of mtu in ip_tunnel_change_mtu() is a calculated value.
+This high limit is calculated using the netdev priv struct ip_tunnel
+(field hlen).
+This netdev priv struct is different in ipv6, it's a ip6_tnl struct.
+Therefore implementing a beautiful function like
+ip_tunnel_valid_mtu(struct net_device *dev, int mtu) won't be
+feasible, unless we implement it in macro or something like like
+ip_tunnel_valid_mtu(struct net_device *dev, int hlen, int mtu) which
+seems not very nice ...
+What do yo think?
 
-Fix is pretty simple, just cache the bonding flags at the start of the function
-and use those when determining the need to set promiscuity.
+>> As I have check in v3.10 there is no call from ip6_tunnel to ip_tunnel...
+>>
+>> For information, there is no check for the maximum MTU for ipv4 in the
+>> patch as this is not done for ipv6.
+>
+> I understand, but it would be better to limit the MTU here. There is a
+> (non-jumo) IPV6_MAXPLEN constant.
+>
+> Looking through the source it seems grev6 does actually check this,
+> so it would not hurt adding them here, too.
 
-This is also needed for the ALLMULTI flag
+what if jumbograms is used, in that case, we can't use IPV6_MAXPLEN.
+the limit would be the the full unsigned int.
+However checking the higher limit for ipv4 would be useful.
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Mark Wu <wudxw@linux.vnet.ibm.com>
-CC: "David S. Miller" <davem@davemloft.net>
-Reported-by: Mark Wu <wudxw@linux.vnet.ibm.com>
----
- drivers/net/bonding/bond_main.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+Please also note in case the tunnel mode is any (ipv4 or ipv6 means
+ip6_tnl.parms.proto = 0), then we will be required to take the most
+restrict limit from both ipv4 and ipv6 which means the lower limit
+will be 1280 and the higher limit will be about 65535
+Do you agree on this?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d5c3153..5373a8d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1710,6 +1710,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave, *oldcurrent;
- 	struct sockaddr addr;
-+	int old_flags = bond_dev->flags;
- 	netdev_features_t old_features = bond_dev->features;
- 
- 	/* slave is not a slave or master is not master of this slave */
-@@ -1841,12 +1842,18 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	 * bond_change_active_slave(..., NULL)
- 	 */
- 	if (!USES_PRIMARY(bond->params.mode)) {
--		/* unset promiscuity level from slave */
--		if (bond_dev->flags & IFF_PROMISC)
-+		/* unset promiscuity level from slave
-+		 * NOTE: The NETDEV_CHANGEADDR call above may change the value
-+		 * of the IFF_PROMISC flag in the bond_dev, but we need the
-+		 * value of that flag before that change, as that was the value
-+		 * when this slave was attached, so we cache at the start of the
-+		 * function and use it here. Same goes for ALLMULTI below
-+		 */
-+		if (old_flags & IFF_PROMISC)
- 			dev_set_promiscuity(slave_dev, -1);
- 
- 		/* unset allmulti level from slave */
--		if (bond_dev->flags & IFF_ALLMULTI)
-+		if (old_flags & IFF_ALLMULTI)
- 			dev_set_allmulti(slave_dev, -1);
- 
- 		bond_hw_addr_flush(bond_dev, slave_dev);
--- 
-1.8.3.1
+>
+> Otherwise, I think your patch is fine.
+>
+> Greetings,
+>
+>   Hannes
+>
