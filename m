@@ -1,65 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4] [RFC] net: Explicitly initialize u64_stats_sync
- structures for lockdep
-Date: Fri, 27 Sep 2013 02:15:41 -0700
-Message-ID: <1380273341.30872.1.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380220464-28840-1-git-send-email-john.stultz@linaro.org>
-	 <1380220464-28840-2-git-send-email-john.stultz@linaro.org>
-	 <1380223585.3165.205.camel@edumazet-glaptop>
-	 <20130927054455.GA6597@gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 1/5] tipc: silence sparse
+	warnings
+Date: Fri, 27 Sep 2013 17:48:33 +0800
+Message-ID: <52455471.8060102@windriver.com>
+References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com>
+	<1380014868-2797-2-git-send-email-jon.maloy@ericsson.com>
+	<20130927.015908.1293107524454870319.davem@davemloft.net>
+	<52453B51.5070702@windriver.com> <52453E8D.2020705@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Stultz <john.stultz@linaro.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	Patrick McHardy <kaber@trash.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Jesse Gross <jesse@nicira.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130927054455.GA6597@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Andreas_Bofj=E4ll?= <andreas.bofjall@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <52453E8D.2020705@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-09-27 at 07:44 +0200, Ingo Molnar wrote:
+On 09/27/2013 04:15 PM, Andreas Bofj=E4ll wrote:
+> On 09/27/2013 10:01 AM, Ying Xue wrote:
+>> Good point!
+>> It's better for us to use memcpy_fromiovecend() instead of
+>> skb_copy_to_linear_data() and its friends.
+>>
+>> We will submit another version to correct this error soon.
+> =
 
-> C cannot pass along symbolic names, unfortunately, so we are stuck with 
-> 1970's tech and the C preprocessor.
-> 
+> I could be wrong here, but I think you should also remove the entire
+> cast on line 1210 in link.c:
+> =
 
-Yes, I realized that a bit too late.
+> sect_crs =3D msg_sect[curr_sect].iov_base;
+> =
 
-> There's a way to make such macros look a tiny bit more structured and thus 
-> be more palatable:
-> 
-> #if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
-> # define u64_stats_init(syncp) seqcount_init(syncp.seq)
-> #else
-> # define u64_stats_init(syncp)
-> #endif
-> 
-> Note, the 'else' branch should probably be:
-> 
-> # define u64_stats_init(syncp) do { } while (0)
-
-Yes, this is better ;)
-
-Thanks !
+> There should be no reason to cast there since you made sect_crs into
+> const unchar* __user and msg_sect[].iov_base is void* __user.
+> =
 
 
+You are right, thank you for your nice reminder!
+
+Regards,
+Ying
+
+> /Andreas
+> =
+
+> =
+
+
+
+---------------------------------------------------------------------------=
+---
+October Webinars: Code for Performance
+Free Intel webinars can help you accelerate application performance.
+Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most fr=
+om =
+
+the latest Intel processors and coprocessors. See abstracts and register >
+http://pubads.g.doubleclick.net/gampad/clk?id=3D60133471&iu=3D/4140/ostg.cl=
+ktrk
