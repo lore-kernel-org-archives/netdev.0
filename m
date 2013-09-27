@@ -1,67 +1,35 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
-Date: Fri, 27 Sep 2013 10:37:30 +0200
-Message-ID: <20130927083730.GC28287@order.stressinduktion.org>
-References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+Subject: Re: GRE support for IPv6
+Date: Fri, 27 Sep 2013 10:41:49 +0200
+Message-ID: <20130927084149.GD28287@order.stressinduktion.org>
+References: <CAF0Lin0xTW4oQ0OQaTzJhoS6XV3nbb8yZx8jDMAcGyJo9zTs9A@mail.gmail.com> <CAF0Lin2-ooC6iQCwjnf5196cfy0Xii6H5prS4CEsjeJVAFYcyA@mail.gmail.com> <20130913164404.GA32431@order.stressinduktion.org> <2134F8430051B64F815C691A62D98318108CA3@XCH-BLV-504.nw.nos.boeing.com> <20130913210105.GD32431@order.stressinduktion.org> <20130913144630.1cb1863c@samsung-9> <20130913150626.5f9ecc3b@samsung-9> <2134F8430051B64F815C691A62D98318108F59@XCH-BLV-504.nw.nos.boeing.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oussama Ghorbel <oghorbell@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xeb@mail.ru" <xeb@mail.ru>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:54656 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457Ab3I0Ilv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:41:51 -0400
 Content-Disposition: inline
-In-Reply-To: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <2134F8430051B64F815C691A62D98318108F59@XCH-BLV-504.nw.nos.boeing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 26, 2013 at 03:51:48PM +0100, Oussama Ghorbel wrote:
-> The (inner) MTU of a ipip6 (IPv4-in-IPv6) tunnel cannot be set below 1280, which is the minimum MTU in IPv6.
-> However, there should be no IPv6 on the tunnel interface at all, so the IPv6 rules should not apply.
-> More info at https://bugzilla.kernel.org/show_bug.cgi?id=15530
-> 
-> This patch allows to check the minimum MTU for ipv6 tunnel according to these rules:
->  -In case the tunnel is configured with ipip6 mode the minimum MTU is 68.
->  -In case the tunnel is configured with ip6ip6 or any mode the minimum MTU is 1280.
-> 
-> Signed-off-by: Oussama Ghorbel <oghorbell@gmail.com>
-> ---
->  net/ipv6/ip6_tunnel.c |   10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> index 1e55866..a66ead2 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -1423,8 +1423,14 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  static int
->  ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
->  {
-> -	if (new_mtu < IPV6_MIN_MTU) {
-> -		return -EINVAL;
-> +	struct ip6_tnl *t = netdev_priv(dev);
-> +
-> +	if (t->parms.proto == IPPROTO_IPIP) {
-> +		if (new_mtu < 68)
-> +			return -EINVAL;
+Hi Fred!
 
-Maybe you could have a look at ip_tunnel_change_mtu in ipv4/ip_tunnel.c,
-generalize this check as e.g. ip_tunnel_valid_mtu or something and use it
-here? Maybe an af-independent ip_tunnel_max_mtu()?
+On Fri, Sep 13, 2013 at 10:37:01PM +0000, Templin, Fred L wrote:
+> See attached for the patches as applied to iproute2-3.10.0.
+> The code compiles cleanly - testing is in progress.
 
-> +	} else {
-> +		if (new_mtu < IPV6_MIN_MTU)
-> +			return -EINVAL;
+Could you resend the patches inline (formatted with git-format-patch) so that
+patchwork[1] can track them?
 
-This check could also be used here, then.
+[1] http://patchwork.ozlabs.org/project/netdev/list/
 
->  	}
->  	dev->mtu = new_mtu;
->  	return 0;
-
-Thanks,
+Greetings,
 
   Hannes
