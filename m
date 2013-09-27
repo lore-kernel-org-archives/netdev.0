@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] ipv6: compare sernum when walking fib for
- /proc/net/ipv6_route as safety net
-Date: Fri, 27 Sep 2013 17:33:13 -0400 (EDT)
-Message-ID: <20130927.173313.1429984635743435628.davem@davemloft.net>
-References: <20130921145610.GA20769@order.stressinduktion.org>
+Subject: Re: [net-next] hp100: replace hardcoded name in /proc/interrupts
+ with interface name
+Date: Fri, 27 Sep 2013 17:39:39 -0400 (EDT)
+Message-ID: <20130927.173939.128432993141631731.davem@davemloft.net>
+References: <1379789289-10961-1-git-send-email-me@mihirsingh.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, greearb@candelatech.com, kaber@trash.net,
-	yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: me@mihirsingh.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50858 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51012 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754537Ab3I0VdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 17:33:15 -0400
-In-Reply-To: <20130921145610.GA20769@order.stressinduktion.org>
+	with ESMTP id S1752322Ab3I0Vjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 17:39:41 -0400
+In-Reply-To: <1379789289-10961-1-git-send-email-me@mihirsingh.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sat, 21 Sep 2013 16:56:10 +0200
+From: Mihir Singh <me@mihirsingh.com>
+Date: Sat, 21 Sep 2013 18:48:09 +0000
 
-> This patch provides an additional safety net against NULL
-> pointer dereferences while walking the fib trie for the new
-> /proc/net/ipv6_route walkers. I never needed it myself and am unsure
-> if it is needed at all, but the same checks where introduced in
-> 2bec5a369ee79576a3eea2c23863325089785a2c ("ipv6: fib: fix crash when
-> changing large fib while dumping it") to fix NULL pointer bugs.
+> The /proc/interrupts file displays hp100, which is not the accepted style. Printing eth%d is more helpful.
 > 
-> This patch is separated from the first patch to make it easier to revert
-> if we are sure we can drop this logic.
-> 
-> Cc: Ben Greear <greearb@candelatech.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Mihir Singh <me@mihirsingh.com>
 
 Applied.
