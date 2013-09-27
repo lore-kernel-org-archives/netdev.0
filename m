@@ -1,49 +1,29 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: rx_dropped count for USB ethernet interfaces
-Date: Fri, 27 Sep 2013 09:39:00 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7362@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B735B@saturn3.aculab.com><20130925.144640.1661224048195310923.davem@davemloft.net><AE90C24D6B3A694183C094C60CF0A2F6026B735E@saturn3.aculab.com> <20130926.132125.1343558938307288175.davem@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6: strange routing behaviors on a multi-interfaces setup
+Date: Fri, 27 Sep 2013 10:50:28 +0200
+Message-ID: <20130927085028.GE28287@order.stressinduktion.org>
+References: <374AB8DA-F970-4652-B147-2094B56BE5F0@sekil.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Emmanuel Thierry <ml@sekil.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60050 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752283Ab3I0ImC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:42:02 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 26948-03 for <netdev@vger.kernel.org>;
- Fri, 27 Sep 2013 09:42:00 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130926.132125.1343558938307288175.davem@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:54682 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878Ab3I0Iu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:50:29 -0400
+Content-Disposition: inline
+In-Reply-To: <374AB8DA-F970-4652-B147-2094B56BE5F0@sekil.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: "David Laight" <David.Laight@ACULAB.COM>
-> Date: Thu, 26 Sep 2013 10:32:24 +0100
-> 
-> > It isn't exactly useful behaviour though.
-> 
-> In your opinion.
-> 
-> We have tracepoints for people who want more fine grained drops
-> in these kinds of situations.
-> 
-> Also, the behavior of this statistic has existed for more than a
-> decade so changing it is really not in the cards.  Therefore any
-> discussion about what would have been the best samentic to choose from
-> the beginning is moot.
+On Wed, Sep 25, 2013 at 06:53:07PM +0200, Emmanuel Thierry wrote:
+> I experienced these problems on a 3.11.1 kernel but they look to be quite recurrent in the past versions as well. 
 
-I suspect that not many people have networks with broadcast packets
-for non-IP protocols - so don't ever see rx_dropped being incremented
-because there wasn't a protocol stack looking for the packet.
+A current solution would be to bind the socket to an interface
+(SO_BINDTODEVICE) from user-space. I'll look if we can make the next hop
+selection more fine grained.
 
-A similar problem will arise if promiscuous mode is enabled
-by someone who only wants a specific protocol - eg a specific
-ethertype or a single LLC SAP value.
+Greetings,
 
-	David
+  Hannes
