@@ -1,132 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: TSQ can use a dynamic limit
-Date: Fri, 27 Sep 2013 03:28:54 -0700
-Message-ID: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20130906101635.GI14104@zion.uk.xensource.com>
-	 <1378472268.31445.15.camel@edumazet-glaptop> <522A049A.7000105@citrix.com>
-	 <1378486840.31445.36.camel@edumazet-glaptop>
-	 <1378574494.26319.14.camel@edumazet-glaptop> <522E4080.2050802@citrix.com>
-	 <1378763815.26319.39.camel@edumazet-glaptop>
-	 <loom.20130921T045654-573@post.gmane.org>
-	 <20130921150327.GA9078@zion.uk.xensource.com>
-	 <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
-	 <1379861902.3431.12.camel@edumazet-glaptop>
+From: Jon Maloy <maloy@donjonn.com>
+Subject: Re: [PATCH net-next 1/5] tipc: silence sparse warnings
+Date: Fri, 27 Sep 2013 06:25:07 -0400
+Message-ID: <52455D03.6030308@donjonn.com>
+References: <1380014868-2797-1-git-send-email-jon.maloy@ericsson.com> <1380014868-2797-2-git-send-email-jon.maloy@ericsson.com> <20130927.015908.1293107524454870319.davem@davemloft.net> <52453B51.5070702@windriver.com> <52453E8D.2020705@ericsson.com> <52455471.8060102@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Andreas_Bofj=E4ll?= <andreas.bofjall@ericsson.com>,
+	jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	paul.gortmaker@windriver.com, erik.hugne@ericsson.com,
+	tipc-discussion@lists.sourceforge.net
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f182.google.com ([209.85.213.182]:55333 "EHLO
-	mail-ye0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871Ab3I0K26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 06:28:58 -0400
-Received: by mail-ye0-f182.google.com with SMTP id l10so773153yen.41
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 03:28:57 -0700 (PDT)
-In-Reply-To: <1379861902.3431.12.camel@edumazet-glaptop>
+Received: from nm35-vm5.bullet.mail.bf1.yahoo.com ([72.30.238.77]:45879 "EHLO
+	nm35-vm5.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751023Ab3I0Kac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 06:30:32 -0400
+In-Reply-To: <52455471.8060102@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 09/27/2013 05:48 AM, Ying Xue wrote:
+> On 09/27/2013 04:15 PM, Andreas Bofj=E4ll wrote:
+>> On 09/27/2013 10:01 AM, Ying Xue wrote:
+>>> Good point!
+>>> It's better for us to use memcpy_fromiovecend() instead of
+>>> skb_copy_to_linear_data() and its friends.
+>>>
+>>> We will submit another version to correct this error soon.
+Can you fix this asap, so I can re-post it? And, let's continue the thr=
+ead
+in tipc-discussion only until we (incl Paul) are happy with this patch.
 
-When TCP Small Queues was added, we used a sysctl to limit amount of
-packets queues on Qdisc/device queues for a given TCP flow.
+///jon
 
-Problem is this limit is either too big for low rates, or too small
-for high rates.
-
-Now TCP stack has rate estimation in sk->sk_pacing_rate, and TSO 
-auto sizing, it can better control number of packets in Qdisc/device
-queues.
-
-New limit is two packets or at least 1 to 2 ms worth of packets.
-
-Low rates flows benefit from this patch by having even smaller
-number of packets in queues, allowing for faster recovery,
-better RTT estimations.
-
-High rates flows benefit from this patch by allowing more than 2 packets
-in flight as we had reports this was a limiting factor to reach line
-rate. [ In particular if TX completion is delayed because of coalescing
-parameters ]
-
-Example for a single flow on 10Gbp link controlled by FQ/pacing
-
-14 packets in flight instead of 2
-
-$ tc -s -d qd
-qdisc fq 8001: dev eth0 root refcnt 32 limit 10000p flow_limit 100p
-buckets 1024 quantum 3028 initial_quantum 15140 
- Sent 1168459366606 bytes 771822841 pkt (dropped 0, overlimits 0
-requeues 6822476) 
- rate 9346Mbit 771713pps backlog 953820b 14p requeues 6822476 
-  2047 flow, 2046 inactive, 1 throttled, delay 15673 ns
-  2372 gc, 0 highprio, 0 retrans, 9739249 throttled, 0 flows_plimit
-
-Note that sk_pacing_rate is currently set to twice the actual rate, but
-this might be refined in the future when a flow is in congestion
-avoidance.
-
-Additional change : skb->destructor should be set to tcp_wfree().
-
-A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_output.c |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7c83cb8..c20e406 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -895,8 +895,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 
- 	skb_orphan(skb);
- 	skb->sk = sk;
--	skb->destructor = (sysctl_tcp_limit_output_bytes > 0) ?
--			  tcp_wfree : sock_wfree;
-+	skb->destructor = tcp_wfree;
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
- 
- 	/* Build TCP header and checksum it. */
-@@ -1840,7 +1839,6 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 	while ((skb = tcp_send_head(sk))) {
- 		unsigned int limit;
- 
--
- 		tso_segs = tcp_init_tso_segs(sk, skb, mss_now);
- 		BUG_ON(!tso_segs);
- 
-@@ -1869,13 +1867,20 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 				break;
- 		}
- 
--		/* TSQ : sk_wmem_alloc accounts skb truesize,
--		 * including skb overhead. But thats OK.
-+		/* TCP Small Queues :
-+		 * Control number of packets in qdisc/devices to two packets / or ~1 ms.
-+		 * This allows for :
-+		 *  - better RTT estimation and ACK scheduling
-+		 *  - faster recovery
-+		 *  - high rates
- 		 */
--		if (atomic_read(&sk->sk_wmem_alloc) >= sysctl_tcp_limit_output_bytes) {
-+		limit = max(skb->truesize, sk->sk_pacing_rate >> 10);
-+
-+		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
- 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
- 			break;
- 		}
-+
- 		limit = mss_now;
- 		if (tso_segs > 1 && !tcp_urg_mode(tp))
- 			limit = tcp_mss_split_point(sk, skb, mss_now,
+>> I could be wrong here, but I think you should also remove the entire
+>> cast on line 1210 in link.c:
+>>
+>> sect_crs =3D msg_sect[curr_sect].iov_base;
+>>
+>> There should be no reason to cast there since you made sect_crs into
+>> const unchar* __user and msg_sect[].iov_base is void* __user.
+>>
+> You are right, thank you for your nice reminder!
+>
+> Regards,
+> Ying
+>
+>> /Andreas
+>>
+>>
