@@ -1,89 +1,120 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the ipsec-next tree with the
- net-next tree
-Date: Fri, 27 Sep 2013 12:01:07 +1000
-Message-ID: <20130927120107.99925373bcc260b50e0b3ed8@canb.auug.org.au>
-References: <20130924121629.f818475ddf308b0494cfce2a@canb.auug.org.au>
-	<20130924102505.GS7660@secunet.com>
-	<20130925095919.143635403832766c1b190202@canb.auug.org.au>
-	<20130925052923.GU7660@secunet.com>
+Subject: linux-next: manual merge of the net-next tree with the wireless
+ tree
+Date: Fri, 27 Sep 2013 13:03:13 +1000
+Message-ID: <20130927130313.4e925fa7a760acfc3bf890e1@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Fri__27_Sep_2013_12_01_07_+1000_Bpt5QyrZT9zDdR=2"
+ boundary="Signature=_Fri__27_Sep_2013_13_03_13_+1000_aMkG73iMLFohWM2_"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fan Du <fan.du@windriver.com>, Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+	Arend van Spriel <arend@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130925052923.GU7660@secunet.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__27_Sep_2013_12_01_07_+1000_Bpt5QyrZT9zDdR=2
+--Signature=_Fri__27_Sep_2013_13_03_13_+1000_aMkG73iMLFohWM2_
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hi Steffen,
+Hi all,
 
-On Wed, 25 Sep 2013 07:29:23 +0200 Steffen Klassert <steffen.klassert@secun=
-et.com> wrote:
->
-> On Wed, Sep 25, 2013 at 09:59:19AM +1000, Stephen Rothwell wrote:
-> >=20
-> > On Tue, 24 Sep 2013 12:25:05 +0200 Steffen Klassert <steffen.klassert@s=
-ecunet.com> wrote:
-> > >
-> > > On Tue, Sep 24, 2013 at 12:16:29PM +1000, Stephen Rothwell wrote:
-> > > >=20
-> > > > Today's linux-next merge of the ipsec-next tree got a conflict in
-> > > > include/net/xfrm.h between commit d511337a1eda ("xfrm.h: Remove ext=
-ern
-> > > > from function prototypes") from the net-next tree and commit aba826=
-958830
-> > > > ("{ipv4,xfrm}: Introduce xfrm_tunnel_notifier for xfrm tunnel mode
-> > > > callback") from the ipsec-next tree.
-> > >=20
-> > > Thanks for the information, I'll do a rebase of the ipsec-next
-> > > tree tomorrow.
-> >=20
-> > Did you miss the end of the next paragraph:  "no action is required"?
-> > Dave can fix this up (like I did) when he merges your tree into his.
->=20
-> I applied this patch shortly before the merge window opened, it is a left
-> over from the last develpoment cycle. I already rebased my tree onto
-> net-next in the past if that happened, even if there were no merge
-> conflicts. I did that just to see if everything still works. But I
-> could also do a test merge to see if everything still works and ask
-> to pull without a rebase then if this is the prefered way. Would make
-> my life easier :)
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h between commit
+db4efbbeb457 ("brcmfmac: obtain platform data upon module
+initialization") from the wireless tree and commit 9bd91f3c00bd
+("brcm80211: Remove extern from function prototypes") from the net-next
+tree.
 
-That would be up to Dave ...
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
---Signature=_Fri__27_Sep_2013_12_01_07_+1000_Bpt5QyrZT9zDdR=2
+diff --cc drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
+index 74156f8,5bc0276..0000000
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
+@@@ -132,35 -132,33 +132,34 @@@ struct pktq *brcmf_bus_gettxq(struct br
+   * interface functions from common layer
+   */
+ =20
+- extern bool brcmf_c_prec_enq(struct device *dev, struct pktq *q,
+- 			 struct sk_buff *pkt, int prec);
++ bool brcmf_c_prec_enq(struct device *dev, struct pktq *q, struct sk_buff =
+*pkt,
++ 		      int prec);
+ =20
+  /* Receive frame for delivery to OS.  Callee disposes of rxp. */
+- extern void brcmf_rx_frames(struct device *dev, struct sk_buff_head *rxli=
+st);
++ void brcmf_rx_frames(struct device *dev, struct sk_buff_head *rxlist);
+ =20
+  /* Indication from bus module regarding presence/insertion of dongle. */
+- extern int brcmf_attach(uint bus_hdrlen, struct device *dev);
++ int brcmf_attach(uint bus_hdrlen, struct device *dev);
+  /* Indication from bus module regarding removal/absence of dongle */
+- extern void brcmf_detach(struct device *dev);
++ void brcmf_detach(struct device *dev);
+  /* Indication from bus module that dongle should be reset */
+- extern void brcmf_dev_reset(struct device *dev);
++ void brcmf_dev_reset(struct device *dev);
+  /* Indication from bus module to change flow-control state */
+- extern void brcmf_txflowblock(struct device *dev, bool state);
++ void brcmf_txflowblock(struct device *dev, bool state);
+ =20
+  /* Notify the bus has transferred the tx packet to firmware */
+- extern void brcmf_txcomplete(struct device *dev, struct sk_buff *txp,
+- 			     bool success);
++ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool succe=
+ss);
+ =20
+- extern int brcmf_bus_start(struct device *dev);
++ int brcmf_bus_start(struct device *dev);
+ =20
+  #ifdef CONFIG_BRCMFMAC_SDIO
+- extern void brcmf_sdio_exit(void);
+- extern void brcmf_sdio_init(void);
+- extern void brcmf_sdio_register(void);
++ void brcmf_sdio_exit(void);
++ void brcmf_sdio_init(void);
+++void brcmf_sdio_register(void);
+  #endif
+  #ifdef CONFIG_BRCMFMAC_USB
+- extern void brcmf_usb_exit(void);
+- extern void brcmf_usb_register(void);
++ void brcmf_usb_exit(void);
+ -void brcmf_usb_init(void);
+++void brcmf_usb_register(void);
+  #endif
+ =20
+  #endif				/* _BRCMF_BUS_H_ */
+
+--Signature=_Fri__27_Sep_2013_13_03_13_+1000_aMkG73iMLFohWM2_
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.21 (GNU/Linux)
 
-iQIcBAEBCAAGBQJSROboAAoJEMDTa8Ir7ZwVoRQQAIJQotoVoy91whcLvi1VEeTP
-MKKLBQ+IKIF0s/qQHVEXmRindn4gjl7IDNLstpu+xXlRhXuBjzO/7HdfnsQk4KDx
-VH0M9bfdY/NRT/XpjnPadqdItNw6f+KBt5dFndoEgVgMmmtcosjbeNT1I2bgdGZD
-1hRMlPmN/GQjbXO8xW8WItsLHnwWccSsZDbNs6nZpxIdGAaFdL9sozIRpweHnEbr
-BDjGdEunaVfL1kYdGA1hYWIEEhQgYAivJsGdHEHilRImvQuS1BYeyj8Fq2JQE7Cz
-iMw3cx6IheynatCmH4ClczzTUuMnyGd/6iR2TQVJd7X8BMup12GNZD037RZZwrqh
-K3/dwHSCU6nxk1ltHQ0jrzB7niSHmLq6j9susp5bNWbw6Qm96zOg+TCLhj6ajkbw
-DOiCR24yqwr5DSa8DGnziDkjggBfKPOGC1CRzF0Mt3dedbx2VxqcReGxcALGB7O7
-uJCDftBNiyFG21OBurFaud8FJ+dtpOBDdCFmrAkuVRmJxZdHhLXcNNtA1gpRy3mH
-L78OKTUOfesoeLFjWAPjWs/1cVZOExEFgIfYmBIvv48sitnizjgOPbLqZuiJvofz
-6EXQiKGcbMkfuft82tFHY5ubj5Gxj50uCbpu01iKYAFcNmOACXJdLP89INz+CER2
-lMPUxFazuc65cccTG6YE
-=SwBO
+iQIcBAEBCAAGBQJSRPV1AAoJEMDTa8Ir7ZwVGBEP/3KCIGh5pgG9yOhGVqxsZmJv
+yczsq+vGDoiuzgxjSMRoTpuq76s1WxWfLlS//lmJffch6RwmrhO1dcgqGDPDDfyy
+kNyR/TbGblVHg2Adu8+dkIkJMYWgx+VDgrvc+h31hNaYsma14V4qbe1le9qzWqqy
+ciYiTUOUNjRsXBnulRe1S+D1/CCAvoiDjdPM4VPm56Pv+NFUc8Tjy455BWM8wuhu
+dNczWws4E4JNCVibqUK//DHj+EK88AMNOQG/+bGg/+rm56Fyx14YxJuryTrCgy8C
+fxZzg0DPUnbu54dxFndDDj6qm9ezQWLYEdPtrTwblhbBQdBykaxLTjmkLwlGDxD4
+jmyEl1nJ1ExgMq14CuCZ5KcnuVuAzIuAPIxNmn1b48ryC07wrhC6qMxQ2kvg3Yx+
+d610JoaLDX8Sd1307HuQJmKOdOFgzmW+VsH6aOwPmmIOIyL1loYCM51S+80OdjKG
+u0jQq/o/SN3WHQ5oETIhRV0Z4AH3x1aejknH36CTVD2QuVcYmFxcF6mGpoX9dXT+
+nfVdeo5pRC5sN/mR7aEkyC265PLPQCYHFv2sDH1xwizQTC618S64/14o3sZ2wwp7
+layotLn9q3dFy/O0l45F4XRohCE95IzxBEyTRkt8caLoYcqiAqELLS8or7UBeb9i
+UvwJeGGT9qPxEo8Lh6z/
+=DHkv
 -----END PGP SIGNATURE-----
 
---Signature=_Fri__27_Sep_2013_12_01_07_+1000_Bpt5QyrZT9zDdR=2--
+--Signature=_Fri__27_Sep_2013_13_03_13_+1000_aMkG73iMLFohWM2_--
