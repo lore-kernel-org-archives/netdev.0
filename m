@@ -1,52 +1,49 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] iproute2: xfrm state add abort issue
-Date: Fri, 27 Sep 2013 09:26:15 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com>
-References: <524411AE.7000404@linux.vnet.ibm.com> <52447DAC.2060701@linux.vnet.ibm.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv2 net-next] xfrm: Simplify SA looking up when using wildcard source
+Date: Fri, 27 Sep 2013 16:32:50 +0800
+Message-ID: <1380270770-19089-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "Sohny Thomas" <sthomas@linux.vnet.ibm.com>,
-	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59769 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751878Ab3I0I2s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:28:48 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 23042-09 for <netdev@vger.kernel.org>;
- Fri, 27 Sep 2013 09:28:47 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <52447DAC.2060701@linux.vnet.ibm.com>
+Received: from mail1.windriver.com ([147.11.146.13]:47030 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751548Ab3I0Ic5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 04:32:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> ip xfrm state add causes a SIGABRT due to a strncpy_chk .
-> This happens since strncpy doesn't account for the '\0' .
-> I have fixed this using sizeof  instead of strlen .
-> 
-> There is a redhat bug which documents this issue
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=982761
-> 
-> Signed-off-by: Sohny Thomas <sohthoma@in.ibm.com>
-> 
-> --------------
-> 
-> diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-> index 389942c..7dd8799 100644
-> --- a/ip/xfrm_state.c
-> +++ b/ip/xfrm_state.c
-> @@ -117,7 +117,7 @@ static int xfrm_algo_parse(struct xfrm_algo *alg,
-> enum xfrm_attr_type_t type,
->                              char *name, char *key, char *buf, int max)
->    {
->           int len;
-> -       int slen = strlen(key);
-> +       int slen = sizeof(key);
+__xfrm4/6_state_addr_check is a four steps check, all we need to do
+is checking whether the destination address match when looking SA
+using wildcard source address. Passing saddr from flow is worst option,
+as the checking needs to reach the fourth step while actually only
+one time checking will do the work.
 
-you definitely don't want sizeof(key) - that is either 4 or 8.
+So, simplify this process by only checking destination address when
+using wildcard source address for looking up SAs.
 
-	David
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+v2:
+  - Rewrite a good qualified commit log message 
+  - Use xfrm_addr_equal instead of remaking wheel 
+---
+ net/xfrm/xfrm_state.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index e1373d5..3fad928 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -824,7 +824,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 		    x->props.reqid == tmpl->reqid &&
+ 		    (mark & x->mark.m) == x->mark.v &&
+ 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
+-		    xfrm_state_addr_check(x, daddr, saddr, encap_family) &&
++		    xfrm_addr_equal(&x->id.daddr, daddr, encap_family) &&
+ 		    tmpl->mode == x->props.mode &&
+ 		    tmpl->id.proto == x->id.proto &&
+ 		    (tmpl->id.spi == x->id.spi || !tmpl->id.spi))
+-- 
+1.7.9.5
