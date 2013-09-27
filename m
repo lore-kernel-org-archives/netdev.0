@@ -1,76 +1,63 @@
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Subject: [PATCH] ll_temac: Reset dma descriptors on ndo_open
-Date: Fri, 27 Sep 2013 13:24:28 +0200
-Message-ID: <1380281068-13269-1-git-send-email-ricardo.ribalda@gmail.com>
-Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Jingoo Han <jg1.han@samsung.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: question about map_read_chunks()
+Date: Fri, 27 Sep 2013 15:21:08 +0300
+Message-ID: <20130927122108.GF6247@mwanda>
+References: <20120220095019.GA21338@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "J. Bruce Fields" <bfields@redhat.com>, netdev@vger.kernel.org,
+	linux-nfs@vger.kernel.org
+To: Tom Tucker <tom@ogc.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:46015 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751616Ab3I0LYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 07:24:36 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:28027 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753216Ab3I0MVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 08:21:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20120220095019.GA21338@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dma descriptors are only initialized on the probe function.
+I have looked at this again, and I still worry that it looks like a bug.
+(remote security related blah blah blah).
 
-If a packet is on the buffer when temac_stop is called, the dma
-descriptors can be left on a incorrect status where no other package can
-be sent.
+regards,
+dan carpenter
 
-So an interface could be left in an usable state after ifdow/ifup.
-
-This patch makes sure that the descriptors are in a proper status when
-the device is started.
-
-Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index b88121f..8bae87f 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -229,6 +229,25 @@ static void temac_dma_bd_release(struct net_device *ndev)
- }
- 
- /**
-+ * temac_dma_bd_reset - Reset buffer descriptor rings
-+ */
-+static void temac_dma_bd_reset(struct net_device *ndev)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+	int i;
-+
-+	for (i = 0; i < TX_BD_NUM; i++)
-+		lp->tx_bd_v[i].app0 = 0;
-+
-+	lp->tx_bd_ci = 0;
-+	lp->tx_bd_next = 0;
-+	lp->tx_bd_tail = 0;
-+	lp->rx_bd_ci = 0;
-+
-+	return;
-+}
-+
-+/**
-  * temac_dma_bd_init - Setup buffer descriptor rings
-  */
- static int temac_dma_bd_init(struct net_device *ndev)
-@@ -864,6 +883,8 @@ static int temac_open(struct net_device *ndev)
- 	if (rc)
- 		goto err_rx_irq;
- 
-+	temac_dma_bd_reset(ndev);
-+
- 	return 0;
- 
-  err_rx_irq:
--- 
-1.8.4.rc3
+On Mon, Feb 20, 2012 at 12:50:19PM +0300, Dan Carpenter wrote:
+> I had a couple questions about some map_read_chunks().
+> 
+> net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+> 
+>    150          ch_bytes = ntohl(ch->rc_target.rs_length);
+>                 ^^^^^^^^
+> It look like this is 32 bits from the network?
+> 
+>    151          head->arg.head[0] = rqstp->rq_arg.head[0];
+>    152          head->arg.tail[0] = rqstp->rq_arg.tail[0];
+>    153          head->arg.pages = &head->pages[head->count];
+>    154          head->hdr_count = head->count; /* save count of hdr pages */
+>    155          head->arg.page_base = 0;
+>    156          head->arg.page_len = ch_bytes;
+>    157          head->arg.len = rqstp->rq_arg.len + ch_bytes;
+>                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> Can overflow.
+>    158          head->arg.buflen = rqstp->rq_arg.buflen + ch_bytes;
+>                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> Same.  I didn't follow it through to see if an overflow matters.  Does
+> it?
+> 
+>    159          head->count++;
+>    160          chl_map->ch[0].start = 0;
+>    161          while (byte_count) {
+>    162                  rpl_map->sge[sge_no].iov_base =
+>    163                          page_address(rqstp->rq_arg.pages[page_no]) + page_off;
+>    164                  sge_bytes = min_t(int, PAGE_SIZE-page_off, ch_bytes);
+>                                           ^^^
+> This is the wrong cast to use.  A large ch_bytes would be counted as a
+> negative value and get around the cap here.
+> 
+>    165                  rpl_map->sge[sge_no].iov_len = sge_bytes;
+> 
+> regards,
+> dan carpenter
