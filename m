@@ -1,64 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] net ipv4: Convert ipv4.ip_local_port_range to be per netns
-Date: Sat, 28 Sep 2013 13:32:38 -0700
-Message-ID: <87bo3cn0ux.fsf@xmission.com>
-References: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
-	<20130928.155228.211244914284752204.davem@davemloft.net>
-	<20130928.160753.1218915059639502436.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 path MTU discovery broken
+Date: Sat, 28 Sep 2013 22:33:18 +0200
+Message-ID: <20130928203318.GC23654@order.stressinduktion.org>
+References: <20130927201420.GB12043@sesse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39463 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754991Ab3I1Ucq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:32:46 -0400
-In-Reply-To: <20130928.160753.1218915059639502436.davem@davemloft.net> (David
-	Miller's message of "Sat, 28 Sep 2013 16:07:53 -0400 (EDT)")
+Received: from order.stressinduktion.org ([87.106.68.36]:57499 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755097Ab3I1UdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:33:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20130927201420.GB12043@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Hello!
 
-> From: David Miller <davem@davemloft.net>
-> Date: Sat, 28 Sep 2013 15:52:28 -0400 (EDT)
->
->> From: ebiederm@xmission.com (Eric W. Biederman)
->> Date: Sun, 22 Sep 2013 23:27:30 -0700
->>=20
->>>=20
->>> - Move sysctl_local_ports from a global variable into struct netns_=
-ipv4.
->>> - Modify inet_get_local_port_range to take a struct net.
->>> - Manually expand inet_get_local_range into ipv4_local_port_range
->>>   because I do not know the struct net.
->>> - Move the initialization of sysctl_local_ports into
->>>   sysctl_net_ipv4.c:ipv4_sysctl_init_net from inet_connection_sock.=
-c
->>>=20
->>> Originally-by: Samya <samya@twitter.com>
->>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>=20
->> Applied.
->
-> I had to revert, you didn't throughly build test this.
+On Fri, Sep 27, 2013 at 10:14:20PM +0200, Steinar H. Gunderson wrote:
+> So the =E2=80=9Cpacket too big=E2=80=9D packets really look like they=
+'re being ignored.
+> However, they _do_ reach the kernel somehow, since Icmp6InPktTooBigs
+> seems to increase.
+>=20
+> Could this be related somehow to the packets coming from 2001:67c:29f=
+4::31,
+> while the default route is to a link-local address? (An RPF issue?) T=
+his used
+> to work (although it was often flaky for me) in 3.10 and before. I ca=
+n't
+> easily bisect, though, as I don't boot this machine too often.
 
-My apologies, I was pushing a little too hard that day.  v3 will be
-coming with the fix.
+This looks like a bug and should definitely get fixed. There should be
+no RPF issue. May I have a look at your /proc/net/ipv6_route?
 
-> security/selinux/hooks.c: In function =E2=80=98selinux_socket_bind=E2=
-=80=99:
-> security/selinux/hooks.c:3933:4: error: incompatible type for argumen=
-t 1 of =E2=80=98inet_get_local_port_range=E2=80=99
-> In file included from security/selinux/hooks.c:53:0:
-> include/net/ip.h:206:6: note: expected =E2=80=98struct net *=E2=80=99=
- but argument is of type =E2=80=98struct lsm_network_audit=E2=80=99
->
-> And when you repost make sure to deal with the space vs. TAB
-> issues pointed out to you.
+Thanks,
 
-Definitely.
-
-Eric
+  Hannes
