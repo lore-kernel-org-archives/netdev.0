@@ -1,46 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: introduce SO_MAX_PACING_RATE
-Date: Sat, 28 Sep 2013 15:36:10 -0700 (PDT)
-Message-ID: <20130928.153610.2280100769720851440.davem@davemloft.net>
-References: <1379949014.3165.24.camel@edumazet-glaptop>
-	<1380036052.3165.71.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sesse@google.com, mtk.manpages@gmail.com
-To: eric.dumazet@gmail.com
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v2] bgmac: add support for Byte Queue Limits
+Date: Sun, 29 Sep 2013 00:35:26 +0200
+Message-ID: <1380407726-20691-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33900 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755238Ab3I1W3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:29:11 -0400
-In-Reply-To: <1380036052.3165.71.camel@edumazet-glaptop>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:45430 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755152Ab3I1Wfh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Sep 2013 18:35:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 Sep 2013 08:20:52 -0700
+This makes it possible to use some more advanced queuing
+techniques with this driver.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> As mentioned in commit afe4fd062416b ("pkt_sched: fq: Fair Queue packet
-> scheduler"), this patch adds a new socket option.
-> 
-> SO_MAX_PACING_RATE offers the application the ability to cap the
-> rate computed by transport layer. Value is in bytes per second.
-> 
-> u32 val = 1000000;
-> setsockopt(sockfd, SOL_SOCKET, SO_MAX_PACING_RATE, &val, sizeof(val));
-> 
-> To be effectively paced, a flow must use FQ packet scheduler.
-> 
-> Note that a packet scheduler takes into account the headers for its
-> computations. The effective payload rate depends on MSS and retransmits
-> if any.
-> 
-> I chose to make this pacing rate a SOL_SOCKET option instead of a
-> TCP one because this can be used by other protocols.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+When multi queue support will be added some changes to Byte Queue
+handling is needed.
 
-Applied, thanks Eric.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 249468f..e5519f1 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -164,6 +164,8 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
+ 	if (--free_slots == 1)
+ 		netif_stop_queue(net_dev);
+ 
++	netdev_sent_queue(net_dev, skb->len);
++
+ 	return NETDEV_TX_OK;
+ 
+ err_stop_drop:
+@@ -178,6 +180,7 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 	struct device *dma_dev = bgmac->core->dma_dev;
+ 	int empty_slot;
+ 	bool freed = false;
++	unsigned bytes_compl = 0, pkts_compl = 0;
+ 
+ 	/* The last slot that hardware didn't consume yet */
+ 	empty_slot = bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_TX_STATUS);
+@@ -195,6 +198,9 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 					 slot->skb->len, DMA_TO_DEVICE);
+ 			slot->dma_addr = 0;
+ 
++			bytes_compl += slot->skb->len;
++			pkts_compl++;
++
+ 			/* Free memory! :) */
+ 			dev_kfree_skb(slot->skb);
+ 			slot->skb = NULL;
+@@ -208,6 +214,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 		freed = true;
+ 	}
+ 
++	netdev_completed_queue(bgmac->net_dev, pkts_compl, bytes_compl);
++
+ 	if (freed && netif_queue_stopped(bgmac->net_dev))
+ 		netif_wake_queue(bgmac->net_dev);
+ }
+@@ -988,6 +996,8 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bgmac_miiconfig(bgmac);
+ 	bgmac_phy_init(bgmac);
+ 
++	netdev_reset_queue(bgmac->net_dev);
++
+ 	bgmac->int_status = 0;
+ }
+ 
+-- 
+1.7.10.4
