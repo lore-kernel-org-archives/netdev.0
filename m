@@ -1,77 +1,32 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] bgmac: add support for Byte Queue Limits
-Date: Sat, 28 Sep 2013 23:23:13 +0200
-Message-ID: <1380403393-12113-1-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RESEND] iproute2: GRE over IPv6 tunnel support.
+Date: Sat, 28 Sep 2013 23:27:52 +0200
+Message-ID: <20130928212752.GE23654@order.stressinduktion.org>
+References: <20130928113251.75738a49@comp1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: "Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Dmitry Kozlov <xeb@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:45288 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755096Ab3I1VXU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Sep 2013 17:23:20 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:57576 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754733Ab3I1V1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 17:27:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20130928113251.75738a49@comp1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This makes it possible to use some more advanced queuing
-techniques with this driver.
+On Sat, Sep 28, 2013 at 11:32:51AM +0400, Dmitry Kozlov wrote:
+> GRE over IPv6 tunnel support.
+> 
+> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
 
-When multi queue support will be added some changes to Byte Queue
-handling is needed.
+Dmitry, thanks a lot for resending!
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac.c |   10 ++++++++++
- 1 file changed, 10 insertions(+)
+One small nit:
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 249468f..80d4f52 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -178,6 +178,7 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 	struct device *dma_dev = bgmac->core->dma_dev;
- 	int empty_slot;
- 	bool freed = false;
-+	unsigned bytes_compl = 0, pkts_compl = 0;
- 
- 	/* The last slot that hardware didn't consume yet */
- 	empty_slot = bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_TX_STATUS);
-@@ -195,6 +196,9 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 					 slot->skb->len, DMA_TO_DEVICE);
- 			slot->dma_addr = 0;
- 
-+			bytes_compl += slot->skb->len;
-+			pkts_compl++;
-+
- 			/* Free memory! :) */
- 			dev_kfree_skb(slot->skb);
- 			slot->skb = NULL;
-@@ -208,6 +212,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 		freed = true;
- 	}
- 
-+	netdev_completed_queue(bgmac->net_dev, pkts_compl, bytes_compl);
-+
- 	if (freed && netif_queue_stopped(bgmac->net_dev))
- 		netif_wake_queue(bgmac->net_dev);
- }
-@@ -988,6 +994,8 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	bgmac_miiconfig(bgmac);
- 	bgmac_phy_init(bgmac);
- 
-+	netdev_reset_queue(bgmac->net_dev);
-+
- 	bgmac->int_status = 0;
- }
- 
-@@ -1198,6 +1206,8 @@ static netdev_tx_t bgmac_start_xmit(struct sk_buff *skb,
- 	struct bgmac *bgmac = netdev_priv(net_dev);
- 	struct bgmac_dma_ring *ring;
- 
-+	netdev_sent_queue(net_dev, skb->len);
-+
- 	/* No QOS support yet */
- 	ring = &bgmac->tx_ring[0];
- 	return bgmac_dma_tx_add(bgmac, ring, skb);
--- 
-1.7.10.4
+lib/ll_types.c would need a new entry in ll_type_n2a for ARPHDR_IP6GRE
+so ip link ls can pretty print the link type.
