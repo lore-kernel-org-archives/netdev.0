@@ -1,60 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: Fix preferred_lft not updating in some cases
-Date: Sat, 28 Sep 2013 22:28:28 +0200
-Message-ID: <20130928202828.GB23654@order.stressinduktion.org>
-References: <1380147175-14874-1-git-send-email-pmarks@google.com> <20130927081604.GB28287@order.stressinduktion.org> <CAHaKRvJDZJjuv4sALmQAotk5EUMfYPiLN=8_noWCRQYOW+bxSA@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] net ipv4: Convert ipv4.ip_local_port_range to be per netns
+Date: Sat, 28 Sep 2013 13:32:38 -0700
+Message-ID: <87bo3cn0ux.fsf@xmission.com>
+References: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
+	<20130928.155228.211244914284752204.davem@davemloft.net>
+	<20130928.160753.1218915059639502436.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org, Lorenzo Colitti <lorenzo@google.com>
-To: Paul Marks <pmarks@google.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57488 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754733Ab3I1U23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:28:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHaKRvJDZJjuv4sALmQAotk5EUMfYPiLN=8_noWCRQYOW+bxSA@mail.gmail.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:39463 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754991Ab3I1Ucq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:32:46 -0400
+In-Reply-To: <20130928.160753.1218915059639502436.davem@davemloft.net> (David
+	Miller's message of "Sat, 28 Sep 2013 16:07:53 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 27, 2013 at 01:28:06PM -0700, Paul Marks wrote:
-> On Fri, Sep 27, 2013 at 1:16 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Wed, Sep 25, 2013 at 03:12:55PM -0700, Paul Marks wrote:
-> >> -                                     if (prefered_lft != ifp->prefered_lft) {
-> >
-> > Wouldn't the easiest solution be to just drop this if and execute the two
-> > lines below unconditionally?
-> 
-> Yes, that's also correct.  But is it not better to have simpler code
-> than shorter diffs?  Should we transliterate English to C, or think
-> about what the algorithm is actually doing?  The fact that this bug
-> has gone unnoticed provides some evidence that the code may have been
-> too complicated.
+David Miller <davem@davemloft.net> writes:
 
-I don't care about the length of diffs or shorter code. I would favour
-a transliteration here because it makes verification easier (at least
-for me). The algorithm is not that complex and I guess the bug has been
-unnoticed because nobody ran into problems and cared til now.
+> From: David Miller <davem@davemloft.net>
+> Date: Sat, 28 Sep 2013 15:52:28 -0400 (EDT)
+>
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Sun, 22 Sep 2013 23:27:30 -0700
+>>=20
+>>>=20
+>>> - Move sysctl_local_ports from a global variable into struct netns_=
+ipv4.
+>>> - Modify inet_get_local_port_range to take a struct net.
+>>> - Manually expand inet_get_local_range into ipv4_local_port_range
+>>>   because I do not know the struct net.
+>>> - Move the initialization of sysctl_local_ports into
+>>>   sysctl_net_ipv4.c:ipv4_sysctl_init_net from inet_connection_sock.=
+c
+>>>=20
+>>> Originally-by: Samya <samya@twitter.com>
+>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>>=20
+>> Applied.
+>
+> I had to revert, you didn't throughly build test this.
 
-So, why not get rid of update_lft then?
+My apologies, I was pushing a little too hard that day.  v3 will be
+coming with the fix.
 
-> >> +                             const u32 minimum_lft = min(
-> >> +                                     stored_lft, (u32)MIN_VALID_LIFETIME);
-> >> +                             valid_lft = max(valid_lft, minimum_lft);
-> >
-> > Quick question: Don't we need a prefered_lft = min(preferred_lft, valid_lft)
-> > here?
-> 
-> The invariant is (preferred_lft <= valid_lft), and valid_lft can only
-> get bigger, so I don't think there's a problem.
+> security/selinux/hooks.c: In function =E2=80=98selinux_socket_bind=E2=
+=80=99:
+> security/selinux/hooks.c:3933:4: error: incompatible type for argumen=
+t 1 of =E2=80=98inet_get_local_port_range=E2=80=99
+> In file included from security/selinux/hooks.c:53:0:
+> include/net/ip.h:206:6: note: expected =E2=80=98struct net *=E2=80=99=
+ but argument is of type =E2=80=98struct lsm_network_audit=E2=80=99
+>
+> And when you repost make sure to deal with the space vs. TAB
+> issues pointed out to you.
 
-Ah, I got confused. Missed in the last case that it got tested earlier in the
-function. Your code looks correct regarding every rule.
+Definitely.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks,
-
-  Hannes
+Eric
