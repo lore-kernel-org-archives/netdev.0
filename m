@@ -1,57 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce SO_MAX_PACING_RATE
-Date: Fri, 27 Sep 2013 17:28:14 -0700
-Message-ID: <1380328094.30872.41.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1379949014.3165.24.camel@edumazet-glaptop>
-	 <20130927211604.GA929@imap.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] can: add Renesas R-Car CAN driver
+Date: Fri, 27 Sep 2013 17:40:29 -0700
+Message-ID: <1380328829.2965.3.camel@joe-AO722>
+References: <201309280211.39068.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: "Steinar H. Gunderson" <sesse@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:41243 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754525Ab3I1A2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 20:28:15 -0400
-Received: by mail-pb0-f52.google.com with SMTP id wz12so3177356pbc.25
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 17:28:15 -0700 (PDT)
-In-Reply-To: <20130927211604.GA929@imap.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+	linux-can@vger.kernel.org, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <201309280211.39068.sergei.shtylyov@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-09-27 at 23:16 +0200, Steinar H. Gunderson wrote:
-> On Mon, Sep 23, 2013 at 08:10:14AM -0700, Eric Dumazet wrote:
-> > SO_MAX_PACING_RATE offers the application the ability to cap the
-> > rate computed by transport layer. Value is in bytes per second.
-> 
-> I tried this (the first version) on top of 3.12-rc2, but it doesn't actually
-> appear to work.
-> 
-> The setsockopt goes through:
-> 
->   [pid 30501] setsockopt(11, SOL_SOCKET, 0x2f /* SO_??? */, [1920000], 4) = 0
-> 
-> And the fq scheduler is active on the machine:
+On Sat, 2013-09-28 at 02:11 +0400, Sergei Shtylyov wrote:
+> Add support for the CAN controller found in Renesas R-Car SoCs. 
 
-The socket option actually works, but FQ has a problem with non TSO
-frames, because default quantum is 3028 (2 * 1514)
+trivia:
 
-I am testing this patch :
+> +++ linux-can-next/drivers/net/can/rcar_can.c
+[]
+> +static void rcar_can_rx_pkt(struct rcar_can_priv *priv, int mbx)
+> +{
+> +       struct net_device_stats *stats = &priv->ndev->stats;
+> +       struct can_frame *cf;
+> +       struct sk_buff *skb;
+> +       u32 data;
+> +       u8 dlc;
+> +
+> +       skb = alloc_can_skb(priv->ndev, &cf);
+> +       if (!skb) {
+> +               stats->rx_dropped++;
+> +               if (printk_ratelimit())
+> +                       netdev_err(priv->ndev,
+> +                                  "%s: alloc_can_skb() failed\n", __func__);
 
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 32ad015..f7e45b0 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -473,7 +473,8 @@ begin:
- 
- 		rate = min(rate, q->flow_max_rate);
- 		if (rate) {
--			u64 len = (u64)qdisc_pkt_len(skb) * NSEC_PER_SEC;
-+			u32 plen = max(qdisc_pkt_len(skb), q->quantum);
-+			u64 len = (u64)plen * NSEC_PER_SEC;
- 
- 			do_div(len, rate);
- 			/* Since socket rate can change later,
+This logging message is unnecessary because it's
+redundant to the generic OOM error in __alloc_skb.
+It already gets a dump_stack();
+
+
+
+
