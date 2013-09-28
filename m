@@ -1,70 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] bonding: remove bond_next_slave()
-Date: Sat, 28 Sep 2013 15:29:09 -0700 (PDT)
-Message-ID: <20130928.152909.1883927861250097562.davem@davemloft.net>
-References: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH v2] declance: Remove `incompatible pointer type'
+ warnings
+Date: Sat, 28 Sep 2013 15:33:16 -0700 (PDT)
+Message-ID: <20130928.153316.1766304011894422920.davem@davemloft.net>
+References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>
+	<20130920.144304.2081229489870626586.davem@davemloft.net>
+	<alpine.LFD.2.03.1309222113300.16797@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@redhat.com,
-	bhutchings@solarflare.com, fubar@us.ibm.com, andy@greyhouse.net
-To: vfalico@redhat.com
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33827 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33888 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755084Ab3I1WWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:22:11 -0400
-In-Reply-To: <1380291125-5671-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1755084Ab3I1W0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:26:17 -0400
+In-Reply-To: <alpine.LFD.2.03.1309222113300.16797@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Fri, 27 Sep 2013 16:11:56 +0200
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Sun, 22 Sep 2013 21:19:01 +0100 (BST)
 
-> (on top of "[PATCH net-next 0/2] bonding: fix 3ad slave (de)init" - the
-> patchset is essential)
+> Revert damage caused by 43d620c82985b19008d87a437b4cf83f356264f7 
+> [drivers/net: Remove casts of void *]:
 > 
-> Hi,
+> .../declance.c: In function 'cp_to_buf':
+> .../declance.c:347: warning: assignment from incompatible pointer type
+> .../declance.c:348: warning: assignment from incompatible pointer type
+> .../declance.c: In function 'cp_from_buf':
+> .../declance.c:406: warning: assignment from incompatible pointer type
+> .../declance.c:407: warning: assignment from incompatible pointer type
 > 
-> As Ben Hutchings and Nikolay Aleksandrov correctly noted -
-> bond_next_slave() already is not O(1), but rather O(n), so it's only useful
-> for one-off operations and shouldn't be used widely - for example, for list
-> traversal, which will take O(n^2) time, which will be disastrous for any
-> hot path with a large number of slaves.
+> Also add a `const' qualifier where applicable and adjust formatting.
 > 
-> Currently, bond_next_slave() is used several times in 802.3ad and for
-> seq_read - bond_info_seq_next().
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> ---
+>> Applied to net-next
 > 
-> The 802.3ad part uses it only in constructs like:
-> 
-> for (X = __get_first_X(); X; X = __get_next_X()) {
-> 
-> where __get_next_X() uses bond_next_slave().
-> 
-> This for can (and should) actually be replaced by the standard
-> 
-> bond_for_each_slave(bond, slave, iter) {
-> 	X = __get_X_by_slave(slave);
-> 
-> it's faster, easier to read, debug and maintain. Also, removes a lot of
-> code lines.
-> 
-> After replacing it, the only user of bond_next_slave() is
-> bond_info_seq_next() - which can, actually, implement it by itself, and not
-> call another function.
-> 
-> So, that way, we can completely remove the bond_next_slave(), cleanup and
-> optimize a bit.
-> 
-> p.s. the 802.3ad code is horrible, both style-wise and from the logical
-> point of view - so I've decided to *not* change anything except that what
-> this patch is intended to provide. The cleanup and some refactoring should
-> be done in another patchset, which I've began to work on already.
-> 
-> Thank you!
-> 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>  Thanks, by Sergei's request please use this version instead that has the 
+> reference to the original commit updated (no change to the patch itself).
 
-Also applied, thanks.
+I can't undo the original commit once it has been installed in my tree.
