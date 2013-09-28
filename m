@@ -1,41 +1,58 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 2/2] ipv4 igmp: use del_timer_sync instead of del_timer in ip_mc_down
-Date: Sat, 28 Sep 2013 03:15:32 +0400
-Message-ID: <20130927231532.GA23750@ms2.inr.ac.ru>
-References: <1378363404-37749-1-git-send-email-noureddine@aristanetworks.com> <20130905084312.091f73b7@nehalam.linuxnetplumber.net> <CAO7SqHA4LJhy_NBkPLViJB3s7hM85qd88pmjy3hq-hCCuQstaA@mail.gmail.com> <CAO7SqHA5pBs7Tmop1ukS_AEXO8K9Np7odo20QdTYHBg2qoV49Q@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 2/2] ethernet: use likely() for common Ethernet
+ encap
+Date: Fri, 27 Sep 2013 17:21:27 -0700
+Message-ID: <20130927172127.566a1a1d@nehalam.linuxnetplumber.net>
+References: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Salam Noureddine <noureddine@aristanetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:44131 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754204Ab3I1AOD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Sep 2013 20:14:03 -0400
-Content-Disposition: inline
-In-Reply-To: <CAO7SqHA5pBs7Tmop1ukS_AEXO8K9Np7odo20QdTYHBg2qoV49Q@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:49722 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754374Ab3I1AVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 20:21:36 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so3433811pab.4
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 17:21:35 -0700 (PDT)
+In-Reply-To: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 27, 2013 at 04:04:00PM -0700, Salam Noureddine wrote:
-> 				I don't quite understand the reason
-> for having __in_dev_put decrement the refcnt without destroying the
-> in_device in case it reaches 0. If the timer handler assumes it cannot
-> be the last one to hold a reference then that would mean it doesn't
-> need the reference in the first place.
+Mark code path's likely/unlikely based on most common usage.
+  * Very few devices use dsa tags.
+  * Most traffic is Ethernet (not 802.2)
+  * No sane person uses trailer type or Novell encapsulation
 
-I would like to explain this, because this can result in a big mistake.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Timer takes reference, when it _can_ be the last sometimes.
 
-When we do del_timer() and know for sure that someone holds refcnt, we can just
-decrese it. In this cae it is obvious: we sit in context whcih deals with in_dev,
-so that reference from timer acannot be the last: caller of the function holds refcnt.
-
-But in another places timer _expires_ and that last reference is dropped by in_dev_put().
-
-Alexey
+--- a/net/ethernet/eth.c	2013-09-26 17:34:35.363115182 -0700
++++ b/net/ethernet/eth.c	2013-09-26 17:34:38.915070453 -0700
+@@ -179,12 +179,13 @@ __be16 eth_type_trans(struct sk_buff *sk
+ 	 * variants has been configured on the receiving interface,
+ 	 * and if so, set skb->protocol without looking at the packet.
+ 	 */
+-	if (netdev_uses_dsa_tags(dev))
++	if (unlikely(netdev_uses_dsa_tags(dev)))
+ 		return htons(ETH_P_DSA);
+-	if (netdev_uses_trailer_tags(dev))
++
++	if (unlikely(netdev_uses_trailer_tags(dev)))
+ 		return htons(ETH_P_TRAILER);
+ 
+-	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
++	if (likely(ntohs(eth->h_proto) >= ETH_P_802_3_MIN))
+ 		return eth->h_proto;
+ 
+ 	/*
+@@ -193,7 +194,7 @@ __be16 eth_type_trans(struct sk_buff *sk
+ 	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+ 	 *      won't work for fault tolerant netware but does for the rest.
+ 	 */
+-	if (skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF)
++	if (unlikely(skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF))
+ 		return htons(ETH_P_802_3);
+ 
+ 	/*
