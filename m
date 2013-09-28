@@ -1,57 +1,46 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net 2/2] ip_tunnel: Add fallback tunnels to the hash lists
-Date: Fri, 27 Sep 2013 19:40:34 -0700
-Message-ID: <CALnjE+oKZLj8vdDsgUhg_3nB7Ypicu-tOm_h3xhjnEjbkwLirA@mail.gmail.com>
-References: <20130925055418.GV7660@secunet.com>
-	<20130925055519.GW7660@secunet.com>
-	<CALnjE+rrm3Vzov4sUjBfEKHwzRb6MfTRhkA_B96yuNGpgFgiCg@mail.gmail.com>
-	<20130926081344.GA7660@secunet.com>
-	<CALnjE+pu6CEwB+p3TNH56N09Cwabr9QbaKotKiwbfyLvZUsSpA@mail.gmail.com>
-	<20130927075654.GE7660@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:41204 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754204Ab3I1Ckf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 22:40:35 -0400
-Received: by mail-qc0-f169.google.com with SMTP id c9so2317338qcz.28
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 19:40:34 -0700 (PDT)
-In-Reply-To: <20130927075654.GE7660@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] carl9170: fix leaks at failure path in carl9170_usb_probe()
+Date: Fri, 27 Sep 2013 23:51:51 -0400
+Message-ID: <1380340311-4630-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Christian Lamparter <chunkeey@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 27, 2013 at 12:56 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Thu, Sep 26, 2013 at 11:24:07AM -0700, Pravin Shelar wrote:
->> On Thu, Sep 26, 2013 at 1:13 AM, Steffen Klassert
->> <steffen.klassert@secunet.com> wrote:
->> > On Wed, Sep 25, 2013 at 09:03:11AM -0700, Pravin Shelar wrote:
->> >> fallback tunnel s not required to be in hash table, Its is returned if
->> >> none of hashed tunnels are matched, ref ip_tunnel_lookup().
->> >> Can you post command to reproduce this issue?
->> >>
->> >
->> > Something like
->> >
->> > ip tunnel change tunl0 mode ipip remote 0.0.0.0 local 0.0.0.0 ttl 0 tos 1
->> >
->> > worked until v3.9 and stopped working with v3.10.
->>
->> OK, I see the bug, tunnel exact match lookup does not check fb tunnel.
->> There are two options.
->> 1. Fix ip_tunnel_find() to check for fb tunnel.
->> 2. Add fb tunnel to hash table, which is what ur patch does.
->> I think your patch is better solution as it get rid of special case.
->> But patch is not complete. It needs to remove fb tunnel checks on
->> netdev unregister.
->
-> It looks like this is another bug that requires an additional patch.
-> We add the fallback tunnel to the unregister list when we iterate over
-> all netdevices in the namespace at the beginning of ip_tunnel_destroy()
-> and then again explicitly at the end of ip_tunnel_destroy().
+carl9170_usb_probe() does not handle request_firmware_nowait() failure
+that leads to several leaks in this case.
+The patch adds all required deallocations.
 
-right.
-And if the special case is removed, code will become simple.
+Found by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/ath/carl9170/usb.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/carl9170/usb.c b/drivers/net/wireless/ath/carl9170/usb.c
+index 307bc0d..3c76de1 100644
+--- a/drivers/net/wireless/ath/carl9170/usb.c
++++ b/drivers/net/wireless/ath/carl9170/usb.c
+@@ -1076,8 +1076,14 @@ static int carl9170_usb_probe(struct usb_interface *intf,
+ 
+ 	carl9170_set_state(ar, CARL9170_STOPPED);
+ 
+-	return request_firmware_nowait(THIS_MODULE, 1, CARL9170FW_NAME,
++	err = request_firmware_nowait(THIS_MODULE, 1, CARL9170FW_NAME,
+ 		&ar->udev->dev, GFP_KERNEL, ar, carl9170_usb_firmware_step2);
++	if (err) {
++		usb_put_dev(udev);
++		usb_put_dev(udev);
++		carl9170_free(ar);
++	}
++	return err;
+ }
+ 
+ static void carl9170_usb_disconnect(struct usb_interface *intf)
+-- 
+1.8.1.2
