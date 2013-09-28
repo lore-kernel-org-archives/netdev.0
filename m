@@ -1,63 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 path MTU discovery broken
-Date: Sat, 28 Sep 2013 23:19:49 +0200
-Message-ID: <20130928211949.GD23654@order.stressinduktion.org>
-References: <20130927201420.GB12043@sesse.net> <20130928203318.GC23654@order.stressinduktion.org> <20130928205131.GB20124@sesse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] b44: add support for Byte Queue Limits
+Date: Sat, 28 Sep 2013 23:22:18 +0200
+Message-ID: <1380403338-12056-1-git-send-email-hauke@hauke-m.de>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57564 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755083Ab3I1VTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 17:19:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20130928205131.GB20124@sesse.net>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:45281 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755070Ab3I1VWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Sep 2013 17:22:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 28, 2013 at 10:51:31PM +0200, Steinar H. Gunderson wrote:
-> On Sat, Sep 28, 2013 at 10:33:18PM +0200, Hannes Frederic Sowa wrote:
-> >> Could this be related somehow to the packets coming from 2001:67c:=
-29f4::31,
-> >> while the default route is to a link-local address? (An RPF issue?=
-) This used
-> >> to work (although it was often flaky for me) in 3.10 and before. I=
- can't
-> >> easily bisect, though, as I don't boot this machine too often.
-> > This looks like a bug and should definitely get fixed. There should=
- be
-> > no RPF issue. May I have a look at your /proc/net/ipv6_route?
->=20
-> Hi,
->=20
-> I removed all the =E2=80=9Cweird=E2=80=9D routes, and confirmed it fi=
-xed the problem.
-> However, upon adding them back again, the problem was still gone
-> (despite flushing the route cache).
->=20
-> This means that the issue has gone back to being intermittent, which =
-is of
-> course the worst kind of bug to trace down. :-) I'll dump
-> /proc/net/ipv6_route and send you once I see the bug manifest itself =
-again,
-> OK?
+This makes it possible to use some more advanced queuing
+techniques with this driver.
 
-Yes, that would be very helpful.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/b44.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Also, you can try to churn up your bgp connection a bit so that the fib
-serial numbers get incremented a lot (drop and install new routes). Whe=
-n
-tcp_ipv6 processes the icmp errors it will drop the in-socket cached
-routing entry then and will reinstall a relookuped one.  This is my onl=
-y
-suspect currently. If that would help to reproduce the problem the susp=
-ects
-would be the changes in the next-hop selection. Sorry, no other idea
-currently.
-
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 9b017d9..c96930f 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -596,6 +596,7 @@ static void b44_timer(unsigned long __opaque)
+ static void b44_tx(struct b44 *bp)
+ {
+ 	u32 cur, cons;
++	unsigned bytes_compl = 0, pkts_compl = 0;
+ 
+ 	cur  = br32(bp, B44_DMATX_STAT) & DMATX_STAT_CDMASK;
+ 	cur /= sizeof(struct dma_desc);
+@@ -612,9 +613,14 @@ static void b44_tx(struct b44 *bp)
+ 				 skb->len,
+ 				 DMA_TO_DEVICE);
+ 		rp->skb = NULL;
++
++		bytes_compl += skb->len;
++		pkts_compl++;
++
+ 		dev_kfree_skb_irq(skb);
+ 	}
+ 
++	netdev_completed_queue(bp->dev, pkts_compl, bytes_compl);
+ 	bp->tx_cons = cons;
+ 	if (netif_queue_stopped(bp->dev) &&
+ 	    TX_BUFFS_AVAIL(bp) > B44_TX_WAKEUP_THRESH)
+@@ -1018,6 +1024,8 @@ static netdev_tx_t b44_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (bp->flags & B44_FLAG_REORDER_BUG)
+ 		br32(bp, B44_DMATX_PTR);
+ 
++	netdev_sent_queue(dev, skb->len);
++
+ 	if (TX_BUFFS_AVAIL(bp) < 1)
+ 		netif_stop_queue(dev);
+ 
+@@ -1416,6 +1424,8 @@ static void b44_init_hw(struct b44 *bp, int reset_kind)
+ 
+ 	val = br32(bp, B44_ENET_CTRL);
+ 	bw32(bp, B44_ENET_CTRL, (val | ENET_CTRL_ENABLE));
++
++	netdev_reset_queue(bp->dev);
+ }
+ 
+ static int b44_open(struct net_device *dev)
+-- 
+1.7.10.4
