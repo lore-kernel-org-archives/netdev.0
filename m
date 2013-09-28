@@ -1,45 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: net_secret should not depend on TCP
-Date: Sat, 28 Sep 2013 15:20:42 -0700 (PDT)
-Message-ID: <20130928.152042.893883191246097959.davem@davemloft.net>
-References: <20130924054532.GA24446@order.stressinduktion.org>
-	<1380028797.3165.65.camel@edumazet-glaptop>
-	<20130924235147.GA9335@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] b44: add support for Byte Queue Limits
+Date: Sat, 28 Sep 2013 15:14:36 -0700
+Message-ID: <1380406476.3596.5.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380403338-12056-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: hannes@stressinduktion.org
+Cc: davem@davemloft.net, zambrano@broadcom.com, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33694 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755076Ab3I1WNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:13:43 -0400
-In-Reply-To: <20130924235147.GA9335@order.stressinduktion.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:35956 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755076Ab3I1WOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:14:38 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so4037976pdj.18
+        for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 15:14:37 -0700 (PDT)
+In-Reply-To: <1380403338-12056-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 25 Sep 2013 01:51:47 +0200
-
-> On Tue, Sep 24, 2013 at 06:19:57AM -0700, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> A host might need net_secret[] and never open a single socket. 
->> 
->> Problem added in commit aebda156a570782
->> ("net: defer net_secret[] initialization")
->> 
->> Based on prior patch from Hannes Frederic Sowa.
->> 
->> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Sat, 2013-09-28 at 23:22 +0200, Hauke Mehrtens wrote:
+> This makes it possible to use some more advanced queuing
+> techniques with this driver.
 > 
-> FWIW, I reviewed that the loop indeed cannot block and gave the patch a
-> quick test drive. Also, the ipv6_hash_secret is only used by the ehash
-> functions. So this is a superior patch than mine:
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@strressinduktion.org>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>  drivers/net/ethernet/broadcom/b44.c |   10 ++++++++++
+>  1 file changed, 10 insertions(+)
 
-Applied and queued up for -stable, thanks.
+Reviewed-by: Eric Dumazet <edumazet@google.com>
