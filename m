@@ -1,42 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net ipv4: Convert ipv4.ip_local_port_range to
- be per netns
-Date: Sat, 28 Sep 2013 16:07:53 -0400 (EDT)
-Message-ID: <20130928.160753.1218915059639502436.davem@davemloft.net>
-References: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
-	<20130928.155228.211244914284752204.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: Fix preferred_lft not updating in some cases
+Date: Sat, 28 Sep 2013 22:28:28 +0200
+Message-ID: <20130928202828.GB23654@order.stressinduktion.org>
+References: <1380147175-14874-1-git-send-email-pmarks@google.com> <20130927081604.GB28287@order.stressinduktion.org> <CAHaKRvJDZJjuv4sALmQAotk5EUMfYPiLN=8_noWCRQYOW+bxSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, Lorenzo Colitti <lorenzo@google.com>
+To: Paul Marks <pmarks@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60174 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754526Ab3I1UHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:07:55 -0400
-In-Reply-To: <20130928.155228.211244914284752204.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:57488 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754733Ab3I1U23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:28:29 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHaKRvJDZJjuv4sALmQAotk5EUMfYPiLN=8_noWCRQYOW+bxSA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAyOCBT
-ZXAgMjAxMyAxNTo1MjoyOCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IGViaWVkZXJtQHhtaXNzaW9u
-LmNvbSAoRXJpYyBXLiBCaWVkZXJtYW4pDQo+IERhdGU6IFN1biwgMjIgU2VwIDIwMTMgMjM6Mjc6
-MzAgLTA3MDANCj4gDQo+PiANCj4+IC0gTW92ZSBzeXNjdGxfbG9jYWxfcG9ydHMgZnJvbSBhIGds
-b2JhbCB2YXJpYWJsZSBpbnRvIHN0cnVjdCBuZXRuc19pcHY0Lg0KPj4gLSBNb2RpZnkgaW5ldF9n
-ZXRfbG9jYWxfcG9ydF9yYW5nZSB0byB0YWtlIGEgc3RydWN0IG5ldC4NCj4+IC0gTWFudWFsbHkg
-ZXhwYW5kIGluZXRfZ2V0X2xvY2FsX3JhbmdlIGludG8gaXB2NF9sb2NhbF9wb3J0X3JhbmdlDQo+
-PiAgIGJlY2F1c2UgSSBkbyBub3Qga25vdyB0aGUgc3RydWN0IG5ldC4NCj4+IC0gTW92ZSB0aGUg
-aW5pdGlhbGl6YXRpb24gb2Ygc3lzY3RsX2xvY2FsX3BvcnRzIGludG8NCj4+ICAgc3lzY3RsX25l
-dF9pcHY0LmM6aXB2NF9zeXNjdGxfaW5pdF9uZXQgZnJvbSBpbmV0X2Nvbm5lY3Rpb25fc29jay5j
-DQo+PiANCj4+IE9yaWdpbmFsbHktYnk6IFNhbXlhIDxzYW15YUB0d2l0dGVyLmNvbT4NCj4+IFNp
-Z25lZC1vZmYtYnk6ICJFcmljIFcuIEJpZWRlcm1hbiIgPGViaWVkZXJtQHhtaXNzaW9uLmNvbT4N
-Cj4gDQo+IEFwcGxpZWQuDQoNCkkgaGFkIHRvIHJldmVydCwgeW91IGRpZG4ndCB0aHJvdWdobHkg
-YnVpbGQgdGVzdCB0aGlzLg0KDQpzZWN1cml0eS9zZWxpbnV4L2hvb2tzLmM6IEluIGZ1bmN0aW9u
-IKFzZWxpbnV4X3NvY2tldF9iaW5kojoNCnNlY3VyaXR5L3NlbGludXgvaG9va3MuYzozOTMzOjQ6
-IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZSBmb3IgYXJndW1lbnQgMSBvZiChaW5ldF9nZXRfbG9j
-YWxfcG9ydF9yYW5nZaINCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBzZWN1cml0eS9zZWxpbnV4L2hv
-b2tzLmM6NTM6MDoNCmluY2x1ZGUvbmV0L2lwLmg6MjA2OjY6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1
-Y3QgbmV0ICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFzdHJ1Y3QgbHNtX25ldHdvcmtfYXVk
-aXSiDQoNCkFuZCB3aGVuIHlvdSByZXBvc3QgbWFrZSBzdXJlIHRvIGRlYWwgd2l0aCB0aGUgc3Bh
-Y2UgdnMuIFRBQg0KaXNzdWVzIHBvaW50ZWQgb3V0IHRvIHlvdS4NCg0KVGhhbmtzLg0K
+On Fri, Sep 27, 2013 at 01:28:06PM -0700, Paul Marks wrote:
+> On Fri, Sep 27, 2013 at 1:16 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > On Wed, Sep 25, 2013 at 03:12:55PM -0700, Paul Marks wrote:
+> >> -                                     if (prefered_lft != ifp->prefered_lft) {
+> >
+> > Wouldn't the easiest solution be to just drop this if and execute the two
+> > lines below unconditionally?
+> 
+> Yes, that's also correct.  But is it not better to have simpler code
+> than shorter diffs?  Should we transliterate English to C, or think
+> about what the algorithm is actually doing?  The fact that this bug
+> has gone unnoticed provides some evidence that the code may have been
+> too complicated.
+
+I don't care about the length of diffs or shorter code. I would favour
+a transliteration here because it makes verification easier (at least
+for me). The algorithm is not that complex and I guess the bug has been
+unnoticed because nobody ran into problems and cared til now.
+
+So, why not get rid of update_lft then?
+
+> >> +                             const u32 minimum_lft = min(
+> >> +                                     stored_lft, (u32)MIN_VALID_LIFETIME);
+> >> +                             valid_lft = max(valid_lft, minimum_lft);
+> >
+> > Quick question: Don't we need a prefered_lft = min(preferred_lft, valid_lft)
+> > here?
+> 
+> The invariant is (preferred_lft <= valid_lft), and valid_lft can only
+> get bigger, so I don't think there's a problem.
+
+Ah, I got confused. Missed in the last case that it got tested earlier in the
+function. Your code looks correct regarding every rule.
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+
+  Hannes
