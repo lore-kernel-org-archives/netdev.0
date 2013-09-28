@@ -1,71 +1,63 @@
-From: Sohny Thomas <sthomas@linux.vnet.ibm.com>
-Subject: Re: [PATCH] iproute2: xfrm state add abort issue
-Date: Sat, 28 Sep 2013 18:54:31 +0530
-Message-ID: <5246D88F.7090906@linux.vnet.ibm.com>
-References: <524411AE.7000404@linux.vnet.ibm.com> <52447DAC.2060701@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 net-next] net: pkt_sched: PIE AQM scheme
+Date: Sat, 28 Sep 2013 10:03:42 -0700
+Message-ID: <1380387822.3596.3.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380333383-9507-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	Mythili Prabhu <mysuryan@cisco.com>,
+	Dave Taht <dave.taht@bufferbloat.net>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:57830 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753498Ab3I1NYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 09:24:42 -0400
-Received: from /spool/local
-	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sthomas@linux.vnet.ibm.com>;
-	Sat, 28 Sep 2013 18:54:40 +0530
-Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
-	by d28dlp02.in.ibm.com (Postfix) with ESMTP id 3EE24394004D
-	for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 18:54:19 +0530 (IST)
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r8SDQwvp38273146
-	for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 18:56:59 +0530
-Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id r8SDOYin009258
-	for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 18:54:34 +0530
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:46898 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754388Ab3I1RDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 13:03:44 -0400
+Received: by mail-pb0-f51.google.com with SMTP id jt11so3794287pbb.38
+        for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 10:03:43 -0700 (PDT)
+In-Reply-To: <1380333383-9507-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 27 September 2013 01:56 PM, David Laight wrote:
->> ip xfrm state add causes a SIGABRT due to a strncpy_chk .
->> This happens since strncpy doesn't account for the '\0' .
->> I have fixed this using sizeof  instead of strlen .
->>
->> There is a redhat bug which documents this issue
->>
->> https://bugzilla.redhat.com/show_bug.cgi?id=982761
->>
->> Signed-off-by: Sohny Thomas <sohthoma@in.ibm.com>
->>
->> --------------
->>
->> diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
->> index 389942c..7dd8799 100644
->> --- a/ip/xfrm_state.c
->> +++ b/ip/xfrm_state.c
->> @@ -117,7 +117,7 @@ static int xfrm_algo_parse(struct xfrm_algo *alg,
->> enum xfrm_attr_type_t type,
->>                               char *name, char *key, char *buf, int max)
->>     {
->>            int len;
->> -       int slen = strlen(key);
->> +       int slen = sizeof(key);
->
-> you definitely don't want sizeof(key) - that is either 4 or 8.
-oh damn my bad.
-I think i will go with strlen(key) + 1.
+On Fri, 2013-09-27 at 18:56 -0700, Vijay Subramanian wrote:
 
-or i will pass slen+1 to strncpy .
+> +static int pie_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+> +{
+> +	struct pie_sched_data *q = qdisc_priv(sch);
+> +
+> +	if (unlikely(qdisc_qlen(sch) >= sch->limit))
+> +		goto out;
+> +
 
-Regards,
-Sohny
->
-> 	David
->
->
->
->
+...
+
+> +out:
+> +	q->stats.overlimit++;
+> +	qdisc_drop(skb, sch);
+> +	return NET_XMIT_CN;  /*indicate congestion*/
+> +}
+
+
+If a Qdisc drops a packet because sch->limit is hit, you must :
+
+return qdisc_drop(skb, sch);
+
+So that NET_XMIT_DROP is returned, not NET_XMIT_CN.
+
+This packet was dropped for sure.
+
+vi +96 net/sched/sch_api.c
+
+   ---enqueue
+
+   enqueue returns 0, if packet was enqueued successfully.
+   If packet (this one or another one) was dropped, it returns
+   not zero error code.
+   NET_XMIT_DROP        - this packet dropped
+     Expected action: do not backoff, but wait until queue will clear.
+   NET_XMIT_CN          - probably this packet enqueued, but another one dropped.
+     Expected action: backoff or ignore
+   NET_XMIT_POLICED     - dropped by police.
+     Expected action: backoff or error to real-time apps.
