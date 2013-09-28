@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net ipv4: Convert ipv4.ip_local_port_range to
- be per netns
-Date: Sat, 28 Sep 2013 15:52:28 -0400 (EDT)
-Message-ID: <20130928.155228.211244914284752204.davem@davemloft.net>
-References: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
+Subject: Re: [PATCH net-next] ipv6: Not need to set fl6.flowi6_flags as zero
+Date: Sat, 28 Sep 2013 15:52:39 -0400 (EDT)
+Message-ID: <20130928.155239.1656178261637728049.davem@davemloft.net>
+References: <1379919359-3032-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59803 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59808 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755080Ab3I1Twa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 15:52:30 -0400
-In-Reply-To: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
+	with ESMTP id S1755096Ab3I1Twl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 15:52:41 -0400
+In-Reply-To: <1379919359-3032-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 22 Sep 2013 23:27:30 -0700
+From: roy.qing.li@gmail.com
+Date: Mon, 23 Sep 2013 14:55:59 +0800
 
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> - Move sysctl_local_ports from a global variable into struct netns_ipv4.
-> - Modify inet_get_local_port_range to take a struct net.
-> - Manually expand inet_get_local_range into ipv4_local_port_range
->   because I do not know the struct net.
-> - Move the initialization of sysctl_local_ports into
->   sysctl_net_ipv4.c:ipv4_sysctl_init_net from inet_connection_sock.c
+> setting fl6.flowi6_flags as zero after memset is redundant, Remove it.
 > 
-> Originally-by: Samya <samya@twitter.com>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
 Applied.
