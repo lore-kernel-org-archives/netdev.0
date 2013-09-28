@@ -1,47 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] IPv6 NAT: Do not drop DNATed 6to4/6rd packets
-Date: Sat, 28 Sep 2013 15:57:50 -0400 (EDT)
-Message-ID: <20130928.155750.1130089685321379918.davem@davemloft.net>
-References: <1379963485.3575.53.camel@joe-AO722>
-	<1379966659-28838-1-git-send-email-catab@embedromix.ro>
-	<20130924213606.GB4446@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] net ipv4: Convert ipv4.ip_local_port_range to
+ be per netns
+Date: Sat, 28 Sep 2013 16:07:53 -0400 (EDT)
+Message-ID: <20130928.160753.1218915059639502436.davem@davemloft.net>
+References: <87fvswt5m5.fsf@tw-ebiederman.twitter.com>
+	<20130928.155228.211244914284752204.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: catab@embedromix.ro, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, joe@perches.com
-To: hannes@stressinduktion.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59937 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60174 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752987Ab3I1T5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 15:57:53 -0400
-In-Reply-To: <20130924213606.GB4446@order.stressinduktion.org>
+	with ESMTP id S1754526Ab3I1UHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:07:55 -0400
+In-Reply-To: <20130928.155228.211244914284752204.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 24 Sep 2013 23:36:06 +0200
-
-> On Mon, Sep 23, 2013 at 11:04:19PM +0300, Catalin(ux) M. BOIE wrote:
->> When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
->> patch (218774dc) will drop them because the IPv6 address embedded
->> does not match the IPv4 destination. This patch will allow them to
->> pass by testing if we have an address that matches on 6to4/6rd interface.
->> I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
->> Also, log the dropped packets (with rate limit).
->> 
->> Signed-off-by: Catalin(ux) M. BOIE <catab@embedromix.ro>
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Applied, but Catalin please strictly refer to changes in the following
-precise format:
-
-	commit $SHA1_ID ("Commit message header line text")
-
-Because SHA1_IDs are ambiguous, especially when the change in question
-is backported into various -stable branches.
-
-The only way to resolve the ambiguity is to provide the commit message
-text (in parenthesis and double quotes).
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAyOCBT
+ZXAgMjAxMyAxNTo1MjoyOCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IGViaWVkZXJtQHhtaXNzaW9u
+LmNvbSAoRXJpYyBXLiBCaWVkZXJtYW4pDQo+IERhdGU6IFN1biwgMjIgU2VwIDIwMTMgMjM6Mjc6
+MzAgLTA3MDANCj4gDQo+PiANCj4+IC0gTW92ZSBzeXNjdGxfbG9jYWxfcG9ydHMgZnJvbSBhIGds
+b2JhbCB2YXJpYWJsZSBpbnRvIHN0cnVjdCBuZXRuc19pcHY0Lg0KPj4gLSBNb2RpZnkgaW5ldF9n
+ZXRfbG9jYWxfcG9ydF9yYW5nZSB0byB0YWtlIGEgc3RydWN0IG5ldC4NCj4+IC0gTWFudWFsbHkg
+ZXhwYW5kIGluZXRfZ2V0X2xvY2FsX3JhbmdlIGludG8gaXB2NF9sb2NhbF9wb3J0X3JhbmdlDQo+
+PiAgIGJlY2F1c2UgSSBkbyBub3Qga25vdyB0aGUgc3RydWN0IG5ldC4NCj4+IC0gTW92ZSB0aGUg
+aW5pdGlhbGl6YXRpb24gb2Ygc3lzY3RsX2xvY2FsX3BvcnRzIGludG8NCj4+ICAgc3lzY3RsX25l
+dF9pcHY0LmM6aXB2NF9zeXNjdGxfaW5pdF9uZXQgZnJvbSBpbmV0X2Nvbm5lY3Rpb25fc29jay5j
+DQo+PiANCj4+IE9yaWdpbmFsbHktYnk6IFNhbXlhIDxzYW15YUB0d2l0dGVyLmNvbT4NCj4+IFNp
+Z25lZC1vZmYtYnk6ICJFcmljIFcuIEJpZWRlcm1hbiIgPGViaWVkZXJtQHhtaXNzaW9uLmNvbT4N
+Cj4gDQo+IEFwcGxpZWQuDQoNCkkgaGFkIHRvIHJldmVydCwgeW91IGRpZG4ndCB0aHJvdWdobHkg
+YnVpbGQgdGVzdCB0aGlzLg0KDQpzZWN1cml0eS9zZWxpbnV4L2hvb2tzLmM6IEluIGZ1bmN0aW9u
+IKFzZWxpbnV4X3NvY2tldF9iaW5kojoNCnNlY3VyaXR5L3NlbGludXgvaG9va3MuYzozOTMzOjQ6
+IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZSBmb3IgYXJndW1lbnQgMSBvZiChaW5ldF9nZXRfbG9j
+YWxfcG9ydF9yYW5nZaINCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBzZWN1cml0eS9zZWxpbnV4L2hv
+b2tzLmM6NTM6MDoNCmluY2x1ZGUvbmV0L2lwLmg6MjA2OjY6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1
+Y3QgbmV0ICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFzdHJ1Y3QgbHNtX25ldHdvcmtfYXVk
+aXSiDQoNCkFuZCB3aGVuIHlvdSByZXBvc3QgbWFrZSBzdXJlIHRvIGRlYWwgd2l0aCB0aGUgc3Bh
+Y2UgdnMuIFRBQg0KaXNzdWVzIHBvaW50ZWQgb3V0IHRvIHlvdS4NCg0KVGhhbmtzLg0K
