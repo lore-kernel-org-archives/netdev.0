@@ -1,31 +1,23 @@
-From: <johntaylor@angelwill.onmicrosoft.com>
-Subject: Do not miss a chance!
-Date: Sat, 28 Sep 2013 07:27:27 +0000
-Message-ID: <12ada955-f283-41fb-869e-464d63c0d23f@AM3PR01MB098.eurprd01.prod.exchangelabs.com>
-Mime-Version: 1.1
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Undisclosed recipients:;
+From: jing01lee@yahoo.com.hk
+Subject: MUTUAL PROJECT
+Date: Sat, 28 Sep 2013 07:53:06 +0100
+Message-ID: <20130928065314.EA0221C50AB4@www.kame.co.jp>
+Reply-To: jingrjlee02@yahoo.com.hk
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <jing01lee@yahoo.com.hk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.99]:38620
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751774Ab3I1H1a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 03:27:30 -0400
+Received: from [112.78.124.170] ([112.78.124.170]:40676 "EHLO www.kame.co.jp"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751774Ab3I1Hg4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 03:36:56 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello
 
-		Dear Customer,
-
-There is a lot of people in this world who spend so much time 
-watching their health that they have not the time to enjoy it.
-
-No doctor visits
-Lowest price World Wide 
-Discreet Packaging
-
-http://translate.googleusercontent.com/translate_c?depth=1&hl=auto&sl=de&url=www.google.fm&u=http://onlineshop55.yolasite.com/shop&usg=ALkJrhigo2DxeKnp8k6CY7J-q-rVMUPqBw
-
-Best Regards,
-		
+I have a business proposal for you. There is no risks involved.
+Pls reply for briefs. 
+Mr Lee
