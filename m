@@ -1,31 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] b44: add support for Byte Queue Limits
-Date: Sat, 28 Sep 2013 15:14:36 -0700
-Message-ID: <1380406476.3596.5.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380403338-12056-1-git-send-email-hauke@hauke-m.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/2] ipv4: per-datagram IP_TOS and IP_TTL
+ via sendmsg()
+Date: Sat, 28 Sep 2013 15:22:17 -0700 (PDT)
+Message-ID: <20130928.152217.259922330845282884.davem@davemloft.net>
+References: <cover.1379944641.git.ffusco@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, zambrano@broadcom.com, netdev@vger.kernel.org
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Cc: netdev@vger.kernel.org
+To: ffusco@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35956 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755076Ab3I1WOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:14:38 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so4037976pdj.18
-        for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 15:14:37 -0700 (PDT)
-In-Reply-To: <1380403338-12056-1-git-send-email-hauke@hauke-m.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33714 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755225Ab3I1WPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 18:15:17 -0400
+In-Reply-To: <cover.1379944641.git.ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-09-28 at 23:22 +0200, Hauke Mehrtens wrote:
-> This makes it possible to use some more advanced queuing
-> techniques with this driver.
-> 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> ---
->  drivers/net/ethernet/broadcom/b44.c |   10 ++++++++++
->  1 file changed, 10 insertions(+)
+From: Francesco Fusco <ffusco@redhat.com>
+Date: Tue, 24 Sep 2013 15:43:07 +0200
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+> There is no way to set the IP_TOS field on a per-packet basis in IPv4, while
+> IPv6 has such a mechanism. Therefore one has to fall back to the setsockopt()
+> in case of IPv4. 
+> 
+> Using the existing per-socket option is not convenient particularly in the
+> situations where multiple threads have to use the same socket data requiring
+> per-thread TOS values. In fact this would involve calling setsockopt() before
+> sendmsg() every time.
+
+Series applied, thank you.
