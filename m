@@ -1,23 +1,49 @@
-From: jing01lee@yahoo.com.hk
-Subject: MUTUAL PROJECT
-Date: Sat, 28 Sep 2013 21:07:53 +0100
-Message-ID: <20130928200801.D13EC5AB880E@www.kame.co.jp>
-Reply-To: jingrjlee02@yahoo.com.hk
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: Re: IPv6 path MTU discovery broken
+Date: Sat, 28 Sep 2013 22:51:31 +0200
+Message-ID: <20130928205131.GB20124@sesse.net>
+References: <20130927201420.GB12043@sesse.net>
+ <20130928203318.GC23654@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <jing01lee@yahoo.com.hk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [112.78.124.170] ([112.78.124.170]:49077 "EHLO www.kame.co.jp"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754873Ab3I1UpD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:45:03 -0400
-Content-Description: Mail message body
+Received: from cassarossa.samfundet.no ([193.35.52.29]:56544 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755070Ab3I1Uvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 16:51:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20130928203318.GC23654@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+On Sat, Sep 28, 2013 at 10:33:18PM +0200, Hannes Frederic Sowa wrote:
+>> Could this be related somehow to the packets coming from 2001:67c:29=
+f4::31,
+>> while the default route is to a link-local address? (An RPF issue?) =
+This used
+>> to work (although it was often flaky for me) in 3.10 and before. I c=
+an't
+>> easily bisect, though, as I don't boot this machine too often.
+> This looks like a bug and should definitely get fixed. There should b=
+e
+> no RPF issue. May I have a look at your /proc/net/ipv6_route?
 
-I have a business proposal for you. There is no risks involved.
-Pls reply for briefs. 
-Mr Lee
+Hi,
+
+I removed all the =E2=80=9Cweird=E2=80=9D routes, and confirmed it fixe=
+d the problem.
+However, upon adding them back again, the problem was still gone
+(despite flushing the route cache).
+
+This means that the issue has gone back to being intermittent, which is=
+ of
+course the worst kind of bug to trace down. :-) I'll dump
+/proc/net/ipv6_route and send you once I see the bug manifest itself ag=
+ain,
+OK?
+
+/* Steinar */
+--=20
+Homepage: http://www.sesse.net/
