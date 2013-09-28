@@ -1,79 +1,57 @@
 From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net 1/2] ip_tunnel: Fix a memory corruption in ip_tunnel_xmit
-Date: Fri, 27 Sep 2013 19:34:59 -0700
-Message-ID: <CALnjE+pkaAwiSp_S=TE70L+QvyZr1TzEC48Dnz9+8Hy3fbnOyQ@mail.gmail.com>
+Subject: Re: [PATCH net 2/2] ip_tunnel: Add fallback tunnels to the hash lists
+Date: Fri, 27 Sep 2013 19:40:34 -0700
+Message-ID: <CALnjE+oKZLj8vdDsgUhg_3nB7Ypicu-tOm_h3xhjnEjbkwLirA@mail.gmail.com>
 References: <20130925055418.GV7660@secunet.com>
-	<CALnjE+q1=EJGBBC9KC4_hcj2SPhSPQ3xNVt6RVFN2hZPFYM2TA@mail.gmail.com>
-	<20130926082552.GB7660@secunet.com>
-	<CALnjE+ofaXQa3gsPPxqdWZeBxgML6M1vnC9mmc5dufwy0gJO-Q@mail.gmail.com>
-	<20130927074530.GD7660@secunet.com>
+	<20130925055519.GW7660@secunet.com>
+	<CALnjE+rrm3Vzov4sUjBfEKHwzRb6MfTRhkA_B96yuNGpgFgiCg@mail.gmail.com>
+	<20130926081344.GA7660@secunet.com>
+	<CALnjE+pu6CEwB+p3TNH56N09Cwabr9QbaKotKiwbfyLvZUsSpA@mail.gmail.com>
+	<20130927075654.GE7660@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:41403 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754204Ab3I1CfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 22:35:01 -0400
-Received: by mail-qc0-f175.google.com with SMTP id v2so2244647qcr.20
-        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 19:35:00 -0700 (PDT)
-In-Reply-To: <20130927074530.GD7660@secunet.com>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:41204 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754204Ab3I1Ckf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Sep 2013 22:40:35 -0400
+Received: by mail-qc0-f169.google.com with SMTP id c9so2317338qcz.28
+        for <netdev@vger.kernel.org>; Fri, 27 Sep 2013 19:40:34 -0700 (PDT)
+In-Reply-To: <20130927075654.GE7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 27, 2013 at 12:45 AM, Steffen Klassert
+On Fri, Sep 27, 2013 at 12:56 AM, Steffen Klassert
 <steffen.klassert@secunet.com> wrote:
-> On Thu, Sep 26, 2013 at 11:25:01AM -0700, Pravin Shelar wrote:
->> On Thu, Sep 26, 2013 at 1:25 AM, Steffen Klassert
+> On Thu, Sep 26, 2013 at 11:24:07AM -0700, Pravin Shelar wrote:
+>> On Thu, Sep 26, 2013 at 1:13 AM, Steffen Klassert
 >> <steffen.klassert@secunet.com> wrote:
->> > On Wed, Sep 25, 2013 at 09:55:50AM -0700, Pravin Shelar wrote:
->> >> On Tue, Sep 24, 2013 at 10:54 PM, Steffen Klassert
->> >> <steffen.klassert@secunet.com> wrote:
->> >> > We might extend the used aera of a skb beyond the total
->> >> > headroom when we install the ipip header. Fix this by
->> >> > calling skb_cow_head() unconditionally.
->> >> >
->> >> It is better to call skb_cow_head() from ipip_tunnel_xmit() as it is
->> >> consistent with gre.
+>> > On Wed, Sep 25, 2013 at 09:03:11AM -0700, Pravin Shelar wrote:
+>> >> fallback tunnel s not required to be in hash table, Its is returned if
+>> >> none of hashed tunnels are matched, ref ip_tunnel_lookup().
+>> >> Can you post command to reproduce this issue?
+>> >>
 >> >
->> > I think this would just move the bug from ipip to gre. ipgre_xmit()
->> > uses dev->needed_headroom which is based on the guessed output device
->> > in ip_tunnel_bind_dev(). If the device we get from the route lookup
->> > in ip_tunnel_xmit() is different from the guessed one and the resulting
->> > max_headroom is bigger than dev->needed_headroom, we run into that bug
->> > because skb_cow_head() will not be called with the updated
->> > dev->needed_headroom.
+>> > Something like
 >> >
->> Thats why ip_tunnel_xmit() update dev->needed_headroom.
->> Just to be clear I was talking abt calling skb_cow_head with
->> dev->needed_headroom in ipip_xmit and leave ip_tunnel_xmit as it is.
->> So that most of cases we will not need to adjust headroom in ip_tunnel
->> xmit.
+>> > ip tunnel change tunl0 mode ipip remote 0.0.0.0 local 0.0.0.0 ttl 0 tos 1
+>> >
+>> > worked until v3.9 and stopped working with v3.10.
+>>
+>> OK, I see the bug, tunnel exact match lookup does not check fb tunnel.
+>> There are two options.
+>> 1. Fix ip_tunnel_find() to check for fb tunnel.
+>> 2. Add fb tunnel to hash table, which is what ur patch does.
+>> I think your patch is better solution as it get rid of special case.
+>> But patch is not complete. It needs to remove fb tunnel checks on
+>> netdev unregister.
 >
-> skb_cow_head() does not do much if there is enough headroom, so
-> calling it here is uncritical. But we should adjust the headroom
-> as soon as we know that it is insufficient.
->
-ok.
+> It looks like this is another bug that requires an additional patch.
+> We add the fallback tunnel to the unregister list when we iterate over
+> all netdevices in the namespace at the beginning of ip_tunnel_destroy()
+> and then again explicitly at the end of ip_tunnel_destroy().
 
-> Also, I really wonder how you want to adjust the headroom in
-> ipip_tunnel_xmit() to a correct value. We know the needed
-> headroom after the route lookup in ip_tunnel_xmit() and
-> we have to adust it here because ip_tunnel_xmit() calls
-> iptunnel_xmit() which does a __skb_push() before it
-> installs the IP header.
->
-> Please keep in mind tat this is a bug fix that might be interesting
-> for stable too, we should try to keep the changes at a minimum.
->
-> Another thing that I noticed, with commit 0e6fbc5b
-> (ip_tunnels: extend iptunnel_xmit()) you moved the IP header
-> installation to iptunnel_xmit() and changed skb_push()
-> to __skb_push(). This made this bug quite hard to track
-> down because instead of triggering a skb under panic,
-> it did a silent memory corruption and crashed at random
-> other places. Maybe we should change this back to skb_push().
-
-All callers of iptunnel_xmit() are required to setup sufficient
-headroom. So skb_push check are not necessary.
+right.
+And if the special case is removed, code will become simple.
