@@ -1,69 +1,114 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V3 4/6] vhost_net: determine whether or not to use zerocopy
-	at one time
-Date: Sun, 29 Sep 2013 17:36:27 +0800
-Message-ID: <5247F49B.2020104@redhat.com>
-References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
-	<1378111261-14826-5-git-send-email-jasowang@redhat.com>
-	<20130904115929.GA9393@redhat.com> <5227F274.9040506@redhat.com>
-	<20130923071620.GB31886@redhat.com> <5243B859.3070302@redhat.com>
+From: Oussama Ghorbel <oghorbell@gmail.com>
+Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Sun, 29 Sep 2013 10:40:11 +0100
+Message-ID: <CA+ev270d2Ztq9i34Lv9U15y1TbH7W-fioXFn-Q_sJd5F4biHuw@mail.gmail.com>
+References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+	<20130927083730.GC28287@order.stressinduktion.org>
+	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
+	<20130927105856.GF28287@order.stressinduktion.org>
+	<CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
+	<20130927170345.GC10343@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5243B859.3070302@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: ou.ghorbel@gmail.com
+To: Oussama Ghorbel <oghorbell@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130927170345.GC10343@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/26/2013 12:30 PM, Jason Wang wrote:
-> On 09/23/2013 03:16 PM, Michael S. Tsirkin wrote:
->> > On Thu, Sep 05, 2013 at 10:54:44AM +0800, Jason Wang wrote:
->>>> >> > On 09/04/2013 07:59 PM, Michael S. Tsirkin wrote:
->>>>>> >>> > > On Mon, Sep 02, 2013 at 04:40:59PM +0800, Jason Wang wrote:
->>>>>>>> >>>> > >> Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
->>>>>>>> >>>> > >> upend_idx != done_idx we still set zcopy_used to true and rollback this choice
->>>>>>>> >>>> > >> later. This could be avoided by determining zerocopy once by checking all
->>>>>>>> >>>> > >> conditions at one time before.
->>>>>>>> >>>> > >>
->>>>>>>> >>>> > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>>>>> >>>> > >> ---
->>>>>>>> >>>> > >>  drivers/vhost/net.c |   47 ++++++++++++++++++++---------------------------
->>>>>>>> >>>> > >>  1 files changed, 20 insertions(+), 27 deletions(-)
->>>>>>>> >>>> > >>
->>>>>>>> >>>> > >> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->>>>>>>> >>>> > >> index 8a6dd0d..3f89dea 100644
->>>>>>>> >>>> > >> --- a/drivers/vhost/net.c
->>>>>>>> >>>> > >> +++ b/drivers/vhost/net.c
->>>>>>>> >>>> > >> @@ -404,43 +404,36 @@ static void handle_tx(struct vhost_net *net)
->>>>>>>> >>>> > >>  			       iov_length(nvq->hdr, s), hdr_size);
->>>>>>>> >>>> > >>  			break;
->>>>>>>> >>>> > >>  		}
->>>>>>>> >>>> > >> -		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
->>>>>>>> >>>> > >> -				       nvq->upend_idx != nvq->done_idx);
->>>>>>>> >>>> > >> +
->>>>>>>> >>>> > >> +		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
->>>>>>>> >>>> > >> +				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
->>>>>>>> >>>> > >> +				      nvq->done_idx
->>>>>> >>> > > Thinking about this, this looks strange.
->>>>>> >>> > > The original idea was that once we start doing zcopy, we keep
->>>>>> >>> > > using the heads ring even for short packets until no zcopy is outstanding.
->>>> >> > 
->>>> >> > What's the reason for keep using the heads ring?
->> > To keep completions in order.
-> Ok, I will do some test to see the impact.
+On Fri, Sep 27, 2013 at 6:03 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Fri, Sep 27, 2013 at 05:36:45PM +0100, Oussama Ghorbel wrote:
+>> Please see my comments below
+>>
+>> Regards,
+>> Oussama
+>>
+>> On Fri, Sep 27, 2013 at 11:58 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > On Fri, Sep 27, 2013 at 11:45:48AM +0100, Oussama Ghorbel wrote:
+>> >> The ip6_tunnel.c module would be then dependent on ip_tunnel.c and may
+>> >> be it would not be good thing?
+>> >
+>> > It could just be a static inline in some shared header. So there would
+>> > be no compile-time dependency.
+>> >
+>>
+>> The higher limit of mtu in ip_tunnel_change_mtu() is a calculated value.
+>> This high limit is calculated using the netdev priv struct ip_tunnel
+>> (field hlen).
+>> This netdev priv struct is different in ipv6, it's a ip6_tnl struct.
+>> Therefore implementing a beautiful function like
+>> ip_tunnel_valid_mtu(struct net_device *dev, int mtu) won't be
+>> feasible, unless we implement it in macro or something like like
+>> ip_tunnel_valid_mtu(struct net_device *dev, int hlen, int mtu) which
+>> seems not very nice ...
+>> What do yo think?
+>
+> Ok, let's go with one function per protocol type. Seems easier.
+>
+> It seems to get more hairy, because it depends on the tunnel driver if the
+> prepended ip header is accounted in hard_header_len. :/
+>
+> I don't know if it works out cleanly. Otherwise I would be ok if the checks
+> just get repeated in ip6_tunnel and leave the rest as-is.
+>
+Yes, It will be the clean way to do it.
+>>
+>> >> As I have check in v3.10 there is no call from ip6_tunnel to ip_tunnel...
+>> >>
+>> >> For information, there is no check for the maximum MTU for ipv4 in the
+>> >> patch as this is not done for ipv6.
+>> >
+>> > I understand, but it would be better to limit the MTU here. There is a
+>> > (non-jumo) IPV6_MAXPLEN constant.
+>> >
+>> > Looking through the source it seems grev6 does actually check this,
+>> > so it would not hurt adding them here, too.
+>>
+>> what if jumbograms is used, in that case, we can't use IPV6_MAXPLEN.
+>> the limit would be the the full unsigned int.
+>> However checking the higher limit for ipv4 would be useful.
+>
+> Linux currently cannot create "jumbograms" (only the receiving side
+> is supported).
+>
+I understand, but what are the benefit from this limit or the harm
+from not specifying it?
+Please check this comment from eth.c
 
-Since the our of order completion will happen when switching between
-zero copy and non zero copy. I test this by using two sessions of
-netperf in burst mode, one with 1 byte TCP_RR another with 512 bytes of
-TCP_RR. There's no difference with the patch applied.
+/**
+ * eth_change_mtu - set new MTU size
+ * @dev: network device
+ * @new_mtu: new Maximum Transfer Unit
+ *
+ * Allow changing MTU size. Needs to be overridden for devices
+ * supporting jumbo frames.
+ */
+int eth_change_mtu(struct net_device *dev, int new_mtu)
+
+So wouldn't be a good idea to let our function open for jumbo frames...?
+
+>> Please also note in case the tunnel mode is any (ipv4 or ipv6 means
+>> ip6_tnl.parms.proto = 0), then we will be required to take the most
+>> restrict limit from both ipv4 and ipv6 which means the lower limit
+>> will be 1280 and the higher limit will be about 65535
+>> Do you agree on this?
+>
+> Agreed, this would be needed for e.g. the sit driver, which now can
+> handle both protocols.
+>
+> Thanks,
+>
+>   Hannes
+>
+
+Thanks,
+Oussama
