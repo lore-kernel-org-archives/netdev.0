@@ -1,35 +1,69 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next] net: skb_is_gso_v6() requires skb_is_gso()
-Date: Sun, 29 Sep 2013 09:03:12 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20DC079B@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1380442892.3596.22.camel@edumazet-glaptop.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V3 4/6] vhost_net: determine whether or not to use zerocopy
+	at one time
+Date: Sun, 29 Sep 2013 17:36:27 +0800
+Message-ID: <5247F49B.2020104@redhat.com>
+References: <1378111261-14826-1-git-send-email-jasowang@redhat.com>
+	<1378111261-14826-5-git-send-email-jasowang@redhat.com>
+	<20130904115929.GA9393@redhat.com> <5227F274.9040506@redhat.com>
+	<20130923071620.GB31886@redhat.com> <5243B859.3070302@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3106 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753564Ab3I2JD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Sep 2013 05:03:26 -0400
-In-Reply-To: <1380442892.3596.22.camel@edumazet-glaptop.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <5243B859.3070302@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogU3VuZGF5LCBTZXB0ZW1iZXIgMjksIDIwMTMg
-MTE6MjIgQU0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbmV0ZGV2OyBFaWxvbiBHcmVlbnN0
-ZWluDQo+IFN1YmplY3Q6IFtQQVRDSCBuZXQtbmV4dF0gbmV0OiBza2JfaXNfZ3NvX3Y2KCkgcmVx
-dWlyZXMgc2tiX2lzX2dzbygpDQo+IA0KPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
-b2dsZS5jb20+DQo+IA0KPiBibngyeCBtYWtlcyBhIGRhbmdlcm91cyB1c2Ugb2Ygc2tiX2lzX2dz
-b192NigpLg0KPiANCj4gSXQgc2hvdWxkIGZpcnN0IG1ha2Ugc3VyZSBza2IgaXMgYSBnc28gcGFj
-a2V0DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5j
-b20+DQo+IENjOiBFaWxvbiBHcmVlbnN0ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KDQpUaGFu
-a3MsIEVyaWMhDQoNCkFja2VkLWJ5OiBEbWl0cnkgS3JhdmtvdiA8ZG1pdHJ5QGJyb2FkY29tLmNv
-bT4NCg==
+On 09/26/2013 12:30 PM, Jason Wang wrote:
+> On 09/23/2013 03:16 PM, Michael S. Tsirkin wrote:
+>> > On Thu, Sep 05, 2013 at 10:54:44AM +0800, Jason Wang wrote:
+>>>> >> > On 09/04/2013 07:59 PM, Michael S. Tsirkin wrote:
+>>>>>> >>> > > On Mon, Sep 02, 2013 at 04:40:59PM +0800, Jason Wang wrote:
+>>>>>>>> >>>> > >> Currently, even if the packet length is smaller than VHOST_GOODCOPY_LEN, if
+>>>>>>>> >>>> > >> upend_idx != done_idx we still set zcopy_used to true and rollback this choice
+>>>>>>>> >>>> > >> later. This could be avoided by determining zerocopy once by checking all
+>>>>>>>> >>>> > >> conditions at one time before.
+>>>>>>>> >>>> > >>
+>>>>>>>> >>>> > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>>>>>> >>>> > >> ---
+>>>>>>>> >>>> > >>  drivers/vhost/net.c |   47 ++++++++++++++++++++---------------------------
+>>>>>>>> >>>> > >>  1 files changed, 20 insertions(+), 27 deletions(-)
+>>>>>>>> >>>> > >>
+>>>>>>>> >>>> > >> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>>>>>>>> >>>> > >> index 8a6dd0d..3f89dea 100644
+>>>>>>>> >>>> > >> --- a/drivers/vhost/net.c
+>>>>>>>> >>>> > >> +++ b/drivers/vhost/net.c
+>>>>>>>> >>>> > >> @@ -404,43 +404,36 @@ static void handle_tx(struct vhost_net *net)
+>>>>>>>> >>>> > >>  			       iov_length(nvq->hdr, s), hdr_size);
+>>>>>>>> >>>> > >>  			break;
+>>>>>>>> >>>> > >>  		}
+>>>>>>>> >>>> > >> -		zcopy_used = zcopy && (len >= VHOST_GOODCOPY_LEN ||
+>>>>>>>> >>>> > >> -				       nvq->upend_idx != nvq->done_idx);
+>>>>>>>> >>>> > >> +
+>>>>>>>> >>>> > >> +		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+>>>>>>>> >>>> > >> +				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+>>>>>>>> >>>> > >> +				      nvq->done_idx
+>>>>>> >>> > > Thinking about this, this looks strange.
+>>>>>> >>> > > The original idea was that once we start doing zcopy, we keep
+>>>>>> >>> > > using the heads ring even for short packets until no zcopy is outstanding.
+>>>> >> > 
+>>>> >> > What's the reason for keep using the heads ring?
+>> > To keep completions in order.
+> Ok, I will do some test to see the impact.
+
+Since the our of order completion will happen when switching between
+zero copy and non zero copy. I test this by using two sessions of
+netperf in burst mode, one with 1 byte TCP_RR another with 512 bytes of
+TCP_RR. There's no difference with the patch applied.
