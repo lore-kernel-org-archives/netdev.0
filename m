@@ -1,74 +1,25 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: skb_is_gso_v6() requires skb_is_gso()
-Date: Sun, 29 Sep 2013 01:21:32 -0700
-Message-ID: <1380442892.3596.22.camel@edumazet-glaptop.roam.corp.google.com>
+From: "Greene, Tanya" <tgreene@paterson.k12.nj.us>
+Subject: RE: ADMINISTRATOR HELP DESK
+Date: Sun, 29 Sep 2013 08:26:49 +0000
+Message-ID: <0FF456CBAA9B324987CEA675439D7EF801151E4A7A@EXCH10-MB3.paterson.k12.nj.us>
+References: <0FF456CBAA9B324987CEA675439D7EF801151DF4AE@EXCH10-MB3.paterson.k12.nj.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Greene, Tanya" <tgreene@paterson.k12.nj.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:62636 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752910Ab3I2IVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 04:21:33 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fb1so4573912pad.9
-        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 01:21:33 -0700 (PDT)
+Received: from studentmail.paterson.k12.nj.us ([204.8.198.37]:36800 "EHLO
+	mail.paterson.k12.nj.us" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752986Ab3I2IcI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 04:32:08 -0400
+In-Reply-To: <0FF456CBAA9B324987CEA675439D7EF801151DF4AE@EXCH10-MB3.paterson.k12.nj.us>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-bnx2x makes a dangerous use of skb_is_gso_v6().
-
-It should first make sure skb is a gso packet
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   18 +++++++-------
- include/linux/skbuff.h                          |    1 
- 2 files changed, 11 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 61726af..0c7fb1e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3256,14 +3256,16 @@ static u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- 	if (prot == IPPROTO_TCP)
- 		rc |= XMIT_CSUM_TCP;
- 
--	if (skb_is_gso_v6(skb)) {
--		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP);
--		if (rc & XMIT_CSUM_ENC)
--			rc |= XMIT_GSO_ENC_V6;
--	} else if (skb_is_gso(skb)) {
--		rc |= (XMIT_GSO_V4 | XMIT_CSUM_TCP);
--		if (rc & XMIT_CSUM_ENC)
--			rc |= XMIT_GSO_ENC_V4;
-+	if (skb_is_gso(skb)) {
-+		if (skb_is_gso_v6(skb)) {
-+			rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP);
-+			if (rc & XMIT_CSUM_ENC)
-+				rc |= XMIT_GSO_ENC_V6;
-+		} else {
-+			rc |= (XMIT_GSO_V4 | XMIT_CSUM_TCP);
-+			if (rc & XMIT_CSUM_ENC)
-+				rc |= XMIT_GSO_ENC_V4;
-+		}
- 	}
- 
- 	return rc;
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2ddb48d..d48fde30 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2783,6 +2783,7 @@ static inline bool skb_is_gso(const struct sk_buff *skb)
- 	return skb_shinfo(skb)->gso_size;
- }
- 
-+/* Note: Should be called only if skb_is_gso(skb) is true */
- static inline bool skb_is_gso_v6(const struct sk_buff *skb)
- {
- 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
+Your Mailbox Has Exceeded It Storage Limit As Set By Your Administrator=
+ from the server, And You Will Not Be  Able To Receive New Mails until =
+You Re-Validate It click Re-validate<http://postmaster-supportit.coffee=
+cup.com/forms/HELP%20DESK/> .Thank you courtesy =A9 2013 by Intellectua=
+l Reserve, Inc. All rights reserved
