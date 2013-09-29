@@ -1,96 +1,49 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH v2.40 2/7] odp: Allow VLAN actions after MPLS actions
-Date: Sun, 29 Sep 2013 10:05:49 -0700
-Message-ID: <20130929170549.GC23836@nicira.com>
-References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
- <1380241116-7661-3-git-send-email-horms@verge.net.au>
- <20130927192108.GA17506@nicira.com>
- <CAOftzPg_FJoyS0oS8Ua7cpMaCh=BboWwyn8kVVoXGT9X9HQ0hg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>
-To: Joe Stringer <joe@wand.net.nz>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH net-next] include/linux/skbuff.h: move CONFIG_XFRM check inside the skb_sec_path()
+Date: Sun, 29 Sep 2013 18:07:25 +0400
+Message-ID: <1380463645-4633-1-git-send-email-kda@linux-powerpc.org>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:41210 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754470Ab3I2RFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 13:05:55 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so4839126pab.18
-        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 10:05:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAOftzPg_FJoyS0oS8Ua7cpMaCh=BboWwyn8kVVoXGT9X9HQ0hg@mail.gmail.com>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:38481 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754345Ab3I2SA4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 14:00:56 -0400
+Received: by mail-lb0-f178.google.com with SMTP id z5so3775855lbh.37
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 11:00:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 29, 2013 at 02:51:19PM +1300, Joe Stringer wrote:
-> On Sat, Sep 28, 2013 at 7:21 AM, Ben Pfaff <blp@nicira.com> wrote:
-> 
-> > On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:
-> > > From: Joe Stringer <joe@wand.net.nz>
-> > >
-> > > OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the
-> > > presence of VLAN tags. To allow correct behaviour to be committed in
-> > > each situation, this patch adds a second round of VLAN tag action
-> > > handling to commit_odp_actions(), which occurs after MPLS actions. This
-> > > is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
-> > >
-> > > When an push_mpls action is composed, the flow's current VLAN state is
-> > > stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
-> > > a VLAN tag is present, it is stripped; if not, then there is no change.
-> > > Any later modifications to the VLAN state is written to xin->vlan_tci.
-> > > When committing the actions, flow->vlan_tci is used before MPLS actions,
-> > > and xin->vlan_tci is used afterwards. This retains the current datapath
-> > > behaviour, but allows VLAN actions to be applied in a more flexible
-> > > manner.
-> > >
-> > > Signed-off-by: Joe Stringer <joe@wand.net.nz>
-> > > Signed-off-by: Simon Horman <horms@verge.net.au>
-> >
-> > The commit message talks about handling OpenFlow 1.2 and 1.3 both
-> > properly, but I don't see how the code distinguishes between the cases.
-> > Can you explain?  Maybe this is something added in a later patch, in
-> > which case it would be nice to mention that in the commit message.
-> >
-> 
-> It is added in patch #5. IIRC this patch should cause no difference in
-> behaviour, but set up infrastructure to be used later.
-> 
->  There seems to be a typo in the comment in vlan_tci_restore() here:
-> > > +    /* If MPLS actions were executed after MPLS, copy the final
-> > vlan_tci out
-> > > +     * and restore the intermediate VLAN state. */
-> >
-> 
-> Right, that should probably be "...executed after VLAN actions...".
-> 
-> I was a little confused by the new local variable 'vlan_tci' in
-> > do_xlate_actions().  Partly this was because the fact that I didn't find
-> > it obvious that sometimes it points to different VLAN tags.  I think
-> > this would be easier to see if it were initially assigned just under the
-> > big comment rather than in an initializer, so that one would know to
-> > look at the comment.
-> >
-> 
-> Perhaps the big comment could be rearranged and put above the initialiser,
-> something like the following:-
-> 
-> /* VLAN actions are stored to '*vlan_tci'. This variable initially points
-> to 'xin->flow->vlan_tci', so that
->  * VLAN actions are applied before any MPLS actions. When an MPLS action is
-> translated,
->  * 'vlan_tci' is updated to point to 'xin->vlan_tci'. This causes later
-> VLAN actions to be applied after MPLS actions.
->  * Each time through the loop, 'xin->vlan_tci' is updated to reflect the
-> final VLAN state of the flow. */
-> 
-> Then, the place where 'xin->vlan_tci' is updated to '*vlan_tci' could have
-> a simple comment to refer back:-
-> 
-> /* Update the final vlan state to match the current state. */
+And thus we have only one function definition
 
-All that makes sense, thanks.
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+---
+ include/linux/skbuff.h | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2ddb48d..7399045 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2736,17 +2736,14 @@ extern u16 __skb_tx_hash(const struct net_device *dev,
+ 			 const struct sk_buff *skb,
+ 			 unsigned int num_tx_queues);
+ 
+-#ifdef CONFIG_XFRM
+ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+ {
++#ifdef CONFIG_XFRM
+ 	return skb->sp;
+-}
+ #else
+-static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+-{
+ 	return NULL;
+-}
+ #endif
++}
+ 
+ /* Keeps track of mac header offset relative to skb->head.
+  * It is useful for TSO of Tunneling protocol. e.g. GRE.
+-- 
+1.8.0.2
