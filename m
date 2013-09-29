@@ -1,26 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] fib_trie: avoid a redundant bit judgement
- in inflate
-Date: Sun, 29 Sep 2013 17:31:06 -0400 (EDT)
-Message-ID: <20130929.173106.475537080284868036.davem@davemloft.net>
-References: <1380461518-10095-1-git-send-email-baker.kernel@gmail.com>
+From: <amikam_t@bezeqint.net>
+Subject: RE
+Date: Mon, 30 Sep 2013 03:13:51 +0530
+Message-ID: <20130929214443.F3E73F07C1E1@uniminuto.edu>
+Reply-To: christy@shqiptar.eu
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: baker.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380461518-10095-1-git-send-email-baker.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <amikam_t@bezeqint.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correo.uniminuto.edu ([186.28.232.5]:48030 "EHLO uniminuto.edu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754510Ab3I2Vv3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 17:51:29 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Based upon how quickly you sent these two patches, the first of which
-wouldn't even compile, I have zero confidence that you actually
-booted and tested this patch at all.
-
-I'm not applying this until you take the time to boot and test the
-change in some way, and say explicitly in your commit message how
-you tested it.
+I am christy walton i have a proposal for you
