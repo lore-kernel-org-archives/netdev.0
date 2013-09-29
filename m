@@ -1,7 +1,7 @@
 From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/2] ipv4 igmp: use in_dev_put in timer handlers instead of __in_dev_put
-Date: Sun, 29 Sep 2013 13:39:42 -0700
-Message-ID: <1380487182-1644-1-git-send-email-noureddine@aristanetworks.com>
+Subject: [PATCH 2/2] ipv6 mcast: use in6_dev_put in timer handlers instead of __in6_dev_put
+Date: Sun, 29 Sep 2013 13:41:34 -0700
+Message-ID: <1380487294-1676-1-git-send-email-noureddine@aristanetworks.com>
 Cc: Salam Noureddine <noureddine@aristanetworks.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -9,21 +9,21 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:34023 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334Ab3I2UlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 16:41:00 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so4686781pbc.21
-        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 13:41:00 -0700 (PDT)
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:60875 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755099Ab3I2Ult (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 16:41:49 -0400
+Received: by mail-pb0-f43.google.com with SMTP id md4so4704214pbc.16
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 13:41:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 It is possible for the timer handlers to run after the call to
-ip_mc_down so use in_dev_put instead of __in_dev_put in the handler
-function in order to do proper cleanup when the refcnt reaches 0.
-Otherwise, the refcnt can reach zero without the in_device being
-destroyed and we end up leaking a reference to the net_device and
-see messages like the following,
+ipv6_mc_down so use in6_dev_put instead of __in6_dev_put in the
+handler function in order to do proper cleanup when the refcnt
+reaches 0. Otherwise, the refcnt can reach zero without the
+inet6_dev being destroyed and we end up leaking a reference to
+the net_device and see messages like the following,
 
 unregister_netdevice: waiting for eth0 to become free. Usage count = 1
 
@@ -31,30 +31,39 @@ Tested on linux-3.4.43.
 
 Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
 ---
- net/ipv4/igmp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/mcast.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index dace87f..7defdc9 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -736,7 +736,7 @@ static void igmp_gq_timer_expire(unsigned long data)
- 
- 	in_dev->mr_gq_running = 0;
- 	igmpv3_send_report(in_dev, NULL);
--	__in_dev_put(in_dev);
-+	in_dev_put(in_dev);
- }
- 
- static void igmp_ifc_timer_expire(unsigned long data)
-@@ -749,7 +749,7 @@ static void igmp_ifc_timer_expire(unsigned long data)
- 		igmp_ifc_start_timer(in_dev,
- 				     unsolicited_report_interval(in_dev));
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 096cd67..d18f9f9 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2034,7 +2034,7 @@ static void mld_dad_timer_expire(unsigned long data)
+ 		if (idev->mc_dad_count)
+ 			mld_dad_start_timer(idev, idev->mc_maxdelay);
  	}
--	__in_dev_put(in_dev);
-+	in_dev_put(in_dev);
+-	__in6_dev_put(idev);
++	in6_dev_put(idev);
  }
  
- static void igmp_ifc_event(struct in_device *in_dev)
+ static int ip6_mc_del1_src(struct ifmcaddr6 *pmc, int sfmode,
+@@ -2379,7 +2379,7 @@ static void mld_gq_timer_expire(unsigned long data)
+ 
+ 	idev->mc_gq_running = 0;
+ 	mld_send_report(idev, NULL);
+-	__in6_dev_put(idev);
++	in6_dev_put(idev);
+ }
+ 
+ static void mld_ifc_timer_expire(unsigned long data)
+@@ -2392,7 +2392,7 @@ static void mld_ifc_timer_expire(unsigned long data)
+ 		if (idev->mc_ifc_count)
+ 			mld_ifc_start_timer(idev, idev->mc_maxdelay);
+ 	}
+-	__in6_dev_put(idev);
++	in6_dev_put(idev);
+ }
+ 
+ static void mld_ifc_event(struct inet6_dev *idev)
 -- 
 1.7.4.4
