@@ -1,33 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] bgmac: add support for Byte Queue Limits
-Date: Sat, 28 Sep 2013 16:22:16 -0700
-Message-ID: <1380410536.3596.11.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380407726-20691-1-git-send-email-hauke@hauke-m.de>
-	 <1380409400.3596.9.camel@edumazet-glaptop.roam.corp.google.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH v2] declance: Remove `incompatible pointer type'
+ warnings
+Date: Sun, 29 Sep 2013 01:09:08 +0100 (BST)
+Message-ID: <alpine.LFD.2.03.1309290107450.8907@linux-mips.org>
+References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>        <20130920.144304.2081229489870626586.davem@davemloft.net>        <alpine.LFD.2.03.1309222113300.16797@linux-mips.org> <20130928.153316.1766304011894422920.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:48892 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755184Ab3I1XWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 19:22:18 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so3970914pbc.8
-        for <netdev@vger.kernel.org>; Sat, 28 Sep 2013 16:22:17 -0700 (PDT)
-In-Reply-To: <1380409400.3596.9.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from eddie.linux-mips.org ([78.24.191.182]:55206 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755174Ab3I2AJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 20:09:15 -0400
+Received: from localhost.localdomain ([127.0.0.1]:34779 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6827474Ab3I2AJI6f1wM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 02:09:08 +0200
+In-Reply-To: <20130928.153316.1766304011894422920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-09-28 at 16:03 -0700, Eric Dumazet wrote:
+On Sat, 28 Sep 2013, David Miller wrote:
 
-> Unfortunately, skb->len is unsafe : hardware might already sent the
-> packet and TX completion have freed it.
+> >  Thanks, by Sergei's request please use this version instead that has the 
+> > reference to the original commit updated (no change to the patch itself).
 > 
-> You must cache skb->len in a variable before allowing hardware to send
-> the frame.
-> 
+> I can't undo the original commit once it has been installed in my tree.
 
-More exactly you must call netdev_sent_queue() _before_ giving skb to
-hardware, or netdev_completed_queue() might panic.
+ No worries, and good to know, thanks.
+
+  Maciej
