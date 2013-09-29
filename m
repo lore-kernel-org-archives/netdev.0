@@ -1,202 +1,212 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH] {iproute2, xfrm}: Use memcpy to suppress gcc phony buffer
- overflow warning
-Date: Sun, 29 Sep 2013 09:49:04 +0800
-Message-ID: <52478710.702@windriver.com>
-References: <524411AE.7000404@linux.vnet.ibm.com> <52447DAC.2060701@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com> <5246D88F.7090906@linux.vnet.ibm.com>
+From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
+Subject: Re: [PATCH v2.40 2/7] odp: Allow VLAN actions after MPLS
+	actions
+Date: Sun, 29 Sep 2013 14:51:19 +1300
+Message-ID: <CAOftzPg_FJoyS0oS8Ua7cpMaCh=BboWwyn8kVVoXGT9X9HQ0hg@mail.gmail.com>
+References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
+	<1380241116-7661-3-git-send-email-horms@verge.net.au>
+	<20130927192108.GA17506@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@aculab.com>,
-	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
-To: Sohny Thomas <sthomas@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:56723 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab3I2Bte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 21:49:34 -0400
-In-Reply-To: <5246D88F.7090906@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============0554089873=="
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20130927192108.GA17506-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+--===============0554089873==
+Content-Type: multipart/alternative; boundary=bcaec51ddb27f141b404e77bf55f
 
+--bcaec51ddb27f141b404e77bf55f
+Content-Type: text/plain; charset=ISO-8859-1
 
-On 2013=E5=B9=B409=E6=9C=8828=E6=97=A5 21:24, Sohny Thomas wrote:
-> On Friday 27 September 2013 01:56 PM, David Laight wrote:
->>> ip xfrm state add causes a SIGABRT due to a strncpy_chk .
->>> This happens since strncpy doesn't account for the '\0' .
->>> I have fixed this using sizeof instead of strlen .
->>>
->>> There is a redhat bug which documents this issue
->>>
->>> https://bugzilla.redhat.com/show_bug.cgi?id=3D982761
->>>
->>> Signed-off-by: Sohny Thomas <sohthoma@in.ibm.com>
->>>
->>> --------------
->>>
->>> diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
->>> index 389942c..7dd8799 100644
->>> --- a/ip/xfrm_state.c
->>> +++ b/ip/xfrm_state.c
->>> @@ -117,7 +117,7 @@ static int xfrm_algo_parse(struct xfrm_algo *al=
-g,
->>> enum xfrm_attr_type_t type,
->>> char *name, char *key, char *buf, int max)
->>> {
->>> int len;
->>> - int slen =3D strlen(key);
->>> + int slen =3D sizeof(key);
->>
->> you definitely don't want sizeof(key) - that is either 4 or 8.
-> oh damn my bad.
-> I think i will go with strlen(key) + 1.
+On Sat, Sep 28, 2013 at 7:21 AM, Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+
+> On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:
+> > From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
+> >
+> > OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the
+> > presence of VLAN tags. To allow correct behaviour to be committed in
+> > each situation, this patch adds a second round of VLAN tag action
+> > handling to commit_odp_actions(), which occurs after MPLS actions. This
+> > is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
+> >
+> > When an push_mpls action is composed, the flow's current VLAN state is
+> > stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
+> > a VLAN tag is present, it is stripped; if not, then there is no change.
+> > Any later modifications to the VLAN state is written to xin->vlan_tci.
+> > When committing the actions, flow->vlan_tci is used before MPLS actions,
+> > and xin->vlan_tci is used afterwards. This retains the current datapath
+> > behaviour, but allows VLAN actions to be applied in a more flexible
+> > manner.
+> >
+> > Signed-off-by: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
+> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 >
-> or i will pass slen+1 to strncpy .
-
-You must be kidding about this slen+1 or strlen(key) + 1 , right?
-
-
-
- From 3895b3d88bcb873988089392079645f2c9665e95 Mon Sep 17 00:00:00 2001
-=46rom: Fan Du <fan.du@windriver.com>
-Date: Sun, 29 Sep 2013 09:38:12 +0800
-Subject: [PATCH] {iproute2, xfrm}: Use memcpy to suppress gcc phony buf=
-fer
-  overflow warning.
-
-This bug is reported from below link:
-https://bugzilla.redhat.com/show_bug.cgi?id=3D982761
-
-An simplified command from its original reproducing method in bugzilla:
-ip xfrm state add src 10.0.0.2 dst 10.0.0.1 proto ah spi 0x12345678 aut=
-h md5 12
-will cause below spew from gcc:
-
-*** buffer overflow detected ***: ./ip terminated
-=3D=3D=3D=3D=3D=3D=3D Backtrace: =3D=3D=3D=3D=3D=3D=3D=3D=3D
-/lib/x86_64-linux-gnu/libc.so.6(__fortify_fail+0x37)[0x7f894ae2b817]
-/lib/x86_64-linux-gnu/libc.so.6(+0x109710)[0x7f894ae2a710]
-/lib/x86_64-linux-gnu/libc.so.6(+0x1089f6)[0x7f894ae299f6]
-=2E/ip[0x42119d]
-=2E/ip(do_xfrm_state+0x231)[0x4217f1]
-=2E/ip[0x405d05]
-=2E/ip(main+0x2b4)[0x405934]
-/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xed)[0x7f894ad4276d]
-=2E/ip[0x405bb9]
-=3D=3D=3D=3D=3D=3D=3D Memory map: =3D=3D=3D=3D=3D=3D=3D=3D
-00400000-0043c000 r-xp 00000000 08:01 1997183                          =
-  /workbench/iproute2/ip/ip
-0063b000-0063c000 r--p 0003b000 08:01 1997183                          =
-  /workbench/iproute2/ip/ip
-0063c000-00640000 rw-p 0003c000 08:01 1997183                          =
-  /workbench/iproute2/ip/ip
-00640000-00643000 rw-p 00000000 00:00 0
-017c7000-017e8000 rw-p 00000000 00:00 0                                =
-  [heap]
-7f894ab0b000-7f894ab20000 r-xp 00000000 08:01 6032986                  =
-  /lib/x86_64-linux-gnu/libgcc_s.so.1
-7f894ab20000-7f894ad1f000 ---p 00015000 08:01 6032986                  =
-  /lib/x86_64-linux-gnu/libgcc_s.so.1
-7f894ad1f000-7f894ad20000 r--p 00014000 08:01 6032986                  =
-  /lib/x86_64-linux-gnu/libgcc_s.so.1
-7f894ad20000-7f894ad21000 rw-p 00015000 08:01 6032986                  =
-  /lib/x86_64-linux-gnu/libgcc_s.so.1
-7f894ad21000-7f894aed6000 r-xp 00000000 08:01 6033273                  =
-  /lib/x86_64-linux-gnu/libc-2.15.so
-7f894aed6000-7f894b0d5000 ---p 001b5000 08:01 6033273                  =
-  /lib/x86_64-linux-gnu/libc-2.15.so
-7f894b0d5000-7f894b0d9000 r--p 001b4000 08:01 6033273                  =
-  /lib/x86_64-linux-gnu/libc-2.15.so
-7f894b0d9000-7f894b0db000 rw-p 001b8000 08:01 6033273                  =
-  /lib/x86_64-linux-gnu/libc-2.15.so
-7f894b0db000-7f894b0e0000 rw-p 00000000 00:00 0
-7f894b0e0000-7f894b0e2000 r-xp 00000000 08:01 6033272                  =
-  /lib/x86_64-linux-gnu/libdl-2.15.so
-7f894b0e2000-7f894b2e2000 ---p 00002000 08:01 6033272                  =
-  /lib/x86_64-linux-gnu/libdl-2.15.so
-7f894b2e2000-7f894b2e3000 r--p 00002000 08:01 6033272                  =
-  /lib/x86_64-linux-gnu/libdl-2.15.so
-7f894b2e3000-7f894b2e4000 rw-p 00003000 08:01 6033272                  =
-  /lib/x86_64-linux-gnu/libdl-2.15.so
-7f894b2e4000-7f894b306000 r-xp 00000000 08:01 6033287                  =
-  /lib/x86_64-linux-gnu/ld-2.15.so
-7f894b4e3000-7f894b4e6000 rw-p 00000000 00:00 0
-7f894b503000-7f894b506000 rw-p 00000000 00:00 0
-7f894b506000-7f894b507000 r--p 00022000 08:01 6033287                  =
-  /lib/x86_64-linux-gnu/ld-2.15.so
-7f894b507000-7f894b509000 rw-p 00023000 08:01 6033287                  =
-  /lib/x86_64-linux-gnu/ld-2.15.so
-7fff9a3c2000-7fff9a3e3000 rw-p 00000000 00:00 0                        =
-  [stack]
-7fff9a3ff000-7fff9a400000 r-xp 00000000 00:00 0                        =
-  [vdso]
-ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0                =
-  [vsyscall]
-
-This is a false positive warning as the destination pointer "buf" point=
-ers to
-an ZERO length array, which actually will occupy alg.buf mostly.
-=46ix this by using memcpy.
-
-struct xfrm_algo {
-         char            alg_name[64];
-         unsigned int    alg_key_len;    /* in bits */
-         char            alg_key[0];
-};
-
-struct {
-         union {
-                 struct xfrm_algo alg;
-                 struct xfrm_algo_aead aead;
-                 struct xfrm_algo_auth auth;
-         } u;
-         char buf[XFRM_ALGO_KEY_BUF_SIZE];
-} alg =3D {};
-
-buf =3D alg.u.alg.alg_key;
----
-  ip/xfrm_state.c |    2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 0d98e78..5cc87d3 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -159,7 +159,7 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, e=
-num xfrm_attr_type_t type,
-  			if (len > max)
-  				invarg("\"ALGO-KEY\" makes buffer overflow\n", key);
-
--			strncpy(buf, key, len);
-+			memcpy(buf, key, len);
-  		}
-  	}
-
---=20
-1.7.9.5
-
-
-
-
-> Regards,
-> Sohny
->>
->> David
->>
->>
->>
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
+> The commit message talks about handling OpenFlow 1.2 and 1.3 both
+> properly, but I don't see how the code distinguishes between the cases.
+> Can you explain?  Maybe this is something added in a later patch, in
+> which case it would be nice to mention that in the commit message.
 >
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+It is added in patch #5. IIRC this patch should cause no difference in
+behaviour, but set up infrastructure to be used later.
 
---fan
+ There seems to be a typo in the comment in vlan_tci_restore() here:
+> > +    /* If MPLS actions were executed after MPLS, copy the final
+> vlan_tci out
+> > +     * and restore the intermediate VLAN state. */
+>
+
+Right, that should probably be "...executed after VLAN actions...".
+
+I was a little confused by the new local variable 'vlan_tci' in
+> do_xlate_actions().  Partly this was because the fact that I didn't find
+> it obvious that sometimes it points to different VLAN tags.  I think
+> this would be easier to see if it were initially assigned just under the
+> big comment rather than in an initializer, so that one would know to
+> look at the comment.
+>
+
+Perhaps the big comment could be rearranged and put above the initialiser,
+something like the following:-
+
+/* VLAN actions are stored to '*vlan_tci'. This variable initially points
+to 'xin->flow->vlan_tci', so that
+ * VLAN actions are applied before any MPLS actions. When an MPLS action is
+translated,
+ * 'vlan_tci' is updated to point to 'xin->vlan_tci'. This causes later
+VLAN actions to be applied after MPLS actions.
+ * Each time through the loop, 'xin->vlan_tci' is updated to reflect the
+final VLAN state of the flow. */
+
+Then, the place where 'xin->vlan_tci' is updated to '*vlan_tci' could have
+a simple comment to refer back:-
+
+/* Update the final vlan state to match the current state. */
+
+Simon, do you mind handling the change?
+
+--bcaec51ddb27f141b404e77bf55f
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">On Sat, Sep 28, 2013 at 7:21 AM, Ben Pfaff <span dir=3D"lt=
+r">&lt;<a href=3D"mailto:blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" target=3D"_blank">blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org</=
+a>&gt;</span> wrote:<br><div class=3D"gmail_extra"><div class=3D"gmail_quot=
+e"><blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;bord=
+er-left-width:1px;border-left-color:rgb(204,204,204);border-left-style:soli=
+d;padding-left:1ex">
+
+
+
+
+<div>On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:<br>
+&gt; From: Joe Stringer &lt;<a href=3D"mailto:joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org" target=3D"_b=
+lank">joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org</a>&gt;<br>
+&gt;<br>
+&gt; OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the<b=
+r>
+&gt; presence of VLAN tags. To allow correct behaviour to be committed in<b=
+r>
+&gt; each situation, this patch adds a second round of VLAN tag action<br>
+&gt; handling to commit_odp_actions(), which occurs after MPLS actions. Thi=
+s<br>
+&gt; is implemented with a new field in &#39;struct xlate_in&#39; called &#=
+39;vlan_tci&#39;.<br>
+&gt;<br>
+&gt; When an push_mpls action is composed, the flow&#39;s current VLAN stat=
+e is<br>
+&gt; stored into xin-&gt;vlan_tci, and flow-&gt;vlan_tci is set to 0 (pop_v=
+lan). If<br>
+&gt; a VLAN tag is present, it is stripped; if not, then there is no change=
+.<br>
+&gt; Any later modifications to the VLAN state is written to xin-&gt;vlan_t=
+ci.<br>
+&gt; When committing the actions, flow-&gt;vlan_tci is used before MPLS act=
+ions,<br>
+&gt; and xin-&gt;vlan_tci is used afterwards. This retains the current data=
+path<br>
+&gt; behaviour, but allows VLAN actions to be applied in a more flexible<br=
+>
+&gt; manner.<br>
+&gt;<br>
+&gt; Signed-off-by: Joe Stringer &lt;<a href=3D"mailto:joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org" tar=
+get=3D"_blank">joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org</a>&gt;<br>
+&gt; Signed-off-by: Simon Horman &lt;<a href=3D"mailto:horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org" =
+target=3D"_blank">horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org</a>&gt;<br>
+<br>
+</div>The commit message talks about handling OpenFlow 1.2 and 1.3 both<br>
+properly, but I don&#39;t see how the code distinguishes between the cases.=
+<br>
+Can you explain? =A0Maybe this is something added in a later patch, in<br>
+which case it would be nice to mention that in the commit message.<br></blo=
+ckquote><div><br></div><div>It is added in patch #5. IIRC this patch should=
+ cause no difference in behaviour, but set up infrastructure to be used lat=
+er.</div>
+
+<div><br></div>
+<blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;border-=
+left-width:1px;border-left-color:rgb(204,204,204);border-left-style:solid;p=
+adding-left:1ex">
+
+There seems to be a typo in the comment in vlan_tci_restore() here:<br>
+<div>&gt; + =A0 =A0/* If MPLS actions were executed after MPLS, copy the fi=
+nal vlan_tci out<br>
+&gt; + =A0 =A0 * and restore the intermediate VLAN state. */<br></div></blo=
+ckquote><div><br></div><div>Right, that should probably be &quot;...execute=
+d after VLAN actions...&quot;.</div><div><br></div><blockquote class=3D"gma=
+il_quote" style=3D"margin:0px 0px 0px 0.8ex;border-left-width:1px;border-le=
+ft-color:rgb(204,204,204);border-left-style:solid;padding-left:1ex">
+
+I was a little confused by the new local variable &#39;vlan_tci&#39; in<br>
+do_xlate_actions(). =A0Partly this was because the fact that I didn&#39;t f=
+ind<br>
+it obvious that sometimes it points to different VLAN tags. =A0I think<br>
+this would be easier to see if it were initially assigned just under the<br=
+>
+big comment rather than in an initializer, so that one would know to<br>
+look at the comment.<br></blockquote><div><br></div><div>Perhaps the big co=
+mment could be rearranged and put above the initialiser, something like the=
+ following:-</div><div><br></div><div>/* VLAN actions are stored to &#39;*v=
+lan_tci&#39;. This variable initially points to &#39;xin-&gt;flow-&gt;vlan_=
+tci&#39;, so that</div>
+
+<div>=A0* VLAN actions are applied before any MPLS actions. When an MPLS ac=
+tion is translated,=A0</div><div>=A0* &#39;vlan_tci&#39; is updated to poin=
+t to &#39;xin-&gt;vlan_tci&#39;. This causes later VLAN actions to be appli=
+ed after MPLS actions.</div>
+
+<div>=A0* Each time through the loop, &#39;xin-&gt;vlan_tci&#39; is updated=
+ to reflect the final VLAN state of the flow. */</div><div><br></div><div>T=
+hen, the place where &#39;xin-&gt;vlan_tci&#39; is updated to &#39;*vlan_tc=
+i&#39; could have a simple comment to refer back:-</div>
+
+<div><br></div><div><span style=3D"font-family:arial,sans-serif;font-size:1=
+3px">/* Update the final vlan state to match the current state.</span><span=
+ style=3D"font-family:arial,sans-serif;font-size:13px">=A0*/</span><br></di=
+v>
+
+</div></div><div class=3D"gmail_extra"><br></div><div class=3D"gmail_extra"=
+>Simon, do you mind handling the change?</div></div>
+
+--bcaec51ddb27f141b404e77bf55f--
+
+--===============0554089873==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============0554089873==--
