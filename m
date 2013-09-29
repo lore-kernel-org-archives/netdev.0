@@ -1,47 +1,41 @@
-From: Vladimir Murzin <murzin.v@gmail.com>
-Subject: [PATCH] ath6kl: fix compilation warning in ath6kl_htc_pipe_conn_service
-Date: Sun, 29 Sep 2013 15:54:31 +0200
-Message-ID: <1380462871-2649-1-git-send-email-murzin.v@gmail.com>
-Cc: kvalo@qca.qualcomm.com, linville@tuxdriver.com,
-	Vladimir Murzin <murzin.v@gmail.com>
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] tcp: TSQ can use a dynamic limit
+Date: Sun, 29 Sep 2013 08:41:29 -0700
+Message-ID: <CAM_iQpV7600r+j2JR0ZA1GtrbECSMUTN=VcY51tHu+RFCpz0Dg@mail.gmail.com>
+References: <20130906101635.GI14104@zion.uk.xensource.com>
+	<1378472268.31445.15.camel@edumazet-glaptop>
+	<522A049A.7000105@citrix.com>
+	<1378486840.31445.36.camel@edumazet-glaptop>
+	<1378574494.26319.14.camel@edumazet-glaptop>
+	<522E4080.2050802@citrix.com>
+	<1378763815.26319.39.camel@edumazet-glaptop>
+	<loom.20130921T045654-573@post.gmane.org>
+	<20130921150327.GA9078@zion.uk.xensource.com>
+	<CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
+	<1379861902.3431.12.camel@edumazet-glaptop>
+	<1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Wei Liu <wei.liu2@citrix.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:52934 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752385Ab3I2NzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 09:55:16 -0400
-Received: by mail-la0-f49.google.com with SMTP id ev20so3568738lab.22
-        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 06:55:15 -0700 (PDT)
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:52772 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675Ab3I2Pla (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 11:41:30 -0400
+Received: by mail-oa0-f41.google.com with SMTP id n10so3320377oag.28
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 08:41:29 -0700 (PDT)
+In-Reply-To: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the warning
+On Fri, Sep 27, 2013 at 3:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> Additional change : skb->destructor should be set to tcp_wfree().
+>
+> A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
 
-drivers/net/wireless/ath/ath6kl/htc_pipe.c: In function
-'ath6kl_htc_pipe_conn_service':
-drivers/net/wireless/ath/ath6kl/htc_pipe.c:1293:26: warning: integer overflow
-in expression [-Woverflow]
-
-by giving a hint to compiler about unsigned nature of
-HTC_CONN_FLGS_SET_RECV_ALLOC_MASK
-
-Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
----
- drivers/net/wireless/ath/ath6kl/htc.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath6kl/htc.h b/drivers/net/wireless/ath/ath6kl/htc.h
-index a2c8ff8..14cab14 100644
---- a/drivers/net/wireless/ath/ath6kl/htc.h
-+++ b/drivers/net/wireless/ath/ath6kl/htc.h
-@@ -60,7 +60,7 @@
- /* disable credit flow control on a specific service */
- #define HTC_CONN_FLGS_DISABLE_CRED_FLOW_CTRL          (1 << 3)
- #define HTC_CONN_FLGS_SET_RECV_ALLOC_SHIFT    8
--#define HTC_CONN_FLGS_SET_RECV_ALLOC_MASK     0xFF00
-+#define HTC_CONN_FLGS_SET_RECV_ALLOC_MASK     0xFF00U
- 
- /* connect response status codes */
- #define HTC_SERVICE_SUCCESS      0
--- 
-1.8.1.5
+Yeah, now it is only used in tcp_xmit_size_goal()...
