@@ -1,92 +1,96 @@
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
-Date: Sun, 29 Sep 2013 17:33:37 +0100
-Message-ID: <CABfLueHOR1HNsRC_-+Phc=9LMPTiOVuWoEjguG64L=9hiZLeVg@mail.gmail.com>
-References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
-	<20130927083730.GC28287@order.stressinduktion.org>
-	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
-	<20130927105856.GF28287@order.stressinduktion.org>
-	<CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
-	<20130927170345.GC10343@order.stressinduktion.org>
-	<CA+ev270d2Ztq9i34Lv9U15y1TbH7W-fioXFn-Q_sJd5F4biHuw@mail.gmail.com>
-	<20130929154546.GA10771@order.stressinduktion.org>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [PATCH v2.40 2/7] odp: Allow VLAN actions after MPLS actions
+Date: Sun, 29 Sep 2013 10:05:49 -0700
+Message-ID: <20130929170549.GC23836@nicira.com>
+References: <1380241116-7661-1-git-send-email-horms@verge.net.au>
+ <1380241116-7661-3-git-send-email-horms@verge.net.au>
+ <20130927192108.GA17506@nicira.com>
+ <CAOftzPg_FJoyS0oS8Ua7cpMaCh=BboWwyn8kVVoXGT9X9HQ0hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Oussama Ghorbel <oghorbell@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Oussama Ghorbel <ou.ghorbel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>
+To: Joe Stringer <joe@wand.net.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:34801 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752675Ab3I2Qdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 12:33:37 -0400
-In-Reply-To: <20130929154546.GA10771@order.stressinduktion.org>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:41210 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754470Ab3I2RFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 13:05:55 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so4839126pab.18
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 10:05:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAOftzPg_FJoyS0oS8Ua7cpMaCh=BboWwyn8kVVoXGT9X9HQ0hg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 29, 2013 at 4:45 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Sun, Sep 29, 2013 at 10:40:11AM +0100, Oussama Ghorbel wrote:
->> On Fri, Sep 27, 2013 at 6:03 PM, Hannes Frederic Sowa
->> <hannes@stressinduktion.org> wrote:
->> > Ok, let's go with one function per protocol type. Seems easier.
->> >
->> > It seems to get more hairy, because it depends on the tunnel driver if the
->> > prepended ip header is accounted in hard_header_len. :/
->> >
->> > I don't know if it works out cleanly. Otherwise I would be ok if the checks
->> > just get repeated in ip6_tunnel and leave the rest as-is.
->> >
->> Yes, It will be the clean way to do it.
->
-> Fine. :)
->
->> >
->> > Linux currently cannot create "jumbograms" (only the receiving side
->> > is supported).
->> >
->> I understand, but what are the benefit from this limit or the harm
->> from not specifying it?
->> Please check this comment from eth.c
->>
->> /**
->>  * eth_change_mtu - set new MTU size
->>  * @dev: network device
->>  * @new_mtu: new Maximum Transfer Unit
->>  *
->>  * Allow changing MTU size. Needs to be overridden for devices
->>  * supporting jumbo frames.
->>  */
->> int eth_change_mtu(struct net_device *dev, int new_mtu)
->
-> Hmm, I cannot judge without the full patch. Will it be applicable
-> to all net_devices or just ethernet ones? The name could be a bit
-> misleading. Remindes me a lot of dev_set_mtu based on the signature, btw.
+On Sun, Sep 29, 2013 at 02:51:19PM +1300, Joe Stringer wrote:
+> On Sat, Sep 28, 2013 at 7:21 AM, Ben Pfaff <blp@nicira.com> wrote:
+> 
+> > On Fri, Sep 27, 2013 at 09:18:31AM +0900, Simon Horman wrote:
+> > > From: Joe Stringer <joe@wand.net.nz>
+> > >
+> > > OpenFlow 1.2 and 1.3 differ on their handling of MPLS actions in the
+> > > presence of VLAN tags. To allow correct behaviour to be committed in
+> > > each situation, this patch adds a second round of VLAN tag action
+> > > handling to commit_odp_actions(), which occurs after MPLS actions. This
+> > > is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
+> > >
+> > > When an push_mpls action is composed, the flow's current VLAN state is
+> > > stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
+> > > a VLAN tag is present, it is stripped; if not, then there is no change.
+> > > Any later modifications to the VLAN state is written to xin->vlan_tci.
+> > > When committing the actions, flow->vlan_tci is used before MPLS actions,
+> > > and xin->vlan_tci is used afterwards. This retains the current datapath
+> > > behaviour, but allows VLAN actions to be applied in a more flexible
+> > > manner.
+> > >
+> > > Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> > > Signed-off-by: Simon Horman <horms@verge.net.au>
+> >
+> > The commit message talks about handling OpenFlow 1.2 and 1.3 both
+> > properly, but I don't see how the code distinguishes between the cases.
+> > Can you explain?  Maybe this is something added in a later patch, in
+> > which case it would be nice to mention that in the commit message.
+> >
+> 
+> It is added in patch #5. IIRC this patch should cause no difference in
+> behaviour, but set up infrastructure to be used later.
+> 
+>  There seems to be a typo in the comment in vlan_tci_restore() here:
+> > > +    /* If MPLS actions were executed after MPLS, copy the final
+> > vlan_tci out
+> > > +     * and restore the intermediate VLAN state. */
+> >
+> 
+> Right, that should probably be "...executed after VLAN actions...".
+> 
+> I was a little confused by the new local variable 'vlan_tci' in
+> > do_xlate_actions().  Partly this was because the fact that I didn't find
+> > it obvious that sometimes it points to different VLAN tags.  I think
+> > this would be easier to see if it were initially assigned just under the
+> > big comment rather than in an initializer, so that one would know to
+> > look at the comment.
+> >
+> 
+> Perhaps the big comment could be rearranged and put above the initialiser,
+> something like the following:-
+> 
+> /* VLAN actions are stored to '*vlan_tci'. This variable initially points
+> to 'xin->flow->vlan_tci', so that
+>  * VLAN actions are applied before any MPLS actions. When an MPLS action is
+> translated,
+>  * 'vlan_tci' is updated to point to 'xin->vlan_tci'. This causes later
+> VLAN actions to be applied after MPLS actions.
+>  * Each time through the loop, 'xin->vlan_tci' is updated to reflect the
+> final VLAN state of the flow. */
+> 
+> Then, the place where 'xin->vlan_tci' is updated to '*vlan_tci' could have
+> a simple comment to refer back:-
+> 
+> /* Update the final vlan state to match the current state. */
 
-Normally to all net_devices, otherwise it could get complicated to
-check for every dev separately ...
-But, never mind, the comment below solve the issue
-
->
->> So wouldn't be a good idea to let our function open for jumbo frames...?
->
-> Hm, we can document the fact that the function would needed to be updated in
-> that case. But we should not allow to set a mtu which would require jumbograms
-> currently.
-
-OK, sounds a good. I will check the mtu against the limit
-IPV6_MAXPLEN, and document the jumbo restriction ...
-
->
-> Greetings,
->
->   Hannes
->
-
-Regards,
-Oussama
+All that makes sense, thanks.
