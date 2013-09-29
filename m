@@ -1,33 +1,35 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH v2] declance: Remove `incompatible pointer type'
- warnings
-Date: Sun, 29 Sep 2013 01:09:08 +0100 (BST)
-Message-ID: <alpine.LFD.2.03.1309290107450.8907@linux-mips.org>
-References: <alpine.LFD.2.03.1309200008060.5967@linux-mips.org>        <20130920.144304.2081229489870626586.davem@davemloft.net>        <alpine.LFD.2.03.1309222113300.16797@linux-mips.org> <20130928.153316.1766304011894422920.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v5] IPv6 NAT: Do not drop DNATed 6to4/6rd packets
+Date: Sat, 28 Sep 2013 17:24:28 -0700
+Message-ID: <1380414268.11373.3.camel@joe-AO722>
+References: <1379963485.3575.53.camel@joe-AO722>
+	 <1379966659-28838-1-git-send-email-catab@embedromix.ro>
+	 <20130924213606.GB4446@order.stressinduktion.org>
+	 <20130928.155750.1130089685321379918.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, catab@embedromix.ro,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:55206 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755174Ab3I2AJP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 20:09:15 -0400
-Received: from localhost.localdomain ([127.0.0.1]:34779 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6827474Ab3I2AJI6f1wM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 02:09:08 +0200
-In-Reply-To: <20130928.153316.1766304011894422920.davem@davemloft.net>
+Received: from smtprelay0101.hostedemail.com ([216.40.44.101]:48482 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755214Ab3I2AYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 20:24:32 -0400
+In-Reply-To: <20130928.155750.1130089685321379918.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Sep 2013, David Miller wrote:
-
-> >  Thanks, by Sergei's request please use this version instead that has the 
-> > reference to the original commit updated (no change to the patch itself).
+On Sat, 2013-09-28 at 15:57 -0400, David Miller wrote:
+> Applied, but Catalin please strictly refer to changes in the following
+> precise format:
 > 
-> I can't undo the original commit once it has been installed in my tree.
+>         commit $SHA1_ID ("Commit message header line text")
+> 
+> Because SHA1_IDs are ambiguous, especially when the change in question
+> is backported into various -stable branches.
 
- No worries, and good to know, thanks.
-
-  Maciej
+There are now enough commits that using only
+8 byte SHA1 IDs generates some collisions so
+please use 12 bytes or so of the SHA1.
