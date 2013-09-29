@@ -1,24 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: sit: ensure prefixlen <= 128 before calling ipv6_addr_prefix
-Date: Sun, 29 Sep 2013 05:53:57 +0200
-Message-ID: <20130929035357.GC8602@order.stressinduktion.org>
-References: <20130929031535.GA8602@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: gre: correct calculation of max_headroom
+Date: Sun, 29 Sep 2013 01:05:00 -0700
+Message-ID: <1380441900.3596.13.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20130929034050.GB8602@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xeb@mail.ru
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57866 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753564Ab3I2Dx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Sep 2013 23:53:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20130929031535.GA8602@order.stressinduktion.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:46298 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752372Ab3I2IFD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 04:05:03 -0400
+Received: by mail-pb0-f52.google.com with SMTP id wz12so4246025pbc.25
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 01:05:02 -0700 (PDT)
+In-Reply-To: <20130929034050.GB8602@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 29, 2013 at 05:15:35AM +0200, Hannes Frederic Sowa wrote:
-> Found with coverity: CID 139492
+On Sun, 2013-09-29 at 05:40 +0200, Hannes Frederic Sowa wrote:
+> gre_hlen already accounts for sizeof(struct ipv6_hdr) + gre header,
+> so initialize max_headroom to zero. Otherwise the
 > 
+> 	if (encap_limit >= 0) {
+> 		max_headroom += 8;
+> 		mtu -= 8;
+> 	}
+> 
+> increments an uninitialized variable before max_headroom was reset.
+> 
+> Found with coverity: 728539
+> 
+> Cc: Dmitry Kozlov <xeb@mail.ru>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-Disregard, I was fooled by the report. This is not necessary.
+Acked-by: Eric Dumazet <edumazet@google.com>
