@@ -1,63 +1,77 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH]: iproute action: typo nat fix
-Date: Sun, 29 Sep 2013 07:39:23 -0400
-Message-ID: <5248116B.7080305@mojatatu.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 1/4] bonding: use RCU protection for 3ad xmit path
+Date: Sun, 29 Sep 2013 19:44:44 +0800
+Message-ID: <524812AC.3040805@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000807070700040304010700"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	herbert@gondor.apana.org.au
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:45992 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141Ab3I2Lj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 07:39:26 -0400
-Received: by mail-ie0-f177.google.com with SMTP id qd12so7786204ieb.36
-        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 04:39:26 -0700 (PDT)
+Received: from szxga03-in.huawei.com ([119.145.14.66]:29514 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab3I2LpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Sep 2013 07:45:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000807070700040304010700
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+(bonding: initial RCU conversion) has convert the roundrobin,
+active-backup, broadcast and xor xmit path to rcu protection,
+the performance will be better for these mode, so this time,
+convert xmit path for 3ad mode.
 
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_3ad.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-attached.
-
-cheers,
-jamal
-
---------------000807070700040304010700
-Content-Type: text/plain; charset=UTF-8;
- name="nat-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="nat-1"
-
-commit 012b8c4b3af629039d2bb47ade6e0d3e6980a72b
-Author: Jamal Hadi Salim <hadi@mojatatu.com>
-Date:   Sun Sep 29 07:35:21 2013 -0400
-
-    If you taketh you giveth.
-    I Went the LinuxWay and copied this for m_simple.c and noticed
-    this one typo (I wonder where it came from?;->).
-    
-    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-diff --git a/tc/m_nat.c b/tc/m_nat.c
-index 01ec032..d502a81 100644
---- a/tc/m_nat.c
-+++ b/tc/m_nat.c
-@@ -146,7 +146,7 @@ parse_nat(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, struct
- 		if (matches(*argv, "index") == 0) {
- 			NEXT_ARG();
- 			if (get_u32(&sel.index, *argv, 10)) {
--				fprintf(stderr, "Pedit: Illegal \"index\"\n");
-+				fprintf(stderr, "Nat: Illegal \"index\"\n");
- 				return -1;
- 			}
- 			argc--;
-
---------------000807070700040304010700--
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index c62606a..971a7dc 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2344,7 +2344,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
+ 	struct slave *slave;
+ 	struct port *port;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (port->aggregator && port->aggregator->is_active) {
+ 			aggregator = port->aggregator;
+@@ -2388,7 +2388,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	int res = 1;
+ 	int agg_id;
+ 
+-	read_lock(&bond->lock);
+ 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
+ 			 dev->name);
+@@ -2406,7 +2405,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	slave_agg_no = bond->xmit_hash_policy(skb, slaves_in_agg);
+ 	first_ok_slave = NULL;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		agg = SLAVE_AD_INFO(slave).port.aggregator;
+ 		if (!agg || agg->aggregator_identifier != agg_id)
+ 			continue;
+@@ -2436,7 +2435,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+ 
+ out:
+-	read_unlock(&bond->lock);
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+ 		kfree_skb(skb);
+-- 
+1.8.2.1
