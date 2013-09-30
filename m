@@ -1,29 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] net: qmi_wwan: add Telit LE920 newer firmware
- support
-Date: Mon, 30 Sep 2013 15:02:35 -0400 (EDT)
-Message-ID: <20130930.150235.1171480733620415350.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: qmi_wwan: fix checkpatch warnings
+Date: Mon, 30 Sep 2013 15:02:43 -0400 (EDT)
+Message-ID: <20130930.150243.453033899349882896.davem@davemloft.net>
 References: <1380100886-16531-1-git-send-email-fabio.porcedda@gmail.com>
+	<1380100886-16531-2-git-send-email-fabio.porcedda@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
-	dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1380100886-16531-1-git-send-email-fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, bjorn@mork.no,
+	dcbw@redhat.com
+To: fabio.porcedda@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35375 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755361Ab3I3TCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:02:45 -0400
+In-Reply-To: <1380100886-16531-2-git-send-email-fabio.porcedda@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 25 Sep 2013 11:21:25 +0200
+From: Fabio Porcedda <fabio.porcedda@gmail.com>
+Date: Wed, 25 Sep 2013 11:21:26 +0200
 
-> Newer firmware use a new pid and a different interface.
-> 
-> Signed-off-by: Fabio Porcedda <fabio.porcedda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Fabio Porcedda <fabio.porcedda@gmail.com>
 
-Applied to net-next
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next, thanks.
