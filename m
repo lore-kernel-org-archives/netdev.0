@@ -1,40 +1,32 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 3/3] net: can: c_can_platform: Remove redundant of_match_ptr
-Date: Mon, 30 Sep 2013 09:55:14 +0530
-Message-ID: <1380515114-2823-3-git-send-email-sachin.kamat@linaro.org>
-References: <1380515114-2823-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1380515114-2823-1-git-send-email-sachin.kamat@linaro.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] bgmac: add support for Byte Queue Limits
+Date: Sun, 29 Sep 2013 21:34:44 -0700
+Message-ID: <1380515684.3596.23.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380455698-5897-1-git-send-email-hauke@hauke-m.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:43443 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051Ab3I3Eeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 00:34:46 -0400
+Received: by mail-pb0-f50.google.com with SMTP id uo5so5074222pbc.9
+        for <netdev@vger.kernel.org>; Sun, 29 Sep 2013 21:34:46 -0700 (PDT)
+In-Reply-To: <1380455698-5897-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The data structure of_match_ptr() protects is always compiled in.
-Hence of_match_ptr() is not needed.
+On Sun, 2013-09-29 at 13:54 +0200, Hauke Mehrtens wrote:
+> This makes it possible to use some more advanced queuing
+> techniques with this driver.
+> 
+> When multi queue support will be added some changes to Byte Queue
+> handling is needed.
+> 
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org
----
- drivers/net/can/c_can/c_can_platform.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index 294ced3..d66ac26 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -322,7 +322,7 @@ static struct platform_driver c_can_plat_driver = {
- 	.driver = {
- 		.name = KBUILD_MODNAME,
- 		.owner = THIS_MODULE,
--		.of_match_table = of_match_ptr(c_can_of_table),
-+		.of_match_table = c_can_of_table,
- 	},
- 	.probe = c_can_plat_probe,
- 	.remove = c_can_plat_remove,
--- 
-1.7.9.5
-
+Reviewed-by: Eric Dumazet <edumazet@google.com>
