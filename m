@@ -1,134 +1,173 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH V5 net-next 0/3] The huawei_cdc_ncm driver
-Date: Mon, 30 Sep 2013 10:56:23 +0200
-Message-ID: <87zjquhemg.fsf@nemi.mork.no>
-References: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH V2] virtio-net: switch to use XPS to choose txq
+Date: Mon, 30 Sep 2013 12:04:02 +0300
+Message-ID: <20130930090402.GB20291@redhat.com>
+References: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert de Vries <rhdv@xs4all.nl>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Liu Junliang <liujunliang_ljl@163.com>,
-	linux-kernel@vger.kernel.org (open list),
-	linux-usb@vger.kernel.org (open list:USB NETWORKING DR...),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	ModemManager-devel@lists.freedesktop.org
-To: Enrico Mioso <mrkiko.rs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com> (Enrico
-	Mioso's message of "Mon, 30 Sep 2013 04:50:06 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Enrico Mioso <mrkiko.rs@gmail.com> writes:
+On Mon, Sep 30, 2013 at 03:37:17PM +0800, Jason Wang wrote:
+> We used to use a percpu structure vq_index to record the cpu to queue
+> mapping, this is suboptimal since it duplicates the work of XPS and
+> loses all other XPS functionality such as allowing use to configure
+> their own transmission steering strategy.
+> 
+> So this patch switches to use XPS and suggest a default mapping when
+> the number of cpus is equal to the number of queues. With XPS support,
+> there's no need for keeping per-cpu vq_index and .ndo_select_queue(),
+> so they were removed also.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-> So this is a new, revised, edition of the huawei_cdc_ncm.c driver, wh=
-ich=20
-> supports devices resembling the NCM standard, but using it also as a =
-mean=20
-> to encapsulate other protocols, as is the case for the Huawei E3131 a=
-nd
-> E3251 modem devices.
-> Some precisations are needed however - and I encourage discussion on =
-this: and=20
-> that's why I'm sending this message with a broader CC.
-> Merging those patches might change:
-> - the way Modem Manager interacts with those devices
-> - some regressions might be possible if there are some unknown firmwa=
-re=20
->   variants around (Franko?)
->
-> First of all: I observed the behaviours of two devices.
-> Huawei E3131: this device doesn't accept NDIS setup requests unless t=
-hey're=20
-> sent via the embedded AT channel exposed by this driver.
-> So actually we gain funcionality in this case!
->
-> The second case, is the Huawei E3251: which works with standard NCM d=
-river,=20
-> still exposing an AT embedded channel. Whith this patch set applied, =
-you gain=20
-> some funcionality, loosing the ability to catch standard NCM events f=
-or now.
-> The device will work in both ways with no problems, but this has to b=
-e=20
-> acknowledged and discussed. Might be we can develop this driver furth=
-er to=20
-> change this, when more devices are tested.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Your driver, and the cdc-wdm subdriver API in general, could certainly
-be extended to support standard NCM events.  There have been some
-discussions in the linux-usb list already on how to best do this.  I
-believe this message from Oliver is the current conclusion to that
-discussion: http://www.spinics.net/lists/linux-usb/msg70140.html
-
-I.e:
- - extend the cdc-wdm subdriver API by creating a struct holding all
-   necessary callbacks, and use this struct instead of the current
-   single "manage_power" callback, and
- - create one callback hook per notification you want to handle, with
-   clear semantics and reasonable names
-
-But I still believe your driver should go in as it is for now. As you
-note, it is required for the E3131.  And the same is most likely the
-case for other devices in the same family.
-
-Handling the NCM notifications can always be added later. IMHO, they ca=
-n
-be considered optional given that a separate management channel is
-required in any case to configure these devices and start/stop the
-connection.  The NCM events you lose compared to cdc_ncm are
-NETWORK_CONNECTION and SPEED_CHANGE. The first one is useful as it is
-implemented in cdc_ncm because it controls the network device link
-state, but it is still redundant for devices like these where a managin=
-g
-userspace application is required and the connection events are
-available via the management channel.  The implementation of
-SPEED_CHANGE events is less useful. The cdc_ncm driver doesn't use the
-received speed data for anything except printing an informational
-message.  I don't think implementing it in your driver will gain you
-anything.
-
-> We where thinking Huawei changed their interfaces on new devices - bu=
-t probably=20
-> this driver only works around a nice firmware bug present in E3131, w=
-hich=20
-> prevented the modem from being used in NDIS mode.
-
-I am not sure this is a firmware bug.  It could very well be by design,
-and the differences in observed behaviour could be just artifacts of th=
-e
-interface implementation on top of different chipsets and/or base
-firmwares.  AFAIK, Huawei have never officially supported the serial
-port for network device management on this class of devices. The
-embedded AT channel is most likely the only AT command channel intended
-for network device management, even on the devices with serial ports.
-
-> I think committing this is definitely wortth-while, since it will all=
-ow for=20
-> more Huawei devices to be used without serial connection. Some device=
-s like the=20
-> E3251 also, reports some status information only via the embedded AT =
-channel,=20
-> at least in my case.
-> Note: I'm not subscribed to any list except the Modem Manager's one, =
-so please=20
-> CC me, thanks!!
-
-Yes, this is most definitely a driver worth being added.  There are a
-number of devices which just cannot be made working in Linux without it
-because the embedded management channel is the only one available.
-
-I don't know if you are aware of this, but I have pointed a few people
-to your previous submission attempts and there are therefore some
-success stories around already.  An example:
-http://lists.freedesktop.org/archives/libqmi-devel/2013-September/00065=
-0.html
-
-
-Bj=C3=B8rn
+> ---
+> Changes from V1:
+> - use cpumask_of() instead of allocate dynamically
+> 
+>  drivers/net/virtio_net.c |   48 +--------------------------------------------
+>  1 files changed, 2 insertions(+), 46 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index defec2b..4eca652 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -127,9 +127,6 @@ struct virtnet_info {
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+>  
+> -	/* Per-cpu variable to show the mapping from CPU to virtqueue */
+> -	int __percpu *vq_index;
+> -
+>  	/* CPU hot plug notifier */
+>  	struct notifier_block nb;
+>  };
+> @@ -1063,7 +1060,6 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev,
+>  static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>  {
+>  	int i;
+> -	int cpu;
+>  
+>  	if (vi->affinity_hint_set) {
+>  		for (i = 0; i < vi->max_queue_pairs; i++) {
+> @@ -1073,16 +1069,6 @@ static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>  
+>  		vi->affinity_hint_set = false;
+>  	}
+> -
+> -	i = 0;
+> -	for_each_online_cpu(cpu) {
+> -		if (cpu == hcpu) {
+> -			*per_cpu_ptr(vi->vq_index, cpu) = -1;
+> -		} else {
+> -			*per_cpu_ptr(vi->vq_index, cpu) =
+> -				++i % vi->curr_queue_pairs;
+> -		}
+> -	}
+>  }
+>  
+>  static void virtnet_set_affinity(struct virtnet_info *vi)
+> @@ -1104,7 +1090,7 @@ static void virtnet_set_affinity(struct virtnet_info *vi)
+>  	for_each_online_cpu(cpu) {
+>  		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+>  		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+> -		*per_cpu_ptr(vi->vq_index, cpu) = i;
+> +		netif_set_xps_queue(vi->dev, cpumask_of(cpu), i);
+>  		i++;
+>  	}
+>  
+> @@ -1217,28 +1203,6 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>  	return 0;
+>  }
+>  
+> -/* To avoid contending a lock hold by a vcpu who would exit to host, select the
+> - * txq based on the processor id.
+> - */
+> -static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+> -{
+> -	int txq;
+> -	struct virtnet_info *vi = netdev_priv(dev);
+> -
+> -	if (skb_rx_queue_recorded(skb)) {
+> -		txq = skb_get_rx_queue(skb);
+> -	} else {
+> -		txq = *__this_cpu_ptr(vi->vq_index);
+> -		if (txq == -1)
+> -			txq = 0;
+> -	}
+> -
+> -	while (unlikely(txq >= dev->real_num_tx_queues))
+> -		txq -= dev->real_num_tx_queues;
+> -
+> -	return txq;
+> -}
+> -
+>  static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_open            = virtnet_open,
+>  	.ndo_stop   	     = virtnet_close,
+> @@ -1250,7 +1214,6 @@ static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_get_stats64     = virtnet_stats,
+>  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+>  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+> -	.ndo_select_queue     = virtnet_select_queue,
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller = virtnet_netpoll,
+>  #endif
+> @@ -1559,10 +1522,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (vi->stats == NULL)
+>  		goto free;
+>  
+> -	vi->vq_index = alloc_percpu(int);
+> -	if (vi->vq_index == NULL)
+> -		goto free_stats;
+> -
+>  	mutex_init(&vi->config_lock);
+>  	vi->config_enable = true;
+>  	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+> @@ -1589,7 +1548,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+>  	err = init_vqs(vi);
+>  	if (err)
+> -		goto free_index;
+> +		goto free_stats;
+>  
+>  	netif_set_real_num_tx_queues(dev, 1);
+>  	netif_set_real_num_rx_queues(dev, 1);
+> @@ -1640,8 +1599,6 @@ free_recv_bufs:
+>  free_vqs:
+>  	cancel_delayed_work_sync(&vi->refill);
+>  	virtnet_del_vqs(vi);
+> -free_index:
+> -	free_percpu(vi->vq_index);
+>  free_stats:
+>  	free_percpu(vi->stats);
+>  free:
+> @@ -1678,7 +1635,6 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  
+>  	flush_work(&vi->config_work);
+>  
+> -	free_percpu(vi->vq_index);
+>  	free_percpu(vi->stats);
+>  	free_netdev(vi->dev);
+>  }
+> -- 
+> 1.7.1
