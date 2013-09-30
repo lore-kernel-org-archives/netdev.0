@@ -1,72 +1,57 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 01/21] drivers: remove unnecessary prom.h includes
-Date: Mon, 30 Sep 2013 15:23:22 +0200
-Message-ID: <52497B4A.2020409@pengutronix.de>
-References: <1380221456-11192-1-git-send-email-robherring2@gmail.com> <1380221456-11192-2-git-send-email-robherring2@gmail.com> <52492E4F.2020701@pengutronix.de> <52497A6E.5010908@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next] xen-netfront: convert to GRO API
+Date: Mon, 30 Sep 2013 14:24:32 +0100
+Message-ID: <1380547472.1302.45.camel@kazak.uk.xensource.com>
+References: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="7V7bqdqEoSOLFc2OvX8r5N8QO3a5281aj"
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Rob Herring <robherring2@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52497A6E.5010908@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<konrad.wilk@oracle.com>, Anirban Chakraborty <abchak@juniper.net>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:5517 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754211Ab3I3NYf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Sep 2013 09:24:35 -0400
+In-Reply-To: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7V7bqdqEoSOLFc2OvX8r5N8QO3a5281aj
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2013-09-30 at 13:46 +0100, Wei Liu wrote:
+> Anirban was seeing netfront received MTU size packets, which downgraded
+> throughput. The following patch makes netfront use GRO API which
+> improves throughput for that case.
+> 
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Cc: Anirban Chakraborty <abchak@juniper.net>
 
-On 09/30/2013 03:19 PM, Rob Herring wrote:
-> On 09/30/2013 02:54 AM, Marc Kleine-Budde wrote:
->> On 09/26/2013 08:50 PM, Rob Herring wrote:
->>> From: Rob Herring <rob.herring@calxeda.com>
->>>
->>> Remove unnecessary prom.h includes in preparation to remove implicit
->>> includes of prom.h.
->>>
->>> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
->>> Cc: Wolfgang Grandegger <wg@grandegger.com>
->>> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
->>> Cc: linux-can@vger.kernel.org
->>> Cc: netdev@vger.kernel.org
->>
->> Applied to linux-can-next/testing, it will be included in my next pull=
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
->> request to David Miller.
->=20
-> Please don't apply this. The whole series needs to be applied together.=
-
-> This patch is a dependency for the rest of the series.
-
-Okay, then add my Acked-by to this patch.
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---7V7bqdqEoSOLFc2OvX8r5N8QO3a5281aj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlJJe0oACgkQjTAFq1RaXHN9pwCfVsN6WRkRPfEbHYiqSYOYWZ8O
-CD4An03DCJm2LZtQwWmB4BQkTodid83l
-=S39I
------END PGP SIGNATURE-----
-
---7V7bqdqEoSOLFc2OvX8r5N8QO3a5281aj--
+> Acked-by: Konrad Wilk <konrad.wilk@oracle.com>
+> ---
+>  drivers/net/xen-netfront.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 36808bf..dd1011e 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -952,7 +952,7 @@ static int handle_incoming_queue(struct net_device *dev,
+>  		u64_stats_update_end(&stats->syncp);
+>  
+>  		/* Pass it up. */
+> -		netif_receive_skb(skb);
+> +		napi_gro_receive(&np->napi, skb);
+>  	}
+>  
+>  	return packets_dropped;
+> @@ -1051,6 +1051,8 @@ err:
+>  	if (work_done < budget) {
+>  		int more_to_do = 0;
+>  
+> +		napi_gro_flush(napi, false);
+> +
+>  		local_irq_save(flags);
+>  
+>  		RING_FINAL_CHECK_FOR_RESPONSES(&np->rx, more_to_do);
