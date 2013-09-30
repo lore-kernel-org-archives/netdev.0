@@ -1,38 +1,55 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] skbuff: size of hole is wrong in a comment
-Date: Mon, 30 Sep 2013 14:16:41 +0200
-Message-ID: <1380543401-29502-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, mgorman@suse.de,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net-next] xen-netfront: convert to GRO API
+Date: Mon, 30 Sep 2013 13:46:34 +0100
+Message-ID: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <xen-devel@lists.xen.org>, <konrad.wilk@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Anirban Chakraborty <abchak@juniper.net>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45877 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752848Ab3I3MQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 08:16:56 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:34907 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754079Ab3I3Mqg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Sep 2013 08:46:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit c93bdd0e03e8 ("netvm: allow skb allocation to use PFMEMALLOC
-reserves"), hole size is one bit less than what is written in the comment.
+Anirban was seeing netfront received MTU size packets, which downgraded
+throughput. The following patch makes netfront use GRO API which
+improves throughput for that case.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Anirban Chakraborty <abchak@juniper.net>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Acked-by: Konrad Wilk <konrad.wilk@oracle.com>
 ---
- include/linux/skbuff.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/xen-netfront.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2ddb48d9312c..c2d89335f637 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -498,7 +498,7 @@ struct sk_buff {
- 	 * headers if needed
- 	 */
- 	__u8			encapsulation:1;
--	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
-+	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
- 	kmemcheck_bitfield_end(flags2);
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 36808bf..dd1011e 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -952,7 +952,7 @@ static int handle_incoming_queue(struct net_device *dev,
+ 		u64_stats_update_end(&stats->syncp);
  
- #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
+ 		/* Pass it up. */
+-		netif_receive_skb(skb);
++		napi_gro_receive(&np->napi, skb);
+ 	}
+ 
+ 	return packets_dropped;
+@@ -1051,6 +1051,8 @@ err:
+ 	if (work_done < budget) {
+ 		int more_to_do = 0;
+ 
++		napi_gro_flush(napi, false);
++
+ 		local_irq_save(flags);
+ 
+ 		RING_FINAL_CHECK_FOR_RESPONSES(&np->rx, more_to_do);
 -- 
-1.8.2.1
+1.7.10.4
