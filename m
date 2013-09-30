@@ -1,65 +1,59 @@
-From: Sami Kerola <kerolasa@iki.fi>
-Subject: [PATCH] ip: make -resolve addr to print names rather than addresses
-Date: Mon, 30 Sep 2013 22:01:48 +0100
-Message-ID: <1380574908-9220-1-git-send-email-kerolasa@iki.fi>
-Cc: kerolasa@iki.fi
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net] udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
+Date: Mon, 30 Sep 2013 23:21:55 +0200
+Message-ID: <20130930212155.GG10771@order.stressinduktion.org>
+References: <1380549038-6291-1-git-send-email-jiri@resnulli.us> <20130930175640.GF10771@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33606 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755663Ab3I3VBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 17:01:55 -0400
-Received: by mail-wi0-f171.google.com with SMTP id hm2so4572492wib.10
-        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 14:01:54 -0700 (PDT)
+Received: from order.stressinduktion.org ([87.106.68.36]:32796 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755917Ab3I3VV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 17:21:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20130930175640.GF10771@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a system admin I occasionally want to be able to check that all
-interfaces has a name in DNS or /etc/hosts file.
+On Mon, Sep 30, 2013 at 07:56:40PM +0200, Hannes Frederic Sowa wrote:
+> Hmm, I wonder if we need the same change in ipv6/raw.c.
 
-Signed-off-by: Sami Kerola <kerolasa@iki.fi>
----
- ip/ipaddress.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Nope, ipv6/raw.c is fine.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 1c3e4da..d02eaaf 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -636,7 +636,7 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 		fprintf(fp, "    family %d ", ifa->ifa_family);
+> Looks good at first sight, but I need to do some more tests.
+
+Strange, loopback traffic is not bound by the frag_size. This fixes it but
+should not be necessary. Don't know the reason, yet.
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a54c45c..9dd136e 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -124,7 +124,14 @@ static int ip6_finish_output2(struct sk_buff *skb)
  
- 	if (rta_tb[IFA_LOCAL]) {
--		fprintf(fp, "%s", rt_addr_n2a(ifa->ifa_family,
-+		fprintf(fp, "%s", format_host(ifa->ifa_family,
- 					      RTA_PAYLOAD(rta_tb[IFA_LOCAL]),
- 					      RTA_DATA(rta_tb[IFA_LOCAL]),
- 					      abuf, sizeof(abuf)));
-@@ -647,7 +647,7 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 			fprintf(fp, "/%d ", ifa->ifa_prefixlen);
- 		} else {
- 			fprintf(fp, " peer %s/%d ",
--				rt_addr_n2a(ifa->ifa_family,
-+				format_host(ifa->ifa_family,
- 					    RTA_PAYLOAD(rta_tb[IFA_ADDRESS]),
- 					    RTA_DATA(rta_tb[IFA_ADDRESS]),
- 					    abuf, sizeof(abuf)),
-@@ -657,14 +657,14 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 
- 	if (rta_tb[IFA_BROADCAST]) {
- 		fprintf(fp, "brd %s ",
--			rt_addr_n2a(ifa->ifa_family,
-+			format_host(ifa->ifa_family,
- 				    RTA_PAYLOAD(rta_tb[IFA_BROADCAST]),
- 				    RTA_DATA(rta_tb[IFA_BROADCAST]),
- 				    abuf, sizeof(abuf)));
- 	}
- 	if (rta_tb[IFA_ANYCAST]) {
- 		fprintf(fp, "any %s ",
--			rt_addr_n2a(ifa->ifa_family,
-+			format_host(ifa->ifa_family,
- 				    RTA_PAYLOAD(rta_tb[IFA_ANYCAST]),
- 				    RTA_DATA(rta_tb[IFA_ANYCAST]),
- 				    abuf, sizeof(abuf)));
--- 
-1.8.4
+ static int ip6_finish_output(struct sk_buff *skb)
+ {
+-	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
++	int mtu;
++	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
++
++	mtu = ip6_skb_dst_mtu(skb);
++	if (np && np->frag_size && np->frag_size < mtu)
++		mtu = np->frag_size;
++
++	if ((skb->len > mtu && !skb_is_gso(skb)) ||
+ 	    dst_allfrag(skb_dst(skb)))
+ 		return ip6_fragment(skb, ip6_finish_output2);
+ 	else
+
+
+Regarding your patch, this is fine by me:
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+
+  Hannes
