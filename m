@@ -1,79 +1,53 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v1 net-next] net: pkt_sched: PIE AQM scheme
-Date: Mon, 30 Sep 2013 10:19:32 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7367@saturn3.aculab.com>
-References: <1380333383-9507-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: RE: [PATCH] {iproute2, xfrm}: Use memcpy to suppress gcc phony buffer overflow warning
+Date: Mon, 30 Sep 2013 10:29:19 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7368@saturn3.aculab.com>
+References: <524411AE.7000404@linux.vnet.ibm.com> <52447DAC.2060701@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com> <5246D88F.7090906@linux.vnet.ibm.com> <52478710.702@windriver.com> <52479CA0.4050505@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <shemminger@vyatta.com>,
-	<eric.dumazet@gmail.com>, "Mythili Prabhu" <mysuryan@cisco.com>,
-	"Dave Taht" <dave.taht@bufferbloat.net>
-To: "Vijay Subramanian" <subramanian.vijay@gmail.com>,
-	<netdev@vger.kernel.org>
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: "Sohny Thomas" <sthomas@linux.vnet.ibm.com>,
+	"Fan Du" <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53744 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:53984 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752369Ab3I3JU7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 05:20:59 -0400
+	id S1752801Ab3I3JbO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Sep 2013 05:31:14 -0400
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15253-10 for <netdev@vger.kernel.org>;
- Mon, 30 Sep 2013 10:20:56 +0100 (BST)
+ id 17961-07 for <netdev@vger.kernel.org>;
+ Mon, 30 Sep 2013 10:31:08 +0100 (BST)
 Content-class: urn:content-classes:message
-In-Reply-To: <1380333383-9507-1-git-send-email-subramanian.vijay@gmail.com>
+In-Reply-To: <52479CA0.4050505@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +#define PIE_DEFAULT_QUEUE_LIMIT 200	/* in packets */
-> +#define QUEUE_THRESHOLD (5000)
-> +#define DQCOUNT_INVALID -1
-> +#define THRESHOLD_PKT_SIZE	1500
-> +#define MAX_INT_VALUE  0xffffffff
-> +#define MAX_INT_VALUE_CAP  (0xffffffff >> 8)
-
-The above 2 constants are both unsigned (unless 'int' is larger than 32 bits).
-If nothing else this means that they are very badly named.
-
-> +
-> +typedef u32 pie_time_t;
-> +typedef s32 pie_tdiff_t;
-> +#define PIE_SHIFT 10
-> +#define MS2PIETIME(a) ((a * NSEC_PER_MSEC) >> PIE_SHIFT)
-> +#define PIE_TIME_PER_SEC  ((NSEC_PER_SEC >> PIE_SHIFT))
-> +
-> +static inline pie_time_t pie_get_time(void)
-> +{
-> +	u64 ns = ktime_to_ns(ktime_get());
-> +	return ns >> PIE_SHIFT;
-> +}
-> +
-> +static inline u32 pie_time_to_ms(pie_time_t val)
-> +{
-> +	u64 valms = ((u64) val << PIE_SHIFT);
-> +
-> +	do_div(valms, NSEC_PER_MSEC);
-> +	return (u32) valms;
-> +}
-
-There seems to be a lot of conversions between 1/1000 ms and 1/1024 ms.
-On 32 bit systems they are horrid.
-Not only that the conversions are open coded a lot of times as well.
-It might also be better replacing '(val * 1000u) >> 10' with
-'(val * (u64)(1000 << (32 - 10))) >> 32' since I'm not sure the compiler
-will perform that substitution.
-
-What happens if pie_time_to_ms() overflows 32 bits?
-If it is only ever called for small values, there may be no need for
-64bit maths at all.
-
-...
-> +	if (delta > (s32) (MAX_INT_VALUE * 2 / 100)
-> +	    && q->vars.prob >= MAX_INT_VALUE / 10) {
-> +		delta = MAX_INT_VALUE * 2 / 100;
-
-Calculating 'MAX_INT_VALUE * 2' isn't a good idea!
-Whatever value it is supposed to be, it should be a named constant.
-
-	David
+PiA+IFRoaXMgaXMgYSBmYWxzZSBwb3NpdGl2ZSB3YXJuaW5nIGFzIHRoZSBkZXN0aW5hdGlvbiBw
+b2ludGVyICJidWYiDQo+ID4gcG9pbnRlcnMgdG8NCj4gPiBhbiBaRVJPIGxlbmd0aCBhcnJheSwg
+d2hpY2ggYWN0dWFsbHkgd2lsbCBvY2N1cHkgYWxnLmJ1ZiBtb3N0bHkuDQo+ID4gRml4IHRoaXMg
+YnkgdXNpbmcgbWVtY3B5Lg0KPiA+DQo+ID4gc3RydWN0IHhmcm1fYWxnbyB7DQo+ID4gICAgICAg
+ICAgY2hhciAgICAgICAgICAgIGFsZ19uYW1lWzY0XTsNCj4gPiAgICAgICAgICB1bnNpZ25lZCBp
+bnQgICAgYWxnX2tleV9sZW47ICAgIC8qIGluIGJpdHMgKi8NCj4gPiAgICAgICAgICBjaGFyICAg
+ICAgICAgICAgYWxnX2tleVswXTsNCj4gPiB9Ow0KPiA+DQo+ID4gc3RydWN0IHsNCj4gPiAgICAg
+ICAgICB1bmlvbiB7DQo+ID4gICAgICAgICAgICAgICAgICBzdHJ1Y3QgeGZybV9hbGdvIGFsZzsN
+Cj4gPiAgICAgICAgICAgICAgICAgIHN0cnVjdCB4ZnJtX2FsZ29fYWVhZCBhZWFkOw0KPiA+ICAg
+ICAgICAgICAgICAgICAgc3RydWN0IHhmcm1fYWxnb19hdXRoIGF1dGg7DQo+ID4gICAgICAgICAg
+fSB1Ow0KPiA+ICAgICAgICAgIGNoYXIgYnVmW1hGUk1fQUxHT19LRVlfQlVGX1NJWkVdOw0KPiA+
+IH0gYWxnID0ge307DQo+ID4NCj4gPiBidWYgPSBhbGcudS5hbGcuYWxnX2tleTsNCg0KVGhhdCBp
+cyB3b3JzZSB0aGFuIGhvcnJpZC4uLg0KVGhlIHRvb2xzIGhhdmUgZXZlcnkgcmlnaHQgdG8gY29t
+cGxhaW4gYWJvdXQgYW55IGFjY2Vzc2VzIHRvIGFsZ19rZXlbXS4NCg0KPiA+IC0tLQ0KPiA+ICAg
+aXAveGZybV9zdGF0ZS5jIHwgICAgMiArLQ0KPiA+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
+aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaXAveGZybV9zdGF0
+ZS5jIGIvaXAveGZybV9zdGF0ZS5jDQo+ID4gaW5kZXggMGQ5OGU3OC4uNWNjODdkMyAxMDA2NDQN
+Cj4gPiAtLS0gYS9pcC94ZnJtX3N0YXRlLmMNCj4gPiArKysgYi9pcC94ZnJtX3N0YXRlLmMNCj4g
+PiBAQCAtMTU5LDcgKzE1OSw3IEBAIHN0YXRpYyBpbnQgeGZybV9hbGdvX3BhcnNlKHN0cnVjdCB4
+ZnJtX2FsZ28gKmFsZywNCj4gPiBlbnVtIHhmcm1fYXR0cl90eXBlX3QgdHlwZSwNCj4gPiAgICAg
+ICAgICAgICAgIGlmIChsZW4gPiBtYXgpDQo+ID4gICAgICAgICAgICAgICAgICAgaW52YXJnKCJc
+IkFMR08tS0VZXCIgbWFrZXMgYnVmZmVyIG92ZXJmbG93XG4iLCBrZXkpOw0KDQpJIHByZXN1bWUg
+dGhlcmUgaXMgYSByZXR1cm4gaGlkaW5nIGluIGludmFyZygpLg0KDQo+ID4NCj4gPiAtICAgICAg
+ICAgICAgc3RybmNweShidWYsIGtleSwgbGVuKTsNCj4gPiArICAgICAgICAgICAgbWVtY3B5KGJ1
+Ziwga2V5LCBsZW4pOw0KDQpQYXNzaW5nIHRoZSBsZW5ndGggb2YgdGhlIFNPVVJDRSB0byBzdHJu
+Y3B5KCkgaXMgYWxtb3N0IGFsd2F5cyB3cm9uZy4NCllvdSBhcmUgc3RpbGwgbm90IHRlcm1pbmF0
+aW5nIHRoZSBjb3BpZWQgc3RyaW5nLg0KDQoJRGF2aWQNCg0KDQo=
