@@ -1,8 +1,7 @@
 From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [PATCH V5 net-next 1/3] net: cdc_ncm: Export cdc_ncm_{tx,rx}_fixup functions for re-use
-Date: Mon, 30 Sep 2013 04:50:07 +0000
-Message-ID: <1380516609-31242-2-git-send-email-mrkiko.rs@gmail.com>
-References: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com>
+Subject: [PATCH V5 net-next 0/3] The huawei_cdc_ncm driver
+Date: Mon, 30 Sep 2013 04:50:06 +0000
+Message-ID: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com>
 Cc: Enrico Mioso <mrkiko.rs@gmail.com>
 To: Oliver Neukum <oliver@neukum.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -18,65 +17,56 @@ To: Oliver Neukum <oliver@neukum.org>,
 	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
 	ModemManager-devel@lists.freedesktop.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some drivers implementing NCM-like protocols, may re-use those functions, as is
-the case in the huawei_cdc_ncm driver.
-Export them via EXPORT_SYMBOL_GPL, in accordance with how other functions have
-been exported.
+So this is a new, revised, edition of the huawei_cdc_ncm.c driver, which 
+supports devices resembling the NCM standard, but using it also as a mean 
+to encapsulate other protocols, as is the case for the Huawei E3131 and
+E3251 modem devices.
+Some precisations are needed however - and I encourage discussion on this: and 
+that's why I'm sending this message with a broader CC.
+Merging those patches might change:
+- the way Modem Manager interacts with those devices
+- some regressions might be possible if there are some unknown firmware 
+  variants around (Franko?)
 
-Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
+First of all: I observed the behaviours of two devices.
+Huawei E3131: this device doesn't accept NDIS setup requests unless they're 
+sent via the embedded AT channel exposed by this driver.
+So actually we gain funcionality in this case!
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 43afde8..62686be 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -858,7 +858,7 @@ static void cdc_ncm_txpath_bh(unsigned long param)
- 	}
- }
- 
--static struct sk_buff *
-+struct sk_buff *
- cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
- {
- 	struct sk_buff *skb_out;
-@@ -885,6 +885,7 @@ error:
- 
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(cdc_ncm_tx_fixup);
- 
- /* verify NTB header and return offset of first NDP, or negative error */
- int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in)
-@@ -965,7 +966,7 @@ error:
- }
- EXPORT_SYMBOL_GPL(cdc_ncm_rx_verify_ndp16);
- 
--static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
-+int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
- {
- 	struct sk_buff *skb;
- 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
-@@ -1040,6 +1041,7 @@ err_ndp:
- error:
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(cdc_ncm_rx_fixup);
- 
- static void
- cdc_ncm_speed_change(struct cdc_ncm_ctx *ctx,
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index cc25b70..163244b 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -133,3 +133,6 @@ extern void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
- extern struct sk_buff *cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb, __le32 sign);
- extern int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in);
- extern int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffset);
-+struct sk_buff *
-+cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags);
-+int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in);
+The second case, is the Huawei E3251: which works with standard NCM driver, 
+still exposing an AT embedded channel. Whith this patch set applied, you gain 
+some funcionality, loosing the ability to catch standard NCM events for now.
+The device will work in both ways with no problems, but this has to be 
+acknowledged and discussed. Might be we can develop this driver further to 
+change this, when more devices are tested.
+
+We where thinking Huawei changed their interfaces on new devices - but probably 
+this driver only works around a nice firmware bug present in E3131, which 
+prevented the modem from being used in NDIS mode.
+
+I think committing this is definitely wortth-while, since it will allow for 
+more Huawei devices to be used without serial connection. Some devices like the 
+E3251 also, reports some status information only via the embedded AT channel, 
+at least in my case.
+Note: I'm not subscribed to any list except the Modem Manager's one, so please 
+CC me, thanks!!
+
+
+Enrico Mioso (3):
+  net: cdc_ncm: Export cdc_ncm_{tx,rx}_fixup functions for re-use
+  net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver
+  net: cdc_ncm: remove non-standard NCM device IDs
+
+ drivers/net/usb/Kconfig          |  15 +++
+ drivers/net/usb/Makefile         |   1 +
+ drivers/net/usb/cdc_ncm.c        |  17 +--
+ drivers/net/usb/huawei_cdc_ncm.c | 228 +++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/cdc_ncm.h      |   3 +
+ 5 files changed, 251 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/usb/huawei_cdc_ncm.c
+
 -- 
 1.8.4
