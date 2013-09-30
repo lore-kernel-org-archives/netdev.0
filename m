@@ -1,43 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/7] net: introduce new macro
- net_get_random_once
-Date: Mon, 30 Sep 2013 15:43:26 -0400 (EDT)
-Message-ID: <20130930.154326.1864735743256219379.davem@davemloft.net>
-References: <1380236199-3726-1-git-send-email-hannes@stressinduktion.org>
-	<1380236199-3726-4-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] qdisc: meta return ENOMEM on alloc failure
+Date: Mon, 30 Sep 2013 15:48:22 -0400 (EDT)
+Message-ID: <20130930.154822.1621790783772285147.davem@davemloft.net>
+References: <20130926174011.22632779@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: hannes@stressinduktion.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35965 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36026 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755755Ab3I3Tn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:43:28 -0400
-In-Reply-To: <1380236199-3726-4-git-send-email-hannes@stressinduktion.org>
+	with ESMTP id S1756215Ab3I3TsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:48:25 -0400
+In-Reply-To: <20130926174011.22632779@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 27 Sep 2013 00:56:35 +0200
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 26 Sep 2013 17:40:11 -0700
 
-> +/* BE CAREFUL: this function is not interrupt safe */
-> +#define net_get_random_once(buf, nbytes)				\
-> +	({								\
-> +		static bool ___done = false;				\
-> +		bool ___ret = false;					\
-> +		if (unlikely(!___done))					\
-> +			___ret = __net_get_random_once(buf,		\
-> +						       nbytes,		\
-> +						       &___done);	\
-> +		___ret;							\
-> +	})
+> Rather than returning earlier value (EINVAL), return ENOMEM if
+> kzalloc fails. Found while reviewing to find another EINVAL condition.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I don't want to see this happening in every fast path, it's silly to test
-this every time after the first iteration.
-
-Maybe... _maybe_ I can be convinced if you use a static branch for this so
-that it _really_ costs next to nothing.
-
-But as-is I am not going to apply this series, sorry.
+Applied.
