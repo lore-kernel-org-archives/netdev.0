@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: flow_dissector: fix thoff for IPPROTO_AH
-Date: Mon, 30 Sep 2013 15:34:04 -0400 (EDT)
-Message-ID: <20130930.153404.269524833698262050.davem@davemloft.net>
-References: <1380204582-27144-2-git-send-email-nikolay@redhat.com>
-	<1380209227.3165.176.camel@edumazet-glaptop>
-	<1380210246.3165.184.camel@edumazet-glaptop>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] isdn: eicon: free pointer after using it in log msg in
+ divas_um_idi_delete_entity()
+Date: Mon, 30 Sep 2013 21:25:27 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1309302119550.4992@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@redhat.com, dborkman@redhat.com, netdev@vger.kernel.org,
-	andy@greyhouse.net, fubar@us.ibm.com, vfalico@redhat.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755783Ab3I3TeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:34:09 -0400
-In-Reply-To: <1380210246.3165.184.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Armin Schindler <mac@melware.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 26 Sep 2013 08:44:06 -0700
+Not really a problem, but nice IMHO; the Coverity static analyzer
+complains that we use the pointer 'e' after it has been freed, so move
+the freeing below the final use, even if that use is just using the
+value of the pointer and not actually dereferencing it.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit 8ed781668dd49 ("flow_keys: include thoff into flow_keys for
-> later usage"), we missed that existing code was using nhoff as a
-> temporary variable that could not always contain transport header
-> offset.
-> 
-> This is not a problem for TCP/UDP because port offset (@poff)
-> is 0 for these protocols.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/isdn/hardware/eicon/um_idi.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Applied and queued up for -stable, thanks Eric.
+diff --git a/drivers/isdn/hardware/eicon/um_idi.c b/drivers/isdn/hardware/eicon/um_idi.c
+index 7cab5c3..e151971 100644
+--- a/drivers/isdn/hardware/eicon/um_idi.c
++++ b/drivers/isdn/hardware/eicon/um_idi.c
+@@ -288,9 +288,9 @@ int divas_um_idi_delete_entity(int adapter_nr, void *entity)
+ 	cleanup_entity(e);
+ 	diva_os_free(0, e->os_context);
+ 	memset(e, 0x00, sizeof(*e));
+-	diva_os_free(0, e);
+
+ 	DBG_LOG(("A(%d) remove E:%08x", adapter_nr, e));
++	diva_os_free(0, e);
+
+ 	return (0);
+ }
+--
+1.7.1
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
