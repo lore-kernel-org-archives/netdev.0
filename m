@@ -1,45 +1,39 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH 01/21] drivers: remove unnecessary prom.h includes
-Date: Mon, 30 Sep 2013 09:54:55 +0200
-Message-ID: <52492E4F.2020701@pengutronix.de>
-References: <1380221456-11192-1-git-send-email-robherring2@gmail.com> <1380221456-11192-2-git-send-email-robherring2@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 3/3] net: can: c_can_platform: Remove redundant of_match_ptr
+Date: Mon, 30 Sep 2013 10:00:14 +0200
+Message-ID: <52492F8E.10708@pengutronix.de>
+References: <1380515114-2823-1-git-send-email-sachin.kamat@linaro.org> <1380515114-2823-3-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="xktXMclENS0wfIOadoWo9wEvOknUc3Ljc"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1380221456-11192-2-git-send-email-robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ boundary="IBqHWLKl5LEmpdGDJNfiR4L4NvVKj0Ru4"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-can@vger.kernel.org
+To: Sachin Kamat <sachin.kamat@linaro.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1380515114-2823-3-git-send-email-sachin.kamat@linaro.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xktXMclENS0wfIOadoWo9wEvOknUc3Ljc
+--IBqHWLKl5LEmpdGDJNfiR4L4NvVKj0Ru4
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
-On 09/26/2013 08:50 PM, Rob Herring wrote:
-> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+On 09/30/2013 06:25 AM, Sachin Kamat wrote:
+> The data structure of_match_ptr() protects is always compiled in.
+> Hence of_match_ptr() is not needed.
 >=20
-> Remove unnecessary prom.h includes in preparation to remove implicit
-> includes of prom.h.
->=20
-> Signed-off-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-> Cc: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> Cc: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+> Cc: linux-can@vger.kernel.org
 
 Applied to linux-can-next/testing, it will be included in my next pull
 request to David Miller.
 
 tnx,
 Marc
+
 --=20
 Pengutronix e.K.                  | Marc Kleine-Budde           |
 Industrial Linux Solutions        | Phone: +49-231-2826-924     |
@@ -47,7 +41,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---xktXMclENS0wfIOadoWo9wEvOknUc3Ljc
+--IBqHWLKl5LEmpdGDJNfiR4L4NvVKj0Ru4
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -56,13 +50,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.14 (GNU/Linux)
 Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-iEYEARECAAYFAlJJLk8ACgkQjTAFq1RaXHMeJACeK9HZUEC1VQZeq2GzjerfTgrG
-ckcAniqhgxJhqm/Ho/b7PXMpVeEW1pRc
-=ixWT
+iEYEARECAAYFAlJJL44ACgkQjTAFq1RaXHNUDACaA57gz+VnHeEI+Kz+GBNKBKv+
+3aEAn1aXjKyDbtpp8vunjC3YDGMgKV85
+=WeBT
 -----END PGP SIGNATURE-----
 
---xktXMclENS0wfIOadoWo9wEvOknUc3Ljc--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--IBqHWLKl5LEmpdGDJNfiR4L4NvVKj0Ru4--
