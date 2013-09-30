@@ -1,53 +1,172 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] {iproute2, xfrm}: Use memcpy to suppress gcc phony buffer overflow warning
-Date: Mon, 30 Sep 2013 10:29:19 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7368@saturn3.aculab.com>
-References: <524411AE.7000404@linux.vnet.ibm.com> <52447DAC.2060701@linux.vnet.ibm.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com> <5246D88F.7090906@linux.vnet.ibm.com> <52478710.702@windriver.com> <52479CA0.4050505@linux.vnet.ibm.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 2/4] bonding: use RCU protection for alb xmit
+ path
+Date: Mon, 30 Sep 2013 12:52:33 +0200
+Message-ID: <20130930105233.GA6096@redhat.com>
+References: <524812C1.6070407@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
-To: "Sohny Thomas" <sthomas@linux.vnet.ibm.com>,
-	"Fan Du" <fan.du@windriver.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53984 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752801Ab3I3JbO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Sep 2013 05:31:14 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17961-07 for <netdev@vger.kernel.org>;
- Mon, 30 Sep 2013 10:31:08 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <52479CA0.4050505@linux.vnet.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37876 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753540Ab3I3Kyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Sep 2013 06:54:32 -0400
+Content-Disposition: inline
+In-Reply-To: <524812C1.6070407@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IFRoaXMgaXMgYSBmYWxzZSBwb3NpdGl2ZSB3YXJuaW5nIGFzIHRoZSBkZXN0aW5hdGlvbiBw
-b2ludGVyICJidWYiDQo+ID4gcG9pbnRlcnMgdG8NCj4gPiBhbiBaRVJPIGxlbmd0aCBhcnJheSwg
-d2hpY2ggYWN0dWFsbHkgd2lsbCBvY2N1cHkgYWxnLmJ1ZiBtb3N0bHkuDQo+ID4gRml4IHRoaXMg
-YnkgdXNpbmcgbWVtY3B5Lg0KPiA+DQo+ID4gc3RydWN0IHhmcm1fYWxnbyB7DQo+ID4gICAgICAg
-ICAgY2hhciAgICAgICAgICAgIGFsZ19uYW1lWzY0XTsNCj4gPiAgICAgICAgICB1bnNpZ25lZCBp
-bnQgICAgYWxnX2tleV9sZW47ICAgIC8qIGluIGJpdHMgKi8NCj4gPiAgICAgICAgICBjaGFyICAg
-ICAgICAgICAgYWxnX2tleVswXTsNCj4gPiB9Ow0KPiA+DQo+ID4gc3RydWN0IHsNCj4gPiAgICAg
-ICAgICB1bmlvbiB7DQo+ID4gICAgICAgICAgICAgICAgICBzdHJ1Y3QgeGZybV9hbGdvIGFsZzsN
-Cj4gPiAgICAgICAgICAgICAgICAgIHN0cnVjdCB4ZnJtX2FsZ29fYWVhZCBhZWFkOw0KPiA+ICAg
-ICAgICAgICAgICAgICAgc3RydWN0IHhmcm1fYWxnb19hdXRoIGF1dGg7DQo+ID4gICAgICAgICAg
-fSB1Ow0KPiA+ICAgICAgICAgIGNoYXIgYnVmW1hGUk1fQUxHT19LRVlfQlVGX1NJWkVdOw0KPiA+
-IH0gYWxnID0ge307DQo+ID4NCj4gPiBidWYgPSBhbGcudS5hbGcuYWxnX2tleTsNCg0KVGhhdCBp
-cyB3b3JzZSB0aGFuIGhvcnJpZC4uLg0KVGhlIHRvb2xzIGhhdmUgZXZlcnkgcmlnaHQgdG8gY29t
-cGxhaW4gYWJvdXQgYW55IGFjY2Vzc2VzIHRvIGFsZ19rZXlbXS4NCg0KPiA+IC0tLQ0KPiA+ICAg
-aXAveGZybV9zdGF0ZS5jIHwgICAgMiArLQ0KPiA+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaXAveGZybV9zdGF0
-ZS5jIGIvaXAveGZybV9zdGF0ZS5jDQo+ID4gaW5kZXggMGQ5OGU3OC4uNWNjODdkMyAxMDA2NDQN
-Cj4gPiAtLS0gYS9pcC94ZnJtX3N0YXRlLmMNCj4gPiArKysgYi9pcC94ZnJtX3N0YXRlLmMNCj4g
-PiBAQCAtMTU5LDcgKzE1OSw3IEBAIHN0YXRpYyBpbnQgeGZybV9hbGdvX3BhcnNlKHN0cnVjdCB4
-ZnJtX2FsZ28gKmFsZywNCj4gPiBlbnVtIHhmcm1fYXR0cl90eXBlX3QgdHlwZSwNCj4gPiAgICAg
-ICAgICAgICAgIGlmIChsZW4gPiBtYXgpDQo+ID4gICAgICAgICAgICAgICAgICAgaW52YXJnKCJc
-IkFMR08tS0VZXCIgbWFrZXMgYnVmZmVyIG92ZXJmbG93XG4iLCBrZXkpOw0KDQpJIHByZXN1bWUg
-dGhlcmUgaXMgYSByZXR1cm4gaGlkaW5nIGluIGludmFyZygpLg0KDQo+ID4NCj4gPiAtICAgICAg
-ICAgICAgc3RybmNweShidWYsIGtleSwgbGVuKTsNCj4gPiArICAgICAgICAgICAgbWVtY3B5KGJ1
-Ziwga2V5LCBsZW4pOw0KDQpQYXNzaW5nIHRoZSBsZW5ndGggb2YgdGhlIFNPVVJDRSB0byBzdHJu
-Y3B5KCkgaXMgYWxtb3N0IGFsd2F5cyB3cm9uZy4NCllvdSBhcmUgc3RpbGwgbm90IHRlcm1pbmF0
-aW5nIHRoZSBjb3BpZWQgc3RyaW5nLg0KDQoJRGF2aWQNCg0KDQo=
+On Sun, Sep 29, 2013 at 07:45:05PM +0800, Ding Tianhong wrote:
+>The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+>(bonding: initial RCU conversion) has convert the roundrobin,
+>active-backup, broadcast and xor xmit path to rcu protection,
+>the performance will be better for these mode, so this time,
+>convert xmit path for alb mode.
+>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>---
+> drivers/net/bonding/bond_alb.c | 23 +++++++++--------------
+> drivers/net/bonding/bonding.h  |  2 +-
+> 2 files changed, 10 insertions(+), 15 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index e960418..a1444d5 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -230,7 +230,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+> 	max_gap = LLONG_MIN;
+>
+> 	/* Find the slave with the largest gap */
+>-	bond_for_each_slave(bond, slave, iter) {
+>+	bond_for_each_slave_rcu(bond, slave, iter) {
+> 		if (SLAVE_IS_OK(slave)) {
+> 			long long gap = compute_gap(slave);
+>
+>@@ -387,7 +387,7 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+> 	struct list_head *iter;
+> 	bool found = false;
+>
+>-	bond_for_each_slave(bond, slave, iter) {
+>+	bond_for_each_slave_rcu(bond, slave, iter) {
+> 		if (!SLAVE_IS_OK(slave))
+> 			continue;
+> 		if (!found) {
+>@@ -628,12 +628,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> 	struct arp_pkt *arp = arp_pkt(skb);
+>-	struct slave *assigned_slave;
+>+	struct slave *assigned_slave, *curr_active_slave;
+> 	struct rlb_client_info *client_info;
+> 	u32 hash_index = 0;
+>
+> 	_lock_rx_hashtbl(bond);
+>
+>+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
+>+
+> 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+> 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+>
+>@@ -658,8 +660,8 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 			 * that the new client can be assigned to this entry.
+> 			 */
+> 			if (bond->curr_active_slave &&
+>-			    client_info->slave != bond->curr_active_slave) {
+>-				client_info->slave = bond->curr_active_slave;
+>+			    client_info->slave != curr_active_slave) {
+>+				client_info->slave = curr_active_slave;
+> 				rlb_update_client(client_info);
+> 			}
+> 		}
+>@@ -1343,11 +1345,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+> 	skb_reset_mac_header(skb);
+> 	eth_data = eth_hdr(skb);
+>
+>-	/* make sure that the curr_active_slave do not change during tx
+>-	 */
+>-	read_lock(&bond->lock);
+>-	read_lock(&bond->curr_slave_lock);
+>-
+> 	switch (ntohs(skb->protocol)) {
+> 	case ETH_P_IP: {
+> 		const struct iphdr *iph = ip_hdr(skb);
+>@@ -1429,12 +1426,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>
+> 	if (!tx_slave) {
+> 		/* unbalanced or unassigned, send through primary */
+>-		tx_slave = bond->curr_active_slave;
+>+		tx_slave = rcu_dereference(bond->curr_active_slave);
+> 		bond_info->unbalanced_load += skb->len;
+> 	}
+>
+> 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+>-		if (tx_slave != bond->curr_active_slave) {
+>+		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+> 			memcpy(eth_data->h_source,
+> 			       tx_slave->dev->dev_addr,
+> 			       ETH_ALEN);
+>@@ -1449,8 +1446,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+> 		}
+> 	}
+>
+>-	read_unlock(&bond->curr_slave_lock);
+>-	read_unlock(&bond->lock);
+> 	if (res) {
+> 		/* no suitable interface, frame not sent */
+> 		kfree_skb(skb);
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index 713b6af..1c7d559 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -459,7 +459,7 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
+> 	struct list_head *iter;
+> 	struct slave *tmp;
+>
+>-	bond_for_each_slave(bond, tmp, iter)
+>+	bond_for_each_slave_rcu(bond, tmp, iter)
+
+This suggests that rcu_read_lock() is always held here, however it's not
+the case, as far as I can tell:
+
+bond_release()/bond_uninit() ->
+__bond_release_one() ->
+bond_alb_deinit_slave() ->
+alb_change_hw_addr_on_detach() ->
+bond_slave_has_mac()
+
+There is nobody that takes rcu_read_lock() there. And, for example, when
+doing:
+
+echo -$slave > /sys/class/net/$bond_int/bonding/slaves
+
+nobody is holding it. And, btw, in bond_for_each_slave_rcu(), which is
+actually a wrapper for netdev_for_each_lower_private_rcu(), which calls
+netdev_lower_get_next_private_rcu(), which has:
+
+4543 void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+4544                                         struct list_head **iter)
+4545 {
+4546         struct netdev_adjacent *lower;
+4547 
+4548         WARN_ON_ONCE(!rcu_read_lock_held());
+
+so you should have seen that warning when trying to remove a slave in alb
+mode.
+
+> 		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
+> 			return tmp;
+>
+>-- 
+>1.8.2.1
+>
+>
+>
