@@ -1,70 +1,95 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: Question regarding failure utilizing bonding mode 5
- (balance-tlb)
-Date: Mon, 30 Sep 2013 11:30:40 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52ADF1DE5@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1375333968.21294.30.camel@lb-tlvb-yuvalmin.il.broadcom.com>
- <7717.1375412975@death.nxdomain>
- <979A8436335E3744ADCD3A9F2A2B68A52ACF959B@SJEXCHMB10.corp.ad.broadcom.com>
- <12779.1375476808@death.nxdomain>
- <979A8436335E3744ADCD3A9F2A2B68A52ACF96BB@SJEXCHMB10.corp.ad.broadcom.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need
+ also be handled by UFO
+Date: Mon, 30 Sep 2013 13:43:43 +0200
+Message-ID: <20130930114343.GA6356@minipsycho.brq.redhat.com>
+References: <20130921042700.GB8070@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>
-To: "Jay Vosburgh" <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3022 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754473Ab3I3Lat convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 07:30:49 -0400
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52ACF96BB@SJEXCHMB10.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:62932 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755004Ab3I3Lnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 07:43:47 -0400
+Received: by mail-wg0-f54.google.com with SMTP id m15so5625615wgh.9
+        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 04:43:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130921042700.GB8070@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > >Again, I think the permanent address is restored only when the bond
-> > >releases the slave, which I don't think happens when the slave is unloaded.
-> >
-> > 	Ah, ok, I was understanding "unloaded" to mean "remove from the
-> > bond."  I think you actually mean "set administratively down," e.g., "ip
-> > link set dev slave down" or the like.  I don't think mere loss of
-> > carrier would trigger the sequence of events, because that won't go
-> > through a dev_close / dev_open cycle.
-> >
-> > 	Doing that (an admin down / up bounce) would, indeed, cause a
-> > failover, but the bond will not reprogram the MAC on the slave (it
-> > presumes that a fail / recovery will not disrupt the MAC address, which
-> > is apparently not true in this instance).
-> >
-> > 	I'll have to look at the code a bit, but for now can you confirm
-> > that what you actually mean is, essentially:
-> >
-> > 	Given a bond0 with two slaves, eth0 and eth1, in tlb mode, eth0
-> > being the active,
-> >
-> > 	1) "ip link set dev eth0 down" which will fail over to eth1
-> > 		(swapping the contents of their dev_addr fields).
-> >
-> > 	2) "ip link set dev eth0 up" eth0 comes back up, reprograms its
-> > 		MAC to the wrong thing (what was in dev_addr).
-> >
-> > 	3) repeat steps 1 and 2 for eth1
-> >
-> > 	Is this correct?
-> >
+Sat, Sep 21, 2013 at 06:27:00AM CEST, hannes@stressinduktion.org wrote:
+>In the following scenario the socket is corked:
+>If the first UDP packet is larger then the mtu we try to append it to the
+>write queue via ip6_ufo_append_data. A following packet, which is smaller
+>than the mtu would be appended to the already queued up gso-skb via
+>plain ip6_append_data. This causes random memory corruptions.
+>
+>In ip6_ufo_append_data we also have to be careful to not queue up the
+>same skb multiple times. So setup the gso frame only when no first skb
+>is available.
+>
+>This also fixes a shortcoming where we add the current packet's length to
+>cork->length but return early because of a packet > mtu with dontfrag set
+>(instead of sutracting it again).
+>
+>Found with trinity.
+>
+>Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>---
+>
+>I could only test this with virtualized UFO enabled network cards. Could
+>someone test this on real hardware?
+>
+> net/ipv6/ip6_output.c | 53 +++++++++++++++++++++------------------------------
+> 1 file changed, 22 insertions(+), 31 deletions(-)
+>
+>diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>index 3a692d5..a54c45c 100644
+>--- a/net/ipv6/ip6_output.c
+>+++ b/net/ipv6/ip6_output.c
+>@@ -1015,6 +1015,8 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+> 	 * udp datagram
+> 	 */
+> 	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL) {
+>+		struct frag_hdr fhdr;
+>+
+> 		skb = sock_alloc_send_skb(sk,
+> 			hh_len + fragheaderlen + transhdrlen + 20,
+> 			(flags & MSG_DONTWAIT), &err);
+>@@ -1036,12 +1038,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+> 		skb->protocol = htons(ETH_P_IPV6);
+> 		skb->ip_summed = CHECKSUM_PARTIAL;
+> 		skb->csum = 0;
+>-	}
+>-
+>-	err = skb_append_datato_frags(sk,skb, getfrag, from,
+>-				      (length - transhdrlen));
+>-	if (!err) {
+>-		struct frag_hdr fhdr;
 > 
-> Yes, sorry for the earlier confusion.
-> I think in the case described `alb_swap_mac_addr()' will be called,
-> replacing eth0 and eth1's dev_addr, causing eth0 to have dev_addr
-> which defers from  the bond device's. Once eth0 reloads, it will use
-> the different MAC address for configuring FW/HW.
+> 		/* Specify the length of each IPv6 datagram fragment.
+> 		 * It has to be a multiple of 8.
+>@@ -1052,15 +1048,10 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+> 		ipv6_select_ident(&fhdr, rt);
+> 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+> 		__skb_queue_tail(&sk->sk_write_queue, skb);
+>-
+>-		return 0;
+> 	}
+>-	/* There is not enough support do UPD LSO,
+>-	 * so follow normal path
+>-	 */
+>-	kfree_skb(skb);
+> 
+>-	return err;
+>+	return skb_append_datato_frags(sk, skb, getfrag, from,
+>+				       (length - transhdrlen));
+> }
+> 
 
-Hi,
-
-Did you by any chance had the time to look at this issue?
-
-Thanks,
-Yuval
+What if non-ufo-path-created skb is peeked?
