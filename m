@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: fq: qdisc dismantle fixes
-Date: Mon, 30 Sep 2013 15:51:53 -0400 (EDT)
-Message-ID: <20130930.155153.1283327919285197674.davem@davemloft.net>
-References: <1380316801.30872.37.camel@edumazet-glaptop.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH 0/4] connector fixes
+Date: Mon, 30 Sep 2013 22:03:05 +0200
+Message-ID: <1380571389-15343-1-git-send-email-minipli@googlemail.com>
+Cc: Mathias Krause <minipli@googlemail.com>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36097 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755352Ab3I3Tv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:51:57 -0400
-In-Reply-To: <1380316801.30872.37.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-bk0-f51.google.com ([209.85.214.51]:43396 "EHLO
+	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756399Ab3I3UD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 16:03:26 -0400
+Received: by mail-bk0-f51.google.com with SMTP id mx10so2234279bkb.24
+        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 13:03:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Sep 2013 14:20:01 -0700
+This series fixes a few netlink related issues of the connector interface.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> fq_reset() should drops all packets in queue, including
-> throttled flows.
-> 
-> This patch moves code from fq_destroy() to fq_reset()
-> to do the cleaning.
-> 
-> fq_change() must stop calling fq_dequeue() if all remaining
-> packets are from throttled flows.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+The first two patches are bug fixes. The last two are cleanups.
 
-Applied, thanks Eric.
+Please apply!
+
+
+Mathias Krause (4):
+  proc connector: fix info leaks
+  connector: use nlmsg_len() to check message length
+  connector: use 'size' everywhere in cn_netlink_send()
+  connector - documentation: simplify netlink message length assignment
+
+ Documentation/connector/ucon.c |    2 +-
+ drivers/connector/cn_proc.c    |   18 ++++++++++++++++++
+ drivers/connector/connector.c  |    9 +++++----
+ 3 files changed, 24 insertions(+), 5 deletions(-)
+
+-- 
+1.7.10.4
