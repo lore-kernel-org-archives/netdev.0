@@ -1,55 +1,122 @@
-From: catab@embedromix.ro
-Subject: Re: [PATCH v5] IPv6 NAT: Do not drop DNATed 6to4/6rd packets
-Date: Mon, 30 Sep 2013 06:05:45 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1309300604310.26838@mail.embedromix.ro>
-References: <1379963485.3575.53.camel@joe-AO722> <1379966659-28838-1-git-send-email-catab@embedromix.ro> <20130924213606.GB4446@order.stressinduktion.org> <20130928.155750.1130089685321379918.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: switch to use XPS to choose txq
+Date: Mon, 30 Sep 2013 11:20:00 +0800
+Message-ID: <5248EDE0.2050006@redhat.com>
+References: <1380261444-40918-1-git-send-email-jasowang@redhat.com>
+	<874n932obk.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, joe@perches.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedromix.ro ([5.9.41.220]:39248 "EHLO mail.embedromix.ro"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753872Ab3I3DGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Sep 2013 23:06:10 -0400
-In-Reply-To: <20130928.155750.1130089685321379918.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <874n932obk.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 28 Sep 2013, David Miller wrote:
-
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Tue, 24 Sep 2013 23:36:06 +0200
->
->> On Mon, Sep 23, 2013 at 11:04:19PM +0300, Catalin(ux) M. BOIE wrote:
->>> When a router is doing  DNAT for 6to4/6rd packets the latest anti-spoofing
->>> patch (218774dc) will drop them because the IPv6 address embedded
->>> does not match the IPv4 destination. This patch will allow them to
->>> pass by testing if we have an address that matches on 6to4/6rd interface.
->>> I have been hit by this problem using Fedora and IPV6TO4_IPV4ADDR.
->>> Also, log the dropped packets (with rate limit).
->>>
->>> Signed-off-by: Catalin(ux) M. BOIE <catab@embedromix.ro>
+On 09/30/2013 07:35 AM, Rusty Russell wrote:
+> Jason Wang <jasowang@redhat.com> writes:
+>> We used to use a percpu structure vq_index to record the cpu to queue
+>> mapping, this is suboptimal since it duplicates the work of XPS and
+>> loses all other XPS functionality such as allowing use to configure
+>> their own transmission steering strategy.
 >>
->> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->
-> Applied, but Catalin please strictly refer to changes in the following
-> precise format:
->
-> 	commit $SHA1_ID ("Commit message header line text")
->
-> Because SHA1_IDs are ambiguous, especially when the change in question
-> is backported into various -stable branches.
->
-> The only way to resolve the ambiguity is to provide the commit message
-> text (in parenthesis and double quotes).
+>> So this patch switches to use XPS and suggest a default mapping when
+>> the number of cpus is equal to the number of queues. With XPS support,
+>> there's no need for keeping per-cpu vq_index and .ndo_select_queue(),
+>> so they were removed also.
+>>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/virtio_net.c |   55 +++++++--------------------------------------
+>>  1 files changed, 9 insertions(+), 46 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index defec2b..4102c1b 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -127,9 +127,6 @@ struct virtnet_info {
+>>  	/* Does the affinity hint is set for virtqueues? */
+>>  	bool affinity_hint_set;
+>>  
+>> -	/* Per-cpu variable to show the mapping from CPU to virtqueue */
+>> -	int __percpu *vq_index;
+>> -
+>>  	/* CPU hot plug notifier */
+>>  	struct notifier_block nb;
+>>  };
+>> @@ -1063,7 +1060,6 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev,
+>>  static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>>  {
+>>  	int i;
+>> -	int cpu;
+>>  
+>>  	if (vi->affinity_hint_set) {
+>>  		for (i = 0; i < vi->max_queue_pairs; i++) {
+>> @@ -1073,20 +1069,11 @@ static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>>  
+>>  		vi->affinity_hint_set = false;
+>>  	}
+>> -
+>> -	i = 0;
+>> -	for_each_online_cpu(cpu) {
+>> -		if (cpu == hcpu) {
+>> -			*per_cpu_ptr(vi->vq_index, cpu) = -1;
+>> -		} else {
+>> -			*per_cpu_ptr(vi->vq_index, cpu) =
+>> -				++i % vi->curr_queue_pairs;
+>> -		}
+>> -	}
+>>  }
+>>  
+>>  static void virtnet_set_affinity(struct virtnet_info *vi)
+>>  {
+>> +	cpumask_var_t cpumask;
+>>  	int i;
+>>  	int cpu;
+>>  
+>> @@ -1100,15 +1087,21 @@ static void virtnet_set_affinity(struct virtnet_info *vi)
+>>  		return;
+>>  	}
+>>  
+>> +	if (!alloc_cpumask_var(&cpumask, GFP_KERNEL))
+>> +		return;
+>> +
+>>  	i = 0;
+>>  	for_each_online_cpu(cpu) {
+>>  		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+>>  		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>> -		*per_cpu_ptr(vi->vq_index, cpu) = i;
+>> +		cpumask_clear(cpumask);
+>> +		cpumask_set_cpu(cpu, cpumask);
+>> +		netif_set_xps_queue(vi->dev, cpumask, i);
+>>  		i++;
+>>  	}
+>>  
+>>  	vi->affinity_hint_set = true;
+>> +	free_cpumask_var(cpumask);
+>>  }
+> Um, isn't this just cpumask_of(cpu)?
 
-Roger.
-Should I resubmit it?
-Should I send it also to 'stable'?
-Thank you.
+True, I thought it should be somewhat more easier.
 
---
-Catalin(ux) M. BOIE
-http://kernel.embedromix.ro/
+Will post V2.
+>
+> Cheers,
+> Rusty.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
