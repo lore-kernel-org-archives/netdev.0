@@ -1,61 +1,70 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
-Date: Mon, 30 Sep 2013 15:50:38 +0200
-Message-ID: <1380549038-6291-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	hannes@stressinduktion.org, kaber@trash.net,
-	yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: convert to GRO API
+ and advertise this feature
+Date: Mon, 30 Sep 2013 10:43:27 -0400
+Message-ID: <20130930144327.GL3106@phenom.dumpdata.com>
+References: <1379779543-27122-1-git-send-email-wei.liu2@citrix.com>
+ <20130928.153800.327243541797748645.davem@davemloft.net>
+ <1380532331.1302.9.camel@kazak.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, abchak@juniper.net, xen-devel@lists.xen.org
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:53239 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755032Ab3I3Nun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 09:50:43 -0400
-Received: by mail-wi0-f177.google.com with SMTP id cb5so3880118wib.16
-        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 06:50:42 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:51472 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754343Ab3I3Onk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 10:43:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1380532331.1302.9.camel@kazak.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-if up->pending != 0 dontfrag is left with default value -1. That
-causes that application that do:
-sendto len>mtu flag MSG_MORE
-sendto len>mtu flag 0
-will receive EMSGSIZE errno as the result of the second sendto.
+On Mon, Sep 30, 2013 at 10:12:11AM +0100, Ian Campbell wrote:
+> On Sat, 2013-09-28 at 15:38 -0400, David Miller wrote:
+> > From: Wei Liu <wei.liu2@citrix.com>
+> > Date: Sat, 21 Sep 2013 17:05:43 +0100
+> > 
+> > > @@ -1371,7 +1373,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+> > >  	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
+> > >  	netdev->features        = NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+> > >  				  NETIF_F_GSO_ROBUST;
+> > > -	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
+> > > +	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO |
+> > > +				  NETIF_F_GRO;
+> > 
+> > Please post a new version of this patch with the feedback you've been
+> > given integrated, in particular with this part removed because it is
+> > not necessary.
+> > 
+> > Ian, please review the patch when Wei posts it.
+> 
+> I will, but note:
+>         $ ./scripts/get_maintainer.pl -f drivers/net/xen-netfront.c 
+>         Konrad Rzeszutek Wilk <konrad.wilk@oracle.com> (supporter:XEN HYPERVISOR IN...)
+>         Jeremy Fitzhardinge <jeremy@goop.org> (supporter:XEN HYPERVISOR IN...)
+>         xen-devel@lists.xensource.com (moderated list:XEN HYPERVISOR IN...)
+>         virtualization@lists.linux-foundation.org (open list:XEN HYPERVISOR IN...)
+>         netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
+>         linux-kernel@vger.kernel.org (open list)
+>         
+> Strictly speaking I maintain netback not front, so Wei please remember
+> to CC the right people (mainly Konrad) as well as me.
 
-This patch fixes it by respecting IPV6_DONTFRAG socket option.
+Which was Acked:
 
-introduced by:
-commit 4b340ae20d0e2366792abe70f46629e576adaf5e "IPv6: Complete IPV6_DONTFRAG support"
+http://mid.gmane.org/20130924163036.GB13979@phenom.dumpdata.com
 
-Please push to stable as well.
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/ipv6/udp.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 72b7eaa..1878609 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1225,9 +1225,6 @@ do_udp_sendmsg:
- 	if (tclass < 0)
- 		tclass = np->tclass;
- 
--	if (dontfrag < 0)
--		dontfrag = np->dontfrag;
--
- 	if (msg->msg_flags&MSG_CONFIRM)
- 		goto do_confirm;
- back_from_confirm:
-@@ -1246,6 +1243,8 @@ back_from_confirm:
- 	up->pending = AF_INET6;
- 
- do_append_data:
-+	if (dontfrag < 0)
-+		dontfrag = np->dontfrag;
- 	up->len += ulen;
- 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
- 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
--- 
-1.8.3.1
+> 
+> BTW I think this separation is a good thing since it keeps changes to
+> the protocol "honest". Doesn't matter so much for this particular patch
+> since don't think it actually touches the protocol.
+> 
+> Ian.
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
