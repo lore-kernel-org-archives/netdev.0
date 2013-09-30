@@ -1,47 +1,35 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] isdn: eicon: free pointer after using it in log msg in
- divas_um_idi_delete_entity()
-Date: Mon, 30 Sep 2013 21:25:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1309302119550.4992@swampdragon.chaosbits.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 - GIT PULL] include/linux: Remove externs from
+ networking function prototypes
+Date: Mon, 30 Sep 2013 15:37:32 -0400 (EDT)
+Message-ID: <20130930.153732.1943350951159238111.davem@davemloft.net>
+References: <cover.1380233637.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Armin Schindler <mac@melware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-hippi@sunsite.dk, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org
+To: joe@perches.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <cover.1380233637.git.joe@perches.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not really a problem, but nice IMHO; the Coverity static analyzer
-complains that we use the pointer 'e' after it has been freed, so move
-the freeing below the final use, even if that use is just using the
-value of the pointer and not actually dereferencing it.
+From: Joe Perches <joe@perches.com>
+Date: Thu, 26 Sep 2013 15:18:30 -0700
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/isdn/hardware/eicon/um_idi.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> The following changes since commit aae8c287e664d49df4aa315ad263c33b9a2af3e1:
+> 
+>   Merge branch 'bonding_neighbours' (2013-09-26 16:02:19 -0400)
+> 
+> are available in the git repository at:
+> 
+>   git://repo.or.cz/linux-2.6/trivial-mods.git 20130926_include_linux_networking_externs
+> 
+> for you to fetch changes up to f629d208d27a22f495b7734eede585b5d207e912:
+> 
+>   [networking]device.h: Remove extern from function prototypes (2013-09-26 15:06:58 -0700)
 
-diff --git a/drivers/isdn/hardware/eicon/um_idi.c b/drivers/isdn/hardware/eicon/um_idi.c
-index 7cab5c3..e151971 100644
---- a/drivers/isdn/hardware/eicon/um_idi.c
-+++ b/drivers/isdn/hardware/eicon/um_idi.c
-@@ -288,9 +288,9 @@ int divas_um_idi_delete_entity(int adapter_nr, void *entity)
- 	cleanup_entity(e);
- 	diva_os_free(0, e->os_context);
- 	memset(e, 0x00, sizeof(*e));
--	diva_os_free(0, e);
-
- 	DBG_LOG(("A(%d) remove E:%08x", adapter_nr, e));
-+	diva_os_free(0, e);
-
- 	return (0);
- }
---
-1.7.1
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Pulled, thanks Joe.
