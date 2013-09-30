@@ -1,54 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] ip_tunnel: Fix a memory corruption in
- ip_tunnel_xmit
-Date: Mon, 30 Sep 2013 14:40:26 -0400 (EDT)
-Message-ID: <20130930.144026.652414415839724107.davem@davemloft.net>
-References: <CALnjE+ofaXQa3gsPPxqdWZeBxgML6M1vnC9mmc5dufwy0gJO-Q@mail.gmail.com>
-	<20130927074530.GD7660@secunet.com>
-	<CALnjE+pkaAwiSp_S=TE70L+QvyZr1TzEC48Dnz9+8Hy3fbnOyQ@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] powerpc/83xx: gianfar_ptp: select 1588 clock source
+ through dts file
+Date: Mon, 30 Sep 2013 14:50:56 -0400 (EDT)
+Message-ID: <20130930.145056.669909746688674911.davem@davemloft.net>
+References: <1380093863-5388-1-git-send-email-aida.mynzhasova@skitlab.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35073 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755776Ab3I3Sk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 14:40:28 -0400
-In-Reply-To: <CALnjE+pkaAwiSp_S=TE70L+QvyZr1TzEC48Dnz9+8Hy3fbnOyQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1380093863-5388-1-git-send-email-aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Fri, 27 Sep 2013 19:34:59 -0700
+From: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
+Date: Wed, 25 Sep 2013 11:24:23 +0400
 
-> All callers of iptunnel_xmit() are required to setup sufficient
-> headroom. So skb_push check are not necessary.
+> Currently IEEE 1588 timer reference clock source is determined through
+> hard-coded value in gianfar_ptp driver. This patch allows to select ptp
+> clock source by means of device tree file node.
+> 
+> For instance:
+> 
+> 	fsl,cksel = <0>;
+> 
+> for using external (TSEC_TMR_CLK input) high precision timer
+> reference clock.
+> 
+> Other acceptable values:
+> 
+> 	<1> : eTSEC system clock
+> 	<2> : eTSEC1 transmit clock
+> 	<3> : RTC clock input
+> 
+> When this attribute isn't used, eTSEC system clock will serve as
+> IEEE 1588 timer reference clock.
+> 
+> Signed-off-by: Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>
 
-This bug shows that such a check is needed, and would have saved
-people like Steffen lots of time tracking down the problem.
-
-I think we should re-instate the check.
-
-I also think that __skb_push() is quite dangerous, in general.  And if
-it is to be used at all, it should only be used in circumstances where
-all of the context necessary to assert that it cannot underflow the
-buffer are right there in the same function.
-
-In fact, the whole damn reason for the assertions in skb_push() is the
-catch cases where preconditions are not met across functional
-boundaries.  Exactly like the case here.
-
-So again, __skb_push() should be changed back to skb_push() here.
-
-Steffen can you respin these patches and make sure to:
-
-1) Add reference to SHA1_ID and commit header line of commit
-   introducing this bug, as Eric requested, in this format:
-
-	$SHA1_ID ("Commit header line text.")
-
-2) __skb_push() --> skb_push()
-
-Thank you.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
