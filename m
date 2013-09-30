@@ -1,75 +1,38 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: flexcan: fix flexcan_chip_start() on imx6
-Date: Mon, 30 Sep 2013 13:59:03 +0200
-Message-ID: <1380542343-5299-2-git-send-email-mkl@pengutronix.de>
-References: <1380542343-5299-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-stable <stable@vger.kernel.org>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] skbuff: size of hole is wrong in a comment
+Date: Mon, 30 Sep 2013 14:16:41 +0200
+Message-ID: <1380543401-29502-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, mgorman@suse.de,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36860 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753614Ab3I3L7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 07:59:11 -0400
-In-Reply-To: <1380542343-5299-1-git-send-email-mkl@pengutronix.de>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45877 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848Ab3I3MQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 08:16:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the flexcan_chip_start() function first the flexcan core is going th=
-rough
-the soft reset sequence, then the RX FIFO is enabled.
+Since commit c93bdd0e03e8 ("netvm: allow skb allocation to use PFMEMALLOC
+reserves"), hole size is one bit less than what is written in the comment.
 
-With the hardware is put into FIFO mode, message buffers 1...7 are rese=
-rved by
-the FIFO engine. The remaining message buffers are in reset default val=
-ues.
-This patch removes the bogus initialization of the message buffers, as =
-it
-causes an imprecise external abort on imx6.
-
-Cc: linux-stable <stable@vger.kernel.org>
-Reported-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-Tested-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/can/flexcan.c | 12 ------------
- 1 file changed, 12 deletions(-)
+ include/linux/skbuff.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 71c677e..3f21142 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -702,7 +702,6 @@ static int flexcan_chip_start(struct net_device *de=
-v)
- {
- 	struct flexcan_priv *priv =3D netdev_priv(dev);
- 	struct flexcan_regs __iomem *regs =3D priv->base;
--	unsigned int i;
- 	int err;
- 	u32 reg_mcr, reg_ctrl;
-=20
-@@ -772,17 +771,6 @@ static int flexcan_chip_start(struct net_device *d=
-ev)
- 	netdev_dbg(dev, "%s: writing ctrl=3D0x%08x", __func__, reg_ctrl);
- 	flexcan_write(reg_ctrl, &regs->ctrl);
-=20
--	for (i =3D 0; i < ARRAY_SIZE(regs->cantxfg); i++) {
--		flexcan_write(0, &regs->cantxfg[i].can_ctrl);
--		flexcan_write(0, &regs->cantxfg[i].can_id);
--		flexcan_write(0, &regs->cantxfg[i].data[0]);
--		flexcan_write(0, &regs->cantxfg[i].data[1]);
--
--		/* put MB into rx queue */
--		flexcan_write(FLEXCAN_MB_CNT_CODE(0x4),
--			&regs->cantxfg[i].can_ctrl);
--	}
--
- 	/* acceptance mask/acceptance code (accept everything) */
- 	flexcan_write(0x0, &regs->rxgmask);
- 	flexcan_write(0x0, &regs->rx14mask);
---=20
-1.8.4.rc3
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2ddb48d9312c..c2d89335f637 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -498,7 +498,7 @@ struct sk_buff {
+ 	 * headers if needed
+ 	 */
+ 	__u8			encapsulation:1;
+-	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
++	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
+-- 
+1.8.2.1
