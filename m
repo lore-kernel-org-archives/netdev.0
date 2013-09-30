@@ -1,57 +1,61 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next] xen-netfront: convert to GRO API
-Date: Mon, 30 Sep 2013 14:24:32 +0100
-Message-ID: <1380547472.1302.45.camel@kazak.uk.xensource.com>
-References: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<konrad.wilk@oracle.com>, Anirban Chakraborty <abchak@juniper.net>
-To: Wei Liu <wei.liu2@citrix.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
+Date: Mon, 30 Sep 2013 15:50:38 +0200
+Message-ID: <1380549038-6291-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	hannes@stressinduktion.org, kaber@trash.net,
+	yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:5517 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754211Ab3I3NYf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Sep 2013 09:24:35 -0400
-In-Reply-To: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:53239 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755032Ab3I3Nun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 09:50:43 -0400
+Received: by mail-wi0-f177.google.com with SMTP id cb5so3880118wib.16
+        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 06:50:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-09-30 at 13:46 +0100, Wei Liu wrote:
-> Anirban was seeing netfront received MTU size packets, which downgraded
-> throughput. The following patch makes netfront use GRO API which
-> improves throughput for that case.
-> 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Cc: Anirban Chakraborty <abchak@juniper.net>
+if up->pending != 0 dontfrag is left with default value -1. That
+causes that application that do:
+sendto len>mtu flag MSG_MORE
+sendto len>mtu flag 0
+will receive EMSGSIZE errno as the result of the second sendto.
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+This patch fixes it by respecting IPV6_DONTFRAG socket option.
 
-> Acked-by: Konrad Wilk <konrad.wilk@oracle.com>
-> ---
->  drivers/net/xen-netfront.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 36808bf..dd1011e 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -952,7 +952,7 @@ static int handle_incoming_queue(struct net_device *dev,
->  		u64_stats_update_end(&stats->syncp);
->  
->  		/* Pass it up. */
-> -		netif_receive_skb(skb);
-> +		napi_gro_receive(&np->napi, skb);
->  	}
->  
->  	return packets_dropped;
-> @@ -1051,6 +1051,8 @@ err:
->  	if (work_done < budget) {
->  		int more_to_do = 0;
->  
-> +		napi_gro_flush(napi, false);
-> +
->  		local_irq_save(flags);
->  
->  		RING_FINAL_CHECK_FOR_RESPONSES(&np->rx, more_to_do);
+introduced by:
+commit 4b340ae20d0e2366792abe70f46629e576adaf5e "IPv6: Complete IPV6_DONTFRAG support"
+
+Please push to stable as well.
+
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv6/udp.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 72b7eaa..1878609 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1225,9 +1225,6 @@ do_udp_sendmsg:
+ 	if (tclass < 0)
+ 		tclass = np->tclass;
+ 
+-	if (dontfrag < 0)
+-		dontfrag = np->dontfrag;
+-
+ 	if (msg->msg_flags&MSG_CONFIRM)
+ 		goto do_confirm;
+ back_from_confirm:
+@@ -1246,6 +1243,8 @@ back_from_confirm:
+ 	up->pending = AF_INET6;
+ 
+ do_append_data:
++	if (dontfrag < 0)
++		dontfrag = np->dontfrag;
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+ 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
+-- 
+1.8.3.1
