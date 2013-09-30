@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hamradio: baycom: remove deprecated IRQF_DISABLED
-Date: Mon, 30 Sep 2013 15:09:12 -0400 (EDT)
-Message-ID: <20130930.150912.46415312099350726.davem@davemloft.net>
-References: <1380133065-13712-1-git-send-email-michael.opdenacker@free-electrons.com>
+Subject: Re: pull request (net-next): ipsec-next 2013-09-26
+Date: Mon, 30 Sep 2013 15:12:20 -0400 (EDT)
+Message-ID: <20130930.151220.415236832608034525.davem@davemloft.net>
+References: <1380185923-8976-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: t.sailer@alumni.ethz.ch, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: michael.opdenacker@free-electrons.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1380133065-13712-1-git-send-email-michael.opdenacker@free-electrons.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35534 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755272Ab3I3TMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 15:12:22 -0400
+In-Reply-To: <1380185923-8976-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Date: Wed, 25 Sep 2013 20:17:45 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 26 Sep 2013 10:58:41 +0200
 
-> This patch proposes to remove the IRQF_DISABLED flag
-> from drivers/net/hamradio/baycom_*
+> Two patches that are left from the last development cycle.
+> Manual merging of include/net/xfrm.h is needed. The conflict
+> can be solved as it is currently done in linux-next.
 > 
-> It's a NOOP since 2.6.35 and it will be removed one day.
+> 1) We announce the creation of temporary acquire state via an asyc event,
+>    so the deletion should be annunced too. From Nicolas Dichtel.
 > 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+> 2) The VTI tunnels do not real tunning, they just provide a routable
+>    IPsec tunnel interface. So introduce and use xfrm_tunnel_notifier
+>    instead of xfrm_tunnel for xfrm tunnel mode callback. From Fan Du.
+> 
+> Please pull or let me know if there are problems.
 
-Applied to net-next, thanks.
+Pulled, thanks a lot!
