@@ -1,33 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net-next] xfrm: Simplify SA looking up when using
- wildcard source
-Date: Tue, 1 Oct 2013 13:18:36 +0200
-Message-ID: <20131001111836.GM7660@secunet.com>
-References: <1380270770-19089-1-git-send-email-fan.du@windriver.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 4/4] ip_tunnel: Remove double unregister of the fallback
+ device
+Date: Tue, 01 Oct 2013 13:30:51 +0200
+Message-ID: <524AB26B.1070700@6wind.com>
+References: <20131001093359.GG7660@secunet.com> <20131001093737.GJ7660@secunet.com> <524A9D4C.9030900@6wind.com> <20131001104046.GK7660@secunet.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36730 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560Ab3JALSj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 07:18:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1380270770-19089-1-git-send-email-fan.du@windriver.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:58038 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173Ab3JALa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 07:30:58 -0400
+Received: by mail-wg0-f54.google.com with SMTP id m15so6969802wgh.21
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 04:30:57 -0700 (PDT)
+In-Reply-To: <20131001104046.GK7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 27, 2013 at 04:32:50PM +0800, Fan Du wrote:
-> __xfrm4/6_state_addr_check is a four steps check, all we need to do
-> is checking whether the destination address match when looking SA
-> using wildcard source address. Passing saddr from flow is worst option,
-> as the checking needs to reach the fourth step while actually only
-> one time checking will do the work.
-> 
-> So, simplify this process by only checking destination address when
-> using wildcard source address for looking up SAs.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
+Le 01/10/2013 12:40, Steffen Klassert a =E9crit :
+> On Tue, Oct 01, 2013 at 12:00:44PM +0200, Nicolas Dichtel wrote:
+>>
+>> Note that there is the same problem in
+>> net/ipv6/ip6_tunnel.c:ip6_tnl_destroy_tunnels() introduced by
+>> 0bd8762824e7
+>> ("ip6tnl: add x-netns support").
+>>
+>> Should I send a patch for it or would you take care of it?
+>
+> I don't mind either way. But you noticed the problem, so
+> feel free to send a patch yourself.
+>
+Ok, I will dot it.
 
-Applied to ipsec-next, thanks a lot!
+Thank you
