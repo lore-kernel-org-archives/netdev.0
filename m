@@ -1,31 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: bridge: Close file with bridge monitor file
-Date: Mon, 30 Sep 2013 21:11:06 -0700
-Message-ID: <20130930211106.6bccd8da@nehalam.linuxnetplumber.net>
-References: <1380095145-6618-1-git-send-email-ppisar@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ll_temac: Reset dma descriptors on ndo_open
+Date: Mon, 30 Sep 2013 21:21:53 -0700 (PDT)
+Message-ID: <20130930.212153.531876068589922786.davem@davemloft.net>
+References: <1380281068-13269-1-git-send-email-ricardo.ribalda@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Petr =?UTF-8?B?UMOtc2HFmQ==?= <ppisar@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:60450 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601Ab3JAELJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:11:09 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so6563971pdj.26
-        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 21:11:08 -0700 (PDT)
-In-Reply-To: <1380095145-6618-1-git-send-email-ppisar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, jg1.han@samsung.com, gregkh@linuxfoundation.org,
+	wfp5p@virginia.edu, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ricardo.ribalda@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380281068-13269-1-git-send-email-ricardo.ribalda@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Sep 2013 09:45:45 +0200
-Petr P=C3=ADsa=C5=99 <ppisar@redhat.com> wrote:
+From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+Date: Fri, 27 Sep 2013 13:24:28 +0200
 
-> The `bridge monitor file FILENAME' reads dumped netlink messages from
-> a file. But it forgot to close the file after using it. This patch
-> fixes it.
->=20
-> Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+> The dma descriptors are only initialized on the probe function.
+> 
+> If a packet is on the buffer when temac_stop is called, the dma
+> descriptors can be left on a incorrect status where no other package can
+> be sent.
+> 
+> So an interface could be left in an usable state after ifdow/ifup.
+> 
+> This patch makes sure that the descriptors are in a proper status when
+> the device is started.
+> 
+> Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
 
-Applied
+This analysis is not correct.
+
+In the current driver, the descriptors are allocated and initialized
+in the open function, not the probe function.
+
+I'm not applying this patch.
