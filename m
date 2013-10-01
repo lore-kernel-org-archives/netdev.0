@@ -1,31 +1,29 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RESEND] iproute2: GRE over IPv6 tunnel support.
-Date: Mon, 30 Sep 2013 21:40:50 -0700
-Message-ID: <20130930214050.0d3c758d@nehalam.linuxnetplumber.net>
-References: <20130928113251.75738a49@comp1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] ethernet: cleanup eth_type_trans
+Date: Mon, 30 Sep 2013 21:53:37 -0700 (PDT)
+Message-ID: <20130930.215337.900497241404899825.davem@davemloft.net>
+References: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	netdev@vger.kernel.org
-To: Dmitry Kozlov <xeb@mail.ru>
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:37705 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959Ab3JAEky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:40:54 -0400
-Received: by mail-pb0-f50.google.com with SMTP id uo5so6492795pbc.23
-        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 21:40:54 -0700 (PDT)
-In-Reply-To: <20130928113251.75738a49@comp1>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42378 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab3JAEqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:46:35 -0400
+In-Reply-To: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Sep 2013 11:32:51 +0400
-Dmitry Kozlov <xeb@mail.ru> wrote:
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 27 Sep 2013 17:19:41 -0700
 
-> GRE over IPv6 tunnel support.
+> Remove old legacy comment and weird if condition.
+> The comment has outlived it's stay and is throwback to some
+> early net code (before my time). Maybe Dave remembers what it meant.
 > 
-> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, still waiting for man pages ;-)
+Applied.
