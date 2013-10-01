@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] ethernet: cleanup eth_type_trans
-Date: Mon, 30 Sep 2013 21:53:37 -0700 (PDT)
-Message-ID: <20130930.215337.900497241404899825.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] ethernet: use likely() for common
+ Ethernet encap
+Date: Mon, 30 Sep 2013 21:53:51 -0700 (PDT)
+Message-ID: <20130930.215351.661834242294300223.davem@davemloft.net>
 References: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
+	<20130927172127.566a1a1d@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42378 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42383 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079Ab3JAEqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:46:35 -0400
-In-Reply-To: <20130927171941.0dad4d2a@nehalam.linuxnetplumber.net>
+	with ESMTP id S1751024Ab3JAEqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:46:45 -0400
+In-Reply-To: <20130927172127.566a1a1d@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 27 Sep 2013 17:19:41 -0700
+Date: Fri, 27 Sep 2013 17:21:27 -0700
 
-> Remove old legacy comment and weird if condition.
-> The comment has outlived it's stay and is throwback to some
-> early net code (before my time). Maybe Dave remembers what it meant.
+> Mark code path's likely/unlikely based on most common usage.
+>   * Very few devices use dsa tags.
+>   * Most traffic is Ethernet (not 802.2)
+>   * No sane person uses trailer type or Novell encapsulation
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
