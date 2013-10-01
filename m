@@ -1,170 +1,161 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: Question regarding failure utilizing bonding mode 5 (balance-tlb)
-Date: Tue, 1 Oct 2013 14:58:44 +0200
-Message-ID: <20131001125844.GB6096@redhat.com>
-References: <1375333968.21294.30.camel@lb-tlvb-yuvalmin.il.broadcom.com>
- <7717.1375412975@death.nxdomain>
- <979A8436335E3744ADCD3A9F2A2B68A52ACF959B@SJEXCHMB10.corp.ad.broadcom.com>
- <12779.1375476808@death.nxdomain>
- <979A8436335E3744ADCD3A9F2A2B68A52ACF96BB@SJEXCHMB10.corp.ad.broadcom.com>
- <979A8436335E3744ADCD3A9F2A2B68A52ADF1DE5@SJEXCHMB10.corp.ad.broadcom.com>
- <20130930212440.GC24830@redhat.com>
- <979A8436335E3744ADCD3A9F2A2B68A52ADFFFCF@SJEXCHMB10.corp.ad.broadcom.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: [PATCH 1/2] net, vxlan Fix compile warning [v4]
+Date: Tue,  1 Oct 2013 09:24:36 -0400
+Message-ID: <1380633877-24034-1-git-send-email-prarit@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Prarit Bhargava <prarit@redhat.com>, jpirko@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9305 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752485Ab3JANAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 09:00:42 -0400
-Content-Disposition: inline
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52ADFFFCF@SJEXCHMB10.corp.ad.broadcom.com>
+	id S1752560Ab3JANYl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 09:24:41 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r91DOe9t000533
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 1 Oct 2013 09:24:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 01, 2013 at 12:56:43PM +0000, Yuval Mintz wrote:
->> On Mon, Sep 30, 2013 at 11:30:40AM +0000, Yuval Mintz wrote:
->> >> > >Again, I think the permanent address is restored only when the bond
->> >> > >releases the slave, which I don't think happens when the slave is
->> unloaded.
->> >> >
->> >> > 	Given a bond0 with two slaves, eth0 and eth1, in tlb mode, eth0
->> >> > being the active,
->> >> >
->> >> > 	1) "ip link set dev eth0 down" which will fail over to eth1
->> >> > 		(swapping the contents of their dev_addr fields).
->> >> >
->> >> > 	2) "ip link set dev eth0 up" eth0 comes back up, reprograms its
->> >> > 		MAC to the wrong thing (what was in dev_addr).
->> >> >
->> >> > 	3) repeat steps 1 and 2 for eth1
->> >> >
->> >> > 	Is this correct?
->> >> >
->> >>
->> >> Yes, sorry for the earlier confusion.
->> >> I think in the case described `alb_swap_mac_addr()' will be called,
->> >> replacing eth0 and eth1's dev_addr, causing eth0 to have dev_addr
->> >> which defers from  the bond device's. Once eth0 reloads, it will use
->> >> the different MAC address for configuring FW/HW.
->> >
->> >Hi,
->> >
->> >Did you by any chance had the time to look at this issue?
->>
->> Hi Yuval,
->>
->> Sorry for getting into the discussion - but I've tried to understand the
->> problem and, possibly, find a fix.
->>
->> I'm not sure that I completely understand it, and I don't have currently
->> hardware on which to test it (though I might have it in the nearest
->> future), so, again, I really am not sure that I won't suggest something
->> completely stupid.
->>
->> Anyway, that being said, I hope that the following patch might fix the
->> problem. I've described the bug and the fix in the changelog, and the code
->> is pretty self-explanitory.
->>
->> And even if the patch fixes the issue - I'm not sure that it's the proper
->> and correct way to do it. But it's definitely worth a try... So, if it's
->> possible, could you please test this patch and see if it fixes it?
->>
->> Warning: I've just compile-tested it.
->>
->> So, FWIW...
->>
->
->Like you, I don't know if yours is the proper way of fixing the issue - but it did
->seem to fix it (the scenario that was described, at least)
->
->Tested-by: Yuval Mintz <yuvalmin@broadcom.com>
+=46ix a unintialized variable warning.
 
-Thank you!
+drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
+drivers/net/vxlan.c:2240:11: error: =E2=80=98sock=E2=80=99 may be used =
+uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+  vs->sock =3D sock;
+           ^
+drivers/net/vxlan.c:2217:17: note: =E2=80=98sock=E2=80=99 was declared =
+here
+  struct socket *sock;
+                 ^
+[v2]: davem suggested resolving this by making create_v{4,6}_sock() ret=
+urn an err
+pointer.
+[v3]: Ben Hutchings pointed out a missed conversion
 
-I'll then try now to dig it a big futher, and if it happens that this fix is
-really the one we need - I'll use your Tested-by, hope that you're ok with
-that. Otherwise I'll send a new patch(set) with you in the CC.
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Cc: jpirko@redhat.com
+---
+ drivers/net/vxlan.c |   31 ++++++++++++++-----------------
+ 1 file changed, 14 insertions(+), 17 deletions(-)
 
-Thanks again!
-
->
->Thanks,
->Yuval
->
->>  From 87e6c584b0ae0f0261610d60cf83778feb9c1edb Mon Sep 17
->> 00:00:00 2001
->> From: Veaceslav Falico <vfalico@redhat.com>
->> Date: Mon, 30 Sep 2013 23:14:23 +0200
->> Subject: [PATCH] bonding: ensure that TLB mode's active slave has correct
->> mac filter
->>
->> Currently, in TLB mode we change mac addresses only by memcpy-ing the to
->> net_device->dev_addr, without actually setting them via
->> dev_set_mac_address(). This permits us to receive all the traffic always on
->> one mac address.
->>
->> However, in case the interface flips, some drivers might enforce the
->> mac filtering for its FW/HW based on current ->dev_addr, and thus we won't
->> be able to receive traffic on that interface, in case it will be selected
->> as active in TLB mode.
->>
->> Fix it by setting the mac address forcefully on every new active slave that
->> we select in TLB mode.
->>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>   drivers/net/bonding/bond_alb.c | 17 +++++++++++++++++
->>   1 file changed, 17 insertions(+)
->>
->> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->> index e960418..576ccea 100644
->> --- a/drivers/net/bonding/bond_alb.c
->> +++ b/drivers/net/bonding/bond_alb.c
->> @@ -1699,6 +1699,23 @@ void bond_alb_handle_active_change(struct
->> bonding *bond, struct slave *new_slave
->>
->>   	ASSERT_RTNL();
->>
->> +	/* in TLB mode, the slave might flip down/up with the old dev_addr,
->> +	 * and thus filter bond->dev_addr's packets, so force bond's mac
->> +	 */
->> +	if (bond->params.mode == BOND_MODE_TLB) {
->> +		struct sockaddr sa;
->> +		u8 tmp_addr[ETH_ALEN];
->> +
->> +		memcpy(tmp_addr, new_slave->dev->dev_addr, ETH_ALEN);
->> +
->> +		memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev-
->> >addr_len);
->> +		sa.sa_family = bond->dev->type;
->> +		/* we don't care if it can't change its mac, best effort */
->> +		dev_set_mac_address(new_slave->dev, &sa);
->> +
->> +		memcpy(new_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
->> +	}
->> +
->>   	/* curr_active_slave must be set before calling alb_swap_mac_addr
->> */
->>   	if (swap_slave) {
->>   		/* swap mac address */
->> --
->> 1.8.4
->>
->>
->> >
->> >Thanks,
->> >Yuval
->> >
->> >--
->> >To unsubscribe from this list: send the line "unsubscribe netdev" in
->> >the body of a message to majordomo@vger.kernel.org
->> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d1292fe..cdc78b4 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2182,7 +2182,7 @@ static void vxlan_del_work(struct work_struct *wo=
+rk)
+  * could be used for both IPv4 and IPv6 communications, but
+  * users may set bindv6only=3D1.
+  */
+-static int create_v6_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v6_sock(struct net *net, __be16 port)
+ {
+ 	struct sock *sk;
+ 	struct socket *sock;
+@@ -2195,7 +2195,7 @@ static int create_v6_sock(struct net *net, __be16=
+ port, struct socket **psock)
+ 	rc =3D sock_create_kern(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (rc < 0) {
+ 		pr_debug("UDPv6 socket create failed\n");
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+ 	/* Put in proper namespace */
+@@ -2210,28 +2210,27 @@ static int create_v6_sock(struct net *net, __be=
+16 port, struct socket **psock)
+ 		pr_debug("bind for UDPv6 socket %pI6:%u (%d)\n",
+ 			 &vxlan_addr.sin6_addr, ntohs(vxlan_addr.sin6_port), rc);
+ 		sk_release_kernel(sk);
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+ 	/* At this point, IPv6 module should have been loaded in
+ 	 * sock_create_kern().
+ 	 */
+ 	BUG_ON(!ipv6_stub);
+=20
+-	*psock =3D sock;
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop =3D 0;
+-	return 0;
++	return sock;
+ }
+=20
+ #else
+=20
+-static int create_v6_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v6_sock(struct net *net, __be16 port)
+ {
+-		return -EPFNOSUPPORT;
++		return ERR_PTR(-EPFNOSUPPORT);
+ }
+ #endif
+=20
+-static int create_v4_sock(struct net *net, __be16 port, struct socket =
+**psock)
++static struct socket *create_v4_sock(struct net *net, __be16 port)
+ {
+ 	struct sock *sk;
+ 	struct socket *sock;
+@@ -2246,7 +2245,7 @@ static int create_v4_sock(struct net *net, __be16=
+ port, struct socket **psock)
+ 	rc =3D sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (rc < 0) {
+ 		pr_debug("UDP socket create failed\n");
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+ 	/* Put in proper namespace */
+@@ -2259,13 +2258,12 @@ static int create_v4_sock(struct net *net, __be=
+16 port, struct socket **psock)
+ 		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
+ 			 &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
+ 		sk_release_kernel(sk);
+-		return rc;
++		return ERR_PTR(rc);
+ 	}
+=20
+-	*psock =3D sock;
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop =3D 0;
+-	return 0;
++	return sock;
+ }
+=20
+ /* Create new listen socket if needed */
+@@ -2276,7 +2274,6 @@ static struct vxlan_sock *vxlan_socket_create(str=
+uct net *net, __be16 port,
+ 	struct vxlan_sock *vs;
+ 	struct socket *sock;
+ 	struct sock *sk;
+-	int rc =3D 0;
+ 	unsigned int h;
+=20
+ 	vs =3D kmalloc(sizeof(*vs), GFP_KERNEL);
+@@ -2289,12 +2286,12 @@ static struct vxlan_sock *vxlan_socket_create(s=
+truct net *net, __be16 port,
+ 	INIT_WORK(&vs->del_work, vxlan_del_work);
+=20
+ 	if (ipv6)
+-		rc =3D create_v6_sock(net, port, &sock);
++		sock =3D create_v6_sock(net, port);
+ 	else
+-		rc =3D create_v4_sock(net, port, &sock);
+-	if (rc < 0) {
++		sock =3D create_v4_sock(net, port);
++	if (IS_ERR(sock)) {
+ 		kfree(vs);
+-		return ERR_PTR(rc);
++		return ERR_CAST(sock);
+ 	}
+=20
+ 	vs->sock =3D sock;
+--=20
+1.7.9.3
