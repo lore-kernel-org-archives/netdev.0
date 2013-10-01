@@ -1,70 +1,32 @@
-From: Anirban Chakraborty <abchak@juniper.net>
-Subject: Re: [PATCH net-next] xen-netfront: convert to GRO API
-Date: Tue, 1 Oct 2013 20:32:56 +0000
-Message-ID: <AC497311-B61D-4385-948B-2EDE3EAC37B5@juniper.net>
-References: <1380545194-13419-1-git-send-email-wei.liu2@citrix.com>
- <1380547472.1302.45.camel@kazak.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 3/3] net: ipv4 only populate IP_PKTINFO when needed
+Date: Tue, 01 Oct 2013 13:42:30 -0700
+Message-ID: <1380660150.19002.34.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
+	 <1380656025-8847-4-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"<xen-devel@lists.xen.org>" <xen-devel@lists.xen.org>,
-	"<konrad.wilk@oracle.com>" <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, tomk@rgmadvisors.com,
+	netdev <netdev@vger.kernel.org>
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:46516
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753095Ab3JAUdH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 16:33:07 -0400
-In-Reply-To: <1380547472.1302.45.camel@kazak.uk.xensource.com>
-Content-Language: en-US
-Content-ID: <4604B52F3175EC4F9D96896A88A46C84@namprd05.prod.outlook.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:48051 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898Ab3JAUmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 16:42:32 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so7640686pbb.41
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 13:42:31 -0700 (PDT)
+In-Reply-To: <1380656025-8847-4-git-send-email-sbohrer@rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-10-01 at 14:33 -0500, Shawn Bohrer wrote:
 
-On Sep 30, 2013, at 6:24 AM, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> -void ipv4_pktinfo_prepare(struct sk_buff *skb)
+> +void ipv4_pktinfo_prepare(struct sock *sk, struct sk_buff *skb)
 
-> On Mon, 2013-09-30 at 13:46 +0100, Wei Liu wrote:
->> Anirban was seeing netfront received MTU size packets, which downgraded
->> throughput. The following patch makes netfront use GRO API which
->> improves throughput for that case.
->> 
->> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->> Cc: Anirban Chakraborty <abchak@juniper.net>
-> 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> 
->> Acked-by: Konrad Wilk <konrad.wilk@oracle.com>
->> ---
->> drivers/net/xen-netfront.c |    4 +++-
->> 1 file changed, 3 insertions(+), 1 deletion(-)
->> 
->> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->> index 36808bf..dd1011e 100644
->> --- a/drivers/net/xen-netfront.c
->> +++ b/drivers/net/xen-netfront.c
->> @@ -952,7 +952,7 @@ static int handle_incoming_queue(struct net_device *dev,
->> 		u64_stats_update_end(&stats->syncp);
->> 
->> 		/* Pass it up. */
->> -		netif_receive_skb(skb);
->> +		napi_gro_receive(&np->napi, skb);
->> 	}
->> 
->> 	return packets_dropped;
->> @@ -1051,6 +1051,8 @@ err:
->> 	if (work_done < budget) {
->> 		int more_to_do = 0;
->> 
->> +		napi_gro_flush(napi, false);
->> +
->> 		local_irq_save(flags);
->> 
->> 		RING_FINAL_CHECK_FOR_RESPONSES(&np->rx, more_to_do);
-> 
 
-We should apply it to stable as well. Thanks.
-Anirban
+Seems good to me, could you use :
+
+void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
