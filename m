@@ -1,52 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net 4/4] ip_tunnel: Remove double unregister of the fallback
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 4/4] ip_tunnel: Remove double unregister of the fallback
  device
-Date: Tue, 1 Oct 2013 11:37:37 +0200
-Message-ID: <20131001093737.GJ7660@secunet.com>
-References: <20131001093359.GG7660@secunet.com>
+Date: Tue, 01 Oct 2013 12:00:44 +0200
+Message-ID: <524A9D4C.9030900@6wind.com>
+References: <20131001093359.GG7660@secunet.com> <20131001093737.GJ7660@secunet.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:34204 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752364Ab3JAJhl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 05:37:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20131001093359.GG7660@secunet.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:44261 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752964Ab3JAKAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 06:00:48 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hn9so5234470wib.11
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 03:00:46 -0700 (PDT)
+In-Reply-To: <20131001093737.GJ7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When queueing the netdevices for removal, we queue the
-fallback device twice in ip_tunnel_destroy(). The first
-time when we queue all netdevices in the namespace and
-then again explicitly. Fix this by removing the explicit
-queueing of the fallback device.
+Le 01/10/2013 11:37, Steffen Klassert a =E9crit :
+> When queueing the netdevices for removal, we queue the
+> fallback device twice in ip_tunnel_destroy(). The first
+> time when we queue all netdevices in the namespace and
+> then again explicitly. Fix this by removing the explicit
+> queueing of the fallback device.
+>
+> Bug was introduced when network namespace support was added
+> with commit 6c742e714d8 ("ipip: add x-netns support").
+>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Bug was introduced when network namespace support was added
-with commit 6c742e714d8 ("ipip: add x-netns support").
+Note that there is the same problem in=20
+net/ipv6/ip6_tunnel.c:ip6_tnl_destroy_tunnels() introduced by 0bd876282=
+4e7
+("ip6tnl: add x-netns support").
 
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/ip_tunnel.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 895a353..63a6d6d 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -886,8 +886,6 @@ static void ip_tunnel_destroy(struct ip_tunnel_net *itn, struct list_head *head,
- 			if (!net_eq(dev_net(t->dev), net))
- 				unregister_netdevice_queue(t->dev, head);
- 	}
--	if (itn->fb_tunnel_dev)
--		unregister_netdevice_queue(itn->fb_tunnel_dev, head);
- }
- 
- void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops)
--- 
-1.7.9.5
+Should I send a patch for it or would you take care of it?
