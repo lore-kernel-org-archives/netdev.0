@@ -1,41 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RESEND] iproute2: GRE over IPv6 tunnel support.
-Date: Mon, 30 Sep 2013 21:41:07 -0700
-Message-ID: <20130930214107.0230d67b@nehalam.linuxnetplumber.net>
-References: <20130928113251.75738a49@comp1>
-	<20130928212752.GE23654@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next] l2tp: add support for IPv4-mapped IPv6 addresses
+Date: Mon, 30 Sep 2013 21:57:32 -0700 (PDT)
+Message-ID: <20130930.215732.511217838898717901.davem@davemloft.net>
+References: <5245694D.3070105@init-sys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Kozlov <xeb@mail.ru>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jchapman@katalix.com, netdev@vger.kernel.org
+To: f.cachereul@init-sys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:40456 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024Ab3JAEqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:46:48 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so6531129pbc.36
-        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 21:46:48 -0700 (PDT)
-In-Reply-To: <20130928212752.GE23654@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42417 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966Ab3JAEu0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:50:26 -0400
+In-Reply-To: <5245694D.3070105@init-sys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Sep 2013 23:27:52 +0200
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+=46rom: Fran=E7ois Cachereul <f.cachereul@init-sys.com>
+Date: Fri, 27 Sep 2013 13:17:33 +0200
 
-> On Sat, Sep 28, 2013 at 11:32:51AM +0400, Dmitry Kozlov wrote:
-> > GRE over IPv6 tunnel support.
-> > 
-> > Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
-> 
-> Dmitry, thanks a lot for resending!
-> 
-> One small nit:
-> 
-> lib/ll_types.c would need a new entry in ll_type_n2a for ARPHDR_IP6GRE
-> so ip link ls can pretty print the link type.
-> 
+> @@ -1620,6 +1621,10 @@ int l2tp_tunnel_create(struct net *net, int fd=
+, int version, u32 tunnel_id, u32
+>  	int err;
+>  	struct socket *sock =3D NULL;
+>  	struct sock *sk =3D NULL;
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	struct inet_sock *inet =3D NULL;
+> +	struct ipv6_pinfo *np =3D NULL;
+> +#endif
+ ...
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	np =3D inet6_sk(sk);
+> +	if (sk->sk_family =3D=3D PF_INET6 &&
+> +	    ipv6_addr_v4mapped(&np->saddr) &&
+> +	    ipv6_addr_v4mapped(&np->daddr)) {
+> +		tunnel->v4mapped =3D true;
+> +		inet =3D inet_sk(sk);
+> +		inet->inet_saddr =3D np->saddr.s6_addr32[3];
+> +		inet->inet_rcv_saddr =3D np->rcv_saddr.s6_addr32[3];
+> +		inet->inet_daddr =3D np->daddr.s6_addr32[3];
+> +	} else {
+> +		tunnel->v4mapped =3D false;
+> +	}
+> +#endif
 
-Ok, fixed
+You only need one ifdef here, get rid of the top level variable
+declarations and then just go:
+
+#if IS_ENABLED(CONFIG_IPV6)
+	if (sk->sk_family =3D=3D PF_INET6) {
+		struct ipv6_pinfo *np =3D inet6_sk(sk);
+
+		if (ipv6_addr_v4mapped(&np->saddr) &&
+		    ipv6_addr_v4mapped(&np->daddr)) {
+			struct inet_sock *inet =3D inet_sk(sk);
+
+			tunnel->v4mapped =3D true;
+			inet->inet_saddr =3D np->saddr.s6_addr32[3];
+			inet->inet_rcv_saddr =3D np->rcv_saddr.s6_addr32[3];
+			inet->inet_daddr =3D np->daddr.s6_addr32[3];
+		} else {
+			tunnel->v4mapped =3D false;
+		}
+	}
+#endif
