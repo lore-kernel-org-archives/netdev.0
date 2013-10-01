@@ -1,43 +1,94 @@
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Subject: Re: [PATCH] ll_temac: Reset dma descriptors on ndo_open
-Date: Tue, 1 Oct 2013 08:18:12 +0200
-Message-ID: <CAPybu_1s2m7RzTuj7J-_ddz8C56RDa53Vwid2wdTc4dkM6s3cQ@mail.gmail.com>
-References: <1380281068-13269-1-git-send-email-ricardo.ribalda@gmail.com>
- <20130930.212153.531876068589922786.davem@davemloft.net> <CAPybu_0OrwTo7CkuauRpu_ohQRY80U6BJDXQ6=KC0caOFiFCQA@mail.gmail.com>
- <20131001.020134.756782177490714135.davem@davemloft.net>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH v2.41 4/5] datapath: Break out deacceleration
+	portion of vlan_push
+Date: Tue,  1 Oct 2013 15:47:43 +0900
+Message-ID: <1380610064-14856-5-git-send-email-horms@verge.net.au>
+References: <1380610064-14856-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: joe@perches.com, jg1.han@samsung.com,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	wfp5p@virginia.edu, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131001.020134.756782177490714135.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1380610064-14856-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Just send a v2 of the patch
+Break out deacceleration portion of vlan_push into vlan_put
+so that it may be re-used by mpls_push.
 
-http://patchwork.ozlabs.org/patch/279339/
+For both vlan_push and mpls_push if there is an accelerated VLAN tag
+present then it should be deaccelerated, adding it to the data of
+the skb, before the new tag is added.
 
-Thanks!
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 
-On Tue, Oct 1, 2013 at 8:01 AM, David Miller <davem@davemloft.net> wrote:
-> From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-> Date: Tue, 1 Oct 2013 07:46:31 +0200
->
->> What if I move
->>        lp->tx_bd_ci = 0;
->>        lp->tx_bd_next = 0;
->>        lp->tx_bd_tail = 0;
->>        lp->rx_bd_ci = 0;
->>
->> to temac_dma_bd_init? Will this be more correct?
->
-> Yes, that would be a lot better.
+---
+v2.40
+* As suggested by Jesse Gross
+  + Simplify vlan_push by returning an error code
+    rather than an error code encoded as a struct xkb_buff *
 
+v2.39
+* First post
+---
+ datapath/actions.c | 29 +++++++++++++++++++----------
+ 1 file changed, 19 insertions(+), 10 deletions(-)
 
-
+diff --git a/datapath/actions.c b/datapath/actions.c
+index 30ea1d2..d961e5d 100644
+--- a/datapath/actions.c
++++ b/datapath/actions.c
+@@ -105,22 +105,31 @@ static int pop_vlan(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++/* push down current VLAN tag */
++static int put_vlan(struct sk_buff *skb)
+ {
+-	if (unlikely(vlan_tx_tag_present(skb))) {
+-		u16 current_tag;
++	u16 current_tag = vlan_tx_tag_get(skb);
+ 
+-		/* push down current VLAN tag */
+-		current_tag = vlan_tx_tag_get(skb);
++	if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
++		return -ENOMEM;
+ 
+-		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+-			return -ENOMEM;
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(skb->data
++				+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+ 
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	return 0;
++}
+ 
++static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++{
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		int err;
++
++		err = put_vlan(skb);
++		if (unlikely(err))
++			return err;
+ 	}
++
+ 	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ 	return 0;
+ }
 -- 
-Ricardo Ribalda
+1.8.4
