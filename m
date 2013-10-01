@@ -1,72 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: TSQ can use a dynamic limit
-Date: Mon, 30 Sep 2013 20:52:02 -0700 (PDT)
-Message-ID: <20130930.205202.508440258411894005.davem@davemloft.net>
-References: <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
-	<1379861902.3431.12.camel@edumazet-glaptop>
-	<1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] {iproute2, xfrm}: Use memcpy to suppress gcc phony
+ buffer overflow warning
+Date: Mon, 30 Sep 2013 21:10:41 -0700
+Message-ID: <20130930211041.38836334@nehalam.linuxnetplumber.net>
+References: <524411AE.7000404@linux.vnet.ibm.com>
+	<52447DAC.2060701@linux.vnet.ibm.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7361@saturn3.aculab.com>
+	<5246D88F.7090906@linux.vnet.ibm.com>
+	<52478710.702@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, wei.liu2@citrix.com,
-	netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
-To: eric.dumazet@gmail.com
+Cc: Sohny Thomas <sthomas@linux.vnet.ibm.com>,
+	David Laight <David.Laight@aculab.com>,
+	<netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41654 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755522Ab3JADpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 23:45:04 -0400
-In-Reply-To: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:45728 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab3JAEKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:10:45 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so6623849pde.37
+        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 21:10:44 -0700 (PDT)
+In-Reply-To: <52478710.702@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Sep 2013 03:28:54 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+> index 0d98e78..5cc87d3 100644
+> --- a/ip/xfrm_state.c
+> +++ b/ip/xfrm_state.c
+> @@ -159,7 +159,7 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, enum xfrm_attr_type_t type,
+>   			if (len > max)
+>   				invarg("\"ALGO-KEY\" makes buffer overflow\n", key);
 > 
-> When TCP Small Queues was added, we used a sysctl to limit amount of
-> packets queues on Qdisc/device queues for a given TCP flow.
+> -			strncpy(buf, key, len);
+> +			memcpy(buf, key, len);
+>   		}
+>   	}
 > 
-> Problem is this limit is either too big for low rates, or too small
-> for high rates.
-> 
-> Now TCP stack has rate estimation in sk->sk_pacing_rate, and TSO 
-> auto sizing, it can better control number of packets in Qdisc/device
-> queues.
-> 
-> New limit is two packets or at least 1 to 2 ms worth of packets.
-> 
-> Low rates flows benefit from this patch by having even smaller
-> number of packets in queues, allowing for faster recovery,
-> better RTT estimations.
-> 
-> High rates flows benefit from this patch by allowing more than 2 packets
-> in flight as we had reports this was a limiting factor to reach line
-> rate. [ In particular if TX completion is delayed because of coalescing
-> parameters ]
-> 
-> Example for a single flow on 10Gbp link controlled by FQ/pacing
-> 
-> 14 packets in flight instead of 2
-> 
-> $ tc -s -d qd
-> qdisc fq 8001: dev eth0 root refcnt 32 limit 10000p flow_limit 100p
-> buckets 1024 quantum 3028 initial_quantum 15140 
->  Sent 1168459366606 bytes 771822841 pkt (dropped 0, overlimits 0
-> requeues 6822476) 
->  rate 9346Mbit 771713pps backlog 953820b 14p requeues 6822476 
->   2047 flow, 2046 inactive, 1 throttled, delay 15673 ns
->   2372 gc, 0 highprio, 0 retrans, 9739249 throttled, 0 flows_plimit
-> 
-> Note that sk_pacing_rate is currently set to twice the actual rate, but
-> this might be refined in the future when a flow is in congestion
-> avoidance.
-> 
-> Additional change : skb->destructor should be set to tcp_wfree().
-> 
-> A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Eric.
+Applied this patch. With some edits to make commit message logical.
