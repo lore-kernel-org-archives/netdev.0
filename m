@@ -1,59 +1,160 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO
-Date: Tue, 1 Oct 2013 14:32:14 +0200
-Message-ID: <20131001123214.GI10771@order.stressinduktion.org>
-References: <20130921042700.GB8070@order.stressinduktion.org> <20130930114343.GA6356@minipsycho.brq.redhat.com> <20130930172312.GE10771@order.stressinduktion.org> <20131001105837.GA1424@minipsycho.brq.redhat.com> <20131001120907.GH10771@order.stressinduktion.org>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: Question regarding failure utilizing bonding mode 5
+ (balance-tlb)
+Date: Tue, 1 Oct 2013 12:56:43 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52ADFFFCF@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1375333968.21294.30.camel@lb-tlvb-yuvalmin.il.broadcom.com>
+ <7717.1375412975@death.nxdomain>
+ <979A8436335E3744ADCD3A9F2A2B68A52ACF959B@SJEXCHMB10.corp.ad.broadcom.com>
+ <12779.1375476808@death.nxdomain>
+ <979A8436335E3744ADCD3A9F2A2B68A52ACF96BB@SJEXCHMB10.corp.ad.broadcom.com>
+ <979A8436335E3744ADCD3A9F2A2B68A52ADF1DE5@SJEXCHMB10.corp.ad.broadcom.com>
+ <20130930212440.GC24830@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au,
-	eric.dumazet@gmail.com
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Jay Vosburgh" <fubar@us.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "Veaceslav Falico" <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33929 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751834Ab3JAMcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 08:32:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20131001120907.GH10771@order.stressinduktion.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3944 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752504Ab3JAM4z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 08:56:55 -0400
+In-Reply-To: <20130930212440.GC24830@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 01, 2013 at 02:09:07PM +0200, Hannes Frederic Sowa wrote:
-> On Tue, Oct 01, 2013 at 12:58:37PM +0200, Jiri Pirko wrote:
-> > >> 
-> > >> What if non-ufo-path-created skb is peeked?
-> > >
-> > >You mean like:
-> > >first append a frame < mtu
-> > >second frame > mtu so it gets handles by ip6_ufo_append?
-> > >
-> > >Currently I don't see a problem with it but I may be wrong. What is
-> > >your suspicion?
-> > 
-> > Well the skb will have gso_size==0 and ip_summed==CHECKSUM_NONE
-> > Because of that it will be not threated as ufo skb.
-> > 
-> > Following patch fixes it:
-> > 
-> > Subject: [patch net] ip6_output: do skb ufo init for peeked non ufo skb as well
-> > 
-> > Now, if user application does:
-> > sendto len<mtu flag MSG_MORE
-> > sendto len>mtu flag 0
-> > The skb is not treated as fragmented one because it is not initialized
-> > that way. So move the initialization to fix this.
-> > 
-> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> On Mon, Sep 30, 2013 at 11:30:40AM +0000, Yuval Mintz wrote:
+> >> > >Again, I think the permanent address is restored only when the bond
+> >> > >releases the slave, which I don't think happens when the slave is
+> unloaded.
+> >> >
+> >> > 	Given a bond0 with two slaves, eth0 and eth1, in tlb mode, eth0
+> >> > being the active,
+> >> >
+> >> > 	1) "ip link set dev eth0 down" which will fail over to eth1
+> >> > 		(swapping the contents of their dev_addr fields).
+> >> >
+> >> > 	2) "ip link set dev eth0 up" eth0 comes back up, reprograms its
+> >> > 		MAC to the wrong thing (what was in dev_addr).
+> >> >
+> >> > 	3) repeat steps 1 and 2 for eth1
+> >> >
+> >> > 	Is this correct?
+> >> >
+> >>
+> >> Yes, sorry for the earlier confusion.
+> >> I think in the case described `alb_swap_mac_addr()' will be called,
+> >> replacing eth0 and eth1's dev_addr, causing eth0 to have dev_addr
+> >> which defers from  the bond device's. Once eth0 reloads, it will use
+> >> the different MAC address for configuring FW/HW.
+> >
+> >Hi,
+> >
+> >Did you by any chance had the time to look at this issue?
 > 
-> My understanding is that the frame is only a valid gso frame iff the first skb
-> queued up is setup as an UFO frame. In other cases we only need to make sure
-> we append to the fragment list without updating the gso field and the skb will
-> get linearized (if needed) later in the output path.
+> Hi Yuval,
 > 
-> This seems not to matter for virtio_net and loopback because we seem to pass
-> the skb as is. But the remaining ethernet card which sets NETIF_F_UFO is
-> neterion and we have to verify if this assumption is correct, there.
+> Sorry for getting into the discussion - but I've tried to understand the
+> problem and, possibly, find a fix.
+> 
+> I'm not sure that I completely understand it, and I don't have currently
+> hardware on which to test it (though I might have it in the nearest
+> future), so, again, I really am not sure that I won't suggest something
+> completely stupid.
+> 
+> Anyway, that being said, I hope that the following patch might fix the
+> problem. I've described the bug and the fix in the changelog, and the code
+> is pretty self-explanitory.
+> 
+> And even if the patch fixes the issue - I'm not sure that it's the proper
+> and correct way to do it. But it's definitely worth a try... So, if it's
+> possible, could you please test this patch and see if it fixes it?
+> 
+> Warning: I've just compile-tested it.
+> 
+> So, FWIW...
+> 
 
-Hm, ip_append_page seems to violate my assumption. I need to read up on the
-code later today.
+Like you, I don't know if yours is the proper way of fixing the issue - but it did
+seem to fix it (the scenario that was described, at least)
+
+Tested-by: Yuval Mintz <yuvalmin@broadcom.com>
+
+Thanks,
+Yuval
+
+>  From 87e6c584b0ae0f0261610d60cf83778feb9c1edb Mon Sep 17
+> 00:00:00 2001
+> From: Veaceslav Falico <vfalico@redhat.com>
+> Date: Mon, 30 Sep 2013 23:14:23 +0200
+> Subject: [PATCH] bonding: ensure that TLB mode's active slave has correct
+> mac filter
+> 
+> Currently, in TLB mode we change mac addresses only by memcpy-ing the to
+> net_device->dev_addr, without actually setting them via
+> dev_set_mac_address(). This permits us to receive all the traffic always on
+> one mac address.
+> 
+> However, in case the interface flips, some drivers might enforce the
+> mac filtering for its FW/HW based on current ->dev_addr, and thus we won't
+> be able to receive traffic on that interface, in case it will be selected
+> as active in TLB mode.
+> 
+> Fix it by setting the mac address forcefully on every new active slave that
+> we select in TLB mode.
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>   drivers/net/bonding/bond_alb.c | 17 +++++++++++++++++
+>   1 file changed, 17 insertions(+)
+> 
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index e960418..576ccea 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -1699,6 +1699,23 @@ void bond_alb_handle_active_change(struct
+> bonding *bond, struct slave *new_slave
+> 
+>   	ASSERT_RTNL();
+> 
+> +	/* in TLB mode, the slave might flip down/up with the old dev_addr,
+> +	 * and thus filter bond->dev_addr's packets, so force bond's mac
+> +	 */
+> +	if (bond->params.mode == BOND_MODE_TLB) {
+> +		struct sockaddr sa;
+> +		u8 tmp_addr[ETH_ALEN];
+> +
+> +		memcpy(tmp_addr, new_slave->dev->dev_addr, ETH_ALEN);
+> +
+> +		memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev-
+> >addr_len);
+> +		sa.sa_family = bond->dev->type;
+> +		/* we don't care if it can't change its mac, best effort */
+> +		dev_set_mac_address(new_slave->dev, &sa);
+> +
+> +		memcpy(new_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
+> +	}
+> +
+>   	/* curr_active_slave must be set before calling alb_swap_mac_addr
+> */
+>   	if (swap_slave) {
+>   		/* swap mac address */
+> --
+> 1.8.4
+> 
+> 
+> >
+> >Thanks,
+> >Yuval
+> >
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
