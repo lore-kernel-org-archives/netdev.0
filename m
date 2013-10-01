@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: gre: correct calculation of max_headroom
-Date: Mon, 30 Sep 2013 22:04:50 -0700 (PDT)
-Message-ID: <20130930.220450.1121984305211620922.davem@davemloft.net>
-References: <20130929034050.GB8602@order.stressinduktion.org>
+Subject: Re: [net-next PATCH V2] virtio-net: switch to use XPS to choose txq
+Date: Mon, 30 Sep 2013 22:10:40 -0700 (PDT)
+Message-ID: <20130930.221040.543720988967287293.davem@davemloft.net>
+References: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xeb@mail.ru
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42489 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab3JAE5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 00:57:45 -0400
-In-Reply-To: <20130929034050.GB8602@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-7"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sun, 29 Sep 2013 05:40:50 +0200
-
-> gre_hlen already accounts for sizeof(struct ipv6_hdr) + gre header,
-> so initialize max_headroom to zero. Otherwise the
-> 
-> 	if (encap_limit >= 0) {
-> 		max_headroom += 8;
-> 		mtu -= 8;
-> 	}
-> 
-> increments an uninitialized variable before max_headroom was reset.
-> 
-> Found with coverity: 728539
-> 
-> Cc: Dmitry Kozlov <xeb@mail.ru>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Applied and queued up for -stable, thanks.
+RnJvbTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4NCkRhdGU6IE1vbiwgMzAgU2Vw
+IDIwMTMgMTU6Mzc6MTcgKzA4MDANCg0KPiBXZSB1c2VkIHRvIHVzZSBhIHBlcmNwdSBzdHJ1Y3R1
+cmUgdnFfaW5kZXggdG8gcmVjb3JkIHRoZSBjcHUgdG8gcXVldWUNCj4gbWFwcGluZywgdGhpcyBp
+cyBzdWJvcHRpbWFsIHNpbmNlIGl0IGR1cGxpY2F0ZXMgdGhlIHdvcmsgb2YgWFBTIGFuZA0KPiBs
+b3NlcyBhbGwgb3RoZXIgWFBTIGZ1bmN0aW9uYWxpdHkgc3VjaCBhcyBhbGxvd2luZyB1c2UgdG8g
+Y29uZmlndXJlDQo+IHRoZWlyIG93biB0cmFuc21pc3Npb24gc3RlZXJpbmcgc3RyYXRlZ3kuDQo+
+IA0KPiBTbyB0aGlzIHBhdGNoIHN3aXRjaGVzIHRvIHVzZSBYUFMgYW5kIHN1Z2dlc3QgYSBkZWZh
+dWx0IG1hcHBpbmcgd2hlbg0KPiB0aGUgbnVtYmVyIG9mIGNwdXMgaXMgZXF1YWwgdG8gdGhlIG51
+bWJlciBvZiBxdWV1ZXMuIFdpdGggWFBTIHN1cHBvcnQsDQo+IHRoZXJlJ3Mgbm8gbmVlZCBmb3Ig
+a2VlcGluZyBwZXItY3B1IHZxX2luZGV4IGFuZCAubmRvX3NlbGVjdF9xdWV1ZSgpLA0KPiBzbyB0
+aGV5IHdlcmUgcmVtb3ZlZCBhbHNvLg0KPiANCj4gQ2M6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1
+c3Rjb3JwLmNvbS5hdT4NCj4gQ2M6IE1pY2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+
+DQo+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+DQo+IC0t
+LQ0KPiBDaGFuZ2VzIGZyb20gVjE6DQo+IC0gdXNlIGNwdW1hc2tfb2YoKSBpbnN0ZWFkIG9mIGFs
+bG9jYXRlIGR5bmFtaWNhbGx5DQoNClRoaXMgZ2VuZXJhdGVzIGJ1aWxkIHdhcm5pbmdzOg0KDQpk
+cml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6IEluIGZ1bmN0aW9uIKF2aXJ0bmV0X3NldF9hZmZpbml0
+eaI6DQpkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6MTA5MzozOiB3YXJuaW5nOiBwYXNzaW5nIGFy
+Z3VtZW50IDIgb2YgoW5ldGlmX3NldF94cHNfcXVldWWiIGRpc2NhcmRzIKFjb25zdKIgcXVhbGlm
+aWVyIGZyb20gcG9pbnRlciB0YXJnZXQgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KSW4gZmls
+ZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYzoyMDowOg0KaW5jbHVkZS9s
+aW51eC9uZXRkZXZpY2UuaDoyMjc1OjU6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3QgY3B1bWFzayAq
+oiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qgc3RydWN0IGNwdW1hc2sgKqINCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9u
+IG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpo
+dHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFs
+aXphdGlvbg==
