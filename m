@@ -1,52 +1,68 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Established sockets remain open after iface down or address lost
-Date: Tue, 1 Oct 2013 23:00:42 +0400
-Message-ID: <CAMrnHh5JcK_rHVsiHjHcTy10A+ZLnKp58txsVM_Kj5jSh8CV1Q@mail.gmail.com>
-References: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com>
-	<CAMrnHh6Lr9q27yiSmJ-EbJMTeUVyf9650vK+6QmbfTVfz_omxg@mail.gmail.com>
-	<20131001170740.GA9331@cverges-dev-lnx.sentient-energy.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: [net-next 0/3] Improve UDP multicast receive latency
+Date: Tue,  1 Oct 2013 14:33:42 -0500
+Message-ID: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org
-To: Chris Verges <cverges@sentient-energy.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, tomk@rgmadvisors.com,
+	netdev <netdev@vger.kernel.org>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:34388 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223Ab3JATAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 15:00:43 -0400
-Received: by mail-ie0-f172.google.com with SMTP id x13so14895735ief.31
-        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 12:00:42 -0700 (PDT)
-In-Reply-To: <20131001170740.GA9331@cverges-dev-lnx.sentient-energy.com>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:41496 "EHLO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750881Ab3JATeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 15:34:24 -0400
+Received: by mail-oa0-f43.google.com with SMTP id f4so5335302oah.30
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 12:34:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+The removal of the routing cache in 3.6 had impacted the latency of our
+UDP multicast workload.  This patch series brings down the latency to
+what we were seeing with 3.4.
 
-On Tue, Oct 1, 2013 at 9:07 PM, Chris Verges
-<cverges@sentient-energy.com> wrote:
->  Would you happen to know where any
-> out-of-kernel code related to this might be parked if one wanted to
-> continue this effort?
+Patch 1 "udp: Only allow busy read/poll on connected sockets" is mostly
+done for correctness and because it allows unifying the unicast and
+multicast paths when a socket is found in early demux.  It can also
+improve latency for a connected multicast socket if busy read/poll is
+used.
 
-Not a big surpize, but reference is in the same thead, I am am doing
-cut-n-paste for you:
+Patches 2&3 remove the fib lookups and restore latency for our workload
+to the pre 3.6 levels.
 
-From: Andi Kleen <andi@xxxxxxxxxxxxxx>
-Date: Fri, 19 Oct 2012 13:43:39 -0700
+Benchmark results from a netperf UDP_RR test:
+3.11 kernel   90596.44 transactions/s
+3.11 + series 91792.70 transactions/s
 
-I had a patch for this a long time ago to speed up recovery.
-It was very useful with dial on demand ISDN links or DSL
-connections that hang up occasionally to force a new IP.
+Benchmark results from a fio 1 byte UDP multicast pingpong test
+(Multicast one way unicast response):
+3.11 kernel   12.647us RTT
+3.11 + series 12.233us RTT
 
-It was in SUSE kernels for a long time, but never made it
-into mainline
+Shawn Bohrer (3):
+  udp: Only allow busy read/poll on connected sockets
+  udp: Add udp early demux
+  net: ipv4 only populate IP_PKTINFO when needed
 
-http://www.firstfloor.org/pub/ak/quilt-before-arch-merge/patches/iff-dynamic
+ include/net/ip.h       |    2 +-
+ include/net/sock.h     |    2 +-
+ include/net/udp.h      |    1 +
+ net/ipv4/af_inet.c     |    1 +
+ net/ipv4/ip_sockglue.c |    5 +-
+ net/ipv4/raw.c         |    2 +-
+ net/ipv4/udp.c         |  160 +++++++++++++++++++++++++++++++++++++++++------
+ net/ipv6/udp.c         |    5 +-
+ 8 files changed, 150 insertions(+), 28 deletions(-)
 
--Andi
+-- 
+1.7.7.6
 
-Don't forget reference to Andi Kleen in case you push some descendant
-of this code
-to mainline.
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
