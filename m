@@ -1,25 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/6] be2net: patch set
-Date: Tue, 01 Oct 2013 12:46:09 -0400 (EDT)
-Message-ID: <20131001.124609.1016382827524577387.davem@davemloft.net>
-References: <1380623401-15630-1-git-send-email-sathya.perla@emulex.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath6kl: fix compilation warning in ath6kl_htc_pipe_conn_service
+Date: Tue, 1 Oct 2013 19:46:23 +0300
+Message-ID: <871u456isg.fsf@kamboji.qca.qualcomm.com>
+References: <1380462871-2649-1-git-send-email-murzin.v@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <ath6kl-devel@qca.qualcomm.com>
+To: Vladimir Murzin <murzin.v@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017Ab3JAQqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:46:10 -0400
-In-Reply-To: <1380623401-15630-1-git-send-email-sathya.perla@emulex.com>
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:61469 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752424Ab3JAQqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:46:30 -0400
+In-Reply-To: <1380462871-2649-1-git-send-email-murzin.v@gmail.com> (Vladimir
+	Murzin's message of "Sun, 29 Sep 2013 15:54:31 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Tue, 1 Oct 2013 15:59:55 +0530
+Vladimir Murzin <murzin.v@gmail.com> writes:
 
-> Pls apply the following patches to the net-next tree. Thanks.
+> Fix the warning
+>
+> drivers/net/wireless/ath/ath6kl/htc_pipe.c: In function
+> 'ath6kl_htc_pipe_conn_service':
+> drivers/net/wireless/ath/ath6kl/htc_pipe.c:1293:26: warning: integer overflow
+> in expression [-Woverflow]
+>
+> by giving a hint to compiler about unsigned nature of
+> HTC_CONN_FLGS_SET_RECV_ALLOC_MASK
+>
+> Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
 
-All applied, thanks.
+Thanks, applied to ath.git.
+
+-- 
+Kalle Valo
