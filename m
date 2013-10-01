@@ -1,56 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Fix broken promiscuity reference counting
- issue
-Date: Mon, 30 Sep 2013 22:12:22 -0700 (PDT)
-Message-ID: <20130930.221222.2094260050523903528.davem@davemloft.net>
-References: <1380298935-32140-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH] drivers: net: phy: marvell.c: removed checkpatch.pl
+ warnings
+Date: Mon, 30 Sep 2013 22:15:57 -0700 (PDT)
+Message-ID: <20130930.221557.1329073627639782500.davem@davemloft.net>
+References: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	wudxw@linux.vnet.ibm.com
-To: nhorman@tuxdriver.com
+Cc: michal.simek@xilinx.com, lars@metafoo.de, RHoover@digilentinc.com,
+	netdev@vger.kernel.org
+To: avi.kp.137@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42587 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42621 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab3JAFFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 01:05:16 -0400
-In-Reply-To: <1380298935-32140-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1750966Ab3JAFI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 01:08:58 -0400
+In-Reply-To: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 27 Sep 2013 12:22:15 -0400
+From: Avinash kumar <avi.kp.137@gmail.com>
+Date: Mon, 30 Sep 2013 09:36:44 +0530
 
-> Recently grabbed this report:
-> https://bugzilla.redhat.com/show_bug.cgi?id=1005567
+> removes following warnings-
+> drivers/net/phy/marvell.c:37: WARNING: Use #include <linux/io.h> instead of <asm/io.h>
+> drivers/net/phy/marvell.c:39: WARNING: Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
 > 
-> Of an issue in which the bonding driver, with an attached vlan encountered the
-> following errors when bond0 was taken down and back up:
-> 
-> dummy1: promiscuity touches roof, set promiscuity failed. promiscuity feature of
-> device might be broken.
-> 
-> The error occurs because, during __bond_release_one, if we release our last
-> slave, we take on a random mac address and issue a NETDEV_CHANGEADDR
-> notification.  With an attached vlan, the vlan may see that the vlan and bond
-> mac address were in sync, but no longer are.  This triggers a call to dev_uc_add
-> and dev_set_rx_mode, which enables IFF_PROMISC on the bond device.  Then, when
-> we complete __bond_release_one, we use the current state of the bond flags to
-> determine if we should decrement the promiscuity of the releasing slave.  But
-> since the bond changed promiscuity state during the release operation, we
-> incorrectly decrement the slave promisc count when it wasn't in promiscuous mode
-> to begin with, causing the above error
-> 
-> Fix is pretty simple, just cache the bonding flags at the start of the function
-> and use those when determining the need to set promiscuity.
-> 
-> This is also needed for the ALLMULTI flag
-> 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Mark Wu <wudxw@linux.vnet.ibm.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> Reported-by: Mark Wu <wudxw@linux.vnet.ibm.com>
+> Signed-off-by: Avinash Kumar <avi.kp.137@gmail.com>
 
-Applied.
+Applied, thanks.
