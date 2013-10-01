@@ -1,71 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: fq: rate limiting improvements
-Date: Tue, 01 Oct 2013 13:01:14 -0400 (EDT)
-Message-ID: <20131001.130114.1356893510285955186.davem@davemloft.net>
-References: <1380643816.19002.29.camel@edumazet-glaptop.roam.corp.google.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Established sockets remain open after iface down or address lost
+Date: Tue, 01 Oct 2013 10:06:17 -0700
+Message-ID: <524B0109.80007@hp.com>
+References: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com> <1380203383.3165.172.camel@edumazet-glaptop> <20131001132707.GA7442@cverges-dev-lnx.sentient-energy.com> <524AEDD1.9010709@hp.com> <20131001160825.GA8784@cverges-dev-lnx.sentient-energy.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sesse@google.com
-To: eric.dumazet@gmail.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Chris Verges <cverges@sentient-energy.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55224 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262Ab3JARBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 13:01:16 -0400
-In-Reply-To: <1380643816.19002.29.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:44939 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121Ab3JARGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 13:06:22 -0400
+In-Reply-To: <20131001160825.GA8784@cverges-dev-lnx.sentient-energy.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 01 Oct 2013 09:10:16 -0700
+On 10/01/2013 09:08 AM, Chris Verges wrote:
+> On Tue, Oct 01, 2013 at 08:44:17AM -0700, Rick Jones wrote:
+>> The protocol between client and server needs to have an
+>> application-layer "keepalive" mechanism added, and then the server
+>> will be able to detect a dangling connection without need of any
+>> further kernel modifications.
+>>
+>> If that is not possible, the server can/should set SO_KEEPALIVE and
+>> perhaps tweak the TCP keepalive settings.  Not as good (IMO) as an
+>> application-layer keepalive because it only shows that the connection
+>> is good as far as TCP, but I suppose it could do in a pinch.
+>
+> I agree that some form of keepalives would solve the problem where
+> blocking reads need to be interrupted.  However, this creates traffic
+> across the link -- directly proportional to the keepalive interval.
+>
+> The underlying physical layer is such that we pay for all traffic going
+> across it -- including any keepalives at either the application or TCP
+> layers.  Paying for this keepalive traffic when the link is operational
+> is not desired.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> FQ rate limiting suffers from two problems, reported
-> by Steinar :
-> 
-> 1) FQ enforces a delay when flow quantum is exhausted in order
-> to reduce cpu overhead. But if packets are small, current
-> delay computation is slightly wrong, and observed rates can
-> be too high.
-> 
-> Steinar had this problem because he disabled TSO and GSO,
-> and default FQ quantum is 2*1514.
-> 
-> (Of course, I wish recent TSO auto sizing changes will help
-> to not having to disable TSO in the first place)
-> 
-> 2) maxrate was not used for forwarded flows (skbs not attached
-> to a socket)
-> 
-> Tested:
-> 
-> tc qdisc add dev eth0 root est 1sec 4sec fq maxrate 8Mbit
-> netperf -H lpq84 -l 1000 &
-> sleep 10 ; tc -s qdisc show dev eth0
-> qdisc fq 8003: root refcnt 32 limit 10000p flow_limit 100p buckets 1024
->  quantum 3028 initial_quantum 15140 maxrate 8000Kbit 
->  Sent 16819357 bytes 11258 pkt (dropped 0, overlimits 0 requeues 0) 
->  rate 7831Kbit 653pps backlog 7570b 5p requeues 0 
->   44 flows (43 inactive, 1 throttled), next packet delay 2977352 ns
->   0 gc, 0 highprio, 5545 throttled
-> 
-> lpq83:~# tcpdump -p -i eth0 host lpq84 -c 12
-> 09:02:52.079484 IP lpq83 > lpq84: . 1389536928:1389538376(1448) ack 3808678021 win 457 <nop,nop,timestamp 961812 572609068>
-> 09:02:52.079499 IP lpq83 > lpq84: . 1448:2896(1448) ack 1 win 457 <nop,nop,timestamp 961812 572609068>
-> 09:02:52.079906 IP lpq84 > lpq83: . ack 2896 win 16384 <nop,nop,timestamp 572609080 961812>
-> 09:02:52.082568 IP lpq83 > lpq84: . 2896:4344(1448) ack 1 win 457 <nop,nop,timestamp 961815 572609071>
-> 09:02:52.082581 IP lpq83 > lpq84: . 4344:5792(1448) ack 1 win 457 <nop,nop,timestamp 961815 572609071>
-> 09:02:52.083017 IP lpq84 > lpq83: . ack 5792 win 16384 <nop,nop,timestamp 572609083 961815>
-> 09:02:52.085678 IP lpq83 > lpq84: . 5792:7240(1448) ack 1 win 457 <nop,nop,timestamp 961818 572609074>
-> 09:02:52.085693 IP lpq83 > lpq84: . 7240:8688(1448) ack 1 win 457 <nop,nop,timestamp 961818 572609074>
-> 09:02:52.086117 IP lpq84 > lpq83: . ack 8688 win 16384 <nop,nop,timestamp 572609086 961818>
-> 09:02:52.088792 IP lpq83 > lpq84: . 8688:10136(1448) ack 1 win 457 <nop,nop,timestamp 961821 572609077>
-> 09:02:52.088806 IP lpq83 > lpq84: . 10136:11584(1448) ack 1 win 457 <nop,nop,timestamp 961821 572609077>
-> 09:02:52.089217 IP lpq84 > lpq83: . ack 11584 win 16384 <nop,nop,timestamp 572609090 961821>
-> 
-> Reported-by: Steinar H. Gunderson <sesse@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Pick your poison :)
 
-Applied, thanks a lot Eric.
+If the server application is in a "I know there should be (more) data 
+arriving on this connection" mode, then you can simply have an 
+application-layer timeout in the server code that does not rely on 
+active probing the connection.
+
+Otherwise, even if you do get some sort of "nuke connections using a 
+source IP matching an interface we just brought down" option into the 
+kernel, you will still have the small matter of something else between 
+the client and server going down that neither can see directly.
+
+rick jones
