@@ -1,53 +1,45 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net v2 2/4] ip_tunnel: Add fallback tunnels to the hash lists
-Date: Tue, 1 Oct 2013 11:34:48 +0200
-Message-ID: <20131001093448.GH7660@secunet.com>
+Subject: [PATCH net 3/4] ip_tunnel_core: Change __skb_push back to skb_push
+Date: Tue, 1 Oct 2013 11:35:51 +0200
+Message-ID: <20131001093551.GI7660@secunet.com>
 References: <20131001093359.GG7660@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Pravin Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:34024 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:34091 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753134Ab3JAJev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 05:34:51 -0400
+	id S1752686Ab3JAJfx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 05:35:53 -0400
 Content-Disposition: inline
 In-Reply-To: <20131001093359.GG7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we can not update the tunnel parameters of
-the fallback tunnels because we don't find them in the
-hash lists. Fix this by adding them on initialization.
-
-Bug was introduced with commit c544193214
-("GRE: Refactor GRE tunneling code.")
+Git commit 0e6fbc5b ("ip_tunnels: extend iptunnel_xmit()")
+moved the IP header installation to iptunnel_xmit() and
+changed skb_push() to __skb_push(). This makes possible
+bugs hard to track down, so change it back to skb_push().
 
 Cc: Pravin Shelar <pshelar@nicira.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
+ net/ipv4/ip_tunnel_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-v2: Add a reference to the commit that introduced bug to the commit message
-
- net/ipv4/ip_tunnel.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index dfc6d8a..895a353 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -853,8 +853,10 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
- 	/* FB netdevice is special: we have one, and only one per netns.
- 	 * Allowing to move it to another netns is clearly unsafe.
- 	 */
--	if (!IS_ERR(itn->fb_tunnel_dev))
-+	if (!IS_ERR(itn->fb_tunnel_dev)) {
- 		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+		ip_tunnel_add(itn, netdev_priv(itn->fb_tunnel_dev));
-+	}
- 	rtnl_unlock();
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index d6c856b..c31e3ad 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -61,7 +61,7 @@ int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
  
- 	return PTR_RET(itn->fb_tunnel_dev);
+ 	/* Push down and install the IP header. */
+-	__skb_push(skb, sizeof(struct iphdr));
++	skb_push(skb, sizeof(struct iphdr));
+ 	skb_reset_network_header(skb);
+ 
+ 	iph = ip_hdr(skb);
 -- 
 1.7.9.5
