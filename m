@@ -1,46 +1,49 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net RFC 2/2] ixgbe: fix sleep bug caused by napi_disable
- inside local_bh_disable()d context
-Date: Tue, 1 Oct 2013 20:08:12 +0000
-Message-ID: <1380658092.22910.10.camel@jekeller-desk1.amr.corp.intel.com>
-References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
-	 <20130918202016.8697.56423.stgit@jekeller-desk1.amr.corp.intel.com>
-	 <20130918230943.GB11989@electric-eye.fr.zoreil.com>
-	 <02874ECE860811409154E81DA85FBB58565F1520@ORSMSX104.amr.corp.intel.com>
-	 <20130919213254.GC31672@electric-eye.fr.zoreil.com>
-	 <02874ECE860811409154E81DA85FBB58565F5E52@ORSMSX104.amr.corp.intel.com>
-	 <979A8436335E3744ADCD3A9F2A2B68A52ADFF9EE@SJEXCHMB10.corp.ad.broadcom.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [net-next 2/3] udp: Add udp early demux
+Date: Tue, 01 Oct 2013 13:12:18 -0700
+Message-ID: <524B2CA2.4090807@hp.com>
+References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com> <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Hyong-Youb Kim <hykim@myri.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	"Amir Vadai" <amirv@mellanox.com>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, tomk@rgmadvisors.com,
+	netdev <netdev@vger.kernel.org>
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58580 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994Ab3JAUIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 16:08:13 -0400
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52ADFF9EE@SJEXCHMB10.corp.ad.broadcom.com>
-Content-Language: en-US
-Content-ID: <EEE82570D57A9D448C487CF9DE79D623@intel.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:45791 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881Ab3JAUMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 16:12:22 -0400
+In-Reply-To: <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDEzLTEwLTAxIGF0IDEyOjExICswMDAwLCBZdXZhbCBNaW50eiB3cm90ZToNCj4g
-PiA+ID4gSSBoYXZlIHRvIG1vdmUgdGhlIGxvY2FsX2JoX2Rpc2FibGUgaW4gb3JkZXIgdG8gcHV0
-IG5hcGlfZGlzYWJsZQ0KPiA+ID4gb3V0c2lkZQ0KPiA+ID4gPiBvZiB0aGUgY2FsbCBzaW5jZSBu
-YXBpX2Rpc2FibGUgY291bGQgc2xlZXAsIGNhdXNpbmcgYSBzY2hlZHVsaW5nIHdoaWxlDQo+ID4g
-PiA+IGF0b21pYyBCVUcuDQo+ID4gPg0KPiA+ID4gSSBhbSBpbiB2aW9sZW50IGFncmVlbWVudCB3
-aXRoIHRoaXMgcGFydC4NCj4gPiA+IC0tDQo+ID4gPiBVZWltb3INCj4gPiANCj4gPiBSZWdhcmRz
-LA0KPiA+IEpha2UNCj4gPiAtLQ0KPiANCj4gSXQgc2VlbSBsaWtlIHdlJ3ZlIGhpdCB0aGUgc2Ft
-ZSBpc3N1ZSB3aXRoIHRoZSBibngyeCBkcml2ZXIuDQo+IElzIHRoZXJlIGFueXRoaW5nIG5ldyBh
-Ym91dCB0aGUgUkZDPw0KPiANCj4gVGhhbmtzLA0KPiBZdXZhbA0KPiANCj4gDQo+IA0KPiANCj4g
-DQoNCkZZSSwgdGhlIG5ldyBwYXRjaCBpcyBjdXJyZW50bHkgZ29pbmcgdGhyb3VnaCBpbnRlcm5h
-bCB2YWxpZGF0aW9uIGhlcmUsDQphbmQgb25jZSBKZWZmIEtpcnNoZXIgbWFpbHMgaXQsIEkgd2ls
-bCBlbnN1cmUgdGhhdCB5b3UgYXJlIENjJ2VkIG9uIGl0Lg0KDQpSZWdhcmRzLA0KSmFrZQ0K
+On 10/01/2013 12:33 PM, Shawn Bohrer wrote:
+> The removal of the routing cache introduced a performance regression for
+> some UDP workloads since a dst lookup must be done for each packet.
+> This change caches the dst per socket in a similar manner to what we do
+> for TCP by implementing early_demux.
+>
+> For UDP multicast we can only cache the dst if there is only one
+> receiving socket on the host.  Since caching only works when there is
+> one receiving socket we do the multicast socket lookup using RCU.
+>
+> Benchmark results from a netperf UDP_RR test:
+> Before 90596.44 transactions/s
+> After  91296.97 transactions/s
+
+Were those measured with confidence intervals enabled?  It would be a 
+Good Idea (tm) to either use that - I would suggest -I 99,1 -i 30,3 
+added to the global portion of the netperf command line - or take 
+several runs.  (If you've not already done so since those look more like 
+"raw" netperf numbers rather than theaverage of several runs)
+
+happy benchmarking,
+
+rick jones
+
+> Benchmark results from a fio 1 byte UDP multicast pingpong test
+> (Multicast one way unicast response):
+> Before 12.647us RTT
+> After  12.497us RTT
