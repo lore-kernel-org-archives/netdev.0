@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ll_temac: Reset dma descriptors on ndo_open
-Date: Tue, 01 Oct 2013 02:01:34 -0400 (EDT)
-Message-ID: <20131001.020134.756782177490714135.davem@davemloft.net>
-References: <1380281068-13269-1-git-send-email-ricardo.ribalda@gmail.com>
-	<20130930.212153.531876068589922786.davem@davemloft.net>
-	<CAPybu_0OrwTo7CkuauRpu_ohQRY80U6BJDXQ6=KC0caOFiFCQA@mail.gmail.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH] dm9601: fix IFF_ALLMULTI handling
+Date: Tue, 01 Oct 2013 08:07:58 +0200
+Message-ID: <87eh851q2p.fsf@dell.be.48ers.dk>
+References: <1380576500-8531-1-git-send-email-peter@korsgaard.com>
+	<20130930.194950.1406135155659503628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, jg1.han@samsung.com, gregkh@linuxfoundation.org,
-	wfp5p@virginia.edu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ricardo.ribalda@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: peter@korsgaard.com, netdev@vger.kernel.org,
+	joseph_chang@davicom.com.tw
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43212 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab3JAGBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 02:01:38 -0400
-In-Reply-To: <CAPybu_0OrwTo7CkuauRpu_ohQRY80U6BJDXQ6=KC0caOFiFCQA@mail.gmail.com>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:34830 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966Ab3JAGID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 02:08:03 -0400
+Received: by mail-ea0-f170.google.com with SMTP id h14so3148690eak.29
+        for <netdev@vger.kernel.org>; Mon, 30 Sep 2013 23:08:01 -0700 (PDT)
+In-Reply-To: <20130930.194950.1406135155659503628.davem@davemloft.net> (David
+	Miller's message of "Mon, 30 Sep 2013 19:49:50 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Date: Tue, 1 Oct 2013 07:46:31 +0200
+>>>>> "David" == David Miller <davem@davemloft.net> writes:
 
-> What if I move
->        lp->tx_bd_ci = 0;
->        lp->tx_bd_next = 0;
->        lp->tx_bd_tail = 0;
->        lp->rx_bd_ci = 0;
-> 
-> to temac_dma_bd_init? Will this be more correct?
+Hi,
 
-Yes, that would be a lot better.
+ David> Applied, thanks.
+
+Thanks!
+
+ David> It would be so much better if these register values were all
+ David> properly documented, one by one, with macros.
+
+Yes, I know. I'll take a look at getting rid of all the magic values.
+
+-- 
+Bye, Peter Korsgaard
