@@ -1,34 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] l2tp: add support for IPv4-mapped IPv6 addresses
-Date: Tue, 01 Oct 2013 12:38:02 -0400 (EDT)
-Message-ID: <20131001.123802.1954246085474040631.davem@davemloft.net>
-References: <524A7FB7.40304@init-sys.com>
+Subject: Re: [PATCH 0/6] Netfilter/IPVS fixes for net
+Date: Tue, 01 Oct 2013 12:39:58 -0400 (EDT)
+Message-ID: <20131001.123958.666337591702028107.davem@davemloft.net>
+References: <1380618511-6109-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jchapman@katalix.com, netdev@vger.kernel.org
-To: f.cachereul@init-sys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54807 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239Ab3JAQiO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:38:14 -0400
-In-Reply-To: <524A7FB7.40304@init-sys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1380618511-6109-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Fran=E7ois Cachereul <f.cachereul@init-sys.com>
-Date: Tue, 01 Oct 2013 09:54:31 +0200
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue,  1 Oct 2013 11:08:25 +0200
 
-> @@ -1620,6 +1621,8 @@ int l2tp_tunnel_create(struct net *net, int fd,=
- int version, u32 tunnel_id, u32
->  	int err;
->  	struct socket *sock =3D NULL;
->  	struct sock *sk =3D NULL;
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +#endif
->  	struct l2tp_net *pn;
->  	enum l2tp_encap_type encap =3D L2TP_ENCAPTYPE_UDP;
-> =20
+> The following patchset contains Netfilter/IPVS fixes for your net
+> tree, they are:
+> 
+> * Fix BUG_ON splat due to malformed TCP packets seen by synproxy, from
+>   Patrick McHardy.
+> 
+> * Fix possible weight overflow in lblc and lblcr schedulers due to
+>   32-bits arithmetics, from Simon Kirby.
+> 
+> * Fix possible memory access race in the lblc and lblcr schedulers,
+>   introduced when it was converted to use RCU, two patches from
+>   Julian Anastasov.
+> 
+> * Fix hard dependency on CPU 0 when reading per-cpu stats in the
+>   rate estimator, from Julian Anastasov.
+> 
+> * Fix race that may lead to object use after release, when invoking
+>   ipvsadm -C && ipvsadm -R, introduced when adding RCU, from Julian
+>   Anastasov.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-Please get rid of this.
+Pulled, thanks Pablo.
