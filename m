@@ -1,8 +1,8 @@
 From: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Subject: Re: [PATCH net RFC 2/2] ixgbe: fix sleep bug caused by napi_disable
  inside local_bh_disable()d context
-Date: Tue, 1 Oct 2013 20:05:15 +0000
-Message-ID: <1380657915.22910.7.camel@jekeller-desk1.amr.corp.intel.com>
+Date: Tue, 1 Oct 2013 20:08:12 +0000
+Message-ID: <1380658092.22910.10.camel@jekeller-desk1.amr.corp.intel.com>
 References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com>
 	 <20130918202016.8697.56423.stgit@jekeller-desk1.amr.corp.intel.com>
 	 <20130918230943.GB11989@electric-eye.fr.zoreil.com>
@@ -22,13 +22,13 @@ Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	Eliezer Tamir <eliezer.tamir@linux.intel.com>
 To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:24307 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58580 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750881Ab3JAUFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 16:05:17 -0400
+	id S1750994Ab3JAUIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 16:08:13 -0400
 In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52ADFF9EE@SJEXCHMB10.corp.ad.broadcom.com>
 Content-Language: en-US
-Content-ID: <A2A812E777790B429ACC7E50FF32BB99@intel.com>
+Content-ID: <EEE82570D57A9D448C487CF9DE79D623@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -41,13 +41,6 @@ aXRoIHRoaXMgcGFydC4NCj4gPiA+IC0tDQo+ID4gPiBVZWltb3INCj4gPiANCj4gPiBSZWdhcmRz
 LA0KPiA+IEpha2UNCj4gPiAtLQ0KPiANCj4gSXQgc2VlbSBsaWtlIHdlJ3ZlIGhpdCB0aGUgc2Ft
 ZSBpc3N1ZSB3aXRoIHRoZSBibngyeCBkcml2ZXIuDQo+IElzIHRoZXJlIGFueXRoaW5nIG5ldyBh
 Ym91dCB0aGUgUkZDPw0KPiANCj4gVGhhbmtzLA0KPiBZdXZhbA0KPiANCj4gDQo+IA0KPiANCj4g
-DQoNClRoZSBuYXBpX2Rpc2FibGUgY2FsbCBmb3IgbWlnaHRfc2xlZXAoKSBpcyB0aGUgc2FtZS4g
-VGhlIHNvbHV0aW9uIGluIHRoZQ0KaXhnYmUgZHJpdmVyIGlzIGRpZmZlcmVudC4gSSBjb21wbGV0
-ZWx5IHJlLXdyb3RlIHRoZSBzZWdtZW50IGFib3V0IGhvdw0KdG8gZGlzYWJsZSB0aGUgcV92ZWN0
-b3IgYnkgYWRkaW5nIGEgbmV3IHN0YXRlLCByYXRoZXIgdGhhbiBhYnVzaW5nIHRoZQ0KUVZfTE9D
-S0VEX05BUEkgc3RhdGUuIEluIGFkZGl0aW9uIEkgcmVmYWN0b3JlZCBpdCBzbyB0aGF0IHRoZQ0K
-cXZfbG9ja19uYXBpIHVzZWQgc3Bpbl9sb2NrX2JoKCkgaW5zdGVhZCBvZiBwbGFpbiBzcGluX2xv
-Y2soKSwgYW5kDQpjaGFuZ2VkIGl0IHNvIHRoYXQgd2UgZGlkbid0IG5lZWQgdGhlIGxvY2FsX2Jo
-X2Rpc2FibGUoKSBjYWxsIGluDQppeGdiZV9uYXBpX2Rpc2FibGVfYWxsLg0KDQpUaGlzIGlzIGEg
-bXVjaCBjbGVhbmVyIHNvbHV0aW9uIHRoYW4gd2hhdCBJIG9yaWdpbmFsbHkgcHJvcG9zZWQuDQoN
-ClJlZ2FyZHMsDQpKYWtlDQo=
+DQoNCkZZSSwgdGhlIG5ldyBwYXRjaCBpcyBjdXJyZW50bHkgZ29pbmcgdGhyb3VnaCBpbnRlcm5h
+bCB2YWxpZGF0aW9uIGhlcmUsDQphbmQgb25jZSBKZWZmIEtpcnNoZXIgbWFpbHMgaXQsIEkgd2ls
+bCBlbnN1cmUgdGhhdCB5b3UgYXJlIENjJ2VkIG9uIGl0Lg0KDQpSZWdhcmRzLA0KSmFrZQ0K
