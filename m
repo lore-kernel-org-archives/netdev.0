@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net, mellanox mlx4 Fix compile warnings [v4]
-Date: Tue, 01 Oct 2013 12:57:26 -0400 (EDT)
-Message-ID: <20131001.125726.896178574721745926.davem@davemloft.net>
-References: <1380633877-24034-2-git-send-email-prarit@redhat.com>
-	<20131001181742.72e603d1@jpm-OptiPlex-GX620>
-	<524AE968.608@redhat.com>
+Subject: Re: [PATCH net 1/2] sit: allow to use rtnl ops on fb tunnel
+Date: Tue, 01 Oct 2013 12:59:23 -0400 (EDT)
+Message-ID: <20131001.125923.700243113980583930.davem@davemloft.net>
+References: <524AB26B.1070700@6wind.com>
+	<1380643500-5018-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jackm@dev.mellanox.co.il, netdev@vger.kernel.org,
-	dledford@redhat.com, amirv@mellanox.com, ogerlitz@mellanox.com
-To: prarit@redhat.com
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	pshelar@nicira.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55158 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55176 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab3JAQ52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:57:28 -0400
-In-Reply-To: <524AE968.608@redhat.com>
+	with ESMTP id S1751916Ab3JAQ7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:59:24 -0400
+In-Reply-To: <1380643500-5018-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Tue, 01 Oct 2013 11:25:28 -0400
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue,  1 Oct 2013 18:04:59 +0200
 
+> rtnl ops where introduced by ba3e3f50a0e5 ("sit: advertise tunnel param via
+> rtnl"), but I forget to assign rtnl ops to fb tunnels.
 > 
+> Now that it is done, we must remove the explicit call to
+> unregister_netdevice_queue(), because  the fallback tunnel is added to the queue
+> in sit_destroy_tunnels() when checking rtnl_link_ops of all netdevices (this
+> is valid since commit 5e6700b3bf98 ("sit: add support of x-netns")).
 > 
-> On 10/01/2013 11:17 AM, Jack Morgenstein wrote:
->> Since we are in the middle of submitting patches which touch the file
->> "resource_tracker.c", I would really like to hold off on these warning
->> fixes for a bit, and I'll handle the changes for all the functions at
->> once to conform (correctly!) to the format suggested by Dave Miller.
->> 
->>  -Jack
-> 
-> Hey Jack, np.  Thanks for looking.
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Please repost both patches when you've sorted this out, thanks!
+Applied and queued up for -stable.
+
+But I imagine since the x-netns changes aren't in various -stable
+branches this will need to be adjusted a bit?
