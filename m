@@ -1,49 +1,72 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [net-next PATCH V2] virtio-net: switch to use XPS to choose txq
-Date: Tue, 01 Oct 2013 11:24:08 +0930
-Message-ID: <87eh8521tr.fsf@rustcorp.com.au>
-References: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
-	<20130930090402.GB20291@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: TSQ can use a dynamic limit
+Date: Mon, 30 Sep 2013 20:52:02 -0700 (PDT)
+Message-ID: <20130930.205202.508440258411894005.davem@davemloft.net>
+References: <CAM_iQpUCGA+ifOUoyh4EuPz5sn8wUgtoD=_5dpRMuYV5aqEdxQ@mail.gmail.com>
+	<1379861902.3431.12.camel@edumazet-glaptop>
+	<1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130930090402.GB20291@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, wei.liu2@citrix.com,
+	netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41654 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755522Ab3JADpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Sep 2013 23:45:04 -0400
+In-Reply-To: <1380277734.30872.25.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Mon, Sep 30, 2013 at 03:37:17PM +0800, Jason Wang wrote:
->> We used to use a percpu structure vq_index to record the cpu to queue
->> mapping, this is suboptimal since it duplicates the work of XPS and
->> loses all other XPS functionality such as allowing use to configure
->> their own transmission steering strategy.
->> 
->> So this patch switches to use XPS and suggest a default mapping when
->> the number of cpus is equal to the number of queues. With XPS support,
->> there's no need for keeping per-cpu vq_index and .ndo_select_queue(),
->> so they were removed also.
->> 
->> Cc: Rusty Russell <rusty@rustcorp.com.au>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Sep 2013 03:28:54 -0700
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When TCP Small Queues was added, we used a sysctl to limit amount of
+> packets queues on Qdisc/device queues for a given TCP flow.
+> 
+> Problem is this limit is either too big for low rates, or too small
+> for high rates.
+> 
+> Now TCP stack has rate estimation in sk->sk_pacing_rate, and TSO 
+> auto sizing, it can better control number of packets in Qdisc/device
+> queues.
+> 
+> New limit is two packets or at least 1 to 2 ms worth of packets.
+> 
+> Low rates flows benefit from this patch by having even smaller
+> number of packets in queues, allowing for faster recovery,
+> better RTT estimations.
+> 
+> High rates flows benefit from this patch by allowing more than 2 packets
+> in flight as we had reports this was a limiting factor to reach line
+> rate. [ In particular if TX completion is delayed because of coalescing
+> parameters ]
+> 
+> Example for a single flow on 10Gbp link controlled by FQ/pacing
+> 
+> 14 packets in flight instead of 2
+> 
+> $ tc -s -d qd
+> qdisc fq 8001: dev eth0 root refcnt 32 limit 10000p flow_limit 100p
+> buckets 1024 quantum 3028 initial_quantum 15140 
+>  Sent 1168459366606 bytes 771822841 pkt (dropped 0, overlimits 0
+> requeues 6822476) 
+>  rate 9346Mbit 771713pps backlog 953820b 14p requeues 6822476 
+>   2047 flow, 2046 inactive, 1 throttled, delay 15673 ns
+>   2372 gc, 0 highprio, 0 retrans, 9739249 throttled, 0 flows_plimit
+> 
+> Note that sk_pacing_rate is currently set to twice the actual rate, but
+> this might be refined in the future when a flow is in congestion
+> avoidance.
+> 
+> Additional change : skb->destructor should be set to tcp_wfree().
+> 
+> A future patch (for linux 3.13+) might remove tcp_limit_output_bytes
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Dave, please apply.
-
-Cheers,
-Rusty.
+Applied, thanks Eric.
