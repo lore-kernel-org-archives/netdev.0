@@ -1,41 +1,80 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 4/4] ip_tunnel: Remove double unregister of the fallback
- device
-Date: Tue, 01 Oct 2013 13:30:51 +0200
-Message-ID: <524AB26B.1070700@6wind.com>
-References: <20131001093359.GG7660@secunet.com> <20131001093737.GJ7660@secunet.com> <524A9D4C.9030900@6wind.com> <20131001104046.GK7660@secunet.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  2/9] ixgbevf: cleanup redundant mailbox read failure check
+Date: Tue,  1 Oct 2013 04:33:49 -0700
+Message-ID: <1380627236-3190-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:58038 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173Ab3JALa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 07:30:58 -0400
-Received: by mail-wg0-f54.google.com with SMTP id m15so6969802wgh.21
-        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 04:30:57 -0700 (PDT)
-In-Reply-To: <20131001104046.GK7660@secunet.com>
+Received: from mga14.intel.com ([143.182.124.37]:49978 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751095Ab3JALeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 07:34:00 -0400
+In-Reply-To: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/10/2013 12:40, Steffen Klassert a =E9crit :
-> On Tue, Oct 01, 2013 at 12:00:44PM +0200, Nicolas Dichtel wrote:
->>
->> Note that there is the same problem in
->> net/ipv6/ip6_tunnel.c:ip6_tnl_destroy_tunnels() introduced by
->> 0bd8762824e7
->> ("ip6tnl: add x-netns support").
->>
->> Should I send a patch for it or would you take care of it?
->
-> I don't mind either way. But you noticed the problem, so
-> feel free to send a patch yourself.
->
-Ok, I will dot it.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Thank you
+Since we are already checking for read failure in check_link we don't need
+to do it here. Instead just make sure the watchdog task gets scheduled, if
+we are up, and it can be done there. This will better follow igbvf method
+of handling a mailbox event and message timeout.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 29 ++---------------------
+ 1 file changed, 2 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 59a62bb..b9a78a2 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -756,37 +756,12 @@ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector)
+ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
+ {
+ 	struct ixgbevf_adapter *adapter = data;
+-	struct pci_dev *pdev = adapter->pdev;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 msg;
+-	bool got_ack = false;
+ 
+ 	hw->mac.get_link_status = 1;
+-	if (!hw->mbx.ops.check_for_ack(hw))
+-		got_ack = true;
+-
+-	if (!hw->mbx.ops.check_for_msg(hw)) {
+-		hw->mbx.ops.read(hw, &msg, 1);
+ 
+-		if ((msg & IXGBE_MBVFICR_VFREQ_MASK) == IXGBE_PF_CONTROL_MSG) {
+-			mod_timer(&adapter->watchdog_timer,
+-				  round_jiffies(jiffies + 1));
+-			adapter->link_up = false;
+-		}
+-
+-		if (msg & IXGBE_VT_MSGTYPE_NACK)
+-			dev_info(&pdev->dev,
+-				 "Last Request of type %2.2x to PF Nacked\n",
+-				 msg & 0xFF);
+-		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFSTS;
+-	}
+-
+-	/* checking for the ack clears the PFACK bit.  Place
+-	 * it back in the v2p_mailbox cache so that anyone
+-	 * polling for an ack will not miss it
+-	 */
+-	if (got_ack)
+-		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFACK;
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++		mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
+ 
+-- 
+1.8.3.1
