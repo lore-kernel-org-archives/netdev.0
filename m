@@ -1,203 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  7/9] ixgbe: remove marketing names from busy poll code
-Date: Tue,  1 Oct 2013 04:33:54 -0700
-Message-ID: <1380627236-3190-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  8/9] igb: Add ethtool offline tests for i354
+Date: Tue,  1 Oct 2013 04:33:55 -0700
+Message-ID: <1380627236-3190-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:46701 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:47745 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751861Ab3JALeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 07:34:03 -0400
+	id S1752371Ab3JALeE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 07:34:04 -0400
 In-Reply-To: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
 
-This patch renames the LL_EXTENDED_STATS and some of the functions required to
-implement busy polling in the ixgbe driver, in order to remove the marketing
-"low latency" blurb which hides what the code actually does.
+Add the ethtool offline tests for i354 devices.
 
-This furthers work which was requested by Linus Torvalds when the initial busy
-poll code was included in the kernel. The code in the ixgbe driver itself was
-never properly renamed to reflect the change to busy polling as the title.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 14 ++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 28 ++++++++++++------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 ++--
- 3 files changed, 23 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 3637841..dc1588e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -55,7 +55,7 @@
- #include <net/busy_poll.h>
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 48cbc83..e4c77c0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1656,7 +1656,8 @@ static int igb_setup_loopback_test(struct igb_adapter *adapter)
+ 		if ((hw->device_id == E1000_DEV_ID_DH89XXCC_SGMII) ||
+ 		(hw->device_id == E1000_DEV_ID_DH89XXCC_SERDES) ||
+ 		(hw->device_id == E1000_DEV_ID_DH89XXCC_BACKPLANE) ||
+-		(hw->device_id == E1000_DEV_ID_DH89XXCC_SFP)) {
++		(hw->device_id == E1000_DEV_ID_DH89XXCC_SFP) ||
++		(hw->device_id == E1000_DEV_ID_I354_SGMII)) {
  
- #ifdef CONFIG_NET_RX_BUSY_POLL
--#define LL_EXTENDED_STATS
-+#define BP_EXTENDED_STATS
- #endif
- /* common prefix used by pr_<> macros */
- #undef pr_fmt
-@@ -187,11 +187,11 @@ struct ixgbe_rx_buffer {
- struct ixgbe_queue_stats {
- 	u64 packets;
- 	u64 bytes;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 	u64 yields;
- 	u64 misses;
- 	u64 cleaned;
--#endif  /* LL_EXTENDED_STATS */
-+#endif  /* BP_EXTENDED_STATS */
- };
+ 			/* Enable DH89xxCC MPHY for near end loopback */
+ 			reg = rd32(E1000_MPHY_ADDR_CTL);
+@@ -1722,7 +1723,8 @@ static void igb_loopback_cleanup(struct igb_adapter *adapter)
+ 	if ((hw->device_id == E1000_DEV_ID_DH89XXCC_SGMII) ||
+ 	(hw->device_id == E1000_DEV_ID_DH89XXCC_SERDES) ||
+ 	(hw->device_id == E1000_DEV_ID_DH89XXCC_BACKPLANE) ||
+-	(hw->device_id == E1000_DEV_ID_DH89XXCC_SFP)) {
++	(hw->device_id == E1000_DEV_ID_DH89XXCC_SFP) ||
++	(hw->device_id == E1000_DEV_ID_I354_SGMII)) {
+ 		u32 reg;
  
- struct ixgbe_tx_queue_stats {
-@@ -399,7 +399,7 @@ static inline bool ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
- 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
- 		rc = false;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 		q_vector->tx.ring->stats.yields++;
- #endif
- 	} else
-@@ -432,7 +432,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
- 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
- 		rc = false;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 		q_vector->rx.ring->stats.yields++;
- #endif
- 	} else
-@@ -457,7 +457,7 @@ static inline bool ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
- }
- 
- /* true if a socket is polling, even if it did not get the lock */
--static inline bool ixgbe_qv_ll_polling(struct ixgbe_q_vector *q_vector)
-+static inline bool ixgbe_qv_busy_polling(struct ixgbe_q_vector *q_vector)
- {
- 	WARN_ON(!(q_vector->state & IXGBE_QV_LOCKED));
- 	return q_vector->state & IXGBE_QV_USER_PEND;
-@@ -487,7 +487,7 @@ static inline bool ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
- 	return false;
- }
- 
--static inline bool ixgbe_qv_ll_polling(struct ixgbe_q_vector *q_vector)
-+static inline bool ixgbe_qv_busy_polling(struct ixgbe_q_vector *q_vector)
- {
- 	return false;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 27c2032..90aac31 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1117,7 +1117,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			data[i+2] = 0;
-@@ -1132,7 +1132,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 		data[i] = ring->stats.yields;
- 		data[i+1] = ring->stats.misses;
- 		data[i+2] = ring->stats.cleaned;
-@@ -1145,7 +1145,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			data[i+2] = 0;
-@@ -1160,7 +1160,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 		data[i] = ring->stats.yields;
- 		data[i+1] = ring->stats.misses;
- 		data[i+2] = ring->stats.cleaned;
-@@ -1202,28 +1202,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
--#ifdef LL_EXTENDED_STATS
--			sprintf(p, "tx_queue_%u_ll_napi_yield", i);
-+#ifdef BP_EXTENDED_STATS
-+			sprintf(p, "tx_queue_%u_bp_napi_yield", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "tx_queue_%u_ll_misses", i);
-+			sprintf(p, "tx_queue_%u_bp_misses", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "tx_queue_%u_ll_cleaned", i);
-+			sprintf(p, "tx_queue_%u_bp_cleaned", i);
- 			p += ETH_GSTRING_LEN;
--#endif /* LL_EXTENDED_STATS */
-+#endif /* BP_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
- 			sprintf(p, "rx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
--#ifdef LL_EXTENDED_STATS
--			sprintf(p, "rx_queue_%u_ll_poll_yield", i);
-+#ifdef BP_EXTENDED_STATS
-+			sprintf(p, "rx_queue_%u_bp_poll_yield", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "rx_queue_%u_ll_misses", i);
-+			sprintf(p, "rx_queue_%u_bp_misses", i);
- 			p += ETH_GSTRING_LEN;
--			sprintf(p, "rx_queue_%u_ll_cleaned", i);
-+			sprintf(p, "rx_queue_%u_bp_cleaned", i);
- 			p += ETH_GSTRING_LEN;
--#endif /* LL_EXTENDED_STATS */
-+#endif /* BP_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
- 			sprintf(p, "tx_pb_%u_pxon", i);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0ade0cd..43b777a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1585,7 +1585,7 @@ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
- {
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
- 
--	if (ixgbe_qv_ll_polling(q_vector))
-+	if (ixgbe_qv_busy_polling(q_vector))
- 		netif_receive_skb(skb);
- 	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
- 		napi_gro_receive(&q_vector->napi, skb);
-@@ -2097,7 +2097,7 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
- 
- 	ixgbe_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
--#ifdef LL_EXTENDED_STATS
-+#ifdef BP_EXTENDED_STATS
- 		if (found)
- 			ring->stats.cleaned += found;
- 		else
+ 		/* Disable near end loopback on DH89xxCC */
 -- 
 1.8.3.1
