@@ -1,289 +1,70 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: [net-next 2/3] udp: Add udp early demux
-Date: Tue,  1 Oct 2013 14:33:44 -0500
-Message-ID: <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
-References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Tue, 01 Oct 2013 21:44:10 +0200
+Message-ID: <3185382.JVjo9Kr7dt@h2o.as.studentenwerk.mhn.de>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de> <524B1B1D.3050304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, tomk@rgmadvisors.com,
-	netdev <netdev@vger.kernel.org>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:39551 "EHLO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751663Ab3JATe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 15:34:26 -0400
-Received: by mail-oa0-f44.google.com with SMTP id l10so5238660oag.17
-        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 12:34:25 -0700 (PDT)
-In-Reply-To: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:46379 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750881Ab3JAToM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 15:44:12 -0400
+In-Reply-To: <524B1B1D.3050304@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The removal of the routing cache introduced a performance regression for
-some UDP workloads since a dst lookup must be done for each packet.
-This change caches the dst per socket in a similar manner to what we do
-for TCP by implementing early_demux.
+Am Dienstag, 1. Oktober 2013, 14:57:33 schrieb Brian Haley:
+> On 10/01/2013 12:39 PM, Wolfgang Walter wrote:
+> > Hello,
+> >=20
+> > I tried to upgrade one of our routers to 3.10.13 from 3.4.63 and I =
+see a
+> > dramatic performance loss. I tried 3.11.2 and it is still there.
+> >=20
+> > *** Symptoms:
+> >=20
+> > All network traffic over the router become slow and sluggish. If on=
+e pings
+> > the router there is a packet loss. After about 2 minutes the traffi=
+c
+> > completely stalls for about 1 minute. Then it works again as in the
+> > beginning to then stall again. And so on.
+> >=20
+> > This happens even with rather moderate traffic. While still routing=
+ the
+> > CPU
+> > utilization is higher than it is with 3.4.63 but only moderately.
+> >=20
+> > When it stalls no network traffic seems possible (but to loopback).=
+ If one
+> > tries to ping from the router any target (even if it is on a interf=
+ace
+> > with no>=20
+> > traffic at all) one gets:
+> > 	ping: sendmsg: No buffer space available
+>=20
+> dmesg show anything?  I've seen this happen when the neighbour table =
+is
+> full, but that's not a typical occurence.
+>=20
 
-For UDP multicast we can only cache the dst if there is only one
-receiving socket on the host.  Since caching only works when there is
-one receiving socket we do the multicast socket lookup using RCU.
+Nothing is logged.
 
-Benchmark results from a netperf UDP_RR test:
-Before 90596.44 transactions/s
-After  91296.97 transactions/s
+No, the neighbour table is not full. At least is does not contain more =
+entries=20
+then usually and not more then under 3.4 (maybe 100 or so).
 
-Benchmark results from a fio 1 byte UDP multicast pingpong test
-(Multicast one way unicast response):
-Before 12.647us RTT
-After  12.497us RTT
+I also checked the number of entries in the conntrack table and things =
+like=20
+that: all normal.
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
----
- include/net/sock.h |    2 +-
- include/net/udp.h  |    1 +
- net/ipv4/af_inet.c |    1 +
- net/ipv4/udp.c     |  153 +++++++++++++++++++++++++++++++++++++++++++++------
- 4 files changed, 138 insertions(+), 19 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index cf91c8e..46661dd 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -218,7 +218,7 @@ struct cg_proto;
-   *	@sk_lock:	synchronizer
-   *	@sk_rcvbuf: size of receive buffer in bytes
-   *	@sk_wq: sock wait queue and async head
--  *	@sk_rx_dst: receive input route used by early tcp demux
-+  *	@sk_rx_dst: receive input route used by early demux
-   *	@sk_dst_cache: destination cache
-   *	@sk_dst_lock: destination cache lock
-   *	@sk_policy: flow policy
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 510b8cb..fe4ba9f 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -175,6 +175,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		     unsigned int hash2_nulladdr);
- 
- /* net/ipv4/udp.c */
-+void udp_v4_early_demux(struct sk_buff *skb);
- int udp_get_port(struct sock *sk, unsigned short snum,
- 		 int (*saddr_cmp)(const struct sock *,
- 				  const struct sock *));
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7a1874b..3539ddf 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1548,6 +1548,7 @@ static const struct net_protocol tcp_protocol = {
- };
- 
- static const struct net_protocol udp_protocol = {
-+	.early_demux =	udp_v4_early_demux,
- 	.handler =	udp_rcv,
- 	.err_handler =	udp_err,
- 	.no_policy =	1,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 1982a03..ca54886 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -565,6 +565,26 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- }
- EXPORT_SYMBOL_GPL(udp4_lib_lookup);
- 
-+static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
-+				       __be16 loc_port, __be32 loc_addr,
-+				       __be16 rmt_port, __be32 rmt_addr,
-+				       int dif, unsigned short hnum)
-+{
-+	struct inet_sock *inet = inet_sk(sk);
-+
-+	if (!net_eq(sock_net(sk), net) ||
-+	    udp_sk(sk)->udp_port_hash != hnum ||
-+	    (inet->inet_daddr && inet->inet_daddr != rmt_addr) ||
-+	    (inet->inet_dport != rmt_port && inet->inet_dport) ||
-+	    (inet->inet_rcv_saddr && inet->inet_rcv_saddr != loc_addr) ||
-+	    ipv6_only_sock(sk) ||
-+	    (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
-+		return false;
-+	if (!ip_mc_sf_allow(sk, loc_addr, rmt_addr, dif))
-+		return false;
-+	return true;
-+}
-+
- static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
- 					     __be16 loc_port, __be32 loc_addr,
- 					     __be16 rmt_port, __be32 rmt_addr,
-@@ -575,20 +595,11 @@ static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
- 	unsigned short hnum = ntohs(loc_port);
- 
- 	sk_nulls_for_each_from(s, node) {
--		struct inet_sock *inet = inet_sk(s);
--
--		if (!net_eq(sock_net(s), net) ||
--		    udp_sk(s)->udp_port_hash != hnum ||
--		    (inet->inet_daddr && inet->inet_daddr != rmt_addr) ||
--		    (inet->inet_dport != rmt_port && inet->inet_dport) ||
--		    (inet->inet_rcv_saddr &&
--		     inet->inet_rcv_saddr != loc_addr) ||
--		    ipv6_only_sock(s) ||
--		    (s->sk_bound_dev_if && s->sk_bound_dev_if != dif))
--			continue;
--		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
--			continue;
--		goto found;
-+		if (__udp_is_mcast_sock(net, s,
-+					loc_port, loc_addr,
-+					rmt_port, rmt_addr,
-+					dif, hnum))
-+			goto found;
- 	}
- 	s = NULL;
- found:
-@@ -1581,6 +1592,14 @@ static void flush_stack(struct sock **stack, unsigned int count,
- 		kfree_skb(skb1);
- }
- 
-+static void udp_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	dst_hold(dst);
-+	sk->sk_rx_dst = dst;
-+}
-+
- /*
-  *	Multicasts and broadcasts go to each listener.
-  *
-@@ -1709,11 +1728,28 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (udp4_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
--	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
--		return __udp4_lib_mcast_deliver(net, skb, uh,
--				saddr, daddr, udptable);
-+	if (skb->sk) {
-+		int ret;
-+		sk = skb->sk;
-+
-+		if (unlikely(sk->sk_rx_dst == NULL))
-+			udp_sk_rx_dst_set(sk, skb);
-+
-+		ret = udp_queue_rcv_skb(sk, skb);
-+
-+		/* a return value > 0 means to resubmit the input, but
-+		 * it wants the return to be -protocol, or 0
-+		 */
-+		if (ret > 0)
-+			return -ret;
-+		return 0;
-+	} else {
-+		if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
-+			return __udp4_lib_mcast_deliver(net, skb, uh,
-+					saddr, daddr, udptable);
- 
--	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
-+		sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
-+	}
- 
- 	if (sk != NULL) {
- 		int ret;
-@@ -1771,6 +1807,87 @@ drop:
- 	return 0;
- }
- 
-+/* We can only early demux multicast if there is a single matching socket.
-+ * If more than one socket found returns NULL
-+ */
-+static struct sock *__udp4_lib_mcast_demux_lookup(struct net *net,
-+						  __be16 loc_port, __be32 loc_addr,
-+						  __be16 rmt_port, __be32 rmt_addr,
-+						  int dif)
-+{
-+	struct sock *sk, *result;
-+	struct hlist_nulls_node *node;
-+	unsigned short hnum = ntohs(loc_port);
-+	unsigned int count, slot = udp_hashfn(net, hnum, udp_table.mask);
-+	struct udp_hslot *hslot = &udp_table.hash[slot];
-+
-+	rcu_read_lock();
-+begin:
-+	count = 0;
-+	result = NULL;
-+	sk_nulls_for_each_rcu(sk, node, &hslot->head) {
-+		if (__udp_is_mcast_sock(net, sk,
-+					loc_port, loc_addr,
-+					rmt_port, rmt_addr,
-+					dif, hnum)) {
-+			result = sk;
-+			++count;
-+		}
-+	}
-+	/*
-+	 * if the nulls value we got at the end of this lookup is
-+	 * not the expected one, we must restart lookup.
-+	 * We probably met an item that was moved to another chain.
-+	 */
-+	if (get_nulls_value(node) != slot)
-+		goto begin;
-+
-+	if (result) {
-+		if (count != 1 ||
-+		    unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
-+			result = NULL;
-+	}
-+	rcu_read_unlock();
-+	return result;
-+
-+}
-+
-+void udp_v4_early_demux(struct sk_buff *skb)
-+{
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct udphdr *uh = udp_hdr(skb);
-+	struct sock *sk;
-+	struct dst_entry *dst;
-+	struct net *net = dev_net(skb->dev);
-+	int dif = skb->dev->ifindex;
-+
-+	/* validate the packet */
-+	if (!pskb_may_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr)))
-+		return;
-+
-+	if (skb->pkt_type == PACKET_BROADCAST ||
-+	    skb->pkt_type == PACKET_MULTICAST)
-+		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
-+						   uh->source, iph->saddr, dif);
-+	else if (skb->pkt_type == PACKET_HOST)
-+		sk = __udp4_lib_lookup(net, iph->saddr, uh->source,
-+				       iph->daddr, uh->dest, dif, &udp_table);
-+	else
-+		return;
-+
-+	if (!sk)
-+		return;
-+
-+	skb->sk = sk;
-+	skb->destructor = sock_edemux;
-+	dst = sk->sk_rx_dst;
-+
-+	if (dst)
-+		dst = dst_check(dst, 0);
-+	if (dst)
-+		skb_dst_set_noref(skb, dst);
-+}
-+
- int udp_rcv(struct sk_buff *skb)
- {
- 	return __udp4_lib_rcv(skb, &udp_table, IPPROTO_UDP);
--- 
-1.7.7.6
-
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
