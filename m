@@ -1,180 +1,87 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH 2/2] net, mellanox mlx4 Fix compile warnings [v4]
-Date: Tue,  1 Oct 2013 09:24:37 -0400
-Message-ID: <1380633877-24034-2-git-send-email-prarit@redhat.com>
-References: <1380633877-24034-1-git-send-email-prarit@redhat.com>
+From: Chris Verges <cverges@sentient-energy.com>
+Subject: Re: Established sockets remain open after iface down or address lost
+Date: Tue, 1 Oct 2013 06:27:08 -0700
+Message-ID: <20131001132707.GA7442@cverges-dev-lnx.sentient-energy.com>
+References: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com>
+ <1380203383.3165.172.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Prarit Bhargava <prarit@redhat.com>, dledford@redhat.com,
-	amirv@mellanox.com, davem@davemloft.net, ogerlitz@mellanox.com,
-	jackm@dev.mellanox.co.il
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23124 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753007Ab3JANYt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 09:24:49 -0400
-In-Reply-To: <1380633877-24034-1-git-send-email-prarit@redhat.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:43544 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371Ab3JAN1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 09:27:23 -0400
+Received: by mail-pd0-f180.google.com with SMTP id y10so7188375pdj.25
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 06:27:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1380203383.3165.172.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ix unitialized variable warnings.
+On Thu, Sep 26, 2013 at 06:49:43AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-09-25 at 23:04 -0700, Chris Verges wrote:
+> >   (6) Physically disconnect the USB/Ethernet adapter from the USB
+> >       bus.
+> >   (7) Linux removes the 'eth0' interface and associated IP address.
+> > 
+> > At this point, the socket _still_ shows as ESTABLISHED under
+> > netstat.
+> > 
+> > This is the paradox.  Why is the blocking read not interrupted with
+> > a socket error to indicate that the socket is no longer viable?
+> 
+> Because TCP layer is not sensitive to such temporary events.  You can
+> plug again your iface, and IP is valid again.  Why should we give a
+> permanent error for such case ?
 
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =E2=80=
-=98mlx4_HW2SW_CQ_wrapper=E2=80=99:
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2551:16: error: =E2=
-=80=98cq=E2=80=99 may be used uninitialized in this function [-Werror=3D=
-maybe-uninitialized]
-  atomic_dec(&cq->mtt->ref_count);
-                ^
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =E2=80=
-=98mlx4_HW2SW_SRQ_wrapper=E2=80=99:
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2734:17: error: =E2=
-=80=98srq=E2=80=99 may be used uninitialized in this function [-Werror=3D=
-maybe-uninitialized]
-  atomic_dec(&srq->mtt->ref_count);
+Yes, the interface could be reconnected ... or it could not be.
+Consider an embedded device where a PPP-based radio module is powered
+off for a decent amount of time (hours).
 
-[v2]: davem suggested making cq_res_start_move_to() return 'cq' as an e=
-rror
-pointer instead of setting 'cq' by reference.  I also did the same for
-srq.
+  +--------+          +-----------------+
+  | Client |----------| Embedded Server |
+  +--------+          +-----------------+
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-Cc: dledford@redhat.com
-Cc: amirv@mellanox.com
-Cc: davem@davemloft.net
-Cc: ogerlitz@mellanox.com
-Cc: jackm@dev.mellanox.co.il
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   46 ++++++++++--=
---------
- 1 file changed, 24 insertions(+), 22 deletions(-)
+The client establishes a connection to the server.  It requests some
+data and gets a response.  The socket remains open.  The server then
+decides, through some asynchronous process, that the radio needs to be
+duty cycled.  So the radio is turned off.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/dr=
-ivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index dd68763..343206b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1073,8 +1073,9 @@ static int eq_res_start_move_to(struct mlx4_dev *=
-dev, int slave, int index,
- 	return err;
- }
-=20
--static int cq_res_start_move_to(struct mlx4_dev *dev, int slave, int c=
-qn,
--				enum res_cq_states state, struct res_cq **cq)
-+static struct res_cq *cq_res_start_move_to(struct mlx4_dev *dev,
-+						  int slave, int cqn,
-+						  enum res_cq_states state)
- {
- 	struct mlx4_priv *priv =3D mlx4_priv(dev);
- 	struct mlx4_resource_tracker *tracker =3D &priv->mfunc.master.res_tra=
-cker;
-@@ -1117,18 +1118,19 @@ static int cq_res_start_move_to(struct mlx4_dev=
- *dev, int slave, int cqn,
- 			r->com.from_state =3D r->com.state;
- 			r->com.to_state =3D state;
- 			r->com.state =3D RES_CQ_BUSY;
--			if (cq)
--				*cq =3D r;
-+		} else {
-+			r =3D ERR_PTR(err);
- 		}
- 	}
-=20
- 	spin_unlock_irq(mlx4_tlock(dev));
-=20
--	return err;
-+	return r;
- }
-=20
--static int srq_res_start_move_to(struct mlx4_dev *dev, int slave, int =
-index,
--				 enum res_cq_states state, struct res_srq **srq)
-+static struct res_srq *srq_res_start_move_to(struct mlx4_dev *dev, int=
- slave,
-+					     int index,
-+					     enum res_cq_states state)
- {
- 	struct mlx4_priv *priv =3D mlx4_priv(dev);
- 	struct mlx4_resource_tracker *tracker =3D &priv->mfunc.master.res_tra=
-cker;
-@@ -1167,14 +1169,14 @@ static int srq_res_start_move_to(struct mlx4_de=
-v *dev, int slave, int index,
- 			r->com.from_state =3D r->com.state;
- 			r->com.to_state =3D state;
- 			r->com.state =3D RES_SRQ_BUSY;
--			if (srq)
--				*srq =3D r;
-+		} else {
-+			r =3D ERR_PTR(err);
- 		}
- 	}
-=20
- 	spin_unlock_irq(mlx4_tlock(dev));
-=20
--	return err;
-+	return r;
- }
-=20
- static void res_abort_move(struct mlx4_dev *dev, int slave,
-@@ -2530,9 +2532,9 @@ int mlx4_SW2HW_CQ_wrapper(struct mlx4_dev *dev, i=
-nt slave,
- 	struct res_cq *cq;
- 	struct res_mtt *mtt;
-=20
--	err =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW, &cq);
--	if (err)
--		return err;
-+	cq =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW);
-+	if (IS_ERR(cq))
-+		return PTR_ERR(cq);
- 	err =3D get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto out_move;
-@@ -2565,9 +2567,9 @@ int mlx4_HW2SW_CQ_wrapper(struct mlx4_dev *dev, i=
-nt slave,
- 	int cqn =3D vhcr->in_modifier;
- 	struct res_cq *cq;
-=20
--	err =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED, &cq);
--	if (err)
--		return err;
-+	cq =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED);
-+	if (IS_ERR(cq))
-+		return PTR_ERR(cq);
- 	err =3D mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
- 	if (err)
- 		goto out_move;
-@@ -2709,9 +2711,9 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, =
-int slave,
- 	if (srqn !=3D (be32_to_cpu(srqc->state_logsize_srqn) & 0xffffff))
- 		return -EINVAL;
-=20
--	err =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_HW, &srq);
--	if (err)
--		return err;
-+	srq =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED);
-+	if (IS_ERR(srq))
-+		return PTR_ERR(srq);
- 	err =3D get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto ex_abort;
-@@ -2748,9 +2750,9 @@ int mlx4_HW2SW_SRQ_wrapper(struct mlx4_dev *dev, =
-int slave,
- 	int srqn =3D vhcr->in_modifier;
- 	struct res_srq *srq;
-=20
--	err =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED, &s=
-rq);
--	if (err)
--		return err;
-+	srq =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED);
-+	if (IS_ERR(srq))
-+		return PTR_ERR(srq);
- 	err =3D mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
- 	if (err)
- 		goto ex_abort;
---=20
-1.7.9.3
+The client attempts to make another request to the device, but
+determines that the connection is dead through the normal retry
+mechanisms.  It's write() operation returns something like EPIPE.  So on
+the client's side, the connection is dead.
+
+But on the server side, the socket is still open and waiting for some
+more data.  The interface and IP address and even the remote client are
+long gone, but the socket still persists and uses system resources.
+
+This is primarily an issue when the server binds/listens/accepts without
+using a socket pool to process sockets after the accept().  That is, the
+server processes only one socket.  If the socket resource is held by
+this now-dead connection, there is generally no way to reset it without
+lengthy or costly keepalives (depending on whether the keepalive timer
+is set long or short, respectively.)
+
+> If network communication is cut somewhere, TCP is not supposed to
+> immediately react. Normal timeouts and retransmits take place. 
+
+I agree in the sense that "somewhere" is between the remote station
+(inclusive) and the local station (exclusive.)  I would argue that the
+local station could be aware of its own state changes and may choose to
+respond accordingly.
+
+I can see the arguments for why the existing behavior would be viewed
+favorably.  From this particular real-world scenario that I am
+encountering, I can also see why a modified behavior would be useful.
+Would you consider accepting a patch that adds a new socket option to
+optionally control this?  The effect would be to cause the socket to
+automatically close (interrupting any blocking reads) if the underlying
+address used by the socket is unregistered from the stack.  Default
+behavior would be maintained.
+
+Thanks,
+Chris
