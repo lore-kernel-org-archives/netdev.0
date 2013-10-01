@@ -1,28 +1,28 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Established sockets remain open after iface down or address lost
-Date: Tue, 1 Oct 2013 20:33:04 +0400
-Message-ID: <CAMrnHh6Lr9q27yiSmJ-EbJMTeUVyf9650vK+6QmbfTVfz_omxg@mail.gmail.com>
-References: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] net: ethernet: cpsw: Remove redundant of_match_ptr
+Date: Tue, 01 Oct 2013 12:34:36 -0400 (EDT)
+Message-ID: <20131001.123436.1743069323943215305.davem@davemloft.net>
+References: <1380515114-2823-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: Chris Verges <cverges@sentient-energy.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sachin.kamat@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:50147 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab3JAQdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:33:05 -0400
-Received: by mail-ie0-f173.google.com with SMTP id ar20so14438705iec.32
-        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 09:33:04 -0700 (PDT)
-In-Reply-To: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54681 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262Ab3JAQej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:34:39 -0400
+In-Reply-To: <1380515114-2823-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 30 Sep 2013 09:55:12 +0530
 
-> P.S.  I apologize in advance if I missed this answer in the netdev archives.
+> The data structure of_match_ptr() protects is always compiled in.
+> Hence of_match_ptr() is not needed.
+> 
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
 
-FYI googling f.e. "netdev tcp remove local address" instantly  finds
-all that you want to know. Namrly, subj: Re: "TCP shutdown behaviour
-when deleting local IP addresses"
+Applied.
