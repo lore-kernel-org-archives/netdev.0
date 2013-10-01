@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: phy: marvell.c: removed checkpatch.pl
- warnings
-Date: Mon, 30 Sep 2013 22:15:57 -0700 (PDT)
-Message-ID: <20130930.221557.1329073627639782500.davem@davemloft.net>
-References: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
+Subject: Re: [PATCH] ethernet: moxa: fix incorrect placement of __initdata
+ tag
+Date: Mon, 30 Sep 2013 22:17:31 -0700 (PDT)
+Message-ID: <20130930.221731.1527688326511547313.davem@davemloft.net>
+References: <172588984.DhoE4BmVdc@amdc1032>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michal.simek@xilinx.com, lars@metafoo.de, RHoover@digilentinc.com,
-	netdev@vger.kernel.org
-To: avi.kp.137@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966Ab3JAFI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 01:08:58 -0400
-In-Reply-To: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jonas.jensen@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kyungmin.park@samsung.com
+To: b.zolnierkie@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <172588984.DhoE4BmVdc@amdc1032>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Avinash kumar <avi.kp.137@gmail.com>
-Date: Mon, 30 Sep 2013 09:36:44 +0530
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Mon, 30 Sep 2013 15:18:27 +0200
 
-> removes following warnings-
-> drivers/net/phy/marvell.c:37: WARNING: Use #include <linux/io.h> instead of <asm/io.h>
-> drivers/net/phy/marvell.c:39: WARNING: Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
+> __initdata tag should be placed between the variable name and equal
+> sign for the variable to be placed in the intended .init.data section.
 > 
-> Signed-off-by: Avinash Kumar <avi.kp.137@gmail.com>
+> In this particular case __initdata is incorrect as moxart_mac_driver
+> can be used after the driver gets initialized.
+> 
+> Also while at it static-ize moxart_mac_driver.
+> 
+> Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+> Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
 
 Applied, thanks.
