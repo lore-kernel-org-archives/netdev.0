@@ -1,203 +1,135 @@
-From: Dmitry Kozlov <xeb@mail.ru>
-Subject: [PATCH] iproute2: ip6gre: update man pages
-Date: Tue, 1 Oct 2013 11:18:34 +0400
-Message-ID: <20131001111834.56f34d28@dima>
+From: =?UTF-8?B?RnJhbsOnb2lzIENhY2hlcmV1bA==?= <f.cachereul@init-sys.com>
+Subject: [PATCH v2] l2tp: add support for IPv4-mapped IPv6 addresses
+Date: Tue, 01 Oct 2013 09:54:31 +0200
+Message-ID: <524A7FB7.40304@init-sys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback1.mail.ru ([94.100.176.18]:33328 "EHLO
-	fallback1.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326Ab3JAHTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 03:19:04 -0400
-Received: from smtp40.i.mail.ru (smtp40.i.mail.ru [94.100.177.100])
-	by fallback1.mail.ru (mPOP.Fallback_MX) with ESMTP id 0016E29D6468
-	for <netdev@vger.kernel.org>; Tue,  1 Oct 2013 11:19:01 +0400 (MSK)
+Received: from zimbra.alphalink.fr ([217.15.80.77]:45830 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751508Ab3JAHyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 03:54:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update man pages with ip6gre info.
+IPv4 mapped addresses cause kernel panic.
+The patch juste check whether the IPv6 address is an IPv4 mapped
+address. If so, use the IPv4 API instead of IPv6 one.
 
-Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+Signed-off-by: Fran=C3=A7ois CACHEREUL <f.cachereul@alphalink.fr>
 ---
- man/man8/ip-link.8.in | 124 +++++++++++++++++++++++++++++++++++++++++++++++++-
- man/man8/ip-tunnel.8  |   4 +-
- 2 files changed, 125 insertions(+), 3 deletions(-)
+v2: apply requested changes
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 76f92dd..8b68c78 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -62,7 +62,11 @@ ip-link \- network device configuration
- .BR vxlan " |"
- .BR ip6tnl " |"
- .BR ipip " |"
--.BR sit " ]"
-+.BR sit " |"
-+.BR gre " |"
-+.BR gretap " |"
-+.BR ip6gre " |"
-+.BR ip6gretap " ]"
- 
- .ti -8
- .BI "ip link delete " DEVICE
-@@ -186,6 +190,18 @@ Link types:
- .sp
- .BR sit
- - Virtual tunnel interface IPv6 over IPv4
-+.sp
-+.BR gre
-+- Virtual tunnel interface GRE over IPv4
-+.sp
-+.BR gretap
-+- Virtual L2 tuunel interface GRE over IPv4
-+.sp
-+.BR ip6gre
-+- Virtual tuunel interface GRE over IPv6
-+.sp
-+.BR ip6gretap
-+- Virtual L2 tuunel interface GRE over IPv6
- .in -8
- 
- .TP
-@@ -292,6 +308,112 @@ are entered into the VXLAN device forwarding database.
- 
- .in -8
- 
-+.TP
-+IP6GRE/IP6GRETAP Type Support
-+For a link of type 
-+.I IP6GRE/IP6GRETAP
-+the following additional arguments are supported:
+ net/l2tp/l2tp_core.c |   29 +++++++++++++++++++++++++----
+ net/l2tp/l2tp_core.h |    3 +++
+ 2 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index feae495..98685ad 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -496,6 +496,7 @@ out:
+ static inline int l2tp_verify_udp_checksum(struct sock *sk,
+ 					   struct sk_buff *skb)
+ {
++	struct l2tp_tunnel *tunnel =3D (struct l2tp_tunnel *)sk->sk_user_data=
+;
+ 	struct udphdr *uh =3D udp_hdr(skb);
+ 	u16 ulen =3D ntohs(uh->len);
+ 	__wsum psum;
+@@ -504,7 +505,7 @@ static inline int l2tp_verify_udp_checksum(struct s=
+ock *sk,
+ 		return 0;
+=20
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (sk->sk_family =3D=3D PF_INET6) {
++	if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped) {
+ 		if (!uh->check) {
+ 			LIMIT_NETDEBUG(KERN_INFO "L2TP: IPv6: checksum is 0\n");
+ 			return 1;
+@@ -1128,7 +1129,7 @@ static int l2tp_xmit_core(struct l2tp_session *se=
+ssion, struct sk_buff *skb,
+ 	/* Queue the packet to IP for output */
+ 	skb->local_df =3D 1;
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (skb->sk->sk_family =3D=3D PF_INET6)
++	if (skb->sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
+ 		error =3D inet6_csk_xmit(skb, NULL);
+ 	else
+ #endif
+@@ -1255,7 +1256,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, s=
+truct sk_buff *skb, int hdr_len
+=20
+ 		/* Calculate UDP checksum if configured to do so */
+ #if IS_ENABLED(CONFIG_IPV6)
+-		if (sk->sk_family =3D=3D PF_INET6)
++		if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
+ 			l2tp_xmit_ipv6_csum(sk, skb, udp_len);
+ 		else
+ #endif
+@@ -1620,6 +1621,8 @@ int l2tp_tunnel_create(struct net *net, int fd, i=
+nt version, u32 tunnel_id, u32
+ 	int err;
+ 	struct socket *sock =3D NULL;
+ 	struct sock *sk =3D NULL;
++#if IS_ENABLED(CONFIG_IPV6)
++#endif
+ 	struct l2tp_net *pn;
+ 	enum l2tp_encap_type encap =3D L2TP_ENCAPTYPE_UDP;
+=20
+@@ -1704,6 +1707,24 @@ int l2tp_tunnel_create(struct net *net, int fd, =
+int version, u32 tunnel_id, u32
+ 	if (cfg !=3D NULL)
+ 		tunnel->debug =3D cfg->debug;
+=20
++#if IS_ENABLED(CONFIG_IPV6)
++	if (sk->sk_family =3D=3D PF_INET6) {
++		struct ipv6_pinfo *np =3D inet6_sk(sk);
 +
-+.BI "ip link add " DEVICE
-+.BI type " { ip6gre | ip6gretap }  " remote " ADDR " local " ADDR
-+.R " [ "
-+.I "[i|o]seq]"
-+.R " ] [ "
-+.I "[i|o]key" KEY
-+.R " ] [ "
-+.I " [i|o]csum "
-+.R " ] [ "
-+.BI hoplimit " TTL "
-+.R " ] [ "
-+.BI encaplimit " ELIM "
-+.R " ] [ "
-+.BI tclass " TCLASS "
-+.R " ] [ "
-+.BI flowlabel " FLOWLABEL "
-+.R " ] [ "
-+.BI "dscp inherit"
-+.R " ] [ "
-+.BI dev " PHYS_DEV "
-+.R " ]"
++		if (ipv6_addr_v4mapped(&np->saddr) &&
++		    ipv6_addr_v4mapped(&np->daddr)) {
++			struct inet_sock *inet =3D inet_sk(sk);
 +
-+.in +8
-+.sp
-+.BI  remote " ADDR "
-+- specifies the remote IPv6 address of the tunnel.
++			tunnel->v4mapped =3D true;
++			inet->inet_saddr =3D np->saddr.s6_addr32[3];
++			inet->inet_rcv_saddr =3D np->rcv_saddr.s6_addr32[3];
++			inet->inet_daddr =3D np->daddr.s6_addr32[3];
++		} else {
++			tunnel->v4mapped =3D false;
++		}
++	}
++#endif
 +
-+.sp
-+.BI  local " ADDR "
-+- specifies the fixed local IPv6 address for tunneled packets.
-+It must be and address on another interface on this host.
-+
-+.sp
-+.BI  [i|o]seq
-+- serialize packets.
-+The
-+.B oseq
-+flag enables sequencing of outgoing packets.
-+The
-+.B iseq
-+flag requires that all input packets are serialized.
-+
-+.sp
-+.BI  [i|o]key " KEY"
-+- use keyed GRE with key
-+.IR KEY ". "KEY
-+is either a number or an IPv4 address-like dotted quad.
-+The
-+.B key
-+parameter specifies the same key to use in both directions.
-+The
-+.BR ikey " and " okey
-+parameters specify different keys for input and output.
-+
-+.sp
-+.BI  [i|o]csum
-+- generate/require checksums for tunneled packets.
-+The
-+.B ocsum
-+flag calculates checksums for outgoing packets.
-+The
-+.B icsum
-+flag requires that all input packets have the correct
-+checksum.  The
-+.B csum
-+flag is equivalent to the combination
-+.BR "icsum ocsum" .
-+
-+.sp
-+.BI  hoplimit " TTL"
-+- specifies Hop Limit value to use in outgoing packets.
-+
-+.sp
-+.BI  encaplimit " ELIM"
-+- specifies a fixed encapsulation limit.  Default is 4.
-+
-+.sp
-+.BI  flowlabel " FLOWLABEL"
-+- specifies a fixed flowlabel. 
-+
-+.sp
-+.BI  tclass " TCLASS"
-+- specifies the traffic class field on
-+tunneled packets, which can be specified as either a two-digit
-+hex value (e.g. c0) or a predefined string (e.g. internet).
-+The value
-+.B inherit
-+causes the field to be copied from the original IP header. The
-+values
-+.BI "inherit/" STRING
-+or
-+.BI "inherit/" 00 ".." ff
-+will set the field to
-+.I STRING
-+or
-+.IR 00 ".." ff
-+when tunneling non-IP packets. The default value is 00.
-+
-+.in -8
-+
- .SS ip link delete - delete virtual link
- .I DEVICE
- specifies the virtual  device to act operate on.
-diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
-index 697e80d..fc2d6bd 100644
---- a/man/man8/ip-tunnel.8
-+++ b/man/man8/ip-tunnel.8
-@@ -50,7 +50,7 @@ ip-tunnel - tunnel configuration
- 
- .ti -8
- .IR MODE " := "
--.RB " { " ipip " | " gre " | " sit " | " isatap " | " ip6ip6 " | " ipip6 " | " any " }"
-+.RB " { " ipip " | " gre " | " sit " | " isatap " | " ip6ip6 " | " ipip6 " | " ip6gre " | " any " }"
- 
- .ti -8
- .IR ADDR " := { " IP_ADDRESS " |"
-@@ -110,7 +110,7 @@ Modes for IPv4 encapsulation available:
- .BR ipip ", " sit ", " isatap " and " gre "."
- .br
- Modes for IPv6 encapsulation available:
--.BR ip6ip6 ", " ipip6 " and " any "."
-+.BR ip6ip6 ", " ipip6 ", " ip6gre ", and " any "."
- 
- .TP
- .BI remote " ADDRESS"
--- 
-1.8.3.2
+ 	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+ 	tunnel->encap =3D encap;
+ 	if (encap =3D=3D L2TP_ENCAPTYPE_UDP) {
+@@ -1712,7 +1733,7 @@ int l2tp_tunnel_create(struct net *net, int fd, i=
+nt version, u32 tunnel_id, u32
+ 		udp_sk(sk)->encap_rcv =3D l2tp_udp_encap_recv;
+ 		udp_sk(sk)->encap_destroy =3D l2tp_udp_encap_destroy;
+ #if IS_ENABLED(CONFIG_IPV6)
+-		if (sk->sk_family =3D=3D PF_INET6)
++		if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
+ 			udpv6_encap_enable();
+ 		else
+ #endif
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 66a559b..6f251cb 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -194,6 +194,9 @@ struct l2tp_tunnel {
+ 	struct sock		*sock;		/* Parent socket */
+ 	int			fd;		/* Parent fd, if tunnel socket
+ 						 * was created by userspace */
++#if IS_ENABLED(CONFIG_IPV6)
++	bool			v4mapped;
++#endif
+=20
+ 	struct work_struct	del_work;
+=20
+--=20
+1.7.10.4
