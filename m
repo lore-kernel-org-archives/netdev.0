@@ -1,161 +1,180 @@
 From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH 1/2] net, vxlan Fix compile warning [v4]
-Date: Tue,  1 Oct 2013 09:24:36 -0400
-Message-ID: <1380633877-24034-1-git-send-email-prarit@redhat.com>
+Subject: [PATCH 2/2] net, mellanox mlx4 Fix compile warnings [v4]
+Date: Tue,  1 Oct 2013 09:24:37 -0400
+Message-ID: <1380633877-24034-2-git-send-email-prarit@redhat.com>
+References: <1380633877-24034-1-git-send-email-prarit@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Prarit Bhargava <prarit@redhat.com>, jpirko@redhat.com
+Cc: Prarit Bhargava <prarit@redhat.com>, dledford@redhat.com,
+	amirv@mellanox.com, davem@davemloft.net, ogerlitz@mellanox.com,
+	jackm@dev.mellanox.co.il
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53297 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23124 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560Ab3JANYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 09:24:41 -0400
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r91DOe9t000533
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 1 Oct 2013 09:24:40 -0400
+	id S1753007Ab3JANYt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 09:24:49 -0400
+In-Reply-To: <1380633877-24034-1-git-send-email-prarit@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ix a unintialized variable warning.
+=46ix unitialized variable warnings.
 
-drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
-drivers/net/vxlan.c:2240:11: error: =E2=80=98sock=E2=80=99 may be used =
-uninitialized in this function [-Werror=3Dmaybe-uninitialized]
-  vs->sock =3D sock;
-           ^
-drivers/net/vxlan.c:2217:17: note: =E2=80=98sock=E2=80=99 was declared =
-here
-  struct socket *sock;
-                 ^
-[v2]: davem suggested resolving this by making create_v{4,6}_sock() ret=
-urn an err
-pointer.
-[v3]: Ben Hutchings pointed out a missed conversion
+drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =E2=80=
+=98mlx4_HW2SW_CQ_wrapper=E2=80=99:
+drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2551:16: error: =E2=
+=80=98cq=E2=80=99 may be used uninitialized in this function [-Werror=3D=
+maybe-uninitialized]
+  atomic_dec(&cq->mtt->ref_count);
+                ^
+drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function =E2=80=
+=98mlx4_HW2SW_SRQ_wrapper=E2=80=99:
+drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2734:17: error: =E2=
+=80=98srq=E2=80=99 may be used uninitialized in this function [-Werror=3D=
+maybe-uninitialized]
+  atomic_dec(&srq->mtt->ref_count);
+
+[v2]: davem suggested making cq_res_start_move_to() return 'cq' as an e=
+rror
+pointer instead of setting 'cq' by reference.  I also did the same for
+srq.
 
 Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-Cc: jpirko@redhat.com
+Cc: dledford@redhat.com
+Cc: amirv@mellanox.com
+Cc: davem@davemloft.net
+Cc: ogerlitz@mellanox.com
+Cc: jackm@dev.mellanox.co.il
 ---
- drivers/net/vxlan.c |   31 ++++++++++++++-----------------
- 1 file changed, 14 insertions(+), 17 deletions(-)
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   46 ++++++++++--=
+--------
+ 1 file changed, 24 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d1292fe..cdc78b4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2182,7 +2182,7 @@ static void vxlan_del_work(struct work_struct *wo=
-rk)
-  * could be used for both IPv4 and IPv6 communications, but
-  * users may set bindv6only=3D1.
-  */
--static int create_v6_sock(struct net *net, __be16 port, struct socket =
-**psock)
-+static struct socket *create_v6_sock(struct net *net, __be16 port)
- {
- 	struct sock *sk;
- 	struct socket *sock;
-@@ -2195,7 +2195,7 @@ static int create_v6_sock(struct net *net, __be16=
- port, struct socket **psock)
- 	rc =3D sock_create_kern(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, &sock);
- 	if (rc < 0) {
- 		pr_debug("UDPv6 socket create failed\n");
--		return rc;
-+		return ERR_PTR(rc);
- 	}
-=20
- 	/* Put in proper namespace */
-@@ -2210,28 +2210,27 @@ static int create_v6_sock(struct net *net, __be=
-16 port, struct socket **psock)
- 		pr_debug("bind for UDPv6 socket %pI6:%u (%d)\n",
- 			 &vxlan_addr.sin6_addr, ntohs(vxlan_addr.sin6_port), rc);
- 		sk_release_kernel(sk);
--		return rc;
-+		return ERR_PTR(rc);
- 	}
- 	/* At this point, IPv6 module should have been loaded in
- 	 * sock_create_kern().
- 	 */
- 	BUG_ON(!ipv6_stub);
-=20
--	*psock =3D sock;
- 	/* Disable multicast loopback */
- 	inet_sk(sk)->mc_loop =3D 0;
--	return 0;
-+	return sock;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/dr=
+ivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index dd68763..343206b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -1073,8 +1073,9 @@ static int eq_res_start_move_to(struct mlx4_dev *=
+dev, int slave, int index,
+ 	return err;
  }
 =20
- #else
-=20
--static int create_v6_sock(struct net *net, __be16 port, struct socket =
-**psock)
-+static struct socket *create_v6_sock(struct net *net, __be16 port)
+-static int cq_res_start_move_to(struct mlx4_dev *dev, int slave, int c=
+qn,
+-				enum res_cq_states state, struct res_cq **cq)
++static struct res_cq *cq_res_start_move_to(struct mlx4_dev *dev,
++						  int slave, int cqn,
++						  enum res_cq_states state)
  {
--		return -EPFNOSUPPORT;
-+		return ERR_PTR(-EPFNOSUPPORT);
- }
- #endif
-=20
--static int create_v4_sock(struct net *net, __be16 port, struct socket =
-**psock)
-+static struct socket *create_v4_sock(struct net *net, __be16 port)
- {
- 	struct sock *sk;
- 	struct socket *sock;
-@@ -2246,7 +2245,7 @@ static int create_v4_sock(struct net *net, __be16=
- port, struct socket **psock)
- 	rc =3D sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
- 	if (rc < 0) {
- 		pr_debug("UDP socket create failed\n");
--		return rc;
-+		return ERR_PTR(rc);
+ 	struct mlx4_priv *priv =3D mlx4_priv(dev);
+ 	struct mlx4_resource_tracker *tracker =3D &priv->mfunc.master.res_tra=
+cker;
+@@ -1117,18 +1118,19 @@ static int cq_res_start_move_to(struct mlx4_dev=
+ *dev, int slave, int cqn,
+ 			r->com.from_state =3D r->com.state;
+ 			r->com.to_state =3D state;
+ 			r->com.state =3D RES_CQ_BUSY;
+-			if (cq)
+-				*cq =3D r;
++		} else {
++			r =3D ERR_PTR(err);
+ 		}
  	}
 =20
- 	/* Put in proper namespace */
-@@ -2259,13 +2258,12 @@ static int create_v4_sock(struct net *net, __be=
-16 port, struct socket **psock)
- 		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
- 			 &vxlan_addr.sin_addr, ntohs(vxlan_addr.sin_port), rc);
- 		sk_release_kernel(sk);
--		return rc;
-+		return ERR_PTR(rc);
- 	}
+ 	spin_unlock_irq(mlx4_tlock(dev));
 =20
--	*psock =3D sock;
- 	/* Disable multicast loopback */
- 	inet_sk(sk)->mc_loop =3D 0;
--	return 0;
-+	return sock;
+-	return err;
++	return r;
  }
 =20
- /* Create new listen socket if needed */
-@@ -2276,7 +2274,6 @@ static struct vxlan_sock *vxlan_socket_create(str=
-uct net *net, __be16 port,
- 	struct vxlan_sock *vs;
- 	struct socket *sock;
- 	struct sock *sk;
--	int rc =3D 0;
- 	unsigned int h;
-=20
- 	vs =3D kmalloc(sizeof(*vs), GFP_KERNEL);
-@@ -2289,12 +2286,12 @@ static struct vxlan_sock *vxlan_socket_create(s=
-truct net *net, __be16 port,
- 	INIT_WORK(&vs->del_work, vxlan_del_work);
-=20
- 	if (ipv6)
--		rc =3D create_v6_sock(net, port, &sock);
-+		sock =3D create_v6_sock(net, port);
- 	else
--		rc =3D create_v4_sock(net, port, &sock);
--	if (rc < 0) {
-+		sock =3D create_v4_sock(net, port);
-+	if (IS_ERR(sock)) {
- 		kfree(vs);
--		return ERR_PTR(rc);
-+		return ERR_CAST(sock);
+-static int srq_res_start_move_to(struct mlx4_dev *dev, int slave, int =
+index,
+-				 enum res_cq_states state, struct res_srq **srq)
++static struct res_srq *srq_res_start_move_to(struct mlx4_dev *dev, int=
+ slave,
++					     int index,
++					     enum res_cq_states state)
+ {
+ 	struct mlx4_priv *priv =3D mlx4_priv(dev);
+ 	struct mlx4_resource_tracker *tracker =3D &priv->mfunc.master.res_tra=
+cker;
+@@ -1167,14 +1169,14 @@ static int srq_res_start_move_to(struct mlx4_de=
+v *dev, int slave, int index,
+ 			r->com.from_state =3D r->com.state;
+ 			r->com.to_state =3D state;
+ 			r->com.state =3D RES_SRQ_BUSY;
+-			if (srq)
+-				*srq =3D r;
++		} else {
++			r =3D ERR_PTR(err);
+ 		}
  	}
 =20
- 	vs->sock =3D sock;
+ 	spin_unlock_irq(mlx4_tlock(dev));
+=20
+-	return err;
++	return r;
+ }
+=20
+ static void res_abort_move(struct mlx4_dev *dev, int slave,
+@@ -2530,9 +2532,9 @@ int mlx4_SW2HW_CQ_wrapper(struct mlx4_dev *dev, i=
+nt slave,
+ 	struct res_cq *cq;
+ 	struct res_mtt *mtt;
+=20
+-	err =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW, &cq);
+-	if (err)
+-		return err;
++	cq =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW);
++	if (IS_ERR(cq))
++		return PTR_ERR(cq);
+ 	err =3D get_res(dev, slave, mtt_base, RES_MTT, &mtt);
+ 	if (err)
+ 		goto out_move;
+@@ -2565,9 +2567,9 @@ int mlx4_HW2SW_CQ_wrapper(struct mlx4_dev *dev, i=
+nt slave,
+ 	int cqn =3D vhcr->in_modifier;
+ 	struct res_cq *cq;
+=20
+-	err =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED, &cq);
+-	if (err)
+-		return err;
++	cq =3D cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED);
++	if (IS_ERR(cq))
++		return PTR_ERR(cq);
+ 	err =3D mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
+ 	if (err)
+ 		goto out_move;
+@@ -2709,9 +2711,9 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, =
+int slave,
+ 	if (srqn !=3D (be32_to_cpu(srqc->state_logsize_srqn) & 0xffffff))
+ 		return -EINVAL;
+=20
+-	err =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_HW, &srq);
+-	if (err)
+-		return err;
++	srq =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED);
++	if (IS_ERR(srq))
++		return PTR_ERR(srq);
+ 	err =3D get_res(dev, slave, mtt_base, RES_MTT, &mtt);
+ 	if (err)
+ 		goto ex_abort;
+@@ -2748,9 +2750,9 @@ int mlx4_HW2SW_SRQ_wrapper(struct mlx4_dev *dev, =
+int slave,
+ 	int srqn =3D vhcr->in_modifier;
+ 	struct res_srq *srq;
+=20
+-	err =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED, &s=
+rq);
+-	if (err)
+-		return err;
++	srq =3D srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED);
++	if (IS_ERR(srq))
++		return PTR_ERR(srq);
+ 	err =3D mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
+ 	if (err)
+ 		goto ex_abort;
 --=20
 1.7.9.3
