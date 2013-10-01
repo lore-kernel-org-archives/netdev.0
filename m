@@ -1,162 +1,181 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  5/9] ixgbe: ethtool DCB registers dump for 82599 and x540
-Date: Tue,  1 Oct 2013 04:33:52 -0700
-Message-ID: <1380627236-3190-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  9/9] igb: Add ethtool support to configure number of channels
+Date: Tue,  1 Oct 2013 04:33:56 -0700
+Message-ID: <1380627236-3190-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Leonardo Potenza <leonardo.potenza@intel.com>,
+Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Maryam Tahhan <maryam.tahhan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:46701 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:63003 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837Ab3JALeC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 07:34:02 -0400
+	id S1752789Ab3JALeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 07:34:05 -0400
 In-Reply-To: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Leonardo Potenza <leonardo.potenza@intel.com>
+From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
 
-Added support for DCB registers dump using ethtool -d option both for
-82599 and x540 ethernet controllers
+This patch adds the ethtool callbacks necessary to configure the
+number of RSS queues.
 
-Signed-off-by: Leonardo Potenza <leonardo.potenza@intel.com>
-Signed-off-by: Maryam Tahhan <maryam.tahhan@intel.com>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Jack Morgan <jack.morgan@intel.com>
+The maximum number of queues is in accordance with the datasheets.
+
+Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 75 +++++++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  5 ++
- 2 files changed, 65 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         |  1 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 84 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    | 22 ++++++++
+ 3 files changed, 107 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index e8649ab..27c2032 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -442,7 +442,7 @@ static void ixgbe_set_msglevel(struct net_device *netdev, u32 data)
- 
- static int ixgbe_get_regs_len(struct net_device *netdev)
- {
--#define IXGBE_REGS_LEN  1129
-+#define IXGBE_REGS_LEN  1139
- 	return IXGBE_REGS_LEN * sizeof(u32);
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index cdaa2bc..5e9ed89 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -487,6 +487,7 @@ int igb_up(struct igb_adapter *);
+ void igb_down(struct igb_adapter *);
+ void igb_reinit_locked(struct igb_adapter *);
+ void igb_reset(struct igb_adapter *);
++int igb_reinit_queues(struct igb_adapter *);
+ void igb_write_rss_indir_tbl(struct igb_adapter *);
+ int igb_set_spd_dplx(struct igb_adapter *, u32, u8);
+ int igb_setup_tx_resources(struct igb_ring *);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index e4c77c0..c8f65e5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2874,6 +2874,88 @@ static int igb_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
+ 	return 0;
  }
  
-@@ -602,22 +602,53 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 	regs_buff[828] = IXGBE_READ_REG(hw, IXGBE_FHFT(0));
- 
- 	/* DCB */
--	regs_buff[829] = IXGBE_READ_REG(hw, IXGBE_RMCS);
--	regs_buff[830] = IXGBE_READ_REG(hw, IXGBE_DPMCS);
--	regs_buff[831] = IXGBE_READ_REG(hw, IXGBE_PDPMCS);
--	regs_buff[832] = IXGBE_READ_REG(hw, IXGBE_RUPPBMR);
--	for (i = 0; i < 8; i++)
--		regs_buff[833 + i] = IXGBE_READ_REG(hw, IXGBE_RT2CR(i));
--	for (i = 0; i < 8; i++)
--		regs_buff[841 + i] = IXGBE_READ_REG(hw, IXGBE_RT2SR(i));
--	for (i = 0; i < 8; i++)
--		regs_buff[849 + i] = IXGBE_READ_REG(hw, IXGBE_TDTQ2TCCR(i));
--	for (i = 0; i < 8; i++)
--		regs_buff[857 + i] = IXGBE_READ_REG(hw, IXGBE_TDTQ2TCSR(i));
-+	regs_buff[829] = IXGBE_READ_REG(hw, IXGBE_RMCS);   /* same as FCCFG  */
-+	regs_buff[831] = IXGBE_READ_REG(hw, IXGBE_PDPMCS); /* same as RTTPCS */
++static unsigned int igb_max_channels(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	unsigned int max_combined = 0;
 +
 +	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		regs_buff[830] = IXGBE_READ_REG(hw, IXGBE_DPMCS);
-+		regs_buff[832] = IXGBE_READ_REG(hw, IXGBE_RUPPBMR);
-+		for (i = 0; i < 8; i++)
-+			regs_buff[833 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RT2CR(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[841 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RT2SR(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[849 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_TDTQ2TCCR(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[857 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_TDTQ2TCSR(i));
++	case e1000_i211:
++		max_combined = IGB_MAX_RX_QUEUES_I211;
 +		break;
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		regs_buff[830] = IXGBE_READ_REG(hw, IXGBE_RTTDCS);
-+		regs_buff[832] = IXGBE_READ_REG(hw, IXGBE_RTRPCS);
-+		for (i = 0; i < 8; i++)
-+			regs_buff[833 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RTRPT4C(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[841 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RTRPT4S(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[849 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RTTDT2C(i));
-+		for (i = 0; i < 8; i++)
-+			regs_buff[857 + i] =
-+				IXGBE_READ_REG(hw, IXGBE_RTTDT2S(i));
++	case e1000_82575:
++	case e1000_i210:
++		max_combined = IGB_MAX_RX_QUEUES_82575;
 +		break;
++	case e1000_i350:
++		if (!!adapter->vfs_allocated_count) {
++			max_combined = 1;
++			break;
++		}
++		/* fall through */
++	case e1000_82576:
++		if (!!adapter->vfs_allocated_count) {
++			max_combined = 2;
++			break;
++		}
++		/* fall through */
++	case e1000_82580:
++	case e1000_i354:
 +	default:
++		max_combined = IGB_MAX_RX_QUEUES;
 +		break;
 +	}
 +
- 	for (i = 0; i < 8; i++)
--		regs_buff[865 + i] = IXGBE_READ_REG(hw, IXGBE_TDPT2TCCR(i));
-+		regs_buff[865 + i] =
-+		IXGBE_READ_REG(hw, IXGBE_TDPT2TCCR(i)); /* same as RTTPT2C */
- 	for (i = 0; i < 8; i++)
--		regs_buff[873 + i] = IXGBE_READ_REG(hw, IXGBE_TDPT2TCSR(i));
-+		regs_buff[873 + i] =
-+		IXGBE_READ_REG(hw, IXGBE_TDPT2TCSR(i)); /* same as RTTPT2S */
- 
- 	/* Statistics */
- 	regs_buff[881] = IXGBE_GET_STAT(adapter, crcerrs);
-@@ -757,6 +788,20 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 
- 	/* 82599 X540 specific registers  */
- 	regs_buff[1128] = IXGBE_READ_REG(hw, IXGBE_MFLCN);
++	return max_combined;
++}
 +
-+	/* 82599 X540 specific DCB registers  */
-+	regs_buff[1129] = IXGBE_READ_REG(hw, IXGBE_RTRUP2TC);
-+	regs_buff[1130] = IXGBE_READ_REG(hw, IXGBE_RTTUP2TC);
-+	for (i = 0; i < 4; i++)
-+		regs_buff[1131 + i] = IXGBE_READ_REG(hw, IXGBE_TXLLQ(i));
-+	regs_buff[1135] = IXGBE_READ_REG(hw, IXGBE_RTTBCNRM);
-+					/* same as RTTQCNRM */
-+	regs_buff[1136] = IXGBE_READ_REG(hw, IXGBE_RTTBCNRD);
-+					/* same as RTTQCNRR */
++static void igb_get_channels(struct net_device *netdev,
++			     struct ethtool_channels *ch)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
 +
-+	/* X540 specific DCB registers  */
-+	regs_buff[1137] = IXGBE_READ_REG(hw, IXGBE_RTTQCNCR);
-+	regs_buff[1138] = IXGBE_READ_REG(hw, IXGBE_RTTQCNTG);
++	/* Report maximum channels */
++	ch->max_combined = igb_max_channels(adapter);
++
++	/* Report info for other vector */
++	if (adapter->msix_entries) {
++		ch->max_other = NON_Q_VECTORS;
++		ch->other_count = NON_Q_VECTORS;
++	}
++
++	ch->combined_count = adapter->rss_queues;
++}
++
++static int igb_set_channels(struct net_device *netdev,
++			    struct ethtool_channels *ch)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	unsigned int count = ch->combined_count;
++
++	/* Verify they are not requesting separate vectors */
++	if (!count || ch->rx_count || ch->tx_count)
++		return -EINVAL;
++
++	/* Verify other_count is valid and has not been changed */
++	if (ch->other_count != NON_Q_VECTORS)
++		return -EINVAL;
++
++	/* Verify the number of channels doesn't exceed hw limits */
++	if (count > igb_max_channels(adapter))
++		return -EINVAL;
++
++	if (count != adapter->rss_queues) {
++		adapter->rss_queues = count;
++
++		/* Hardware has to reinitialize queues and interrupts to
++		 * match the new configuration.
++		 */
++		return igb_reinit_queues(adapter);
++	}
++
++	return 0;
++}
++
+ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.get_settings		= igb_get_settings,
+ 	.set_settings		= igb_set_settings,
+@@ -2910,6 +2992,8 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.get_rxfh_indir_size	= igb_get_rxfh_indir_size,
+ 	.get_rxfh_indir		= igb_get_rxfh_indir,
+ 	.set_rxfh_indir		= igb_set_rxfh_indir,
++	.get_channels		= igb_get_channels,
++	.set_channels		= igb_set_channels,
+ 	.begin			= igb_ethtool_begin,
+ 	.complete		= igb_ethtool_complete,
+ };
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8cf44f2..a56266e 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -7838,4 +7838,26 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
+ 		return E1000_SUCCESS;
+ 
  }
- 
- static int ixgbe_get_eeprom_len(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 10775cb..7c19e96 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -561,6 +561,10 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_RTTDQSEL    0x04904
- #define IXGBE_RTTDT1C     0x04908
- #define IXGBE_RTTDT1S     0x0490C
-+#define IXGBE_RTTQCNCR    0x08B00
-+#define IXGBE_RTTQCNTG    0x04A90
-+#define IXGBE_RTTBCNRD    0x0498C
-+#define IXGBE_RTTQCNRR    0x0498C
- #define IXGBE_RTTDTECC    0x04990
- #define IXGBE_RTTDTECC_NO_BCN   0x00000100
- #define IXGBE_RTTBCNRC    0x04984
-@@ -570,6 +574,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_RTTBCNRC_RF_INT_MASK	\
- 	(IXGBE_RTTBCNRC_RF_DEC_MASK << IXGBE_RTTBCNRC_RF_INT_SHIFT)
- #define IXGBE_RTTBCNRM    0x04980
-+#define IXGBE_RTTQCNRM    0x04980
- 
- /* FCoE DMA Context Registers */
- #define IXGBE_FCPTRL    0x02410 /* FC User Desc. PTR Low */
++
++int igb_reinit_queues(struct igb_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	struct pci_dev *pdev = adapter->pdev;
++	int err = 0;
++
++	if (netif_running(netdev))
++		igb_close(netdev);
++
++	igb_clear_interrupt_scheme(adapter);
++
++	if (igb_init_interrupt_scheme(adapter, true)) {
++		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
++		return -ENOMEM;
++	}
++
++	if (netif_running(netdev))
++		err = igb_open(netdev);
++
++	return err;
++}
+ /* igb_main.c */
 -- 
 1.8.3.1
