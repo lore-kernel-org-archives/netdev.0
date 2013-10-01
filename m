@@ -1,135 +1,83 @@
-From: =?UTF-8?B?RnJhbsOnb2lzIENhY2hlcmV1bA==?= <f.cachereul@init-sys.com>
-Subject: [PATCH v2] l2tp: add support for IPv4-mapped IPv6 addresses
-Date: Tue, 01 Oct 2013 09:54:31 +0200
-Message-ID: <524A7FB7.40304@init-sys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	James Chapman <jchapman@katalix.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/6] Netfilter/IPVS fixes for net
+Date: Tue,  1 Oct 2013 11:08:25 +0200
+Message-ID: <1380618511-6109-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:45830 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751508Ab3JAHyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 03:54:37 -0400
+Received: from mail.us.es ([193.147.175.20]:57957 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751174Ab3JAJJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 05:09:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv4 mapped addresses cause kernel panic.
-The patch juste check whether the IPv6 address is an IPv4 mapped
-address. If so, use the IPv4 API instead of IPv6 one.
+Hi David,
 
-Signed-off-by: Fran=C3=A7ois CACHEREUL <f.cachereul@alphalink.fr>
----
-v2: apply requested changes
+The following patchset contains Netfilter/IPVS fixes for your net
+tree, they are:
 
- net/l2tp/l2tp_core.c |   29 +++++++++++++++++++++++++----
- net/l2tp/l2tp_core.h |    3 +++
- 2 files changed, 28 insertions(+), 4 deletions(-)
+* Fix BUG_ON splat due to malformed TCP packets seen by synproxy, from
+  Patrick McHardy.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index feae495..98685ad 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -496,6 +496,7 @@ out:
- static inline int l2tp_verify_udp_checksum(struct sock *sk,
- 					   struct sk_buff *skb)
- {
-+	struct l2tp_tunnel *tunnel =3D (struct l2tp_tunnel *)sk->sk_user_data=
-;
- 	struct udphdr *uh =3D udp_hdr(skb);
- 	u16 ulen =3D ntohs(uh->len);
- 	__wsum psum;
-@@ -504,7 +505,7 @@ static inline int l2tp_verify_udp_checksum(struct s=
-ock *sk,
- 		return 0;
-=20
- #if IS_ENABLED(CONFIG_IPV6)
--	if (sk->sk_family =3D=3D PF_INET6) {
-+	if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped) {
- 		if (!uh->check) {
- 			LIMIT_NETDEBUG(KERN_INFO "L2TP: IPv6: checksum is 0\n");
- 			return 1;
-@@ -1128,7 +1129,7 @@ static int l2tp_xmit_core(struct l2tp_session *se=
-ssion, struct sk_buff *skb,
- 	/* Queue the packet to IP for output */
- 	skb->local_df =3D 1;
- #if IS_ENABLED(CONFIG_IPV6)
--	if (skb->sk->sk_family =3D=3D PF_INET6)
-+	if (skb->sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
- 		error =3D inet6_csk_xmit(skb, NULL);
- 	else
- #endif
-@@ -1255,7 +1256,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, s=
-truct sk_buff *skb, int hdr_len
-=20
- 		/* Calculate UDP checksum if configured to do so */
- #if IS_ENABLED(CONFIG_IPV6)
--		if (sk->sk_family =3D=3D PF_INET6)
-+		if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
- 			l2tp_xmit_ipv6_csum(sk, skb, udp_len);
- 		else
- #endif
-@@ -1620,6 +1621,8 @@ int l2tp_tunnel_create(struct net *net, int fd, i=
-nt version, u32 tunnel_id, u32
- 	int err;
- 	struct socket *sock =3D NULL;
- 	struct sock *sk =3D NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+#endif
- 	struct l2tp_net *pn;
- 	enum l2tp_encap_type encap =3D L2TP_ENCAPTYPE_UDP;
-=20
-@@ -1704,6 +1707,24 @@ int l2tp_tunnel_create(struct net *net, int fd, =
-int version, u32 tunnel_id, u32
- 	if (cfg !=3D NULL)
- 		tunnel->debug =3D cfg->debug;
-=20
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sk->sk_family =3D=3D PF_INET6) {
-+		struct ipv6_pinfo *np =3D inet6_sk(sk);
-+
-+		if (ipv6_addr_v4mapped(&np->saddr) &&
-+		    ipv6_addr_v4mapped(&np->daddr)) {
-+			struct inet_sock *inet =3D inet_sk(sk);
-+
-+			tunnel->v4mapped =3D true;
-+			inet->inet_saddr =3D np->saddr.s6_addr32[3];
-+			inet->inet_rcv_saddr =3D np->rcv_saddr.s6_addr32[3];
-+			inet->inet_daddr =3D np->daddr.s6_addr32[3];
-+		} else {
-+			tunnel->v4mapped =3D false;
-+		}
-+	}
-+#endif
-+
- 	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
- 	tunnel->encap =3D encap;
- 	if (encap =3D=3D L2TP_ENCAPTYPE_UDP) {
-@@ -1712,7 +1733,7 @@ int l2tp_tunnel_create(struct net *net, int fd, i=
-nt version, u32 tunnel_id, u32
- 		udp_sk(sk)->encap_rcv =3D l2tp_udp_encap_recv;
- 		udp_sk(sk)->encap_destroy =3D l2tp_udp_encap_destroy;
- #if IS_ENABLED(CONFIG_IPV6)
--		if (sk->sk_family =3D=3D PF_INET6)
-+		if (sk->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
- 			udpv6_encap_enable();
- 		else
- #endif
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 66a559b..6f251cb 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -194,6 +194,9 @@ struct l2tp_tunnel {
- 	struct sock		*sock;		/* Parent socket */
- 	int			fd;		/* Parent fd, if tunnel socket
- 						 * was created by userspace */
-+#if IS_ENABLED(CONFIG_IPV6)
-+	bool			v4mapped;
-+#endif
-=20
- 	struct work_struct	del_work;
-=20
---=20
-1.7.10.4
+* Fix possible weight overflow in lblc and lblcr schedulers due to
+  32-bits arithmetics, from Simon Kirby.
+
+* Fix possible memory access race in the lblc and lblcr schedulers,
+  introduced when it was converted to use RCU, two patches from
+  Julian Anastasov.
+
+* Fix hard dependency on CPU 0 when reading per-cpu stats in the
+  rate estimator, from Julian Anastasov.
+
+* Fix race that may lead to object use after release, when invoking
+  ipvsadm -C && ipvsadm -R, introduced when adding RCU, from Julian
+  Anastasov.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 61c5923a2f2d8ab98a1e3c76f17e0f4a871ec75b:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2013-09-17 20:22:53 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to f4a87e7bd2eaef26a3ca25437ce8b807de2966ad:
+
+  netfilter: synproxy: fix BUG_ON triggered by corrupt TCP packets (2013-09-30 12:44:38 +0200)
+
+----------------------------------------------------------------
+Julian Anastasov (4):
+      ipvs: make the service replacement more robust
+      ipvs: do not use dest after ip_vs_dest_put in LBLC
+      ipvs: do not use dest after ip_vs_dest_put in LBLCR
+      ipvs: stats should not depend on CPU 0
+
+Patrick McHardy (1):
+      netfilter: synproxy: fix BUG_ON triggered by corrupt TCP packets
+
+Simon Kirby (1):
+      ipvs: fix overflow on dest weight multiply
+
+ include/net/ip_vs.h                           |    9 +--
+ include/net/netfilter/nf_conntrack_synproxy.h |    2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c             |   10 ++-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c            |   10 ++-
+ net/netfilter/ipvs/ip_vs_core.c               |   12 +++-
+ net/netfilter/ipvs/ip_vs_ctl.c                |   86 ++++++++++---------------
+ net/netfilter/ipvs/ip_vs_est.c                |    4 +-
+ net/netfilter/ipvs/ip_vs_lblc.c               |   72 ++++++++++-----------
+ net/netfilter/ipvs/ip_vs_lblcr.c              |   62 ++++++++----------
+ net/netfilter/ipvs/ip_vs_nq.c                 |    8 +--
+ net/netfilter/ipvs/ip_vs_sed.c                |    8 +--
+ net/netfilter/ipvs/ip_vs_wlc.c                |    6 +-
+ net/netfilter/nf_synproxy_core.c              |   12 ++--
+ 13 files changed, 143 insertions(+), 158 deletions(-)
