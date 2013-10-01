@@ -1,108 +1,79 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.41 5/5] datapath: Add basic MPLS support to kernel
-Date: Tue, 1 Oct 2013 16:02:17 -0700
-Message-ID: <CAEP_g=-+ttiZnxv95V17KQdN1Pg4UT1P80WSrFGHQWROvj+nMQ@mail.gmail.com>
-References: <1380610064-14856-1-git-send-email-horms@verge.net.au> <1380610064-14856-6-git-send-email-horms@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 07/11] igb: Avoid uninitialized advertised variable in
+ eee_set_cur
+Date: Tue, 01 Oct 2013 16:10:02 -0700
+Message-ID: <1380669002.2075.3.camel@jtkirshe-mobl>
+References: <1380572952-30729-1-git-send-email-andi@firstfloor.org>
+	 <1380572952-30729-8-git-send-email-andi@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ben Pfaff <blp@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jK6N35UU8v1y9b2fHgnT"
+Cc: linux-kernel@vger.kernel.org, Andi Kleen <ak@linux.intel.com>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:40981 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751834Ab3JAXCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 19:02:38 -0400
-Received: by mail-ie0-f175.google.com with SMTP id e14so15389iej.20
-        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 16:02:37 -0700 (PDT)
-In-Reply-To: <1380610064-14856-6-git-send-email-horms@verge.net.au>
+Received: from mga03.intel.com ([143.182.124.21]:35577 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751764Ab3JAXKE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 19:10:04 -0400
+In-Reply-To: <1380572952-30729-8-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 30, 2013 at 11:47 PM, Simon Horman <horms@verge.net.au> wrote:
-> diff --git a/datapath/actions.c b/datapath/actions.c
-> index d961e5d..bfab9ec 100644
-> --- a/datapath/actions.c
-> +++ b/datapath/actions.c
-> +/* Push MPLS after the ethernet header. */
-> +static int push_mpls(struct sk_buff *skb,
-> +                    const struct ovs_action_push_mpls *mpls)
-[...]
-> +       hdr = eth_hdr(skb);
-> +       hdr->h_proto = mpls->mpls_ethertype;
-> +       if (!eth_p_mpls(skb->protocol) && !ovs_skb_get_inner_protocol(skb))
-> +               ovs_skb_set_inner_protocol(skb, skb->protocol);
 
-Do we actually need the check for !eth_p_mpls(skb->protocol)? It's not
-clear to me what condition it is trying to prevent.
+--=-jK6N35UU8v1y9b2fHgnT
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> +static int pop_mpls(struct sk_buff *skb, const __be16 ethertype)
-> +{
-> +       struct ethhdr *hdr;
-> +       int err;
-> +
-> +       err = make_writable(skb, skb->mac_len + MPLS_HLEN);
-> +       if (unlikely(err))
-> +               return err;
-> +
-> +       if (unlikely(skb->len < skb->mac_len + MPLS_HLEN))
-> +               return -ENOMEM;
+On Mon, 2013-09-30 at 13:29 -0700, Andi Kleen wrote:
+> From: Andi Kleen <ak@linux.intel.com>
+>=20
+> eee_get_cur assumes that the output data is already zeroed. It can
+> read-modify-write the advertised field:
+>=20
+>               if (ipcnfg & E1000_IPCNFG_EEE_100M_AN)
+> 2594                    edata->advertised |=3D ADVERTISED_100baseT_Full;
+>=20
+> This is ok for the normal ethtool eee_get call, which always
+> zeroes the input data before.
+>=20
+> But eee_set_cur also calls eee_get_cur and it did not zero the input
+> field. Later on it then compares agsinst the field, which can contain
+> partial
+> stack garbage.
+>=20
+> Zero the input field in eee_set_cur() too.
+>=20
+> Cc: jeffrey.t.kirsher@intel.com
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c | 2 ++
+>  1 file changed, 2 insertions(+)
 
-I'm not sure that this is the right error code in this situation -
-maybe -EINVAL would be better.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> @@ -545,6 +662,14 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->                         output_userspace(dp, skb, a);
->                         break;
->
-> +               case OVS_ACTION_ATTR_PUSH_MPLS:
-> +                       err = push_mpls(skb, nla_data(a));
-> +                       break;
-> +
-> +               case OVS_ACTION_ATTR_POP_MPLS:
-> +                       err = pop_mpls(skb, nla_get_be16(a));
-> +                       break;
+--=-jK6N35UU8v1y9b2fHgnT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I think we need something similar to POP_VLAN here - in the event of
-an error the skb will have already been freed.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
 
-> diff --git a/datapath/datapath.h b/datapath/datapath.h
-> index 4a49a7d..31fe10a 100644
-> --- a/datapath/datapath.h
-> +++ b/datapath/datapath.h
-> @@ -95,6 +95,8 @@ struct datapath {
->   * @pkt_key: The flow information extracted from the packet.  Must be nonnull.
->   * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
->   * packet is not being tunneled.
-> + * @inner_protocol: Provides a substitute for the skb->inner_protocol field on
-> + * kernels before 3.11.
->   */
->  struct ovs_skb_cb {
->         struct sw_flow          *flow;
+iQIcBAABCgAGBQJSS1ZKAAoJEOVv75VaS+3OYyMQAIYkgc2xZA9RsFOGOt0xXl6X
+zO3C03G/0D3MqifW9lv9b9leroOZ46f+ZiQJBzNRGVeRIX7KwCivZZ3M4qH1ZoBW
+MPMD1W1IxL5kpTuPyUmnJL7pJTdcYhAJrU6YY5xtF68kT6W2L3ukW/sWYr6E2aYG
+ehtU3hgi930FgAAZdKFhkQf3udCO7CD77LiUmPA17qZC4wNaDHyadgkTJ2uJHmtd
+hwKpP92q56vsMQszc7WTxy+82baM6q/VRGAd4QXGS/RH85afw2hOliuhSBl10WEx
+dspL7+q2HMiwRr/I4Rhwf3e1hyG5oDYzArL3ygu1cHss6EBkJOBtaLluoZCIsryb
+5xLcdamre32fbTGUAzIelYdYHz37DEdAQsL9gaOlPvyZzC6uAmJ5ZCCTcBsgIDYn
+gyJal6zmVOND+TKihQ9vvzcEu+Rp+25uxueXsN8TSUW6rWmhGIFjWiOCWKkEQEed
+gPNPekiNGiv7SX0bBouj/KSxebCOxRET52dr+q3FwJ0lPY3ueX4qn6XPvmWGpbJV
+YQ4OV4w9mWSu5IEsFWAxfLgy4F3ZiAdtfFPVEi3pheFNqQE1EOc9qMNCCayg3lon
+vMwiYAOi3mU8iSznYTOj2Sf9d+AWeaqJ6MlFK1ZB7aYI6CjqEk/++efODIs44QDA
+QxweJXPFiEwPIU7UxIl8
+=rVEt
+-----END PGP SIGNATURE-----
 
-I think this comment no longer applies now that inner_protocol has
-been moved into the GSO struct.
-
-> diff --git a/datapath/linux/compat/gso.c b/datapath/linux/compat/gso.c
-> index 32f906c..f917356 100644
-> --- a/datapath/linux/compat/gso.c
-> +++ b/datapath/linux/compat/gso.c
->  int rpl_dev_queue_xmit(struct sk_buff *skb)
->  {
->  #undef dev_queue_xmit
->         int err = -ENOMEM;
-> +       __be16 inner_protocol;
-> +       bool vlan, mpls;
->
-> -       if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->dev)) {
-> +       vlan = mpls = false;
-> +
-> +       inner_protocol = ovs_skb_get_inner_protocol(skb);
-
-I don't think this is actually used in this function.
-
-Pravin, do you have any further comments?
+--=-jK6N35UU8v1y9b2fHgnT--
