@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add missing sk_max_pacing_rate doc
-Date: Mon, 30 Sep 2013 22:11:41 -0700 (PDT)
-Message-ID: <20130930.221141.2224536912493020168.davem@davemloft.net>
-References: <1380036052.3165.71.camel@edumazet-glaptop>
-	<20130928.153610.2280100769720851440.davem@davemloft.net>
-	<1380442360.3596.18.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: skb_is_gso_v6() requires skb_is_gso()
+Date: Mon, 30 Sep 2013 22:11:48 -0700 (PDT)
+Message-ID: <20130930.221148.1310945488170996031.davem@davemloft.net>
+References: <1380442892.3596.22.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42572 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42577 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab3JAFEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 01:04:36 -0400
-In-Reply-To: <1380442360.3596.18.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1751191Ab3JAFEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 01:04:41 -0400
+In-Reply-To: <1380442892.3596.22.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 29 Sep 2013 01:12:40 -0700
+Date: Sun, 29 Sep 2013 01:21:32 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> Warning(include/net/sock.h:411): No description found for parameter
-> 'sk_max_pacing_rate'
+> bnx2x makes a dangerous use of skb_is_gso_v6().
 > 
-> Lets please "make htmldocs" and kbuild bot.
+> It should first make sure skb is a gso packet
 > 
-> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
