@@ -1,168 +1,195 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] ipvs: do not use dest after ip_vs_dest_put in LBLC
-Date: Tue,  1 Oct 2013 11:35:29 +0200
-Message-ID: <1380620132-7388-3-git-send-email-pablo@netfilter.org>
-References: <1380620132-7388-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/6] ipvs: fix overflow on dest weight multiply
+Date: Tue,  1 Oct 2013 11:35:27 +0200
+Message-ID: <1380620132-7388-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1380620132-7388-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Simon Kirby <sim@hostway.ca>
 
-commit c2a4ffb70eef39 ("ipvs: convert lblc scheduler to rcu")
-allows RCU readers to use dest after calling ip_vs_dest_put().
-In the corner case it can race with ip_vs_dest_trash_expire()
-which can release the dest while it is being returned to the
-RCU readers as scheduling result.
+Schedulers such as lblc and lblcr require the weight to be as high as the
+maximum number of active connections. In commit b552f7e3a9524abcbcdf
+("ipvs: unify the formula to estimate the overhead of processing
+connections"), the consideration of inactconns and activeconns was cleaned
+up to always count activeconns as 256 times more important than inactconns.
+In cases where 3000 or more connections are expected, a weight of 3000 *
+256 * 3000 connections overflows the 32-bit signed result used to determine
+if rescheduling is required.
 
-To fix the problem do not allow en->dest to be replaced and
-defer the ip_vs_dest_put() call by using RCU callback. Now
-en->dest does not need to be RCU pointer.
+On amd64, this merely changes the multiply and comparison instructions to
+64-bit. On x86, a 64-bit result is already present from imull, so only
+a few more comparison instructions are emitted.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Kirby <sim@hostway.ca>
+Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_lblc.c |   68 ++++++++++++++++++---------------------
- 1 file changed, 31 insertions(+), 37 deletions(-)
+ include/net/ip_vs.h              |    2 +-
+ net/netfilter/ipvs/ip_vs_lblc.c  |    4 ++--
+ net/netfilter/ipvs/ip_vs_lblcr.c |   12 ++++++------
+ net/netfilter/ipvs/ip_vs_nq.c    |    8 ++++----
+ net/netfilter/ipvs/ip_vs_sed.c   |    8 ++++----
+ net/netfilter/ipvs/ip_vs_wlc.c   |    6 +++---
+ 6 files changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index eb814bf..eff13c9 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -93,7 +93,7 @@ struct ip_vs_lblc_entry {
- 	struct hlist_node	list;
- 	int			af;		/* address family */
- 	union nf_inet_addr      addr;           /* destination IP address */
--	struct ip_vs_dest __rcu	*dest;          /* real server (cache) */
-+	struct ip_vs_dest	*dest;          /* real server (cache) */
- 	unsigned long           lastuse;        /* last used time */
- 	struct rcu_head		rcu_head;
- };
-@@ -130,20 +130,21 @@ static struct ctl_table vs_vars_table[] = {
- };
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index f0d70f0..fe782ed 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1649,7 +1649,7 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
+ /* CONFIG_IP_VS_NFCT */
  #endif
  
--static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
-+static void ip_vs_lblc_rcu_free(struct rcu_head *head)
+-static inline unsigned int
++static inline int
+ ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
  {
--	struct ip_vs_dest *dest;
-+	struct ip_vs_lblc_entry *en = container_of(head,
-+						   struct ip_vs_lblc_entry,
-+						   rcu_head);
+ 	/*
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 1383b0e..eb814bf 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -443,8 +443,8 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 			continue;
  
--	hlist_del_rcu(&en->list);
--	/*
--	 * We don't kfree dest because it is referred either by its service
--	 * or the trash dest list.
--	 */
--	dest = rcu_dereference_protected(en->dest, 1);
--	ip_vs_dest_put(dest);
--	kfree_rcu(en, rcu_head);
-+	ip_vs_dest_put(en->dest);
-+	kfree(en);
- }
- 
-+static inline void ip_vs_lblc_del(struct ip_vs_lblc_entry *en)
-+{
-+	hlist_del_rcu(&en->list);
-+	call_rcu(&en->rcu_head, ip_vs_lblc_rcu_free);
-+}
- 
- /*
-  *	Returns hash value for IPVS LBLC entry
-@@ -203,30 +204,23 @@ ip_vs_lblc_new(struct ip_vs_lblc_table *tbl, const union nf_inet_addr *daddr,
- 	struct ip_vs_lblc_entry *en;
- 
- 	en = ip_vs_lblc_get(dest->af, tbl, daddr);
--	if (!en) {
--		en = kmalloc(sizeof(*en), GFP_ATOMIC);
--		if (!en)
--			return NULL;
--
--		en->af = dest->af;
--		ip_vs_addr_copy(dest->af, &en->addr, daddr);
--		en->lastuse = jiffies;
-+	if (en) {
-+		if (en->dest == dest)
-+			return en;
-+		ip_vs_lblc_del(en);
-+	}
-+	en = kmalloc(sizeof(*en), GFP_ATOMIC);
-+	if (!en)
-+		return NULL;
- 
--		ip_vs_dest_hold(dest);
--		RCU_INIT_POINTER(en->dest, dest);
-+	en->af = dest->af;
-+	ip_vs_addr_copy(dest->af, &en->addr, daddr);
-+	en->lastuse = jiffies;
- 
--		ip_vs_lblc_hash(tbl, en);
--	} else {
--		struct ip_vs_dest *old_dest;
-+	ip_vs_dest_hold(dest);
-+	en->dest = dest;
- 
--		old_dest = rcu_dereference_protected(en->dest, 1);
--		if (old_dest != dest) {
--			ip_vs_dest_put(old_dest);
--			ip_vs_dest_hold(dest);
--			/* No ordering constraints for refcnt */
--			RCU_INIT_POINTER(en->dest, dest);
--		}
--	}
-+	ip_vs_lblc_hash(tbl, en);
- 
- 	return en;
- }
-@@ -246,7 +240,7 @@ static void ip_vs_lblc_flush(struct ip_vs_service *svc)
- 	tbl->dead = 1;
- 	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
--			ip_vs_lblc_free(en);
-+			ip_vs_lblc_del(en);
- 			atomic_dec(&tbl->entries);
+ 		doh = ip_vs_dest_conn_overhead(dest);
+-		if (loh * atomic_read(&dest->weight) >
+-		    doh * atomic_read(&least->weight)) {
++		if ((__s64)loh * atomic_read(&dest->weight) >
++		    (__s64)doh * atomic_read(&least->weight)) {
+ 			least = dest;
+ 			loh = doh;
  		}
- 	}
-@@ -281,7 +275,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
- 					sysctl_lblc_expiration(svc)))
- 				continue;
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 5199448..e65f7c5 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -200,8 +200,8 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 			continue;
  
--			ip_vs_lblc_free(en);
-+			ip_vs_lblc_del(en);
- 			atomic_dec(&tbl->entries);
+ 		doh = ip_vs_dest_conn_overhead(dest);
+-		if ((loh * atomic_read(&dest->weight) >
+-		     doh * atomic_read(&least->weight))
++		if (((__s64)loh * atomic_read(&dest->weight) >
++		     (__s64)doh * atomic_read(&least->weight))
+ 		    && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
+ 			least = dest;
+ 			loh = doh;
+@@ -246,8 +246,8 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+ 		dest = rcu_dereference_protected(e->dest, 1);
+ 		doh = ip_vs_dest_conn_overhead(dest);
+ 		/* moh/mw < doh/dw ==> moh*dw < doh*mw, where mw,dw>0 */
+-		if ((moh * atomic_read(&dest->weight) <
+-		     doh * atomic_read(&most->weight))
++		if (((__s64)moh * atomic_read(&dest->weight) <
++		     (__s64)doh * atomic_read(&most->weight))
+ 		    && (atomic_read(&dest->weight) > 0)) {
+ 			most = dest;
+ 			moh = doh;
+@@ -611,8 +611,8 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
+ 			continue;
+ 
+ 		doh = ip_vs_dest_conn_overhead(dest);
+-		if (loh * atomic_read(&dest->weight) >
+-		    doh * atomic_read(&least->weight)) {
++		if ((__s64)loh * atomic_read(&dest->weight) >
++		    (__s64)doh * atomic_read(&least->weight)) {
+ 			least = dest;
+ 			loh = doh;
  		}
- 		spin_unlock(&svc->sched_lock);
-@@ -335,7 +329,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
- 			if (time_before(now, en->lastuse + ENTRY_TIMEOUT))
- 				continue;
+diff --git a/net/netfilter/ipvs/ip_vs_nq.c b/net/netfilter/ipvs/ip_vs_nq.c
+index d8d9860..961a6de 100644
+--- a/net/netfilter/ipvs/ip_vs_nq.c
++++ b/net/netfilter/ipvs/ip_vs_nq.c
+@@ -40,7 +40,7 @@
+ #include <net/ip_vs.h>
  
--			ip_vs_lblc_free(en);
-+			ip_vs_lblc_del(en);
- 			atomic_dec(&tbl->entries);
- 			goal--;
- 		}
-@@ -511,7 +505,7 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 		 * free up entries from the trash at any time.
- 		 */
  
--		dest = rcu_dereference(en->dest);
-+		dest = en->dest;
- 		if ((dest->flags & IP_VS_DEST_F_AVAILABLE) &&
- 		    atomic_read(&dest->weight) > 0 && !is_overloaded(dest, svc))
- 			goto out;
-@@ -631,7 +625,7 @@ static void __exit ip_vs_lblc_cleanup(void)
+-static inline unsigned int
++static inline int
+ ip_vs_nq_dest_overhead(struct ip_vs_dest *dest)
  {
- 	unregister_ip_vs_scheduler(&ip_vs_lblc_scheduler);
- 	unregister_pernet_subsys(&ip_vs_lblc_ops);
--	synchronize_rcu();
-+	rcu_barrier();
- }
+ 	/*
+@@ -59,7 +59,7 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		  struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_dest *dest, *least = NULL;
+-	unsigned int loh = 0, doh;
++	int loh = 0, doh;
+ 
+ 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
+ 
+@@ -92,8 +92,8 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		}
+ 
+ 		if (!least ||
+-		    (loh * atomic_read(&dest->weight) >
+-		     doh * atomic_read(&least->weight))) {
++		    ((__s64)loh * atomic_read(&dest->weight) >
++		     (__s64)doh * atomic_read(&least->weight))) {
+ 			least = dest;
+ 			loh = doh;
+ 		}
+diff --git a/net/netfilter/ipvs/ip_vs_sed.c b/net/netfilter/ipvs/ip_vs_sed.c
+index a5284cc..e446b9f 100644
+--- a/net/netfilter/ipvs/ip_vs_sed.c
++++ b/net/netfilter/ipvs/ip_vs_sed.c
+@@ -44,7 +44,7 @@
+ #include <net/ip_vs.h>
  
  
+-static inline unsigned int
++static inline int
+ ip_vs_sed_dest_overhead(struct ip_vs_dest *dest)
+ {
+ 	/*
+@@ -63,7 +63,7 @@ ip_vs_sed_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		   struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_dest *dest, *least;
+-	unsigned int loh, doh;
++	int loh, doh;
+ 
+ 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
+ 
+@@ -99,8 +99,8 @@ ip_vs_sed_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 		doh = ip_vs_sed_dest_overhead(dest);
+-		if (loh * atomic_read(&dest->weight) >
+-		    doh * atomic_read(&least->weight)) {
++		if ((__s64)loh * atomic_read(&dest->weight) >
++		    (__s64)doh * atomic_read(&least->weight)) {
+ 			least = dest;
+ 			loh = doh;
+ 		}
+diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
+index 6dc1fa1..b5b4650 100644
+--- a/net/netfilter/ipvs/ip_vs_wlc.c
++++ b/net/netfilter/ipvs/ip_vs_wlc.c
+@@ -35,7 +35,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		   struct ip_vs_iphdr *iph)
+ {
+ 	struct ip_vs_dest *dest, *least;
+-	unsigned int loh, doh;
++	int loh, doh;
+ 
+ 	IP_VS_DBG(6, "ip_vs_wlc_schedule(): Scheduling...\n");
+ 
+@@ -71,8 +71,8 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 		doh = ip_vs_dest_conn_overhead(dest);
+-		if (loh * atomic_read(&dest->weight) >
+-		    doh * atomic_read(&least->weight)) {
++		if ((__s64)loh * atomic_read(&dest->weight) >
++		    (__s64)doh * atomic_read(&least->weight)) {
+ 			least = dest;
+ 			loh = doh;
+ 		}
 -- 
 1.7.10.4
 
