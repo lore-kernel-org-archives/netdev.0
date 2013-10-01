@@ -1,181 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  9/9] igb: Add ethtool support to configure number of channels
-Date: Tue,  1 Oct 2013 04:33:56 -0700
-Message-ID: <1380627236-3190-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  4/9] ixgbevf: move API neg to reset path
+Date: Tue,  1 Oct 2013 04:33:51 -0700
+Message-ID: <1380627236-3190-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:63003 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:46701 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752789Ab3JALeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Oct 2013 07:34:05 -0400
+	id S1751834Ab3JALeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Oct 2013 07:34:01 -0400
 In-Reply-To: <1380627236-3190-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch adds the ethtool callbacks necessary to configure the
-number of RSS queues.
+After this patch the API negotiation will occur in the reset path.  So now
+the PF will be informed of the API version earlier.  This will also require
+the mailbox lock to be initialize sooner as well.
 
-The maximum number of queues is in accordance with the datasheets.
-
-Signed-off-by: Laura Mihaela Vasilescu <laura.vasilescu@rosedu.org>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h         |  1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 84 ++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igb/igb_main.c    | 22 ++++++++
- 3 files changed, 107 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index cdaa2bc..5e9ed89 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -487,6 +487,7 @@ int igb_up(struct igb_adapter *);
- void igb_down(struct igb_adapter *);
- void igb_reinit_locked(struct igb_adapter *);
- void igb_reset(struct igb_adapter *);
-+int igb_reinit_queues(struct igb_adapter *);
- void igb_write_rss_indir_tbl(struct igb_adapter *);
- int igb_set_spd_dplx(struct igb_adapter *, u32, u8);
- int igb_setup_tx_resources(struct igb_ring *);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index e4c77c0..c8f65e5 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2874,6 +2874,88 @@ static int igb_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index e3493b0..ce27d62 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1544,8 +1544,6 @@ void ixgbevf_up(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
  
-+static unsigned int igb_max_channels(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	unsigned int max_combined = 0;
-+
-+	switch (hw->mac.type) {
-+	case e1000_i211:
-+		max_combined = IGB_MAX_RX_QUEUES_I211;
-+		break;
-+	case e1000_82575:
-+	case e1000_i210:
-+		max_combined = IGB_MAX_RX_QUEUES_82575;
-+		break;
-+	case e1000_i350:
-+		if (!!adapter->vfs_allocated_count) {
-+			max_combined = 1;
-+			break;
-+		}
-+		/* fall through */
-+	case e1000_82576:
-+		if (!!adapter->vfs_allocated_count) {
-+			max_combined = 2;
-+			break;
-+		}
-+		/* fall through */
-+	case e1000_82580:
-+	case e1000_i354:
-+	default:
-+		max_combined = IGB_MAX_RX_QUEUES;
-+		break;
-+	}
-+
-+	return max_combined;
-+}
-+
-+static void igb_get_channels(struct net_device *netdev,
-+			     struct ethtool_channels *ch)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+
-+	/* Report maximum channels */
-+	ch->max_combined = igb_max_channels(adapter);
-+
-+	/* Report info for other vector */
-+	if (adapter->msix_entries) {
-+		ch->max_other = NON_Q_VECTORS;
-+		ch->other_count = NON_Q_VECTORS;
-+	}
-+
-+	ch->combined_count = adapter->rss_queues;
-+}
-+
-+static int igb_set_channels(struct net_device *netdev,
-+			    struct ethtool_channels *ch)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+	unsigned int count = ch->combined_count;
-+
-+	/* Verify they are not requesting separate vectors */
-+	if (!count || ch->rx_count || ch->tx_count)
-+		return -EINVAL;
-+
-+	/* Verify other_count is valid and has not been changed */
-+	if (ch->other_count != NON_Q_VECTORS)
-+		return -EINVAL;
-+
-+	/* Verify the number of channels doesn't exceed hw limits */
-+	if (count > igb_max_channels(adapter))
-+		return -EINVAL;
-+
-+	if (count != adapter->rss_queues) {
-+		adapter->rss_queues = count;
-+
-+		/* Hardware has to reinitialize queues and interrupts to
-+		 * match the new configuration.
-+		 */
-+		return igb_reinit_queues(adapter);
-+	}
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops igb_ethtool_ops = {
- 	.get_settings		= igb_get_settings,
- 	.set_settings		= igb_set_settings,
-@@ -2910,6 +2992,8 @@ static const struct ethtool_ops igb_ethtool_ops = {
- 	.get_rxfh_indir_size	= igb_get_rxfh_indir_size,
- 	.get_rxfh_indir		= igb_get_rxfh_indir,
- 	.set_rxfh_indir		= igb_set_rxfh_indir,
-+	.get_channels		= igb_get_channels,
-+	.set_channels		= igb_set_channels,
- 	.begin			= igb_ethtool_begin,
- 	.complete		= igb_ethtool_complete,
- };
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8cf44f2..a56266e 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7838,4 +7838,26 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 		return E1000_SUCCESS;
+-	ixgbevf_negotiate_api(adapter);
+-
+ 	ixgbevf_reset_queues(adapter);
  
- }
-+
-+int igb_reinit_queues(struct igb_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct pci_dev *pdev = adapter->pdev;
-+	int err = 0;
-+
-+	if (netif_running(netdev))
-+		igb_close(netdev);
-+
-+	igb_clear_interrupt_scheme(adapter);
-+
-+	if (igb_init_interrupt_scheme(adapter, true)) {
-+		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
-+		return -ENOMEM;
+ 	ixgbevf_configure(adapter);
+@@ -1735,10 +1733,12 @@ void ixgbevf_reset(struct ixgbevf_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+ 
+-	if (hw->mac.ops.reset_hw(hw))
++	if (hw->mac.ops.reset_hw(hw)) {
+ 		hw_dbg(hw, "PF still resetting\n");
+-	else
++	} else {
+ 		hw->mac.ops.init_hw(hw);
++		ixgbevf_negotiate_api(adapter);
 +	}
+ 
+ 	if (is_valid_ether_addr(adapter->hw.mac.addr)) {
+ 		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
+@@ -2074,6 +2074,9 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
+ 	hw->mac.max_tx_queues = 2;
+ 	hw->mac.max_rx_queues = 2;
+ 
++	/* lock to protect mailbox accesses */
++	spin_lock_init(&adapter->mbx_lock);
 +
-+	if (netif_running(netdev))
-+		err = igb_open(netdev);
+ 	err = hw->mac.ops.reset_hw(hw);
+ 	if (err) {
+ 		dev_info(&pdev->dev,
+@@ -2084,6 +2087,7 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
+ 			pr_err("init_shared_code failed: %d\n", err);
+ 			goto out;
+ 		}
++		ixgbevf_negotiate_api(adapter);
+ 		err = hw->mac.ops.get_mac_addr(hw, hw->mac.addr);
+ 		if (err)
+ 			dev_info(&pdev->dev, "Error reading MAC address\n");
+@@ -2099,9 +2103,6 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
+ 		memcpy(hw->mac.addr, netdev->dev_addr, netdev->addr_len);
+ 	}
+ 
+-	/* lock to protect mailbox accesses */
+-	spin_lock_init(&adapter->mbx_lock);
+-
+ 	/* Enable dynamic interrupt throttling rates */
+ 	adapter->rx_itr_setting = 1;
+ 	adapter->tx_itr_setting = 1;
+@@ -2622,8 +2623,6 @@ static int ixgbevf_open(struct net_device *netdev)
+ 		}
+ 	}
+ 
+-	ixgbevf_negotiate_api(adapter);
+-
+ 	/* setup queue reg_idx and Rx queue count */
+ 	err = ixgbevf_setup_queues(adapter);
+ 	if (err)
+@@ -3218,6 +3217,8 @@ static int ixgbevf_resume(struct pci_dev *pdev)
+ 	}
+ 	pci_set_master(pdev);
+ 
++	ixgbevf_reset(adapter);
 +
-+	return err;
-+}
- /* igb_main.c */
+ 	rtnl_lock();
+ 	err = ixgbevf_init_interrupt_scheme(adapter);
+ 	rtnl_unlock();
+@@ -3226,8 +3227,6 @@ static int ixgbevf_resume(struct pci_dev *pdev)
+ 		return err;
+ 	}
+ 
+-	ixgbevf_reset(adapter);
+-
+ 	if (netif_running(netdev)) {
+ 		err = ixgbevf_open(netdev);
+ 		if (err)
 -- 
 1.8.3.1
