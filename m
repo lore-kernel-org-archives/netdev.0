@@ -1,54 +1,55 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 2/2] ip6tnl: allow to use rtnl ops on fb tunnel
-Date: Tue,  1 Oct 2013 18:05:00 +0200
-Message-ID: <1380643500-5018-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <524AB26B.1070700@6wind.com>
- <1380643500-5018-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	pshelar@nicira.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Chris Verges <cverges@sentient-energy.com>
+Subject: Re: Established sockets remain open after iface down or address lost
+Date: Tue, 1 Oct 2013 09:08:25 -0700
+Message-ID: <20131001160825.GA8784@cverges-dev-lnx.sentient-energy.com>
+References: <20130926060433.GA9170@cverges-dev-lnx.sentient-energy.com>
+ <1380203383.3165.172.camel@edumazet-glaptop>
+ <20131001132707.GA7442@cverges-dev-lnx.sentient-energy.com>
+ <524AEDD1.9010709@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:47961 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082Ab3JAQF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:05:57 -0400
-In-Reply-To: <1380643500-5018-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:34873 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704Ab3JAQI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 12:08:29 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc17so7330067pbc.18
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 09:08:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <524AEDD1.9010709@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rtnl ops where introduced by c075b13098b3 ("ip6tnl: advertise tunnel param via
-rtnl"), but I forget to assign rtnl ops to fb tunnels.
+On Tue, Oct 01, 2013 at 08:44:17AM -0700, Rick Jones wrote:
+> The protocol between client and server needs to have an
+> application-layer "keepalive" mechanism added, and then the server
+> will be able to detect a dangling connection without need of any
+> further kernel modifications.
+> 
+> If that is not possible, the server can/should set SO_KEEPALIVE and
+> perhaps tweak the TCP keepalive settings.  Not as good (IMO) as an
+> application-layer keepalive because it only shows that the connection
+> is good as far as TCP, but I suppose it could do in a pinch.
 
-Now that it is done, we must remove the explicit call to
-unregister_netdevice_queue(), because  the fallback tunnel is added to the queue
-in ip6_tnl_destroy_tunnels() when checking rtnl_link_ops of all netdevices (this
-is valid since commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
+I agree that some form of keepalives would solve the problem where
+blocking reads need to be interrupted.  However, this creates traffic
+across the link -- directly proportional to the keepalive interval.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_tunnel.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+The underlying physical layer is such that we pay for all traffic going
+across it -- including any keepalives at either the application or TCP
+layers.  Paying for this keepalive traffic when the link is operational
+is not desired.
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 2d8f4829575b..a791552e0422 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1731,8 +1731,6 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
- 		}
- 	}
- 
--	t = rtnl_dereference(ip6n->tnls_wc[0]);
--	unregister_netdevice_queue(t->dev, &list);
- 	unregister_netdevice_many(&list);
- }
- 
-@@ -1752,6 +1750,7 @@ static int __net_init ip6_tnl_init_net(struct net *net)
- 	if (!ip6n->fb_tnl_dev)
- 		goto err_alloc_dev;
- 	dev_net_set(ip6n->fb_tnl_dev, net);
-+	ip6n->fb_tnl_dev->rtnl_link_ops = &ip6_link_ops;
- 	/* FB netdevice is special: we have one, and only one per netns.
- 	 * Allowing to move it to another netns is clearly unsafe.
- 	 */
--- 
-1.8.2.1
+Thanks for the suggestion.  I, too, am hoping that a kernel mod isn't
+required to do what is being asked.  But I'm also willing to put in the
+work if needed.  My hope on engaging with the netdev list early in this
+process is to (1) figure out whether this has already been fully solved
+and (2) determine whether there would be interest in this patch for
+general use.
+
+Thanks,
+Chris
