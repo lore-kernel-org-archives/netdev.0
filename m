@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 33/77] ioat: Disable MSI-X in case request of IRQ failed
-Date: Wed,  2 Oct 2013 12:48:49 +0200
-Message-ID: <7e419c7c306eaf3be6fad3250e20d1b3da9675a8.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 20/77] csiostor: Return -ENOSPC when not enough MSI-X vectors available
+Date: Wed,  2 Oct 2013 12:48:36 +0200
+Message-ID: <db7d3fc15ca0d902ea354d0aa293416563c440c3.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,20 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/dma/ioat/dma.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/scsi/csiostor/csio_isr.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/dma/ioat/dma.c b/drivers/dma/ioat/dma.c
-index 5ff6fc1..acee3b2 100644
---- a/drivers/dma/ioat/dma.c
-+++ b/drivers/dma/ioat/dma.c
-@@ -937,6 +937,7 @@ msix:
- 				chan = ioat_chan_by_index(device, j);
- 				devm_free_irq(dev, msix->vector, chan);
- 			}
-+			pci_disable_msix(pdev);
- 			goto msix_single_vector;
- 		}
+diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
+index 91ba91d..abf20ab 100644
+--- a/drivers/scsi/csiostor/csio_isr.c
++++ b/drivers/scsi/csiostor/csio_isr.c
+@@ -533,7 +533,7 @@ csio_enable_msix(struct csio_hw *hw)
+ 			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
+ 
+ 		kfree(entries);
+-		return -ENOMEM;
++		return -ENOSPC;
  	}
+ 
+ 	/* Save off vectors */
 -- 
 1.7.7.6
