@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 48/77] mlx5: Return -ENOSPC when not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:49:04 +0200
-Message-ID: <28ed0fe9f5fee281652930a36246919dff14a33d.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 60/77] qlcnic: Return -ENOSPC when not enough MSI-X vectors available
+Date: Wed,  2 Oct 2013 12:49:16 +0200
+Message-ID: <530f1aac8bdfcd600abe1eab52657409269f8a4a.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,30 +35,29 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 3573ba4..5e5c9a3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -122,7 +122,7 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
- 	nvec = min_t(int, nvec, num_eqs);
- 	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
--		return -ENOMEM;
-+		return -ENOSPC;
- 
- 	table->msix_arr = kzalloc(nvec * sizeof(*table->msix_arr), GFP_KERNEL);
- 	if (!table->msix_arr)
-@@ -144,7 +144,7 @@ retry:
- 	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
- 	kfree(table->msix_arr);
- 
--	return 0;
-+	return -ENOSPC;
- }
- 
- static void mlx5_disable_msix(struct mlx5_core_dev *dev)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index c4c5023..c6018bb 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -620,7 +620,7 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ 				 num_msix);
+ 			if (qlcnic_83xx_check(adapter)) {
+ 				if (err < (QLC_83XX_MINIMUM_VECTOR - tx_vector))
+-					return err;
++					return -ENOSPC;
+ 				err -= (max_tx_rings + 1);
+ 				num_msix = rounddown_pow_of_two(err);
+ 				num_msix += (max_tx_rings + 1);
+@@ -636,6 +636,7 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ 					 num_msix);
+ 				goto enable_msix;
+ 			}
++			err = -ENOSPC;
+ 		} else {
+ 			dev_info(&pdev->dev,
+ 				 "Unable to allocate %d MSI-X interrupt vectors\n",
 -- 
 1.7.7.6
