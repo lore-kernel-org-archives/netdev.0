@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 34/77] ioat: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:50 +0200
-Message-ID: <63caad476ca6b7f3481d5512febcb4ef3db72209.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 52/77] niu: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:49:08 +0200
+Message-ID: <9808b7b5600043632fab8fa19f5b8e7845637de0.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,35 +39,50 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/dma/ioat/dma.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sun/niu.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/dma/ioat/dma.c b/drivers/dma/ioat/dma.c
-index acee3b2..b352ee6 100644
---- a/drivers/dma/ioat/dma.c
-+++ b/drivers/dma/ioat/dma.c
-@@ -915,15 +915,19 @@ int ioat_dma_setup_interrupts(struct ioatdma_device *device)
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index f28460c..54c41b9 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -9051,26 +9051,28 @@ static void niu_try_msix(struct niu *np, u8 *ldg_num_map)
+ 		    (np->port == 0 ? 3 : 1));
+ 	BUG_ON(num_irqs > (NIU_NUM_LDG / parent->num_ports));
  
- msix:
- 	/* The number of MSI-X vectors should equal the number of channels */
+-retry:
 +	err = pci_msix_table_size(pdev);
 +	if (err < 0)
-+		goto msi;
-+	if (err < device->common.chancnt)
-+		goto msix_single_vector;
++		goto fail;
 +
- 	msixcnt = device->common.chancnt;
- 	for (i = 0; i < msixcnt; i++)
- 		device->msix_entries[i].entry = i;
++	num_irqs = min(num_irqs, err);
+ 	for (i = 0; i < num_irqs; i++) {
+ 		msi_vec[i].vector = 0;
+ 		msi_vec[i].entry = i;
+ 	}
  
- 	err = pci_enable_msix(pdev, device->msix_entries, msixcnt);
--	if (err < 0)
+ 	err = pci_enable_msix(pdev, msi_vec, num_irqs);
+-	if (err < 0) {
+-		np->flags &= ~NIU_FLAGS_MSIX;
+-		return;
+-	}
+-	if (err > 0) {
+-		num_irqs = err;
+-		goto retry;
+-	}
 +	if (err)
- 		goto msi;
--	if (err > 0)
--		goto msix_single_vector;
++		goto fail;
  
- 	for (i = 0; i < msixcnt; i++) {
- 		msix = &device->msix_entries[i];
+ 	np->flags |= NIU_FLAGS_MSIX;
+ 	for (i = 0; i < num_irqs; i++)
+ 		np->ldg[i].irq = msi_vec[i].vector;
+ 	np->num_ldg = num_irqs;
++	return;
++
++fail:
++	np->flags &= ~NIU_FLAGS_MSIX;
+ }
+ 
+ static int niu_n2_irq_init(struct niu *np, u8 *ldg_num_map)
 -- 
 1.7.7.6
