@@ -1,73 +1,94 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: [PATCH RFC] random: introduce
- get_random_bytes_busy_wait_initialized
-Date: Wed, 2 Oct 2013 11:10:18 -0400
-Message-ID: <20131002151018.GA31579@thunk.org>
-References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
- <1379980991.3165.37.camel@edumazet-glaptop>
- <20130924023038.GA22393@order.stressinduktion.org>
- <20130924033505.GB22393@order.stressinduktion.org>
- <1380001118.3165.41.camel@edumazet-glaptop>
- <20130924054532.GA24446@order.stressinduktion.org>
- <1380028797.3165.65.camel@edumazet-glaptop>
- <20130925090034.GC4904@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need
+ also be handled by UFO
+Date: Wed, 02 Oct 2013 08:14:27 -0700
+Message-ID: <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20130930114343.GA6356@minipsycho.brq.redhat.com>
+	 <20130930172312.GE10771@order.stressinduktion.org>
+	 <20131001105837.GA1424@minipsycho.brq.redhat.com>
+	 <20131001120907.GH10771@order.stressinduktion.org>
+	 <20131001123214.GI10771@order.stressinduktion.org>
+	 <20131001214721.GJ10771@order.stressinduktion.org>
+	 <20131001232534.GM10771@order.stressinduktion.org>
+	 <20131002085842.GA1528@minipsycho.brq.redhat.com>
+	 <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002121207.GO10771@order.stressinduktion.org>
+	 <20131002130329.GP10771@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.thunk.org ([74.207.234.97]:41249 "EHLO imap.thunk.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753121Ab3JBPKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Oct 2013 11:10:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20130925090034.GC4904@order.stressinduktion.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:42417 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753653Ab3JBPOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 11:14:30 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so1016937pbc.17
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 08:14:29 -0700 (PDT)
+In-Reply-To: <20131002130329.GP10771@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 25, 2013 at 11:00:34AM +0200, Hannes Frederic Sowa wrote:
-> [PATCH RFC] random: introduce get_random_bytes_busy_wait_initialized
+On Wed, 2013-10-02 at 15:03 +0200, Hannes Frederic Sowa wrote:
+> On Wed, Oct 02, 2013 at 02:12:07PM +0200, Hannes Frederic Sowa wrote:
+> > Hi Eric!
+> > 
+> > On Wed, Oct 02, 2013 at 03:41:28AM -0700, Eric Dumazet wrote:
+> > > On Wed, 2013-10-02 at 10:58 +0200, Jiri Pirko wrote:
+> > > > Wed, Oct 02, 2013 at 01:25:34AM CEST, hannes@stressinduktion.org wrote:
+> > > > >-	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
+> > > > >+	if (((length > mtu) || (skb && skb_has_frags(skb))) &&
+> > > 
+> > > > 
+> > > > This seems correct to me. sk_is_gso would work as well is you apply my
+> > > > patch "[patch net] ip6_output: do skb ufo init for peeked non ufo skb as
+> > > > well" which does the setting of gso_size.
+> > > 
+> > > Well, skb having frags or not should not be a concern :
+> > > Thats an allocation choice (lets say to avoid high order allocations). 
+> > > 
+> > > Setting gso_size is probably better.
+> > 
+> > e89e9cf539a28df7d0eb1d0a545368e9920b34ac ("[IPv4/IPv6]: UFO Scatter-gather
+> > approach") states:
+> > 
+> > "
+> > skb->data will contain MAC/IP/UDP header and skb_shinfo(skb)->frags[]
+> > contains the data payload. The skb->ip_summed will be set to CHECKSUM_HW
+> > indicating that hardware has to do checksum calculation. Hardware should
+> > compute the UDP checksum of complete datagram and also ip header checksum of
+> > each fragmented IP packet.
+> > "
+> > 
+> > This is the reason why I tried not to update the gso_size. If it is ok, I am
+> > fine with that.
 > 
-> We want to use good entropy for initializing the secret keys used for
-> hashing in the core network stack. So busy wait before extracting random
-> data until the nonblocking_pool is initialized.
+> Especially, drivers/net/ethernet/neterion/s2io.c states that the first dma
+> mapping (skb->data with skb_headlen, which is fine) is used as the inband
+> header:
 > 
-> Further entropy is also gathered by interrupts, so we are guaranteed to
-> make progress here.
+>         if (offload_type == SKB_GSO_UDP)
+>                 frg_cnt++; /* as Txd0 was used for inband header */
+> 
+> That is my only other hint that we maybe should not update gso_size and
+> gso_type. I guess software fallback does not have this problem, but I won't
+> have time to check until this evening.
+> 
+> I am really not sure if just setting gso_size does not break neterion UFO
+> offloading. :/
 
-One thing that makes me a bit worried is that on certain
-architectures, it may take quite a while before we get enough entropy
-such that the non-blocking pool gets initialized.
+Well, just ask Jon Mason to double check ;)
 
-Speaking more generally, there are many different reasons why
-different parts of the kernel needs randomness.  I've found a number
-of places (mostly in various file systems so far because I know that
-subsystem better) because we are trying to use a random number
-generator with a higher level of guarantees than what was really
-required.
+I think the commit intent was to set gso_size :
 
-What's not completely clear to me is what's the potential danger if
-build_ehash_secret() is initialized with a value that might be known
-to an adversary.  I'll note that inet_ehash_secret() is a 32-bit uint.
-A 32-bit number isn't all that hard for an adversary to brute force.
-If the answer is there's now oracle that can be used so an adversary
-can tell whether or not they have correctly figured out the ehash
-secret, then it's not that clear that it's worth blocking until the
-urandom pool has 128 bits of entropy, when ehash_secret is only a
-32-bit value.
+   skb_shinfo(skb)->ufo_size will indicate the length of data part in each IP
+    fragment going out of the adapter after IP fragmentation by hardware.
 
-Speaking even more generally, any time you have subsystems grabbing
-random entropy very shortly after boot, especially if it's less than
-64 bits, it's really good idea of the secret gets periodically
-rekeyed.  I understand why that may be hard in this case, since it
-would require rehashing all of the currently open sockets, and maybe
-in this case the security requirements are such that it's not really
-necessary.  But it's something we should definitely keep in mind for
-situations where we are generating random session keys for CIFS,
-ipsec, etc.
+The fact that it states "skb->data will contain MAC/IP/UDP header and
+skb_shinfo(skb)->frags[] contains the data payload." seems irrelevant.
 
-Regards,
-
-						- Ted
+If Neterion driver mandates that skb->head *only* contains the
+MAC/IP/UDP header, that should be handled in the driver itself.
