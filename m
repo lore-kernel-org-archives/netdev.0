@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 46/77] mlx4: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:49:02 +0200
-Message-ID: <b0a9f6f455aa03b7769e6d9cc2e7fdbc06732b2f.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 16/77] cciss: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:32 +0200
+Message-ID: <0498333a0ddc360d43d4496310917a5d0f9a51fd.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,47 +39,43 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+ drivers/block/cciss.c |   17 +++++++----------
+ 1 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 60c9f4f..377a5ea 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1852,8 +1852,16 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 	int i;
+diff --git a/drivers/block/cciss.c b/drivers/block/cciss.c
+index d2d95ff..80068a0 100644
+--- a/drivers/block/cciss.c
++++ b/drivers/block/cciss.c
+@@ -4079,7 +4079,11 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
+ 		goto default_int_mode;
  
- 	if (msi_x) {
-+		err = pci_msix_table_size(dev->pdev);
-+		if (err < 0)
-+			goto no_msi;
-+
-+		/* Try if at least 2 vectors are available */
- 		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
- 			     nreq);
-+		nreq = min_t(int, nreq, err);
-+		if (nreq < 2)
-+			goto no_msi;
- 
- 		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
- 		if (!entries)
-@@ -1862,17 +1870,8 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 		for (i = 0; i < nreq; ++i)
- 			entries[i].entry = i;
- 
--	retry:
- 		err = pci_enable_msix(dev->pdev, entries, nreq);
- 		if (err) {
--			/* Try again if at least 2 vectors are available */
--			if (err > 1) {
--				mlx4_info(dev, "Requested %d vectors, "
--					  "but only %d MSI-X vectors available, "
--					  "trying again\n", nreq, err);
--				nreq = err;
--				goto retry;
--			}
- 			kfree(entries);
- 			goto no_msi;
+ 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSIX)) {
+-		err = pci_enable_msix(h->pdev, cciss_msix_entries, 4);
++		err = pci_msix_table_size(h->pdev);
++		if (err < ARRAY_SIZE(cciss_msix_entries))
++			goto default_int_mode;
++		err = pci_enable_msix(h->pdev, cciss_msix_entries,
++				      ARRAY_SIZE(cciss_msix_entries));
+ 		if (!err) {
+ 			h->intr[0] = cciss_msix_entries[0].vector;
+ 			h->intr[1] = cciss_msix_entries[1].vector;
+@@ -4088,15 +4092,8 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
+ 			h->msix_vector = 1;
+ 			return;
  		}
+-		if (err > 0) {
+-			dev_warn(&h->pdev->dev,
+-				"only %d MSI-X vectors available\n", err);
+-			goto default_int_mode;
+-		} else {
+-			dev_warn(&h->pdev->dev,
+-				"MSI-X init failed %d\n", err);
+-			goto default_int_mode;
+-		}
++		dev_warn(&h->pdev->dev, "MSI-X init failed %d\n", err);
++		goto default_int_mode;
+ 	}
+ 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSI)) {
+ 		if (!pci_enable_msi(h->pdev))
 -- 
 1.7.7.6
