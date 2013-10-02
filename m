@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 66/77] qlge: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:49:22 +0200
-Message-ID: <5161bfdf162c8edd77d03e96312d48edb54242bc.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 09/77] ahci: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:25 +0200
+Message-ID: <4cced33c3809e6a53ada2dd8c781fcc5242e19ab.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,75 +39,92 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |   39 +++++++++++--------------
- 1 files changed, 17 insertions(+), 22 deletions(-)
+ drivers/ata/ahci.c |   56 ++++++++++++++++++++++++++++++++-------------------
+ 1 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index ac54cb0..d6fdd93 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -3258,45 +3258,40 @@ static void ql_enable_msix(struct ql_adapter *qdev)
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index 9d715ae..f1c8838 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -1091,26 +1091,40 @@ static inline void ahci_gtf_filter_workaround(struct ata_host *host)
+ {}
+ #endif
  
- 	/* Get the MSIX vectors. */
- 	if (qlge_irq_type == MSIX_IRQ) {
-+		err = pci_msix_table_size(qdev->pdev);
-+		if (err < 0)
-+			goto msix_fail;
-+
-+		qdev->intr_count = min_t(u32, qdev->intr_count, err);
-+
- 		/* Try to alloc space for the msix struct,
- 		 * if it fails then go to MSI/legacy.
- 		 */
- 		qdev->msi_x_entry = kcalloc(qdev->intr_count,
- 					    sizeof(struct msix_entry),
- 					    GFP_KERNEL);
--		if (!qdev->msi_x_entry) {
--			qlge_irq_type = MSI_IRQ;
--			goto msi;
+-int ahci_init_interrupts(struct pci_dev *pdev, struct ahci_host_priv *hpriv)
++int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
++			 struct ahci_host_priv *hpriv)
+ {
+-	int rc;
+-	unsigned int maxvec;
++	int rc, nvec;
+ 
+-	if (!(hpriv->flags & AHCI_HFLAG_NO_MSI)) {
+-		rc = pci_enable_msi_block_auto(pdev, &maxvec);
+-		if (rc > 0) {
+-			if ((rc == maxvec) || (rc == 1))
+-				return rc;
+-			/*
+-			 * Assume that advantage of multipe MSIs is negated,
+-			 * so fallback to single MSI mode to save resources
+-			 */
+-			pci_disable_msi(pdev);
+-			if (!pci_enable_msi(pdev))
+-				return 1;
 -		}
-+		if (!qdev->msi_x_entry)
-+			goto msix_fail;
- 
- 		for (i = 0; i < qdev->intr_count; i++)
- 			qdev->msi_x_entry[i].entry = i;
- 
--		/* Loop to get our vectors.  We start with
--		 * what we want and settle for what we get.
--		 */
--		do {
--			err = pci_enable_msix(qdev->pdev,
--				qdev->msi_x_entry, qdev->intr_count);
--			if (err > 0)
--				qdev->intr_count = err;
--		} while (err > 0);
--
--		if (err < 0) {
--			kfree(qdev->msi_x_entry);
--			qdev->msi_x_entry = NULL;
--			netif_warn(qdev, ifup, qdev->ndev,
--				   "MSI-X Enable failed, trying MSI.\n");
--			qlge_irq_type = MSI_IRQ;
--		} else if (err == 0) {
-+		if (!pci_enable_msix(qdev->pdev,
-+				     qdev->msi_x_entry, qdev->intr_count)) {
- 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
- 			netif_info(qdev, ifup, qdev->ndev,
- 				   "MSI-X Enabled, got %d vectors.\n",
- 				   qdev->intr_count);
- 			return;
- 		}
+-	}
++	if (hpriv->flags & AHCI_HFLAG_NO_MSI)
++		goto intx;
 +
-+		kfree(qdev->msi_x_entry);
-+		qdev->msi_x_entry = NULL;
-+msix_fail:
-+		netif_warn(qdev, ifup, qdev->ndev,
-+			   "MSI-X Enable failed, trying MSI.\n");
-+		qlge_irq_type = MSI_IRQ;
- 	}
--msi:
- 	qdev->intr_count = 1;
- 	if (qlge_irq_type == MSI_IRQ) {
- 		if (!pci_enable_msi(qdev->pdev)) {
++	rc = pci_get_msi_cap(pdev);
++	if (rc < 0)
++		goto intx;
++
++	/*
++	 * If number of MSIs is less than number of ports then Sharing Last
++	 * Message mode could be enforced. In this case assume that advantage
++	 * of multipe MSIs is negated and use single MSI mode instead.
++	 */
++	if (rc < n_ports)
++		goto single_msi;
++
++	nvec = rc;
++	rc = pci_enable_msi_block(pdev, nvec);
++	if (rc)
++		goto intx;
+ 
++	return nvec;
++
++single_msi:
++	rc = pci_enable_msi(pdev);
++	if (rc)
++		goto intx;
++	return 1;
++
++intx:
+ 	pci_intx(pdev, 1);
+ 	return 0;
+ }
+@@ -1277,10 +1291,6 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	hpriv->mmio = pcim_iomap_table(pdev)[ahci_pci_bar];
+ 
+-	n_msis = ahci_init_interrupts(pdev, hpriv);
+-	if (n_msis > 1)
+-		hpriv->flags |= AHCI_HFLAG_MULTI_MSI;
+-
+ 	/* save initial config */
+ 	ahci_pci_save_initial_config(pdev, hpriv);
+ 
+@@ -1335,6 +1345,10 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 */
+ 	n_ports = max(ahci_nr_ports(hpriv->cap), fls(hpriv->port_map));
+ 
++	n_msis = ahci_init_interrupts(pdev, n_ports, hpriv);
++	if (n_msis > 1)
++		hpriv->flags |= AHCI_HFLAG_MULTI_MSI;
++
+ 	host = ata_host_alloc_pinfo(&pdev->dev, ppi, n_ports);
+ 	if (!host)
+ 		return -ENOMEM;
 -- 
 1.7.7.6
