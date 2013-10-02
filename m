@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 12/77] benet: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:28 +0200
-Message-ID: <4a8384c64f822aaed962169532bde927ac382ca0.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 37/77] ipr: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:53 +0200
+Message-ID: <5bc4414bf44d7ded72c38333225b9057b3427869.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,69 +39,81 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   38 ++++++++++++++------------
- 1 files changed, 20 insertions(+), 18 deletions(-)
+ drivers/scsi/ipr.c |   46 +++++++++++++++++++++++-----------------------
+ 1 files changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3e2c834..84d560d 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2366,29 +2366,23 @@ static int be_msix_enable(struct be_adapter *adapter)
- 	else
- 		num_vec = adapter->cfg_num_qs;
+diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+index 762a93e..86ed0a2 100644
+--- a/drivers/scsi/ipr.c
++++ b/drivers/scsi/ipr.c
+@@ -9247,45 +9247,45 @@ static int ipr_enable_msix(struct ipr_ioa_cfg *ioa_cfg)
+ 	struct msix_entry entries[IPR_MAX_MSIX_VECTORS];
+ 	int i, err, vectors;
  
--	for (i = 0; i < num_vec; i++)
--		adapter->msix_entries[i].entry = i;
-+	status = pci_msix_table_size(adapter->pdev);
-+	if (status < 0)
-+		goto fail;
+-	for (i = 0; i < ARRAY_SIZE(entries); ++i)
+-		entries[i].entry = i;
++	err = pci_msix_table_size(ioa_cfg->pdev);
++	if (err < 0)
++		return err;
  
--	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
--	if (status == 0) {
--		goto done;
--	} else if (status >= MIN_MSIX_VECTORS) {
--		num_vec = status;
--		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
--					 num_vec);
--		if (!status)
--			goto done;
--	} else (status > 0) {
-+	num_vec = min(num_vec, status);
-+	if (num_vec < MIN_MSIX_VECTORS) {
- 		status = -ENOSPC;
-+		goto fail;
- 	}
+-	vectors = ipr_number_of_msix;
++	vectors = min_t(int, err, ipr_number_of_msix);
  
--	dev_warn(dev, "MSIx enable failed\n");
-+	for (i = 0; i < num_vec; i++)
-+		adapter->msix_entries[i].entry = i;
-+
-+	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
-+	if (status)
-+		goto fail;
+-	while ((err = pci_enable_msix(ioa_cfg->pdev, entries, vectors)) > 0)
+-			vectors = err;
++	BUG_ON(vectors > ARRAY_SIZE(entries));
++	for (i = 0; i < vectors; ++i)
++		entries[i].entry = i;
  
--	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
--	if (!be_physfn(adapter))
--		return status;
--	return 0;
--done:
- 	if (be_roce_supported(adapter) && num_vec > MIN_MSIX_VECTORS) {
- 		adapter->num_msix_roce_vec = num_vec / 2;
- 		dev_info(dev, "enabled %d MSI-x vector(s) for RoCE\n",
-@@ -2400,6 +2394,14 @@ done:
- 	dev_info(dev, "enabled %d MSI-x vector(s) for NIC\n",
- 		 adapter->num_msix_vec);
- 	return 0;
-+
-+fail:
-+	dev_warn(dev, "MSIx enable failed\n");
-+
-+	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
-+	if (!be_physfn(adapter))
-+		return status;
+-	if (err < 0)
++	err = pci_enable_msix(ioa_cfg->pdev, entries, vectors);
++	if (err)
+ 		return err;
+ 
+-	if (!err) {
+-		for (i = 0; i < vectors; i++)
+-			ioa_cfg->vectors_info[i].vec = entries[i].vector;
+-		ioa_cfg->nvectors = vectors;
+-	}
++	for (i = 0; i < vectors; i++)
++		ioa_cfg->vectors_info[i].vec = entries[i].vector;
++	ioa_cfg->nvectors = vectors;
+ 
+-	return err;
 +	return 0;
  }
  
- static inline int be_msix_vec_get(struct be_adapter *adapter,
+ static int ipr_enable_msi(struct ipr_ioa_cfg *ioa_cfg)
+ {
+ 	int i, err, vectors;
+ 
+-	vectors = ipr_number_of_msix;
+-
+-	while ((err = pci_enable_msi_block(ioa_cfg->pdev, vectors)) > 0)
+-			vectors = err;
+-
++	err = pci_get_msi_cap(ioa_cfg->pdev);
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (!err) {
+-		for (i = 0; i < vectors; i++)
+-			ioa_cfg->vectors_info[i].vec = ioa_cfg->pdev->irq + i;
+-		ioa_cfg->nvectors = vectors;
+-	}
++	vectors = min_t(int, err, ipr_number_of_msix);
++	err = pci_enable_msi_block(ioa_cfg->pdev, vectors);
++	if (err)
++		return err;
++
++	for (i = 0; i < vectors; i++)
++		ioa_cfg->vectors_info[i].vec = ioa_cfg->pdev->irq + i;
++	ioa_cfg->nvectors = vectors;
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static void name_msi_vectors(struct ipr_ioa_cfg *ioa_cfg)
 -- 
 1.7.7.6
