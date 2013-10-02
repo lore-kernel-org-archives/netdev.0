@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 28/77] cxgb4vf: Return -ENOSPC when not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:48:44 +0200
-Message-ID: <ba3b9232eedfaa0dcac4a8926483e10d2ada1d7a.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 65/77] qlge: Remove a redundant assignment
+Date: Wed,  2 Oct 2013 12:49:21 +0200
+Message-ID: <2d9997f8ec6637dd41c10363785754698f6aa173.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,20 +35,20 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 87a82fc..11cbce1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2470,6 +2470,7 @@ static int enable_msix(struct adapter *adapter)
- 	} else if (err > 0) {
- 		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
- 			 " not using MSI-X\n", err);
-+		err = -ENOSPC;
- 	}
- 	return err;
- }
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 2553cf4..ac54cb0 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -3287,7 +3287,6 @@ static void ql_enable_msix(struct ql_adapter *qdev)
+ 			qdev->msi_x_entry = NULL;
+ 			netif_warn(qdev, ifup, qdev->ndev,
+ 				   "MSI-X Enable failed, trying MSI.\n");
+-			qdev->intr_count = 1;
+ 			qlge_irq_type = MSI_IRQ;
+ 		} else if (err == 0) {
+ 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
 -- 
 1.7.7.6
