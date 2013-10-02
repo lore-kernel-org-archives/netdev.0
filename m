@@ -1,63 +1,57 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] netif_set_xps_queue: make cpu mask const
-Date: Wed, 2 Oct 2013 09:14:06 +0300
-Message-ID: <20131002061406.GA8809@redhat.com>
+Subject: Re: [net-next PATCH V2] virtio-net: switch to use XPS to choose txq
+Date: Wed, 2 Oct 2013 09:15:45 +0300
+Message-ID: <20131002061545.GA6880@redhat.com>
+References: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
+	<20130930.221040.543720988967287293.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Cong Wang <amwang@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>, rusty@rustcorp.com.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20130930.221040.543720988967287293.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-virtio wants to pass in cpumask_of(cpu), make parameter
-const to avoid build warnings.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- include/linux/netdevice.h | 5 +++--
- net/core/dev.c            | 3 ++-
- 2 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3de49ac..25f5d2d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2264,11 +2264,12 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- }
- 
- #ifdef CONFIG_XPS
--extern int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask,
-+extern int netif_set_xps_queue(struct net_device *dev,
-+			       const struct cpumask *mask,
- 			       u16 index);
- #else
- static inline int netif_set_xps_queue(struct net_device *dev,
--				      struct cpumask *mask,
-+				      const struct cpumask *mask,
- 				      u16 index)
- {
- 	return 0;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5c713f2..f18eebd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1917,7 +1917,8 @@ static struct xps_map *expand_xps_map(struct xps_map *map,
- 	return new_map;
- }
- 
--int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask, u16 index)
-+int netif_set_xps_queue(struct net_device *dev, const struct cpumask *mask,
-+			u16 index)
- {
- 	struct xps_dev_maps *dev_maps, *new_dev_maps = NULL;
- 	struct xps_map *map, *new_map;
--- 
-MST
+T24gTW9uLCBTZXAgMzAsIDIwMTMgYXQgMTA6MTA6NDBQTSAtMDcwMCwgRGF2aWQgTWlsbGVyIHdy
+b3RlOgo+IEZyb206IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4gRGF0ZTogTW9u
+LCAzMCBTZXAgMjAxMyAxNTozNzoxNyArMDgwMAo+IAo+ID4gV2UgdXNlZCB0byB1c2UgYSBwZXJj
+cHUgc3RydWN0dXJlIHZxX2luZGV4IHRvIHJlY29yZCB0aGUgY3B1IHRvIHF1ZXVlCj4gPiBtYXBw
+aW5nLCB0aGlzIGlzIHN1Ym9wdGltYWwgc2luY2UgaXQgZHVwbGljYXRlcyB0aGUgd29yayBvZiBY
+UFMgYW5kCj4gPiBsb3NlcyBhbGwgb3RoZXIgWFBTIGZ1bmN0aW9uYWxpdHkgc3VjaCBhcyBhbGxv
+d2luZyB1c2UgdG8gY29uZmlndXJlCj4gPiB0aGVpciBvd24gdHJhbnNtaXNzaW9uIHN0ZWVyaW5n
+IHN0cmF0ZWd5Lgo+ID4gCj4gPiBTbyB0aGlzIHBhdGNoIHN3aXRjaGVzIHRvIHVzZSBYUFMgYW5k
+IHN1Z2dlc3QgYSBkZWZhdWx0IG1hcHBpbmcgd2hlbgo+ID4gdGhlIG51bWJlciBvZiBjcHVzIGlz
+IGVxdWFsIHRvIHRoZSBudW1iZXIgb2YgcXVldWVzLiBXaXRoIFhQUyBzdXBwb3J0LAo+ID4gdGhl
+cmUncyBubyBuZWVkIGZvciBrZWVwaW5nIHBlci1jcHUgdnFfaW5kZXggYW5kIC5uZG9fc2VsZWN0
+X3F1ZXVlKCksCj4gPiBzbyB0aGV5IHdlcmUgcmVtb3ZlZCBhbHNvLgo+ID4gCj4gPiBDYzogUnVz
+dHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1Pgo+ID4gQ2M6IE1pY2hhZWwgUy4gVHNp
+cmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNv
+d2FuZ0ByZWRoYXQuY29tPgo+ID4gLS0tCj4gPiBDaGFuZ2VzIGZyb20gVjE6Cj4gPiAtIHVzZSBj
+cHVtYXNrX29mKCkgaW5zdGVhZCBvZiBhbGxvY2F0ZSBkeW5hbWljYWxseQo+IAo+IFRoaXMgZ2Vu
+ZXJhdGVzIGJ1aWxkIHdhcm5pbmdzOgo+IAo+IGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYzogSW4g
+ZnVuY3Rpb24g4oCYdmlydG5ldF9zZXRfYWZmaW5pdHnigJk6Cj4gZHJpdmVycy9uZXQvdmlydGlv
+X25ldC5jOjEwOTM6Mzogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAyIG9mIOKAmG5ldGlmX3Nl
+dF94cHNfcXVldWXigJkgZGlzY2FyZHMg4oCYY29uc3TigJkgcXVhbGlmaWVyIGZyb20gcG9pbnRl
+ciB0YXJnZXQgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQo+IEluIGZpbGUgaW5jbHVkZWQgZnJv
+bSBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6MjA6MDoKPiBpbmNsdWRlL2xpbnV4L25ldGRldmlj
+ZS5oOjIyNzU6NTogbm90ZTogZXhwZWN0ZWQg4oCYc3RydWN0IGNwdW1hc2sgKuKAmSBidXQgYXJn
+dW1lbnQgaXMgb2YgdHlwZSDigJhjb25zdCBzdHJ1Y3QgY3B1bWFzayAq4oCZCgpMb29rcyBsaWtl
+IHdlIGp1c3QgbmVlZCB0byB0d2VhayB0aGUgc2lnbmF0dXJlIHRoZXJlIHRvIGNvbnN0IHN0cnVj
+dApjcHVtYXNrICo6IGl0J3MgbmV2ZXIgY2hhbmdlZC4KCkkganVzdCBzZW50IGEgcGF0Y2gKCVtQ
+QVRDSF0gbmV0aWZfc2V0X3hwc19xdWV1ZTogbWFrZSBjcHUgbWFzayBjb25zdAp0aGF0IGRvZXMg
+ZXhhY3RseSB0aGF0LgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25A
+bGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24u
+b3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
