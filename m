@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 62/77] qlcnic: Remove redundant return operator
-Date: Wed,  2 Oct 2013 12:49:18 +0200
-Message-ID: <c89bd7ba946d731935ea59108c7a169a16624c5d.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 04/77] PCI/MSI/s390: Remove superfluous check of MSI type
+Date: Wed,  2 Oct 2013 12:48:20 +0200
+Message-ID: <bae65aa3e30dfd23bd5ed47add7310cfbb96243a.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,22 +33,26 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
+arch_setup_msi_irqs() hook can only be called from the generic
+MSI code which ensures correct MSI type parameter.
+
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ arch/s390/pci/pci.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index ff6a78b..b94e679 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -613,7 +613,6 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- 				adapter->max_sds_rings = max_sds_rings;
- 			}
- 			dev_info(&pdev->dev, "using msi-x interrupts\n");
--			return err;
- 		} else if (err > 0) {
- 			dev_info(&pdev->dev,
- 				 "Unable to allocate %d MSI-X interrupt vectors\n",
+diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
+index c79c6e4..61a3c2c 100644
+--- a/arch/s390/pci/pci.c
++++ b/arch/s390/pci/pci.c
+@@ -425,8 +425,6 @@ int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
+ 	int rc;
+ 
+ 	pr_debug("%s: requesting %d MSI-X interrupts...", __func__, nvec);
+-	if (type != PCI_CAP_ID_MSIX && type != PCI_CAP_ID_MSI)
+-		return -EINVAL;
+ 	if (type == PCI_CAP_ID_MSI && nvec > 1)
+ 		return 1;
+ 	msi_vecs = min(nvec, ZPCI_MSI_VEC_MAX);
 -- 
 1.7.7.6
