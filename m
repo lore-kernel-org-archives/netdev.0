@@ -1,53 +1,76 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH v2.41 5/5] datapath: Add basic MPLS support to kernel
-Date: Wed, 2 Oct 2013 11:03:57 -0700
-Message-ID: <CALnjE+qOwkY0NJ=LbT0SgZFmnzvqRHcTS35xWVfMyPtjj4r0ZA@mail.gmail.com>
-References: <1380610064-14856-1-git-send-email-horms@verge.net.au>
-	<1380610064-14856-6-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>,
-	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:39047 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754729Ab3JBSD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 14:03:59 -0400
-Received: by mail-qc0-f172.google.com with SMTP id l13so803801qcy.31
-        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 11:03:57 -0700 (PDT)
-In-Reply-To: <1380610064-14856-6-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: [PATCH RFC 74/77] vmxnet3: Limit number of rx queues to 1 if per-queue MSI-Xs failed
+Date: Wed,  2 Oct 2013 12:49:30 +0200
+Message-ID: <f029865a23808e2f788f90f878355fddf3b04ad2.1380703263.git.agordeev@redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        stable@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+        linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-de
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <cover.1380703262.git.agordeev@redhat.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 30, 2013 at 11:47 PM, Simon Horman <horms@verge.net.au> wrote:
-> Allow datapath to recognize and extract MPLS labels into flow keys
-> and execute actions which push, pop, and set labels on packets.
->
-> Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
->
-> Cc: Ravi K <rkerur@gmail.com>
-> Cc: Leo Alterman <lalterman@nicira.com>
-> Cc: Isaku Yamahata <yamahata@valinux.co.jp>
-> Cc: Joe Stringer <joe@wand.net.nz>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
->
-> ---
->
-> +
-> +       /* this hack needed to get regular skb_gso_segment() */
-> +#ifdef HAVE___SKB_GSO_SEGMENT
-> +#undef __skb_gso_segment
-> +       skb_gso = __skb_gso_segment(skb, features, tx_path);
-> +#else
-> +#undef skb_gso_segment
-> +       skb_gso = skb_gso_segment(skb, features);
-> +#endif
-> +
+Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-We can get rid of #ifdefs by just using different name for
-rpl___skb_gso_segment(), something like mpls_vlan_skb_gso_segment().
-The way it is done for tnl-gso.
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3df7f32..00dc0d0 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2814,12 +2814,14 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 
+ 		err = vmxnet3_acquire_msix_vectors(adapter,
+ 						   adapter->intr.num_intrs);
+-		/* If we cannot allocate one MSIx vector per queue
+-		 * then limit the number of rx queues to 1
+-		 */
+-		if (err == VMXNET3_LINUX_MIN_MSIX_VECT) {
+-			if (adapter->share_intr != VMXNET3_INTR_BUDDYSHARE
+-			    || adapter->num_rx_queues != 1) {
++		if (!err) {
++			/* If we cannot allocate one MSIx vector per queue
++			 * then limit the number of rx queues to 1
++			 */
++			if ((adapter->intr.num_intrs ==
++			     VMXNET3_LINUX_MIN_MSIX_VECT) &&
++			    ((adapter->share_intr != VMXNET3_INTR_BUDDYSHARE) ||
++			     (adapter->num_rx_queues != 1))) {
+ 				adapter->share_intr = VMXNET3_INTR_TXSHARE;
+ 				netdev_err(adapter->netdev,
+ 					   "Number of rx queues : 1\n");
+@@ -2829,8 +2831,6 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 			}
+ 			return;
+ 		}
+-		if (!err)
+-			return;
+ 
+ 		/* If we cannot allocate MSIx vectors use only one rx queue */
+ 		dev_info(&adapter->pdev->dev,
+-- 
+1.7.7.6
