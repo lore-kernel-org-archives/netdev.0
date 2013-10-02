@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 35/77] ipr: Do not call pci_disable_msi/msix() if pci_enable_msi/msix() failed
-Date: Wed,  2 Oct 2013 12:48:51 +0200
-Message-ID: <5d673eed9f7742f0551214d273a4fa905a721ac4.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 32/77] hpsa: Fallback to single MSI mode in case MSI-X failed
+Date: Wed,  2 Oct 2013 12:48:48 +0200
+Message-ID: <a8343fb00f8dfdcb637913b5a691dcea7ecffffc.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,36 +35,32 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/ipr.c |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+ drivers/scsi/hpsa.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
-index 36ac1c3..fb57e21 100644
---- a/drivers/scsi/ipr.c
-+++ b/drivers/scsi/ipr.c
-@@ -9255,10 +9255,8 @@ static int ipr_enable_msix(struct ipr_ioa_cfg *ioa_cfg)
- 	while ((err = pci_enable_msix(ioa_cfg->pdev, entries, vectors)) > 0)
- 			vectors = err;
+diff --git a/drivers/scsi/hpsa.c b/drivers/scsi/hpsa.c
+index eb17b3d..252b65d 100644
+--- a/drivers/scsi/hpsa.c
++++ b/drivers/scsi/hpsa.c
+@@ -4112,7 +4112,7 @@ static void hpsa_interrupt_mode(struct ctlr_info *h)
  
--	if (err < 0) {
--		pci_disable_msix(ioa_cfg->pdev);
-+	if (err < 0)
- 		return err;
--	}
+ 		err = pci_msix_table_size(h->pdev);
+ 		if (err < ARRAY_SIZE(hpsa_msix_entries))
+-			goto default_int_mode;
++			goto single_msi_mode;
  
- 	if (!err) {
- 		for (i = 0; i < vectors; i++)
-@@ -9278,10 +9276,8 @@ static int ipr_enable_msi(struct ipr_ioa_cfg *ioa_cfg)
- 	while ((err = pci_enable_msi_block(ioa_cfg->pdev, vectors)) > 0)
- 			vectors = err;
- 
--	if (err < 0) {
--		pci_disable_msi(ioa_cfg->pdev);
-+	if (err < 0)
- 		return err;
--	}
- 
- 	if (!err) {
- 		for (i = 0; i < vectors; i++)
+ 		for (i = 0; i < ARRAY_SIZE(hpsa_msix_entries); i++) {
+ 			hpsa_msix_entries[i].vector = 0;
+@@ -4128,8 +4128,9 @@ static void hpsa_interrupt_mode(struct ctlr_info *h)
+ 			return;
+ 		}
+ 		dev_warn(&h->pdev->dev, "MSI-X init failed %d\n", err);
+-		goto default_int_mode;
++		goto single_msi_mode;
+ 	}
++single_msi_mode:
+ 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSI)) {
+ 		dev_info(&h->pdev->dev, "MSI\n");
+ 		if (!pci_enable_msi(h->pdev))
 -- 
 1.7.7.6
