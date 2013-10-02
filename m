@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 72/77] vmxnet3: Fixup a weird loop exit
-Date: Wed,  2 Oct 2013 12:49:28 +0200
-Message-ID: <93fde8941d272e952e796abbf6526f19dc2d265f.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 54/77] ntb: Ensure number of MSIs on SNB is enough for the link interrupt
+Date: Wed,  2 Oct 2013 12:49:10 +0200
+Message-ID: <5d9c5b2d3bbc444ff32bddeece7a239d046bd79c.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,21 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
+ drivers/ntb/ntb_hw.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 5b8ea71..3518173 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2750,7 +2750,7 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
- 		} else if (err < 0) {
- 			dev_err(&adapter->netdev->dev,
- 				   "Failed to enable MSI-X, error: %d\n", err);
--			vectors = 0;
-+			return err;
- 		} else if (err < vector_threshold) {
- 			break;
- 		} else {
+diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+index de2062c..eccd5e5 100644
+--- a/drivers/ntb/ntb_hw.c
++++ b/drivers/ntb/ntb_hw.c
+@@ -1066,7 +1066,7 @@ static int ntb_setup_msix(struct ntb_device *ndev)
+ 		/* On SNB, the link interrupt is always tied to 4th vector.  If
+ 		 * we can't get all 4, then we can't use MSI-X.
+ 		 */
+-		if (ndev->hw_type != BWD_HW) {
++		if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
+ 			rc = -EIO;
+ 			goto err1;
+ 		}
 -- 
 1.7.7.6
