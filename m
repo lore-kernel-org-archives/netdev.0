@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 27/77] cxgb4vf: Do not call pci_disable_msix() if pci_enable_msix() failed
-Date: Wed,  2 Oct 2013 12:48:43 +0200
-Message-ID: <aec358256c36246175578566ddcfc1820fe45af0.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 03/77] PCI/MSI/s390: Fix single MSI only check
+Date: Wed,  2 Oct 2013 12:48:19 +0200
+Message-ID: <8c9811b13fd93e73641dab8e3bd1bd5b2dc37a61.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,22 +33,26 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
+Multiple MSIs have never been supported on s390 architecture,
+but the platform code fails to report single MSI only.
+
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ arch/s390/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 40c22e7..87a82fc 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2468,7 +2468,6 @@ static int enable_msix(struct adapter *adapter)
- 		for (i = 0; i < want; ++i)
- 			adapter->msix_info[i].vec = entries[i].vector;
- 	} else if (err > 0) {
--		pci_disable_msix(adapter->pdev);
- 		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
- 			 " not using MSI-X\n", err);
- 	}
+diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
+index f17a834..c79c6e4 100644
+--- a/arch/s390/pci/pci.c
++++ b/arch/s390/pci/pci.c
+@@ -427,6 +427,8 @@ int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
+ 	pr_debug("%s: requesting %d MSI-X interrupts...", __func__, nvec);
+ 	if (type != PCI_CAP_ID_MSIX && type != PCI_CAP_ID_MSI)
+ 		return -EINVAL;
++	if (type == PCI_CAP_ID_MSI && nvec > 1)
++		return 1;
+ 	msi_vecs = min(nvec, ZPCI_MSI_VEC_MAX);
+ 	msi_vecs = min_t(unsigned int, msi_vecs, CONFIG_PCI_NR_MSI);
+ 
 -- 
 1.7.7.6
