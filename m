@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 30/77] hpsa: Update a misleading comment on interrupt usage
-Date: Wed,  2 Oct 2013 12:48:46 +0200
-Message-ID: <3e551608cba10cab0f33f5201a29e67905b3cd02.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 23/77] cxgb3: Return -ENOSPC when not enough MSI-X vectors available
+Date: Wed,  2 Oct 2013 12:48:39 +0200
+Message-ID: <cbdbe5f2d6d9d8826c9c234ba45bd52c059cf66e.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,25 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/hpsa.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/hpsa.c b/drivers/scsi/hpsa.c
-index 891c86b..393c8db 100644
---- a/drivers/scsi/hpsa.c
-+++ b/drivers/scsi/hpsa.c
-@@ -4141,7 +4141,11 @@ static void hpsa_interrupt_mode(struct ctlr_info *h)
- 	}
- default_int_mode:
- #endif				/* CONFIG_PCI_MSI */
--	/* if we get here we're going to use the default interrupt mode */
-+	/*
-+	 * If we get here we're going to use either the
-+	 * default interrupt mode or single MSI mode
-+	 */
-+
- 	h->intr[h->intr_mode] = h->pdev->irq;
- }
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 9bd3099..915729c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3099,7 +3099,7 @@ static int cxgb_enable_msix(struct adapter *adap)
  
+ 	if (!err && vectors < (adap->params.nports + 1)) {
+ 		pci_disable_msix(adap->pdev);
+-		err = -1;
++		err = -ENOSPC;
+ 	}
+ 
+ 	if (!err) {
 -- 
 1.7.7.6
