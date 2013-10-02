@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 50/77] mlx5: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:49:06 +0200
-Message-ID: <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 10/77] ahci: Check MRSM bit when multiple MSIs enabled
+Date: Wed,  2 Oct 2013 12:48:26 +0200
+Message-ID: <e64883f8f3d00b9b8780b795f70160044edeb10c.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,57 +33,63 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-As result of recent re-design of the MSI/MSI-X interrupts enabling
-pattern this driver has to be updated to use the new technique to
-obtain a optimal number of MSI/MSI-X interrupts required.
+Do not trust the hardware and always check if MSI
+Revert to Single Message mode was enforced. Fall
+back to the single MSI mode in case it did. Not
+doing so might screw up the interrupt handling.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/ata/ahci.c |   17 +++++++++++++++++
+ drivers/ata/ahci.h |    1 +
+ 2 files changed, 18 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index adf0e5d..5c21e50 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -119,8 +119,13 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	int err;
- 	int i;
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index f1c8838..3a39cc8 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -1091,6 +1091,14 @@ static inline void ahci_gtf_filter_workaround(struct ata_host *host)
+ {}
+ #endif
  
-+	err = pci_msix_table_size(dev->pdev);
-+	if (err < 0)
-+		return err;
++static int ahci_get_mrsm(struct ahci_host_priv *hpriv)
++{
++	void __iomem *mmio = hpriv->mmio;
++	u32 ctl = readl(mmio + HOST_CTL);
 +
- 	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
- 	nvec = min_t(int, nvec, num_eqs);
-+	nvec = min_t(int, nvec, err);
- 	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
- 		return -ENOSPC;
++	return ctl & HOST_MRSM;
++}
++
+ int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
+ 			 struct ahci_host_priv *hpriv)
+ {
+@@ -1116,6 +1124,15 @@ int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
+ 	if (rc)
+ 		goto intx;
  
-@@ -131,20 +136,15 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
- 	for (i = 0; i < nvec; i++)
- 		table->msix_arr[i].entry = i;
++	/*
++	 * Fallback to single MSI mode if the controller enforced MRSM mode 
++	 */
++	if (ahci_get_mrsm(hpriv)) {
++		pci_disable_msi(pdev);
++		printk(KERN_INFO "ahci: MRSM is on, fallback to single MSI\n");
++		goto single_msi;
++	}
++
+ 	return nvec;
  
--retry:
--	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
- 	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
--	if (err <= 0) {
-+	if (err) {
-+		kfree(table->msix_arr);
- 		return err;
--	} else if (err > MLX5_EQ_VEC_COMP_BASE) {
--		nvec = err;
--		goto retry;
- 	}
+ single_msi:
+diff --git a/drivers/ata/ahci.h b/drivers/ata/ahci.h
+index 1145637..19bc846 100644
+--- a/drivers/ata/ahci.h
++++ b/drivers/ata/ahci.h
+@@ -91,6 +91,7 @@ enum {
+ 	/* HOST_CTL bits */
+ 	HOST_RESET		= (1 << 0),  /* reset controller; self-clear */
+ 	HOST_IRQ_EN		= (1 << 1),  /* global IRQ enable */
++	HOST_MRSM		= (1 << 2),  /* MSI Revert to Single Message */
+ 	HOST_AHCI_EN		= (1 << 31), /* AHCI enabled */
  
--	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
--	kfree(table->msix_arr);
-+	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
- 
--	return -ENOSPC;
-+	return 0;
- }
- 
- static void mlx5_disable_msix(struct mlx5_core_dev *dev)
+ 	/* HOST_CAP bits */
 -- 
 1.7.7.6
