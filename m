@@ -1,55 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] sit: allow to use rtnl ops on fb tunnel
-Date: Wed, 02 Oct 2013 17:08:22 -0400 (EDT)
-Message-ID: <20131002.170822.1627691739724018976.davem@davemloft.net>
-References: <20131001.125923.700243113980583930.davem@davemloft.net>
-	<524BC816.1000702@6wind.com>
-	<524BCCE2.8000700@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 2/3] udp: Add udp early demux
+Date: Wed, 02 Oct 2013 14:08:38 -0700
+Message-ID: <1380748118.19002.125.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
+	 <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
+	 <1380660769.19002.40.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002173422.GA7824@sbohrermbp13-local.rgmadvisors.com>
+	 <1380737365.19002.110.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002203507.GB7824@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	pshelar@nicira.com
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, tomk@rgmadvisors.com,
+	netdev <netdev@vger.kernel.org>
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49454 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754328Ab3JBVIY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:08:24 -0400
-In-Reply-To: <524BCCE2.8000700@6wind.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:50553 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359Ab3JBVIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:08:39 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so1457438pdj.17
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 14:08:39 -0700 (PDT)
+In-Reply-To: <20131002203507.GB7824@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 02 Oct 2013 09:36:02 +0200
+On Wed, 2013-10-02 at 15:35 -0500, Shawn Bohrer wrote:
 
-> Le 02/10/2013 09:15, Nicolas Dichtel a =E9crit :
->> Le 01/10/2013 18:59, David Miller a =E9crit :
->>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>> Date: Tue,  1 Oct 2013 18:04:59 +0200
->>>
->>>> rtnl ops where introduced by ba3e3f50a0e5 ("sit: advertise tunnel
->>>> param via
->>>> rtnl"), but I forget to assign rtnl ops to fb tunnels.
->>>>
->>>> Now that it is done, we must remove the explicit call to
->>>> unregister_netdevice_queue(), because the fallback tunnel is added=
- to
->>>> the queue
->>>> in sit_destroy_tunnels() when checking rtnl_link_ops of all netdev=
-ices
->>>> (this
->>>> is valid since commit 5e6700b3bf98 ("sit: add support of x-netns")=
-).
->>>>
->>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>>
->>> Applied and queued up for -stable.
-> Another things about ipip: between 0974658da47c ("ipip: advertise
-> tunnel param
-> via rtnl", v3.8) and fd58156e456d ("IPIP: Use ip-tunneling code.",
-> v3.10) the
-> fb device of ipip module has the same problem.
-> Should I send a patch?
+> Sorry, I must be a little slow today.  I understand what you are
+> suggesting but I don't see how to implement it with a score.  Or at
+> least not without potentially changing existing behavior.  For example
+> I could make the inet->inet_daddr case add +100 to the score and I
+> would know that a score >= 100 was connected.  However, this would
+> unfairly favor that one case making a socket that only had a matching
+> inet_daddr be better than one that only had a matching inet_dport,
+> sk_bound_dev_if, and inet_rcv_saddr.
+> 
 
-Yes please do, thanks for noticing this.
+If early demux has to increment a socket refcount, then decrementing it
+because it found a non connected socket, this will be too expensive.
+
+Also, keep in mind UDP chains can be long, so you should limit the early
+lookup to say a single socket.
+
+TCP ehash is mostly empty (0 or 1 socket per bucket), so early demux
+really makes sense, but for UDP, there is no such property.
