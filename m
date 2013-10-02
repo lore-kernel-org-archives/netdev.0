@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 04/77] PCI/MSI/s390: Remove superfluous check of MSI type
-Date: Wed,  2 Oct 2013 12:48:20 +0200
-Message-ID: <bae65aa3e30dfd23bd5ed47add7310cfbb96243a.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 22/77] cxgb3: Do not call pci_disable_msix() if pci_enable_msix() failed
+Date: Wed,  2 Oct 2013 12:48:38 +0200
+Message-ID: <c5c45dfed1a95dbb7848298f1fb8e26d5f10506a.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,26 +33,24 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-arch_setup_msi_irqs() hook can only be called from the generic
-MSI code which ensures correct MSI type parameter.
-
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- arch/s390/pci/pci.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
-index c79c6e4..61a3c2c 100644
---- a/arch/s390/pci/pci.c
-+++ b/arch/s390/pci/pci.c
-@@ -425,8 +425,6 @@ int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
- 	int rc;
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index b650951..9bd3099 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3097,9 +3097,6 @@ static int cxgb_enable_msix(struct adapter *adap)
+ 	while ((err = pci_enable_msix(adap->pdev, entries, vectors)) > 0)
+ 		vectors = err;
  
- 	pr_debug("%s: requesting %d MSI-X interrupts...", __func__, nvec);
--	if (type != PCI_CAP_ID_MSIX && type != PCI_CAP_ID_MSI)
--		return -EINVAL;
- 	if (type == PCI_CAP_ID_MSI && nvec > 1)
- 		return 1;
- 	msi_vecs = min(nvec, ZPCI_MSI_VEC_MAX);
+-	if (err < 0)
+-		pci_disable_msix(adap->pdev);
+-
+ 	if (!err && vectors < (adap->params.nports + 1)) {
+ 		pci_disable_msix(adap->pdev);
+ 		err = -1;
 -- 
 1.7.7.6
