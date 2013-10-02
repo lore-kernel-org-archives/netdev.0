@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 47/77] mlx5: Fix memory leak in case not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:49:03 +0200
-Message-ID: <7cb36bb9a3ebfe79d42b9c287c2fe89d616b3190.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 72/77] vmxnet3: Fixup a weird loop exit
+Date: Wed,  2 Oct 2013 12:49:28 +0200
+Message-ID: <93fde8941d272e952e796abbf6526f19dc2d265f.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,20 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index b47739b..3573ba4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -142,6 +142,7 @@ retry:
- 	}
- 
- 	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
-+	kfree(table->msix_arr);
- 
- 	return 0;
- }
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 5b8ea71..3518173 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2750,7 +2750,7 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 		} else if (err < 0) {
+ 			dev_err(&adapter->netdev->dev,
+ 				   "Failed to enable MSI-X, error: %d\n", err);
+-			vectors = 0;
++			return err;
+ 		} else if (err < vector_threshold) {
+ 			break;
+ 		} else {
 -- 
 1.7.7.6
