@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 65/77] qlge: Remove a redundant assignment
-Date: Wed,  2 Oct 2013 12:49:21 +0200
-Message-ID: <2d9997f8ec6637dd41c10363785754698f6aa173.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 61/77] qlogic: Return -EINVAL in case MSI-X is not supported
+Date: Wed,  2 Oct 2013 12:49:17 +0200
+Message-ID: <c64f2f34b18acdd71ad113228f78fefdcf1cfd26.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,20 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 2553cf4..ac54cb0 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -3287,7 +3287,6 @@ static void ql_enable_msix(struct ql_adapter *qdev)
- 			qdev->msi_x_entry = NULL;
- 			netif_warn(qdev, ifup, qdev->ndev,
- 				   "MSI-X Enable failed, trying MSI.\n");
--			qdev->intr_count = 1;
- 			qlge_irq_type = MSI_IRQ;
- 		} else if (err == 0) {
- 			set_bit(QL_MSIX_ENABLED, &qdev->flags);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index c6018bb..ff6a78b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -568,7 +568,7 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int max_tx_rings, max_sds_rings, tx_vector;
+-	int err = -1, i;
++	int err = -EINVAL, i;
+ 
+ 	if (adapter->flags & QLCNIC_TX_INTR_SHARED) {
+ 		max_tx_rings = 0;
 -- 
 1.7.7.6
