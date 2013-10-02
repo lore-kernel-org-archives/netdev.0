@@ -1,64 +1,86 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: [net-next 2/3] udp: Add udp early demux
-Date: Wed, 2 Oct 2013 16:24:36 -0500
-Message-ID: <20131002212436.GC7824@sbohrermbp13-local.rgmadvisors.com>
-References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
- <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
- <1380660769.19002.40.camel@edumazet-glaptop.roam.corp.google.com>
- <20131002173422.GA7824@sbohrermbp13-local.rgmadvisors.com>
- <1380737365.19002.110.camel@edumazet-glaptop.roam.corp.google.com>
- <20131002203507.GB7824@sbohrermbp13-local.rgmadvisors.com>
- <1380748118.19002.125.camel@edumazet-glaptop.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] net: heap overflow in __audit_sockaddr()
+Date: Thu, 3 Oct 2013 00:26:04 +0300
+Message-ID: <20131002212603.GQ6247@mwanda>
+References: <20131002185811.GA23438@elgon.mountain>
+ <1380748306.1795.67.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, tomk@rgmadvisors.com,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	security@kernel.org,
+	=?iso-8859-1?Q?J=FCri?= Aedla <juri.aedla@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:58892 "EHLO
-	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753752Ab3JBVYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:24:40 -0400
-Received: by mail-ie0-f182.google.com with SMTP id aq17so3400139iec.27
-        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 14:24:39 -0700 (PDT)
-In-Reply-To: <1380748118.19002.125.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20512 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753767Ab3JBV0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:26:18 -0400
 Content-Disposition: inline
+In-Reply-To: <1380748306.1795.67.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 02, 2013 at 02:08:38PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-10-02 at 15:35 -0500, Shawn Bohrer wrote:
-> 
-> > Sorry, I must be a little slow today.  I understand what you are
-> > suggesting but I don't see how to implement it with a score.  Or at
-> > least not without potentially changing existing behavior.  For example
-> > I could make the inet->inet_daddr case add +100 to the score and I
-> > would know that a score >= 100 was connected.  However, this would
-> > unfairly favor that one case making a socket that only had a matching
-> > inet_daddr be better than one that only had a matching inet_dport,
-> > sk_bound_dev_if, and inet_rcv_saddr.
-> > 
-> 
-> If early demux has to increment a socket refcount, then decrementing it
-> because it found a non connected socket, this will be too expensive.
-> 
-> Also, keep in mind UDP chains can be long, so you should limit the early
-> lookup to say a single socket.
-> 
-> TCP ehash is mostly empty (0 or 1 socket per bucket), so early demux
-> really makes sense, but for UDP, there is no such property.
+On Wed, Oct 02, 2013 at 10:11:46PM +0100, Ben Hutchings wrote:
+> On Wed, 2013-10-02 at 21:58 +0300, Dan Carpenter wrote:
+> > We need to cap ->msg_namelen or it leads to a buffer overflow when =
+we
+> > to the memcpy() in __audit_sockaddr().  It requires CAP_AUDIT_CONTR=
+OL to
+> > exploit this bug.
+> >=20
+> > The call tree is:
+> > ___sys_recvmsg()
+> >   move_addr_to_user()
+> >     audit_sockaddr()
+> >       __audit_sockaddr()
+> >=20
+> > Reported-by: J=FCri Aedla <juri.aedla@gmail.com>
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> >
+> > diff --git a/net/socket.c b/net/socket.c
+> > index ebed4b6..c226ace 100644
+> > --- a/net/socket.c
+> > +++ b/net/socket.c
+> > @@ -1964,6 +1964,16 @@ struct used_address {
+> >  	unsigned int name_len;
+> >  };
+> > =20
+> > +static int copy_msghdr_from_user(struct msghdr *kmsg,
+> > +				 struct msghdr __user *umsg)
+> > +{
+> > +	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
+> > +		return -EFAULT;
+> > +	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+> > +		return -EINVAL;
+> > +	return 0;
+> > +}
+> > +
+> >  static int ___sys_sendmsg(struct socket *sock, struct msghdr __use=
+r *msg,
+> >  			 struct msghdr *msg_sys, unsigned int flags,
+> >  			 struct used_address *used_address)
+> > @@ -1982,8 +1992,11 @@ static int ___sys_sendmsg(struct socket *soc=
+k, struct msghdr __user *msg,
+> >  	if (MSG_CMSG_COMPAT & flags) {
+> >  		if (get_compat_msghdr(msg_sys, msg_compat))
+> >  			return -EFAULT;
+> > -	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
+> > -		return -EFAULT;
+> > +	} else {
+> > +		err =3D copy_msghdr_from_user(msg_sys, msg);
+> > +		if (err)
+> > +			return err;
+> > +	}
+> [...]
+>=20
+> This doesn't cover compat tasks, since get_compat_msghdr() has no suc=
+h
+> check.
+>=20
 
-So... Are you suggesting that I just skip the early demux for unicast
-UDP entirely?  That is fine by me since I only care about the
-multicast case.
+Oops.  Gar...  Thanks for catching that.  I forgot to add that chunk to
+the commit.
 
---
-Shawn
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+regards,
+dan carpenter
