@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 13/77] bna: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:29 +0200
-Message-ID: <e138df4579979bc0f60940258525036f5da61424.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 12/77] benet: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:28 +0200
+Message-ID: <4a8384c64f822aaed962169532bde927ac382ca0.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,64 +39,69 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   34 ++++++++++++------------------
- 1 files changed, 14 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   38 ++++++++++++++------------
+ 1 files changed, 20 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index b78e69e..d41257c 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2469,21 +2469,11 @@ bnad_enable_msix(struct bnad *bnad)
- 	if (bnad->msix_table)
- 		return;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 3e2c834..84d560d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2366,29 +2366,23 @@ static int be_msix_enable(struct be_adapter *adapter)
+ 	else
+ 		num_vec = adapter->cfg_num_qs;
  
--	bnad->msix_table =
--		kcalloc(bnad->msix_num, sizeof(struct msix_entry), GFP_KERNEL);
--
--	if (!bnad->msix_table)
-+	ret = pci_msix_table_size(bnad->pcidev);
-+	if (ret < 0)
- 		goto intx_mode;
+-	for (i = 0; i < num_vec; i++)
+-		adapter->msix_entries[i].entry = i;
++	status = pci_msix_table_size(adapter->pdev);
++	if (status < 0)
++		goto fail;
  
--	for (i = 0; i < bnad->msix_num; i++)
--		bnad->msix_table[i].entry = i;
--
--	ret = pci_enable_msix(bnad->pcidev, bnad->msix_table, bnad->msix_num);
--	if (ret > 0) {
--		/* Not enough MSI-X vectors. */
--		pr_warn("BNA: %d MSI-X vectors allocated < %d requested\n",
--			ret, bnad->msix_num);
--
-+	if (ret < bnad->msix_num) {
- 		spin_lock_irqsave(&bnad->bna_lock, flags);
- 		/* ret = #of vectors that we got */
- 		bnad_q_num_adjust(bnad, (ret - BNAD_MAILBOX_MSIX_VECTORS) / 2,
-@@ -2495,15 +2485,19 @@ bnad_enable_msix(struct bnad *bnad)
+-	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
+-	if (status == 0) {
+-		goto done;
+-	} else if (status >= MIN_MSIX_VECTORS) {
+-		num_vec = status;
+-		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
+-					 num_vec);
+-		if (!status)
+-			goto done;
+-	} else (status > 0) {
++	num_vec = min(num_vec, status);
++	if (num_vec < MIN_MSIX_VECTORS) {
+ 		status = -ENOSPC;
++		goto fail;
+ 	}
  
- 		if (bnad->msix_num > ret)
- 			goto intx_mode;
-+	}
- 
--		/* Try once more with adjusted numbers */
--		/* If this fails, fall back to INTx */
--		ret = pci_enable_msix(bnad->pcidev, bnad->msix_table,
--				      bnad->msix_num);
--		if (ret)
--			goto intx_mode;
-+	bnad->msix_table =
-+		kcalloc(bnad->msix_num, sizeof(struct msix_entry), GFP_KERNEL);
+-	dev_warn(dev, "MSIx enable failed\n");
++	for (i = 0; i < num_vec; i++)
++		adapter->msix_entries[i].entry = i;
 +
-+	if (!bnad->msix_table)
-+		goto intx_mode;
++	status = pci_enable_msix(adapter->pdev, adapter->msix_entries, num_vec);
++	if (status)
++		goto fail;
  
--	} else if (ret < 0)
-+	for (i = 0; i < bnad->msix_num; i++)
-+		bnad->msix_table[i].entry = i;
+-	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
+-	if (!be_physfn(adapter))
+-		return status;
+-	return 0;
+-done:
+ 	if (be_roce_supported(adapter) && num_vec > MIN_MSIX_VECTORS) {
+ 		adapter->num_msix_roce_vec = num_vec / 2;
+ 		dev_info(dev, "enabled %d MSI-x vector(s) for RoCE\n",
+@@ -2400,6 +2394,14 @@ done:
+ 	dev_info(dev, "enabled %d MSI-x vector(s) for NIC\n",
+ 		 adapter->num_msix_vec);
+ 	return 0;
 +
-+	ret = pci_enable_msix(bnad->pcidev, bnad->msix_table, bnad->msix_num);
-+	if (ret)
- 		goto intx_mode;
++fail:
++	dev_warn(dev, "MSIx enable failed\n");
++
++	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
++	if (!be_physfn(adapter))
++		return status;
++	return 0;
+ }
  
- 	pci_intx(bnad->pcidev, 0);
+ static inline int be_msix_vec_get(struct be_adapter *adapter,
 -- 
 1.7.7.6
