@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 26/77] cxgb4: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:42 +0200
-Message-ID: <384501214b90270df2f9414e3ddcffbe0335ddff.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 05/77] PCI/MSI: Convert pci_msix_table_size() to a public interface
+Date: Wed,  2 Oct 2013 12:48:21 +0200
+Message-ID: <e8b51bd48c24d0fc4ee8adea5c138c9bf84191e9.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,98 +33,84 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-As result of recent re-design of the MSI/MSI-X interrupts enabling
-pattern this driver has to be updated to use the new technique to
-obtain a optimal number of MSI/MSI-X interrupts required.
+Make pci_msix_table_size() to return a error code if the device
+does not support MSI-X. This update is needed to facilitate a
+forthcoming re-design MSI/MSI-X interrupts enabling pattern.
+
+Device drivers will use this interface to obtain maximum number
+of MSI-X interrupts the device supports and use that value in
+the following call to pci_enable_msix() interface.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   62 +++++++++++++----------
- 1 files changed, 35 insertions(+), 27 deletions(-)
+ Documentation/PCI/MSI-HOWTO.txt |   13 +++++++++++++
+ drivers/pci/msi.c               |    5 ++++-
+ drivers/pci/pcie/portdrv_core.c |    2 ++
+ 3 files changed, 19 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 9425bc6..e5fbbd3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5699,9 +5699,6 @@ static int enable_msix(struct adapter *adap)
- 	unsigned int nchan = adap->params.nports;
- 	struct msix_entry entries[MAX_INGQ + 1];
+diff --git a/Documentation/PCI/MSI-HOWTO.txt b/Documentation/PCI/MSI-HOWTO.txt
+index a091780..35b2d64 100644
+--- a/Documentation/PCI/MSI-HOWTO.txt
++++ b/Documentation/PCI/MSI-HOWTO.txt
+@@ -255,6 +255,19 @@ MSI-X Table.  This address is mapped by the PCI subsystem, and should not
+ be accessed directly by the device driver.  If the driver wishes to
+ mask or unmask an interrupt, it should call disable_irq() / enable_irq().
  
--	for (i = 0; i < ARRAY_SIZE(entries); ++i)
--		entries[i].entry = i;
--
- 	want = s->max_ethqsets + EXTRA_VECS;
- 	if (is_offload(adap)) {
- 		want += s->rdmaqs + s->ofldqsets;
-@@ -5710,34 +5707,45 @@ static int enable_msix(struct adapter *adap)
- 	}
- 	need = adap->params.nports + EXTRA_VECS + ofld_need;
++4.3.4 pci_msix_table_size
++
++int pci_msix_table_size(struct pci_dev *dev)
++
++This function could be used to retrieve number of entries in the device
++MSI-X table.
++
++If this function returns a negative number, it indicates the device is
++not capable of sending MSI-Xs.
++
++If this function returns a positive number, it indicates the maximum
++number of MSI-X interrupt vectors that could be allocated.
++
+ 4.4 Handling devices implementing both MSI and MSI-X capabilities
  
--	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
--		want = err;
-+	err = pci_msix_table_size(adap->pdev);
-+	if (err < 0)
-+		return err;
+ If a device implements both MSI and MSI-X capabilities, it can
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index b43f391..875c353 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -928,11 +928,12 @@ int pci_msix_table_size(struct pci_dev *dev)
+ 	u16 control;
  
--	if (!err) {
--		/*
--		 * Distribute available vectors to the various queue groups.
--		 * Every group gets its minimum requirement and NIC gets top
--		 * priority for leftovers.
--		 */
--		i = want - EXTRA_VECS - ofld_need;
--		if (i < s->max_ethqsets) {
--			s->max_ethqsets = i;
--			if (i < s->ethqsets)
--				reduce_ethqs(adap, i);
--		}
--		if (is_offload(adap)) {
--			i = want - EXTRA_VECS - s->max_ethqsets;
--			i -= ofld_need - nchan;
--			s->ofldqsets = (i / nchan) * nchan;  /* round down */
--		}
--		for (i = 0; i < want; ++i)
--			adap->msix_info[i].vec = entries[i].vector;
--	} else if (err > 0) {
-+	want = min(want, err);
-+	if (want < need) {
- 		dev_info(adap->pdev_dev,
- 			 "only %d MSI-X vectors left, not using MSI-X\n", err);
--		err = -ENOSPC;
-+		return -ENOSPC;
- 	}
--	return err;
-+
-+	BUG_ON(want > ARRAY_SIZE(entries));
-+	for (i = 0; i < want; ++i)
-+		entries[i].entry = i;
-+
-+	err = pci_enable_msix(adap->pdev, entries, want);
-+	if (err)
-+		return err;
-+
-+	/*
-+	 * Distribute available vectors to the various queue groups.
-+	 * Every group gets its minimum requirement and NIC gets top
-+	 * priority for leftovers.
-+	 */
-+	i = want - EXTRA_VECS - ofld_need;
-+	if (i < s->max_ethqsets) {
-+		s->max_ethqsets = i;
-+		if (i < s->ethqsets)
-+			reduce_ethqs(adap, i);
-+	}
-+	if (is_offload(adap)) {
-+		i = want - EXTRA_VECS - s->max_ethqsets;
-+		i -= ofld_need - nchan;
-+		s->ofldqsets = (i / nchan) * nchan;  /* round down */
-+	}
-+	for (i = 0; i < want; ++i)
-+		adap->msix_info[i].vec = entries[i].vector;
-+
-+	return 0;
+ 	if (!dev->msix_cap)
+-		return 0;
++		return -EINVAL;
+ 
+ 	pci_read_config_word(dev, dev->msix_cap + PCI_MSIX_FLAGS, &control);
+ 	return msix_table_size(control);
  }
++EXPORT_SYMBOL(pci_msix_table_size);
  
- #undef EXTRA_VECS
+ /**
+  * pci_enable_msix - configure device's MSI-X capability structure
+@@ -962,6 +963,8 @@ int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+ 		return status;
+ 
+ 	nr_entries = pci_msix_table_size(dev);
++	if (nr_entries < 0)
++		return nr_entries;
+ 	if (nvec > nr_entries)
+ 		return nr_entries;
+ 
+diff --git a/drivers/pci/pcie/portdrv_core.c b/drivers/pci/pcie/portdrv_core.c
+index 31063ac..b4d86eb 100644
+--- a/drivers/pci/pcie/portdrv_core.c
++++ b/drivers/pci/pcie/portdrv_core.c
+@@ -80,6 +80,8 @@ static int pcie_port_enable_msix(struct pci_dev *dev, int *vectors, int mask)
+ 	u32 reg32;
+ 
+ 	nr_entries = pci_msix_table_size(dev);
++	if (nr_entries < 0)
++		return nr_entries;
+ 	if (!nr_entries)
+ 		return -EINVAL;
+ 	if (nr_entries > PCIE_PORT_MAX_MSIX_ENTRIES)
 -- 
 1.7.7.6
