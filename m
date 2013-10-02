@@ -1,83 +1,44 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 42/77] lpfc: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:58 +0200
-Message-ID: <b0f0cdcc95f7899d9340214fdc1db01097bdc25f.1380703263.git.agordeev@redhat.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
-Cc: Alexander Gordeev <agordeev@redhat.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.ne
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <cover.1380703262.git.agordeev@redhat.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Oussama Ghorbel <ou.ghorbel@gmail.com>
+Subject: The check of upper MTU limit when changing it in ip6 gre tunnel seems incorrect.
+Date: Wed, 2 Oct 2013 17:44:29 +0100
+Message-ID: <CABfLueFJWv0OvcDmP7TMTF4wHjjv5QW_Qt+ULSDBciX==HsXQw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:47277 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754109Ab3JBQoa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 12:44:30 -0400
+Received: by mail-ie0-f177.google.com with SMTP id qd12so2409772ieb.22
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 09:44:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As result of recent re-design of the MSI/MSI-X interrupts enabling
-pattern this driver has to be updated to use the new technique to
-obtain a optimal number of MSI/MSI-X interrupts required.
+The check of upper MTU limit when changing it in ip6 gre tunnel seems incorrect.
+The function in question is:
 
-Note, in case just one MSI-X vector was available the
-error message "0484 PCI enable MSI-X failed 1" is
-preserved to not break tools which might depend on it.
+static int ip6gre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+{
+    struct ip6_tnl *tunnel = netdev_priv(dev);
 
-Also, not sure why in case of multiple MSI-Xs mode failed
-the driver skips the single MSI-X mode and falls back to
-single MSI mode.
+    if (new_mtu < 68 ||
+        new_mtu > 0xFFF8 - dev->hard_header_len - tunnel->hlen)
+        return -EINVAL;
+    dev->mtu = new_mtu;
+    return 0;
+}
 
-Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
----
- drivers/scsi/lpfc/lpfc_init.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+However the dev->hard_header_len and tunnel->hlen are initialized in
+the following way in ip6gre_tnl_link_config():
 
-diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
-index 0803b84..d83a1a3 100644
---- a/drivers/scsi/lpfc/lpfc_init.c
-+++ b/drivers/scsi/lpfc/lpfc_init.c
-@@ -8639,13 +8639,17 @@ lpfc_sli4_enable_msix(struct lpfc_hba *phba)
- 
- 	/* Configure MSI-X capability structure */
- 	vectors = phba->cfg_fcp_io_channel;
--enable_msix_vectors:
--	rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
--			     vectors);
--	if (rc > 1) {
--		vectors = rc;
--		goto enable_msix_vectors;
--	} else if (rc) {
-+
-+	rc = pci_msix_table_size(phba->pcidev);
-+	if (rc < 0)
-+		goto msg_fail_out;
-+
-+	vectors = min(vectors, rc);
-+	if (vectors > 1)
-+		rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
-+				     vectors);
-+	if (rc) {
-+msg_fail_out:
- 		lpfc_printf_log(phba, KERN_INFO, LOG_INIT,
- 				"0484 PCI enable MSI-X failed (%d)\n", rc);
- 		goto vec_fail_out;
--- 
-1.7.7.6
+int addend = sizeof(struct ipv6hdr) + 4;
+...
+dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
+...
+t->hlen = addend; // t is ip6_tnl pointer
+
+As you see the information t->hlen is already included in
+dev->hard_header_len, so why calculate it twice?
+
+Thanks
