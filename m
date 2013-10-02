@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: do not call sock_put() on TIMEWAIT sockets
-Date: Wed, 02 Oct 2013 17:06:25 -0400 (EDT)
-Message-ID: <20131002.170625.1002977193577152979.davem@davemloft.net>
-References: <1380686651.19002.64.camel@edumazet-glaptop.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: sndbuf autotuning improvements
+Date: Wed, 02 Oct 2013 14:07:36 -0700
+Message-ID: <1380748056.19002.124.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380648224.19002.32.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002.164600.347083935801850982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	maze@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49429 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753385Ab3JBVGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:06:33 -0400
-In-Reply-To: <1380686651.19002.64.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:35957 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754020Ab3JBVHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:07:38 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so1461235pbb.28
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 14:07:37 -0700 (PDT)
+In-Reply-To: <20131002.164600.347083935801850982.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 01 Oct 2013 21:04:11 -0700
+On Wed, 2013-10-02 at 16:46 -0400, David Miller wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> I assume this is meant for net-next as that is where this applies
+> cleanly.
 > 
-> commit 3ab5aee7fe84 ("net: Convert TCP & DCCP hash tables to use RCU /
-> hlist_nulls") incorrectly used sock_put() on TIMEWAIT sockets.
-> 
-> We should instead use inet_twsk_put()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Applied, thanks.
 
-Ugh, applied and queued up for -stable, thanks Eric!
+Indeed, sorry for missing net-next tag.
+
+Thanks !
