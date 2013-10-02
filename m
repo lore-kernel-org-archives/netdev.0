@@ -1,81 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch] net: heap overflow in __audit_sockaddr()
-Date: Wed, 2 Oct 2013 22:11:46 +0100
-Message-ID: <1380748306.1795.67.camel@bwh-desktop.uk.level5networks.com>
-References: <20131002185811.GA23438@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] net: mv643xx_eth: various small fixes for v3.12
+Date: Wed, 02 Oct 2013 17:12:33 -0400 (EDT)
+Message-ID: <20131002.171233.1409614287842381990.davem@davemloft.net>
+References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<security@kernel.org>,
-	=?ISO-8859-1?Q?J=FCri?= Aedla <juri.aedla@gmail.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30489 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753547Ab3JBVLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:11:50 -0400
-In-Reply-To: <20131002185811.GA23438@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: buytenh@wantstofly.org, jason@lakedaemon.net,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-02 at 21:58 +0300, Dan Carpenter wrote:
-> We need to cap ->msg_namelen or it leads to a buffer overflow when we
-> to the memcpy() in __audit_sockaddr().  It requires CAP_AUDIT_CONTROL=
- to
-> exploit this bug.
->=20
-> The call tree is:
-> ___sys_recvmsg()
->   move_addr_to_user()
->     audit_sockaddr()
->       __audit_sockaddr()
->=20
-> Reported-by: J=C3=BCri Aedla <juri.aedla@gmail.com>
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/net/socket.c b/net/socket.c
-> index ebed4b6..c226ace 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1964,6 +1964,16 @@ struct used_address {
->  	unsigned int name_len;
->  };
-> =20
-> +static int copy_msghdr_from_user(struct msghdr *kmsg,
-> +				 struct msghdr __user *umsg)
-> +{
-> +	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
-> +		return -EFAULT;
-> +	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
-> +		return -EINVAL;
-> +	return 0;
-> +}
-> +
->  static int ___sys_sendmsg(struct socket *sock, struct msghdr __user =
-*msg,
->  			 struct msghdr *msg_sys, unsigned int flags,
->  			 struct used_address *used_address)
-> @@ -1982,8 +1992,11 @@ static int ___sys_sendmsg(struct socket *sock,=
- struct msghdr __user *msg,
->  	if (MSG_CMSG_COMPAT & flags) {
->  		if (get_compat_msghdr(msg_sys, msg_compat))
->  			return -EFAULT;
-> -	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
-> -		return -EFAULT;
-> +	} else {
-> +		err =3D copy_msghdr_from_user(msg_sys, msg);
-> +		if (err)
-> +			return err;
-> +	}
-[...]
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Wed,  2 Oct 2013 12:57:19 +0200
 
-This doesn't cover compat tasks, since get_compat_msghdr() has no such
-check.
+> This patch set comprises some one-liners to fix issues with repeated
+> loading and unloading of a modular mv643xx_eth driver.
+> 
+> First two patches take care of the periodic port statistic timer, that
+> updates statistics by reading port registers using add_timer/mod_timer.
+> 
+> Patch 1 moves timer re-schedule from mib_counters_update to the timer
+> callback. As mib_counters_update is also called from non-timer context,
+> this ensures the timer is reactivated from timer context only.
+> 
+> Patch 2 moves initial timer schedule from _probe() time to right before
+> the port is actually started as the corresponding del_timer_sync is at
+> _stop() time. This fixes a regression, where unloading the driver from a
+> non-started eth device can cause the timer to access deallocated mem.
+> 
+> Patch 3 adds an assignment of the ports device_node to the corresponding
+> self-created platform_device. This is required to allow fixups based on
+> the device_node's compatible string later. Actually, it is also a potential
+> regression because we already check compatible string for Kirkwood, but
+> does not (yet) rely on the fixup.
+> 
+> All patches are based on v3.12-rc3 and have been tested on Kirkwood-based
+> Seagate Dockstar.
+> 
+> Patches 1 and 2 can also possibly queued up for -stable.
 
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Series applied, patch #1 and #2 queued up for -stable, thanks!
