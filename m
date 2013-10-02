@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 02/77] PCI/MSI/PPC: Fix wrong RTAS error code reporting
-Date: Wed,  2 Oct 2013 12:48:18 +0200
-Message-ID: <d9da231bddf5e54ad1ff81e19c9c8ed4dc234946.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 71/77] vmxnet3: Return -EINVAL if number of requested MSI-Xs is not enough
+Date: Wed,  2 Oct 2013 12:49:27 +0200
+Message-ID: <e97bde9008434668e2c3f35d43056a4bd1d69ad1.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,21 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- arch/powerpc/platforms/pseries/msi.c |    2 +-
+ drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/powerpc/platforms/pseries/msi.c b/arch/powerpc/platforms/pseries/msi.c
-index 6d2f0ab..009ec73 100644
---- a/arch/powerpc/platforms/pseries/msi.c
-+++ b/arch/powerpc/platforms/pseries/msi.c
-@@ -467,7 +467,7 @@ again:
- 	list_for_each_entry(entry, &pdev->msi_list, list) {
- 		hwirq = rtas_query_irq_number(pdn, i++);
- 		if (hwirq < 0) {
--			pr_debug("rtas_msi: error (%d) getting hwirq\n", rc);
-+			pr_debug("rtas_msi: error (%d) getting hwirq\n", hwirq);
- 			return hwirq;
- 		}
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 7e2788c..5b8ea71 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2738,7 +2738,7 @@ static int
+ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			     int vectors)
+ {
+-	int err = 0, vector_threshold;
++	int err = -EINVAL, vector_threshold;
+ 	vector_threshold = VMXNET3_LINUX_MIN_MSIX_VECT;
  
+ 	while (vectors >= vector_threshold) {
 -- 
 1.7.7.6
