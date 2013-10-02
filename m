@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 38/77] ixgbe: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:54 +0200
-Message-ID: <5b809a723104ca6350f4aefaae1ca2a44f7e7116.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 14/77] bnx2x: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:30 +0200
+Message-ID: <1a91f00e27e06e93806bd8af34fccd580ec68585.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,82 +39,104 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |   62 +++++++++++++------------
- 1 files changed, 32 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   54 ++++++++++-------------
+ 1 files changed, 23 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 90b4e10..2444a4d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -711,37 +711,39 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 	 * Right now, we simply care about how many we'll get; we'll
- 	 * set them up later while requesting irq's.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 61726af..edf31d2 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1564,7 +1564,7 @@ void bnx2x_free_irq(struct bnx2x *bp)
+ 
+ int bnx2x_enable_msix(struct bnx2x *bp)
+ {
+-	int msix_vec = 0, i, rc;
++	int msix_vec = 0, nvec, i, rc;
+ 
+ 	/* VFs don't have a default status block */
+ 	if (IS_PF(bp)) {
+@@ -1590,60 +1590,52 @@ int bnx2x_enable_msix(struct bnx2x *bp)
+ 		msix_vec++;
+ 	}
+ 
++	rc = pci_msix_table_size(bp->pdev);
++	if (rc < 0)
++		goto no_msix;
++
++	nvec = min(msix_vec, rc);
++	if (nvec < BNX2X_MIN_MSIX_VEC_CNT(bp))
++		nvec = 1;
++
+ 	DP(BNX2X_MSG_SP, "about to request enable msix with %d vectors\n",
+ 	   msix_vec);
+ 
+-	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], msix_vec);
++	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], nvec);
++	if (rc)
++		goto no_msix;
+ 
+ 	/*
+ 	 * reconfigure number of tx/rx queues according to available
+ 	 * MSI-X vectors
  	 */
--	while (vectors >= vector_threshold) {
--		err = pci_enable_msix(adapter->pdev, adapter->msix_entries,
--				      vectors);
--		if (!err) /* Success in acquiring all requested vectors. */
--			break;
--		else if (err < 0)
--			vectors = 0; /* Nasty failure, quit now */
--		else /* err == number of vectors we should try again with */
--			vectors = err;
--	}
-+	err = pci_msix_table_size(adapter->pdev);
-+	if (err < 0)
-+		goto err_alloc_msix;
+-	if (rc >= BNX2X_MIN_MSIX_VEC_CNT(bp)) {
+-		/* how less vectors we will have? */
+-		int diff = msix_vec - rc;
+-
+-		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
++	if (nvec == 1) {
++		bp->flags |= USING_SINGLE_MSIX_FLAG;
  
--	if (vectors < vector_threshold) {
--		/* Can't allocate enough MSI-X interrupts?  Oh well.
--		 * This just means we'll go with either a single MSI
--		 * vector or fall back to legacy interrupts.
--		 */
--		netif_printk(adapter, hw, KERN_DEBUG, adapter->netdev,
--			     "Unable to allocate MSI-X interrupts\n");
--		adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
--		kfree(adapter->msix_entries);
--		adapter->msix_entries = NULL;
--	} else {
--		adapter->flags |= IXGBE_FLAG_MSIX_ENABLED; /* Woot! */
--		/*
--		 * Adjust for only the vectors we'll use, which is minimum
--		 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
--		 * vectors we were allocated.
--		 */
--		vectors -= NON_Q_VECTORS;
--		adapter->num_q_vectors = min(vectors, adapter->max_q_vectors);
--	}
-+	vectors = min(vectors, err);
-+	if (vectors < vector_threshold)
-+		goto err_alloc_msix;
-+
-+	err = pci_enable_msix(adapter->pdev, adapter->msix_entries, vectors);
-+	if (err)
-+		goto err_alloc_msix;
-+
-+	adapter->flags |= IXGBE_FLAG_MSIX_ENABLED; /* Woot! */
-+	/*
-+	 * Adjust for only the vectors we'll use, which is minimum
-+	 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
-+	 * vectors we were allocated.
-+	 */
-+	vectors -= NON_Q_VECTORS;
-+	adapter->num_q_vectors = min(vectors, adapter->max_q_vectors);
-+
-+	return;
-+
-+err_alloc_msix:
-+	/* Can't allocate enough MSI-X interrupts?  Oh well.
-+	 * This just means we'll go with either a single MSI
-+	 * vector or fall back to legacy interrupts.
-+	 */
-+	netif_printk(adapter, hw, KERN_DEBUG, adapter->netdev,
-+		     "Unable to allocate MSI-X interrupts\n");
-+	adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
-+	kfree(adapter->msix_entries);
-+	adapter->msix_entries = NULL;
- }
+-		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], rc);
++		bp->num_ethernet_queues = 1;
++		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
++	} else if (nvec < msix_vec) {
++		/* how less vectors we will have? */
++		int diff = msix_vec - nvec;
  
- static void ixgbe_add_ring(struct ixgbe_ring *ring,
+-		if (rc) {
+-			BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
+-			goto no_msix;
+-		}
+ 		/*
+ 		 * decrease number of queues by number of unallocated entries
+ 		 */
+ 		bp->num_ethernet_queues -= diff;
+ 		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
++	}
+ 
++	if (nvec != msix_vec)
+ 		BNX2X_DEV_INFO("New queue configuration set: %d\n",
+ 			       bp->num_queues);
+-	} else if (rc > 0) {
+-		/* Get by with single vector */
+-		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], 1);
+-		if (rc) {
+-			BNX2X_DEV_INFO("Single MSI-X is not attainable rc %d\n",
+-				       rc);
+-			goto no_msix;
+-		}
+-
+-		BNX2X_DEV_INFO("Using single MSI-X vector\n");
+-		bp->flags |= USING_SINGLE_MSIX_FLAG;
+-
+-		BNX2X_DEV_INFO("set number of queues to 1\n");
+-		bp->num_ethernet_queues = 1;
+-		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
+-	} else if (rc < 0) {
+-		BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
+-		goto no_msix;
+-	}
+ 
+ 	bp->flags |= USING_MSIX_FLAG;
+ 
+ 	return 0;
+ 
+ no_msix:
++	BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
++
+ 	/* fall to INTx if not enough memory */
+ 	if (rc == -ENOMEM)
+ 		bp->flags |= DISABLE_MSI_FLAG;
 -- 
 1.7.7.6
