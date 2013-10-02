@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 19/77] csiostor: Do not call pci_disable_msix() if pci_enable_msix() failed
-Date: Wed,  2 Oct 2013 12:48:35 +0200
-Message-ID: <3697708ec423a6b6f3d924ea4af9a56874f5787a.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 36/77] ipr: Enable MSI-X when IPR_USE_MSIX type is set, not IPR_USE_MSI
+Date: Wed,  2 Oct 2013 12:48:52 +0200
+Message-ID: <2d4272136269f3cb3b1a5ac53b12aa45c7ea65c0.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,24 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/csiostor/csio_isr.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/scsi/ipr.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
-index 7ee9777..91ba91d 100644
---- a/drivers/scsi/csiostor/csio_isr.c
-+++ b/drivers/scsi/csiostor/csio_isr.c
-@@ -529,10 +529,8 @@ csio_enable_msix(struct csio_hw *hw)
- 			csio_reduce_sqsets(hw, cnt - extra);
- 		}
- 	} else {
--		if (rv > 0) {
--			pci_disable_msix(hw->pdev);
-+		if (rv > 0)
- 			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
--		}
+diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+index fb57e21..762a93e 100644
+--- a/drivers/scsi/ipr.c
++++ b/drivers/scsi/ipr.c
+@@ -9527,7 +9527,7 @@ static int ipr_probe_ioa(struct pci_dev *pdev,
+ 		ipr_number_of_msix = IPR_MAX_MSIX_VECTORS;
+ 	}
  
- 		kfree(entries);
- 		return -ENOMEM;
+-	if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSI &&
++	if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSIX &&
+ 			ipr_enable_msix(ioa_cfg) == 0)
+ 		ioa_cfg->intr_flag = IPR_USE_MSIX;
+ 	else if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSI &&
 -- 
 1.7.7.6
