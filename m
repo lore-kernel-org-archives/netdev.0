@@ -1,69 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 2/3] udp: Add udp early demux
-Date: Wed, 02 Oct 2013 11:09:25 -0700
-Message-ID: <1380737365.19002.110.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
-	 <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
-	 <1380660769.19002.40.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131002173422.GA7824@sbohrermbp13-local.rgmadvisors.com>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 04/77] PCI/MSI/s390: Remove superfluous check of MSI
+ type
+Date: Wed, 2 Oct 2013 11:17:49 -0700
+Message-ID: <20131002181749.GA6942@kroah.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <bae65aa3e30dfd23bd5ed47add7310cfbb96243a.1380703262.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, tomk@rgmadvisors.com,
-	netdev <netdev@vger.kernel.org>
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:61263 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755879Ab3JBSJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 14:09:27 -0400
-Received: by mail-pa0-f49.google.com with SMTP id ld10so1362128pab.8
-        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 11:09:27 -0700 (PDT)
-In-Reply-To: <20131002173422.GA7824@sbohrermbp13-local.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iss_storagedev-VXdhtT5mjnY@public.gmane.org,
+	linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <bae65aa3e30dfd23bd5ed47add7310cfbb96243a.1380703262.git.agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-02 at 12:34 -0500, Shawn Bohrer wrote:
-> On Tue, Oct 01, 2013 at 01:52:49PM -0700, Eric Dumazet wrote:
-> > On Tue, 2013-10-01 at 14:33 -0500, Shawn Bohrer wrote:
-> > > The removal of the routing cache introduced a performance regression for
-> > > some UDP workloads since a dst lookup must be done for each packet.
-> > > This change caches the dst per socket in a similar manner to what we do
-> > > for TCP by implementing early_demux.
-> > > 
-> > > For UDP multicast we can only cache the dst if there is only one
-> > > receiving socket on the host.  Since caching only works when there is
-> > > one receiving socket we do the multicast socket lookup using RCU.
-> > 
-> > For unicast, we should find a matching socket for early demux only if
-> > this is a connected socket.
-> > 
-> > Otherwise, forwarding setups will break.
-> > 
-> > You probably need to add a minimum score to __udp4_lib_lookup()
+On Wed, Oct 02, 2013 at 12:48:20PM +0200, Alexander Gordeev wrote:
+> arch_setup_msi_irqs() hook can only be called from the generic
+> MSI code which ensures correct MSI type parameter.
 > 
-> Perhaps I'm missing something but I don't think a minimum score would
-> work because compute_score() and compute_score2() have several ways of
-> returning a score of lets say 4 and I don't think they all mean the
-> socket is connected.
+> Signed-off-by: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
+>  arch/s390/pci/pci.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
 
-Just change how score is computed. The existing +4 values are not hard
-coded anywhere.
+I have no idea why you sent the stable@ alias so many patches, all in
+the incorrect form for them to be ever accepted in the stable kernel
+releases.  Please read Documentation/stable_kernel_rules.txt for how to
+do this properly.
 
-You want to compute a score so that a single compare against a threshold
-is enough to tell you what's going on, before even taking a refcount on
-the socket.
-
-
->   Why not just test the socket returned by
-> __udp4_lib_lookup() to see if it is connected in
-> udp_v4_early_demux()?  Something like:
-> 
->         sk = __udp4_lib_lookup(net, iph->saddr, uh->source,
->                                iph->daddr, uh->dest, dif,
->                                &udp_table);
->         /* Only demux connected sockets or forwarding setups will break */
->         if (sk && !inet_sk(sk)->inet_daddr)
->                 return;
-
-nice socket refcount leak ;)
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
