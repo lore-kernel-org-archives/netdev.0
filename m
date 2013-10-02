@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 57/77] pmcraid: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:49:13 +0200
-Message-ID: <70ae1192fb37922e07d9efe1448d902a3223921c.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 21/77] csiostor: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:37 +0200
+Message-ID: <a4355b8061609e4a4a28104cc5014178e4720bd0.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,48 +39,51 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/pmcraid.c |   23 +++++++++++------------
- 1 files changed, 11 insertions(+), 12 deletions(-)
+ drivers/scsi/csiostor/csio_isr.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
-index 1eb7b028..5c62d22 100644
---- a/drivers/scsi/pmcraid.c
-+++ b/drivers/scsi/pmcraid.c
-@@ -4680,24 +4680,23 @@ pmcraid_register_interrupt_handler(struct pmcraid_instance *pinstance)
+diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
+index abf20ab..b8a840e 100644
+--- a/drivers/scsi/csiostor/csio_isr.c
++++ b/drivers/scsi/csiostor/csio_isr.c
+@@ -512,6 +512,16 @@ csio_enable_msix(struct csio_hw *hw)
+ 	if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS || !csio_is_hw_master(hw))
+ 		cnt = min_t(uint8_t, hw->cfg_niq, cnt);
  
- 	if ((pmcraid_enable_msix) &&
- 		(pci_find_capability(pdev, PCI_CAP_ID_MSIX))) {
--		int num_hrrq = PMCRAID_NUM_MSIX_VECTORS;
- 		struct msix_entry entries[PMCRAID_NUM_MSIX_VECTORS];
-+		int num_hrrq = ARRAY_SIZE(entries);
- 		int i;
--		for (i = 0; i < PMCRAID_NUM_MSIX_VECTORS; i++)
--			entries[i].entry = i;
++	rv = pci_msix_table_size(hw->pdev);
++	if (rv < 0)
++		return rv;
++
++	cnt = min(cnt, rv);
++	if (cnt < min) {
++		csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
++		return -ENOSPC;
++	}
++
+ 	entries = kzalloc(sizeof(struct msix_entry) * cnt, GFP_KERNEL);
+ 	if (!entries)
+ 		return -ENOMEM;
+@@ -521,19 +531,15 @@ csio_enable_msix(struct csio_hw *hw)
+ 
+ 	csio_dbg(hw, "FW supp #niq:%d, trying %d msix's\n", hw->cfg_niq, cnt);
+ 
+-	while ((rv = pci_enable_msix(hw->pdev, entries, cnt)) >= min)
+-		cnt = rv;
++	rv = pci_enable_msix(hw->pdev, entries, cnt);
+ 	if (!rv) {
+ 		if (cnt < (hw->num_sqsets + extra)) {
+ 			csio_dbg(hw, "Reducing sqsets to %d\n", cnt - extra);
+ 			csio_reduce_sqsets(hw, cnt - extra);
+ 		}
+ 	} else {
+-		if (rv > 0)
+-			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
 -
--		rc = pci_enable_msix(pdev, entries, num_hrrq);
--		if (rc < 0)
--			goto pmcraid_isr_legacy;
+ 		kfree(entries);
+-		return -ENOSPC;
++		return rv;
+ 	}
  
- 		/* Check how many MSIX vectors are allocated and register
- 		 * msi-x handlers for each of them giving appropriate buffer
- 		 */
--		if (rc > 0) {
--			num_hrrq = rc;
--			if (pci_enable_msix(pdev, entries, num_hrrq))
--				goto pmcraid_isr_legacy;
--		}
-+		rc = pci_msix_table_size(pdev);
-+		if (rc < 0)
-+			goto pmcraid_isr_legacy;
-+
-+		num_hrrq = min(num_hrrq, rc);
-+		for (i = 0; i < num_hrrq; i++)
-+			entries[i].entry = i;
-+
-+		if (pci_enable_msix(pdev, entries, num_hrrq))
-+			goto pmcraid_isr_legacy;
- 
- 		for (i = 0; i < num_hrrq; i++) {
- 			pinstance->hrrq_vector[i].hrrq_id = i;
+ 	/* Save off vectors */
 -- 
 1.7.7.6
