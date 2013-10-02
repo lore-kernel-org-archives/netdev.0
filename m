@@ -1,49 +1,57 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 1/3] net: mv643xx_eth: update statistics timer from
- timer context only
-Date: Wed, 2 Oct 2013 08:17:01 -0400
-Message-ID: <20131002121701.GI31178@titan.lakedaemon.net>
-References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1380711442-24735-2-git-send-email-sebastian.hesselbarth@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1380711442-24735-2-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH 08/19 v2] net: atl1c: Change variable type to bool
+Date: Wed,  2 Oct 2013 14:19:48 +0200
+Message-ID: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
+Cc: chris.snook@gmail.com, jkosina@suse.cz, rdunlap@infradead.org,
+	standby24x7@gmail.com, peter.senna@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: jcliburn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:50940 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753477Ab3JBMUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 08:20:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 02, 2013 at 12:57:20PM +0200, Sebastian Hesselbarth wrote:
-> Each port driver installs a periodic timer to update port statistics
-> by calling mib_counters_update. As mib_counters_update is also called
-> from non-timer context, we should not reschedule the timer there but
-> rather move it to timer-only context.
-> 
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> ---
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> Cc: Jason Cooper <jason@lakedaemon.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
+The variable ret is only assigned the values true and false.
+The function atl1c_read_eeprom already returns bool. Change
+ret type to bool.
 
-Acked-by: Jason Cooper <jason@lakedaemon.net>
+The simplified semantic patch that find this problem is as
+follows (http://coccinelle.lip6.fr/):
 
-Introduced by:
+@exists@
+type T;
+identifier b;
+@@
+- T
++ bool
+  b = ...;
+  ... when any
+  b = \(true\|false\)
 
-  4ff3495a mv643xx_eth: enforce frequent hardware statistics polling
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+---
+Changes from v1:
+ - Added subsystem prefix to shortlog
 
-which goes all the way back to v2.6.28
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-thx,
-
-Jason.
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+index 3ef7092..1cda49a 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+@@ -153,7 +153,7 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ bool atl1c_read_eeprom(struct atl1c_hw *hw, u32 offset, u32 *p_value)
+ {
+ 	int i;
+-	int ret = false;
++	bool ret = false;
+ 	u32 otp_ctrl_data;
+ 	u32 control;
+ 	u32 data;
+-- 
+1.8.3.1
