@@ -1,58 +1,43 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 09/19 v2] net: bnx2x: Change variable type to bool
-Date: Wed,  2 Oct 2013 14:19:49 +0200
-Message-ID: <1380716391-20214-2-git-send-email-peter.senna@gmail.com>
-References: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:45539 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753507Ab3JBMUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 08:20:19 -0400
-In-Reply-To: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 3/3] net: mv643xx_eth: fix missing device_node for port
+ devices
+Date: Wed, 2 Oct 2013 08:22:09 -0400
+Message-ID: <20131002122209.GK31178@titan.lakedaemon.net>
+References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1380711442-24735-4-git-send-email-sebastian.hesselbarth@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1380711442-24735-4-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The variable rc is only assigned the values true and false.
-The function bnx2x_prev_is_path_marked already returns bool.
-Change rc type to bool.
+On Wed, Oct 02, 2013 at 12:57:22PM +0200, Sebastian Hesselbarth wrote:
+> DT-based mv643xx_eth probes and creates platform_devices for the
+> port devices on its own. To allow fixups for ports based on the
+> device_node, we need to set .of_node of the corresponding device
+> with the correct node.
+> 
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Jason Cooper <jason@lakedaemon.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    1 +
+>  1 file changed, 1 insertion(+)
 
-The simplified semantic patch that find this problem is as
-follows (http://coccinelle.lip6.fr/):
+Acked-by: Jason Cooper <jason@lakedaemon.net>
 
-@exists@
-type T;
-identifier b;
-@@
-- T
-+ bool
-  b = ...;
-  ... when any
-  b = \(true\|false\)
+thx,
 
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
----
-Changes from v1:
- - Added subsystem prefix to shortlog
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index fccfc1d..105cc80 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9874,7 +9874,7 @@ static int bnx2x_prev_path_mark_eeh(struct bnx2x *bp)
- static bool bnx2x_prev_is_path_marked(struct bnx2x *bp)
- {
- 	struct bnx2x_prev_path_list *tmp_list;
--	int rc = false;
-+	bool rc = false;
- 
- 	if (down_trylock(&bnx2x_prev_sem))
- 		return false;
--- 
-1.8.3.1
+Jason.
