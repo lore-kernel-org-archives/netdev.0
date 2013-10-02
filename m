@@ -1,54 +1,50 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 19/19 v2] net: ipv4: Change variable type to bool
-Date: Wed,  2 Oct 2013 14:19:51 +0200
-Message-ID: <1380716391-20214-4-git-send-email-peter.senna@gmail.com>
-References: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Peter Senna Tschudin <peter.senna@gmail.com>
-To: davem@davemloft.net
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 2/3] net: mv643xx_eth: fix orphaned statistics timer
+ crash
+Date: Wed, 2 Oct 2013 08:20:41 -0400
+Message-ID: <20131002122041.GJ31178@titan.lakedaemon.net>
+References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1380711442-24735-3-git-send-email-sebastian.hesselbarth@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1380711442-24735-3-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The variable fully_acked is only assigned the values true and false.
-Change its type to bool.
+On Wed, Oct 02, 2013 at 12:57:21PM +0200, Sebastian Hesselbarth wrote:
+> The periodic statistics timer gets started at port _probe() time, but
+> is stopped on _stop() only. In a modular environment, this can cause
+> the timer to access already deallocated memory, if the module is unloaded
+> without starting the eth device. To fix this, we add the timer right
+> before the port is started, instead of at _probe() time.
+> 
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Jason Cooper <jason@lakedaemon.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-The simplified semantic patch that find this problem is as
-follows (http://coccinelle.lip6.fr/):
+Acked-by: Jason Cooper <jason@lakedaemon.net>
 
-@exists@
-type T;
-identifier b;
-@@
-- T
-+ bool
-  b = ...;
-  ... when any
-  b = \(true\|false\)
+Introduced by:
 
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
----
-Changes from v1:
- - Added subsystem prefix to shortlog
+  4ff3495a mv643xx_eth: enforce frequent hardware statistics polling
 
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+which also goes all the way back to v2.6.28
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 25a89ea..fa17dce 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2970,7 +2970,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct sk_buff *skb;
- 	u32 now = tcp_time_stamp;
--	int fully_acked = true;
-+	bool fully_acked = true;
- 	int flag = 0;
- 	u32 pkts_acked = 0;
- 	u32 reord = tp->packets_out;
--- 
-1.8.3.1
+thx,
+
+Jason.
