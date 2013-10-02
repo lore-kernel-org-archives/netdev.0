@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 36/77] ipr: Enable MSI-X when IPR_USE_MSIX type is set, not IPR_USE_MSI
-Date: Wed,  2 Oct 2013 12:48:52 +0200
-Message-ID: <2d4272136269f3cb3b1a5ac53b12aa45c7ea65c0.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 02/77] PCI/MSI/PPC: Fix wrong RTAS error code reporting
+Date: Wed,  2 Oct 2013 12:48:18 +0200
+Message-ID: <d9da231bddf5e54ad1ff81e19c9c8ed4dc234946.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,21 +35,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/ipr.c |    2 +-
+ arch/powerpc/platforms/pseries/msi.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
-index fb57e21..762a93e 100644
---- a/drivers/scsi/ipr.c
-+++ b/drivers/scsi/ipr.c
-@@ -9527,7 +9527,7 @@ static int ipr_probe_ioa(struct pci_dev *pdev,
- 		ipr_number_of_msix = IPR_MAX_MSIX_VECTORS;
- 	}
+diff --git a/arch/powerpc/platforms/pseries/msi.c b/arch/powerpc/platforms/pseries/msi.c
+index 6d2f0ab..009ec73 100644
+--- a/arch/powerpc/platforms/pseries/msi.c
++++ b/arch/powerpc/platforms/pseries/msi.c
+@@ -467,7 +467,7 @@ again:
+ 	list_for_each_entry(entry, &pdev->msi_list, list) {
+ 		hwirq = rtas_query_irq_number(pdn, i++);
+ 		if (hwirq < 0) {
+-			pr_debug("rtas_msi: error (%d) getting hwirq\n", rc);
++			pr_debug("rtas_msi: error (%d) getting hwirq\n", hwirq);
+ 			return hwirq;
+ 		}
  
--	if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSI &&
-+	if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSIX &&
- 			ipr_enable_msix(ioa_cfg) == 0)
- 		ioa_cfg->intr_flag = IPR_USE_MSIX;
- 	else if (ioa_cfg->ipr_chip->intr_type == IPR_USE_MSI &&
 -- 
 1.7.7.6
