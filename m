@@ -1,49 +1,73 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: [PATCH net-next] 3com: Fix drivers/net/ethernet/3com/Kconfig references to PCMCIA and 3c515
-Date: Wed,  2 Oct 2013 11:08:03 -0400
-Message-ID: <1380726483-17247-1-git-send-email-tedheadster@gmail.com>
-Cc: Matthew Whitehead <tedheadster@gmail.com>
-To: netdev@vger.kernel.org
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: [PATCH RFC] random: introduce
+ get_random_bytes_busy_wait_initialized
+Date: Wed, 2 Oct 2013 11:10:18 -0400
+Message-ID: <20131002151018.GA31579@thunk.org>
+References: <alpine.DEB.2.02.1309231535030.23896@tomh.mtv.corp.google.com>
+ <1379980991.3165.37.camel@edumazet-glaptop>
+ <20130924023038.GA22393@order.stressinduktion.org>
+ <20130924033505.GB22393@order.stressinduktion.org>
+ <1380001118.3165.41.camel@edumazet-glaptop>
+ <20130924054532.GA24446@order.stressinduktion.org>
+ <1380028797.3165.65.camel@edumazet-glaptop>
+ <20130925090034.GC4904@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f41.google.com ([209.85.216.41]:55126 "EHLO
-	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046Ab3JBPIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 11:08:10 -0400
-Received: by mail-qa0-f41.google.com with SMTP id ii20so4451769qab.14
-        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 08:08:09 -0700 (PDT)
+Received: from imap.thunk.org ([74.207.234.97]:41249 "EHLO imap.thunk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753121Ab3JBPKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Oct 2013 11:10:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20130925090034.GC4904@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Vortex driver works with PCI and Cardbus devices, not PCMCIA.
+On Wed, Sep 25, 2013 at 11:00:34AM +0200, Hannes Frederic Sowa wrote:
+> [PATCH RFC] random: introduce get_random_bytes_busy_wait_initialized
+> 
+> We want to use good entropy for initializing the secret keys used for
+> hashing in the core network stack. So busy wait before extracting random
+> data until the nonblocking_pool is initialized.
+> 
+> Further entropy is also gathered by interrupts, so we are guaranteed to
+> make progress here.
 
-There never was an EISA 3c515 card, only ISA, so remove that option.
+One thing that makes me a bit worried is that on certain
+architectures, it may take quite a while before we get enough entropy
+such that the non-blocking pool gets initialized.
 
-Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
----
- drivers/net/ethernet/3com/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Speaking more generally, there are many different reasons why
+different parts of the kernel needs randomness.  I've found a number
+of places (mostly in various file systems so far because I know that
+subsystem better) because we are trying to use a random number
+generator with a higher level of guarantees than what was really
+required.
 
-diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
-index f00c763..65b735d 100644
---- a/drivers/net/ethernet/3com/Kconfig
-+++ b/drivers/net/ethernet/3com/Kconfig
-@@ -35,7 +35,7 @@ config EL3
- 
- config 3C515
- 	tristate "3c515 ISA \"Fast EtherLink\""
--	depends on (ISA || EISA) && ISA_DMA_API
-+	depends on ISA && ISA_DMA_API
- 	---help---
- 	  If you have a 3Com ISA EtherLink XL "Corkscrew" 3c515 Fast Ethernet
- 	  network card, say Y and read the Ethernet-HOWTO, available from
-@@ -70,7 +70,7 @@ config VORTEX
- 	select MII
- 	---help---
- 	  This option enables driver support for a large number of 10Mbps and
--	  10/100Mbps EISA, PCI and PCMCIA 3Com network cards:
-+	  10/100Mbps EISA, PCI and Cardbus 3Com network cards:
- 
- 	  "Vortex"    (Fast EtherLink 3c590/3c592/3c595/3c597) EISA and PCI
- 	  "Boomerang" (EtherLink XL 3c900 or 3c905)            PCI
--- 
-1.7.2.5
+What's not completely clear to me is what's the potential danger if
+build_ehash_secret() is initialized with a value that might be known
+to an adversary.  I'll note that inet_ehash_secret() is a 32-bit uint.
+A 32-bit number isn't all that hard for an adversary to brute force.
+If the answer is there's now oracle that can be used so an adversary
+can tell whether or not they have correctly figured out the ehash
+secret, then it's not that clear that it's worth blocking until the
+urandom pool has 128 bits of entropy, when ehash_secret is only a
+32-bit value.
+
+Speaking even more generally, any time you have subsystems grabbing
+random entropy very shortly after boot, especially if it's less than
+64 bits, it's really good idea of the secret gets periodically
+rekeyed.  I understand why that may be hard in this case, since it
+would require rehashing all of the currently open sockets, and maybe
+in this case the security requirements are such that it's not really
+necessary.  But it's something we should definitely keep in mind for
+situations where we are generating random session keys for CIFS,
+ipsec, etc.
+
+Regards,
+
+						- Ted
