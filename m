@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 54/77] ntb: Ensure number of MSIs on SNB is enough for the link interrupt
-Date: Wed,  2 Oct 2013 12:49:10 +0200
-Message-ID: <5d9c5b2d3bbc444ff32bddeece7a239d046bd79c.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 30/77] hpsa: Update a misleading comment on interrupt usage
+Date: Wed,  2 Oct 2013 12:48:46 +0200
+Message-ID: <3e551608cba10cab0f33f5201a29e67905b3cd02.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,21 +35,25 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/ntb/ntb_hw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/scsi/hpsa.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-index de2062c..eccd5e5 100644
---- a/drivers/ntb/ntb_hw.c
-+++ b/drivers/ntb/ntb_hw.c
-@@ -1066,7 +1066,7 @@ static int ntb_setup_msix(struct ntb_device *ndev)
- 		/* On SNB, the link interrupt is always tied to 4th vector.  If
- 		 * we can't get all 4, then we can't use MSI-X.
- 		 */
--		if (ndev->hw_type != BWD_HW) {
-+		if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
- 			rc = -EIO;
- 			goto err1;
- 		}
+diff --git a/drivers/scsi/hpsa.c b/drivers/scsi/hpsa.c
+index 891c86b..393c8db 100644
+--- a/drivers/scsi/hpsa.c
++++ b/drivers/scsi/hpsa.c
+@@ -4141,7 +4141,11 @@ static void hpsa_interrupt_mode(struct ctlr_info *h)
+ 	}
+ default_int_mode:
+ #endif				/* CONFIG_PCI_MSI */
+-	/* if we get here we're going to use the default interrupt mode */
++	/*
++	 * If we get here we're going to use either the
++	 * default interrupt mode or single MSI mode
++	 */
++
+ 	h->intr[h->intr_mode] = h->pdev->irq;
+ }
+ 
 -- 
 1.7.7.6
