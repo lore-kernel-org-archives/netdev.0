@@ -1,87 +1,85 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net: heap overflow in __audit_sockaddr()
-Date: Wed, 2 Oct 2013 21:58:11 +0300
-Message-ID: <20131002185811.GA23438@elgon.mountain>
-References: <20130319.095547.1333124517060824574.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, security@kernel.org,
-	=?iso-8859-1?Q?J=FCri?= Aedla <juri.aedla@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18756 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753552Ab3JBS6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 14:58:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20130319.095547.1333124517060824574.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: [PATCH RFC 01/77] PCI/MSI: Fix return value when populate_msi_sysfs() failed
+Date: Wed,  2 Oct 2013 12:48:17 +0200
+Message-ID: <3ff5236944aae69f2cd934b5b6da7c1c269df7c1.1380703262.git.agordeev@redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        stable@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+        linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-de
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <cover.1380703262.git.agordeev@redhat.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-We need to cap ->msg_namelen or it leads to a buffer overflow when we
-to the memcpy() in __audit_sockaddr().  It requires CAP_AUDIT_CONTROL t=
-o
-exploit this bug.
+Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+---
+ drivers/pci/msi.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-The call tree is:
-___sys_recvmsg()
-  move_addr_to_user()
-    audit_sockaddr()
-      __audit_sockaddr()
-
-Reported-by: J=FCri Aedla <juri.aedla@gmail.com>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/socket.c b/net/socket.c
-index ebed4b6..c226ace 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1964,6 +1964,16 @@ struct used_address {
- 	unsigned int name_len;
- };
-=20
-+static int copy_msghdr_from_user(struct msghdr *kmsg,
-+				 struct msghdr __user *umsg)
-+{
-+	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
-+		return -EFAULT;
-+	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
-+		return -EINVAL;
-+	return 0;
-+}
-+
- static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *m=
-sg,
- 			 struct msghdr *msg_sys, unsigned int flags,
- 			 struct used_address *used_address)
-@@ -1982,8 +1992,11 @@ static int ___sys_sendmsg(struct socket *sock, s=
-truct msghdr __user *msg,
- 	if (MSG_CMSG_COMPAT & flags) {
- 		if (get_compat_msghdr(msg_sys, msg_compat))
- 			return -EFAULT;
--	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
--		return -EFAULT;
-+	} else {
-+		err =3D copy_msghdr_from_user(msg_sys, msg);
-+		if (err)
-+			return err;
-+	}
-=20
- 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
- 		err =3D -EMSGSIZE;
-@@ -2191,8 +2204,11 @@ static int ___sys_recvmsg(struct socket *sock, s=
-truct msghdr __user *msg,
- 	if (MSG_CMSG_COMPAT & flags) {
- 		if (get_compat_msghdr(msg_sys, msg_compat))
- 			return -EFAULT;
--	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
--		return -EFAULT;
-+	} else {
-+		err =3D copy_msghdr_from_user(msg_sys, msg);
-+		if (err)
-+			return err;
-+	}
-=20
- 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
- 		err =3D -EMSGSIZE;
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index d5f90d6..b43f391 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -719,7 +719,7 @@ static int msix_capability_init(struct pci_dev *dev,
+ 
+ 	ret = arch_setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSIX);
+ 	if (ret)
+-		goto error;
++		goto out_avail;
+ 
+ 	/*
+ 	 * Some devices require MSI-X to be enabled before we can touch the
+@@ -732,10 +732,8 @@ static int msix_capability_init(struct pci_dev *dev,
+ 	msix_program_entries(dev, entries);
+ 
+ 	ret = populate_msi_sysfs(dev);
+-	if (ret) {
+-		ret = 0;
+-		goto error;
+-	}
++	if (ret)
++		goto out_free;
+ 
+ 	/* Set MSI-X enabled bits and unmask the function */
+ 	pci_intx_for_msi(dev, 0);
+@@ -746,7 +744,7 @@ static int msix_capability_init(struct pci_dev *dev,
+ 
+ 	return 0;
+ 
+-error:
++out_avail:
+ 	if (ret < 0) {
+ 		/*
+ 		 * If we had some success, report the number of irqs
+@@ -763,6 +761,7 @@ error:
+ 			ret = avail;
+ 	}
+ 
++out_free:
+ 	free_msi_irqs(dev);
+ 
+ 	return ret;
+-- 
+1.7.7.6
