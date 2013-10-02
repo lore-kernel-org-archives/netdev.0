@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 25/77] cxgb4: Return -ENOSPC when not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:48:41 +0200
-Message-ID: <3c7f347b79afdce03af1fadf4f50f7906979ee94.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 27/77] cxgb4vf: Do not call pci_disable_msix() if pci_enable_msix() failed
+Date: Wed,  2 Oct 2013 12:48:43 +0200
+Message-ID: <aec358256c36246175578566ddcfc1820fe45af0.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,25 +35,20 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c73cabd..9425bc6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5732,9 +5732,11 @@ static int enable_msix(struct adapter *adap)
- 		}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 40c22e7..87a82fc 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2468,7 +2468,6 @@ static int enable_msix(struct adapter *adapter)
  		for (i = 0; i < want; ++i)
- 			adap->msix_info[i].vec = entries[i].vector;
--	} else if (err > 0)
-+	} else if (err > 0) {
- 		dev_info(adap->pdev_dev,
- 			 "only %d MSI-X vectors left, not using MSI-X\n", err);
-+		err = -ENOSPC;
-+	}
- 	return err;
- }
- 
+ 			adapter->msix_info[i].vec = entries[i].vector;
+ 	} else if (err > 0) {
+-		pci_disable_msix(adapter->pdev);
+ 		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
+ 			 " not using MSI-X\n", err);
+ 	}
 -- 
 1.7.7.6
