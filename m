@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 63/77] qlcnic: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:49:19 +0200
-Message-ID: <c92efbde96541d08f37510422c096d543bb01279.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 26/77] cxgb4: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:42 +0200
+Message-ID: <384501214b90270df2f9414e3ddcffbe0335ddff.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,83 +39,92 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   56 ++++++++++++---------
- 1 files changed, 32 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   62 +++++++++++++----------
+ 1 files changed, 35 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index b94e679..a137c14 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -590,7 +590,37 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- 	adapter->flags &= ~(QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 9425bc6..e5fbbd3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5699,9 +5699,6 @@ static int enable_msix(struct adapter *adap)
+ 	unsigned int nchan = adap->params.nports;
+ 	struct msix_entry entries[MAX_INGQ + 1];
  
- 	if (adapter->ahw->msix_supported) {
-- enable_msix:
-+		err = pci_msix_table_size(pdev);
-+		if (err < 0)
-+			goto fail;
-+
-+		if (err < num_msix) {
-+			dev_info(&pdev->dev,
-+				 "Unable to allocate %d MSI-X interrupt vectors\n",
-+				 num_msix);
-+			if (qlcnic_83xx_check(adapter)) {
-+				if (err < (QLC_83XX_MINIMUM_VECTOR - tx_vector))
-+					return -ENOSPC;
-+				err -= (max_tx_rings + 1);
-+				num_msix = rounddown_pow_of_two(err);
-+				num_msix += (max_tx_rings + 1);
-+			} else {
-+				num_msix = rounddown_pow_of_two(err);
-+				if (qlcnic_check_multi_tx(adapter))
-+					num_msix += max_tx_rings;
-+			}
-+
-+			if (!num_msix) {
-+				err = -ENOSPC;
-+				goto fail;
-+			}
-+
-+			dev_info(&pdev->dev,
-+				 "Trying to allocate %d MSI-X interrupt vectors\n",
-+				 num_msix);
-+			}
-+		}
-+
- 		for (i = 0; i < num_msix; i++)
- 			adapter->msix_entries[i].entry = i;
- 		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
-@@ -613,30 +643,8 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- 				adapter->max_sds_rings = max_sds_rings;
- 			}
- 			dev_info(&pdev->dev, "using msi-x interrupts\n");
--		} else if (err > 0) {
--			dev_info(&pdev->dev,
--				 "Unable to allocate %d MSI-X interrupt vectors\n",
--				 num_msix);
--			if (qlcnic_83xx_check(adapter)) {
--				if (err < (QLC_83XX_MINIMUM_VECTOR - tx_vector))
--					return -ENOSPC;
--				err -= (max_tx_rings + 1);
--				num_msix = rounddown_pow_of_two(err);
--				num_msix += (max_tx_rings + 1);
--			} else {
--				num_msix = rounddown_pow_of_two(err);
--				if (qlcnic_check_multi_tx(adapter))
--					num_msix += max_tx_rings;
--			}
+-	for (i = 0; i < ARRAY_SIZE(entries); ++i)
+-		entries[i].entry = i;
 -
--			if (num_msix) {
--				dev_info(&pdev->dev,
--					 "Trying to allocate %d MSI-X interrupt vectors\n",
--					 num_msix);
--				goto enable_msix;
--			}
--			err = -ENOSPC;
- 		} else {
-+fail:
- 			dev_info(&pdev->dev,
- 				 "Unable to allocate %d MSI-X interrupt vectors\n",
- 				 num_msix);
+ 	want = s->max_ethqsets + EXTRA_VECS;
+ 	if (is_offload(adap)) {
+ 		want += s->rdmaqs + s->ofldqsets;
+@@ -5710,34 +5707,45 @@ static int enable_msix(struct adapter *adap)
+ 	}
+ 	need = adap->params.nports + EXTRA_VECS + ofld_need;
+ 
+-	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
+-		want = err;
++	err = pci_msix_table_size(adap->pdev);
++	if (err < 0)
++		return err;
+ 
+-	if (!err) {
+-		/*
+-		 * Distribute available vectors to the various queue groups.
+-		 * Every group gets its minimum requirement and NIC gets top
+-		 * priority for leftovers.
+-		 */
+-		i = want - EXTRA_VECS - ofld_need;
+-		if (i < s->max_ethqsets) {
+-			s->max_ethqsets = i;
+-			if (i < s->ethqsets)
+-				reduce_ethqs(adap, i);
+-		}
+-		if (is_offload(adap)) {
+-			i = want - EXTRA_VECS - s->max_ethqsets;
+-			i -= ofld_need - nchan;
+-			s->ofldqsets = (i / nchan) * nchan;  /* round down */
+-		}
+-		for (i = 0; i < want; ++i)
+-			adap->msix_info[i].vec = entries[i].vector;
+-	} else if (err > 0) {
++	want = min(want, err);
++	if (want < need) {
+ 		dev_info(adap->pdev_dev,
+ 			 "only %d MSI-X vectors left, not using MSI-X\n", err);
+-		err = -ENOSPC;
++		return -ENOSPC;
+ 	}
+-	return err;
++
++	BUG_ON(want > ARRAY_SIZE(entries));
++	for (i = 0; i < want; ++i)
++		entries[i].entry = i;
++
++	err = pci_enable_msix(adap->pdev, entries, want);
++	if (err)
++		return err;
++
++	/*
++	 * Distribute available vectors to the various queue groups.
++	 * Every group gets its minimum requirement and NIC gets top
++	 * priority for leftovers.
++	 */
++	i = want - EXTRA_VECS - ofld_need;
++	if (i < s->max_ethqsets) {
++		s->max_ethqsets = i;
++		if (i < s->ethqsets)
++			reduce_ethqs(adap, i);
++	}
++	if (is_offload(adap)) {
++		i = want - EXTRA_VECS - s->max_ethqsets;
++		i -= ofld_need - nchan;
++		s->ofldqsets = (i / nchan) * nchan;  /* round down */
++	}
++	for (i = 0; i < want; ++i)
++		adap->msix_info[i].vec = entries[i].vector;
++
++	return 0;
+ }
+ 
+ #undef EXTRA_VECS
 -- 
 1.7.7.6
