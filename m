@@ -1,57 +1,84 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH V2] virtio-net: switch to use XPS to choose txq
-Date: Wed, 2 Oct 2013 09:15:45 +0300
-Message-ID: <20131002061545.GA6880@redhat.com>
-References: <1380526637-35524-1-git-send-email-jasowang@redhat.com>
-	<20130930.221040.543720988967287293.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 0/2] net: alternate proposal for using macvlans with
+ forwarding acceleration
+Date: Tue, 01 Oct 2013 23:31:29 -0700
+Message-ID: <524BBDC1.6040000@gmail.com>
+References: <20130911184441.26914.10336.stgit@nitbit.x32> <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20130930.221040.543720988967287293.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:37861 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753098Ab3JBGbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 02:31:47 -0400
+Received: by mail-oa0-f54.google.com with SMTP id n5so367749oag.13
+        for <netdev@vger.kernel.org>; Tue, 01 Oct 2013 23:31:46 -0700 (PDT)
+In-Reply-To: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBTZXAgMzAsIDIwMTMgYXQgMTA6MTA6NDBQTSAtMDcwMCwgRGF2aWQgTWlsbGVyIHdy
-b3RlOgo+IEZyb206IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4gRGF0ZTogTW9u
-LCAzMCBTZXAgMjAxMyAxNTozNzoxNyArMDgwMAo+IAo+ID4gV2UgdXNlZCB0byB1c2UgYSBwZXJj
-cHUgc3RydWN0dXJlIHZxX2luZGV4IHRvIHJlY29yZCB0aGUgY3B1IHRvIHF1ZXVlCj4gPiBtYXBw
-aW5nLCB0aGlzIGlzIHN1Ym9wdGltYWwgc2luY2UgaXQgZHVwbGljYXRlcyB0aGUgd29yayBvZiBY
-UFMgYW5kCj4gPiBsb3NlcyBhbGwgb3RoZXIgWFBTIGZ1bmN0aW9uYWxpdHkgc3VjaCBhcyBhbGxv
-d2luZyB1c2UgdG8gY29uZmlndXJlCj4gPiB0aGVpciBvd24gdHJhbnNtaXNzaW9uIHN0ZWVyaW5n
-IHN0cmF0ZWd5Lgo+ID4gCj4gPiBTbyB0aGlzIHBhdGNoIHN3aXRjaGVzIHRvIHVzZSBYUFMgYW5k
-IHN1Z2dlc3QgYSBkZWZhdWx0IG1hcHBpbmcgd2hlbgo+ID4gdGhlIG51bWJlciBvZiBjcHVzIGlz
-IGVxdWFsIHRvIHRoZSBudW1iZXIgb2YgcXVldWVzLiBXaXRoIFhQUyBzdXBwb3J0LAo+ID4gdGhl
-cmUncyBubyBuZWVkIGZvciBrZWVwaW5nIHBlci1jcHUgdnFfaW5kZXggYW5kIC5uZG9fc2VsZWN0
-X3F1ZXVlKCksCj4gPiBzbyB0aGV5IHdlcmUgcmVtb3ZlZCBhbHNvLgo+ID4gCj4gPiBDYzogUnVz
-dHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1Pgo+ID4gQ2M6IE1pY2hhZWwgUy4gVHNp
-cmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNv
-d2FuZ0ByZWRoYXQuY29tPgo+ID4gLS0tCj4gPiBDaGFuZ2VzIGZyb20gVjE6Cj4gPiAtIHVzZSBj
-cHVtYXNrX29mKCkgaW5zdGVhZCBvZiBhbGxvY2F0ZSBkeW5hbWljYWxseQo+IAo+IFRoaXMgZ2Vu
-ZXJhdGVzIGJ1aWxkIHdhcm5pbmdzOgo+IAo+IGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYzogSW4g
-ZnVuY3Rpb24g4oCYdmlydG5ldF9zZXRfYWZmaW5pdHnigJk6Cj4gZHJpdmVycy9uZXQvdmlydGlv
-X25ldC5jOjEwOTM6Mzogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAyIG9mIOKAmG5ldGlmX3Nl
-dF94cHNfcXVldWXigJkgZGlzY2FyZHMg4oCYY29uc3TigJkgcXVhbGlmaWVyIGZyb20gcG9pbnRl
-ciB0YXJnZXQgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQo+IEluIGZpbGUgaW5jbHVkZWQgZnJv
-bSBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6MjA6MDoKPiBpbmNsdWRlL2xpbnV4L25ldGRldmlj
-ZS5oOjIyNzU6NTogbm90ZTogZXhwZWN0ZWQg4oCYc3RydWN0IGNwdW1hc2sgKuKAmSBidXQgYXJn
-dW1lbnQgaXMgb2YgdHlwZSDigJhjb25zdCBzdHJ1Y3QgY3B1bWFzayAq4oCZCgpMb29rcyBsaWtl
-IHdlIGp1c3QgbmVlZCB0byB0d2VhayB0aGUgc2lnbmF0dXJlIHRoZXJlIHRvIGNvbnN0IHN0cnVj
-dApjcHVtYXNrICo6IGl0J3MgbmV2ZXIgY2hhbmdlZC4KCkkganVzdCBzZW50IGEgcGF0Y2gKCVtQ
-QVRDSF0gbmV0aWZfc2V0X3hwc19xdWV1ZTogbWFrZSBjcHUgbWFzayBjb25zdAp0aGF0IGRvZXMg
-ZXhhY3RseSB0aGF0LgoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25A
-bGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24u
-b3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+On 09/25/2013 01:16 PM, Neil Horman wrote:
+> John, et al. -
+>       As promised, heres my (very rough) first pass at an alternate propsal for
+> what you're trying to do with virtual station interfaces here.  Its completely
+> untested, but it builds, and I'll be trying to run it over the next few days
+> (though I'm sure I got part of the hardware manipulation wrong).  I wanted to
+> post it early though so you could get a look at it to see what you did and
+> didn't like about it.  Some notes:
+
+Sorry for the delay. I like the idea one nice win here is my macvlan
+kvm setup would use the offloads without having to reconfigure.
+
+>
+> 1) As discussed, the major effort here is to tie in macvlans with l2 forwarding
+> acceleration, rather than creating a new vsi link type.  That should make
+> management easier for admins (be it via ovs or some other mechanism).  It
+> basically exposes a bit less to the user, which I think is good.
+>
+
+The trick here is the offload path may be functionally different from
+the non-offload path. The user needs some visibility into this. For
+example any qdiscs running on the lowerdev will not be visible from the
+accelerated path.
+
+When a new link type was being used I was able to convince myself that
+it was a property of the link type. But if we reuse macvlan I think we
+need some way to either automatically disable the offload path when this
+occurs or provide the user visibility. Maybe a feature flag and a
+netif_can_hw_offload() routine is needed?
+
+> 2) I've separated out the l2 forwarding acceleration operations from the
+> net_device_operations structure.  I'm not sure I like that yet, but I'm kind on
+> leaning that way.  Since a limited set of hardare supports forwarding
+> acceleration, it makes for a nice easy way to group functionality without
+> polluting the net_device_operations structure.  It also lets us group simmilar
+> functions together nicely (I can see a future l3_accel_ops structure if we can
+> do l3 flows in hardware).  Anywho, its a divergence from what we've been doing
+> so I thought I would call attention to it.
+>
+> 3) I've included a l2_accel_xmit method in the accel_ops structure for fast path
+> forwarding, but I'm not sure I like that.  It seems we should be able to use
+> ndo_start_xmit and key off some data to recognize that we should be doing
+> hardware forwarding.  I'm not quite sure how to do that yet though.  Something
+> to think about.
+
+Without a specific xmit routine though you will be adding operations in
+the common case for a special case. Having a new op fixes this.
+
+>
+> 4) I've borrowed heavily from your vsi work of course just to get this building.
+> I think theres probbaly alot of consolidation that can be done in the code that
+> I added to ixgbe_main.c to make it smaller.  Again, I just wanted to post this
+> so you could speak up if you though this was all crap before I wen't too far
+> down the rabbit hole.
+
+There was some consolidation needed in my original RFC as well. I can
+help clean some of this stuff up if you want.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
