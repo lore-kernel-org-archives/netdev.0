@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 16/77] cciss: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:32 +0200
-Message-ID: <0498333a0ddc360d43d4496310917a5d0f9a51fd.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 57/77] pmcraid: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:49:13 +0200
+Message-ID: <70ae1192fb37922e07d9efe1448d902a3223921c.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,43 +39,48 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/block/cciss.c |   17 +++++++----------
- 1 files changed, 7 insertions(+), 10 deletions(-)
+ drivers/scsi/pmcraid.c |   23 +++++++++++------------
+ 1 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/block/cciss.c b/drivers/block/cciss.c
-index d2d95ff..80068a0 100644
---- a/drivers/block/cciss.c
-+++ b/drivers/block/cciss.c
-@@ -4079,7 +4079,11 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
- 		goto default_int_mode;
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 1eb7b028..5c62d22 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -4680,24 +4680,23 @@ pmcraid_register_interrupt_handler(struct pmcraid_instance *pinstance)
  
- 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSIX)) {
--		err = pci_enable_msix(h->pdev, cciss_msix_entries, 4);
-+		err = pci_msix_table_size(h->pdev);
-+		if (err < ARRAY_SIZE(cciss_msix_entries))
-+			goto default_int_mode;
-+		err = pci_enable_msix(h->pdev, cciss_msix_entries,
-+				      ARRAY_SIZE(cciss_msix_entries));
- 		if (!err) {
- 			h->intr[0] = cciss_msix_entries[0].vector;
- 			h->intr[1] = cciss_msix_entries[1].vector;
-@@ -4088,15 +4092,8 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
- 			h->msix_vector = 1;
- 			return;
- 		}
--		if (err > 0) {
--			dev_warn(&h->pdev->dev,
--				"only %d MSI-X vectors available\n", err);
--			goto default_int_mode;
--		} else {
--			dev_warn(&h->pdev->dev,
--				"MSI-X init failed %d\n", err);
--			goto default_int_mode;
+ 	if ((pmcraid_enable_msix) &&
+ 		(pci_find_capability(pdev, PCI_CAP_ID_MSIX))) {
+-		int num_hrrq = PMCRAID_NUM_MSIX_VECTORS;
+ 		struct msix_entry entries[PMCRAID_NUM_MSIX_VECTORS];
++		int num_hrrq = ARRAY_SIZE(entries);
+ 		int i;
+-		for (i = 0; i < PMCRAID_NUM_MSIX_VECTORS; i++)
+-			entries[i].entry = i;
+-
+-		rc = pci_enable_msix(pdev, entries, num_hrrq);
+-		if (rc < 0)
+-			goto pmcraid_isr_legacy;
+ 
+ 		/* Check how many MSIX vectors are allocated and register
+ 		 * msi-x handlers for each of them giving appropriate buffer
+ 		 */
+-		if (rc > 0) {
+-			num_hrrq = rc;
+-			if (pci_enable_msix(pdev, entries, num_hrrq))
+-				goto pmcraid_isr_legacy;
 -		}
-+		dev_warn(&h->pdev->dev, "MSI-X init failed %d\n", err);
-+		goto default_int_mode;
- 	}
- 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSI)) {
- 		if (!pci_enable_msi(h->pdev))
++		rc = pci_msix_table_size(pdev);
++		if (rc < 0)
++			goto pmcraid_isr_legacy;
++
++		num_hrrq = min(num_hrrq, rc);
++		for (i = 0; i < num_hrrq; i++)
++			entries[i].entry = i;
++
++		if (pci_enable_msix(pdev, entries, num_hrrq))
++			goto pmcraid_isr_legacy;
+ 
+ 		for (i = 0; i < num_hrrq; i++) {
+ 			pinstance->hrrq_vector[i].hrrq_id = i;
 -- 
 1.7.7.6
