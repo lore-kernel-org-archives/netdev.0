@@ -1,78 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO
-Date: Wed, 2 Oct 2013 14:01:22 +0200
-Message-ID: <20131002120122.GN10771@order.stressinduktion.org>
-References: <20130921042700.GB8070@order.stressinduktion.org> <20130930114343.GA6356@minipsycho.brq.redhat.com> <20130930172312.GE10771@order.stressinduktion.org> <20131001105837.GA1424@minipsycho.brq.redhat.com> <20131001120907.GH10771@order.stressinduktion.org> <20131001123214.GI10771@order.stressinduktion.org> <20131001214721.GJ10771@order.stressinduktion.org> <20131001232534.GM10771@order.stressinduktion.org> <20131002103333.GB1528@minipsycho.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v5 2/3] bonding: modify the old and add new
+ xmit hash policies
+Date: Wed, 02 Oct 2013 05:03:06 -0700
+Message-ID: <1380715386.19002.93.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380713966-3891-1-git-send-email-nikolay@redhat.com>
+	 <1380713966-3891-3-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, herbert@gondor.apana.org.au,
-	eric.dumazet@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	fubar@us.ibm.com, vfalico@redhat.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35900 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753684Ab3JBMBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 08:01:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20131002103333.GB1528@minipsycho.brq.redhat.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:34655 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753495Ab3JBMDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 08:03:08 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so775197pdj.26
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 05:03:07 -0700 (PDT)
+In-Reply-To: <1380713966-3891-3-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 02, 2013 at 12:33:33PM +0200, Jiri Pirko wrote:
-> Wed, Oct 02, 2013 at 01:25:34AM CEST, hannes@stressinduktion.org wrote:
-> >On Tue, Oct 01, 2013 at 11:47:21PM +0200, Hannes Frederic Sowa wrote:
-> >> The strange thing is that if I don't do the IPV6_MTU setsockopt I don't
-> >> get an oops.
-> >
-> >This is incorrect, it just depends on the size of the writes and on the
-> >interface mtu.
-> >
-> >> IPv4 seems to work without problems, too.
-> >
-> >I also get kernel oopses from IPv4 now, too.
+On Wed, 2013-10-02 at 13:39 +0200, Nikolay Aleksandrov wrote:
+> This patch adds two new hash policy modes which use skb_flow_dissect:
+> 3 - Encapsulated layer 2+3
+> 4 - Encapsulated layer 3+4
+> There should be a good improvement for tunnel users in those modes.
+> It also changes the old hash functions to:
+> hash ^= (__force u32)flow.dst ^ (__force u32)flow.src;
+> hash ^= (hash >> 16);
+> hash ^= (hash >> 8);
 > 
-> I'm not able to trigger this with ipv4. Can you please send strace
-> output for this as well?
+> Where hash will be initialized either to L2 hash, that is
+> SRCMAC[5] XOR DSTMAC[5], or to flow->ports which should be extracted
+> from the upper layer. Flow's dst and src are also extracted based on the
+> xmit policy either directly from the buffer or by using skb_flow_dissect,
+> but in both cases if the protocol is IPv6 then dst and src are obtained by
+> ipv6_addr_hash() on the real addresses. In case of a non-dissectable
+> packet, the algorithms fall back to L2 hashing.
+> The bond_set_mode_ops() function is now obsolete and thus deleted
+> because it was used only to set the proper hash policy. Also we trim a
+> pointer from struct bonding because we no longer need to keep the hash
+> function, now there's only a single hash function - bond_xmit_hash that
+> works based on bond->params.xmit_policy.
+> 
+> The hash function and skb_flow_dissect were suggested by Eric Dumazet.
+> The layer names were suggested by Andy Gospodarek, because I suck at
+> semantics.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
 
-I used this snippet on loopback with UFO enabled and lo mtu 1280.
+Very nice, thanks !
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <linux/udp.h>
-#include <stdio.h>
-
-int test(int mtu)
-{
-        int fd;
-        const int one = 1;
-        const int off = 0;
-        struct sockaddr_in addr = {.sin_family = AF_INET, .sin_port = htons(53) };
-        unsigned char buffer[3701];
-
-        inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
-
-        fd = socket(AF_INET, SOCK_DGRAM, 0);
-        connect(fd, (struct sockaddr *) &addr, sizeof(addr));
-
-        setsockopt(fd, IPPROTO_UDP, UDP_CORK, &one, sizeof(one));
-
-        write(fd, " ", 1);
-        write(fd, buffer, sizeof(buffer));
-        write(fd, " ", 1);
-
-        setsockopt(fd, IPPROTO_UDP, UDP_CORK, &off, sizeof(off));
-
-        close(fd);
-}
-
-int main() {
-        test(1280);
-}
-
-Greetings,
-
-  Hannes
+Acked-by: Eric Dumazet <edumazet@google.com>
