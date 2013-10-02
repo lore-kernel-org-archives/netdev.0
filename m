@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 03/77] PCI/MSI/s390: Fix single MSI only check
-Date: Wed,  2 Oct 2013 12:48:19 +0200
-Message-ID: <8c9811b13fd93e73641dab8e3bd1bd5b2dc37a61.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 43/77] lpfc: Return -ENOSPC when not enough MSI-X vectors available
+Date: Wed,  2 Oct 2013 12:48:59 +0200
+Message-ID: <90e19597e04fa29c5f435d1f43059b69ae7314d4.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,26 +33,31 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-Multiple MSIs have never been supported on s390 architecture,
-but the platform code fails to report single MSI only.
-
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- arch/s390/pci/pci.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/scsi/lpfc/lpfc_init.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
-index f17a834..c79c6e4 100644
---- a/arch/s390/pci/pci.c
-+++ b/arch/s390/pci/pci.c
-@@ -427,6 +427,8 @@ int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
- 	pr_debug("%s: requesting %d MSI-X interrupts...", __func__, nvec);
- 	if (type != PCI_CAP_ID_MSIX && type != PCI_CAP_ID_MSI)
- 		return -EINVAL;
-+	if (type == PCI_CAP_ID_MSI && nvec > 1)
-+		return 1;
- 	msi_vecs = min(nvec, ZPCI_MSI_VEC_MAX);
- 	msi_vecs = min_t(unsigned int, msi_vecs, CONFIG_PCI_NR_MSI);
+diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
+index d83a1a3..0ec8008 100644
+--- a/drivers/scsi/lpfc/lpfc_init.c
++++ b/drivers/scsi/lpfc/lpfc_init.c
+@@ -8645,9 +8645,13 @@ lpfc_sli4_enable_msix(struct lpfc_hba *phba)
+ 		goto msg_fail_out;
  
+ 	vectors = min(vectors, rc);
+-	if (vectors > 1)
+-		rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
+-				     vectors);
++	if (vectors < 2) {
++		rc = -ENOSPC;
++		goto msg_fail_out;
++	}
++
++	rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
++			     vectors);
+ 	if (rc) {
+ msg_fail_out:
+ 		lpfc_printf_log(phba, KERN_INFO, LOG_INIT,
 -- 
 1.7.7.6
