@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 14/77] bnx2x: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:30 +0200
-Message-ID: <1a91f00e27e06e93806bd8af34fccd580ec68585.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 06/77] PCI/MSI: Factor out pci_get_msi_cap() interface
+Date: Wed,  2 Oct 2013 12:48:22 +0200
+Message-ID: <9c282c4ab92731c719d161d2db6fc54ce33891d9.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,110 +33,129 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-As result of recent re-design of the MSI/MSI-X interrupts enabling
-pattern this driver has to be updated to use the new technique to
-obtain a optimal number of MSI/MSI-X interrupts required.
+This update is needed to facilitate a forthcoming re-design
+MSI/MSI-X interrupts enabling pattern.
+
+Device drivers will use this interface to obtain maximum number
+of MSI interrupts the device supports and use that value in the
+following call to pci_enable_msi_block() interface.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   54 ++++++++++-------------
- 1 files changed, 23 insertions(+), 31 deletions(-)
+ Documentation/PCI/MSI-HOWTO.txt |   15 +++++++++++++++
+ drivers/pci/msi.c               |   33 +++++++++++++++++++++------------
+ include/linux/pci.h             |    6 ++++++
+ 3 files changed, 42 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 61726af..edf31d2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1564,7 +1564,7 @@ void bnx2x_free_irq(struct bnx2x *bp)
+diff --git a/Documentation/PCI/MSI-HOWTO.txt b/Documentation/PCI/MSI-HOWTO.txt
+index 35b2d64..1f37ce2 100644
+--- a/Documentation/PCI/MSI-HOWTO.txt
++++ b/Documentation/PCI/MSI-HOWTO.txt
+@@ -169,6 +169,21 @@ on any interrupt for which it previously called request_irq().
+ Failure to do so results in a BUG_ON(), leaving the device with
+ MSI enabled and thus leaking its vector.
  
- int bnx2x_enable_msix(struct bnx2x *bp)
- {
--	int msix_vec = 0, i, rc;
-+	int msix_vec = 0, nvec, i, rc;
- 
- 	/* VFs don't have a default status block */
- 	if (IS_PF(bp)) {
-@@ -1590,60 +1590,52 @@ int bnx2x_enable_msix(struct bnx2x *bp)
- 		msix_vec++;
- 	}
- 
-+	rc = pci_msix_table_size(bp->pdev);
-+	if (rc < 0)
-+		goto no_msix;
++4.2.5 pci_get_msi_cap
 +
-+	nvec = min(msix_vec, rc);
-+	if (nvec < BNX2X_MIN_MSIX_VEC_CNT(bp))
-+		nvec = 1;
++int pci_get_msi_cap(struct pci_dev *dev)
 +
- 	DP(BNX2X_MSG_SP, "about to request enable msix with %d vectors\n",
- 	   msix_vec);
++This function could be used to retrieve the number of MSI vectors the
++device requested (via the Multiple Message Capable register). The MSI
++specification only allows the returned value to be a power of two,
++up to a maximum of 2^5 (32).
++
++If this function returns a negative number, it indicates the device is
++not capable of sending MSIs.
++
++If this function returns a positive number, it indicates the maximum
++number of MSI interrupt vectors that could be allocated.
++
+ 4.3 Using MSI-X
  
--	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], msix_vec);
-+	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], nvec);
-+	if (rc)
-+		goto no_msix;
- 
- 	/*
- 	 * reconfigure number of tx/rx queues according to available
- 	 * MSI-X vectors
- 	 */
--	if (rc >= BNX2X_MIN_MSIX_VEC_CNT(bp)) {
--		/* how less vectors we will have? */
--		int diff = msix_vec - rc;
--
--		BNX2X_DEV_INFO("Trying to use less MSI-X vectors: %d\n", rc);
-+	if (nvec == 1) {
-+		bp->flags |= USING_SINGLE_MSIX_FLAG;
- 
--		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], rc);
-+		bp->num_ethernet_queues = 1;
-+		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
-+	} else if (nvec < msix_vec) {
-+		/* how less vectors we will have? */
-+		int diff = msix_vec - nvec;
- 
--		if (rc) {
--			BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
--			goto no_msix;
--		}
- 		/*
- 		 * decrease number of queues by number of unallocated entries
- 		 */
- 		bp->num_ethernet_queues -= diff;
- 		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
-+	}
- 
-+	if (nvec != msix_vec)
- 		BNX2X_DEV_INFO("New queue configuration set: %d\n",
- 			       bp->num_queues);
--	} else if (rc > 0) {
--		/* Get by with single vector */
--		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], 1);
--		if (rc) {
--			BNX2X_DEV_INFO("Single MSI-X is not attainable rc %d\n",
--				       rc);
--			goto no_msix;
--		}
--
--		BNX2X_DEV_INFO("Using single MSI-X vector\n");
--		bp->flags |= USING_SINGLE_MSIX_FLAG;
--
--		BNX2X_DEV_INFO("set number of queues to 1\n");
--		bp->num_ethernet_queues = 1;
--		bp->num_queues = bp->num_ethernet_queues + bp->num_cnic_queues;
--	} else if (rc < 0) {
--		BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
--		goto no_msix;
--	}
- 
- 	bp->flags |= USING_MSIX_FLAG;
- 
+ The MSI-X capability is much more flexible than the MSI capability.
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 875c353..ca59bfc 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -812,6 +812,21 @@ static int pci_msi_check_device(struct pci_dev *dev, int nvec, int type)
  	return 0;
+ }
  
- no_msix:
-+	BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
++int pci_get_msi_cap(struct pci_dev *dev)
++{
++	int ret;
++	u16 msgctl;
 +
- 	/* fall to INTx if not enough memory */
- 	if (rc == -ENOMEM)
- 		bp->flags |= DISABLE_MSI_FLAG;
++	if (!dev->msi_cap)
++		return -EINVAL;
++
++	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &msgctl);
++	ret = 1 << ((msgctl & PCI_MSI_FLAGS_QMASK) >> 1);
++
++	return ret;
++}
++EXPORT_SYMBOL(pci_get_msi_cap);
++
+ /**
+  * pci_enable_msi_block - configure device's MSI capability structure
+  * @dev: device to configure
+@@ -828,13 +843,10 @@ static int pci_msi_check_device(struct pci_dev *dev, int nvec, int type)
+ int pci_enable_msi_block(struct pci_dev *dev, unsigned int nvec)
+ {
+ 	int status, maxvec;
+-	u16 msgctl;
+ 
+-	if (!dev->msi_cap)
+-		return -EINVAL;
+-
+-	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &msgctl);
+-	maxvec = 1 << ((msgctl & PCI_MSI_FLAGS_QMASK) >> 1);
++	maxvec = pci_get_msi_cap(dev);
++	if (maxvec < 0)
++		return maxvec;
+ 	if (nvec > maxvec)
+ 		return maxvec;
+ 
+@@ -859,13 +871,10 @@ EXPORT_SYMBOL(pci_enable_msi_block);
+ int pci_enable_msi_block_auto(struct pci_dev *dev, unsigned int *maxvec)
+ {
+ 	int ret, nvec;
+-	u16 msgctl;
+ 
+-	if (!dev->msi_cap)
+-		return -EINVAL;
+-
+-	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &msgctl);
+-	ret = 1 << ((msgctl & PCI_MSI_FLAGS_QMASK) >> 1);
++	ret = pci_get_msi_cap(dev);
++	if (ret < 0)
++		return ret;
+ 
+ 	if (maxvec)
+ 		*maxvec = ret;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index da172f9..2fa92ef 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1144,6 +1144,11 @@ struct msix_entry {
+ 
+ 
+ #ifndef CONFIG_PCI_MSI
++static inline int pci_get_msi_cap(struct pci_dev *dev)
++{
++	return -1;
++}
++
+ static inline int pci_enable_msi_block(struct pci_dev *dev, unsigned int nvec)
+ {
+ 	return -1;
+@@ -1185,6 +1190,7 @@ static inline int pci_msi_enabled(void)
+ 	return 0;
+ }
+ #else
++int pci_get_msi_cap(struct pci_dev *dev);
+ int pci_enable_msi_block(struct pci_dev *dev, unsigned int nvec);
+ int pci_enable_msi_block_auto(struct pci_dev *dev, unsigned int *maxvec);
+ void pci_msi_shutdown(struct pci_dev *dev);
 -- 
 1.7.7.6
