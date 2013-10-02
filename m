@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 21/77] csiostor: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:37 +0200
-Message-ID: <a4355b8061609e4a4a28104cc5014178e4720bd0.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 24/77] cxgb3: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:48:40 +0200
+Message-ID: <a23ee43c52ece3e83885caff72ae2f2cfe0de935.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,51 +39,53 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/csiostor/csio_isr.c |   18 ++++++++++++------
- 1 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |   29 ++++++++++++-----------
+ 1 files changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
-index abf20ab..b8a840e 100644
---- a/drivers/scsi/csiostor/csio_isr.c
-+++ b/drivers/scsi/csiostor/csio_isr.c
-@@ -512,6 +512,16 @@ csio_enable_msix(struct csio_hw *hw)
- 	if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS || !csio_is_hw_master(hw))
- 		cnt = min_t(uint8_t, hw->cfg_niq, cnt);
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 915729c..bf14fd6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3090,25 +3090,26 @@ static int cxgb_enable_msix(struct adapter *adap)
+ 	int vectors;
+ 	int i, err;
  
-+	rv = pci_msix_table_size(hw->pdev);
-+	if (rv < 0)
-+		return rv;
+-	vectors = ARRAY_SIZE(entries);
++	err = pci_msix_table_size(adap->pdev);
++	if (err < 0)
++		return err;
 +
-+	cnt = min(cnt, rv);
-+	if (cnt < min) {
-+		csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
++	vectors = min_t(int, err, ARRAY_SIZE(entries));
++	if (vectors < (adap->params.nports + 1))
 +		return -ENOSPC;
-+	}
 +
- 	entries = kzalloc(sizeof(struct msix_entry) * cnt, GFP_KERNEL);
- 	if (!entries)
- 		return -ENOMEM;
-@@ -521,19 +531,15 @@ csio_enable_msix(struct csio_hw *hw)
+ 	for (i = 0; i < vectors; ++i)
+ 		entries[i].entry = i;
  
- 	csio_dbg(hw, "FW supp #niq:%d, trying %d msix's\n", hw->cfg_niq, cnt);
- 
--	while ((rv = pci_enable_msix(hw->pdev, entries, cnt)) >= min)
--		cnt = rv;
-+	rv = pci_enable_msix(hw->pdev, entries, cnt);
- 	if (!rv) {
- 		if (cnt < (hw->num_sqsets + extra)) {
- 			csio_dbg(hw, "Reducing sqsets to %d\n", cnt - extra);
- 			csio_reduce_sqsets(hw, cnt - extra);
- 		}
- 	} else {
--		if (rv > 0)
--			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
+-	while ((err = pci_enable_msix(adap->pdev, entries, vectors)) > 0)
+-		vectors = err;
 -
- 		kfree(entries);
--		return -ENOSPC;
-+		return rv;
- 	}
+-	if (!err && vectors < (adap->params.nports + 1)) {
+-		pci_disable_msix(adap->pdev);
+-		err = -ENOSPC;
+-	}
++	err = pci_enable_msix(adap->pdev, entries, vectors);
++	if (err)
++		return err;
  
- 	/* Save off vectors */
+-	if (!err) {
+-		for (i = 0; i < vectors; ++i)
+-			adap->msix_info[i].vec = entries[i].vector;
+-		adap->msix_nvectors = vectors;
+-	}
++	for (i = 0; i < vectors; ++i)
++		adap->msix_info[i].vec = entries[i].vector;
++	adap->msix_nvectors = vectors;
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static void print_port_info(struct adapter *adap, const struct adapter_info *ai)
 -- 
 1.7.7.6
