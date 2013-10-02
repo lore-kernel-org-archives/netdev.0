@@ -1,47 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: mv643xx_eth: various small fixes for v3.12
-Date: Wed, 02 Oct 2013 17:12:33 -0400 (EDT)
-Message-ID: <20131002.171233.1409614287842381990.davem@davemloft.net>
-References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: [net-next 2/3] udp: Add udp early demux
+Date: Wed, 2 Oct 2013 16:24:36 -0500
+Message-ID: <20131002212436.GC7824@sbohrermbp13-local.rgmadvisors.com>
+References: <1380656025-8847-1-git-send-email-sbohrer@rgmadvisors.com>
+ <1380656025-8847-3-git-send-email-sbohrer@rgmadvisors.com>
+ <1380660769.19002.40.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131002173422.GA7824@sbohrermbp13-local.rgmadvisors.com>
+ <1380737365.19002.110.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131002203507.GB7824@sbohrermbp13-local.rgmadvisors.com>
+ <1380748118.19002.125.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, jason@lakedaemon.net,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, tomk@rgmadvisors.com,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:58892 "EHLO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753752Ab3JBVYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:24:40 -0400
+Received: by mail-ie0-f182.google.com with SMTP id aq17so3400139iec.27
+        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 14:24:39 -0700 (PDT)
+In-Reply-To: <1380748118.19002.125.camel@edumazet-glaptop.roam.corp.google.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Wed,  2 Oct 2013 12:57:19 +0200
+On Wed, Oct 02, 2013 at 02:08:38PM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-02 at 15:35 -0500, Shawn Bohrer wrote:
+> 
+> > Sorry, I must be a little slow today.  I understand what you are
+> > suggesting but I don't see how to implement it with a score.  Or at
+> > least not without potentially changing existing behavior.  For example
+> > I could make the inet->inet_daddr case add +100 to the score and I
+> > would know that a score >= 100 was connected.  However, this would
+> > unfairly favor that one case making a socket that only had a matching
+> > inet_daddr be better than one that only had a matching inet_dport,
+> > sk_bound_dev_if, and inet_rcv_saddr.
+> > 
+> 
+> If early demux has to increment a socket refcount, then decrementing it
+> because it found a non connected socket, this will be too expensive.
+> 
+> Also, keep in mind UDP chains can be long, so you should limit the early
+> lookup to say a single socket.
+> 
+> TCP ehash is mostly empty (0 or 1 socket per bucket), so early demux
+> really makes sense, but for UDP, there is no such property.
 
-> This patch set comprises some one-liners to fix issues with repeated
-> loading and unloading of a modular mv643xx_eth driver.
-> 
-> First two patches take care of the periodic port statistic timer, that
-> updates statistics by reading port registers using add_timer/mod_timer.
-> 
-> Patch 1 moves timer re-schedule from mib_counters_update to the timer
-> callback. As mib_counters_update is also called from non-timer context,
-> this ensures the timer is reactivated from timer context only.
-> 
-> Patch 2 moves initial timer schedule from _probe() time to right before
-> the port is actually started as the corresponding del_timer_sync is at
-> _stop() time. This fixes a regression, where unloading the driver from a
-> non-started eth device can cause the timer to access deallocated mem.
-> 
-> Patch 3 adds an assignment of the ports device_node to the corresponding
-> self-created platform_device. This is required to allow fixups based on
-> the device_node's compatible string later. Actually, it is also a potential
-> regression because we already check compatible string for Kirkwood, but
-> does not (yet) rely on the fixup.
-> 
-> All patches are based on v3.12-rc3 and have been tested on Kirkwood-based
-> Seagate Dockstar.
-> 
-> Patches 1 and 2 can also possibly queued up for -stable.
+So... Are you suggesting that I just skip the early demux for unicast
+UDP entirely?  That is fine by me since I only care about the
+multicast case.
 
-Series applied, patch #1 and #2 queued up for -stable, thanks!
+--
+Shawn
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
