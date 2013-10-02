@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 24/77] cxgb3: Update MSI/MSI-X interrupts enablement code
-Date: Wed,  2 Oct 2013 12:48:40 +0200
-Message-ID: <a23ee43c52ece3e83885caff72ae2f2cfe0de935.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 50/77] mlx5: Update MSI/MSI-X interrupts enablement code
+Date: Wed,  2 Oct 2013 12:49:06 +0200
+Message-ID: <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -39,53 +39,51 @@ obtain a optimal number of MSI/MSI-X interrupts required.
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |   29 ++++++++++++-----------
- 1 files changed, 15 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index 915729c..bf14fd6 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -3090,25 +3090,26 @@ static int cxgb_enable_msix(struct adapter *adap)
- 	int vectors;
- 	int i, err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index adf0e5d..5c21e50 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -119,8 +119,13 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ 	int err;
+ 	int i;
  
--	vectors = ARRAY_SIZE(entries);
-+	err = pci_msix_table_size(adap->pdev);
++	err = pci_msix_table_size(dev->pdev);
 +	if (err < 0)
 +		return err;
 +
-+	vectors = min_t(int, err, ARRAY_SIZE(entries));
-+	if (vectors < (adap->params.nports + 1))
-+		return -ENOSPC;
-+
- 	for (i = 0; i < vectors; ++i)
- 		entries[i].entry = i;
+ 	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
+ 	nvec = min_t(int, nvec, num_eqs);
++	nvec = min_t(int, nvec, err);
+ 	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
+ 		return -ENOSPC;
  
--	while ((err = pci_enable_msix(adap->pdev, entries, vectors)) > 0)
--		vectors = err;
--
--	if (!err && vectors < (adap->params.nports + 1)) {
--		pci_disable_msix(adap->pdev);
--		err = -ENOSPC;
--	}
-+	err = pci_enable_msix(adap->pdev, entries, vectors);
-+	if (err)
-+		return err;
+@@ -131,20 +136,15 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ 	for (i = 0; i < nvec; i++)
+ 		table->msix_arr[i].entry = i;
  
--	if (!err) {
--		for (i = 0; i < vectors; ++i)
--			adap->msix_info[i].vec = entries[i].vector;
--		adap->msix_nvectors = vectors;
--	}
-+	for (i = 0; i < vectors; ++i)
-+		adap->msix_info[i].vec = entries[i].vector;
-+	adap->msix_nvectors = vectors;
+-retry:
+-	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+ 	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
+-	if (err <= 0) {
++	if (err) {
++		kfree(table->msix_arr);
+ 		return err;
+-	} else if (err > MLX5_EQ_VEC_COMP_BASE) {
+-		nvec = err;
+-		goto retry;
+ 	}
  
--	return err;
+-	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
+-	kfree(table->msix_arr);
++	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+ 
+-	return -ENOSPC;
 +	return 0;
  }
  
- static void print_port_info(struct adapter *adap, const struct adapter_info *ai)
+ static void mlx5_disable_msix(struct mlx5_core_dev *dev)
 -- 
 1.7.7.6
