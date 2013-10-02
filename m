@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 23/77] cxgb3: Return -ENOSPC when not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:48:39 +0200
-Message-ID: <cbdbe5f2d6d9d8826c9c234ba45bd52c059cf66e.1380703262.git.agordeev@redhat.com>
+Subject: [PATCH RFC 19/77] csiostor: Do not call pci_disable_msix() if pci_enable_msix() failed
+Date: Wed,  2 Oct 2013 12:48:35 +0200
+Message-ID: <3697708ec423a6b6f3d924ea4af9a56874f5787a.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,21 +35,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/scsi/csiostor/csio_isr.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index 9bd3099..915729c 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -3099,7 +3099,7 @@ static int cxgb_enable_msix(struct adapter *adap)
+diff --git a/drivers/scsi/csiostor/csio_isr.c b/drivers/scsi/csiostor/csio_isr.c
+index 7ee9777..91ba91d 100644
+--- a/drivers/scsi/csiostor/csio_isr.c
++++ b/drivers/scsi/csiostor/csio_isr.c
+@@ -529,10 +529,8 @@ csio_enable_msix(struct csio_hw *hw)
+ 			csio_reduce_sqsets(hw, cnt - extra);
+ 		}
+ 	} else {
+-		if (rv > 0) {
+-			pci_disable_msix(hw->pdev);
++		if (rv > 0)
+ 			csio_info(hw, "Not using MSI-X, remainder:%d\n", rv);
+-		}
  
- 	if (!err && vectors < (adap->params.nports + 1)) {
- 		pci_disable_msix(adap->pdev);
--		err = -1;
-+		err = -ENOSPC;
- 	}
- 
- 	if (!err) {
+ 		kfree(entries);
+ 		return -ENOMEM;
 -- 
 1.7.7.6
