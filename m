@@ -1,153 +1,117 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH 1/2] net: Add layer 2 hardware acceleration
- operations for macvlan devices
-Date: Wed, 2 Oct 2013 08:53:47 -0400
-Message-ID: <20131002125347.GA6795@neilslaptop.think-freely.org>
-References: <20130911184441.26914.10336.stgit@nitbit.x32>
- <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
- <1380140209-24587-2-git-send-email-nhorman@tuxdriver.com>
- <524BC65B.4080803@gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v5 1/3] flow_dissector: factor out the ports
+ extraction in skb_flow_get_ports
+Date: Wed, 2 Oct 2013 14:55:42 +0200
+Message-ID: <20131002125542.GE6096@redhat.com>
+References: <1380713966-3891-1-git-send-email-nikolay@redhat.com>
+ <1380713966-3891-2-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, john.fastabend@intel.com,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43674 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753729Ab3JBMyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 08:54:02 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:14806 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752945Ab3JBM5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Oct 2013 08:57:43 -0400
 Content-Disposition: inline
-In-Reply-To: <524BC65B.4080803@gmail.com>
+In-Reply-To: <1380713966-3891-2-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 02, 2013 at 12:08:11AM -0700, John Fastabend wrote:
-> On 09/25/2013 01:16 PM, Neil Horman wrote:
-> >Add a operations structure that allows a network interface to export the fact
-> >that it supports package forwarding in hardware between physical interfaces and
-> >other mac layer devices assigned to it (such as macvlans).  this operaions
-> >structure can be used by virtual mac devices to bypass software switching so
-> >that forwarding can be done in hardware more efficiently.
-> 
-> Some additional nits below which maybe you have already thought of.
-> 
-Its ok, you can say it, theyre more than nits :), gaping holes is more like it.
-This pass was completely untested, I'm still ironing out bits, but I think for
-the most part we're in agreement on the items below.  Comments inline.
+On Wed, Oct 02, 2013 at 01:39:24PM +0200, Nikolay Aleksandrov wrote:
+>Factor out the code that extracts the ports from skb_flow_dissect and
+>add a new function skb_flow_get_ports which can be re-used.
+>
+>Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-> >
-> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >CC: john.fastabend@intel.com
-> >CC: "David S. Miller" <davem@davemloft.net>
-> >---
-> >  drivers/net/macvlan.c      | 37 +++++++++++++++++++++++++++++++++++++
-> >  include/linux/if_macvlan.h |  1 +
-> >  include/linux/netdevice.h  | 10 ++++++++++
-> >  net/core/dev.c             |  3 +++
-> >  4 files changed, 51 insertions(+)
-> >
-> >diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> >index 9bf46bd..0c37b30 100644
-> >--- a/drivers/net/macvlan.c
-> >+++ b/drivers/net/macvlan.c
-> >@@ -296,8 +296,16 @@ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
-> >  	unsigned int len = skb->len;
-> >  	int ret;
-> >  	const struct macvlan_dev *vlan = netdev_priv(dev);
-> >+	const struct l2_forwarding_accel_ops *l2a_ops = vlan->lowerdev->l2a_ops;
-> >+
-> >+	if (l2a_ops->l2_accel_xmit) {
-> >+		ret = l2a_ops->l2_accel_xmit(skb, vlan->l2a_priv);
-> >+		if (likely(ret == NETDEV_TX_OK))
-> 
-> maybe dev_xmit_complete() would be more appropriate?
-> 
-Yup, I've currently modified this to dev_queue_xmit, but _complete might be a
-better option.
+Reviewed-by: Veaceslav Falico <vfalico@redhat.com>
 
-> >+			goto update_stats;
-> >+	}
-> >
-> >  	ret = macvlan_queue_xmit(skb, dev);
-> >+update_stats:
-> >  	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
-> >  		struct macvlan_pcpu_stats *pcpu_stats;
-> >
-> >@@ -336,6 +344,7 @@ static int macvlan_open(struct net_device *dev)
-> >  {
-> >  	struct macvlan_dev *vlan = netdev_priv(dev);
-> >  	struct net_device *lowerdev = vlan->lowerdev;
-> >+	const struct l2_forwarding_accel_ops *l2a_ops = lowerdev->l2a_ops;
-> >  	int err;
-> >
-> >  	if (vlan->port->passthru) {
-> >@@ -347,6 +356,19 @@ static int macvlan_open(struct net_device *dev)
-> >  		goto hash_add;
-> 
-> Looks like this might break in the passthru case? If you don't call
-> l2_accel_add_dev here but still use the l2_accel_xmit.
-> 
-Yeah, I need to clean this up.
-
-> >  	}
-> >
-> >+	if (l2a_ops->l2_accel_add_dev) {
-> 
-> In the error cases it might be preferred to fallback to the
-> non-offloaded software path. For example hardware may have a limit
-> to the number of VSIs that can be created but we wouldn't want to
-> push that up the stack.
-> 
-Hadn't thought of that, but yes, I agree, falling back to software switching is
-definately desireable here
-
-> >+		/* The lowerdev supports l2 switching
-> >+		 * try to add this macvlan to it
-> >+		 */
-> >+		vlan->l2a_priv = kzalloc(l2a_ops->priv_size, GFP_KERNEL);
-> >+		if (!vlan->l2a_priv)
-> >+			return -ENOMEM;
-> >+		err = l2a_ops->l2_accel_add_dev(vlan->lowerdev,
-> >+						dev, vlan->l2a_priv);
-> >+		if (err < 0)
-> >+			return err;
-> >+	}
-> >+
-> >  	err = -EBUSY;
-> >  	if (macvlan_addr_busy(vlan->port, dev->dev_addr))
-> >  		goto out;
-> >@@ -367,6 +389,13 @@ hash_add:
-> >  del_unicast:
-> >  	dev_uc_del(lowerdev, dev->dev_addr);
-> >  out:
-> >+	if (vlan->l2a_priv) {
-> 
-> Add a feature flag here so it can be disabled.
-> 
-Makes sense.
-
-I'm still working out kinks, but I hope to have a next version later this
-week/early next.  I'll make sure to incorporate these changes. 
-
-Thanks!
-Neil
-
-> >+		if (l2a_ops->l2_accel_del_dev)
-> >+			l2a_ops->l2_accel_del_dev(vlan->lowerdev,
-> >+						  vlan->l2a_priv);
-> >+		kfree(vlan->l2a_priv);
-> >+		vlan->l2a_priv = NULL;
-> >+	}
-> >  	return err;
-> >  }
-> 
-> [...]
-> 
-> Thanks,
-> John
-> 
-> 
-> -- 
-> John Fastabend         Intel Corporation
-> 
+>---
+>v2: new patch
+>v3: fix a bug in skb_flow_dissect where thoff didn't have poff added by
+>    modifying thoff directly in skb_flow_get_ports as it's done anyway.
+>    Also add the necessary export symbol for skb_flow_get_ports.
+>v4: integrate the thoff fix in skb_flow_get_ports
+>v5: disintegrate the thoff fix, and re-base on Eric's fix
+>This seems like a good idea because there're other users that can re-use
+>it later as well.
+>
+> include/net/flow_keys.h   |  1 +
+> net/core/flow_dissector.c | 39 ++++++++++++++++++++++++++++-----------
+> 2 files changed, 29 insertions(+), 11 deletions(-)
+>
+>diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+>index ac2439d..7e64bd8 100644
+>--- a/include/net/flow_keys.h
+>+++ b/include/net/flow_keys.h
+>@@ -14,4 +14,5 @@ struct flow_keys {
+> };
+>
+> bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
+>+__be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto);
+> #endif
+>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>index 8d7d0dd..f8e25ac 100644
+>--- a/net/core/flow_dissector.c
+>+++ b/net/core/flow_dissector.c
+>@@ -25,9 +25,35 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
+> 	memcpy(&flow->src, &iph->saddr, sizeof(flow->src) + sizeof(flow->dst));
+> }
+>
+>+/**
+>+ * skb_flow_get_ports - extract the upper layer ports and return them
+>+ * @skb: buffer to extract the ports from
+>+ * @thoff: transport header offset
+>+ * @ip_proto: protocol for which to get port offset
+>+ *
+>+ * The function will try to retrieve the ports at offset thoff + poff where poff
+>+ * is the protocol port offset returned from proto_ports_offset
+>+ */
+>+__be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto)
+>+{
+>+	int poff = proto_ports_offset(ip_proto);
+>+
+>+	if (poff >= 0) {
+>+		__be32 *ports, _ports;
+>+
+>+		ports = skb_header_pointer(skb, thoff + poff,
+>+					   sizeof(_ports), &_ports);
+>+		if (ports)
+>+			return *ports;
+>+	}
+>+
+>+	return 0;
+>+}
+>+EXPORT_SYMBOL(skb_flow_get_ports);
+>+
+> bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
+> {
+>-	int poff, nhoff = skb_network_offset(skb);
+>+	int nhoff = skb_network_offset(skb);
+> 	u8 ip_proto;
+> 	__be16 proto = skb->protocol;
+>
+>@@ -150,16 +176,7 @@ ipv6:
+> 	}
+>
+> 	flow->ip_proto = ip_proto;
+>-	poff = proto_ports_offset(ip_proto);
+>-	if (poff >= 0) {
+>-		__be32 *ports, _ports;
+>-
+>-		ports = skb_header_pointer(skb, nhoff + poff,
+>-					   sizeof(_ports), &_ports);
+>-		if (ports)
+>-			flow->ports = *ports;
+>-	}
+>-
+>+	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
+> 	flow->thoff = (u16) nhoff;
+>
+> 	return true;
+>-- 
+>1.8.1.4
+>
