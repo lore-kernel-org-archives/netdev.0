@@ -1,84 +1,144 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO
-Date: Wed, 2 Oct 2013 01:25:34 +0200
-Message-ID: <20131001232534.GM10771@order.stressinduktion.org>
-References: <20130921042700.GB8070@order.stressinduktion.org> <20130930114343.GA6356@minipsycho.brq.redhat.com> <20130930172312.GE10771@order.stressinduktion.org> <20131001105837.GA1424@minipsycho.brq.redhat.com> <20131001120907.GH10771@order.stressinduktion.org> <20131001123214.GI10771@order.stressinduktion.org> <20131001214721.GJ10771@order.stressinduktion.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.41 5/5] datapath: Add basic MPLS support to kernel
+Date: Wed, 2 Oct 2013 09:40:57 +0900
+Message-ID: <20131002004057.GE5483@verge.net.au>
+References: <1380610064-14856-1-git-send-email-horms@verge.net.au>
+ <1380610064-14856-6-git-send-email-horms@verge.net.au>
+ <CAEP_g=-+ttiZnxv95V17KQdN1Pg4UT1P80WSrFGHQWROvj+nMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au,
-	eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ben Pfaff <blp@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Joe Stringer <joe@wand.net.nz>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35067 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784Ab3JAXZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 19:25:35 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:49107 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518Ab3JBAlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Oct 2013 20:41:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20131001214721.GJ10771@order.stressinduktion.org>
+In-Reply-To: <CAEP_g=-+ttiZnxv95V17KQdN1Pg4UT1P80WSrFGHQWROvj+nMQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 01, 2013 at 11:47:21PM +0200, Hannes Frederic Sowa wrote:
-> The strange thing is that if I don't do the IPV6_MTU setsockopt I don't
-> get an oops.
+On Tue, Oct 01, 2013 at 04:02:17PM -0700, Jesse Gross wrote:
+> On Mon, Sep 30, 2013 at 11:47 PM, Simon Horman <horms@verge.net.au> wrote:
+> > diff --git a/datapath/actions.c b/datapath/actions.c
+> > index d961e5d..bfab9ec 100644
+> > --- a/datapath/actions.c
+> > +++ b/datapath/actions.c
+> > +/* Push MPLS after the ethernet header. */
+> > +static int push_mpls(struct sk_buff *skb,
+> > +                    const struct ovs_action_push_mpls *mpls)
+> [...]
+> > +       hdr = eth_hdr(skb);
+> > +       hdr->h_proto = mpls->mpls_ethertype;
+> > +       if (!eth_p_mpls(skb->protocol) && !ovs_skb_get_inner_protocol(skb))
+> > +               ovs_skb_set_inner_protocol(skb, skb->protocol);
+> 
+> Do we actually need the check for !eth_p_mpls(skb->protocol)? It's not
+> clear to me what condition it is trying to prevent.
 
-This is incorrect, it just depends on the size of the writes and on the
-interface mtu.
+True, it does not seem useful.
+I will remove it.
 
-> IPv4 seems to work without problems, too.
+> > +static int pop_mpls(struct sk_buff *skb, const __be16 ethertype)
+> > +{
+> > +       struct ethhdr *hdr;
+> > +       int err;
+> > +
+> > +       err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> > +       if (unlikely(err))
+> > +               return err;
+> > +
+> > +       if (unlikely(skb->len < skb->mac_len + MPLS_HLEN))
+> > +               return -ENOMEM;
+> 
+> I'm not sure that this is the right error code in this situation -
+> maybe -EINVAL would be better.
 
-I also get kernel oopses from IPv4 now, too.
+I was a bit unsure what was an appropriate value but
+I agree that -EINVAL seems better than -ENOMEM.
+I will change it to -EINVAL.
 
+> 
+> > @@ -545,6 +662,14 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> >                         output_userspace(dp, skb, a);
+> >                         break;
+> >
+> > +               case OVS_ACTION_ATTR_PUSH_MPLS:
+> > +                       err = push_mpls(skb, nla_data(a));
+> > +                       break;
+> > +
+> > +               case OVS_ACTION_ATTR_POP_MPLS:
+> > +                       err = pop_mpls(skb, nla_get_be16(a));
+> > +                       break;
+> 
+> I think we need something similar to POP_VLAN here - in the event of
+> an error the skb will have already been freed.
 
-So, skb_is_gso is not accurate enough in the output and we have to check if we
-already started to append to skb frags. The following diff does resolve this
-issue in both the IPv4 and IPv6 non-page-append output path but I am not
-confident if it is correct:
+Thanks, though I think you mean that PUSH_MPLS should be similar to
+PUSH_VLAN. I don't think that either pop_mpls() or pop_vlan() free the
+skb on error.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6d56840..3565450 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1308,6 +1308,11 @@ static inline int skb_pagelen(const struct sk_buff *skb)
- 	return len + skb_headlen(skb);
- }
+I will add the following:
+
+diff --git a/datapath/actions.c b/datapath/actions.c
+index bfab9ec..8babfc4 100644
+--- a/datapath/actions.c
++++ b/datapath/actions.c
+@@ -664,6 +664,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
  
-+static inline bool skb_has_frags(const struct sk_buff *skb)
-+{
-+	return skb_shinfo(skb)->nr_frags;
-+}
-+
- /**
-  * __skb_fill_page_desc - initialise a paged fragment in an skb
-  * @skb: buffer containing fragment to be initialised
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 7d8357b..8dc3d8d 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -836,7 +836,7 @@ static int __ip_append_data(struct sock *sk,
- 		csummode = CHECKSUM_PARTIAL;
+ 		case OVS_ACTION_ATTR_PUSH_MPLS:
+ 			err = push_mpls(skb, nla_data(a));
++			if (unlikely(err)) /* skb already freed. */
++				return err;
+ 			break;
  
- 	cork->length += length;
--	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
-+	if (((length > mtu) || (skb && skb_has_frags(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index a54c45c..ded4f6f 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1227,7 +1227,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	skb = skb_peek_tail(&sk->sk_write_queue);
- 	cork->length += length;
- 	if (((length > mtu) ||
--	     (skb && skb_is_gso(skb))) &&
-+	     (skb && skb_has_frags(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO)) {
- 		err = ip6_ufo_append_data(sk, getfrag, from, length,
+ 		case OVS_ACTION_ATTR_POP_MPLS:
 
-Greetings,
+> 
+> > diff --git a/datapath/datapath.h b/datapath/datapath.h
+> > index 4a49a7d..31fe10a 100644
+> > --- a/datapath/datapath.h
+> > +++ b/datapath/datapath.h
+> > @@ -95,6 +95,8 @@ struct datapath {
+> >   * @pkt_key: The flow information extracted from the packet.  Must be nonnull.
+> >   * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
+> >   * packet is not being tunneled.
+> > + * @inner_protocol: Provides a substitute for the skb->inner_protocol field on
+> > + * kernels before 3.11.
+> >   */
+> >  struct ovs_skb_cb {
+> >         struct sw_flow          *flow;
+> 
+> I think this comment no longer applies now that inner_protocol has
+> been moved into the GSO struct.
 
-  Hannes
+Thanks, I'll clean that up.
+
+> > diff --git a/datapath/linux/compat/gso.c b/datapath/linux/compat/gso.c
+> > index 32f906c..f917356 100644
+> > --- a/datapath/linux/compat/gso.c
+> > +++ b/datapath/linux/compat/gso.c
+> >  int rpl_dev_queue_xmit(struct sk_buff *skb)
+> >  {
+> >  #undef dev_queue_xmit
+> >         int err = -ENOMEM;
+> > +       __be16 inner_protocol;
+> > +       bool vlan, mpls;
+> >
+> > -       if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->dev)) {
+> > +       vlan = mpls = false;
+> > +
+> > +       inner_protocol = ovs_skb_get_inner_protocol(skb);
+> 
+> I don't think this is actually used in this function.
+
+Thanks, I guess that is the by-product of some refactoring.
+I'll remove it.
+
+> Pravin, do you have any further comments?
