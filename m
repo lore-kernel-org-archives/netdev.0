@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 43/77] lpfc: Return -ENOSPC when not enough MSI-X vectors available
-Date: Wed,  2 Oct 2013 12:48:59 +0200
-Message-ID: <90e19597e04fa29c5f435d1f43059b69ae7314d4.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 49/77] mlx5: Fix minimum number of MSI-Xs
+Date: Wed,  2 Oct 2013 12:49:05 +0200
+Message-ID: <ca7fd594d9c5fb86d1f19cd9090730fb31c0dccf.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,31 +33,27 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
+The minimum number of MSI-Xs is (MLX5_EQ_VEC_COMP_BASE + 1) in
+one check and 2 in another check. Make the checks consistent and
+assume the minimum number is (MLX5_EQ_VEC_COMP_BASE + 1).
+
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/scsi/lpfc/lpfc_init.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
-index d83a1a3..0ec8008 100644
---- a/drivers/scsi/lpfc/lpfc_init.c
-+++ b/drivers/scsi/lpfc/lpfc_init.c
-@@ -8645,9 +8645,13 @@ lpfc_sli4_enable_msix(struct lpfc_hba *phba)
- 		goto msg_fail_out;
- 
- 	vectors = min(vectors, rc);
--	if (vectors > 1)
--		rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
--				     vectors);
-+	if (vectors < 2) {
-+		rc = -ENOSPC;
-+		goto msg_fail_out;
-+	}
-+
-+	rc = pci_enable_msix(phba->pcidev, phba->sli4_hba.msix_entries,
-+			     vectors);
- 	if (rc) {
- msg_fail_out:
- 		lpfc_printf_log(phba, KERN_INFO, LOG_INIT,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 5e5c9a3..adf0e5d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -136,7 +136,7 @@ retry:
+ 	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
+ 	if (err <= 0) {
+ 		return err;
+-	} else if (err > 2) {
++	} else if (err > MLX5_EQ_VEC_COMP_BASE) {
+ 		nvec = err;
+ 		goto retry;
+ 	}
 -- 
 1.7.7.6
