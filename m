@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 76/77] vxge: Sanitize MSI-X allocation routine error codes
-Date: Wed,  2 Oct 2013 12:49:32 +0200
-Message-ID: <20ecd1136cc5bd932c1bb4a2d89dae1ca0d900dd.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 18/77] cciss: Fallback to single MSI mode in case MSI-X failed
+Date: Wed,  2 Oct 2013 12:48:34 +0200
+Message-ID: <a0fa5fa4243512602a9ef71a81dec396d6d3d00e.1380703262.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -35,33 +35,31 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/block/cciss.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 5a20eaf..b81ff8b 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -2352,7 +2352,7 @@ start:
- 			"%s: MSI-X enable failed for %d vectors, ret: %d",
- 			VXGE_DRIVER_NAME, vdev->intr_cnt, ret);
- 		if ((max_config_vpath != VXGE_USE_DEFAULT) || (ret < 3)) {
--			ret = -ENODEV;
-+			ret = -ENOSPC;
- 			goto enable_msix_failed;
+diff --git a/drivers/block/cciss.c b/drivers/block/cciss.c
+index bf11540..0eea035 100644
+--- a/drivers/block/cciss.c
++++ b/drivers/block/cciss.c
+@@ -4081,7 +4081,7 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
+ 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSIX)) {
+ 		err = pci_msix_table_size(h->pdev);
+ 		if (err < ARRAY_SIZE(cciss_msix_entries))
+-			goto default_int_mode;
++			goto single_msi_mode;
+ 		err = pci_enable_msix(h->pdev, cciss_msix_entries,
+ 				      ARRAY_SIZE(cciss_msix_entries));
+ 		if (!err) {
+@@ -4093,8 +4093,8 @@ static void cciss_interrupt_mode(ctlr_info_t *h)
+ 			return;
  		}
- 
-@@ -2365,10 +2365,8 @@ start:
- 		vxge_close_vpaths(vdev, temp);
- 		vdev->no_of_vpath = temp;
- 		goto start;
--	} else if (ret < 0) {
--		ret = -ENODEV;
-+	} else if (ret < 0)
- 		goto enable_msix_failed;
--	}
- 	return 0;
- 
- enable_msix_failed:
+ 		dev_warn(&h->pdev->dev, "MSI-X init failed %d\n", err);
+-		goto default_int_mode;
+ 	}
++single_msi_mode:
+ 	if (pci_find_capability(h->pdev, PCI_CAP_ID_MSI)) {
+ 		if (!pci_enable_msi(h->pdev))
+ 			h->msi_vector = 1;
 -- 
 1.7.7.6
