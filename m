@@ -1,7 +1,7 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: [PATCH RFC 53/77] ntb: Fix missed call to pci_enable_msix()
-Date: Wed,  2 Oct 2013 12:49:09 +0200
-Message-ID: <0590d63c3432229a3824bada71e07a08fb955498.1380703263.git.agordeev@redhat.com>
+Subject: [PATCH RFC 35/77] ipr: Do not call pci_disable_msi/msix() if pci_enable_msi/msix() failed
+Date: Wed,  2 Oct 2013 12:48:51 +0200
+Message-ID: <5d673eed9f7742f0551214d273a4fa905a721ac4.1380703263.git.agordeev@redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 Cc: Alexander Gordeev <agordeev@redhat.com>,
         Bjorn Helgaas <bhelgaas@google.com>,
@@ -33,30 +33,38 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-Current MSI-X enablement code assumes MSI-Xs were successfully
-allocated in case less than requested vectors were available.
-That assumption is wrong, since MSI-Xs should be enabled with
-a repeated call to pci_enable_msix(). This update fixes this.
-
 Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 ---
- drivers/ntb/ntb_hw.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/scsi/ipr.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-index 1cb6e51..de2062c 100644
---- a/drivers/ntb/ntb_hw.c
-+++ b/drivers/ntb/ntb_hw.c
-@@ -1075,6 +1075,10 @@ static int ntb_setup_msix(struct ntb_device *ndev)
- 			 "Only %d MSI-X vectors.  Limiting the number of queues to that number.\n",
- 			 rc);
- 		msix_entries = rc;
-+
-+		rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
-+		if (rc)
-+			goto err1;
- 	}
+diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+index 36ac1c3..fb57e21 100644
+--- a/drivers/scsi/ipr.c
++++ b/drivers/scsi/ipr.c
+@@ -9255,10 +9255,8 @@ static int ipr_enable_msix(struct ipr_ioa_cfg *ioa_cfg)
+ 	while ((err = pci_enable_msix(ioa_cfg->pdev, entries, vectors)) > 0)
+ 			vectors = err;
  
- 	for (i = 0; i < msix_entries; i++) {
+-	if (err < 0) {
+-		pci_disable_msix(ioa_cfg->pdev);
++	if (err < 0)
+ 		return err;
+-	}
+ 
+ 	if (!err) {
+ 		for (i = 0; i < vectors; i++)
+@@ -9278,10 +9276,8 @@ static int ipr_enable_msi(struct ipr_ioa_cfg *ioa_cfg)
+ 	while ((err = pci_enable_msi_block(ioa_cfg->pdev, vectors)) > 0)
+ 			vectors = err;
+ 
+-	if (err < 0) {
+-		pci_disable_msi(ioa_cfg->pdev);
++	if (err < 0)
+ 		return err;
+-	}
+ 
+ 	if (!err) {
+ 		for (i = 0; i < vectors; i++)
 -- 
 1.7.7.6
