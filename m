@@ -1,33 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] l2tp: fix kernel panic when using IPv4-mapped IPv6
- addresses
-Date: Wed, 02 Oct 2013 17:10:25 -0400 (EDT)
-Message-ID: <20131002.171025.1337077381989126490.davem@davemloft.net>
-References: <524BD642.3020102@alphalink.fr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch] net: heap overflow in __audit_sockaddr()
+Date: Wed, 2 Oct 2013 22:11:46 +0100
+Message-ID: <1380748306.1795.67.camel@bwh-desktop.uk.level5networks.com>
+References: <20131002185811.GA23438@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jchapman@katalix.com, netdev@vger.kernel.org
-To: f.cachereul@alphalink.fr
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<security@kernel.org>,
+	=?ISO-8859-1?Q?J=FCri?= Aedla <juri.aedla@gmail.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753991Ab3JBVK2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:10:28 -0400
-In-Reply-To: <524BD642.3020102@alphalink.fr>
+Received: from webmail.solarflare.com ([12.187.104.25]:30489 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547Ab3JBVLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 17:11:50 -0400
+In-Reply-To: <20131002185811.GA23438@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Fran=E7ois Cachereul <f.cachereul@alphalink.fr>
-Date: Wed, 02 Oct 2013 10:16:02 +0200
+On Wed, 2013-10-02 at 21:58 +0300, Dan Carpenter wrote:
+> We need to cap ->msg_namelen or it leads to a buffer overflow when we
+> to the memcpy() in __audit_sockaddr().  It requires CAP_AUDIT_CONTROL=
+ to
+> exploit this bug.
+>=20
+> The call tree is:
+> ___sys_recvmsg()
+>   move_addr_to_user()
+>     audit_sockaddr()
+>       __audit_sockaddr()
+>=20
+> Reported-by: J=C3=BCri Aedla <juri.aedla@gmail.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/net/socket.c b/net/socket.c
+> index ebed4b6..c226ace 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1964,6 +1964,16 @@ struct used_address {
+>  	unsigned int name_len;
+>  };
+> =20
+> +static int copy_msghdr_from_user(struct msghdr *kmsg,
+> +				 struct msghdr __user *umsg)
+> +{
+> +	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
+> +		return -EFAULT;
+> +	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+> +		return -EINVAL;
+> +	return 0;
+> +}
+> +
+>  static int ___sys_sendmsg(struct socket *sock, struct msghdr __user =
+*msg,
+>  			 struct msghdr *msg_sys, unsigned int flags,
+>  			 struct used_address *used_address)
+> @@ -1982,8 +1992,11 @@ static int ___sys_sendmsg(struct socket *sock,=
+ struct msghdr __user *msg,
+>  	if (MSG_CMSG_COMPAT & flags) {
+>  		if (get_compat_msghdr(msg_sys, msg_compat))
+>  			return -EFAULT;
+> -	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
+> -		return -EFAULT;
+> +	} else {
+> +		err =3D copy_msghdr_from_user(msg_sys, msg);
+> +		if (err)
+> +			return err;
+> +	}
+[...]
 
-> IPv4 mapped addresses cause kernel panic.
-> The patch juste check whether the IPv6 address is an IPv4 mapped
-> address. If so, use IPv4 API instead of IPv6.
- ...
-> Signed-off-by: Fran=E7ois CACHEREUL <f.cachereul@alphalink.fr>
-> ---
-> v3: add panic message
-> Sorry for the dumb oversight
+This doesn't cover compat tasks, since get_compat_msghdr() has no such
+check.
 
-Applied and queued up for -stable, thank you.
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
