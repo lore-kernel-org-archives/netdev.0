@@ -1,45 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ath10k: wmi: Convert use of 6 to ETH_ALEN
-Date: Wed, 02 Oct 2013 21:44:38 -0700
-Message-ID: <1380775478.19002.139.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380679480.2081.24.camel@joe-AO722>
-	 <87k3hw469z.fsf@kamboji.qca.qualcomm.com>
-	 <1380696054.2081.35.camel@joe-AO722>
-	 <CAB=NE6V3b4+B06hzPjhww52wp1FHho3329cP25=5Cy833bysvg@mail.gmail.com>
-	 <1380736969.2081.72.camel@joe-AO722>
-	 <alpine.DEB.2.02.1310030034030.2162@localhost6.localdomain6>
-	 <1380758954.2081.79.camel@joe-AO722> <1380760114.2081.81.camel@joe-AO722>
-	 <1380771110.2081.89.camel@joe-AO722> <1380771551.2081.93.camel@joe-AO722>
-	 <1380773924.19002.131.camel@edumazet-glaptop.roam.corp.google.com>
-	 <87fvsjynuk.fsf@kamboji.qca.qualcomm.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] fix unsafe set_memory_rw from softirq
+Date: Wed, 2 Oct 2013 21:44:17 -0700
+Message-ID: <CAMEtUux5Fvffdg1G-aAe4XN8hJ3oUZyD2Gs3sqcwDdGf9VQ5fw@mail.gmail.com>
+References: <1380772231-3566-1-git-send-email-ast@plumgrid.com>
+	<1380774230.19002.135.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, Julia Lawall <julia.lawall@lip6.fr>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	netdev <netdev@vger.kernel.org>, ath10k@lists.infradead.org,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:64197 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728Ab3JCEok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 00:44:40 -0400
-Received: by mail-pd0-f176.google.com with SMTP id q10so1872624pdj.7
-        for <netdev@vger.kernel.org>; Wed, 02 Oct 2013 21:44:39 -0700 (PDT)
-In-Reply-To: <87fvsjynuk.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Xi Wang <xi.wang@gmail.com>, x86@kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	linux-kernel@vger.kernel.org,
+	Heiko Carstens <heiko.carstens@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380774230.19002.135.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-10-03 at 07:34 +0300, Kalle Valo wrote:
+On Wed, Oct 2, 2013 at 9:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-10-02 at 20:50 -0700, Alexei Starovoitov wrote:
+>> on x86 system with net.core.bpf_jit_enable = 1
+>
+>> diff --git a/include/linux/filter.h b/include/linux/filter.h
+>> index a6ac848..378fa03 100644
+>> --- a/include/linux/filter.h
+>> +++ b/include/linux/filter.h
+>> @@ -27,6 +27,7 @@ struct sk_filter
+>>       unsigned int            len;    /* Number of filter blocks */
+>>       unsigned int            (*bpf_func)(const struct sk_buff *skb,
+>>                                           const struct sock_filter *filter);
+>> +     struct work_struct      work;
+>>       struct rcu_head         rcu;
+>>       struct sock_filter      insns[0];
+>>  };
+>
+> Nice catch !
+>
+> It seems only x86 and s390 needs this work_struct.
 
-> Do you mean '6' or the union? The 6 can replaced with ETH_ALEN AFAICS.
-> But the union is needed for aligning the packets as firmware expects
-> them.
+I think ifdef config_x86 is a bit ugly inside struct sk_filter, but
+don't mind whichever way.
 
-I mean the 6, of course, since Joe seems to actively track them, as if
-ETH_ALEN could change eventually, you never know.
+> (and you might CC Heiko Carstens <heiko.carstens@de.ibm.com> to ask him
+> to make the s390 part, of Ack it if you plan to do it)
 
-I am worrying this will take another hundred patches ...
+set_memory_rw() on s390 is a simple page table walker that doesn't do
+any IPI unlike x86
+Heiko, please confirm that it's not an issue there.
 
-Regarding this union, the __packed attributes seem overkill, no ???
+Thanks
+Alexei
