@@ -1,104 +1,62 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH RFC 46/77] mlx4: Update MSI/MSI-X interrupts enablement
- code
-Date: Thu, 3 Oct 2013 11:02:54 +0300
-Message-ID: <20131003110254.5f10fbb8@jpm-OptiPlex-GX620>
-References: <cover.1380703262.git.agordeev@redhat.com>
-	<b0a9f6f455aa03b7769e6d9cc2e7fdbc06732b2f.1380703263.git.agordeev@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 1/2] sit: allow to use rtnl ops on fb tunnel
+Date: Thu, 03 Oct 2013 10:06:24 +0200
+Message-ID: <524D2580.9040702@6wind.com>
+References: <20131001.125923.700243113980583930.davem@davemloft.net>	<524BC816.1000702@6wind.com>	<524BCCE2.8000700@6wind.com> <20131002.170822.1627691739724018976.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-dr
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <b0a9f6f455aa03b7769e6d9cc2e7fdbc06732b2f.1380703263.git.agordeev@redhat.com>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	pshelar@nicira.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:34894 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751637Ab3JCIG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 04:06:28 -0400
+Received: by mail-wi0-f176.google.com with SMTP id cb5so8498065wib.3
+        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 01:06:26 -0700 (PDT)
+In-Reply-To: <20131002.170822.1627691739724018976.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed,  2 Oct 2013 12:49:02 +0200
-Alexander Gordeev <agordeev@redhat.com> wrote:
-
-NACK.  This change does not do anything logically as far as I can tell.
-pci_enable_msix in the current upstream kernel itself calls
-pci_msix_table_size.  The current code yields the same results
-as the code suggested below. (i.e., the suggested code has no effect on
-optimality).
-
-BTW, pci_msix_table_size never returns a value < 0 (if msix is not
-enabled, it returns 0 for the table size), so the (err < 0) check here
-is not correct. (I also do not like using "err" here anyway for the
-value returned by pci_msix_table_size().  There is no error here, and
-it is simply confusing.
-
--Jack
-
-> As result of recent re-design of the MSI/MSI-X interrupts enabling
-> pattern this driver has to be updated to use the new technique to
-> obtain a optimal number of MSI/MSI-X interrupts required.
-> 
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c |   17 ++++++++---------
->  1 files changed, 8 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
-> b/drivers/net/ethernet/mellanox/mlx4/main.c index 60c9f4f..377a5ea
-> 100644 --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -1852,8 +1852,16 @@ static void mlx4_enable_msi_x(struct mlx4_dev
-> *dev) int i;
->  
->  	if (msi_x) {
-> +		err = pci_msix_table_size(dev->pdev);
-> +		if (err < 0)
-> +			goto no_msi;
-> +
-> +		/* Try if at least 2 vectors are available */
->  		nreq = min_t(int, dev->caps.num_eqs -
-> dev->caps.reserved_eqs, nreq);
-> +		nreq = min_t(int, nreq, err);
-> +		if (nreq < 2)
-> +			goto no_msi;
->  
->  		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
->  		if (!entries)
-> @@ -1862,17 +1870,8 @@ static void mlx4_enable_msi_x(struct mlx4_dev
-> *dev) for (i = 0; i < nreq; ++i)
->  			entries[i].entry = i;
->  
-> -	retry:
->  		err = pci_enable_msix(dev->pdev, entries, nreq);
->  		if (err) {
-> -			/* Try again if at least 2 vectors are
-> available */
-> -			if (err > 1) {
-> -				mlx4_info(dev, "Requested %d
-> vectors, "
-> -					  "but only %d MSI-X vectors
-> available, "
-> -					  "trying again\n", nreq,
-> err);
-> -				nreq = err;
-> -				goto retry;
-> -			}
->  			kfree(entries);
->  			goto no_msi;
->  		}
-
+Le 02/10/2013 23:08, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Wed, 02 Oct 2013 09:36:02 +0200
+>
+>> Le 02/10/2013 09:15, Nicolas Dichtel a =E9crit :
+>>> Le 01/10/2013 18:59, David Miller a =E9crit :
+>>>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>> Date: Tue,  1 Oct 2013 18:04:59 +0200
+>>>>
+>>>>> rtnl ops where introduced by ba3e3f50a0e5 ("sit: advertise tunnel
+>>>>> param via
+>>>>> rtnl"), but I forget to assign rtnl ops to fb tunnels.
+>>>>>
+>>>>> Now that it is done, we must remove the explicit call to
+>>>>> unregister_netdevice_queue(), because the fallback tunnel is adde=
+d to
+>>>>> the queue
+>>>>> in sit_destroy_tunnels() when checking rtnl_link_ops of all netde=
+vices
+>>>>> (this
+>>>>> is valid since commit 5e6700b3bf98 ("sit: add support of x-netns"=
+)).
+>>>>>
+>>>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>>
+>>>> Applied and queued up for -stable.
+>> Another things about ipip: between 0974658da47c ("ipip: advertise
+>> tunnel param
+>> via rtnl", v3.8) and fd58156e456d ("IPIP: Use ip-tunneling code.",
+>> v3.10) the
+>> fb device of ipip module has the same problem.
+>> Should I send a patch?
+>
+> Yes please do, thanks for noticing this.
+>
+In fact, I just notice that 3.9 branch is EoL (bug is only in 3.8 and 3=
+=2E9).
+Should I still send a patch ? If yes, based on which tree/branch?
