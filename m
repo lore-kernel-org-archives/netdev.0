@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by
- OPTION GTM601 during RING indication
-Date: Thu, 03 Oct 2013 15:29:07 -0400 (EDT)
-Message-ID: <20131003.152907.2144013596237714581.davem@davemloft.net>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
+Subject: Re: [PATCH net-next] tcp: shrink tcp6_timewait_sock by one cache
+ line
+Date: Thu, 03 Oct 2013 15:31:58 -0400 (EDT)
+Message-ID: <20131003.153158.1558578931500427624.davem@davemloft.net>
+References: <1380711604.19002.78.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.dumon@option.com, marek.belisko@gmail.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hns@goldelico.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38227 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754728Ab3JCTcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:32:00 -0400
+In-Reply-To: <1380711604.19002.78.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
-Date: Wed, 2 Oct 2013 09:00:18 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Oct 2013 04:00:04 -0700
 
-> From f5c7e15b61f2ce4fe3105ff914f6bfaf5d74af0d Mon Sep 17 00:00:00 2001
-> From: "H. Nikolaus Schaller" <hns@goldelico.com>
-> Date: Thu, 15 Nov 2012 14:40:57 +0100
-> Subject: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION
->  GTM601 during RING indication
-> 
->  It has been observed that the GTM601 with 1.7 firmware sometimes sends a value
->  wIndex that has bit 0x04 set instead of being reset as the code expects. So we
->  mask it for the error check.
->  
->  See http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html
-> 
-> Signed-off-by: NeilBrown <neilb@suse.de>
-> Signed-off-by: H. Nikolaus Schaller <hns@goldelico.de>
+> +	tmo = tw->tw_ttd - (u32)jiffies;
+ ...
+> +		tw->tw_ttd = (u32)(jiffies + timeo);
+ ...
+> +		tw->tw_ttd = (u32)(jiffies + (slot << INET_TWDR_RECYCLE_TICK));
+ ...
+> +	s32 delta = tw->tw_ttd - (u32)jiffies;
+ ...
+> +	s32 delta = tw->tw_ttd - (u32)jiffies;
 
-I think we should look more deeply into what this bit might mean
-and why the firmware might be setting it before we even consider
-applying a patch like this one.
+Eric just use tcp_time_stamp in all of these locations, then you can
+lose the casts and still achieve your stated objective.
+
+Thanks.
