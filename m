@@ -1,55 +1,31 @@
-From: Rick Jones <rick.jones2-VXdhtT5mjnY@public.gmane.org>
-Subject: Re: Ideas on why using WPA2 encryption speeds up many TCP connections?
-Date: Thu, 03 Oct 2013 11:50:59 -0700
-Message-ID: <524DBC93.1070400@hp.com>
-References: <524DB6F6.6020405@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] dev: add support of flag IFF_NOPROC
+Date: Thu, 03 Oct 2013 15:09:47 -0400 (EDT)
+Message-ID: <20131003.150947.2179820478039260398.davem@davemloft.net>
+References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20131003104627.411f5cc4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <524DB6F6.6020405-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37955 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754349Ab3JCTJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:09:51 -0400
+In-Reply-To: <20131003104627.411f5cc4@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2013 11:27 AM, Ben Greear wrote:
-> I'm seeing something a bit strange and wondering if anyone had an
-> opinion on why...
->
-> I am testing up to 200 wifi station systems, each with a TCP connection
-> running on them (download only, from VAP to stations).
->
-> Without encryption (ie, open network), I see total throughput go from
-> about 108Mbps down to 69Mbps as I add more stations (I add 25 at a time,
-> so the 108Mbps is with 25 active, and 69Mbps is with 200 active).
->
-> However, if I enable encryption, the throughput is actually higher
-> (111Mbps to 71Mbps).  I'm doing encryption in software, so it adds a fair
-> bit of CPU load in this test.  The numbers bounce around since this is
-> wifi after all, but in general encryption tends to win reliably in this
-> test.
->
-> When testing with a single station (and 5 tcp streams with jacked up
-> snd/rcv buffers) the open networks perform significantly better at total throughput:
-> 263Mbps vs 246Mbps.
->
-> Maybe the extra delay for decryption increases odds that GRO will take
-> affect for the many, slower streams (and maybe that will decrease ACK
-> traffic?)
->
-> Any other ideas?
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 3 Oct 2013 10:46:27 -0700
 
-Fewer times two or more stations step on one another?  The recievers 
-will only try to transmit when they receive data.  Modulo timing, if the 
-individual downloads are a bit slower, less chance of the receivers 
-looking to send ACKs back through at the same time?  Got any low-level 
-stats for the health and well being of the wireless network?
+> What about speeding up proc or sysfs? Or providing a bulk create/destroy.
 
-rick jones
++1 +1 +1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This will benefit more people than the just the envisioned users for
+this IFF_NOPROC thing.
+
+I really don't want to take the IFF_NOPROC approach.
