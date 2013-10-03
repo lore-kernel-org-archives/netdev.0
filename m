@@ -1,65 +1,96 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] be2net: Warn users of possible broken functionality
- on BE2 cards with very old F/W versions with latest driver.
-Date: Thu, 3 Oct 2013 20:45:36 +0100
-Message-ID: <1380829536.3419.7.camel@bwh-desktop.uk.level5networks.com>
-References: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: Re: [PATCH RFC 50/77] mlx5: Update MSI/MSI-X interrupts enablement
+ code
+Date: Thu, 3 Oct 2013 21:48:39 +0200
+Message-ID: <20131003194837.GA27636@dhcp-26-207.brq.redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
+ <20131003071433.GA7299@mtldesk30>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Somnath Kotur <somnath.kotur@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50037 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120Ab3JCTpk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:45:40 -0400
-In-Reply-To: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+        linux-dr
+To: Eli Cohen <eli@dev.mellanox.co.il>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20131003071433.GA7299@mtldesk30>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-10-03 at 12:33 +0530, Somnath Kotur wrote:
-> On very old F/W versions < 4.0, the mailbox command to set interrupts on the
-> card succeeds even though it is not supported and should have failed leading to
-> interrupts not working.
-> Hence warn users to upgrade to a suitable F/W version to avoid seeing broken
-> functionality.
+On Thu, Oct 03, 2013 at 10:14:33AM +0300, Eli Cohen wrote:
+> On Wed, Oct 02, 2013 at 12:49:06PM +0200, Alexander Gordeev wrote:
+> >  
+> > +	err = pci_msix_table_size(dev->pdev);
+> > +	if (err < 0)
+> > +		return err;
+> > +
+> >  	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
+> >  	nvec = min_t(int, nvec, num_eqs);
+> > +	nvec = min_t(int, nvec, err);
+> >  	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
+> >  		return -ENOSPC;
 > 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
+> Making sure we don't request more vectors then the device's is capable
+> of -- looks good.
+> >  
+> > @@ -131,20 +136,15 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+> >  	for (i = 0; i < nvec; i++)
+> >  		table->msix_arr[i].entry = i;
+> >  
+> > -retry:
+> > -	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+> >  	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
+> > -	if (err <= 0) {
+> > +	if (err) {
+> > +		kfree(table->msix_arr);
+> >  		return err;
+> > -	} else if (err > MLX5_EQ_VEC_COMP_BASE) {
+> > -		nvec = err;
+> > -		goto retry;
+> >  	}
+> >  
 > 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 2c38cc4..f4bbc92 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -3247,6 +3247,11 @@ static int be_setup(struct be_adapter *adapter)
->  
->  	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
->  
-> +	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
+> According to latest sources, pci_enable_msix() may still fail so why
+> do you want to remove this code?
 
-Are you sure the firmware major version will never go up to 2 digits?
-This seems like a job for simple_strtol(), except that's now deprecated.
-I don't know what one is supposed to do now when parsing a string that
-has more than just a single integer in it.
+pci_enable_msix() may fail, but it can not return a positive number.
 
-> +		dev_err(dev, "F/W version is very old. IRQs may not work\n");
-> +		dev_err(dev, "Pls upgrade to F/W version >= 4.0\n");
+We first calculate how many MSI-Xs we need, adjust to what we can get,
+check if that is enough and only then go for it.
 
-'Please' is spelt thus.  And it seems odd to say 'very old' when you
-also have a very specific idea of how old that is (< 4.0).
-
-Ben.
-
-> +	}
-> +
->  	if (adapter->vlans_added)
->  		be_vid_config(adapter);
->  
+> > -	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
+> > -	kfree(table->msix_arr);
+> > +	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+> >  
+> > -	return -ENOSPC;
+> > +	return 0;
+> >  }
+> >  
+> >  static void mlx5_disable_msix(struct mlx5_core_dev *dev)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+Alexander Gordeev
+agordeev@redhat.com
