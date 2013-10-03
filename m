@@ -1,112 +1,104 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] tcp: rcvbuf autotuning improvements
-Date: Thu,  3 Oct 2013 09:56:43 +0200
-Message-ID: <1380787003-20488-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	Francesco Fusco <ffusco@redhat.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11086 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751448Ab3JCH4q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Oct 2013 03:56:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH RFC 46/77] mlx4: Update MSI/MSI-X interrupts enablement
+ code
+Date: Thu, 3 Oct 2013 11:02:54 +0300
+Message-ID: <20131003110254.5f10fbb8@jpm-OptiPlex-GX620>
+References: <cover.1380703262.git.agordeev@redhat.com>
+	<b0a9f6f455aa03b7769e6d9cc2e7fdbc06732b2f.1380703263.git.agordeev@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"VMware, Inc." <pv-dr
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <b0a9f6f455aa03b7769e6d9cc2e7fdbc06732b2f.1380703263.git.agordeev@redhat.com>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a complementary patch for commit 6ae705323 ("tcp: sndbuf
-autotuning improvements") that fixes a performance regression on
-receiver side in setups with low to mid latency, high throughput,
-and senders with TSO/GSO off (receivers w/ default settings).
+On Wed,  2 Oct 2013 12:49:02 +0200
+Alexander Gordeev <agordeev@redhat.com> wrote:
 
-The following measurements in Mbit/s were done for 60sec w/ netperf
-on virtio w/ TSO/GSO off:
+NACK.  This change does not do anything logically as far as I can tell.
+pci_enable_msix in the current upstream kernel itself calls
+pci_msix_table_size.  The current code yields the same results
+as the code suggested below. (i.e., the suggested code has no effect on
+optimality).
 
-(ms)    1)              2)              3)
-  0     2762.11         1150.32         2906.17
- 10     1083.61          538.89         1091.03
- 25      471.81          313.18          474.60
- 50      242.33          187.84          242.36
- 75      162.14          134.45          161.95
-100      121.55          101.96          121.49
-150       80.64           57.75           80.48
-200       58.97           54.11           59.90
-250       47.10           46.92           47.31
+BTW, pci_msix_table_size never returns a value < 0 (if msix is not
+enabled, it returns 0 for the table size), so the (err < 0) check here
+is not correct. (I also do not like using "err" here anyway for the
+value returned by pci_msix_table_size().  There is no error here, and
+it is simply confusing.
 
-Same setup w/ TSO/GSO on:
+-Jack
 
-(ms)    1)              2)              3)
-  0     12225.91        12366.89        16514.37
- 10      1526.64         1525.79         2176.63
- 25       655.13          647.79          871.52
- 50       338.51          377.88          439.46
- 75       246.49          278.46          295.62
-100       210.93          207.56          217.34
-150       127.88          129.56          141.33
-200        94.95           94.50          107.29
-250        67.39           73.88           88.35
+> As result of recent re-design of the MSI/MSI-X interrupts enabling
+> pattern this driver has to be updated to use the new technique to
+> obtain a optimal number of MSI/MSI-X interrupts required.
+> 
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/main.c |   17 ++++++++---------
+>  1 files changed, 8 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
+> b/drivers/net/ethernet/mellanox/mlx4/main.c index 60c9f4f..377a5ea
+> 100644 --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -1852,8 +1852,16 @@ static void mlx4_enable_msi_x(struct mlx4_dev
+> *dev) int i;
+>  
+>  	if (msi_x) {
+> +		err = pci_msix_table_size(dev->pdev);
+> +		if (err < 0)
+> +			goto no_msi;
+> +
+> +		/* Try if at least 2 vectors are available */
+>  		nreq = min_t(int, dev->caps.num_eqs -
+> dev->caps.reserved_eqs, nreq);
+> +		nreq = min_t(int, nreq, err);
+> +		if (nreq < 2)
+> +			goto no_msi;
+>  
+>  		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
+>  		if (!entries)
+> @@ -1862,17 +1870,8 @@ static void mlx4_enable_msi_x(struct mlx4_dev
+> *dev) for (i = 0; i < nreq; ++i)
+>  			entries[i].entry = i;
+>  
+> -	retry:
+>  		err = pci_enable_msix(dev->pdev, entries, nreq);
+>  		if (err) {
+> -			/* Try again if at least 2 vectors are
+> available */
+> -			if (err > 1) {
+> -				mlx4_info(dev, "Requested %d
+> vectors, "
+> -					  "but only %d MSI-X vectors
+> available, "
+> -					  "trying again\n", nreq,
+> err);
+> -				nreq = err;
+> -				goto retry;
+> -			}
+>  			kfree(entries);
+>  			goto no_msi;
+>  		}
 
-Similarly as in 6ae705323, we fixed up power-of-two rounding and
-took cached mss into account, thus bringing per_mss calculations
-closer to each other, the rest stays as is.
-
-We also renamed tcp_fixup_rcvbuf() to tcp_rcvbuf_expand() to be
-consistent with tcp_sndbuf_expand().
-
-While we do think that 6ae705323b71 is the right way to go, also
-this follow-up seems necessary to restore performance for
-receivers.
-
-For the evaluation, same kernels on each host were used:
-
-1) net-next (4fbef95af), which is before 6ae705323
-2) net-next (6ae705323), which is sndbuf improvements
-3) net-next (6ae705323), plus this patch on top
-
-This was done in joint work with Francesco Fusco.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Francesco Fusco <ffusco@redhat.com>
----
- net/ipv4/tcp_input.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index cd65674..ed37b1d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -367,13 +367,19 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
- }
- 
- /* 3. Tuning rcvbuf, when connection enters established state. */
--static void tcp_fixup_rcvbuf(struct sock *sk)
-+static void tcp_rcvbuf_expand(struct sock *sk)
- {
--	u32 mss = tcp_sk(sk)->advmss;
--	int rcvmem;
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+	int rcvmem, per_mss;
-+
-+	per_mss = max_t(u32, tp->advmss, tp->mss_cache) +
-+		  MAX_TCP_HEADER +
-+		  SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+
-+	per_mss = roundup_pow_of_two(per_mss) +
-+		  SKB_DATA_ALIGN(sizeof(struct sk_buff));
- 
--	rcvmem = 2 * SKB_TRUESIZE(mss + MAX_TCP_HEADER) *
--		 tcp_default_init_rwnd(mss);
-+	rcvmem = 2 * tcp_default_init_rwnd(per_mss) * per_mss;
- 
- 	/* Dynamic Right Sizing (DRS) has 2 to 3 RTT latency
- 	 * Allow enough cushion so that sender is not limited by our window
-@@ -394,7 +400,7 @@ void tcp_init_buffer_space(struct sock *sk)
- 	int maxwin;
- 
- 	if (!(sk->sk_userlocks & SOCK_RCVBUF_LOCK))
--		tcp_fixup_rcvbuf(sk);
-+		tcp_rcvbuf_expand(sk);
- 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK))
- 		tcp_sndbuf_expand(sk);
- 
--- 
-1.7.11.7
