@@ -1,104 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 net-next-3.11] ip: add support of link flag IFF_NOPROC
-Date: Thu,  3 Oct 2013 15:30:19 +0200
-Message-ID: <1380807019-4653-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49928 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754437Ab3JCNaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 09:30:24 -0400
-In-Reply-To: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oussama Ghorbel <ou.ghorbel@gmail.com>
+Subject: [PATCHv2] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Thu,  3 Oct 2013 14:49:26 +0100
+Message-ID: <1380808166-13280-1-git-send-email-ou.ghorbel@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oussama Ghorbel <ou.ghorbel@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When this flag is specified, /proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and
-/proc/net/dev_snmp6/<dev> directories are not created.
+The (inner) MTU of a ipip6 (IPv4-in-IPv6) tunnel cannot be set below 1280, which is the minimum MTU in IPv6.
+However, there should be no IPv6 on the tunnel interface at all, so the IPv6 rules should not apply.
+More info at https://bugzilla.kernel.org/show_bug.cgi?id=15530
 
-This flag cannot be removed.
+This patch allows to check the minimum MTU for ipv6 tunnel according to these rules:
+-In case the tunnel is configured with ipip6 mode the minimum MTU is 68.
+-In case the tunnel is configured with ip6ip6 or any mode the minimum MTU is 1280.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
 ---
- include/linux/if.h    | 2 ++
- ip/ipaddress.c        | 1 +
- ip/iplink.c           | 3 +++
- man/man8/ip-link.8.in | 8 ++++++++
- 4 files changed, 14 insertions(+)
+ net/ipv6/ip6_tunnel.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 7f261c08e816..5b8a5ebff599 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -53,6 +53,8 @@
- 
- #define IFF_ECHO	0x40000		/* echo sent packets		*/
- 
-+#define IFF_NOPROC	0x80000		/* no proc/sysctl directories	*/
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 46ba243..4b51b03 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1429,9 +1429,17 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ static int
+ ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	if (new_mtu < IPV6_MIN_MTU) {
+-		return -EINVAL;
++	struct ip6_tnl *tnl = netdev_priv(dev);
 +
- #define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
- 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
- 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 1c3e4da0d0da..b2e35028c844 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -116,6 +116,7 @@ static void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
- 	_PF(LOWER_UP);
- 	_PF(DORMANT);
- 	_PF(ECHO);
-+	_PF(NOPROC);
- #undef _PF
- 	if (flags)
- 		fprintf(fp, "%x", flags);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index ada9d4255ba2..253ed1cc3f6f 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -50,6 +50,7 @@ void iplink_usage(void)
- 		fprintf(stderr, "                   [ mtu MTU ]\n");
- 		fprintf(stderr, "                   [ numtxqueues QUEUE_COUNT ]\n");
- 		fprintf(stderr, "                   [ numrxqueues QUEUE_COUNT ]\n");
-+		fprintf(stderr, "                   [ noproc ]\n");
- 		fprintf(stderr, "                   type TYPE [ ARGS ]\n");
- 		fprintf(stderr, "       ip link delete DEV type TYPE [ ARGS ]\n");
- 		fprintf(stderr, "\n");
-@@ -480,6 +481,8 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				invarg("Invalid \"numrxqueues\" value\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
- 				  &numrxqueues, 4);
-+		} else if (matches(*argv, "noproc") == 0) {
-+			req->i.ifi_flags |= IFF_NOPROC;
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 76f92ddbd82c..b16d1a1f8a41 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -45,6 +45,8 @@ ip-link \- network device configuration
- .RB "[ " numrxqueues
- .IR QUEUE_COUNT " ]"
- .br
-+.RB "[ " noproc " ]"
-+.br
- .BR type " TYPE"
- .RI "[ " ARGS " ]"
- 
-@@ -197,6 +199,12 @@ specifies the number of transmit queues for new device.
- specifies the number of receive queues for new device.
- 
- .TP
-+.BI noproc
-+specifies to no create iface related directories under /proc
-+(/proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and
-+/proc/net/dev_snmp6/<dev>)
-+
-+.TP
- VXLAN Type Support
- For a link of type 
- .I VXLAN
++	if (tnl->parms.proto == IPPROTO_IPIP) {
++		if (new_mtu < 68)
++			return -EINVAL;
++	} else {
++		if (new_mtu < IPV6_MIN_MTU)
++			return -EINVAL;
+ 	}
++	if (new_mtu > 0xFFF8 - dev->hard_header_len)
++		return -EINVAL;
+ 	dev->mtu = new_mtu;
+ 	return 0;
+ }
 -- 
-1.8.2.1
+1.7.9.5
