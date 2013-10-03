@@ -1,49 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/3] bonding: modify the current and add
- new hash functions
-Date: Thu, 03 Oct 2013 15:37:37 -0400 (EDT)
-Message-ID: <20131003.153737.1071770171297832326.davem@davemloft.net>
-References: <1380713966-3891-1-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, vfalico@redhat.com
-To: nikolay@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38333 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715Ab3JCThj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:37:39 -0400
-In-Reply-To: <1380713966-3891-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
+Date: Thu, 3 Oct 2013 21:40:34 +0200
+Message-ID: <C7520082-95CC-4D4F-BCE4-96A7D6346DB3@goldelico.com>
+References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com> <20131003.152907.2144013596237714581.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Belisko Marek <marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131003.152907.2144013596237714581.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed,  2 Oct 2013 13:39:23 +0200
+Hi,
 
-> This is a complete remake of my old patch that modified the bonding hash
-> functions to use skb_flow_dissect which was suggested by Eric Dumazet.
-> This time around I've left the old modes although using a new hash function
-> again suggested by Eric, which is the same for all modes. The only
-> difference is the way the headers are obtained. The old modes obtain them
-> as before in order to address concerns about speed, but the 2 new ones use
-> skb_flow_dissect. The unification of the hash function allows to remove a
-> pointer from struct bonding and also a few extra functions that dealt with
-> it. Two new functions are added which take care of the hashing based on
-> bond->params.xmit_policy only:
-> bond_xmit_hash() - global function, used by XOR and 3ad modes
-> bond_flow_dissect() - used by bond_xmit_hash() to obtain the necessary
-> headers and combine them according to bond->params.xmit_policy.
-> Also factor out the ports extraction from skb_flow_dissect and add a new
-> function - skb_flow_get_ports() which can be re-used.
+Am 03.10.2013 um 21:29 schrieb David Miller:
+
+> From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+> Date: Wed, 2 Oct 2013 09:00:18 +0200
 > 
-> v2: add the flow_dissector patch and use skb_flow_get_ports in patch 02
-> v3: fix a bug in the flow_dissector patch that caused a different thoff
->     by modifying the thoff argument in skb_flow_get_ports directly, most
->     of the users already do it anyway.
->     Also add the necessary export symbol for skb_flow_get_ports.
-> v4: integrate the thoff bug fix in patch 01
-> v5: disintegrate the thoff bug fix and re-base on top of Eric's fix
+>> From f5c7e15b61f2ce4fe3105ff914f6bfaf5d74af0d Mon Sep 17 00:00:00 2001
+>> From: "H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+>> Date: Thu, 15 Nov 2012 14:40:57 +0100
+>> Subject: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION
+>> GTM601 during RING indication
+>> 
+>> It has been observed that the GTM601 with 1.7 firmware sometimes sends a value
+>> wIndex that has bit 0x04 set instead of being reset as the code expects. So we
+>> mask it for the error check.
+>> 
+>> See http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html
+>> 
+>> Signed-off-by: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+>> Signed-off-by: H. Nikolaus Schaller <hns-xXXSsgcRVIAdwXzzRB9H2Q@public.gmane.org>
+> 
+> I think we should look more deeply into what this bit might mean
+> and why the firmware might be setting it before we even consider
+> applying a patch like this one.
 
-Series applied, thanks al ot.
+Yes, that would be the right way.
+
+The problem is that the firmware is a black box and the packet format has no
+(public) documentation (unless someone inside OPTION has access to it).
+
+I have made the bug observation from debug log that this bit is set in a response
+each time the modem has a RING message. It might be specific to this modem
+and firmware version, i.e. a firmware bug. But we have no means to verify or even
+change it in the firmware.
+
+I.e. the driver must handle it in a better way.
+
+Because the notification is rejected by the driver, the driver will hang up and the
+whole modem connection breaks down.
+
+With this patch, the problem was never observed again in ~2 years.
+
+I'd hope the maintainer of this driver can shed some light on it.
+
+BR,
+Nikolaus Schaller
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
