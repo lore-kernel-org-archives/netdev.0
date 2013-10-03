@@ -1,95 +1,59 @@
-From: Saurav Kashyap <saurav.kashyap@qlogic.com>
-Subject: Re: [PATCH RFC 59/77] qla2xxx: Update MSI/MSI-X interrupts
- enablement code
-Date: Thu, 3 Oct 2013 17:42:33 +0000
-Message-ID: <F5D084D6342F9B479C34599BB0A03E4D8982E209@AVMB1.qlogic.org>
-References: <54f6b89372f51cd27a6adf6ecc91b8bf6bb5ba74.1380703263.git.agordeev@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] dev: add support of flag IFF_NOPROC
+Date: Thu, 3 Oct 2013 10:46:27 -0700
+Message-ID: <20131003104627.411f5cc4@nehalam.linuxnetplumber.net>
+References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        "Ingo Molnar" <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci <linux-pci@vger.kernel.org>,
-        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux390@de.ibm.com" <linux390@de.ibm.com>,
-        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-        "x86@kernel.org" <x86@kernel.org>,
-        "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>
-To: Alexander Gordeev <agordeev@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <54f6b89372f51cd27a6adf6ecc91b8bf6bb5ba74.1380703263.git.agordeev@redhat.com>
-Content-Language: en-US
-Content-ID: <7ECF417E2B641E48ADC3CD2AEF525292@qlogic.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:51676 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753810Ab3JCRqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 13:46:31 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kp14so2959085pab.34
+        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 10:46:31 -0700 (PDT)
+In-Reply-To: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Saurav Kashyap <saurav.kashyap@qlogic.com>
+On Thu,  3 Oct 2013 15:28:25 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-
->As result of recent re-design of the MSI/MSI-X interrupts enabling
->pattern this driver has to be updated to use the new technique to
->obtain a optimal number of MSI/MSI-X interrupts required.
->
->Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
->---
-> drivers/scsi/qla2xxx/qla_isr.c |   18 +++++++++++-------
-> 1 files changed, 11 insertions(+), 7 deletions(-)
->
->diff --git a/drivers/scsi/qla2xxx/qla_isr.c
->b/drivers/scsi/qla2xxx/qla_isr.c
->index df1b30b..6c11ab9 100644
->--- a/drivers/scsi/qla2xxx/qla_isr.c
->+++ b/drivers/scsi/qla2xxx/qla_isr.c
->@@ -2836,16 +2836,20 @@ qla24xx_enable_msix(struct qla_hw_data *ha,
->struct rsp_que *rsp)
-> 	for (i = 0; i < ha->msix_count; i++)
-> 		entries[i].entry = i;
+> This flag allows to create netdevices without creating directories in
+> /proc, ie no /proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and no
+> /proc/net/dev_snmp6/<dev>.
 > 
->-	ret = pci_enable_msix(ha->pdev, entries, ha->msix_count);
->-	if (ret) {
->+	ret = pci_msix_table_size(ha->pdev);
->+	if (ret < 0) {
->+		goto msix_failed;
->+	} else {
-> 		if (ret < MIN_MSIX_COUNT)
-> 			goto msix_failed;
+> When a system creates a lot of virtual netdevices, this allows to speed up the
+> creation time. For systems which continuously create and destroy virtual
+> netdevices, proc entries for these netdevices may not be used, hence adding this
+> flag is interesting.
 > 
->-		ql_log(ql_log_warn, vha, 0x00c6,
->-		    "MSI-X: Failed to enable support "
->-		    "-- %d/%d\n Retry with %d vectors.\n",
->-		    ha->msix_count, ret, ret);
->-		ha->msix_count = ret;
->+		if (ret < ha->msix_count) {
->+			ql_log(ql_log_warn, vha, 0x00c6,
->+			    "MSI-X: Failed to enable support "
->+			    "-- %d/%d\n Retry with %d vectors.\n",
->+			    ha->msix_count, ret, ret);
->+			ha->msix_count = ret;
->+		}
-> 		ret = pci_enable_msix(ha->pdev, entries, ha->msix_count);
-> 		if (ret) {
-> msix_failed:
->-- 
->1.7.7.6
->
->--
->To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Note that the flag should be specified at the creation time (before calling
+> register_netdevice()) and cannot be removed during the life of the netdevice.
+> 
+> Here are some numbers:
+> 
+> dummy20000.batch contains 20 000 times 'link add type dummy' and
+> dummy20000-noproc.batch 20 000 times 'link add noproc type dummy'.
+> 
+> time ip -b dummy20000.batch
+> real    0m56.367s
+> user    0m0.200s
+> sys     0m53.070s
+> 
+> time ip -b dummy20000-noproc.batch
+> real    0m42.417s
+> user    0m0.310s
+> sys     0m38.470s
+> 
+> Suggested-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Seems like a special case. The problem is that you just created devices
+that are unmanageable and might well break other tools in the system.
+What about speeding up proc or sysfs? Or providing a bulk create/destroy.
+Also if you used a custom program it could have seperate netlink send
+and receive threads to pipeline the creation.
