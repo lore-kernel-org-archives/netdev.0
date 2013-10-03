@@ -1,93 +1,55 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Thu, 3 Oct 2013 23:49:45 +0100
-Message-ID: <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: tx checksum offload in rtl8168evl disabled in driver
+Date: Fri, 4 Oct 2013 01:01:20 +0200
+Message-ID: <20131003230120.GA25047@electric-eye.fr.zoreil.com>
+References: <OF3E5567E2.6AC62D58-ON80257BF9.004ED219-80257BF9.004F713D@aveillant.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Ralf Baechle" <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>, <linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iss_storagedev-VXdhtT5mjnY@public.gmane.org>,
-	<linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarfla
-To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1380703262.git.agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com
+To: jason.morgan@aveillant.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58480 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752477Ab3JCXBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 19:01:31 -0400
+Content-Disposition: inline
+In-Reply-To: <OF3E5567E2.6AC62D58-ON80257BF9.004ED219-80257BF9.004F713D@aveillant.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-10-02 at 12:48 +0200, Alexander Gordeev wrote:
-> This series is against "next" branch in Bjorn's repo:
-> git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci.git
-> 
-> Currently pci_enable_msi_block() and pci_enable_msix() interfaces
-> return a error code in case of failure, 0 in case of success and a
-> positive value which indicates the number of MSI-X/MSI interrupts
-> that could have been allocated. The latter value should be passed
-> to a repeated call to the interfaces until a failure or success:
->
-> 
-> 	for (i = 0; i < FOO_DRIVER_MAXIMUM_NVEC; i++)
-> 		adapter->msix_entries[i].entry = i;
-> 
-> 	while (nvec >= FOO_DRIVER_MINIMUM_NVEC) {
-> 		rc = pci_enable_msix(adapter->pdev,
-> 				     adapter->msix_entries, nvec);
-> 		if (rc > 0)
-> 			nvec = rc;
-> 		else
-> 			return rc;
-> 	}
-> 
-> 	return -ENOSPC;
-> 
-> 
-> This technique proved to be confusing and error-prone. Vast share
-> of device drivers simply fail to follow the described guidelines.
-> 
-> This update converts pci_enable_msix() and pci_enable_msi_block()
-> interfaces to canonical kernel functions and makes them return a
-> error code in case of failure or 0 in case of success.
+jason.morgan@aveillant.com <jason.morgan@aveillant.com> :
 [...]
+> I'm at 517Mbps and I've found that there seems to be a cpu bottleneck.
 
-I think this is fundamentally flawed: pci_msix_table_size() and
-pci_get_msi_cap() can only report the limits of the *device* (which the
-driver usually already knows), whereas MSI allocation can also be
-constrained due to *global* limits on the number of distinct IRQs.
+Which kernel ?
 
-Currently pci_enable_msix() will report a positive value if it fails due
-to the global limit.  Your patch 7 removes that.  pci_enable_msi_block()
-unfortunately doesn't appear to do this.
+> I'm using 2k to 4k frames with a rtl8168evl.
+> I've found this message
+> http://www.spinics.net/lists/netdev/msg216530.html
+[...]
+> However the message thread, above indicates that this is not a problem and 
+> can be changed to make tx-checksum offload possible.
+> 
+> However we are using a newer chip to the on in the message thread.  I've 
+> tried to find other, more recent citations without success.
+> 
+> So, why is it still turned off ?
 
-It seems to me that a more useful interface would take a minimum and
-maximum number of vectors from the driver.  This wouldn't allow the
-driver to specify that it could only accept, say, any even number within
-a certain range, but you could still leave the current functions
-available for any driver that needs that.
+It has been disabled since d58d46b5d85139d18eb939aa7279c160bab70484 ("r8169:
+jumbo fixes"). Patch was submitted as a RFC on 2011/07/17 and Hayes was
+explicitely requested to comment on the jumbo part if necessary. Patch was
+submitted for inclusion on 2011/09/22.
 
-Ben.
+Tx checksumming and jumbo are mutually exclusive in Realtek's driver as well.
+
+It seems no recent gigabit chipset reliably supports it.
+
+> What will be the effect of turning it on (changing false to true, in the 
+> driver line) for our chip ?
+
+YMMV.
+
+Hayes may elaborate.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ueimor
