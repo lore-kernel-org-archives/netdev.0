@@ -1,44 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/19 v2] net: bnx2x: Change variable type to bool
-Date: Thu, 03 Oct 2013 15:41:30 -0400 (EDT)
-Message-ID: <20131003.154130.845428835683264790.davem@davemloft.net>
-References: <1380716391-20214-1-git-send-email-peter.senna@gmail.com>
-	<1380716391-20214-2-git-send-email-peter.senna@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net] be2net: Warn users of possible broken functionality
+ on BE2 cards with very old F/W versions with latest driver.
+Date: Thu, 3 Oct 2013 20:45:36 +0100
+Message-ID: <1380829536.3419.7.camel@bwh-desktop.uk.level5networks.com>
+References: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: peter.senna@gmail.com
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Somnath Kotur <somnath.kotur@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38395 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab3JCTlc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:41:32 -0400
-In-Reply-To: <1380716391-20214-2-git-send-email-peter.senna@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:50037 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755120Ab3JCTpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:45:40 -0400
+In-Reply-To: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Date: Wed,  2 Oct 2013 14:19:49 +0200
+On Thu, 2013-10-03 at 12:33 +0530, Somnath Kotur wrote:
+> On very old F/W versions < 4.0, the mailbox command to set interrupts on the
+> card succeeds even though it is not supported and should have failed leading to
+> interrupts not working.
+> Hence warn users to upgrade to a suitable F/W version to avoid seeing broken
+> functionality.
+> 
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 2c38cc4..f4bbc92 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -3247,6 +3247,11 @@ static int be_setup(struct be_adapter *adapter)
+>  
+>  	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
+>  
+> +	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
 
-> The variable rc is only assigned the values true and false.
-> The function bnx2x_prev_is_path_marked already returns bool.
-> Change rc type to bool.
-> 
-> The simplified semantic patch that find this problem is as
-> follows (http://coccinelle.lip6.fr/):
-> 
-> @exists@
-> type T;
-> identifier b;
-> @@
-> - T
-> + bool
->   b = ...;
->   ... when any
->   b = \(true\|false\)
-> 
-> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+Are you sure the firmware major version will never go up to 2 digits?
+This seems like a job for simple_strtol(), except that's now deprecated.
+I don't know what one is supposed to do now when parsing a string that
+has more than just a single integer in it.
 
-Applied.
+> +		dev_err(dev, "F/W version is very old. IRQs may not work\n");
+> +		dev_err(dev, "Pls upgrade to F/W version >= 4.0\n");
+
+'Please' is spelt thus.  And it seems odd to say 'very old' when you
+also have a very specific idea of how old that is (< 4.0).
+
+Ben.
+
+> +	}
+> +
+>  	if (adapter->vlans_added)
+>  		be_vid_config(adapter);
+>  
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
