@@ -1,141 +1,79 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH RFC 55/77] ntb: Update MSI/MSI-X interrupts enablement
- code
-Date: Wed, 2 Oct 2013 18:02:30 -0700
-Message-ID: <20131003010230.GN6768@jonmason-lab>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <49eb592e15aaec804f9c11ca132d2b85c516aefa.1380703263.git.agordeev@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net:drivers/net: Miscellaneous conversions to
+ ETH_ALEN
+Date: Wed, 02 Oct 2013 20:31:50 -0700
+Message-ID: <1380771110.2081.89.camel@joe-AO722>
+References: <1380679480.2081.24.camel@joe-AO722>
+	 <87k3hw469z.fsf@kamboji.qca.qualcomm.com>
+	 <1380696054.2081.35.camel@joe-AO722>
+	 <CAB=NE6V3b4+B06hzPjhww52wp1FHho3329cP25=5Cy833bysvg@mail.gmail.com>
+	 <1380736969.2081.72.camel@joe-AO722>
+	 <alpine.DEB.2.02.1310030034030.2162@localhost6.localdomain6>
+	 <1380758954.2081.79.camel@joe-AO722> <1380760114.2081.81.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>, linux-scsi@vge
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49eb592e15aaec804f9c11ca132d2b85c516aefa.1380703263.git.agordeev@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	netdev <netdev@vger.kernel.org>, ath10k@lists.infradead.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0008.hostedemail.com ([216.40.44.8]:56344 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753442Ab3JCDbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Oct 2013 23:31:53 -0400
+In-Reply-To: <1380760114.2081.81.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 02, 2013 at 12:49:11PM +0200, Alexander Gordeev wrote:
-> As result of recent re-design of the MSI/MSI-X interrupts enabling
-> pattern this driver has to be updated to use the new technique to
-> obtain a optimal number of MSI/MSI-X interrupts required.
+On Wed, 2013-10-02 at 17:28 -0700, Joe Perches wrote:
+> On Wed, 2013-10-02 at 17:09 -0700, Joe Perches wrote:
+> > This has been running a _long_ time (broken?) on
+> > drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > 
+> > $ spatch --version
+> > spatch version 1.0.0-rc14 without Python support and with PCRE support
 > 
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> ---
->  drivers/ntb/ntb_hw.c |   41 +++++++++++++----------------------------
->  drivers/ntb/ntb_hw.h |    2 --
->  2 files changed, 13 insertions(+), 30 deletions(-)
+> Nope.  Not hung/broken.  Just a _long_ time to run.
 > 
-> diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> index eccd5e5..7776429 100644
-> --- a/drivers/ntb/ntb_hw.c
-> +++ b/drivers/ntb/ntb_hw.c
-> @@ -1032,23 +1032,26 @@ static int ntb_setup_msix(struct ntb_device *ndev)
->  	struct msix_entry *msix;
->  	int msix_entries;
->  	int rc, i;
-> -	u16 val;
->  
-> -	if (!pdev->msix_cap) {
-> -		rc = -EIO;
-> +	rc = pci_msix_table_size(pdev);
-> +	if (rc < 0)
->  		goto err;
-> -	}
->  
-> -	rc = pci_read_config_word(pdev, pdev->msix_cap + PCI_MSIX_FLAGS, &val);
-> -	if (rc)
-> +	/*
-> +	 * On SNB, the link interrupt is always tied to 4th vector.  If
-> +	 * we can't get all 4, then we can't use MSI-X.
-> +	 */
-> +	if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
+> HANDLING: drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> HANDLING: drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> Note: processing took  2299.7s: drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> HANDLING: drivers/net/ethernet/mellanox/mlx4/port.c
 
-Please check for the HW type first, and then compare to
-ndev->limits.msix_cnt (which will be SNB_MSIX_CNT on SNB HW).  Also,
-put the comment inside the if statement and remove the unecessary "()"
-around the comparisons.  OCD on my part, but I like it that way.  
+Hi again Julia:
 
-> +		rc = -ENOSPC;
->  		goto err;
-> -
-> -	msix_entries = msix_table_size(val);
-> -	if (msix_entries > ndev->limits.msix_cnt) {
-> +	}
+Oddly, just a few files took > 1000 seconds to run.
+Most all the rest were < 10 seconds (no report).
+A few were ~100 seconds.
 
-else if...
+HANDLING: drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+Note: processing took  2299.7s: drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+[]
+HANDLING: drivers/net/wireless/ipw2x00/libipw_rx.c
+Note: processing took  5308.0s: drivers/net/wireless/ipw2x00/libipw_rx.c
+[]
+HANDLING: drivers/net/wireless/hostap/hostap_80211_rx.c
+Note: processing took  1336.6s: drivers/net/wireless/hostap/hostap_80211_rx.c
 
-> +	if (rc > ndev->limits.msix_cnt) {
->  		rc = -EINVAL;
->  		goto err;
->  	}
->  
-> +	msix_entries = rc;
-> +
->  	ndev->msix_entries = kmalloc(sizeof(struct msix_entry) * msix_entries,
->  				     GFP_KERNEL);
->  	if (!ndev->msix_entries) {
-> @@ -1060,26 +1063,8 @@ static int ntb_setup_msix(struct ntb_device *ndev)
->  		ndev->msix_entries[i].entry = i;
->  
->  	rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
-> -	if (rc < 0)
-> +	if (rc)
->  		goto err1;
-> -	if (rc > 0) {
-> -		/* On SNB, the link interrupt is always tied to 4th vector.  If
-> -		 * we can't get all 4, then we can't use MSI-X.
-> -		 */
-> -		if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
-> -			rc = -EIO;
-> -			goto err1;
-> -		}
-> -
-> -		dev_warn(&pdev->dev,
-> -			 "Only %d MSI-X vectors.  Limiting the number of queues to that number.\n",
-> -			 rc);
-> -		msix_entries = rc;
-> -
-> -		rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
-> -		if (rc)
-> -			goto err1;
-> -	}
->  
->  	for (i = 0; i < msix_entries; i++) {
->  		msix = &ndev->msix_entries[i];
-> diff --git a/drivers/ntb/ntb_hw.h b/drivers/ntb/ntb_hw.h
-> index 0a31ced..50bd760 100644
-> --- a/drivers/ntb/ntb_hw.h
-> +++ b/drivers/ntb/ntb_hw.h
-> @@ -60,8 +60,6 @@
->  #define PCI_DEVICE_ID_INTEL_NTB_SS_HSX		0x2F0F
->  #define PCI_DEVICE_ID_INTEL_NTB_B2B_BWD		0x0C4E
->  
-> -#define msix_table_size(control)	((control & PCI_MSIX_FLAGS_QSIZE)+1)
+I don't know what causes the delays on these files.
 
-Good riddance!  :-)
+The only output I get for net-next is:
 
-> -
->  #ifndef readq
->  static inline u64 readq(void __iomem *addr)
->  {
-> -- 
-> 1.7.7.6
-> 
+* TODO
+[[view:drivers/net/wireless/zd1201.c::face=ovl-face1::linb=331::colb=3::cole=9][ drivers/net/wireless/zd1201.c::331]]
+* TODO
+[[view:drivers/net/wireless/zd1201.c::face=ovl-face1::linb=332::colb=3::cole=9][ drivers/net/wireless/zd1201.c::332]]
+* TODO
+[[view:drivers/net/wireless/zd1201.c::face=ovl-face1::linb=332::colb=3::cole=9][ drivers/net/wireless/zd1201.c::332]]
+* TODO
+[[view:drivers/net/wireless/zd1201.c::face=ovl-face1::linb=332::colb=3::cole=9][ drivers/net/wireless/zd1201.c::332]]
+* TODO
+[[view:drivers/net/wireless/zd1201.c::face=ovl-face1::linb=333::colb=3::cole=9][ drivers/net/wireless/zd1201.c::333]]
+* TODO
+[[view:drivers/net/wireless/ath/ath10k/wmi.c::face=ovl-face1::linb=1761::colb=1::cole=7][ drivers/net/wireless/ath/ath10k/wmi.c::1761]]
+
+and the zd1201 conversions would be kind of odd.
+
+Anyway, the ath10k file is a good one to patch.  Thanks.
+I'll send a patch separately.
