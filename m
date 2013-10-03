@@ -1,48 +1,82 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net v2] be2net: Warn users of possible broken functionality on BE2 cards with very old FW versions with latest driver
-Date: Thu, 3 Oct 2013 15:34:29 +0530
-Message-ID: <cca19523-3f51-4f87-b0e1-2ecec6ba37d4@CMEXHTCAS1.ad.emulex.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] fix unsafe set_memory_rw from softirq
+Date: Thu, 3 Oct 2013 04:57:07 -0700
+Message-ID: <CAMEtUuy2Luxwvf4bjpdKW13S-+5ooAZGi1MDyT8gAM-gtFm1pw@mail.gmail.com>
+References: <1380772231-3566-1-git-send-email-ast@plumgrid.com>
+	<1380774230.19002.135.camel@edumazet-glaptop.roam.corp.google.com>
+	<CAMEtUux5Fvffdg1G-aAe4XN8hJ3oUZyD2Gs3sqcwDdGf9VQ5fw@mail.gmail.com>
+	<1380775982.19002.145.camel@edumazet-glaptop.roam.corp.google.com>
+	<1380776250.19002.147.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:18035 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740Ab3JCKFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 06:05:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Xi Wang <xi.wang@gmail.com>, x86@kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	linux-kernel@vger.kernel.org,
+	Heiko Carstens <heiko.carstens@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380776250.19002.147.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On very old FW versions < 4.0, the mailbox command to set interrupts
-on the card succeeds even though it is not supported and should have
-failed, leading to a scenario where interrupts do not work.
-Hence warn users to upgrade to a suitable FW version to avoid seeing
-broken functionality.
+On Wed, Oct 2, 2013 at 9:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-10-02 at 21:53 -0700, Eric Dumazet wrote:
+>> On Wed, 2013-10-02 at 21:44 -0700, Alexei Starovoitov wrote:
+>>
+>> > I think ifdef config_x86 is a bit ugly inside struct sk_filter, but
+>> > don't mind whichever way.
+>>
+>> Its not fair to make sk_filter bigger, because it means that simple (non
+>> JIT) filter might need an extra cache line.
+>>
+>> You could presumably use the following layout instead :
+>>
+>> struct sk_filter
+>> {
+>>         atomic_t                refcnt;
+>>         struct rcu_head         rcu;
+>>       struct work_struct      work;
+>>
+>>         unsigned int            len ____cacheline_aligned;    /* Number of filter blocks */
+>>         unsigned int            (*bpf_func)(const struct sk_buff *skb,
+>>                                             const struct sock_filter *filter);
+>>         struct sock_filter      insns[0];
+>> };
+>
+> And since @len is not used by sk_run_filter() use :
+>
+> struct sk_filter {
+>         atomic_t                refcnt;
+>         int                     len; /* number of filter blocks */
+>         struct rcu_head         rcu;
+>         struct work_struct      work;
+>
+>         unsigned int            (*bpf_func)(const struct sk_buff *skb,
+>                                             const struct sock_filter *filter) ____cacheline_aligned;
+>         struct sock_filter      insns[0];
+> };
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
-v2: Replaced all occurences of 'F/W' with 'FW' or 'Firmware' as suggested by
-Sathya
+yes. make sense to avoid first insn cache miss inside sk_run_filter()
+at the expense
+of 8-byte gap between work and bpf_func (on x86_64 w/o lockdep)
 
- drivers/net/ethernet/emulex/benet/be_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+Probably even better to overlap work and insns fields.
+Pro: sk_filter size the same, no impact on non-jit case
+Con: would be harder to understand the code
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2c38cc4..9563ced 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3247,6 +3247,11 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
- 
-+	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
-+		dev_err(dev, "Firmware version is too old.IRQs may not work\n");
-+		dev_err(dev, "Pls upgrade firmware to version >= 4.0\n");
-+	}
-+
- 	if (adapter->vlans_added)
- 		be_vid_config(adapter);
- 
--- 
-1.6.0.2
+another problem is that kfree(sk_filter) inside
+sk_filter_release_rcu() needs to move inside bpf_jit_free().
+so self nack. Let me fix these issues and respin
+
+Thanks
+Alexei
