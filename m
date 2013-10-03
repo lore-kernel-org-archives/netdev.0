@@ -1,82 +1,119 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] fix unsafe set_memory_rw from softirq
-Date: Thu, 3 Oct 2013 04:57:07 -0700
-Message-ID: <CAMEtUuy2Luxwvf4bjpdKW13S-+5ooAZGi1MDyT8gAM-gtFm1pw@mail.gmail.com>
-References: <1380772231-3566-1-git-send-email-ast@plumgrid.com>
-	<1380774230.19002.135.camel@edumazet-glaptop.roam.corp.google.com>
-	<CAMEtUux5Fvffdg1G-aAe4XN8hJ3oUZyD2Gs3sqcwDdGf9VQ5fw@mail.gmail.com>
-	<1380775982.19002.145.camel@edumazet-glaptop.roam.corp.google.com>
-	<1380776250.19002.147.camel@edumazet-glaptop.roam.corp.google.com>
+From: Oussama Ghorbel <ou.ghorbel@gmail.com>
+Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
+Date: Thu, 3 Oct 2013 13:37:34 +0100
+Message-ID: <CABfLueFvkvVsdLGwS7U5LqM5xDX=-XRt+jt8gY8Lm+=ETPtaGw@mail.gmail.com>
+References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
+	<20130927083730.GC28287@order.stressinduktion.org>
+	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
+	<20130927105856.GF28287@order.stressinduktion.org>
+	<CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
+	<20130927170345.GC10343@order.stressinduktion.org>
+	<CA+ev270d2Ztq9i34Lv9U15y1TbH7W-fioXFn-Q_sJd5F4biHuw@mail.gmail.com>
+	<20130929154546.GA10771@order.stressinduktion.org>
+	<CABfLueHOR1HNsRC_-+Phc=9LMPTiOVuWoEjguG64L=9hiZLeVg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+To: Oussama Ghorbel <oghorbell@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Xi Wang <xi.wang@gmail.com>, x86@kernel.org,
-	Eric Dumazet <edumazet@google.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Oussama Ghorbel <ou.ghorbel@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380776250.19002.147.camel@edumazet-glaptop.roam.corp.google.com>
+In-Reply-To: <CABfLueHOR1HNsRC_-+Phc=9LMPTiOVuWoEjguG64L=9hiZLeVg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 2, 2013 at 9:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-10-02 at 21:53 -0700, Eric Dumazet wrote:
->> On Wed, 2013-10-02 at 21:44 -0700, Alexei Starovoitov wrote:
+I will send a new patch, the diff will be:
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 46ba243..4b51b03 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1429,9 +1429,17 @@ ip6_tnl_ioctl(struct net_device *dev, struct
+ifreq *ifr, int cmd)
+ static int
+ ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-       if (new_mtu < IPV6_MIN_MTU) {
+-               return -EINVAL;
++       struct ip6_tnl *tnl = netdev_priv(dev);
++
++       if (tnl->parms.proto == IPPROTO_IPIP) {
++               if (new_mtu < 68)
++                       return -EINVAL;
++       } else {
++               if (new_mtu < IPV6_MIN_MTU)
++                       return -EINVAL;
+        }
++       if (new_mtu > 0xFFF8 - dev->hard_header_len)
++               return -EINVAL;
+        dev->mtu = new_mtu;
+        return 0;
+ }
+
+
+On Sun, Sep 29, 2013 at 5:33 PM, Oussama Ghorbel <ou.ghorbel@gmail.com> wrote:
+> On Sun, Sep 29, 2013 at 4:45 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On Sun, Sep 29, 2013 at 10:40:11AM +0100, Oussama Ghorbel wrote:
+>>> On Fri, Sep 27, 2013 at 6:03 PM, Hannes Frederic Sowa
+>>> <hannes@stressinduktion.org> wrote:
+>>> > Ok, let's go with one function per protocol type. Seems easier.
+>>> >
+>>> > It seems to get more hairy, because it depends on the tunnel driver if the
+>>> > prepended ip header is accounted in hard_header_len. :/
+>>> >
+>>> > I don't know if it works out cleanly. Otherwise I would be ok if the checks
+>>> > just get repeated in ip6_tunnel and leave the rest as-is.
+>>> >
+>>> Yes, It will be the clean way to do it.
 >>
->> > I think ifdef config_x86 is a bit ugly inside struct sk_filter, but
->> > don't mind whichever way.
+>> Fine. :)
 >>
->> Its not fair to make sk_filter bigger, because it means that simple (non
->> JIT) filter might need an extra cache line.
+>>> >
+>>> > Linux currently cannot create "jumbograms" (only the receiving side
+>>> > is supported).
+>>> >
+>>> I understand, but what are the benefit from this limit or the harm
+>>> from not specifying it?
+>>> Please check this comment from eth.c
+>>>
+>>> /**
+>>>  * eth_change_mtu - set new MTU size
+>>>  * @dev: network device
+>>>  * @new_mtu: new Maximum Transfer Unit
+>>>  *
+>>>  * Allow changing MTU size. Needs to be overridden for devices
+>>>  * supporting jumbo frames.
+>>>  */
+>>> int eth_change_mtu(struct net_device *dev, int new_mtu)
 >>
->> You could presumably use the following layout instead :
->>
->> struct sk_filter
->> {
->>         atomic_t                refcnt;
->>         struct rcu_head         rcu;
->>       struct work_struct      work;
->>
->>         unsigned int            len ____cacheline_aligned;    /* Number of filter blocks */
->>         unsigned int            (*bpf_func)(const struct sk_buff *skb,
->>                                             const struct sock_filter *filter);
->>         struct sock_filter      insns[0];
->> };
+>> Hmm, I cannot judge without the full patch. Will it be applicable
+>> to all net_devices or just ethernet ones? The name could be a bit
+>> misleading. Remindes me a lot of dev_set_mtu based on the signature, btw.
 >
-> And since @len is not used by sk_run_filter() use :
+> Normally to all net_devices, otherwise it could get complicated to
+> check for every dev separately ...
+> But, never mind, the comment below solve the issue
 >
-> struct sk_filter {
->         atomic_t                refcnt;
->         int                     len; /* number of filter blocks */
->         struct rcu_head         rcu;
->         struct work_struct      work;
+>>
+>>> So wouldn't be a good idea to let our function open for jumbo frames...?
+>>
+>> Hm, we can document the fact that the function would needed to be updated in
+>> that case. But we should not allow to set a mtu which would require jumbograms
+>> currently.
 >
->         unsigned int            (*bpf_func)(const struct sk_buff *skb,
->                                             const struct sock_filter *filter) ____cacheline_aligned;
->         struct sock_filter      insns[0];
-> };
-
-yes. make sense to avoid first insn cache miss inside sk_run_filter()
-at the expense
-of 8-byte gap between work and bpf_func (on x86_64 w/o lockdep)
-
-Probably even better to overlap work and insns fields.
-Pro: sk_filter size the same, no impact on non-jit case
-Con: would be harder to understand the code
-
-another problem is that kfree(sk_filter) inside
-sk_filter_release_rcu() needs to move inside bpf_jit_free().
-so self nack. Let me fix these issues and respin
-
-Thanks
-Alexei
+> OK, sounds a good. I will check the mtu against the limit
+> IPV6_MAXPLEN, and document the jumbo restriction ...
+>
+>>
+>> Greetings,
+>>
+>>   Hannes
+>>
+>
+> Regards,
+> Oussama
