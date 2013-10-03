@@ -1,49 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: shrink tcp6_timewait_sock by one cache
- line
-Date: Thu, 03 Oct 2013 16:02:52 -0400 (EDT)
-Message-ID: <20131003.160252.2071364130742864278.davem@davemloft.net>
-References: <1380711604.19002.78.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131003.153158.1558578931500427624.davem@davemloft.net>
-	<1380829642.19002.225.camel@edumazet-glaptop.roam.corp.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] tcp/dccp: remove twchain
+Date: Thu, 3 Oct 2013 21:04:45 +0100
+Message-ID: <1380830685.3419.13.camel@bwh-desktop.uk.level5networks.com>
+References: <1380784922.19002.198.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38701 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754976Ab3JCUCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 16:02:54 -0400
-In-Reply-To: <1380829642.19002.225.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43019 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385Ab3JCUEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 16:04:49 -0400
+In-Reply-To: <1380784922.19002.198.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Oct 2013 12:47:22 -0700
+On Thu, 2013-10-03 at 00:22 -0700, Eric Dumazet wrote:
+[...]
+> @@ -146,26 +150,21 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
+>  	spin_lock(lock);
+>  
+>  	/*
+> -	 * Step 2: Hash TW into TIMEWAIT chain.
+> -	 * Should be done before removing sk from established chain
+> -	 * because readers are lockless and search established first.
+> +	 * Step 2: Hash TW into tcp ehash chain.
+> +	 * Notes :
+> +	 * - tw_refcnt is set to 3 because :
+> +	 * - We have one reference from bhash chain.
+> +	 * - We have one reference from ehash chain.
+> +	 * We can use atomic_set() because prior spin_lock()/spin_unlock()
+> +	 * committed into memory all tw fields.
+>  	*/
+> -	inet_twsk_add_node_rcu(tw, &ehead->twchain);
+> +	atomic_set(&tw->tw_refcnt, 1 + 1 + 1);
+> +	inet_twsk_add_node_rcu(tw, &ehead->chain);
+[...]
 
-> On Thu, 2013-10-03 at 15:31 -0400, David Miller wrote:
-> 
->> Eric just use tcp_time_stamp in all of these locations, then you can
->> lose the casts and still achieve your stated objective.
-> 
-> I thought about this, but this would break if tcp_time_stamp was no
-> longer tied to jiffies.
-> 
-> Van Jacobson had the idea of using finer resolution tcp_time_stamp for
-> TCP flows in data centers, for better RTT estimation and and cwin
-> control, but also for better diagnostics.
-> 
-> Note we used this (u32)jiffies thing in net/ipv4/inetpeer.c in the past,
-> and tp->tso_deferred is also a u32 value.
+'will commit' rather than 'committed'?
 
-I am sure that you could define a set of interfaces which are named
-such that the intent and usage is clear, would do the u32 cast, and
-would be updated by whoever changes the timestamp implementation in
-the future.
+But isn't this also a separate optimisation?
 
-The cast is really ugly, even if we do it in inetpeer already, and
-you're already here cleaning things up, so please do it right.
+Ben.
 
-Thank you.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
