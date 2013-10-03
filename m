@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-10-03
-Date: Thu, 03 Oct 2013 16:54:04 -0400 (EDT)
-Message-ID: <20131003.165404.1304983997786923256.davem@davemloft.net>
-References: <20131003201023.GC3142@tuxdriver.com>
+Subject: Re: [PATCH] atl1e: enable support for NETIF_F_RXALL and
+ NETIF_F_RXCRC features
+Date: Thu, 03 Oct 2013 17:01:26 -0400 (EDT)
+Message-ID: <20131003.170126.2297161431158026731.davem@davemloft.net>
+References: <1380827917-22992-1-git-send-email-andrea.merello@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: jie.yang@atheros.com, xiong.huang@atheros.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: andrea.merello@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131003201023.GC3142@tuxdriver.com>
+In-Reply-To: <1380827917-22992-1-git-send-email-andrea.merello@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 3 Oct 2013 16:10:24 -0400
+From: Andrea Merello <andrea.merello@gmail.com>
+Date: Thu,  3 Oct 2013 21:18:37 +0200
 
-> Here is another batch of fixes intended for the 3.12 stream...
+> This patch allows (optionally, via ethtool) the atl1e NIC to:
+> - Receive bad frames (runt, bad-fcs, etc..)
+> - Receive full frames without stripping the FCS.
 > 
-> For the mac80211 bits, Johannes says:
+> This has been tested on my board by injecting runt and bad-fcs
+> frames with a FPGA-based device.
 > 
-> "This time I have two fixes for IBSS (including one for wext, hah), a fix
-> for extended rates IEs, an active monitor checking fix and a sysfs
-> registration race fix."
+> The particular scenario of receiving very short frames (<4 bytes)
+> without passing FCS to the upper layer has been also tested:
+> This could be potentially dangerous because the driver performs a
+> 4 byte subtraction on the frame length, but I finally have NOT
+> added anything to avoid this because it seems the NIC always
+> discards frames so much short..
+> If someone still have some reason to worry about this, please
+> tell me.. I will add an explicit SW check..
 > 
-> On top of those...
-> 
-> Amitkumar Karwar brings an mwifiex fix for an interrupt loss issue
-> w/ SDIO devices.  The problem was due to a command timeout issue
-> introduced by an earlier patch.
-> 
-> Felix Fietkau a stall in the ath9k driver.  This patch fixes the
-> regression introduced in the commit "ath9k: use software queues for
-> un-aggregated data packets".
-> 
-> Stanislaw Gruszka reverts an rt2x00 patch that was found to cause
-> connection problems with some devices.
-> 
-> Please let me know if there are problems!
+> Signed-off-by: Andrea Merello <andrea.merello@gmail.com>
 
-Pulled, thanks John.
+Looks good, applied, thanks Andrea.
