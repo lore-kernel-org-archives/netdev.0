@@ -1,127 +1,95 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH RFC 77/77] vxge: Update MSI/MSI-X interrupts enablement
- code
-Date: Wed, 2 Oct 2013 17:29:42 -0700
-Message-ID: <20131003002941.GJ6768@jonmason-lab>
+From: Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 01/77] PCI/MSI: Fix return value when
+ populate_msi_sysfs() failed
+Date: Wed, 2 Oct 2013 17:39:05 -0700
+Message-ID: <20131003003905.GK6768@jonmason-lab>
 References: <cover.1380703262.git.agordeev@redhat.com>
- <467ce10b1df795edf80ed222816ab739fee7b0ea.1380703263.git.agordeev@redhat.com>
+ <3ff5236944aae69f2cd934b5b6da7c1c269df7c1.1380703262.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>, linux-scsi@vge
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54365 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753216Ab3JCA3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Oct 2013 20:29:48 -0400
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iss_storagedev-VXdhtT5mjnY@public.gmane.org,
+	linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	"VMware, Inc." <pv-drivers@vmw
+To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <467ce10b1df795edf80ed222816ab739fee7b0ea.1380703263.git.agordeev@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <3ff5236944aae69f2cd934b5b6da7c1c269df7c1.1380703262.git.agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 02, 2013 at 12:49:33PM +0200, Alexander Gordeev wrote:
-> As result of recent re-design of the MSI/MSI-X interrupts enabling
-> pattern this driver has to be updated to use the new technique to
-> obtain a optimal number of MSI/MSI-X interrupts required.
-> 
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+On Wed, Oct 02, 2013 at 12:48:17PM +0200, Alexander Gordeev wrote:
+> Signed-off-by: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+
+Since you are changing the behavior of the msix_capability_init
+function on populate_msi_sysfs error, a comment describing why in this
+commit would be nice.
+
 > ---
->  drivers/net/ethernet/neterion/vxge/vxge-main.c |   36 ++++++++++-------------
->  1 files changed, 16 insertions(+), 20 deletions(-)
+>  drivers/pci/msi.c |   11 +++++------
+>  1 files changed, 5 insertions(+), 6 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> index b81ff8b..b4d40dd 100644
-> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> @@ -2297,7 +2297,21 @@ static int vxge_alloc_msix(struct vxgedev *vdev)
->  	int msix_intr_vect = 0, temp;
->  	vdev->intr_cnt = 0;
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index d5f90d6..b43f391 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -719,7 +719,7 @@ static int msix_capability_init(struct pci_dev *dev,
 >  
-> -start:
-> +	ret = pci_msix_table_size(vdev->pdev);
-> +	if (ret < 0)
-> +		goto alloc_entries_failed;
-> +
-> +	if (ret < (vdev->no_of_vpath * 2 + 1)) {
-> +		if ((max_config_vpath != VXGE_USE_DEFAULT) || (ret < 3)) {
-> +			ret = -ENOSPC;
-> +			goto alloc_entries_failed;
-> +		}
-> +		/* Try with less no of vector by reducing no of vpaths count */
-> +		temp = (ret - 1)/2;
-> +		vxge_close_vpaths(vdev, temp);
-> +		vdev->no_of_vpath = temp;
-> +	}
-
-The original code was ugly (not my code, so I can say that).  I'd like
-to see it a little stream lined.  Something like:
-
-
-        vdev->intr_cnt = pci_msix_table_size(vdev->pdev);
-
-        if (vdev->intr_cnt % 2 == 0)
-                vdev->intr_cnt--;
-
-        if (vdev->intr_cnt < 3 || max_config_vpath != VXGE_USE_DEFAULT)
-                goto alloc_entries_failed;
-
-        if (vdev->intr_cnt != vdev->no_of_vpath * 2 + 1) {
-                vxge_close_vpaths(vdev, vdev->intr_cnt / 2);
-                vdev->no_of_vpath = vdev->intr_cnt / 2;
-        }
-
-
-> +
->  	/* Tx/Rx MSIX Vectors count */
->  	vdev->intr_cnt = vdev->no_of_vpath * 2;
+>  	ret = arch_setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSIX);
+>  	if (ret)
+> -		goto error;
+> +		goto out_avail;
 >  
-> @@ -2347,25 +2361,7 @@ start:
->  	vdev->vxge_entries[j].in_use = 0;
+>  	/*
+>  	 * Some devices require MSI-X to be enabled before we can touch the
+> @@ -732,10 +732,8 @@ static int msix_capability_init(struct pci_dev *dev,
+>  	msix_program_entries(dev, entries);
 >  
->  	ret = pci_enable_msix(vdev->pdev, vdev->entries, vdev->intr_cnt);
-> -	if (ret > 0) {
-> -		vxge_debug_init(VXGE_ERR,
-> -			"%s: MSI-X enable failed for %d vectors, ret: %d",
-> -			VXGE_DRIVER_NAME, vdev->intr_cnt, ret);
-> -		if ((max_config_vpath != VXGE_USE_DEFAULT) || (ret < 3)) {
-> -			ret = -ENOSPC;
-> -			goto enable_msix_failed;
-> -		}
-> -
-> -		kfree(vdev->entries);
-> -		kfree(vdev->vxge_entries);
-> -		vdev->entries = NULL;
-> -		vdev->vxge_entries = NULL;
-> -		/* Try with less no of vector by reducing no of vpaths count */
-> -		temp = (ret - 1)/2;
-> -		vxge_close_vpaths(vdev, temp);
-> -		vdev->no_of_vpath = temp;
-> -		goto start;
-> -	} else if (ret < 0)
+>  	ret = populate_msi_sysfs(dev);
+> -	if (ret) {
+> -		ret = 0;
+> -		goto error;
+> -	}
 > +	if (ret)
->  		goto enable_msix_failed;
-
-Nit, space here please.
-
+> +		goto out_free;
+>  
+>  	/* Set MSI-X enabled bits and unmask the function */
+>  	pci_intx_for_msi(dev, 0);
+> @@ -746,7 +744,7 @@ static int msix_capability_init(struct pci_dev *dev,
+>  
 >  	return 0;
 >  
+> -error:
+> +out_avail:
+>  	if (ret < 0) {
+>  		/*
+>  		 * If we had some success, report the number of irqs
+> @@ -763,6 +761,7 @@ error:
+>  			ret = avail;
+>  	}
+>  
+> +out_free:
+>  	free_msi_irqs(dev);
+>  
+>  	return ret;
 > -- 
 > 1.7.7.6
 > 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
