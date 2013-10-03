@@ -1,46 +1,33 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Ideas on why using WPA2 encryption speeds up many TCP connections?
-Date: Thu, 03 Oct 2013 11:27:02 -0700
-Message-ID: <524DB6F6.6020405@candelatech.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [stable 3.0] add some CVE fixes
+Date: Thu, 3 Oct 2013 11:44:11 -0700
+Message-ID: <20131003184411.GG8901@kroah.com>
+References: <524D36DC.5070506@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53959 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab3JCS1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 14:27:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable <stable@vger.kernel.org>, netdev@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <524D36DC.5070506@suse.cz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm seeing something a bit strange and wondering if anyone had an opinion on why...
+On Thu, Oct 03, 2013 at 11:20:28AM +0200, Jiri Slaby wrote:
+> Hi,
+> 
+> could you consider adding fixes for the following CVEs to 3.0 (and
+> possibly later)?
+> CVE-2013-4163: 75a493e60ac4bbe2e977e7129d6d8cbb0dd236be
+> CVE-2013-2206: f2815633504b442ca0b0605c16bf3d88a3a0fcea
 
-I am testing up to 200 wifi station systems, each with a TCP connection running
-on them (download only, from VAP to stations).
+Network patches for stable releases need to be asked of the networking
+maintainer, who then forwards them on to me.
 
-Without encryption (ie, open network), I see total throughput go from
-about 108Mbps down to 69Mbps as I add more stations (I add 25 at a time,
-so the 108Mbps is with 25 active, and 69Mbps is with 200 active).
+> Plus the backports that are replied to this mail?
 
-However, if I enable encryption, the throughput is actually higher
-(111Mbps to 71Mbps).  I'm doing encryption in software, so it adds a fair
-bit of CPU load in this test.  The numbers bounce around since this is
-wifi after all, but in general encryption tends to win reliably in this
-test.
+I don't see any backports, did you forget to send them?
 
-When testing with a single station (and 5 tcp streams with jacked up snd/rcv buffers)
-the open networks perform significantly better at total throughput:  263Mbps vs 246Mbps.
+thanks,
 
-Maybe the extra delay for decryption increases odds that GRO will take
-affect for the many, slower streams (and maybe that will decrease ACK traffic?)
-
-Any other ideas?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+greg k-h
