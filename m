@@ -1,119 +1,88 @@
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Subject: Re: [PATCH] IPv6: Allow the MTU of ipip6 tunnel to be set below 1280
-Date: Thu, 3 Oct 2013 13:37:34 +0100
-Message-ID: <CABfLueFvkvVsdLGwS7U5LqM5xDX=-XRt+jt8gY8Lm+=ETPtaGw@mail.gmail.com>
-References: <1380207108-20030-1-git-send-email-oghorbell@gmail.com>
-	<20130927083730.GC28287@order.stressinduktion.org>
-	<CA+ev270=P9txSvo7AZN0YcsopwhCYtJCgcZCPsdofEJ+BX+EUQ@mail.gmail.com>
-	<20130927105856.GF28287@order.stressinduktion.org>
-	<CA+ev272+Gp6Kt7S8P-wXxPBh0D8Di9WVH9NDi41HpNakLKC4Dw@mail.gmail.com>
-	<20130927170345.GC10343@order.stressinduktion.org>
-	<CA+ev270d2Ztq9i34Lv9U15y1TbH7W-fioXFn-Q_sJd5F4biHuw@mail.gmail.com>
-	<20130929154546.GA10771@order.stressinduktion.org>
-	<CABfLueHOR1HNsRC_-+Phc=9LMPTiOVuWoEjguG64L=9hiZLeVg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: rcvbuf autotuning improvements
+Date: Thu, 03 Oct 2013 06:03:01 -0700
+Message-ID: <1380805381.19002.206.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380787003-20488-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Oussama Ghorbel <oghorbell@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Oussama Ghorbel <ou.ghorbel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABfLueHOR1HNsRC_-+Phc=9LMPTiOVuWoEjguG64L=9hiZLeVg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Francesco Fusco <ffusco@redhat.com>,
+	Michael Dalton <mwdalton@google.com>, ycheng@google.com,
+	ncardwell@google.com
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:39315 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751710Ab3JCNJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 09:09:53 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kp14so2604563pab.10
+        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 06:09:53 -0700 (PDT)
+In-Reply-To: <1380787003-20488-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I will send a new patch, the diff will be:
+On Thu, 2013-10-03 at 09:56 +0200, Daniel Borkmann wrote:
+> This is a complementary patch for commit 6ae705323 ("tcp: sndbuf
+> autotuning improvements") that fixes a performance regression on
+> receiver side in setups with low to mid latency, high throughput,
+> and senders with TSO/GSO off (receivers w/ default settings).
+> 
+> The following measurements in Mbit/s were done for 60sec w/ netperf
+> on virtio w/ TSO/GSO off:
+> 
+> (ms)    1)              2)              3)
+>   0     2762.11         1150.32         2906.17
+>  10     1083.61          538.89         1091.03
+>  25      471.81          313.18          474.60
+>  50      242.33          187.84          242.36
+>  75      162.14          134.45          161.95
+> 100      121.55          101.96          121.49
+> 150       80.64           57.75           80.48
+> 200       58.97           54.11           59.90
+> 250       47.10           46.92           47.31
+> 
+> Same setup w/ TSO/GSO on:
+> 
+> (ms)    1)              2)              3)
+>   0     12225.91        12366.89        16514.37
+>  10      1526.64         1525.79         2176.63
+>  25       655.13          647.79          871.52
+>  50       338.51          377.88          439.46
+>  75       246.49          278.46          295.62
+> 100       210.93          207.56          217.34
+> 150       127.88          129.56          141.33
+> 200        94.95           94.50          107.29
+> 250        67.39           73.88           88.35
+> 
+> Similarly as in 6ae705323, we fixed up power-of-two rounding and
+> took cached mss into account, thus bringing per_mss calculations
+> closer to each other, the rest stays as is.
+> 
+> We also renamed tcp_fixup_rcvbuf() to tcp_rcvbuf_expand() to be
+> consistent with tcp_sndbuf_expand().
+> 
+> While we do think that 6ae705323b71 is the right way to go, also
+> this follow-up seems necessary to restore performance for
+> receivers.
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 46ba243..4b51b03 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1429,9 +1429,17 @@ ip6_tnl_ioctl(struct net_device *dev, struct
-ifreq *ifr, int cmd)
- static int
- ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
- {
--       if (new_mtu < IPV6_MIN_MTU) {
--               return -EINVAL;
-+       struct ip6_tnl *tnl = netdev_priv(dev);
-+
-+       if (tnl->parms.proto == IPPROTO_IPIP) {
-+               if (new_mtu < 68)
-+                       return -EINVAL;
-+       } else {
-+               if (new_mtu < IPV6_MIN_MTU)
-+                       return -EINVAL;
-        }
-+       if (new_mtu > 0xFFF8 - dev->hard_header_len)
-+               return -EINVAL;
-        dev->mtu = new_mtu;
-        return 0;
- }
+Hmm, I think you based this patch on some virtio requirements.
+
+I would rather fix virtio, because virtio has poor truesize/payload
+ratio.
+
+Michael Dalton is working on this right now.
+
+Really I don't understand how 'fixing' initial rcvbuf could explain such
+difference in a 60 second transfert.
+
+Normally, if autotuning was working, the first sk_rcvbuf value would
+only matter in the very beginning of a flow (maybe one, two or even
+three RTT)
+
+It looks like you only need to set sk_rcvbuf to tcp_rmem[2],
+so you probably have to fix the autotuning, or virtio to give normal
+skbs, not fat ones ;)
 
 
-On Sun, Sep 29, 2013 at 5:33 PM, Oussama Ghorbel <ou.ghorbel@gmail.com> wrote:
-> On Sun, Sep 29, 2013 at 4:45 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> On Sun, Sep 29, 2013 at 10:40:11AM +0100, Oussama Ghorbel wrote:
->>> On Fri, Sep 27, 2013 at 6:03 PM, Hannes Frederic Sowa
->>> <hannes@stressinduktion.org> wrote:
->>> > Ok, let's go with one function per protocol type. Seems easier.
->>> >
->>> > It seems to get more hairy, because it depends on the tunnel driver if the
->>> > prepended ip header is accounted in hard_header_len. :/
->>> >
->>> > I don't know if it works out cleanly. Otherwise I would be ok if the checks
->>> > just get repeated in ip6_tunnel and leave the rest as-is.
->>> >
->>> Yes, It will be the clean way to do it.
->>
->> Fine. :)
->>
->>> >
->>> > Linux currently cannot create "jumbograms" (only the receiving side
->>> > is supported).
->>> >
->>> I understand, but what are the benefit from this limit or the harm
->>> from not specifying it?
->>> Please check this comment from eth.c
->>>
->>> /**
->>>  * eth_change_mtu - set new MTU size
->>>  * @dev: network device
->>>  * @new_mtu: new Maximum Transfer Unit
->>>  *
->>>  * Allow changing MTU size. Needs to be overridden for devices
->>>  * supporting jumbo frames.
->>>  */
->>> int eth_change_mtu(struct net_device *dev, int new_mtu)
->>
->> Hmm, I cannot judge without the full patch. Will it be applicable
->> to all net_devices or just ethernet ones? The name could be a bit
->> misleading. Remindes me a lot of dev_set_mtu based on the signature, btw.
->
-> Normally to all net_devices, otherwise it could get complicated to
-> check for every dev separately ...
-> But, never mind, the comment below solve the issue
->
->>
->>> So wouldn't be a good idea to let our function open for jumbo frames...?
->>
->> Hm, we can document the fact that the function would needed to be updated in
->> that case. But we should not allow to set a mtu which would require jumbograms
->> currently.
->
-> OK, sounds a good. I will check the mtu against the limit
-> IPV6_MAXPLEN, and document the jumbo restriction ...
->
->>
->> Greetings,
->>
->>   Hannes
->>
->
-> Regards,
-> Oussama
+Thanks
