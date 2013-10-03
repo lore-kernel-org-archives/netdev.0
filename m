@@ -1,70 +1,83 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net] be2net: Warn users of possible broken functionality
- on BE2 cards with very old F/W versions with latest driver.
-Date: Thu, 3 Oct 2013 07:11:04 +0000
-Message-ID: <47924b8a-63d9-4ed3-b3be-7fe9e0f525b1@CMEXHTCAS2.ad.emulex.com>
-References: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: [PATCH RFC 50/77] mlx5: Update MSI/MSI-X interrupts enablement
+ code
+Date: Thu, 3 Oct 2013 10:14:33 +0300
+Message-ID: <20131003071433.GA7299@mtldesk30>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Somnath Kotur <Somnath.Kotur@Emulex.Com>
-To: Somnath Kotur <Somnath.Kotur@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:28512 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673Ab3JCHLK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 03:11:10 -0400
-In-Reply-To: <e84f68dc-6ab3-4e56-b2f5-70e51c46d1c3@CMEXHTCAS1.ad.emulex.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"VMware, Inc." <pv-dr
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf
-> Of Somnath Kotur
-> 
-> On very old F/W versions < 4.0, the mailbox command to set interrupts on the
-> card succeeds even though it is not supported and should have failed leading to
-> interrupts not working.
-> Hence warn users to upgrade to a suitable F/W version to avoid seeing broken
-> functionality.
-> 
-
-Som, we've already use the term "FW" (instead of "F/W") at various places in the
-code. Can you pls stick to this.
-This is important especially for log messages. "FW" (similar to "HW" ) is much more
-commonly used and more readable.
-
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
-> b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 2c38cc4..f4bbc92 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -3247,6 +3247,11 @@ static int be_setup(struct be_adapter *adapter)
-> 
->  	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
-> 
-> +	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
-> +		dev_err(dev, "F/W version is very old. IRQs may not work\n");
-> +		dev_err(dev, "Pls upgrade to F/W version >= 4.0\n");
-> +	}
-
-Same as above.
-
+On Wed, Oct 02, 2013 at 12:49:06PM +0200, Alexander Gordeev wrote:
+>  
+> +	err = pci_msix_table_size(dev->pdev);
+> +	if (err < 0)
+> +		return err;
 > +
->  	if (adapter->vlans_added)
->  		be_vid_config(adapter);
-> 
-> --
-> 1.6.0.2
+>  	nvec = dev->caps.num_ports * num_online_cpus() + MLX5_EQ_VEC_COMP_BASE;
+>  	nvec = min_t(int, nvec, num_eqs);
+> +	nvec = min_t(int, nvec, err);
+>  	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
+>  		return -ENOSPC;
+
+Making sure we don't request more vectors then the device's is capable
+of -- looks good.
+>  
+> @@ -131,20 +136,15 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+>  	for (i = 0; i < nvec; i++)
+>  		table->msix_arr[i].entry = i;
+>  
+> -retry:
+> -	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+>  	err = pci_enable_msix(dev->pdev, table->msix_arr, nvec);
+> -	if (err <= 0) {
+> +	if (err) {
+> +		kfree(table->msix_arr);
+>  		return err;
+> -	} else if (err > MLX5_EQ_VEC_COMP_BASE) {
+> -		nvec = err;
+> -		goto retry;
+>  	}
+>  
+
+According to latest sources, pci_enable_msix() may still fail so why
+do you want to remove this code?
+
+> -	mlx5_core_dbg(dev, "received %d MSI vectors out of %d requested\n", err, nvec);
+> -	kfree(table->msix_arr);
+> +	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+>  
+> -	return -ENOSPC;
+> +	return 0;
+>  }
+>  
+>  static void mlx5_disable_msix(struct mlx5_core_dev *dev)
+> -- 
+> 1.7.7.6
 > 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
