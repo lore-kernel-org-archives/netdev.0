@@ -1,53 +1,58 @@
-From: jason.morgan@aveillant.com
-Subject: tx checksum offload in rtl8168evl disabled in driver
-Date: Thu, 3 Oct 2013 15:27:51 +0100
-Message-ID: <OF3E5567E2.6AC62D58-ON80257BF9.004ED219-80257BF9.004F713D@aveillant.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH RFC 51/77] mthca: Update MSI/MSI-X interrupts enablement
+ code
+Date: Thu, 3 Oct 2013 19:11:00 +0300
+Message-ID: <20131003191100.3e3e3bfd@jpm-OptiPlex-GX620>
+References: <cover.1380703262.git.agordeev@redhat.com>
+	<9d424912ef78993dc75e2af5006cd12913e9e7e7.1380703263.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"VMware, Inc." <pv-dr
+To: Alexander Gordeev <agordeev@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-240.asp.reflexion.net ([69.84.129.240]:34548 "EHLO
-	asp.reflexion.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753397Ab3JCO1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 10:27:15 -0400
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:57944 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754731Ab3JCQLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 12:11:06 -0400
+Received: by mail-ea0-f173.google.com with SMTP id g10so1225298eak.18
+        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 09:11:04 -0700 (PDT)
+In-Reply-To: <9d424912ef78993dc75e2af5006cd12913e9e7e7.1380703263.git.agordeev@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed,  2 Oct 2013 12:49:07 +0200
+Alexander Gordeev <agordeev@redhat.com> wrote:
 
-I'm try to get close to saturating a 1G ethernet.
+> Subject: [PATCH RFC 51/77] mthca: Update MSI/MSI-X interrupts
+> enablement code Date: Wed,  2 Oct 2013 12:49:07 +0200
+> Sender: linux-rdma-owner@vger.kernel.org
+> X-Mailer: git-send-email 1.7.7.6
+> 
+> As result of recent re-design of the MSI/MSI-X interrupts enabling
+> pattern this driver has to be updated to use the new technique to
+> obtain a optimal number of MSI/MSI-X interrupts required.
+> 
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> ---
 
-I'm at 517Mbps and I've found that there seems to be a cpu bottleneck.
+ACK.
 
-I'm using 2k to 4k frames with a rtl8168evl.
-
-I notice from ethtool that tx-checksum is turned off and refuse to turn 
-on.
-
-I've found this message
-http://www.spinics.net/lists/netdev/msg216530.html
-
-Which indicates the cause being the driver.
-
-I've looked at the driver code rtl8169.c in kernel 3.8 and the line 
-
-        [RTL_GIGA_MAC_VER_34] =
-                _R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3,
-                                                        JUMBO_9K, false),
-
-indicates the reason for this.
-
-However the message thread, above indicates that this is not a problem and 
-
-can be changed to make tx-checksum offload possible.
-
-However we are using a newer chip to the on in the message thread.  I've 
-tried to find other, more recent citations without success.
-
-So, why is it still turned off?
-
-What will be the effect of turning it on (changing false to true, in the 
-driver line) for our chip?
-
-Thanks in advance,
-Jason
+-Jack
