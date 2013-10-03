@@ -1,37 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: shrink tcp6_timewait_sock by one cache
- line
-Date: Thu, 03 Oct 2013 12:47:22 -0700
-Message-ID: <1380829642.19002.225.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380711604.19002.78.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131003.153158.1558578931500427624.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] 3com: Fix drivers/net/ethernet/3com/Kconfig
+ references to PCMCIA and 3c515
+Date: Thu, 03 Oct 2013 15:55:47 -0400 (EDT)
+Message-ID: <20131003.155547.1184801461974488959.davem@davemloft.net>
+References: <1380726483-17247-1-git-send-email-tedheadster@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: tedheadster@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:37732 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754743Ab3JCTrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:47:24 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so2928842pbc.17
-        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 12:47:23 -0700 (PDT)
-In-Reply-To: <20131003.153158.1558578931500427624.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38586 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754370Ab3JCTzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:55:49 -0400
+In-Reply-To: <1380726483-17247-1-git-send-email-tedheadster@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-03 at 15:31 -0400, David Miller wrote:
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Wed,  2 Oct 2013 11:08:03 -0400
 
-> Eric just use tcp_time_stamp in all of these locations, then you can
-> lose the casts and still achieve your stated objective.
+> The Vortex driver works with PCI and Cardbus devices, not PCMCIA.
+> 
+> There never was an EISA 3c515 card, only ISA, so remove that option.
+> 
+> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 
-I thought about this, but this would break if tcp_time_stamp was no
-longer tied to jiffies.
-
-Van Jacobson had the idea of using finer resolution tcp_time_stamp for
-TCP flows in data centers, for better RTT estimation and and cwin
-control, but also for better diagnostics.
-
-Note we used this (u32)jiffies thing in net/ipv4/inetpeer.c in the past,
-and tp->tso_deferred is also a u32 value.
+Applied, thank you.
