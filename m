@@ -1,60 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp/dccp: remove twchain
-Date: Thu, 03 Oct 2013 13:31:00 -0700
-Message-ID: <1380832260.19002.230.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380784922.19002.198.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1380830685.3419.13.camel@bwh-desktop.uk.level5networks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2013-10-03
+Date: Thu, 03 Oct 2013 16:54:04 -0400 (EDT)
+Message-ID: <20131003.165404.1304983997786923256.davem@davemloft.net>
+References: <20131003201023.GC3142@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:64017 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754548Ab3JCUbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 16:31:02 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so2964524pdj.8
-        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 13:31:01 -0700 (PDT)
-In-Reply-To: <1380830685.3419.13.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131003201023.GC3142@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-10-03 at 21:04 +0100, Ben Hutchings wrote:
-> On Thu, 2013-10-03 at 00:22 -0700, Eric Dumazet wrote:
-> [...]
-> > @@ -146,26 +150,21 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
-> >  	spin_lock(lock);
-> >  
-> >  	/*
-> > -	 * Step 2: Hash TW into TIMEWAIT chain.
-> > -	 * Should be done before removing sk from established chain
-> > -	 * because readers are lockless and search established first.
-> > +	 * Step 2: Hash TW into tcp ehash chain.
-> > +	 * Notes :
-> > +	 * - tw_refcnt is set to 3 because :
-> > +	 * - We have one reference from bhash chain.
-> > +	 * - We have one reference from ehash chain.
-> > +	 * We can use atomic_set() because prior spin_lock()/spin_unlock()
-> > +	 * committed into memory all tw fields.
-> >  	*/
-> > -	inet_twsk_add_node_rcu(tw, &ehead->twchain);
-> > +	atomic_set(&tw->tw_refcnt, 1 + 1 + 1);
-> > +	inet_twsk_add_node_rcu(tw, &ehead->chain);
-> [...]
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 3 Oct 2013 16:10:24 -0400
+
+> Here is another batch of fixes intended for the 3.12 stream...
 > 
-> 'will commit' rather than 'committed'?
-
-Nope, I am referring to prior spinlock/unlock as in :
-
-spin_lock(&bhead->lock);
-spin_unlock(&bhead->lock); 
-
+> For the mac80211 bits, Johannes says:
 > 
-> But isn't this also a separate optimisation?
+> "This time I have two fixes for IBSS (including one for wext, hah), a fix
+> for extended rates IEs, an active monitor checking fix and a sysfs
+> registration race fix."
+> 
+> On top of those...
+> 
+> Amitkumar Karwar brings an mwifiex fix for an interrupt loss issue
+> w/ SDIO devices.  The problem was due to a command timeout issue
+> introduced by an earlier patch.
+> 
+> Felix Fietkau a stall in the ath9k driver.  This patch fixes the
+> regression introduced in the commit "ath9k: use software queues for
+> un-aggregated data packets".
+> 
+> Stanislaw Gruszka reverts an rt2x00 patch that was found to cause
+> connection problems with some devices.
+> 
+> Please let me know if there are problems!
 
-Not really, value is 0 by definition, and setting 3 value before the
-add_node_rcu() avoid that a lookup see this 0 value.
-
-Not a big deal either way, lookups are under rcu and a concurrent lookup
-might not see the socket anyway.
+Pulled, thanks John.
