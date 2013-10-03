@@ -1,59 +1,37 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] dev: add support of flag IFF_NOPROC
-Date: Thu,  3 Oct 2013 15:28:25 +0200
-Message-ID: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+Subject: [PATCH iproute2 net-next-3.11] ip: add support of link flag IFF_NOPROC
+Date: Thu,  3 Oct 2013 15:30:19 +0200
+Message-ID: <1380807019-4653-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49924 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49928 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170Ab3JCN3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 09:29:12 -0400
+	with ESMTP id S1754437Ab3JCNaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 09:30:24 -0400
+In-Reply-To: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This flag allows to create netdevices without creating directories in
-/proc, ie no /proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and no
-/proc/net/dev_snmp6/<dev>.
+When this flag is specified, /proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and
+/proc/net/dev_snmp6/<dev> directories are not created.
 
-When a system creates a lot of virtual netdevices, this allows to speed up the
-creation time. For systems which continuously create and destroy virtual
-netdevices, proc entries for these netdevices may not be used, hence adding this
-flag is interesting.
+This flag cannot be removed.
 
-Note that the flag should be specified at the creation time (before calling
-register_netdevice()) and cannot be removed during the life of the netdevice.
-
-Here are some numbers:
-
-dummy20000.batch contains 20 000 times 'link add type dummy' and
-dummy20000-noproc.batch 20 000 times 'link add noproc type dummy'.
-
-time ip -b dummy20000.batch
-real    0m56.367s
-user    0m0.200s
-sys     0m53.070s
-
-time ip -b dummy20000-noproc.batch
-real    0m42.417s
-user    0m0.310s
-sys     0m38.470s
-
-Suggested-by: Thierry Herbelot <thierry.herbelot@6wind.com>
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/uapi/linux/if.h | 2 ++
- net/core/dev.c          | 2 +-
- net/core/rtnetlink.c    | 1 +
- net/ipv4/devinet.c      | 3 +++
- net/ipv6/addrconf.c     | 3 +++
- net/ipv6/proc.c         | 5 +++++
- 6 files changed, 15 insertions(+), 1 deletion(-)
+ include/linux/if.h    | 2 ++
+ ip/ipaddress.c        | 1 +
+ ip/iplink.c           | 3 +++
+ man/man8/ip-link.8.in | 8 ++++++++
+ 4 files changed, 14 insertions(+)
 
-diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-index 1ec407b01e46..bb9fe5eb38bf 100644
---- a/include/uapi/linux/if.h
-+++ b/include/uapi/linux/if.h
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 7f261c08e816..5b8a5ebff599 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
 @@ -53,6 +53,8 @@
  
  #define IFF_ECHO	0x40000		/* echo sent packets		*/
@@ -63,81 +41,64 @@ index 1ec407b01e46..bb9fe5eb38bf 100644
  #define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
  		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c25db20a4246..13f6dd360c74 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5199,7 +5199,7 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
- 			       IFF_DYNAMIC | IFF_MULTICAST | IFF_PORTSEL |
- 			       IFF_AUTOMEDIA)) |
- 		     (dev->flags & (IFF_UP | IFF_VOLATILE | IFF_PROMISC |
--				    IFF_ALLMULTI));
-+				    IFF_ALLMULTI | IFF_NOPROC));
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 1c3e4da0d0da..b2e35028c844 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -116,6 +116,7 @@ static void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
+ 	_PF(LOWER_UP);
+ 	_PF(DORMANT);
+ 	_PF(ECHO);
++	_PF(NOPROC);
+ #undef _PF
+ 	if (flags)
+ 		fprintf(fp, "%x", flags);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index ada9d4255ba2..253ed1cc3f6f 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -50,6 +50,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "                   [ mtu MTU ]\n");
+ 		fprintf(stderr, "                   [ numtxqueues QUEUE_COUNT ]\n");
+ 		fprintf(stderr, "                   [ numrxqueues QUEUE_COUNT ]\n");
++		fprintf(stderr, "                   [ noproc ]\n");
+ 		fprintf(stderr, "                   type TYPE [ ARGS ]\n");
+ 		fprintf(stderr, "       ip link delete DEV type TYPE [ ARGS ]\n");
+ 		fprintf(stderr, "\n");
+@@ -480,6 +481,8 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				invarg("Invalid \"numrxqueues\" value\n", *argv);
+ 			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
+ 				  &numrxqueues, 4);
++		} else if (matches(*argv, "noproc") == 0) {
++			req->i.ifi_flags |= IFF_NOPROC;
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 76f92ddbd82c..b16d1a1f8a41 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -45,6 +45,8 @@ ip-link \- network device configuration
+ .RB "[ " numrxqueues
+ .IR QUEUE_COUNT " ]"
+ .br
++.RB "[ " noproc " ]"
++.br
+ .BR type " TYPE"
+ .RI "[ " ARGS " ]"
  
- 	/*
- 	 *	Load in the correct multicast list now the flags have changed.
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 4aedf03da052..5bad28e66fa2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1860,6 +1860,7 @@ replay:
- 		}
+@@ -197,6 +199,12 @@ specifies the number of transmit queues for new device.
+ specifies the number of receive queues for new device.
  
- 		dev->ifindex = ifm->ifi_index;
-+		dev->flags |= ifm->ifi_flags & IFF_NOPROC;
- 
- 		if (ops->newlink)
- 			err = ops->newlink(net, dev, tb, data);
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a1b5bcbd04ae..13b4089d8996 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2160,6 +2160,9 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
- 
- static void devinet_sysctl_register(struct in_device *idev)
- {
-+	if (idev->dev->flags & IFF_NOPROC)
-+		return;
+ .TP
++.BI noproc
++specifies to no create iface related directories under /proc
++(/proc/sys/net/ipv[4|6]/[conf|neigh]/<dev> and
++/proc/net/dev_snmp6/<dev>)
 +
- 	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
- 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					&idev->cnf);
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cd3fb301da38..e06d15ea2dba 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5032,6 +5032,9 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 
- static void addrconf_sysctl_register(struct inet6_dev *idev)
- {
-+	if (idev->dev->flags & IFF_NOPROC)
-+		return;
-+
- 	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
- 			      &ndisc_ifinfo_sysctl_change);
- 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 091d066a57b3..f89911116aa7 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -274,6 +274,9 @@ int snmp6_register_dev(struct inet6_dev *idev)
- 	if (!idev || !idev->dev)
- 		return -EINVAL;
- 
-+	if (idev->dev->flags & IFF_NOPROC)
-+		return 0;
-+
- 	net = dev_net(idev->dev);
- 	if (!net->mib.proc_net_devsnmp6)
- 		return -ENOENT;
-@@ -291,6 +294,8 @@ int snmp6_register_dev(struct inet6_dev *idev)
- int snmp6_unregister_dev(struct inet6_dev *idev)
- {
- 	struct net *net = dev_net(idev->dev);
-+	if (idev->dev->flags & IFF_NOPROC)
-+		return 0;
- 	if (!net->mib.proc_net_devsnmp6)
- 		return -ENOENT;
- 	if (!idev->stats.proc_dir_entry)
++.TP
+ VXLAN Type Support
+ For a link of type 
+ .I VXLAN
 -- 
 1.8.2.1
