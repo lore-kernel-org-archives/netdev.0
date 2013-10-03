@@ -1,87 +1,127 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Ideas on why using WPA2 encryption speeds up many TCP connections?
-Date: Thu, 03 Oct 2013 12:17:12 -0700
-Message-ID: <524DC2B8.905@candelatech.com>
-References: <524DB6F6.6020405@candelatech.com> <524DBC93.1070400@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:57776 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562Ab3JCTRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:17:20 -0400
-In-Reply-To: <524DBC93.1070400@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrea Merello <andrea.merello@gmail.com>
+Subject: [PATCH] atl1e: enable support for NETIF_F_RXALL and NETIF_F_RXCRC features
+Date: Thu,  3 Oct 2013 21:18:37 +0200
+Message-ID: <1380827917-22992-1-git-send-email-andrea.merello@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrea Merello <andrea.merello@gmail.com>
+To: jie.yang@atheros.com, xiong.huang@atheros.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/03/2013 11:50 AM, Rick Jones wrote:
-> On 10/03/2013 11:27 AM, Ben Greear wrote:
->> I'm seeing something a bit strange and wondering if anyone had an
->> opinion on why...
->>
->> I am testing up to 200 wifi station systems, each with a TCP connection
->> running on them (download only, from VAP to stations).
->>
->> Without encryption (ie, open network), I see total throughput go from
->> about 108Mbps down to 69Mbps as I add more stations (I add 25 at a time,
->> so the 108Mbps is with 25 active, and 69Mbps is with 200 active).
->>
->> However, if I enable encryption, the throughput is actually higher
->> (111Mbps to 71Mbps).  I'm doing encryption in software, so it adds a fair
->> bit of CPU load in this test.  The numbers bounce around since this is
->> wifi after all, but in general encryption tends to win reliably in this
->> test.
->>
->> When testing with a single station (and 5 tcp streams with jacked up
->> snd/rcv buffers) the open networks perform significantly better at total throughput:
->> 263Mbps vs 246Mbps.
->>
->> Maybe the extra delay for decryption increases odds that GRO will take
->> affect for the many, slower streams (and maybe that will decrease ACK
->> traffic?)
->>
->> Any other ideas?
->
-> Fewer times two or more stations step on one another?  The recievers will only try to transmit when they receive data.  Modulo timing, if the individual
-> downloads are a bit slower, less chance of the receivers looking to send ACKs back through at the same time?  Got any low-level stats for the health and well
-> being of the wireless network?
+This patch allows (optionally, via ethtool) the atl1e NIC to:
+- Receive bad frames (runt, bad-fcs, etc..)
+- Receive full frames without stripping the FCS.
 
-The tcp connection stats are taken after running for 60 seconds, and I take 3-sec running averages
-as well as 60 second averages.  So, I think that it would have to be total decrease in ACKs,
-not just timing, to make a difference.  The 3 and 60 second stats show consistently higher throughput
-with encryption when using 25+ stations/connections.
+This has been tested on my board by injecting runt and bad-fcs
+frames with a FPGA-based device.
 
-Also, it works out that the sending sockets all sort of send randomly as they
-are able, so I don't think there would be any particular ACK flood seen..
+The particular scenario of receiving very short frames (<4 bytes)
+without passing FCS to the upper layer has been also tested:
+This could be potentially dangerous because the driver performs a
+4 byte subtraction on the frame length, but I finally have NOT
+added anything to avoid this because it seems the NIC always
+discards frames so much short..
+If someone still have some reason to worry about this, please
+tell me.. I will add an explicit SW check..
 
-I have great quantities of low level stats, but I have not dug into them in detail
-just yet.  In general, my RF environment in this test is fairly controlled, as
-I am cabling the systems using good semi-rigid SMA cables and an RF attenuator.
-There will be some external interference of course, as they are not in an
-isolation chamber.
+Signed-off-by: Andrea Merello <andrea.merello@gmail.com>
+---
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 46 ++++++++++++++++++++++---
+ 1 file changed, 42 insertions(+), 4 deletions(-)
 
-
-As for the difference in 1 stations vs 25+, then it is very likely related to
-low level things like MPDU working better with a single station, and probably
-better ACK avoidance (I recall about 20kpps download, 4kpps upload in a previous
-test with a single station, which indicates to me we must not be acking every
-packet-on-the-air..somehow).
-
-(For grins, I played with the delayed-ack-segs from an out-of-tree patch and
-can get TCP throughput up to 300Mbps by setting delayed ack segs to 64 in
-single station/5 stream, open network test).
-
-Thanks,
-Ben
-
->
-> rick jones
-
-
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index 1966444..7a73f3a 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -313,6 +313,34 @@ static void atl1e_set_multi(struct net_device *netdev)
+ 	}
+ }
+ 
++static void __atl1e_rx_mode(netdev_features_t features, u32 *mac_ctrl_data)
++{
++
++	if (features & NETIF_F_RXALL) {
++		/* enable RX of ALL frames */
++		*mac_ctrl_data |= MAC_CTRL_DBG;
++	} else {
++		/* disable RX of ALL frames */
++		*mac_ctrl_data &= ~MAC_CTRL_DBG;
++	}
++}
++
++static void atl1e_rx_mode(struct net_device *netdev,
++	netdev_features_t features)
++{
++	struct atl1e_adapter *adapter = netdev_priv(netdev);
++	u32 mac_ctrl_data = 0;
++
++	netdev_dbg(adapter->netdev, "%s\n", __func__);
++
++	atl1e_irq_disable(adapter);
++	mac_ctrl_data = AT_READ_REG(&adapter->hw, REG_MAC_CTRL);
++	__atl1e_rx_mode(features, &mac_ctrl_data);
++	AT_WRITE_REG(&adapter->hw, REG_MAC_CTRL, mac_ctrl_data);
++	atl1e_irq_enable(adapter);
++}
++
++
+ static void __atl1e_vlan_mode(netdev_features_t features, u32 *mac_ctrl_data)
+ {
+ 	if (features & NETIF_F_HW_VLAN_CTAG_RX) {
+@@ -394,6 +422,10 @@ static int atl1e_set_features(struct net_device *netdev,
+ 	if (changed & NETIF_F_HW_VLAN_CTAG_RX)
+ 		atl1e_vlan_mode(netdev, features);
+ 
++	if (changed & NETIF_F_RXALL)
++		atl1e_rx_mode(netdev, features);
++
++
+ 	return 0;
+ }
+ 
+@@ -1057,7 +1089,8 @@ static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
+ 		value |= MAC_CTRL_PROMIS_EN;
+ 	if (netdev->flags & IFF_ALLMULTI)
+ 		value |= MAC_CTRL_MC_ALL_EN;
+-
++	if (netdev->features & NETIF_F_RXALL)
++		value |= MAC_CTRL_DBG;
+ 	AT_WRITE_REG(hw, REG_MAC_CTRL, value);
+ }
+ 
+@@ -1405,7 +1438,8 @@ static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
+ 			rx_page_desc[que].rx_nxseq++;
+ 
+ 			/* error packet */
+-			if (prrs->pkt_flag & RRS_IS_ERR_FRAME) {
++			if ((prrs->pkt_flag & RRS_IS_ERR_FRAME) &&
++			    !(netdev->features & NETIF_F_RXALL)) {
+ 				if (prrs->err_flag & (RRS_ERR_BAD_CRC |
+ 					RRS_ERR_DRIBBLE | RRS_ERR_CODE |
+ 					RRS_ERR_TRUNC)) {
+@@ -1418,7 +1452,10 @@ static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
+ 			}
+ 
+ 			packet_size = ((prrs->word1 >> RRS_PKT_SIZE_SHIFT) &
+-					RRS_PKT_SIZE_MASK) - 4; /* CRC */
++					RRS_PKT_SIZE_MASK);
++			if (likely(!(netdev->features & NETIF_F_RXFCS)))
++				packet_size -= 4; /* CRC */
++
+ 			skb = netdev_alloc_skb_ip_align(netdev, packet_size);
+ 			if (skb == NULL)
+ 				goto skip_pkt;
+@@ -2245,7 +2282,8 @@ static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
+ 			      NETIF_F_HW_VLAN_CTAG_RX;
+ 	netdev->features = netdev->hw_features | NETIF_F_LLTX |
+ 			   NETIF_F_HW_VLAN_CTAG_TX;
+-
++	/* not enabled by default */
++	netdev->hw_features |= NETIF_F_RXALL | NETIF_F_RXFCS;
+ 	return 0;
+ }
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.8.1.2
