@@ -1,39 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1e: enable support for NETIF_F_RXALL and
- NETIF_F_RXCRC features
-Date: Thu, 03 Oct 2013 17:01:26 -0400 (EDT)
-Message-ID: <20131003.170126.2297161431158026731.davem@davemloft.net>
-References: <1380827917-22992-1-git-send-email-andrea.merello@gmail.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH next 0/3] be2net: Patch Series
+Date: Thu, 3 Oct 2013 16:16:23 -0500
+Message-ID: <20131003211623.GA3426@emulex.com>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jie.yang@atheros.com, xiong.huang@atheros.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andrea.merello@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380827917-22992-1-git-send-email-andrea.merello@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:16265 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755436Ab3JCVQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 17:16:26 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrea Merello <andrea.merello@gmail.com>
-Date: Thu,  3 Oct 2013 21:18:37 +0200
+Patch series against net-next.
+Please apply.
 
-> This patch allows (optionally, via ethtool) the atl1e NIC to:
-> - Receive bad frames (runt, bad-fcs, etc..)
-> - Receive full frames without stripping the FCS.
-> 
-> This has been tested on my board by injecting runt and bad-fcs
-> frames with a FPGA-based device.
-> 
-> The particular scenario of receiving very short frames (<4 bytes)
-> without passing FCS to the upper layer has been also tested:
-> This could be potentially dangerous because the driver performs a
-> 4 byte subtraction on the frame length, but I finally have NOT
-> added anything to avoid this because it seems the NIC always
-> discards frames so much short..
-> If someone still have some reason to worry about this, please
-> tell me.. I will add an explicit SW check..
-> 
-> Signed-off-by: Andrea Merello <andrea.merello@gmail.com>
+[1/3] be2net: Call version 2 of GET_STATS ioctl for Skyhawk-R
+[2/3] be2net: Display RoCE specific counters in ethtool -S
+[3/3] be2net: change the driver version number to 4.9.224.0
 
-Looks good, applied, thanks Andrea.
+Thanks
+-Ajit
