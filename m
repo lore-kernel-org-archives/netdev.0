@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] dev: add support of flag IFF_NOPROC
-Date: Thu, 03 Oct 2013 15:09:47 -0400 (EDT)
-Message-ID: <20131003.150947.2179820478039260398.davem@davemloft.net>
-References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20131003104627.411f5cc4@nehalam.linuxnetplumber.net>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [stable 3.0] add some CVE fixes
+Date: Thu, 03 Oct 2013 21:11:41 +0200
+Message-ID: <524DC16D.90805@suse.cz>
+References: <524D36DC.5070506@suse.cz> <20131003184411.GG8901@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37955 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754349Ab3JCTJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 15:09:51 -0400
-In-Reply-To: <20131003104627.411f5cc4@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stable <stable@vger.kernel.org>, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131003184411.GG8901@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 3 Oct 2013 10:46:27 -0700
+On 10/03/2013 08:44 PM, Greg KH wrote:
+> On Thu, Oct 03, 2013 at 11:20:28AM +0200, Jiri Slaby wrote:
+>> Plus the backports that are replied to this mail?
+> 
+> I don't see any backports, did you forget to send them?
 
-> What about speeding up proc or sysfs? Or providing a bulk create/destroy.
+I don't think so, they were sent and this is a log of one of them:
+OK. Log says:
+Sendmail: /usr/sbin/sendmail -f jslaby@suse.cz -i stable@vger.kernel.org
+jslaby@suse.cz
+From: Jiri Slaby <jslaby@suse.cz>
+To: <stable@vger.kernel.org>
+Cc: jslaby@suse.cz
+Subject: [PATCH 4/4] Tools: hv: verify origin of netlink connector message
+Date: Thu,  3 Oct 2013 11:23:50 +0200
+Message-Id: <1380792230-27255-4-git-send-email-jslaby@suse.cz>
+X-Mailer: git-send-email 1.8.4
+In-Reply-To: <1380792230-27255-1-git-send-email-jslaby@suse.cz>
+References: <524D36DC.5070506@suse.cz>
+ <1380792230-27255-1-git-send-email-jslaby@suse.cz>
 
-+1 +1 +1
+Result: OK
 
-This will benefit more people than the just the envisioned users for
-this IFF_NOPROC thing.
+Could you check your spam folder? Or I can bounce them directly to you?
 
-I really don't want to take the IFF_NOPROC approach.
+thanks,
+-- 
+js
+suse labs
