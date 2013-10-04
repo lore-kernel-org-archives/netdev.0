@@ -1,92 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: do not forget FIN in tcp_shifted_skb()
-Date: Fri, 04 Oct 2013 10:31:41 -0700
-Message-ID: <1380907901.3564.24.camel@edumazet-glaptop.roam.corp.google.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH 0/3] net: mv643xx_eth: various small fixes for v3.12
+Date: Fri, 04 Oct 2013 19:34:14 +0200
+Message-ID: <524EFC16.80104@gmail.com>
+References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20131004165354.GA9065@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:50748 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995Ab3JDRbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 13:31:42 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so4440313pad.19
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 10:31:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
+ David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20131004165354.GA9065@localhost>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <edumazet@google.com>
+On 10/04/2013 06:53 PM, Ezequiel Garcia wrote:
+> On Wed, Oct 02, 2013 at 12:57:19PM +0200, Sebastian Hesselbarth wrote:
+>> This patch set comprises some one-liners to fix issues with repeated
+>> loading and unloading of a modular mv643xx_eth driver.
+>>
+>> First two patches take care of the periodic port statistic timer, that
+>> updates statistics by reading port registers using add_timer/mod_timer.
+>>
+>> Patch 1 moves timer re-schedule from mib_counters_update to the timer
+>> callback. As mib_counters_update is also called from non-timer context,
+>> this ensures the timer is reactivated from timer context only.
+>>
+>> Patch 2 moves initial timer schedule from _probe() time to right before
+>> the port is actually started as the corresponding del_timer_sync is at
+>> _stop() time. This fixes a regression, where unloading the driver from a
+>> non-started eth device can cause the timer to access deallocated mem.
+>>
+>> Patch 3 adds an assignment of the ports device_node to the corresponding
+>> self-created platform_device. This is required to allow fixups based on
+>> the device_node's compatible string later. Actually, it is also a potential
+>> regression because we already check compatible string for Kirkwood, but
+>> does not (yet) rely on the fixup.
+>>
+>> All patches are based on v3.12-rc3 and have been tested on Kirkwood-based
+>> Seagate Dockstar.
+>>
+>> Patches 1 and 2 can also possibly queued up for -stable.
+>>
+>> Sebastian Hesselbarth (3):
+>>    net: mv643xx_eth: update statistics timer from timer context only
+>>    net: mv643xx_eth: fix orphaned statistics timer crash
+>>    net: mv643xx_eth: fix missing device_node for port devices
+>>
+>>   drivers/net/ethernet/marvell/mv643xx_eth.c |    7 +++----
+>>   1 file changed, 3 insertions(+), 4 deletions(-)
+>>
+>> ---
+>> Cc: David Miller <davem@davemloft.net>
+>> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+>> Cc: Jason Cooper <jason@lakedaemon.net>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linux-kernel@vger.kernel.org
+>
+> Sorry for missing this series, somehow my filters failed to catch it.
+>
+> Anyway, I would expect these patches to have my Reported-by, but I'm
+> glad to see you've solved all the issues.
 
-Yuchung found following problem :
+True, thanks to Ezequiel for initially reporting the issues. I will
+have to be more careful about the Reported-by next time.
 
- There are bugs in the SACK processing code, merging part in
- tcp_shift_skb_data(), that incorrectly resets or ignores the sacked
- skbs FIN flag. When a receiver first SACK the FIN sequence, and later
- throw away ofo queue (e.g., sack-reneging), the sender will stop
- retransmitting the FIN flag, and hangs forever.
-
-=46ollowing packetdrill test can be used to reproduce the bug.
-
-$ cat sack-merge-bug.pkt
-`sysctl -q net.ipv4.tcp_fack=3D0`
-
-// Establish a connection and send 10 MSS.
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) =3D 3
-+.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-+.000 bind(3, ..., ...) =3D 0
-+.000 listen(3, 1) =3D 0
-
-+.050 < S 0:0(0) win 32792 <mss 1000,sackOK,nop,nop,nop,wscale 7>
-+.000 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 6>
-+.001 < . 1:1(0) ack 1 win 1024
-+.000 accept(3, ..., ...) =3D 4
-
-+.100 write(4, ..., 12000) =3D 12000
-+.000 shutdown(4, SHUT_WR) =3D 0
-+.000 > . 1:10001(10000) ack 1
-+.050 < . 1:1(0) ack 2001 win 257
-+.000 > FP. 10001:12001(2000) ack 1
-+.050 < . 1:1(0) ack 2001 win 257 <sack 10001:11001,nop,nop>
-+.050 < . 1:1(0) ack 2001 win 257 <sack 10001:12002,nop,nop>
-// SACK reneg
-+.050 < . 1:1(0) ack 12001 win 257
-+0 %{ print "unacked: ",tcpi_unacked }%
-+5 %{ print "" }%
-
-
-=46irst, a typo inverted left/right of one OR operation, then
-code forgot to advance end_seq if the merged skb carried FIN.
-
-Bug was added in 2.6.29 by commit 832d11c5cd076ab
-("tcp: Try to restore large SKBs while SACK processing")
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Acked-by: Neal Cardwell <ncardwell@google.com>
-Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 25a89ea..113dc5f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1284,7 +1284,10 @@ static bool tcp_shifted_skb(struct sock *sk, str=
-uct sk_buff *skb,
- 		tp->lost_cnt_hint -=3D tcp_skb_pcount(prev);
- 	}
-=20
--	TCP_SKB_CB(skb)->tcp_flags |=3D TCP_SKB_CB(prev)->tcp_flags;
-+	TCP_SKB_CB(prev)->tcp_flags |=3D TCP_SKB_CB(skb)->tcp_flags;
-+	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
-+		TCP_SKB_CB(prev)->end_seq++;
-+
- 	if (skb =3D=3D tcp_highest_sack(sk))
- 		tcp_advance_highest_sack(sk, skb);
-=20
+> I see David has already applied them all, but I'll re-run my tests to
+> check there aren't any more issues if I can find some time next week.
+>
+> Thanks for taking care of it!
