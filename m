@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/33] netfilter: ipset: Don't call ip_nest_end needlessly in the error path
-Date: Fri,  4 Oct 2013 10:32:49 +0200
-Message-ID: <1380875598-5250-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/33] netfilter: xt_TCPMSS: lookup route from proper net namespace
+Date: Fri,  4 Oct 2013 10:32:48 +0200
+Message-ID: <1380875598-5250-4-git-send-email-pablo@netfilter.org>
 References: <1380875598-5250-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,69 +10,49 @@ In-Reply-To: <1380875598-5250-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Suggested-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Otherwise the pmtu will be incorrect.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h |    2 +-
- net/netfilter/ipset/ip_set_hash_gen.h   |    2 +-
- net/netfilter/ipset/ip_set_list_set.c   |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/xt_TCPMSS.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 2524337..f6af97c 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -228,11 +228,11 @@ mtype_list(const struct ip_set *set,
- 
- nla_put_failure:
- 	nla_nest_cancel(skb, nested);
--	ipset_nest_end(skb, adt);
- 	if (unlikely(id == first)) {
- 		cb->args[2] = 0;
- 		return -EMSGSIZE;
- 	}
-+	ipset_nest_end(skb, adt);
- 	return 0;
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 62776de..e762de5 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -43,7 +43,8 @@ optlen(const u_int8_t *opt, unsigned int offset)
+ 		return opt[offset+1];
  }
  
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 707bc52..7ff20ec 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -909,13 +909,13 @@ mtype_list(const struct ip_set *set,
+-static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
++static u_int32_t tcpmss_reverse_mtu(struct net *net,
++				    const struct sk_buff *skb,
+ 				    unsigned int family)
+ {
+ 	struct flowi fl;
+@@ -64,7 +65,7 @@ static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
+ 	rcu_read_lock();
+ 	ai = nf_get_afinfo(family);
+ 	if (ai != NULL)
+-		ai->route(&init_net, (struct dst_entry **)&rt, &fl, false);
++		ai->route(net, (struct dst_entry **)&rt, &fl, false);
+ 	rcu_read_unlock();
  
- nla_put_failure:
- 	nlmsg_trim(skb, incomplete);
--	ipset_nest_end(skb, atd);
- 	if (unlikely(first == cb->args[2])) {
- 		pr_warning("Can't list set %s: one bucket does not fit into "
- 			   "a message. Please report it!\n", set->name);
- 		cb->args[2] = 0;
- 		return -EMSGSIZE;
- 	}
-+	ipset_nest_end(skb, atd);
- 	return 0;
- }
+ 	if (rt != NULL) {
+@@ -107,7 +108,8 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 		return -1;
  
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 979b8c9..68299ee 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -550,11 +550,11 @@ finish:
+ 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+-		unsigned int in_mtu = tcpmss_reverse_mtu(skb, family);
++		struct net *net = dev_net(par->in ? par->in : par->out);
++		unsigned int in_mtu = tcpmss_reverse_mtu(net, skb, family);
  
- nla_put_failure:
- 	nla_nest_cancel(skb, nested);
--	ipset_nest_end(skb, atd);
- 	if (unlikely(i == first)) {
- 		cb->args[2] = 0;
- 		return -EMSGSIZE;
- 	}
-+	ipset_nest_end(skb, atd);
- 	return 0;
- }
- 
+ 		if (dst_mtu(skb_dst(skb)) <= minlen) {
+ 			net_err_ratelimited("unknown or invalid path-MTU (%u)\n",
 -- 
 1.7.10.4
 
