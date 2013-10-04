@@ -1,74 +1,74 @@
-From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2.42 1/5] odp: Allow VLAN actions after MPLS
-	actions
-Date: Fri, 4 Oct 2013 09:21:33 -0700
-Message-ID: <20131004162133.GG29572@nicira.com>
-References: <1380874200-8981-1-git-send-email-horms@verge.net.au>
-	<1380874200-8981-2-git-send-email-horms@verge.net.au>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next] xen-netback: fix xenvif_count_skb_slots()
+Date: Fri, 4 Oct 2013 17:26:23 +0100
+Message-ID: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1380874200-8981-2-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Xi Xiong <xixiong@amazon.com>, Matt Wilson <msw@amazon.com>,
+	Annie Li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:13658 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754729Ab3JDQ0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Oct 2013 12:26:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 04, 2013 at 05:09:56PM +0900, Simon Horman wrote:
-> From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
-> 
-> OpenFlow 1.1 and 1.2, and 1.3 differ in their handling of MPLS actions in the
-> presence of VLAN tags. To allow correct behaviour to be committed in
-> each situation, this patch adds a second round of VLAN tag action
-> handling to commit_odp_actions(), which occurs after MPLS actions. This
-> is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
-> 
-> When an push_mpls action is composed, the flow's current VLAN state is
-> stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
-> a VLAN tag is present, it is stripped; if not, then there is no change.
-> Any later modifications to the VLAN state is written to xin->vlan_tci.
-> When committing the actions, flow->vlan_tci is used before MPLS actions,
-> and xin->vlan_tci is used afterwards. This retains the current datapath
-> behaviour, but allows VLAN actions to be applied in a more flexible
-> manner.
-> 
-> Both before and after this patch MPLS LSEs are pushed onto a packet after
-> any VLAN tags that may be present. This is the behaviour described in
-> OpenFlow 1.1 and 1.2. OpenFlow 1.3 specifies that MPLS LSEs should be
-> pushed onto a packet before any VLAN tags that are present. Support
-> for this will be added by a subsequent patch that makes use of
-> the infrastructure added by this patch.
-> 
-> Signed-off-by: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
-> Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c introduced an error into
+xenvif_count_skb_slots() for skbs with a linear area spanning a page
+boundary. The alignment of skb->data needs to be taken into account, not
+just the head length. This patch fixes the issue by dry-running the code
+from xenvif_gop_skb() (and adjusting the comment above the function to note
+that).
 
-I noticed a couple more minor points.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Xi Xiong <xixiong@amazon.com>
+Cc: Matt Wilson <msw@amazon.com>
+Cc: Annie Li <annie.li@oracle.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>
 
-First, it seems to me that the "vlan_tci" member that this adds to
-xlate_in could go in xlate_ctx just as well.  I would prefer that,
-because (as far as I can tell) there is no reason for the client to use
-any value other than flow->vlan_tci here, and putting it in xlate_ctx
-hides it from the client.
+---
+ drivers/net/xen-netback/netback.c |   17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-Thanks for rearranging the code and updating the comment in
-do_xlate_actions().  It makes the operation clearer.  But now that it's
-clear I have an additional question.  Does it really make sense to have
-'vlan_tci' as only a local variable in do_xlate_actions()?  Presumably,
-MPLS and VLANs should interact the same way regardless of whether they
-are separated by resubmits or goto_tables.  That is, I suspect that this
-is xlate_ctx state, not local state.
-
-Thanks,
-
-Ben.
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index d0b0feb..6f680f4 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -223,15 +223,28 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+ /*
+  * Figure out how many ring slots we're going to need to send @skb to
+  * the guest. This function is essentially a dry run of
+- * xenvif_gop_frag_copy.
++ * xenvif_gop_skb.
+  */
+ unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+ {
++	unsigned char *data;
+ 	unsigned int count;
+ 	int i, copy_off;
+ 	struct skb_cb_overlay *sco;
+ 
+-	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
++	count = 0;
++
++	data = skb->data;
++	while (data < skb_tail_pointer(skb)) {
++		unsigned int offset = offset_in_page(data);
++		unsigned int len = PAGE_SIZE - offset;
++
++		if (data + len > skb_tail_pointer(skb))
++			len = skb_tail_pointer(skb) - data;
++
++		count++;
++		data += len;
++	}
+ 
+ 	copy_off = skb_headlen(skb) % PAGE_SIZE;
+ 
+-- 
+1.7.10.4
