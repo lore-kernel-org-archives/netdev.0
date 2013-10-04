@@ -1,45 +1,32 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH] ipv4: fix ineffective source address selection
-Date: Fri,  4 Oct 2013 17:04:48 +0200
-Message-ID: <245895a0777442b56ecea1453be041aa1b31c5a2.1380898983.git.jbenc@redhat.com>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
+ side)
+Date: Fri, 04 Oct 2013 17:21:33 +0200
+Message-ID: <524EDCFD.9070204@6wind.com>
+References: <1380859529-32351-1-git-send-email-yamato@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Masatake YAMATO <yamato@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36293 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754120Ab3JDPE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Oct 2013 11:04:59 -0400
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r94F4wAE018747
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 4 Oct 2013 11:04:58 -0400
-Received: from griffin.i.upir.cz (ovpn-113-117.phx2.redhat.com [10.3.113.117])
-	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r94F4vO2002053
-	for <netdev@vger.kernel.org>; Fri, 4 Oct 2013 11:04:58 -0400
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:36738 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754721Ab3JDPVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 11:21:36 -0400
+Received: by mail-wg0-f52.google.com with SMTP id m15so4271945wgh.31
+        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 08:21:35 -0700 (PDT)
+In-Reply-To: <1380859529-32351-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending out multicast messages, the source address in inet->mc_addr is
-ignored and rewritten by an autoselected one. This is caused by a typo in
-commit 813b3b5db831 ("ipv4: Use caller's on-stack flowi as-is in output
-route lookups").
-
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- net/ipv4/route.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 727f436..6011615 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2072,7 +2072,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 							      RT_SCOPE_LINK);
- 			goto make_route;
- 		}
--		if (fl4->saddr) {
-+		if (!fl4->saddr) {
- 			if (ipv4_is_multicast(fl4->daddr))
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      fl4->flowi4_scope);
--- 
-1.7.6.5
+Le 04/10/2013 06:05, Masatake YAMATO a =C3=A9crit :
+> ip link has ability to show extra information of net work device if
+> kernel provides sunh information. With this patch veth driver can
+> provide its peer ifindex information to ip command via netlink
+> interface.
+But the ifindex can be interpreted only when you know the related netns=
+ and
+veth peer is probably in another netns.
+How to found the netdevice in userland in this case?
