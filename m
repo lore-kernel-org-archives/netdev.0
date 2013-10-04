@@ -1,61 +1,148 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 01/10] qlcnic: Print informational messages
- only once during driver load.
-Date: Fri, 4 Oct 2013 14:29:38 -0700
-Message-ID: <20131004142938.4ab6c6aa@nehalam.linuxnetplumber.net>
-References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
-	<5fea5316a6664e19c516bbd26428a5034657b130.1380937706.git.himanshu.madhani@qlogic.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v3 net-next] fix unsafe set_memory_rw from softirq
+Date: Fri, 4 Oct 2013 06:56:29 -0700
+Message-ID: <CANn89iKkbR0_HaofvC_OVvqRv_Hqj3rATx-Z_4xXeusOasa56g@mail.gmail.com>
+References: <1380853446-30537-1-git-send-email-ast@plumgrid.com>
+ <20131004075133.GA12313@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/mixed; boundary="===============6181738457069530019=="
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
+ Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>,
+ sparclinux@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+ Alexei Starovoitov <ast@plumgrid.com>, linux-s390@vger.kernel.org,
+ Russell King <linux@arm.linux.org.uk>, x86@kernel.org,
+ James Morris <jmorris@namei.org>, Ingo Molnar <mingo@redhat.com>,
+ Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+ "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Xi Wang <xi.wang@gmail.com>,
+ Matt Evans <matt@ozlabs.org>, Thomas Gleixner <tglx@linutronix.de>,
+ linux-arm-kernel@lists.infradead.org, Stelian Nirlu <steliannirlu@gmail.com>,
+ Nicolas Schichan <nschichan@freebox.fr>,
+ Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev <netdev@vger.kernel.org>,
+ linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ Mircea Gherzan <mgherzan@gmail.com>, Daniel Borkmann <
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20131004075133.GA12313@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
+
+--===============6181738457069530019==
+Content-Type: multipart/alternative; boundary=047d7b67807058f43a04e7eaabc3
+
+--047d7b67807058f43a04e7eaabc3
+Content-Type: text/plain; charset=ISO-8859-1
+
+1)
+>
+> I took a brief look at arch/x86/net/bpf_jit_comp.c while reviewing this
+> patch.
+>
+> You need to split up bpf_jit_compile(), it's an obscenely large, ~600
+> lines long function. We don't do that in modern, maintainable kernel code.
+>
+> 2)
+>
+> This 128 bytes extra padding:
+>
+>         /* Most of BPF filters are really small,
+>          * but if some of them fill a page, allow at least
+>          * 128 extra bytes to insert a random section of int3
+>          */
+>         sz = round_up(proglen + sizeof(*header) + 128, PAGE_SIZE);
+>
+> why is it done? It's not clear to me from the comment.
+>
+
+commit 314beb9bcabfd6b4542ccbced2402af2c6f6142a
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Fri May 17 16:37:03 2013 +0000
+
+    x86: bpf_jit_comp: secure bpf jit against spraying attacks
+
+    hpa bringed into my attention some security related issues
+    with BPF JIT on x86.
+
+    This patch makes sure the bpf generated code is marked read only,
+    as other kernel text sections.
+
+    It also splits the unused space (we vmalloc() and only use a fraction of
+    the page) in two parts, so that the generated bpf code not starts at a
+    known offset in the page, but a pseudo random one.
+
+    Refs:
+
+http://mainisusuallyafunction.blogspot.com/2012/11/attacking-hardened-linux-systems-with.html
+
+--047d7b67807058f43a04e7eaabc3
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div class=3D"gmail_extra"><br><br><div class=3D"gmail_quo=
+te"><blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;bor=
+der-left-width:1px;border-left-color:rgb(204,204,204);border-left-style:sol=
+id;padding-left:1ex">
+
+1)<br>
+<br>
+I took a brief look at arch/x86/net/bpf_jit_comp.c while reviewing this<br>
+patch.<br>
+<br>
+You need to split up bpf_jit_compile(), it&#39;s an obscenely large, ~600<b=
+r>
+lines long function. We don&#39;t do that in modern, maintainable kernel co=
+de.<br>
+<br>
+2)<br>
+<br>
+This 128 bytes extra padding:<br>
+<br>
+=A0 =A0 =A0 =A0 /* Most of BPF filters are really small,<br>
+=A0 =A0 =A0 =A0 =A0* but if some of them fill a page, allow at least<br>
+=A0 =A0 =A0 =A0 =A0* 128 extra bytes to insert a random section of int3<br>
+=A0 =A0 =A0 =A0 =A0*/<br>
+=A0 =A0 =A0 =A0 sz =3D round_up(proglen + sizeof(*header) + 128, PAGE_SIZE)=
+;<br>
+<br>
+why is it done? It&#39;s not clear to me from the comment.<br></blockquote>=
+<div><br></div><div>commit 314beb9bcabfd6b4542ccbced2402af2c6f6142a</div><d=
+iv>Author: Eric Dumazet &lt;<a href=3D"mailto:edumazet@google.com">edumazet=
+@google.com</a>&gt;</div>
+<div>Date: =A0 Fri May 17 16:37:03 2013 +0000</div><div><br></div><div>=A0 =
+=A0 x86: bpf_jit_comp: secure bpf jit against spraying attacks</div><div>=
+=A0 =A0=A0</div><div>=A0 =A0 hpa bringed into my attention some security re=
+lated issues</div>
+<div>=A0 =A0 with BPF JIT on x86.</div><div>=A0 =A0=A0</div><div>=A0 =A0 Th=
+is patch makes sure the bpf generated code is marked read only,</div><div>=
+=A0 =A0 as other kernel text sections.</div><div>=A0 =A0=A0</div><div>=A0 =
+=A0 It also splits the unused space (we vmalloc() and only use a fraction o=
+f</div>
+<div>=A0 =A0 the page) in two parts, so that the generated bpf code not sta=
+rts at a</div><div>=A0 =A0 known offset in the page, but a pseudo random on=
+e.</div><div>=A0 =A0=A0</div><div>=A0 =A0 Refs:</div><div>=A0 =A0 <a href=
+=3D"http://mainisusuallyafunction.blogspot.com/2012/11/attacking-hardened-l=
+inux-systems-with.html">http://mainisusuallyafunction.blogspot.com/2012/11/=
+attacking-hardened-linux-systems-with.html</a></div>
+<div>=A0 =A0=A0</div><div>=A0</div></div></div></div>
+
+--047d7b67807058f43a04e7eaabc3--
+
+--===============6181738457069530019==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:46145 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318Ab3JDV3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 17:29:42 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so4507811pbb.5
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 14:29:42 -0700 (PDT)
-In-Reply-To: <5fea5316a6664e19c516bbd26428a5034657b130.1380937706.git.himanshu.madhani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On Fri, 4 Oct 2013 14:30:48 -0400
-Himanshu Madhani <himanshu.madhani@qlogic.com> wrote:
-
-> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> 
-> Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> ---
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
->  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 12 -----------
->  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  | 25 ++++++++++++++++++----
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  1 +
->  4 files changed, 23 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> index 81bf836..a3c4379 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> @@ -1199,6 +1199,7 @@ struct qlcnic_npar_info {
->  	u8	promisc_mode;
->  	u8	offload_flags;
->  	u8      pci_func;
-> +	u8      mac[ETH_ALEN];
->  };
->  
-
->  
-
-There is a field in netdevice which should probably be used for this perm_addr.
-
-And then this could be corrected:
-
-static void qlcnic_dcb_get_perm_hw_addr(struct net_device *netdev, u8 *addr)
-{
-	memcpy(addr, netdev->dev_addr, netdev->addr_len);
-}
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============6181738457069530019==--
