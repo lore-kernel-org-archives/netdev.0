@@ -1,50 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 26/33] netfilter: ipset: For set:list types, replaced elements must be zeroed out
-Date: Fri,  4 Oct 2013 10:33:11 +0200
-Message-ID: <1380875598-5250-27-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 31/33] netfilter: nfnetlink_log: use proper net to allocate skb
+Date: Fri,  4 Oct 2013 10:33:16 +0200
+Message-ID: <1380875598-5250-32-git-send-email-pablo@netfilter.org>
 References: <1380875598-5250-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56031 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55947 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753952Ab3JDIfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Oct 2013 04:35:05 -0400
+	id S1754480Ab3JDIez (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Oct 2013 04:34:55 -0400
 In-Reply-To: <1380875598-5250-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-The new extensions require zero initialization for the new element
-to be added into a slot from where another element was pushed away.
+Use proper net struct to allocate skb, otherwise
+netlink mmap will be of no effect.
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_list_set.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/netfilter/nfnetlink_log.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index f9681dc..e23f33c 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -184,6 +184,8 @@ list_set_add(struct ip_set *set, u32 i, struct set_adt_elem *d,
- 			}
- 			memmove(list_set_elem(set, map, i + 1), e,
- 				set->dsize * (map->size - (i + 1)));
-+			/* Extensions must be initialized to zero */
-+			memset(e, 0, set->dsize);
- 		}
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index d92cc31..3c4b69e 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -319,7 +319,8 @@ nfulnl_set_flags(struct nfulnl_instance *inst, u_int16_t flags)
+ }
+ 
+ static struct sk_buff *
+-nfulnl_alloc_skb(u32 peer_portid, unsigned int inst_size, unsigned int pkt_size)
++nfulnl_alloc_skb(struct net *net, u32 peer_portid, unsigned int inst_size,
++		 unsigned int pkt_size)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int n;
+@@ -328,13 +329,13 @@ nfulnl_alloc_skb(u32 peer_portid, unsigned int inst_size, unsigned int pkt_size)
+ 	 * message.  WARNING: has to be <= 128k due to slab restrictions */
+ 
+ 	n = max(inst_size, pkt_size);
+-	skb = nfnetlink_alloc_skb(&init_net, n, peer_portid, GFP_ATOMIC);
++	skb = nfnetlink_alloc_skb(net, n, peer_portid, GFP_ATOMIC);
+ 	if (!skb) {
+ 		if (n > pkt_size) {
+ 			/* try to allocate only as much as we need for current
+ 			 * packet */
+ 
+-			skb = nfnetlink_alloc_skb(&init_net, pkt_size,
++			skb = nfnetlink_alloc_skb(net, pkt_size,
+ 						  peer_portid, GFP_ATOMIC);
+ 			if (!skb)
+ 				pr_err("nfnetlink_log: can't even alloc %u bytes\n",
+@@ -702,8 +703,8 @@ nfulnl_log_packet(struct net *net,
  	}
  
-@@ -192,7 +194,7 @@ list_set_add(struct ip_set *set, u32 i, struct set_adt_elem *d,
- 		ip_set_timeout_set(ext_timeout(e, set), ext->timeout);
- 	if (SET_WITH_COUNTER(set))
- 		ip_set_init_counter(ext_counter(e, set), ext);
--	if (SET_WITH_COMMENT(set) && ext->comment)
-+	if (SET_WITH_COMMENT(set))
- 		ip_set_init_comment(ext_comment(e, set), ext);
- 	return 0;
- }
+ 	if (!inst->skb) {
+-		inst->skb = nfulnl_alloc_skb(inst->peer_portid, inst->nlbufsiz,
+-					     size);
++		inst->skb = nfulnl_alloc_skb(net, inst->peer_portid,
++					     inst->nlbufsiz, size);
+ 		if (!inst->skb)
+ 			goto alloc_failure;
+ 	}
 -- 
 1.7.10.4
