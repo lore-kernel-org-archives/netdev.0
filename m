@@ -1,59 +1,104 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH RFC 06/77] PCI/MSI: Factor out pci_get_msi_cap() interface
-Date: Fri, 4 Oct 2013 07:13:24 +0200
-Message-ID: <20131004051322.GA3577@dhcp-26-207.brq.redhat.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <9c282c4ab92731c719d161d2db6fc54ce33891d9.1380703262.git.agordeev@redhat.com>
- <1380837174.3419.21.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] fix unsafe set_memory_rw from softirq
+Date: Thu, 03 Oct 2013 22:16:38 -0700
+Message-ID: <1380863798.3564.12.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380859875-31025-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-dr
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <1380837174.3419.21.camel@bwh-desktop.uk.level5networks.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:50187 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831Ab3JDFQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 01:16:40 -0400
+In-Reply-To: <1380859875-31025-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 03, 2013 at 10:52:54PM +0100, Ben Hutchings wrote:
-> On Wed, 2013-10-02 at 12:48 +0200, Alexander Gordeev wrote:
-> >  #ifndef CONFIG_PCI_MSI
-> > +static inline int pci_get_msi_cap(struct pci_dev *dev)
-> > +{
-> > +	return -1;
-> [...]
-> 
-> Shouldn't this also return -EINVAL?
+On Thu, 2013-10-03 at 21:11 -0700, Alexei Starovoitov wrote:
 
-Yep, all inliners here are better to return -EINVAL.
-Will do unless someone speaks out against.
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index a6ac848..5d66cd9 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -25,15 +25,20 @@ struct sk_filter
+>  {
+>  	atomic_t		refcnt;
+>  	unsigned int         	len;	/* Number of filter blocks */
+> +	struct rcu_head		rcu;
+>  	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+>  					    const struct sock_filter *filter);
+> -	struct rcu_head		rcu;
+> +	/* insns start right after bpf_func, so that sk_run_filter() fetches
+> +	 * first insn from the same cache line that was used to call into
+> +	 * sk_run_filter()
+> +	 */
+>  	struct sock_filter     	insns[0];
+>  };
+>  
+>  static inline unsigned int sk_filter_len(const struct sk_filter *fp)
+>  {
+> -	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
+> +	return max(fp->len * sizeof(struct sock_filter),
+> +		   sizeof(struct work_struct)) + sizeof(*fp);
+>  }
 
-> Ben.
+I would use for include/linux/filter.h this (untested) diff :
 
--- 
-Regards,
-Alexander Gordeev
-agordeev@redhat.com
+(Note the include <linux/workqueue.h>)
+
+I also remove your comment about cache lines, since there is nothing
+to align stuff on a cache line boundary.
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index a6ac848..281b05c 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/atomic.h>
+ #include <linux/compat.h>
++#include <linux/workqueue.h>
+ #include <uapi/linux/filter.h>
+ 
+ #ifdef CONFIG_COMPAT
+@@ -25,15 +26,20 @@ struct sk_filter
+ {
+ 	atomic_t		refcnt;
+ 	unsigned int         	len;	/* Number of filter blocks */
++	struct rcu_head		rcu;
+ 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ 					    const struct sock_filter *filter);
+-	struct rcu_head		rcu;
+-	struct sock_filter     	insns[0];
++	union {
++		struct work_struct	work;
++		struct sock_filter	insns[0];
++	};
+ };
+ 
+-static inline unsigned int sk_filter_len(const struct sk_filter *fp)
++static inline unsigned int sk_filter_size(const struct sk_filter *fp,
++					  unsigned int proglen)
+ {
+-	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
++	return max(sizeof(*fp),
++		   offsetof(struct sk_filter, insns[proglen]));
+ }
+ 
+ extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+
+
+
+This way, you can use sk_filter_size(fp, fprog->len)
+instead of doing the max() games in sk_attach_filter() and
+sk_unattached_filter_create()
+
+Other than that, I think your patch is fine.
