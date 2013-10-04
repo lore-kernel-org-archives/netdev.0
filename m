@@ -1,56 +1,87 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH v2.42 3/5] lib: Support pushing of MPLS LSE before or
- after VLAN tag
-Date: Fri, 4 Oct 2013 09:32:04 -0700
-Message-ID: <20131004163204.GI29572@nicira.com>
-References: <1380874200-8981-1-git-send-email-horms@verge.net.au>
- <1380874200-8981-4-git-send-email-horms@verge.net.au>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 0/3] net: mv643xx_eth: various small fixes for v3.12
+Date: Fri, 4 Oct 2013 13:53:55 -0300
+Message-ID: <20131004165354.GA9065@localhost>
+References: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:49695 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754888Ab3JDQcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 12:32:10 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so4420825pab.1
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 09:32:09 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1380874200-8981-4-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1380711442-24735-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 04, 2013 at 05:09:58PM +0900, Simon Horman wrote:
-> From: Joe Stringer <joe@wand.net.nz>
-> 
-> This patch modifies the push_mpls behaviour to allow
-> pushing of an MPLS LSE either before any VLAN tag that may be present.
-> 
-> Pushing the MPLS LSE before any VLAN tag that is present is the
-> behaviour specified in OpenFlow 1.3.
-> 
-> Pushing the MPLS LSE after the any VLAN tag that is present is the
-> behaviour specified in OpenFlow 1.1 and 1.2. This is the only behaviour
-> that was supported prior to this patch.
-> 
-> When an push_mpls action has been inserted using OpenFlow 1.2 or earlier
-> the behaviour of pushing the MPLS LSE before any VLAN tag that may be
-> present is implemented by by inserting VLAN actions around the MPLS push
-> action during odp translation; Pop VLAN tags before committing MPLS
-> actions, and push the expected VLAN tag afterwards.
-> 
-> The trigger condition for the two different behaviours is the value of the
-> mpls_before_vlan field of struct ofpact_push_mpls.  This field is set when
-> parsing OpenFlow actions.
-> 
-> Signed-off-by: Joe Stringer <joe@wand.net.nz>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+On Wed, Oct 02, 2013 at 12:57:19PM +0200, Sebastian Hesselbarth wrote:
+> This patch set comprises some one-liners to fix issues with repeated
+> loading and unloading of a modular mv643xx_eth driver.
+>=20
+> First two patches take care of the periodic port statistic timer, tha=
+t
+> updates statistics by reading port registers using add_timer/mod_time=
+r.
+>=20
+> Patch 1 moves timer re-schedule from mib_counters_update to the timer
+> callback. As mib_counters_update is also called from non-timer contex=
+t,
+> this ensures the timer is reactivated from timer context only.
+>=20
+> Patch 2 moves initial timer schedule from _probe() time to right befo=
+re
+> the port is actually started as the corresponding del_timer_sync is a=
+t
+> _stop() time. This fixes a regression, where unloading the driver fro=
+m a
+> non-started eth device can cause the timer to access deallocated mem.
+>=20
+> Patch 3 adds an assignment of the ports device_node to the correspond=
+ing
+> self-created platform_device. This is required to allow fixups based =
+on
+> the device_node's compatible string later. Actually, it is also a pot=
+ential
+> regression because we already check compatible string for Kirkwood, b=
+ut
+> does not (yet) rely on the fixup.
+>=20
+> All patches are based on v3.12-rc3 and have been tested on Kirkwood-b=
+ased
+> Seagate Dockstar.
+>=20
+> Patches 1 and 2 can also possibly queued up for -stable.
+>=20
+> Sebastian Hesselbarth (3):
+>   net: mv643xx_eth: update statistics timer from timer context only
+>   net: mv643xx_eth: fix orphaned statistics timer crash
+>   net: mv643xx_eth: fix missing device_node for port devices
+>=20
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+>=20
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Jason Cooper <jason@lakedaemon.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
 
-I'm happy with this, I think.  It will need a trivial update if you take
-my suggestion on patch 2.
+Sorry for missing this series, somehow my filters failed to catch it.
+
+Anyway, I would expect these patches to have my Reported-by, but I'm
+glad to see you've solved all the issues.
+
+I see David has already applied them all, but I'll re-run my tests to
+check there aren't any more issues if I can find some time next week.
+
+Thanks for taking care of it!
+--=20
+Ezequiel Garc=C3=ADa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
