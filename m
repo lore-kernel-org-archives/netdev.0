@@ -1,902 +1,399 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 2/2] ixgbe: enable l2 forwarding acceleration for macvlans
-Date: Fri,  4 Oct 2013 16:10:05 -0400
-Message-ID: <1380917405-23801-3-git-send-email-nhorman@tuxdriver.com>
-References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
- <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52923 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751174Ab3JDUKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 16:10:33 -0400
-In-Reply-To: <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: Build failure after merge of the drm-intel tree
+Date: Fri, 4 Oct 2013 21:22:26 +0100
+Message-ID: <20131004202226.GT27287@sirena.org.uk>
+References: <20131003171440.GD27287@sirena.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="0zAvg8I2HpXbmZ+A"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thierry Reding <thierry.reding@gmail.com>,
+	netdev@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	linux-wireless@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131003171440.GD27287@sirena.org.uk>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that l2 acceleration ops are in place from the prior patch, enable ixgbe to
-take advantage of these operations.  Allow it to allocate queues for a macvlan
-so that when we transmit a frame, we can do the switching in hardware inside the
-ixgbe card, rather than in software.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: John Fastabend <john.r.fastabend@intel.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  33 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h     |  54 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |  15 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 373 +++++++++++++++++------
- 5 files changed, 387 insertions(+), 92 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
+--0zAvg8I2HpXbmZ+A
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 0ac6b11..e924efa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -219,6 +219,17 @@ enum ixgbe_ring_state_t {
- 	__IXGBE_RX_FCOE,
- };
- 
-+struct ixgbe_fwd_adapter {
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-+	struct net_device *netdev;
-+	struct ixgbe_adapter *real_adapter;
-+	unsigned int tx_base_queue;
-+	unsigned int rx_base_queue;
-+	struct net_device_stats net_stats;
-+	int pool;
-+	bool online;
-+};
-+
- #define check_for_tx_hang(ring) \
- 	test_bit(__IXGBE_TX_DETECT_HANG, &(ring)->state)
- #define set_check_for_tx_hang(ring) \
-@@ -236,6 +247,7 @@ struct ixgbe_ring {
- 	struct ixgbe_q_vector *q_vector; /* backpointer to host q_vector */
- 	struct net_device *netdev;	/* netdev ring belongs to */
- 	struct device *dev;		/* device for DMA mapping */
-+	struct ixgbe_fwd_adapter *l2_accel_priv;
- 	void *desc;			/* descriptor ring memory */
- 	union {
- 		struct ixgbe_tx_buffer *tx_buffer_info;
-@@ -244,6 +256,7 @@ struct ixgbe_ring {
- 	unsigned long last_rx_timestamp;
- 	unsigned long state;
- 	u8 __iomem *tail;
-+	struct net_device *vmdq_netdev;
- 	dma_addr_t dma;			/* phys. address of descriptor ring */
- 	unsigned int size;		/* length in bytes */
- 
-@@ -288,11 +301,15 @@ enum ixgbe_ring_f_enum {
- };
- 
- #define IXGBE_MAX_RSS_INDICES  16
--#define IXGBE_MAX_VMDQ_INDICES 64
-+#define IXGBE_MAX_VMDQ_INDICES 32
- #define IXGBE_MAX_FDIR_INDICES 63	/* based on q_vector limit */
- #define IXGBE_MAX_FCOE_INDICES  8
- #define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
- #define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
-+#define IXGBE_MAX_L2A_QUEUES 4
-+#define IXGBE_MAX_L2A_QUEUES 4
-+#define IXGBE_BAD_L2A_QUEUE 3
-+
- struct ixgbe_ring_feature {
- 	u16 limit;	/* upper limit on feature indices */
- 	u16 indices;	/* current value of indices */
-@@ -738,6 +755,7 @@ struct ixgbe_adapter {
- #endif /*CONFIG_DEBUG_FS*/
- 
- 	u8 default_up;
-+	unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
- };
- 
- struct ixgbe_fdir_filter {
-@@ -879,9 +897,14 @@ static inline void ixgbe_dbg_adapter_exit(struct ixgbe_adapter *adapter) {}
- static inline void ixgbe_dbg_init(void) {}
- static inline void ixgbe_dbg_exit(void) {}
- #endif /* CONFIG_DEBUG_FS */
-+static inline struct net_device *netdev_ring(const struct ixgbe_ring *ring)
-+{
-+	return ring->vmdq_netdev ? ring->vmdq_netdev : ring->netdev;
-+}
-+
- static inline struct netdev_queue *txring_txq(const struct ixgbe_ring *ring)
- {
--	return netdev_get_tx_queue(ring->netdev, ring->queue_index);
-+	return netdev_get_tx_queue(netdev_ring(ring), ring->queue_index);
- }
- 
- extern void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
-@@ -915,4 +938,10 @@ extern void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr);
- void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter);
- #endif
- 
-+int ixgbe_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd);
-+int ixgbe_write_uc_addr_list(struct net_device *netdev);
-+netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
-+				  struct ixgbe_adapter *adapter,
-+				  struct ixgbe_ring *tx_ring);
-+void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring);
- #endif /* _IXGBE_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index e8649ab..277af14 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -150,8 +150,8 @@ static const char ixgbe_gstrings_test[][ETH_GSTRING_LEN] = {
- };
- #define IXGBE_TEST_LEN sizeof(ixgbe_gstrings_test) / ETH_GSTRING_LEN
- 
--static int ixgbe_get_settings(struct net_device *netdev,
--                              struct ethtool_cmd *ecmd)
-+int ixgbe_get_settings(struct net_device *netdev,
-+		       struct ethtool_cmd *ecmd)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
-new file mode 100644
-index 0000000..2f36584
---- /dev/null
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_l2a.h
-@@ -0,0 +1,54 @@
-+/*******************************************************************************
-+
-+  Intel 10 Gigabit PCI Express Linux driver
-+  Copyright(c) 1999 - 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+#include "ixgbe.h"
-+
-+
-+static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
-+					   u64 qmask)
-+{
-+	u32 mask;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
-+		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
-+		break;
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		mask = (qmask & 0xFFFFFFFF);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
-+		mask = (qmask >> 32);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
-+		break;
-+	default:
-+		break;
-+	}
-+	/* skip the flush */
-+}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 90b4e10..e2dd635 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -500,7 +500,8 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
- #endif
- 
- 	/* only proceed if SR-IOV is enabled */
--	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
-+	    !(adapter->flags & IXGBE_FLAG_VMDQ_ENABLED))
- 		return false;
- 
- 	/* Add starting offset to total pool count */
-@@ -852,7 +853,11 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 
- 		/* apply Tx specific ring traits */
- 		ring->count = adapter->tx_ring_count;
--		ring->queue_index = txr_idx;
-+		if (adapter->num_rx_pools > 1)
-+			ring->queue_index =
-+				txr_idx % adapter->num_rx_queues_per_pool;
-+		else
-+			ring->queue_index = txr_idx;
- 
- 		/* assign ring to adapter */
- 		adapter->tx_ring[txr_idx] = ring;
-@@ -895,7 +900,11 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- #endif /* IXGBE_FCOE */
- 		/* apply Rx specific ring traits */
- 		ring->count = adapter->rx_ring_count;
--		ring->queue_index = rxr_idx;
-+		if (adapter->num_rx_pools > 1)
-+			ring->queue_index =
-+				rxr_idx % adapter->num_rx_queues_per_pool;
-+		else
-+			ring->queue_index = rxr_idx;
- 
- 		/* assign ring to adapter */
- 		adapter->rx_ring[rxr_idx] = ring;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0ade0cd..5fa553f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -52,6 +52,7 @@
- #include "ixgbe_common.h"
- #include "ixgbe_dcb_82599.h"
- #include "ixgbe_sriov.h"
-+#include "ixgbe_l2a.h"
- 
- char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-@@ -118,6 +119,8 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
- };
- MODULE_DEVICE_TABLE(pci, ixgbe_pci_tbl);
- 
-+netdev_tx_t ixgbe_fwd_xmit_frame(struct sk_buff *skb, void *priv);
-+
- #ifdef CONFIG_IXGBE_DCA
- static int ixgbe_notify_dca(struct notifier_block *, unsigned long event,
- 			    void *p);
-@@ -872,7 +875,8 @@ static u64 ixgbe_get_tx_completed(struct ixgbe_ring *ring)
- 
- static u64 ixgbe_get_tx_pending(struct ixgbe_ring *ring)
- {
--	struct ixgbe_adapter *adapter = netdev_priv(ring->netdev);
-+	struct net_device *dev = ring->netdev;
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
- 	u32 head = IXGBE_READ_REG(hw, IXGBE_TDH(ring->reg_idx));
-@@ -1055,7 +1059,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 			tx_ring->next_to_use, i,
- 			tx_ring->tx_buffer_info[i].time_stamp, jiffies);
- 
--		netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+		netif_stop_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 
- 		e_info(probe,
- 		       "tx hang %d detected on queue %d, resetting adapter\n",
-@@ -1072,16 +1076,16 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 				  total_packets, total_bytes);
- 
- #define TX_WAKE_THRESHOLD (DESC_NEEDED * 2)
--	if (unlikely(total_packets && netif_carrier_ok(tx_ring->netdev) &&
-+	if (unlikely(total_packets && netif_carrier_ok(netdev_ring(tx_ring)) &&
- 		     (ixgbe_desc_unused(tx_ring) >= TX_WAKE_THRESHOLD))) {
- 		/* Make sure that anybody stopping the queue after this
- 		 * sees the new next_to_clean.
- 		 */
- 		smp_mb();
--		if (__netif_subqueue_stopped(tx_ring->netdev,
-+		if (__netif_subqueue_stopped(netdev_ring(tx_ring),
- 					     tx_ring->queue_index)
- 		    && !test_bit(__IXGBE_DOWN, &adapter->state)) {
--			netif_wake_subqueue(tx_ring->netdev,
-+			netif_wake_subqueue(netdev_ring(tx_ring),
- 					    tx_ring->queue_index);
- 			++tx_ring->tx_stats.restart_queue;
- 		}
-@@ -1226,7 +1230,7 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
- 				 union ixgbe_adv_rx_desc *rx_desc,
- 				 struct sk_buff *skb)
- {
--	if (ring->netdev->features & NETIF_F_RXHASH)
-+	if (netdev_ring(ring)->features & NETIF_F_RXHASH)
- 		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
- }
- 
-@@ -1260,10 +1264,12 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
- 				     union ixgbe_adv_rx_desc *rx_desc,
- 				     struct sk_buff *skb)
- {
-+	struct net_device *dev = netdev_ring(ring);
-+
- 	skb_checksum_none_assert(skb);
- 
- 	/* Rx csum disabled */
--	if (!(ring->netdev->features & NETIF_F_RXCSUM))
-+	if (!(dev->features & NETIF_F_RXCSUM))
- 		return;
- 
- 	/* if IP and error */
-@@ -1559,7 +1565,7 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 				     union ixgbe_adv_rx_desc *rx_desc,
- 				     struct sk_buff *skb)
- {
--	struct net_device *dev = rx_ring->netdev;
-+	struct net_device *dev = netdev_ring(rx_ring);
- 
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
-@@ -1739,7 +1745,7 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
- 				  union ixgbe_adv_rx_desc *rx_desc,
- 				  struct sk_buff *skb)
- {
--	struct net_device *netdev = rx_ring->netdev;
-+	struct net_device *netdev = netdev_ring(rx_ring);
- 
- 	/* verify that the packet does not have any known errors */
- 	if (unlikely(ixgbe_test_staterr(rx_desc,
-@@ -1905,7 +1911,7 @@ static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
- #endif
- 
- 		/* allocate a skb to store the frags */
--		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+		skb = netdev_alloc_skb_ip_align(netdev_ring(rx_ring),
- 						IXGBE_RX_HDR_SIZE);
- 		if (unlikely(!skb)) {
- 			rx_ring->rx_stats.alloc_rx_buff_failed++;
-@@ -1986,6 +1992,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
- 	int ddp_bytes;
- 	unsigned int mss = 0;
-+	struct net_device *netdev = netdev_ring(rx_ring);
- #endif /* IXGBE_FCOE */
- 	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
- 
-@@ -1993,6 +2000,10 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		union ixgbe_adv_rx_desc *rx_desc;
- 		struct sk_buff *skb;
- 
-+		if (rx_ring->l2_accel_priv) {
-+			printk(KERN_CRIT "RECEIVING ON AN ACCELERATED QUEUE\n");
-+		}
-+
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= IXGBE_RX_BUFFER_WRITE) {
- 			ixgbe_alloc_rx_buffers(rx_ring, cleaned_count);
-@@ -2041,7 +2052,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			/* include DDPed FCoE data */
- 			if (ddp_bytes > 0) {
- 				if (!mss) {
--					mss = rx_ring->netdev->mtu -
-+					mss = netdev->mtu -
- 						sizeof(struct fcoe_hdr) -
- 						sizeof(struct fc_frame_header) -
- 						sizeof(struct fcoe_crc_eof);
-@@ -2455,58 +2466,6 @@ static void ixgbe_check_lsc(struct ixgbe_adapter *adapter)
- 	}
- }
- 
--static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
--					   u64 qmask)
--{
--	u32 mask;
--	struct ixgbe_hw *hw = &adapter->hw;
--
--	switch (hw->mac.type) {
--	case ixgbe_mac_82598EB:
--		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
--		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
--		break;
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		mask = (qmask & 0xFFFFFFFF);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
--		mask = (qmask >> 32);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
--		break;
--	default:
--		break;
--	}
--	/* skip the flush */
--}
--
--static inline void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter,
--					    u64 qmask)
--{
--	u32 mask;
--	struct ixgbe_hw *hw = &adapter->hw;
--
--	switch (hw->mac.type) {
--	case ixgbe_mac_82598EB:
--		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
--		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
--		break;
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		mask = (qmask & 0xFFFFFFFF);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
--		mask = (qmask >> 32);
--		if (mask)
--			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
--		break;
--	default:
--		break;
--	}
--	/* skip the flush */
--}
--
- /**
-  * ixgbe_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-@@ -2946,6 +2905,7 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
- void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
- 			     struct ixgbe_ring *ring)
- {
-+	struct net_device *netdev = netdev_ring(ring);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u64 tdba = ring->dma;
- 	int wait_loop = 10;
-@@ -3005,7 +2965,7 @@ void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
- 		struct ixgbe_q_vector *q_vector = ring->q_vector;
- 
- 		if (q_vector)
--			netif_set_xps_queue(adapter->netdev,
-+			netif_set_xps_queue(netdev,
- 					    &q_vector->affinity_mask,
- 					    ring->queue_index);
- 	}
-@@ -3395,7 +3355,7 @@ static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int rss_i = adapter->ring_feature[RING_F_RSS].indices;
--	int p;
-+	u16 pool;
- 
- 	/* PSRTYPE must be initialized in non 82598 adapters */
- 	u32 psrtype = IXGBE_PSRTYPE_TCPHDR |
-@@ -3412,9 +3372,8 @@ static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
- 	else if (rss_i > 1)
- 		psrtype |= 1 << 29;
- 
--	for (p = 0; p < adapter->num_rx_pools; p++)
--		IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(p)),
--				psrtype);
-+	for_each_set_bit(pool, &adapter->fwd_bitmask, 32)
-+		IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(pool)), psrtype);
- }
- 
- static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
-@@ -3683,6 +3642,8 @@ static void ixgbe_vlan_strip_disable(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			if (adapter->rx_ring[i]->vmdq_netdev)
-+				continue;
- 			j = adapter->rx_ring[i]->reg_idx;
- 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
- 			vlnctrl &= ~IXGBE_RXDCTL_VME;
-@@ -3713,6 +3674,8 @@ static void ixgbe_vlan_strip_enable(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			if (adapter->rx_ring[i]->vmdq_netdev)
-+				continue;
- 			j = adapter->rx_ring[i]->reg_idx;
- 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
- 			vlnctrl |= IXGBE_RXDCTL_VME;
-@@ -3743,15 +3706,16 @@ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
-  *                0 on no addresses written
-  *                X on writing X addresses to the RAR table
-  **/
--static int ixgbe_write_uc_addr_list(struct net_device *netdev)
-+int ixgbe_write_uc_addr_list(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	unsigned int rar_entries = hw->mac.num_rar_entries - 1;
- 	int count = 0;
- 
--	/* In SR-IOV mode significantly less RAR entries are available */
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
-+	/* In SR-IOV/VMDQ modes significantly less RAR entries are available */
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED ||
-+	    adapter->flags & IXGBE_FLAG_VMDQ_ENABLED)
- 		rar_entries = IXGBE_MAX_PF_MACVLANS - 1;
- 
- 	/* return ENOMEM indicating insufficient memory for addresses */
-@@ -3772,6 +3736,7 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev)
- 			count++;
- 		}
- 	}
-+
- 	/* write the addresses in reverse order to avoid write combining */
- 	for (; rar_entries > 0 ; rar_entries--)
- 		hw->mac.ops.clear_rar(hw, rar_entries);
-@@ -4133,6 +4098,7 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 	ixgbe_configure_virtualization(adapter);
- 
- 	ixgbe_set_rx_mode(adapter->netdev);
-+
- 	ixgbe_restore_vlan(adapter);
- 
- 	switch (hw->mac.type) {
-@@ -4459,7 +4425,7 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
-  * ixgbe_clean_rx_ring - Free Rx Buffers per Queue
-  * @rx_ring: ring to free buffers from
-  **/
--static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
-+void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- {
- 	struct device *dev = rx_ring->dev;
- 	unsigned long size;
-@@ -4838,6 +4804,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		return -EIO;
- 	}
- 
-+	/* PF holds first pool slot */
-+	set_bit(0, &adapter->fwd_bitmask);
- 	set_bit(__IXGBE_DOWN, &adapter->state);
- 
- 	return 0;
-@@ -5143,7 +5111,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
- static int ixgbe_open(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	int err;
-+	int err, queues;
- 
- 	/* disallow open during test */
- 	if (test_bit(__IXGBE_TESTING, &adapter->state))
-@@ -5168,16 +5136,22 @@ static int ixgbe_open(struct net_device *netdev)
- 		goto err_req_irq;
- 
- 	/* Notify the stack of the actual queue counts. */
--	err = netif_set_real_num_tx_queues(netdev,
--					   adapter->num_rx_pools > 1 ? 1 :
--					   adapter->num_tx_queues);
-+	if (adapter->num_rx_pools > 1 &&
-+	    adapter->num_tx_queues > IXGBE_MAX_L2A_QUEUES)
-+		queues = IXGBE_MAX_L2A_QUEUES;
-+	else
-+		queues = adapter->num_tx_queues;
-+
-+	err = netif_set_real_num_tx_queues(netdev, queues);
- 	if (err)
- 		goto err_set_queues;
- 
--
--	err = netif_set_real_num_rx_queues(netdev,
--					   adapter->num_rx_pools > 1 ? 1 :
--					   adapter->num_rx_queues);
-+	if (adapter->num_rx_pools > 1 &&
-+	    adapter->num_rx_queues > IXGBE_MAX_L2A_QUEUES)
-+		queues = IXGBE_MAX_L2A_QUEUES;
-+	else
-+		queues = adapter->num_rx_queues;
-+	err = netif_set_real_num_rx_queues(netdev, queues);
- 	if (err)
- 		goto err_set_queues;
- 
-@@ -5215,7 +5189,6 @@ static int ixgbe_close(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
- 	ixgbe_ptp_stop(adapter);
--
- 	ixgbe_down(adapter);
- 	ixgbe_free_irq(adapter);
- 
-@@ -6576,7 +6549,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 
- static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
- {
--	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	netif_stop_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 	/* Herbert's original patch had:
- 	 *  smp_mb__after_netif_stop_queue();
- 	 * but since that doesn't exist yet, just open code it. */
-@@ -6588,7 +6561,7 @@ static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
- 		return -EBUSY;
- 
- 	/* A reprieve! - use start_queue because it doesn't call schedule */
--	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	netif_start_subqueue(netdev_ring(tx_ring), tx_ring->queue_index);
- 	++tx_ring->tx_stats.restart_queue;
- 	return 0;
- }
-@@ -6639,6 +6612,9 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 			  struct ixgbe_ring *tx_ring)
- {
- 	struct ixgbe_tx_buffer *first;
-+#ifdef IXGBE_FCOE
-+	struct net_device *dev;
-+#endif
- 	int tso;
- 	u32 tx_flags = 0;
- 	unsigned short f;
-@@ -6730,9 +6706,10 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	first->protocol = protocol;
- 
- #ifdef IXGBE_FCOE
-+	dev = netdev_ring(tx_ring);
- 	/* setup tx offload for FCoE */
- 	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
--	    (tx_ring->netdev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
-+	    (dev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
- 		tso = ixgbe_fso(tx_ring, first, &hdr_len);
- 		if (tso < 0)
- 			goto out_drop;
-@@ -6784,7 +6761,15 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		skb_set_tail_pointer(skb, 17);
- 	}
- 
--	tx_ring = adapter->tx_ring[skb->queue_mapping];
-+	if (skb->accel_priv) {
-+		struct ixgbe_fwd_adapter *fwd_adapter = skb->accel_priv;
-+		unsigned int queue;
-+
-+		queue = skb->queue_mapping + fwd_adapter->tx_base_queue;
-+		tx_ring = fwd_adapter->real_adapter->tx_ring[queue];
-+	} else 
-+		tx_ring = adapter->tx_ring[skb->queue_mapping];
-+
- 	return ixgbe_xmit_frame_ring(skb, adapter, tx_ring);
- }
- 
-@@ -7057,6 +7042,7 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	 */
- 	if (netif_running(dev))
- 		ixgbe_close(dev);
-+
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
- #ifdef CONFIG_IXGBE_DCB
-@@ -7305,6 +7291,217 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
- }
- 
-+static void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter, u64 qmask)
-+{
-+	u32 mask;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
-+		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
-+		break;
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		mask = (qmask & 0xFFFFFFFF);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
-+		mask = (qmask >> 32);
-+		if (mask)
-+			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+static void ixgbe_add_mac_filter(struct ixgbe_adapter *adapter,
-+				 u8 *addr, u16 pool)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	unsigned int entry;
-+
-+	entry = hw->mac.num_rar_entries - pool;
-+	hw->mac.ops.set_rar(hw, entry, addr, VMDQ_P(pool), IXGBE_RAH_AV);
-+}
-+
-+static void ixgbe_fwd_psrtype(struct ixgbe_fwd_adapter *vadapter)
-+{
-+	struct ixgbe_adapter *adapter = vadapter->real_adapter;
-+	int rss_i = vadapter->netdev->real_num_rx_queues;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u16 pool = vadapter->pool;
-+	u32 psrtype = IXGBE_PSRTYPE_TCPHDR |
-+		      IXGBE_PSRTYPE_UDPHDR |
-+		      IXGBE_PSRTYPE_IPV4HDR |
-+		      IXGBE_PSRTYPE_L2HDR |
-+		      IXGBE_PSRTYPE_IPV6HDR;
-+
-+	if (hw->mac.type == ixgbe_mac_82598EB)
-+		return;
-+
-+	if (rss_i > 3)
-+		psrtype |= 2 << 29;
-+	else if (rss_i > 1)
-+		psrtype |= 1 << 29;
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_PSRTYPE(VMDQ_P(pool)), psrtype);
-+}
-+
-+static void ixgbe_enable_fwd_ring(struct ixgbe_adapter *adapter,
-+				  struct ixgbe_ring *rx_ring,
-+				  struct ixgbe_fwd_adapter *accel)
-+{
-+	rx_ring->l2_accel_priv = accel;
-+	ixgbe_configure_rx_ring(adapter, rx_ring);
-+}
-+
-+
-+static void ixgbe_disable_fwd_ring(struct ixgbe_fwd_adapter *vadapter,
-+				   struct ixgbe_ring *rx_ring)
-+{
-+	struct ixgbe_adapter *adapter = vadapter->real_adapter;
-+	int index = rx_ring->queue_index + vadapter->rx_base_queue;
-+
-+	/* shutdown specific queue receive and wait for dma to settle */
-+	ixgbe_disable_rx_queue(adapter, rx_ring);
-+	usleep_range(10000, 20000);
-+	ixgbe_irq_disable_queues(adapter, ((u64)1 << index));
-+	ixgbe_clean_rx_ring(rx_ring);
-+	rx_ring->l2_accel_priv = NULL;
-+}
-+
-+int ixgbe_fwd_ring_up(struct net_device *vdev, struct ixgbe_fwd_adapter *accel)
-+{
-+	struct ixgbe_adapter *adapter = accel->real_adapter;
-+	unsigned int rxbase = accel->pool * adapter->num_rx_queues_per_pool;
-+	unsigned int txbase = accel->pool * adapter->num_rx_queues_per_pool;
-+	int err, i;
-+
-+
-+	accel->rx_base_queue = rxbase;
-+	accel->tx_base_queue = txbase;
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_fwd_ring(accel, adapter->rx_ring[rxbase + i]);
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++) {
-+		adapter->rx_ring[rxbase + i]->vmdq_netdev = vdev;
-+		ixgbe_enable_fwd_ring(adapter, adapter->rx_ring[rxbase + i], accel);
-+	}
-+
-+	for (i = 0; i < vdev->num_tx_queues; i++)
-+		adapter->tx_ring[txbase + i]->vmdq_netdev = vdev;
-+
-+	if (is_valid_ether_addr(vdev->dev_addr))
-+		ixgbe_add_mac_filter(adapter, vdev->dev_addr, accel->pool);
-+
-+	err = netif_set_real_num_tx_queues(vdev, vdev->num_tx_queues);
-+	if (err)
-+		goto err_set_queues;
-+	err = netif_set_real_num_rx_queues(vdev, vdev->num_rx_queues);
-+	if (err)
-+		goto err_set_queues;
-+
-+	ixgbe_fwd_psrtype(accel);
-+	netif_tx_start_all_queues(vdev);
-+	return 0;
-+err_set_queues:
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_fwd_ring(accel, adapter->rx_ring[rxbase + i]);
-+	return err;
-+}
-+
-+int ixgbe_fwd_ring_down(struct net_device *vdev, struct ixgbe_fwd_adapter *accel)
-+{
-+	struct ixgbe_adapter *adapter = accel->real_adapter;
-+	unsigned int rxbase = accel->rx_base_queue;
-+	int i;
-+
-+	netif_tx_stop_all_queues(vdev);
-+
-+	for (i = 0; i < vdev->num_rx_queues; i++)
-+		ixgbe_disable_fwd_ring(accel, adapter->rx_ring[rxbase + i]);
-+
-+	return 0;
-+}
-+
-+static void* ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
-+{
-+	struct ixgbe_fwd_adapter *fwd_adapter = NULL;
-+	struct ixgbe_adapter *adapter = netdev_priv(pdev);
-+	int pool, vmdq_pool, base_queue;
-+	int err;
-+
-+	/* Check for hardware restriction on number of rx/tx queues */
-+	if (vdev->num_rx_queues != vdev->num_tx_queues ||
-+	    vdev->num_tx_queues > IXGBE_MAX_L2A_QUEUES ||
-+	    vdev->num_tx_queues == IXGBE_BAD_L2A_QUEUE) {
-+		netdev_info(pdev, "%s: Supports RX/TX Queue counts 1,2, and 4\n",
-+		       pdev->name);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	if (adapter->num_rx_pools > IXGBE_MAX_VMDQ_INDICES)
-+		return ERR_PTR(-EBUSY);
-+
-+	fwd_adapter = kcalloc(1, sizeof(struct ixgbe_fwd_adapter), GFP_KERNEL);
-+	if (!fwd_adapter)
-+		return ERR_PTR(-ENOMEM);
-+
-+	pool = find_first_zero_bit(&adapter->fwd_bitmask, 32);
-+	adapter->num_rx_pools++;
-+	set_bit(pool, &adapter->fwd_bitmask);
-+
-+	/* Enable VMDq flag so device will be set in VM mode */
-+	adapter->flags |= IXGBE_FLAG_VMDQ_ENABLED | IXGBE_FLAG_SRIOV_ENABLED;
-+	adapter->ring_feature[RING_F_VMDQ].limit = adapter->num_rx_pools;
-+	adapter->ring_feature[RING_F_VMDQ].offset = 0;
-+	adapter->ring_feature[RING_F_RSS].limit = IXGBE_MAX_L2A_QUEUES;
-+
-+	/* Force reinit of ring allocation with VMDQ enabled */
-+	ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
-+
-+	/* Configure VSI adapter structure */
-+	vmdq_pool = VMDQ_P(pool);
-+	base_queue = vmdq_pool * adapter->num_rx_queues_per_pool;
-+
-+	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
-+		   pool, adapter->num_rx_pools,
-+		   base_queue, base_queue + adapter->num_rx_queues_per_pool,
-+		   adapter->fwd_bitmask);
-+
-+	fwd_adapter->pool = pool;
-+	fwd_adapter->netdev = vdev;
-+	fwd_adapter->real_adapter = adapter;
-+	fwd_adapter->rx_base_queue = base_queue;
-+	fwd_adapter->tx_base_queue = base_queue;
-+
-+	err = ixgbe_fwd_ring_up(vdev, fwd_adapter);	
-+	if (!err) {
-+		kfree(fwd_adapter);
-+		return ERR_PTR(err);
-+	}
-+	return fwd_adapter;
-+}
-+
-+static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
-+{
-+	struct ixgbe_fwd_adapter *fwd_adapter = priv; 
-+	struct ixgbe_adapter *adapter = fwd_adapter->real_adapter;
-+
-+	clear_bit(fwd_adapter->pool, &adapter->fwd_bitmask);
-+	adapter->num_rx_pools--;
-+
-+	ixgbe_fwd_ring_down(fwd_adapter->netdev, fwd_adapter);
-+
-+	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
-+		   fwd_adapter->pool, adapter->num_rx_pools,
-+		   fwd_adapter->rx_base_queue,
-+		   fwd_adapter->rx_base_queue + adapter->num_rx_queues_per_pool,
-+		   adapter->fwd_bitmask);
-+}
-+
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7351,6 +7548,11 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
- };
- 
-+const struct forwarding_accel_ops  ixgbe_fwd_ops = {
-+	.fwd_accel_add_station = ixgbe_fwd_add,
-+	.fwd_accel_del_station = ixgbe_fwd_del,
-+};
-+
- /**
-  * ixgbe_enumerate_functions - Get the number of ports this device has
-  * @adapter: adapter structure
-@@ -7554,6 +7756,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	netdev->netdev_ops = &ixgbe_netdev_ops;
-+	netdev->fwd_ops = &ixgbe_fwd_ops;
- 	ixgbe_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
--- 
-1.8.3.1
+While merging the wireless-next tree into -next there were conflicts in
+several headers due to conflicts between various commits from Joe
+Perches removing extern from headers in the net-next tree and
+development in the wireless tree.
+
+I've resolved this as below (sorry, got some extra stuff that resolved
+automatically).
+
+diff --cc drivers/net/wireless/ath/ath10k/debug.h
+index bb00633,fa58148..6576b82
+--- a/drivers/net/wireless/ath/ath10k/debug.h
++++ b/drivers/net/wireless/ath/ath10k/debug.h
+@@@ -37,11 -38,13 +38,13 @@@ enum ath10k_debug_mask=20
+ =20
+  extern unsigned int ath10k_debug_mask;
+ =20
+ -extern __printf(1, 2) int ath10k_info(const char *fmt, ...);
+ -extern __printf(1, 2) int ath10k_err(const char *fmt, ...);
+ -extern __printf(1, 2) int ath10k_warn(const char *fmt, ...);
+ +__printf(1, 2) int ath10k_info(const char *fmt, ...);
+ +__printf(1, 2) int ath10k_err(const char *fmt, ...);
+ +__printf(1, 2) int ath10k_warn(const char *fmt, ...);
+ =20
+  #ifdef CONFIG_ATH10K_DEBUGFS
++ int ath10k_debug_start(struct ath10k *ar);
++ void ath10k_debug_stop(struct ath10k *ar);
+  int ath10k_debug_create(struct ath10k *ar);
+  void ath10k_debug_read_service_map(struct ath10k *ar,
+  				   void *service_map,
+diff --cc drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
+index c3462b7,091c905..2a23bf2
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
+@@@ -464,9 -459,11 +459,9 @@@ static struct sdio_driver brcmf_sdmmc_d
+ =20
+  static int brcmf_sdio_pd_probe(struct platform_device *pdev)
+  {
+ -	int ret;
+ -
+  	brcmf_dbg(SDIO, "Enter\n");
+ =20
+- 	brcmfmac_sdio_pdata =3D pdev->dev.platform_data;
++ 	brcmfmac_sdio_pdata =3D dev_get_platdata(&pdev->dev);
+ =20
+  	if (brcmfmac_sdio_pdata->power_on)
+  		brcmfmac_sdio_pdata->power_on();
+diff --cc drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
+index 7f1340d,200ee9b..a6eb09e
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_bus.h
+@@@ -132,34 -132,34 +132,34 @@@ struct pktq *brcmf_bus_gettxq(struct br
+   * interface functions from common layer
+   */
+ =20
+ -extern bool brcmf_c_prec_enq(struct device *dev, struct pktq *q,
+ -			 struct sk_buff *pkt, int prec);
+ +bool brcmf_c_prec_enq(struct device *dev, struct pktq *q, struct sk_buff =
+*pkt,
+ +		      int prec);
+ =20
+  /* Receive frame for delivery to OS.  Callee disposes of rxp. */
+- void brcmf_rx_frames(struct device *dev, struct sk_buff_head *rxlist);
+ -extern void brcmf_rx_frame(struct device *dev, struct sk_buff *rxp);
+++void brcmf_rx_frame(struct device *dev, struct sk_buff *rxp);
+ =20
+  /* Indication from bus module regarding presence/insertion of dongle. */
+ -extern int brcmf_attach(uint bus_hdrlen, struct device *dev);
+ +int brcmf_attach(uint bus_hdrlen, struct device *dev);
+  /* Indication from bus module regarding removal/absence of dongle */
+ -extern void brcmf_detach(struct device *dev);
+ +void brcmf_detach(struct device *dev);
+  /* Indication from bus module that dongle should be reset */
+ -extern void brcmf_dev_reset(struct device *dev);
+ +void brcmf_dev_reset(struct device *dev);
+  /* Indication from bus module to change flow-control state */
+ -extern void brcmf_txflowblock(struct device *dev, bool state);
+ +void brcmf_txflowblock(struct device *dev, bool state);
+ =20
+  /* Notify the bus has transferred the tx packet to firmware */
+ -extern void brcmf_txcomplete(struct device *dev, struct sk_buff *txp,
+ -			     bool success);
+ +void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool succe=
+ss);
+ =20
+ -extern int brcmf_bus_start(struct device *dev);
+ +int brcmf_bus_start(struct device *dev);
+ =20
+  #ifdef CONFIG_BRCMFMAC_SDIO
+ -extern void brcmf_sdio_exit(void);
+ -extern void brcmf_sdio_init(void);
+ +void brcmf_sdio_exit(void);
+ +void brcmf_sdio_init(void);
+ +void brcmf_sdio_register(void);
+  #endif
+  #ifdef CONFIG_BRCMFMAC_USB
+ -extern void brcmf_usb_exit(void);
+ -extern void brcmf_usb_init(void);
+ +void brcmf_usb_exit(void);
+ +void brcmf_usb_register(void);
+  #endif
+ =20
+  #endif				/* _BRCMF_BUS_H_ */
+diff --cc drivers/net/wireless/rtlwifi/rtl8188ee/phy.h
+index 71ddf4f,d4545f0..8e1f1be
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/phy.h
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/phy.h
+@@@ -200,26 -200,29 +200,25 @@@ enum _ANT_DIV_TYPE=20
+  	CGCS_RX_SW_ANTDIV		=3D 0x05,
+  };
+ =20
+ -extern u32 rtl88e_phy_query_bb_reg(struct ieee80211_hw *hw,
+ -				   u32 regaddr, u32 bitmask);
+ -extern void rtl88e_phy_set_bb_reg(struct ieee80211_hw *hw,
+ -				  u32 regaddr, u32 bitmask, u32 data);
+ -extern u32 rtl88e_phy_query_rf_reg(struct ieee80211_hw *hw,
+ -				   enum radio_path rfpath, u32 regaddr,
+ -				   u32 bitmask);
+ -extern void rtl88e_phy_set_rf_reg(struct ieee80211_hw *hw,
+ -				  enum radio_path rfpath, u32 regaddr,
+ -				  u32 bitmask, u32 data);
+ -extern bool rtl88e_phy_mac_config(struct ieee80211_hw *hw);
+ -extern bool rtl88e_phy_bb_config(struct ieee80211_hw *hw);
+ -extern bool rtl88e_phy_rf_config(struct ieee80211_hw *hw);
+ -extern void rtl88e_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ -extern void rtl88e_phy_get_txpower_level(struct ieee80211_hw *hw,
+ -					 long *powerlevel);
+ -extern void rtl88e_phy_set_txpower_level(struct ieee80211_hw *hw, u8 chan=
+nel);
+ -extern void rtl88e_phy_set_bw_mode_callback(struct ieee80211_hw *hw);
+ -extern void rtl88e_phy_set_bw_mode(struct ieee80211_hw *hw,
+ -				   enum nl80211_channel_type ch_type);
+ -extern void rtl88e_phy_sw_chnl_callback(struct ieee80211_hw *hw);
+ -extern u8 rtl88e_phy_sw_chnl(struct ieee80211_hw *hw);
+ -extern void rtl88e_phy_iq_calibrate(struct ieee80211_hw *hw, bool b_recov=
+ery);
+ +u32 rtl88e_phy_query_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 bit=
+mask);
+ +void rtl88e_phy_set_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 bitm=
+ask,
+ +			   u32 data);
+ +u32 rtl88e_phy_query_rf_reg(struct ieee80211_hw *hw, enum radio_path rfpa=
+th,
+ +			    u32 regaddr, u32 bitmask);
+ +void rtl88e_phy_set_rf_reg(struct ieee80211_hw *hw, enum radio_path rfpat=
+h,
+ +			   u32 regaddr, u32 bitmask, u32 data);
+ +bool rtl88e_phy_mac_config(struct ieee80211_hw *hw);
+ +bool rtl88e_phy_bb_config(struct ieee80211_hw *hw);
+ +bool rtl88e_phy_rf_config(struct ieee80211_hw *hw);
+ +void rtl88e_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ +void rtl88e_phy_get_txpower_level(struct ieee80211_hw *hw, long *powerlev=
+el);
+ +void rtl88e_phy_set_txpower_level(struct ieee80211_hw *hw, u8 channel);
+- void rtl88e_phy_scan_operation_backup(struct ieee80211_hw *hw, u8 operati=
+on);
+ +void rtl88e_phy_set_bw_mode_callback(struct ieee80211_hw *hw);
+ +void rtl88e_phy_set_bw_mode(struct ieee80211_hw *hw,
+ +			    enum nl80211_channel_type ch_type);
+ +void rtl88e_phy_sw_chnl_callback(struct ieee80211_hw *hw);
+ +u8 rtl88e_phy_sw_chnl(struct ieee80211_hw *hw);
+ +void rtl88e_phy_iq_calibrate(struct ieee80211_hw *hw, bool b_recovery);
+  void rtl88e_phy_lc_calibrate(struct ieee80211_hw *hw);
+  void rtl88e_phy_set_rfpath_switch(struct ieee80211_hw *hw, bool bmain);
+  bool rtl88e_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+diff --cc drivers/net/wireless/rtlwifi/rtl8192ce/phy.h
+index f8973e5,aeb268b..9bb4658
+--- a/drivers/net/wireless/rtlwifi/rtl8192ce/phy.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192ce/phy.h
+@@@ -199,14 -200,15 +197,14 @@@ bool rtl92c_phy_mac_config(struct ieee8
+  bool rtl92ce_phy_bb_config(struct ieee80211_hw *hw);
+  bool rtl92c_phy_rf_config(struct ieee80211_hw *hw);
+  bool rtl92c_phy_config_rf_with_feaderfile(struct ieee80211_hw *hw,
+ -						 enum radio_path rfpath);
+ +					  enum radio_path rfpath);
+  void rtl92c_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ -void rtl92c_phy_get_txpower_level(struct ieee80211_hw *hw,
+ -					 long *powerlevel);
+ +void rtl92c_phy_get_txpower_level(struct ieee80211_hw *hw, long *powerlev=
+el);
+  void rtl92c_phy_set_txpower_level(struct ieee80211_hw *hw, u8 channel);
+- bool rtl92c_phy_update_txpower_dbm(struct ieee80211_hw *hw, long power_in=
+dbm);
+- void rtl92c_phy_scan_operation_backup(struct ieee80211_hw *hw, u8 operati=
+on);
++ bool rtl92c_phy_update_txpower_dbm(struct ieee80211_hw *hw,
++ 					  long power_indbm);
+  void rtl92c_phy_set_bw_mode(struct ieee80211_hw *hw,
+ -				   enum nl80211_channel_type ch_type);
+ +			    enum nl80211_channel_type ch_type);
+  void rtl92c_phy_sw_chnl_callback(struct ieee80211_hw *hw);
+  u8 rtl92c_phy_sw_chnl(struct ieee80211_hw *hw);
+  void rtl92c_phy_iq_calibrate(struct ieee80211_hw *hw, bool b_recovery);
+@@@ -217,10 -220,10 +215,10 @@@ void _rtl92ce_phy_lc_calibrate(struct i
+  void rtl92c_phy_set_rfpath_switch(struct ieee80211_hw *hw, bool bmain);
+  bool rtl92c_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+  					  enum radio_path rfpath);
+- bool rtl8192_phy_check_is_legal_rfpath(struct ieee80211_hw *hw, u32 rfpat=
+h);
+- bool rtl92c_phy_set_io_cmd(struct ieee80211_hw *hw, enum io_type iotype);
++ bool rtl8192_phy_check_is_legal_rfpath(struct ieee80211_hw *hw,
++ 					      u32 rfpath);
+  bool rtl92ce_phy_set_rf_power_state(struct ieee80211_hw *hw,
+ -					  enum rf_pwrstate rfpwr_state);
+ +				    enum rf_pwrstate rfpwr_state);
+  void rtl92ce_phy_set_rf_on(struct ieee80211_hw *hw);
+  bool rtl92c_phy_set_io_cmd(struct ieee80211_hw *hw, enum io_type iotype);
+  void rtl92c_phy_set_io(struct ieee80211_hw *hw);
+diff --cc drivers/net/wireless/rtlwifi/rtl8192de/phy.h
+index 0f993f4,bef3040..33df0d1c
+--- a/drivers/net/wireless/rtlwifi/rtl8192de/phy.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192de/phy.h
+@@@ -127,24 -125,26 +125,23 @@@ static inline void rtl92d_release_cckan
+  			*flag);
+  }
+ =20
+ -extern u32 rtl92d_phy_query_bb_reg(struct ieee80211_hw *hw,
+ -				   u32 regaddr, u32 bitmask);
+ -extern void rtl92d_phy_set_bb_reg(struct ieee80211_hw *hw,
+ -				  u32 regaddr, u32 bitmask, u32 data);
+ -extern u32 rtl92d_phy_query_rf_reg(struct ieee80211_hw *hw,
+ -				   enum radio_path rfpath, u32 regaddr,
+ -				   u32 bitmask);
+ -extern void rtl92d_phy_set_rf_reg(struct ieee80211_hw *hw,
+ -				  enum radio_path rfpath, u32 regaddr,
+ -				  u32 bitmask, u32 data);
+ -extern bool rtl92d_phy_mac_config(struct ieee80211_hw *hw);
+ -extern bool rtl92d_phy_bb_config(struct ieee80211_hw *hw);
+ -extern bool rtl92d_phy_rf_config(struct ieee80211_hw *hw);
+ -extern bool rtl92c_phy_config_rf_with_feaderfile(struct ieee80211_hw *hw,
+ -						 enum radio_path rfpath);
+ -extern void rtl92d_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ -extern void rtl92d_phy_set_txpower_level(struct ieee80211_hw *hw, u8 chan=
+nel);
+ -extern void rtl92d_phy_set_bw_mode(struct ieee80211_hw *hw,
+ -				   enum nl80211_channel_type ch_type);
+ -extern u8 rtl92d_phy_sw_chnl(struct ieee80211_hw *hw);
+ +u32 rtl92d_phy_query_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 bit=
+mask);
+ +void rtl92d_phy_set_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 bitm=
+ask,
+ +			   u32 data);
+ +u32 rtl92d_phy_query_rf_reg(struct ieee80211_hw *hw, enum radio_path rfpa=
+th,
+ +			    u32 regaddr, u32 bitmask);
+ +void rtl92d_phy_set_rf_reg(struct ieee80211_hw *hw, enum radio_path rfpat=
+h,
+ +			   u32 regaddr, u32 bitmask, u32 data);
+ +bool rtl92d_phy_mac_config(struct ieee80211_hw *hw);
+ +bool rtl92d_phy_bb_config(struct ieee80211_hw *hw);
+ +bool rtl92d_phy_rf_config(struct ieee80211_hw *hw);
+ +bool rtl92c_phy_config_rf_with_feaderfile(struct ieee80211_hw *hw,
+ +					  enum radio_path rfpath);
+ +void rtl92d_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ +void rtl92d_phy_set_txpower_level(struct ieee80211_hw *hw, u8 channel);
+- void rtl92d_phy_scan_operation_backup(struct ieee80211_hw *hw, u8 operati=
+on);
+ +void rtl92d_phy_set_bw_mode(struct ieee80211_hw *hw,
+ +			    enum nl80211_channel_type ch_type);
+ +u8 rtl92d_phy_sw_chnl(struct ieee80211_hw *hw);
+  bool rtl92d_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+  					  enum rf_content content,
+  					  enum radio_path rfpath);
+diff --cc drivers/net/wireless/rtlwifi/rtl8723ae/phy.h
+index bbb950d,3d8f9e3..bb18023
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/phy.h
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/phy.h
+@@@ -183,33 -183,34 +183,30 @@@ struct tx_power_struct=20
+  	u32 mcs_original_offset[4][16];
+  };
+ =20
+ -extern u32 rtl8723ae_phy_query_bb_reg(struct ieee80211_hw *hw,
+ -				      u32 regaddr, u32 bitmask);
+ -extern void rtl8723ae_phy_set_bb_reg(struct ieee80211_hw *hw,
+ -				     u32 regaddr, u32 bitmask, u32 data);
+ -extern u32 rtl8723ae_phy_query_rf_reg(struct ieee80211_hw *hw,
+ -				      enum radio_path rfpath, u32 regaddr,
+ -				      u32 bitmask);
+ -extern void rtl8723ae_phy_set_rf_reg(struct ieee80211_hw *hw,
+ -				     enum radio_path rfpath, u32 regaddr,
+ -				     u32 bitmask, u32 data);
+ -extern bool rtl8723ae_phy_mac_config(struct ieee80211_hw *hw);
+ -extern bool rtl8723ae_phy_bb_config(struct ieee80211_hw *hw);
+ -extern bool rtl8723ae_phy_rf_config(struct ieee80211_hw *hw);
+ -extern bool rtl92c_phy_config_rf_with_feaderfile(struct ieee80211_hw *hw,
+ -						 enum radio_path rfpath);
+ -extern void rtl8723ae_phy_get_hw_reg_originalvalue(struct ieee80211_hw *h=
+w);
+ -extern void rtl8723ae_phy_get_txpower_level(struct ieee80211_hw *hw,
+ -					    long *powerlevel);
+ -extern void rtl8723ae_phy_set_txpower_level(struct ieee80211_hw *hw,
+ -					    u8 channel);
+ -extern bool rtl8723ae_phy_update_txpower_dbm(struct ieee80211_hw *hw,
+ -					     long power_indbm);
+ -extern void rtl8723ae_phy_set_bw_mode_callback(struct ieee80211_hw *hw);
+ -extern void rtl8723ae_phy_set_bw_mode(struct ieee80211_hw *hw,
+ -				      enum nl80211_channel_type ch_type);
+ -extern void rtl8723ae_phy_sw_chnl_callback(struct ieee80211_hw *hw);
+ -extern u8 rtl8723ae_phy_sw_chnl(struct ieee80211_hw *hw);
+ -extern void rtl8723ae_phy_iq_calibrate(struct ieee80211_hw *hw, bool reco=
+very);
+ +u32 rtl8723ae_phy_query_bb_reg(struct ieee80211_hw *hw, u32 regaddr,
+ +			       u32 bitmask);
+- void rtl8723ae_phy_set_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 b=
+itmask,
+- 			      u32 data);
+- u32 rtl8723ae_phy_query_rf_reg(struct ieee80211_hw *hw,
+- 			       enum radio_path rfpath, u32 regaddr,
+- 			       u32 bitmask);
+- void rtl8723ae_phy_set_rf_reg(struct ieee80211_hw *hw,
+- 			      enum radio_path rfpath, u32 regaddr, u32 bitmask,
+- 			      u32 data);
+++void rtl8723ae_phy_set_bb_reg(struct ieee80211_hw *hw, u32 regaddr,
+++			      u32 bitmask, u32 data);
+++u32 rtl8723ae_phy_query_rf_reg(struct ieee80211_hw *hw, enum radio_path r=
+fpath,
+++			       u32 regaddr, u32 bitmask);
+++void rtl8723ae_phy_set_rf_reg(struct ieee80211_hw *hw, enum radio_path rf=
+path,
+++			      u32 regaddr, u32 bitmask, u32 data);
+ +bool rtl8723ae_phy_mac_config(struct ieee80211_hw *hw);
+ +bool rtl8723ae_phy_bb_config(struct ieee80211_hw *hw);
+ +bool rtl8723ae_phy_rf_config(struct ieee80211_hw *hw);
+ +bool rtl92c_phy_config_rf_with_feaderfile(struct ieee80211_hw *hw,
+ +					  enum radio_path rfpath);
+ +void rtl8723ae_phy_get_hw_reg_originalvalue(struct ieee80211_hw *hw);
+ +void rtl8723ae_phy_get_txpower_level(struct ieee80211_hw *hw, long *power=
+level);
+ +void rtl8723ae_phy_set_txpower_level(struct ieee80211_hw *hw, u8 channel);
+ +bool rtl8723ae_phy_update_txpower_dbm(struct ieee80211_hw *hw,
+- 				      long power_indbm);
+- void rtl8723ae_phy_scan_operation_backup(struct ieee80211_hw *hw, u8 oper=
+ation);
+++                                      long power_indbm);
+ +void rtl8723ae_phy_set_bw_mode_callback(struct ieee80211_hw *hw);
+ +void rtl8723ae_phy_set_bw_mode(struct ieee80211_hw *hw,
+ +			       enum nl80211_channel_type ch_type);
+ +void rtl8723ae_phy_sw_chnl_callback(struct ieee80211_hw *hw);
+ +u8 rtl8723ae_phy_sw_chnl(struct ieee80211_hw *hw);
+ +void rtl8723ae_phy_iq_calibrate(struct ieee80211_hw *hw, bool recovery);
+  void rtl8723ae_phy_lc_calibrate(struct ieee80211_hw *hw);
+  void rtl8723ae_phy_set_rfpath_switch(struct ieee80211_hw *hw, bool bmain);
+  bool rtl8723ae_phy_config_rf_with_headerfile(struct ieee80211_hw *hw,
+
+--0zAvg8I2HpXbmZ+A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.21 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSTyN/AAoJELSic+t+oim9IpcP/Ru2wNtFkC0wubXhZyUqAeMY
+XRf5xAjGydiYCogx0O79dmuOW6VvHYUYPImxxnoWxo0zGSSFwAgP2x4pHdTQG1lP
+5mNdvbp67x9H+KesgLmK//xANTNLY115cY6JhcPEGyGUlGFYphyocJ9lRhj5FUP/
+s116DQUZN8R545EPmM6QQ4IFZ+IxP/ZdS4YUrjtPJ4bnJuhzn3LP43c6AIujUF87
+YwaVEhLibDC/IecMaEQR3MCn45UUtDe0TiLrCrmsh7VUda/2yfwE8p/05BT3SYek
+5PsO+Sd9Nnwa6gm2RUgd/k0ygKSnc4S4QDyfKmBAzT5S/Dvc5NMt+pCbKNwDZD9H
+LRiL9XMR7X2QoD+qH/BXOaMYpl4YYeLAwvs3OuMu5KJEvHXlbBd2wI3o/yfGzz/N
+peVCzYeQx4L2Mpj1m3QZZJS8PbxtDnEtKWoV1zbSzPEpBFol2pBDX8Xx/eLCKWgt
+2Qgth1ywmfKvIeEqLH+nhB2dykAaMqDxT4M579tSPGdGAn1XV8AXFaJ/8prrK4iv
+4SKzo1cYD+iZ65vHaZVGD/7AZ+i61Ju9rKFH08mUmmgAfmWnjCMfCscjm4OXIhwy
+7uylCks3Fdg3AEw8cutYKO6mDQrwfGYc+ByP0QYpWl0oQwyVoyop5SJPGYMSVgLn
+D86obr3yttrhKD1KVD1u
+=Q9i1
+-----END PGP SIGNATURE-----
+
+--0zAvg8I2HpXbmZ+A--
