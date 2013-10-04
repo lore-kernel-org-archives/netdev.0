@@ -1,42 +1,161 @@
-From: Sami Kerola <kerolasa@iki.fi>
-Subject: Re: [PATCH] ip: make -resolve addr to print names rather than addresses
-Date: Fri, 4 Oct 2013 19:49:30 +0100
-Message-ID: <CAG27Bk07G=Ojh0G7zAZAo8shVLeV016y1nE0o=-Kk6yUB5LsbA@mail.gmail.com>
-References: <1380574908-9220-1-git-send-email-kerolasa@iki.fi>
-	<20131004112530.1cab081c@nehalam.linuxnetplumber.net>
-Reply-To: kerolasa@gmail.com
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 02/10] qlcnic: Enhance ethtool to display ring indices and interrupt mask
+Date: Fri, 4 Oct 2013 14:30:49 -0400
+Message-ID: <6802e3c08711090eada36dead165ab931c4e61db.1380937706.git.himanshu.madhani@qlogic.com>
+References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Pratik Pujar <pratik.pujar@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:56288 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169Ab3JDStb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 14:49:31 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so4536241pab.4
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 11:49:30 -0700 (PDT)
-In-Reply-To: <20131004112530.1cab081c@nehalam.linuxnetplumber.net>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33283 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751174Ab3JDTBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:01:06 -0400
+In-Reply-To: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 October 2013 19:25, Stephen Hemminger <stephen@networkplumber.org> wrote:
-> On Mon, 30 Sep 2013 22:01:48 +0100 Sami Kerola <kerolasa@iki.fi> wrote:
->
->> As a system admin I occasionally want to be able to check that all
->> interfaces has a name in DNS or /etc/hosts file.
->
-> This shouldn't be the default. It will change the result that user's expect now.
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-Doesn't the format_host() print exactly the same output as before,
-unless -r is defined.
-I intended resolution to happen when
+o Updated ethtool -d <ethX> option to display ring indices for Transmit(Tx),
+  Receive(Rx), and Status(St) rings.
+o Updated ethtool -d <ethX> option to display ring interrupt mask for Transmit(Tx),
+  and Status(St) rings.
 
-ip -r addr
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  8 +--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 61 +++++++++++++++++-----
+ 2 files changed, 51 insertions(+), 18 deletions(-)
 
-is used, but not when the -r is not specified. Or did I somehow messed
-up the logic?
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 66e94dc..c2df4ce 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -3267,12 +3267,12 @@ int qlcnic_83xx_reg_test(struct qlcnic_adapter *adapter)
+ 	return 0;
+ }
+ 
+-int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
++inline int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
+ {
+ 	return (ARRAY_SIZE(qlcnic_83xx_ext_reg_tbl) *
+-		sizeof(adapter->ahw->ext_reg_tbl)) +
+-		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) +
+-		sizeof(adapter->ahw->reg_tbl));
++		sizeof(*adapter->ahw->ext_reg_tbl)) +
++		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) *
++		sizeof(*adapter->ahw->reg_tbl));
+ }
+ 
+ int qlcnic_83xx_get_registers(struct qlcnic_adapter *adapter, u32 *regs_buff)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index ebe4c86..01edc09 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -187,8 +187,11 @@ static int qlcnic_dev_statistics_len(struct qlcnic_adapter *adapter)
+ 		return -1;
+ }
+ 
+-#define QLCNIC_RING_REGS_COUNT	20
+-#define QLCNIC_RING_REGS_LEN	(QLCNIC_RING_REGS_COUNT * sizeof(u32))
++#define	QLCNIC_TX_RING_MARKER		0xAAAAAAAA
++#define	QLCNIC_RX_RING_MARKER		0XBBBBBBBB
++#define	QLCNIC_SDS_RING_MARKER		0XCCCCCCCC
++#define	QLCNIC_TX_INTR_NOT_CONFIGURED	0X78563412
++
+ #define QLCNIC_MAX_EEPROM_LEN   1024
+ 
+ static const u32 diag_registers[] = {
+@@ -221,6 +224,14 @@ static const u32 ext_diag_registers[] = {
+ #define QLCNIC_MGMT_API_VERSION	2
+ #define QLCNIC_ETHTOOL_REGS_VER	3
+ 
++static inline int qlcnic_get_ring_regs_len(struct qlcnic_adapter *adapter)
++{
++	int ring_regs_cnt = (adapter->max_drv_tx_rings * 5) +
++			    (adapter->max_rds_rings * 2) +
++			    (adapter->max_sds_rings * 3) + 5;
++	return ring_regs_cnt * sizeof(u32);
++}
++
+ static int qlcnic_get_regs_len(struct net_device *dev)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+@@ -231,7 +242,9 @@ static int qlcnic_get_regs_len(struct net_device *dev)
+ 	else
+ 		len = sizeof(ext_diag_registers) + sizeof(diag_registers);
+ 
+-	return QLCNIC_RING_REGS_LEN + len + QLCNIC_DEV_INFO_SIZE + 1;
++	len += ((QLCNIC_DEV_INFO_SIZE + 2) * sizeof(u32));
++	len += qlcnic_get_ring_regs_len(adapter);
++	return len;
+ }
+ 
+ static int qlcnic_get_eeprom_len(struct net_device *dev)
+@@ -493,6 +506,8 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
+ 	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_host_rds_ring *rds_rings;
++	struct qlcnic_host_tx_ring *tx_ring;
+ 	u32 *regs_buff = p;
+ 	int ring, i = 0;
+ 
+@@ -512,21 +527,39 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
+ 		return;
+ 
+-	regs_buff[i++] = 0xFFEFCDAB; /* Marker btw regs and ring count*/
+-
+-	regs_buff[i++] = 1; /* No. of tx ring */
+-	regs_buff[i++] = le32_to_cpu(*(adapter->tx_ring->hw_consumer));
+-	regs_buff[i++] = readl(adapter->tx_ring->crb_cmd_producer);
+-
+-	regs_buff[i++] = 2; /* No. of rx ring */
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[0].crb_rcv_producer);
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[1].crb_rcv_producer);
+-
+-	regs_buff[i++] = adapter->max_sds_rings;
++	/* Marker btw regs and TX ring count */
++	regs_buff[i++] = QLCNIC_TX_RING_MARKER;
++
++	regs_buff[i++] = adapter->max_drv_tx_rings; /* No. of TX ring */
++	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
++		tx_ring = &adapter->tx_ring[ring];
++		regs_buff[i++] = le32_to_cpu(*(tx_ring->hw_consumer));
++		regs_buff[i++] = tx_ring->sw_consumer;
++		regs_buff[i++] = readl(tx_ring->crb_cmd_producer);
++		regs_buff[i++] = tx_ring->producer;
++		if (tx_ring->crb_intr_mask)
++			regs_buff[i++] = readl(tx_ring->crb_intr_mask);
++		else
++			regs_buff[i++] = QLCNIC_TX_INTR_NOT_CONFIGURED;
++	}
++	/* Marker btw TX ring regs and RDS ring count */
++	regs_buff[i++] = QLCNIC_RX_RING_MARKER;
++
++	regs_buff[i++] = adapter->max_rds_rings; /* No. of RX ring */
++	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
++		rds_rings = &recv_ctx->rds_rings[ring];
++		regs_buff[i++] = readl(rds_rings->crb_rcv_producer);
++		regs_buff[i++] = rds_rings->producer;
++	}
++	/* Marker btw RDS ring regs and SDS ring count */
++	regs_buff[i++] = QLCNIC_SDS_RING_MARKER;
+ 
++	regs_buff[i++] = adapter->max_sds_rings; /* No. of SDS ring */
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &(recv_ctx->sds_rings[ring]);
+ 		regs_buff[i++] = readl(sds_ring->crb_sts_consumer);
++		regs_buff[i++] = sds_ring->consumer;
++		regs_buff[i++] = readl(sds_ring->crb_intr_mask);
+ 	}
+ }
+ 
 -- 
-Sami Kerola
-http://www.iki.fi/kerolasa/
+1.8.1.4
