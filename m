@@ -1,76 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 2/3] udp: Add udp early demux
-Date: Fri, 04 Oct 2013 13:02:06 -0700
-Message-ID: <1380916926.3564.30.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380914896-24754-1-git-send-email-shawn.bohrer@gmail.com>
-	 <1380914896-24754-3-git-send-email-shawn.bohrer@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, tomk@rgmadvisors.com,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [RFC PATCH 0/2 v2] net: alternate proposal for using macvlans with forwarding acceleration
+Date: Fri,  4 Oct 2013 16:10:03 -0400
+Message-ID: <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
+References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:57800 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544Ab3JDUCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 16:02:07 -0400
-Received: by mail-pb0-f53.google.com with SMTP id up15so4426955pbc.26
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 13:02:07 -0700 (PDT)
-In-Reply-To: <1380914896-24754-3-git-send-email-shawn.bohrer@gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52903 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174Ab3JDUKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 16:10:24 -0400
+In-Reply-To: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-10-04 at 14:28 -0500, Shawn Bohrer wrote:
+Hey all-
+     heres the next, updated version of the vsi/macvlan integration that we've
+been discussing.
 
-> +
-> +/* For unicast we should only early demux connected sockets or we can
-> + * break forwarding setups.  The chains here can be long so only check
-> + * if the first socket is an exact match and if not move on.
-> + */
-> +static struct sock *__udp4_lib_demux_lookup(struct net *net,
-> +					    __be16 loc_port, __be32 loc_addr,
-> +					    __be16 rmt_port, __be32 rmt_addr,
-> +					    int dif)
-> +{
-> +	struct sock *sk, *result;
-> +	struct hlist_nulls_node *node;
-> +	unsigned short hnum = ntohs(loc_port);
-> +	unsigned int slot = udp_hashfn(net, hnum, udp_table.mask);
-> +	struct udp_hslot *hslot = &udp_table.hash[slot];
-> +	INET_ADDR_COOKIE(acookie, rmt_addr, loc_addr)
-> +	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
-> +
-> +	rcu_read_lock();
-> +	result = NULL;
-> +	sk_nulls_for_each_rcu(sk, node, &hslot->head) {
-> +		if (INET_MATCH(sk, net, acookie,
-> +			       rmt_addr, loc_addr, ports, dif))
-> +			result = sk;
-> +		/* Only check first socket in chain */
-> +		break;
-> +	}
-> +
-> +	if (result) {
-> +		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
-> +			result = NULL;
+Some change notes:
 
-Here you must check again the keys (because of UDP sockets being
-SLAB_DESTROY_BY_RCU , this socket might have been freed and reused
-elsewhere)
+* Changes to the fowarding ops structure - Removed the priv_size field, and
+added a flags field.  Removal of the priv_size field was accomplished by just
+having the add method return a void * and using ERR_PTR and PTR_ERR checks,
+which also allows us to allocate memory for the acceleration path in the driver,
+which I like.  I'm not super happy still with how I'm using the flags (currenly
+only used to indicate support for feature sets), but at least we have the flags
+now, and they can be exposed to user space via iproute2 or ethtool if need be
 
-	else
-		if (unlikely!(INET_MATCH(result, net, acookie,
-					 rmt_addr, loc_addr,
-					 ports, dif))) {
-			sock_put(result);
-			result = NULL;
-		}
+* Changes to the Transmit path - Specifically I'm using dev_queue_xmit to send
+frames now, which I like as it makes the macvlan subject to the lowerdevs qdisc
+configuration.
 
+* Changes to the acceleration fail path behavior - Now if we don't/can't use
+acceleration, we just fall back to using the normal macvlan software switch
+strategy
 
-> +	}
-> +	rcu_read_unlock();
-> +	return result;
-> +}
-> +
+* General clenups (some renaming, that I'm not super sure of, but I though
+forwarding acceleration (fwd) would be a better prefix than l2 acceleration).
+
+Still a long way to go I think, and lots of tweaking to do, but I didn't want to
+keep you waiting John.  Anywho, take a look at what I'm doing and feel free to
+rip it apart.
+
+Thanks!
+Neil
