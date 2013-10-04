@@ -1,94 +1,62 @@
-From: jason.morgan@aveillant.com
-Subject: Re: tx checksum offload in rtl8168evl disabled in driver
-Date: Fri, 4 Oct 2013 10:15:54 +0100
-Message-ID: <OF48469889.D817DB84-ON80257BFA.0032A86F-80257BFA.0032E20E@aveillant.com>
-References: <OF3E5567E2.6AC62D58-ON80257BF9.004ED219-80257BF9.004F713D@aveillant.com> <20131003230120.GA25047@electric-eye.fr.zoreil.com>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
+ pattern
+Date: Fri, 4 Oct 2013 11:21:09 +0200
+Message-ID: <20131004092108.GB4536@dhcp-26-207.brq.redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
+ <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7371@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-240.asp.reflexion.net ([69.84.129.240]:46613 "EHLO
-	asp.reflexion.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751149Ab3JDJPV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 05:15:21 -0400
-In-Reply-To: <20131003230120.GA25047@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+        linux-mips@linux-mips.org, "VMware, Inc." <pv-drivers@vmware.com>,
+        linux-nvme@lists.infradead.org, linux-ide@vger.kernel.org,
+        linux-s390@vger.kernel.org, Andy King <acking@vmware.com>,
+        linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
+        x86@kernel.org, Ingo Molnar <mingo@redhat.com>,
+        linux-pci@vger.kernel.org, iss_storagedev@hp.com,
+        linux-driver@qlogic.com, Tejun Heo <tj@kernel.org>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Jon Mason <jon.mason@intel.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ralf Baechle <ralf@linux-mips.org>,
+        e1000-devel@lists.sourceforge.net,
+        Martin Schwidefsky <schwidefsky@de.ibm.co
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7371@saturn3.aculab.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-Ubuntu 12.04.3 LTS + Kernel 3.8.13-8 64bit
-
-I've patched the driver to allow tx checksum offload for this chip and=20
-found the following:
-
-MTU 9000 standard driver:
-517Mbps with 2k + header frames
-
-MTU 9000 patched driver:
-770Mbps with 2k + header frames
-
-100% transfer without error (1e6 frames)
-
-48% increase in performance combined with a massive decrease in CPU =
-effort=20
-is not to be sniffed at.
-
-IMO tx offload should be more prevalent as the frames grow, to reduce 
-CPU=20
-load.
-
-OK, so make the default OFF if there is a silicon error (that spans=20
-mulitple chips?) , but why prevent it being turned on in the driver? -=20
-even if there is a kernel message that this might cause problems.
-
-
-
-
-From:   Francois Romieu <romieu@fr.zoreil.com>
-To:     <jason.morgan@aveillant.com>, 
-Cc:     netdev@vger.kernel.org, hayeswang@realtek.com
-Date:   04/10/2013 00:01
-Subject:        Re: tx checksum offload in rtl8168evl disabled in driver
-
-
-
-jason.morgan@aveillant.com <jason.morgan@aveillant.com> :
-[...]
-> I'm at 517Mbps and I've found that there seems to be a cpu bottleneck.
-
-Which kernel ?
-
-> I'm using 2k to 4k frames with a rtl8168evl.
-> I've found this message
-> http://www.spinics.net/lists/netdev/msg216530.html
-[...]
-> However the message thread, above indicates that this is not a problem 
-and 
-> can be changed to make tx-checksum offload possible.
+On Fri, Oct 04, 2013 at 09:31:49AM +0100, David Laight wrote:
+> > Mmmm.. I am not sure I am getting it. Could you please rephrase?
 > 
-> However we are using a newer chip to the on in the message thread. I've 
-> tried to find other, more recent citations without success.
-> 
-> So, why is it still turned off ?
+> One possibility is for drivers than can use a lot of interrupts to
+> request a minimum number initially and then request the additional
+> ones much later on.
+> That would make it less likely that none will be available for
+> devices/drivers that need them but are initialised later.
 
-It has been disabled since d58d46b5d85139d18eb939aa7279c160bab70484 
-("r8169:
-jumbo fixes"). Patch was submitted as a RFC on 2011/07/17 and Hayes was
-explicitely requested to comment on the jumbo part if necessary. Patch was
-submitted for inclusion on 2011/09/22.
+It sounds as a whole new topic for me. Isn't it?
 
-Tx checksumming and jumbo are mutually exclusive in Realtek's driver as 
-well.
+Anyway, what prevents the above from being done with pci_enable_msix(nvec1) -
+pci_disable_msix() - pci_enable_msix(nvec2) where nvec1 < nvec2?
 
-It seems no recent gigabit chipset reliably supports it.
-
-> What will be the effect of turning it on (changing false to true, in the 
-
-> driver line) for our chip ?
-
-YMMV.
-
-Hayes may elaborate.
+> 	David
 
 -- 
-Ueimor
+Regards,
+Alexander Gordeev
+agordeev@redhat.com
