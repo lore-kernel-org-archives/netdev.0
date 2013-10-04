@@ -1,35 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
- side)
-Date: Thu, 03 Oct 2013 21:49:00 -0700
-Message-ID: <1380862140.3564.3.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380859529-32351-1-git-send-email-yamato@redhat.com>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: Re: [PATCH RFC 06/77] PCI/MSI: Factor out pci_get_msi_cap() interface
+Date: Fri, 4 Oct 2013 07:13:24 +0200
+Message-ID: <20131004051322.GA3577@dhcp-26-207.brq.redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <9c282c4ab92731c719d161d2db6fc54ce33891d9.1380703262.git.agordeev@redhat.com>
+ <1380837174.3419.21.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Masatake YAMATO <yamato@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:39049 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861Ab3JDEtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 00:49:07 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj1so3615472pad.0
-        for <netdev@vger.kernel.org>; Thu, 03 Oct 2013 21:49:06 -0700 (PDT)
-In-Reply-To: <1380859529-32351-1-git-send-email-yamato@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+        linux-dr
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <1380837174.3419.21.camel@bwh-desktop.uk.level5networks.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-10-04 at 13:05 +0900, Masatake YAMATO wrote:
-> ip link has ability to show extra information of net work device if
-> kernel provides sunh information. With this patch veth driver can
-> provide its peer ifindex information to ip command via netlink
-> interface.
+On Thu, Oct 03, 2013 at 10:52:54PM +0100, Ben Hutchings wrote:
+> On Wed, 2013-10-02 at 12:48 +0200, Alexander Gordeev wrote:
+> >  #ifndef CONFIG_PCI_MSI
+> > +static inline int pci_get_msi_cap(struct pci_dev *dev)
+> > +{
+> > +	return -1;
+> [...]
+> 
+> Shouldn't this also return -EINVAL?
 
-> +
-> +	peer_ifindex = peer ? peer->ifindex : 0;
-> +	if (nla_put_u64(skb, VETH_INFO_PEER, peer_ifindex))
-> +		return -EMSGSIZE;
-> +
+Yep, all inliners here are better to return -EINVAL.
+Will do unless someone speaks out against.
 
-ifindex are int, so you should use nla_put_u32()
+> Ben.
+
+-- 
+Regards,
+Alexander Gordeev
+agordeev@redhat.com
