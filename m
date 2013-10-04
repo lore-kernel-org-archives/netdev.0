@@ -1,104 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] fix unsafe set_memory_rw from softirq
-Date: Thu, 03 Oct 2013 22:16:38 -0700
-Message-ID: <1380863798.3564.12.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380859875-31025-1-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:50187 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831Ab3JDFQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 01:16:40 -0400
-In-Reply-To: <1380859875-31025-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Thu, 2013-10-03 at 21:11 -0700, Alexei Starovoitov wrote:
-
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index a6ac848..5d66cd9 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -25,15 +25,20 @@ struct sk_filter
->  {
->  	atomic_t		refcnt;
->  	unsigned int         	len;	/* Number of filter blocks */
-> +	struct rcu_head		rcu;
->  	unsigned int		(*bpf_func)(const struct sk_buff *skb,
->  					    const struct sock_filter *filter);
-> -	struct rcu_head		rcu;
-> +	/* insns start right after bpf_func, so that sk_run_filter() fetches
-> +	 * first insn from the same cache line that was used to call into
-> +	 * sk_run_filter()
-> +	 */
->  	struct sock_filter     	insns[0];
->  };
->  
->  static inline unsigned int sk_filter_len(const struct sk_filter *fp)
->  {
-> -	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
-> +	return max(fp->len * sizeof(struct sock_filter),
-> +		   sizeof(struct work_struct)) + sizeof(*fp);
->  }
-
-I would use for include/linux/filter.h this (untested) diff :
-
-(Note the include <linux/workqueue.h>)
-
-I also remove your comment about cache lines, since there is nothing
-to align stuff on a cache line boundary.
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index a6ac848..281b05c 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -6,6 +6,7 @@
- 
- #include <linux/atomic.h>
- #include <linux/compat.h>
-+#include <linux/workqueue.h>
- #include <uapi/linux/filter.h>
- 
- #ifdef CONFIG_COMPAT
-@@ -25,15 +26,20 @@ struct sk_filter
- {
- 	atomic_t		refcnt;
- 	unsigned int         	len;	/* Number of filter blocks */
-+	struct rcu_head		rcu;
- 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
- 					    const struct sock_filter *filter);
--	struct rcu_head		rcu;
--	struct sock_filter     	insns[0];
-+	union {
-+		struct work_struct	work;
-+		struct sock_filter	insns[0];
-+	};
- };
- 
--static inline unsigned int sk_filter_len(const struct sk_filter *fp)
-+static inline unsigned int sk_filter_size(const struct sk_filter *fp,
-+					  unsigned int proglen)
- {
--	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
-+	return max(sizeof(*fp),
-+		   offsetof(struct sk_filter, insns[proglen]));
- }
- 
- extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
+Date: Fri, 4 Oct 2013 08:22:37 +0200
+Message-ID: <4893FFB3-2A82-4AD4-A6B6-20270798051F@goldelico.com>
+References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com> <20131003.152907.2144013596237714581.davem@davemloft.net> <C7520082-95CC-4D4F-BCE4-96A7D6346DB3@goldelico.com> <20131003.160049.199880461500344692.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131003.160049.199880461500344692.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
+Am 03.10.2013 um 22:00 schrieb David Miller:
 
-This way, you can use sk_filter_size(fp, fprog->len)
-instead of doing the max() games in sk_attach_filter() and
-sk_unattached_filter_create()
+> From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
+> Date: Thu, 3 Oct 2013 21:40:34 +0200
+> 
+>> I have made the bug observation from debug log that this bit is set in a response
+>> each time the modem has a RING message. It might be specific to this modem
+>> and firmware version, i.e. a firmware bug. But we have no means to verify or even
+>> change it in the firmware.
+>> 
+>> I.e. the driver must handle it in a better way.
+>> 
+>> Because the notification is rejected by the driver, the driver will hang up and the
+>> whole modem connection breaks down.
+>> 
+>> With this patch, the problem was never observed again in ~2 years.
+>> 
+>> I'd hope the maintainer of this driver can shed some light on it.
+> 
+> I think if you suspect the bit is set in response to RING messages
+> then you should define a macro so that the number is not just magic,
+> and put a descriptrive comment above the macro definition for that
+> bit.
 
-Other than that, I think your patch is fine.
+Good idea! I will resend the patch.
+
+--- hns--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
