@@ -1,75 +1,101 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 07/10] qlcnic: Validate Tx queue only for 82xx adapters.
-Date: Fri, 4 Oct 2013 14:30:54 -0400
-Message-ID: <20ad967c2e5e77b3f84dbae4b59ee98501660c78.1380937706.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 08/10] qlcnic: Skip unknown entry type while collecting firmware dump
+Date: Fri, 4 Oct 2013 14:30:55 -0400
+Message-ID: <042a18ccf3ba99e8f441221d8440113cecd8cb01.1380937706.git.himanshu.madhani@qlogic.com>
 References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62240 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:43155 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751043Ab3JDTBH (ORCPT
+	by vger.kernel.org with ESMTP id S1752167Ab3JDTBH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:01:07 -0400
 In-Reply-To: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-o validate Tx queue only in case of adapters which supports
-  multi Tx queue.
+o Driver aborts the minidump collection operation when it finds
+  an unknown entry opcode. This patch skips unknown entry type
+  and resumes the minidump collection operation.
+o Removed a comparision of collected dump size with expected dump size.
+  Size may differ when driver decides to skip an entry.
 
-  This patch is to fix regression introduced in commit
-  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
-  "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
-
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 8 +-------
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   | 41 ++++++++++------------
+ 1 file changed, 19 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 01edc09..7e8d39a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -698,7 +698,7 @@ static int qlcnic_set_channels(struct net_device *dev,
- 			return err;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+index 1551360..7763962 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+@@ -1187,41 +1187,38 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
+ 		}
+ 
+ 		if (ops_index == ops_cnt) {
+-			dev_info(&adapter->pdev->dev,
+-				 "Invalid entry type %d, exiting dump\n",
++			dev_info(dev, "Skipping unknown entry opcode %d\n",
+ 				 entry->hdr.type);
+-			goto error;
++			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
++			entry_offset += entry->hdr.offset;
++			continue;
+ 		}
+ 
+ 		/* Collect dump for this entry */
+ 		dump = fw_dump_ops[ops_index].handler(adapter, entry, buffer);
+-		if (!qlcnic_valid_dump_entry(&adapter->pdev->dev, entry, dump))
++		if (!qlcnic_valid_dump_entry(dev, entry, dump)) {
+ 			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
++			entry_offset += entry->hdr.offset;
++			continue;
++		}
++
+ 		buf_offset += entry->hdr.cap_size;
+ 		entry_offset += entry->hdr.offset;
+ 		buffer = fw_dump->data + buf_offset;
  	}
- 
--	if (channel->tx_count) {
-+	if (qlcnic_82xx_check(adapter) && channel->tx_count) {
- 		err = qlcnic_validate_max_tx_rings(adapter, channel->tx_count);
- 		if (err)
- 			return err;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index aaf67bd..565e531 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3647,11 +3647,6 @@ int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, u32 txq)
- 	u8 max_hw = QLCNIC_MAX_TX_RINGS;
- 	u32 max_allowed;
- 
--	if (!qlcnic_82xx_check(adapter)) {
--		netdev_err(netdev, "No Multi TX-Q support\n");
--		return -EINVAL;
+-	if (dump_size != buf_offset) {
+-		dev_info(&adapter->pdev->dev,
+-			 "Captured(%d) and expected size(%d) do not match\n",
+-			 buf_offset, dump_size);
+-		goto error;
+-	} else {
+-		fw_dump->clr = 1;
+-		snprintf(mesg, sizeof(mesg), "FW_DUMP=%s",
+-			 adapter->netdev->name);
+-		dev_info(&adapter->pdev->dev, "%s: Dump data, %d bytes captured\n",
+-			 adapter->netdev->name, fw_dump->size);
+-		/* Send a udev event to notify availability of FW dump */
+-		kobject_uevent_env(&adapter->pdev->dev.kobj, KOBJ_CHANGE, msg);
+-		return 0;
 -	}
--
- 	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No Multi TX-Q support in INT-x mode\n");
- 		return -EINVAL;
-@@ -3691,8 +3686,7 @@ int qlcnic_validate_max_rss(struct qlcnic_adapter *adapter,
- 	u8 max_hw = adapter->ahw->max_rx_ques;
- 	u32 max_allowed;
+-error:
++
++	fw_dump->clr = 1;
++	snprintf(mesg, sizeof(mesg), "FW_DUMP=%s", adapter->netdev->name);
++	dev_info(dev, "%s: Dump data %d bytes captured, template header size %d bytes\n",
++		 adapter->netdev->name, fw_dump->size, tmpl_hdr->size);
++	/* Send a udev event to notify availability of FW dump */
++	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, msg);
++
+ 	if (fw_dump->use_pex_dma)
+ 		dma_free_coherent(dev, QLC_PEX_DMA_READ_SIZE,
+ 				  fw_dump->dma_buffer, fw_dump->phys_addr);
+-	vfree(fw_dump->data);
+-	return -EINVAL;
++
++	return 0;
+ }
  
--	if (qlcnic_82xx_check(adapter) && !qlcnic_use_msi_x &&
--	    !qlcnic_use_msi) {
-+	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No RSS support in INT-x mode\n");
- 		return -EINVAL;
- 	}
+ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
 -- 
 1.8.1.4
