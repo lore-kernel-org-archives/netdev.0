@@ -1,73 +1,75 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 00/10] qlcnic: fixes and ethtool enhancements.
-Date: Fri, 4 Oct 2013 14:30:47 -0400
-Message-ID: <cover.1380937706.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 07/10] qlcnic: Validate Tx queue only for 82xx adapters.
+Date: Fri, 4 Oct 2013 14:30:54 -0400
+Message-ID: <20ad967c2e5e77b3f84dbae4b59ee98501660c78.1380937706.git.himanshu.madhani@qlogic.com>
+References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
 	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:59968 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751043Ab3JDTBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:01:06 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62240 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751043Ab3JDTBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:01:07 -0400
+In-Reply-To: <cover.1380937706.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-This patch series contains
+o validate Tx queue only in case of adapters which supports
+  multi Tx queue.
 
-o patch to fix regression introduced by commit
-  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f.
-o updates to ethtool for pause settings and enhance
-  register dump to display mask and ring indices.
-o cleanup in DCB code and remove redundant eSwitch enablement command.
-o fixed firmware dump collection logic to skip unknown entries.
-o fix to register device if adapter is in FAILED state.
+  This patch is to fix regression introduced in commit
+  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
+  "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
 
-Please apply to net-next.
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 8 +-------
+ 2 files changed, 2 insertions(+), 8 deletions(-)
 
-Thanks,
-Himanshu
-
-Himanshu Madhani (2):
-  qlcnic: Validate Tx queue only for 82xx adapters.
-  qlcnic: update version to 5.3.51
-
-Jitendra Kalsaria (1):
-  qlcnic: Update ethtool standard pause settings.
-
-Pratik Pujar (2):
-  qlcnic: Enhance ethtool to display ring indices and interrupt mask
-  qlcnic: Firmware dump collection when auto recovery is disabled.
-
-Shahed Shaikh (1):
-  qlcnic: Skip unknown entry type while collecting firmware dump
-
-Sony Chacko (1):
-  qlcnic: Remove redundant eSwitch enable commands
-
-Sucheta Chakraborty (3):
-  qlcnic: Print informational messages only once during driver load.
-  qlcnic: dcb code cleanup and refactoring.
-  qlcnic: Register netdev in FAILED state for 83xx/84xx
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 102 +-----------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  72 ++++----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   5 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |  36 ++--
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |  48 +++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 182 ++++++++++-----------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    | 109 ++++++++++--
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  69 +++++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  90 +++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  41 +++--
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   9 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |   8 +-
- 13 files changed, 417 insertions(+), 356 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 01edc09..7e8d39a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -698,7 +698,7 @@ static int qlcnic_set_channels(struct net_device *dev,
+ 			return err;
+ 	}
+ 
+-	if (channel->tx_count) {
++	if (qlcnic_82xx_check(adapter) && channel->tx_count) {
+ 		err = qlcnic_validate_max_tx_rings(adapter, channel->tx_count);
+ 		if (err)
+ 			return err;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index aaf67bd..565e531 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3647,11 +3647,6 @@ int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, u32 txq)
+ 	u8 max_hw = QLCNIC_MAX_TX_RINGS;
+ 	u32 max_allowed;
+ 
+-	if (!qlcnic_82xx_check(adapter)) {
+-		netdev_err(netdev, "No Multi TX-Q support\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
+ 		netdev_err(netdev, "No Multi TX-Q support in INT-x mode\n");
+ 		return -EINVAL;
+@@ -3691,8 +3686,7 @@ int qlcnic_validate_max_rss(struct qlcnic_adapter *adapter,
+ 	u8 max_hw = adapter->ahw->max_rx_ques;
+ 	u32 max_allowed;
+ 
+-	if (qlcnic_82xx_check(adapter) && !qlcnic_use_msi_x &&
+-	    !qlcnic_use_msi) {
++	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
+ 		netdev_err(netdev, "No RSS support in INT-x mode\n");
+ 		return -EINVAL;
+ 	}
 -- 
 1.8.1.4
