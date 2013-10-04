@@ -1,41 +1,36 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: [PATCH 2/2] net/ethernet: cpsw: DT read bool dual_emac
-Date: Fri,  4 Oct 2013 14:44:40 +0200
-Message-ID: <1380890680-30941-2-git-send-email-mpa@pengutronix.de>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 1/2] net: ethernet: cpsw: Search childs for slave nodes
+Date: Fri, 4 Oct 2013 08:27:59 -0500
+Message-ID: <524EC25F.70301@ti.com>
 References: <1380890680-30941-1-git-send-email-mpa@pengutronix.de>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de, Markus Pargmann <mpa@pengutronix.de>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:34232 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753312Ab3JDMpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 08:45:19 -0400
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
+ Florian Fainelli <florian@openwrt.org>, linux-arm-kernel@lists.infradead.org
+To: Markus Pargmann <mpa@pengutronix.de>, "David S. Miller"
+ <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1380890680-30941-1-git-send-email-mpa@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
----
- drivers/net/ethernet/ti/cpsw.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On Friday 04 October 2013 07:44 AM, Markus Pargmann wrote:
+> The current implementation searches the whole DT for nodes named
+> "slave".
+>
+> This patch changes it to search only child nodes for slaves.
+>
+> Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 5df50a9..804846e 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1771,8 +1771,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->mac_control = prop;
- 
--	if (!of_property_read_u32(node, "dual_emac", &prop))
--		data->dual_emac = prop;
-+	if (of_property_read_bool(node, "dual_emac"))
-+		data->dual_emac = 1;
- 
- 	/*
- 	 * Populate all the child nodes here...
--- 
-1.8.4.rc3
+Regards
+Mugunthan V N
