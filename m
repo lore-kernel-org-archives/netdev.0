@@ -1,40 +1,65 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Ideas on why using WPA2 encryption speeds up many TCP connections?
-Date: Thu, 03 Oct 2013 16:19:55 -0700
-Message-ID: <524DFB9B.7010205@candelatech.com>
-References: <524DB6F6.6020405@candelatech.com> <524DBC93.1070400@hp.com> <524DC2B8.905@candelatech.com>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [PATCH RFC 01/77] PCI/MSI: Fix return value when
+ populate_msi_sysfs() failed
+Date: Thu, 3 Oct 2013 17:59:13 -0700
+Message-ID: <20131004005912.GB4787@jonmason-lab>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <3ff5236944aae69f2cd934b5b6da7c1c269df7c1.1380703262.git.agordeev@redhat.com>
+ <20131003003905.GK6768@jonmason-lab>
+ <1380836781.3419.17.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:48429 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752216Ab3JCXUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 19:20:03 -0400
-In-Reply-To: <524DC2B8.905@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+	linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	stable@vger.kernel.org, linux-pci@vger.kernel.org,
+	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+	linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarf
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1380836781.3419.17.camel@bwh-desktop.uk.level5networks.com>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I was seeing an un-expectedly bad wifi train rates, so I changed to ath9k-rate-control,
-rebooted, and re-ran the tests.  Throughput is much improved.  I really hope it wasn't just
-a reboot that fixed it, but too burned out to do more tests today.
+On Thu, Oct 03, 2013 at 10:46:21PM +0100, Ben Hutchings wrote:
+> On Wed, 2013-10-02 at 17:39 -0700, Jon Mason wrote:
+> > On Wed, Oct 02, 2013 at 12:48:17PM +0200, Alexander Gordeev wrote:
+> > > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> > 
+> > Since you are changing the behavior of the msix_capability_init
+> > function on populate_msi_sysfs error, a comment describing why in this
+> > commit would be nice.
+> [...]
+> 
+> This function was already treating that error as fatal, and freeing the
+> MSIs.  The change in behaviour is that it now returns the error code in
+> this case, rather than 0.  This is obviously correct and properly
+> described by the one-line summary.
 
-I still see better TCP throughput with WPA2 when using 25-200 stations/streams.
+If someone dumb, like me, is looking at this commit and trying to
+figure out what is happening, having ANY commit message is good.  "Fix
+the return value" doesn't tell me anything.  Documenting what issue(s)
+would've been seen had the error case been encountered and what will
+now been seen would be very nice.
 
-For anyone who wants to wade through some big automated reports, see the links
-near the top of this page (suggestions for improving those reports are welcome):
-
-http://www.candelatech.com/lf_wifi_examples.php
-
-(The 600 station reports are a bit dated and were done in a fairly busy
-  wifi environment.  We'll re-run those sometime soon-ish.)
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
