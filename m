@@ -1,52 +1,47 @@
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Subject: Re: The check of upper MTU limit when changing it in ip6 gre tunnel
- seems incorrect.
-Date: Fri, 4 Oct 2013 10:58:00 +0100
-Message-ID: <CABfLueHGnjQZ7V+waNgxh0o=3nfcANvkKGragO2ZAGxDKNuyAg@mail.gmail.com>
-References: <CABfLueFJWv0OvcDmP7TMTF4wHjjv5QW_Qt+ULSDBciX==HsXQw@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] dev: add support of flag IFF_NOPROC
+Date: Fri, 04 Oct 2013 14:07:00 +0200
+Message-ID: <524EAF64.8000801@6wind.com>
+References: <1380806905-4461-1-git-send-email-nicolas.dichtel@6wind.com>	<20131003104627.411f5cc4@nehalam.linuxnetplumber.net> <20131003.150947.2179820478039260398.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:51734 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438Ab3JDJ6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 05:58:00 -0400
-Received: by mail-ie0-f173.google.com with SMTP id ar20so8615971iec.32
-        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 02:58:00 -0700 (PDT)
-In-Reply-To: <CABfLueFJWv0OvcDmP7TMTF4wHjjv5QW_Qt+ULSDBciX==HsXQw@mail.gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:51070 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754310Ab3JDMHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 08:07:04 -0400
+Received: by mail-wi0-f175.google.com with SMTP id ez12so1505324wid.2
+        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 05:07:02 -0700 (PDT)
+In-Reply-To: <20131003.150947.2179820478039260398.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have sent this patch to address the issue.
+Le 03/10/2013 21:09, David Miller a =E9crit :
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Thu, 3 Oct 2013 10:46:27 -0700
+>
+>> What about speeding up proc or sysfs? Or providing a bulk create/des=
+troy.
+>
+> +1 +1 +1
+>
+> This will benefit more people than the just the envisioned users for
+> this IFF_NOPROC thing.
+>
+> I really don't want to take the IFF_NOPROC approach.
+>
+Of course optimizing /proc and /sysfs is a good option, but any optimiz=
+ations
+will never be as fast as disabling them for some well known netdevices.
 
-[PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
-
-On Wed, Oct 2, 2013 at 5:44 PM, Oussama Ghorbel <ou.ghorbel@gmail.com> wrote:
-> The check of upper MTU limit when changing it in ip6 gre tunnel seems incorrect.
-> The function in question is:
->
-> static int ip6gre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
-> {
->     struct ip6_tnl *tunnel = netdev_priv(dev);
->
->     if (new_mtu < 68 ||
->         new_mtu > 0xFFF8 - dev->hard_header_len - tunnel->hlen)
->         return -EINVAL;
->     dev->mtu = new_mtu;
->     return 0;
-> }
->
-> However the dev->hard_header_len and tunnel->hlen are initialized in
-> the following way in ip6gre_tnl_link_config():
->
-> int addend = sizeof(struct ipv6hdr) + 4;
-> ...
-> dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
-> ...
-> t->hlen = addend; // t is ip6_tnl pointer
->
-> As you see the information t->hlen is already included in
-> dev->hard_header_len, so why calculate it twice?
->
-> Thanks
+Note also that the memory consumption is significantly less with this f=
+lag:
+for 20000 dummy interfaces:
+without the flag: 463,84Mo
+with the flag: 297,45Mo
+the gain is 166Mo (35%)
