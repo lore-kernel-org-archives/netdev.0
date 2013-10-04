@@ -1,133 +1,65 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 01/10] qlcnic: Print informational messages only once during driver load.
-Date: Fri, 4 Oct 2013 14:30:48 -0400
-Message-ID: <5fea5316a6664e19c516bbd26428a5034657b130.1380937706.git.himanshu.madhani@qlogic.com>
-References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: [PATCH net-next v2 0/3] Improve UDP multicast receive latency
+Date: Fri,  4 Oct 2013 14:28:13 -0500
+Message-ID: <1380914896-24754-1-git-send-email-shawn.bohrer@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, tomk@rgmadvisors.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:6577 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751744Ab3JDTBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:01:06 -0400
-In-Reply-To: <cover.1380937706.git.himanshu.madhani@qlogic.com>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:42633 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352Ab3JDT2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 15:28:48 -0400
+Received: by mail-oa0-f47.google.com with SMTP id i1so4468995oag.34
+        for <netdev@vger.kernel.org>; Fri, 04 Oct 2013 12:28:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 12 -----------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  | 25 ++++++++++++++++++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  1 +
- 4 files changed, 23 insertions(+), 16 deletions(-)
+The removal of the routing cache in 3.6 had impacted the latency of our
+UDP multicast workload.  This patch series brings down the latency to
+what we were seeing with 3.4.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 81bf836..a3c4379 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1199,6 +1199,7 @@ struct qlcnic_npar_info {
- 	u8	promisc_mode;
- 	u8	offload_flags;
- 	u8      pci_func;
-+	u8      mac[ETH_ALEN];
- };
- 
- struct qlcnic_eswitch {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3ca00e0..66e94dc 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -2321,19 +2321,7 @@ int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 			i++;
- 			memcpy(pci_info->mac + sizeof(u32), &cmd.rsp.arg[i], 2);
- 			i = i + 3;
--			if (ahw->op_mode == QLCNIC_MGMT_FUNC)
--				dev_info(dev, "id = %d active = %d type = %d\n"
--					 "\tport = %d min bw = %d max bw = %d\n"
--					 "\tmac_addr =  %pM\n", pci_info->id,
--					 pci_info->active, pci_info->type,
--					 pci_info->default_port,
--					 pci_info->tx_min_bw,
--					 pci_info->tx_max_bw, pci_info->mac);
- 		}
--		if (ahw->op_mode == QLCNIC_MGMT_FUNC)
--			dev_info(dev, "Max functions = %d, active functions = %d\n",
--				 ahw->max_pci_func, ahw->act_pci_func);
--
- 	} else {
- 		dev_err(dev, "Failed to get PCI Info, error = %d\n", err);
- 		err = -EIO;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index 0248a4c..63cdddf 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -94,13 +94,30 @@ qlcnic_83xx_config_vnic_buff_descriptors(struct qlcnic_adapter *adapter)
-  **/
- static int qlcnic_83xx_init_mgmt_vnic(struct qlcnic_adapter *adapter)
- {
--	int err = -EIO;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct device *dev = &adapter->pdev->dev;
-+	struct qlcnic_npar_info *npar;
-+	int i, err = -EIO;
- 
- 	qlcnic_83xx_get_minidump_template(adapter);
-+
- 	if (!(adapter->flags & QLCNIC_ADAPTER_INITIALIZED)) {
- 		if (qlcnic_init_pci_info(adapter))
- 			return err;
- 
-+		npar = adapter->npars;
-+
-+		for (i = 0; i < ahw->act_pci_func; i++, npar++) {
-+			dev_info(dev, "id = %d active = %d type = %d\n"
-+				 "\tport = %d min bw = %d max bw = %d\n"
-+				 "\tmac_addr =  %pM\n", npar->pci_func,
-+				 npar->active, npar->type, npar->phy_port,
-+				 npar->min_bw, npar->max_bw, npar->mac);
-+		}
-+
-+		dev_info(dev, "Max functions = %d, active functions = %d\n",
-+			 ahw->max_pci_func, ahw->act_pci_func);
-+
- 		if (qlcnic_83xx_set_vnic_opmode(adapter))
- 			return err;
- 
-@@ -115,12 +132,12 @@ static int qlcnic_83xx_init_mgmt_vnic(struct qlcnic_adapter *adapter)
- 		return err;
- 
- 	qlcnic_83xx_config_vnic_buff_descriptors(adapter);
--	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
-+	ahw->msix_supported = qlcnic_use_msi_x ? 1 : 0;
- 	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
- 	qlcnic_83xx_enable_vnic_mode(adapter, 1);
- 
--	dev_info(&adapter->pdev->dev, "HAL Version: %d, Management function\n",
--		 adapter->ahw->fw_hal_version);
-+	dev_info(dev, "HAL Version: %d, Management function\n",
-+		 ahw->fw_hal_version);
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 21d00a0..11bedc5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -875,6 +875,7 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 		adapter->npars[j].min_bw = pci_info[i].tx_min_bw;
- 		adapter->npars[j].max_bw = pci_info[i].tx_max_bw;
- 
-+		memcpy(&adapter->npars[j].mac, &pci_info[i].mac, ETH_ALEN);
- 		j++;
- 	}
- 
+Patch 1 "udp: Only allow busy read/poll on connected sockets" is mostly
+done for correctness and because it allows unifying the unicast and
+multicast paths when a socket is found in early demux.  It can also
+improve latency for a connected multicast socket if busy read/poll is
+used.
+
+Patches 2&3 remove the fib lookups and restore latency for our workload
+to the pre 3.6 levels.
+
+Benchmark results from a netperf UDP_RR test:
+v3.12-rc3-447-g40dc9ab kernel   87961.22 transactions/s
+v3.12-rc3-447-g40dc9ab + series 90587.62 transactions/s
+
+Benchmark results from a fio 1 byte UDP multicast pingpong test
+(Multicast one way unicast response):
+v3.12-rc3-447-g40dc9ab kernel   12.97us RTT
+v3.12-rc3-447-g40dc9ab + series 12.48us RTT
+
+v2 Changes:
+
+* Unicast UDP early demux now requires an exact socket match and only
+tests first socket in UDP hash chain.
+* ipv4_pktinfo_prepare() now takes a const struct sock*
+
+Shawn Bohrer (3):
+  udp: Only allow busy read/poll on connected sockets
+  udp: Add udp early demux
+  net: ipv4 only populate IP_PKTINFO when needed
+
+ include/net/ip.h       |    2 +-
+ include/net/sock.h     |    2 +-
+ include/net/udp.h      |    1 +
+ net/ipv4/af_inet.c     |    1 +
+ net/ipv4/ip_sockglue.c |    5 +-
+ net/ipv4/raw.c         |    2 +-
+ net/ipv4/udp.c         |  195 ++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv6/udp.c         |    5 +-
+ 8 files changed, 185 insertions(+), 28 deletions(-)
+
 -- 
-1.8.1.4
+1.7.7.6
