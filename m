@@ -1,8 +1,8 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH v2.42 3/5] lib: Support pushing of MPLS LSE before
-	or after VLAN tag
-Date: Fri,  4 Oct 2013 17:09:58 +0900
-Message-ID: <1380874200-8981-4-git-send-email-horms@verge.net.au>
+Subject: [PATCH v2.42 2/5] ofp-actions: Add separate OpenFlow 1.3
+	action parser
+Date: Fri,  4 Oct 2013 17:09:57 +0900
+Message-ID: <1380874200-8981-3-git-send-email-horms@verge.net.au>
 References: <1380874200-8981-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,25 +25,15 @@ List-Id: netdev.vger.kernel.org
 
 From: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
 
-This patch modifies the push_mpls behaviour to allow
-pushing of an MPLS LSE either before any VLAN tag that may be present.
+This patch adds new ofpact_from_openflow13() and
+ofpacts_from_openflow13() functions parallel to the existing ofpact
+handling code. In the OpenFlow 1.3 version, push_mpls is handled
+differently, but all other actions are handled by the existing code.
 
-Pushing the MPLS LSE before any VLAN tag that is present is the
-behaviour specified in OpenFlow 1.3.
-
-Pushing the MPLS LSE after the any VLAN tag that is present is the
-behaviour specified in OpenFlow 1.1 and 1.2. This is the only behaviour
-that was supported prior to this patch.
-
-When an push_mpls action has been inserted using OpenFlow 1.2 or earlier
-the behaviour of pushing the MPLS LSE before any VLAN tag that may be
-present is implemented by by inserting VLAN actions around the MPLS push
-action during odp translation; Pop VLAN tags before committing MPLS
-actions, and push the expected VLAN tag afterwards.
-
-The trigger condition for the two different behaviours is the value of the
-mpls_before_vlan field of struct ofpact_push_mpls.  This field is set when
-parsing OpenFlow actions.
+In the case of push_mpls for OpenFlow 1.3 the new mpls_before_vlan field of
+struct ofpact_push_mpls is set to true.  This will be used by a subsequent
+patch to allow allow the correct VLAN+MPLS datapath behaviour to be
+determined at odp translation time.
 
 Signed-off-by: Joe Stringer <joe-Q1GJJQv1iO6lP80pJB477g@public.gmane.org>
 Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
@@ -51,381 +41,305 @@ Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 ---
 
 v2.41 [Simon Horman]
-* Use mpls_before_vlan field of struct ofpact_reg_load.
-* Reword changelog to describe the difference in behaviour between
-  different Open Flow versions.
+* As suggested by Ben Pfaff
+  + Expand struct ofpact_reg_load to include a mpls_before_vlan field
+    rather than using the compat field of the ofpact field of
+    struct ofpact_reg_load.
+  + Pass version to  ofpacts_pull_openflow11_actions and
+    ofpacts_pull_openflow11_instructions.  This removes the invalid
+    assumption that that these functions are passed a full message and are
+    thus able to deduce the OpenFlow version.
 
-v2.40 [Simon Horman]
-* Trivial rebase for removal of set_ethertype()
-
-v2.36 - v2.39
+v2.36 - v2.40
 * No change
 
 v2.35 [Joe Stringer]
 * First post
 ---
- lib/flow.c                   |   2 +-
- lib/packets.c                |  10 +-
- lib/packets.h                |   2 +-
- ofproto/ofproto-dpif-xlate.c |  27 ++---
- tests/ofproto-dpif.at        | 237 +++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 259 insertions(+), 19 deletions(-)
+ lib/ofp-actions.c     | 68 ++++++++++++++++++++++++++++++++++++++++++++++++---
+ lib/ofp-actions.h     |  9 +++++++
+ lib/ofp-print.c       |  2 +-
+ lib/ofp-util.c        | 24 ++++++++++--------
+ lib/ofp-util.h        |  2 +-
+ utilities/ovs-ofctl.c |  8 +++---
+ 6 files changed, 93 insertions(+), 20 deletions(-)
 
-diff --git a/lib/flow.c b/lib/flow.c
-index 0678c6f..6242ef9 100644
---- a/lib/flow.c
-+++ b/lib/flow.c
-@@ -1061,7 +1061,7 @@ flow_compose(struct ofpbuf *b, const struct flow *flow)
-     }
- 
-     if (eth_type_mpls(flow->dl_type)) {
--        b->l2_5 = b->l3;
-+        b->l2_5 = (char*)b->l2 + ETH_HEADER_LEN;
-         push_mpls(b, flow->dl_type, flow->mpls_lse);
-     }
+diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+index 65430f3..434d020 100644
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -881,6 +881,40 @@ ofpacts_from_openflow11(const union ofp_action *in, size_t n_in,
+     return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow11);
  }
-diff --git a/lib/packets.c b/lib/packets.c
-index 922c5db..f8a58b6 100644
---- a/lib/packets.c
-+++ b/lib/packets.c
-@@ -220,11 +220,11 @@ eth_pop_vlan(struct ofpbuf *packet)
+ 
++static enum ofperr
++ofpact_from_openflow13(const union ofp_action *a, struct ofpbuf *out)
++{
++    enum ofputil_action_code code;
++    enum ofperr error;
++
++    error = decode_openflow11_action(a, &code);
++    if (error) {
++        return error;
++    }
++
++    if (code == OFPUTIL_OFPAT11_PUSH_MPLS) {
++        struct ofpact_push_mpls *oam;
++        struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
++        if (!eth_type_mpls(oap->ethertype)) {
++            return OFPERR_OFPBAC_BAD_ARGUMENT;
++        }
++        oam = ofpact_put_PUSH_MPLS(out);
++        oam->ethertype = oap->ethertype;
++        oam->mpls_before_vlan = true;
++    } else {
++        return ofpact_from_openflow11(a, out);
++    }
++
++    return error;
++}
++
++static enum ofperr
++ofpacts_from_openflow13(const union ofp_action *in, size_t n_in,
++                        struct ofpbuf *out)
++{
++    return ofpacts_from_openflow(in, n_in, out, ofpact_from_openflow13);
++}
++
+ /* OpenFlow 1.1 instructions. */
  
- /* Set ethertype of the packet. */
- void
--set_ethertype(struct ofpbuf *packet, ovs_be16 eth_type)
-+set_ethertype(struct ofpbuf *packet, ovs_be16 eth_type, bool inner)
+ #define DEFINE_INST(ENUM, STRUCT, EXTENSIBLE, NAME)             \
+@@ -1085,11 +1119,14 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
+     *n_actions = (ntohs(inst->len) - sizeof *inst) / OFP11_INSTRUCTION_ALIGN;
+ }
+ 
+-/* Attempts to convert 'actions_len' bytes of OpenFlow 1.1 actions from the
++/* Attempts to convert 'actions_len' bytes of OpenFlow actions from the
+  * front of 'openflow' into ofpacts.  On success, replaces any existing content
+  * in 'ofpacts' by the converted ofpacts; on failure, clears 'ofpacts'.
+  * Returns 0 if successful, otherwise an OpenFlow error.
+  *
++ * Actions are processed according to their OpenFlow version which
++ * is provided in the 'version' parameter.
++ *
+  * In most places in OpenFlow 1.1 and 1.2, actions appear encapsulated in
+  * instructions, so you should call ofpacts_pull_openflow11_instructions()
+  * instead of this function.
+@@ -1101,15 +1138,27 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
+  * valid in a specific context. */
+ enum ofperr
+ ofpacts_pull_openflow11_actions(struct ofpbuf *openflow,
++                                enum ofp_version version,
+                                 unsigned int actions_len,
+                                 struct ofpbuf *ofpacts)
  {
-     struct eth_header *eh = packet->data;
+-    return ofpacts_pull_actions(openflow, actions_len, ofpacts,
+-                                ofpacts_from_openflow11);
++    switch (version) {
++    case OFP10_VERSION:
++    case OFP11_VERSION:
++    case OFP12_VERSION:
++        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
++                                    ofpacts_from_openflow11);
++    case OFP13_VERSION:
++        return ofpacts_pull_actions(openflow, actions_len, ofpacts,
++                                    ofpacts_from_openflow13);
++    default:
++        NOT_REACHED();
++    }
+ }
  
--    if (eh->eth_type == htons(ETH_TYPE_VLAN)) {
-+    if (inner && eh->eth_type == htons(ETH_TYPE_VLAN)) {
-         ovs_be16 *p;
-         p = ALIGNED_CAST(ovs_be16 *,
-                 (char *)(packet->l2_5 ? packet->l2_5 : packet->l3) - 2);
-@@ -332,8 +332,8 @@ push_mpls(struct ofpbuf *packet, ovs_be16 ethtype, ovs_be32 lse)
+ enum ofperr
+ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
++                                     enum ofp_version version,
+                                      unsigned int instructions_len,
+                                      struct ofpbuf *ofpacts)
+ {
+@@ -1160,7 +1209,18 @@ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
  
-     if (!is_mpls(packet)) {
-         /* Set ethtype and MPLS label stack entry. */
--        set_ethertype(packet, ethtype);
--        packet->l2_5 = packet->l3;
-+        set_ethertype(packet, ethtype, false);
-+        packet->l2_5 = (char*)packet->l2 + ETH_HEADER_LEN;
-     }
+         get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
+                                      &actions, &n_actions);
+-        error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
++        switch (version) {
++        case OFP10_VERSION:
++        case OFP11_VERSION:
++        case OFP12_VERSION:
++            error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
++            break;
++        case OFP13_VERSION:
++            error = ofpacts_from_openflow13(actions, n_actions, ofpacts);
++            break;
++        default:
++            NOT_REACHED();
++        }
+         if (error) {
+             goto exit;
+         }
+diff --git a/lib/ofp-actions.h b/lib/ofp-actions.h
+index 0876ed7..d67fc3f 100644
+--- a/lib/ofp-actions.h
++++ b/lib/ofp-actions.h
+@@ -332,6 +332,13 @@ struct ofpact_reg_load {
+ struct ofpact_push_mpls {
+     struct ofpact ofpact;
+     ovs_be16 ethertype;
++    bool mpls_before_vlan;  /* If true then the MPLS LSE will be added
++                             * immediately after the ethernet header
++                             * and before any VLAN tags that are present.
++                             * This is the behaviour for OpenFlow 1.3+.
++                             * Otherwise the MPLS LSE will be added after
++                             * any VLAN tags that are present.  This is the
++                             * behaviour for OpenFlow 1.1 and 1.2. */
+ };
  
-     /* Push new MPLS shim header onto packet. */
-@@ -354,7 +354,7 @@ pop_mpls(struct ofpbuf *packet, ovs_be16 ethtype)
-         size_t len;
-         mh = packet->l2_5;
-         len = (char*)packet->l2_5 - (char*)packet->l2;
--        set_ethertype(packet, ethtype);
-+        set_ethertype(packet, ethtype, true);
-         if (mh->mpls_lse & htonl(MPLS_BOS_MASK)) {
-             packet->l2_5 = NULL;
-         } else {
-diff --git a/lib/packets.h b/lib/packets.h
-index 7388152..38fec70 100644
---- a/lib/packets.h
-+++ b/lib/packets.h
-@@ -143,7 +143,7 @@ void compose_rarp(struct ofpbuf *, const uint8_t eth_src[ETH_ADDR_LEN]);
- void eth_push_vlan(struct ofpbuf *, ovs_be16 tci);
- void eth_pop_vlan(struct ofpbuf *);
+ /* OFPACT_POP_MPLS
+@@ -504,9 +511,11 @@ enum ofperr ofpacts_pull_openflow10(struct ofpbuf *openflow,
+                                     unsigned int actions_len,
+                                     struct ofpbuf *ofpacts);
+ enum ofperr ofpacts_pull_openflow11_actions(struct ofpbuf *openflow,
++                                            enum ofp_version version,
+                                             unsigned int actions_len,
+                                             struct ofpbuf *ofpacts);
+ enum ofperr ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
++                                                 enum ofp_version version,
+                                                  unsigned int instructions_len,
+                                                  struct ofpbuf *ofpacts);
+ enum ofperr ofpacts_check(const struct ofpact[], size_t ofpacts_len,
+diff --git a/lib/ofp-print.c b/lib/ofp-print.c
+index 6fe1cee..a0615b5 100644
+--- a/lib/ofp-print.c
++++ b/lib/ofp-print.c
+@@ -2224,7 +2224,7 @@ ofp_print_group_desc(struct ds *s, const struct ofp_header *oh)
+         struct ofputil_group_desc gd;
+         int retval;
  
--void set_ethertype(struct ofpbuf *packet, ovs_be16 eth_type);
-+void set_ethertype(struct ofpbuf *packet, ovs_be16 eth_type, bool inner);
- 
- const char *eth_from_hex(const char *hex, struct ofpbuf **packetp);
- void eth_format_masked(const uint8_t eth[ETH_ADDR_LEN],
-diff --git a/ofproto/ofproto-dpif-xlate.c b/ofproto/ofproto-dpif-xlate.c
-index 6757933..2afd760 100644
---- a/ofproto/ofproto-dpif-xlate.c
-+++ b/ofproto/ofproto-dpif-xlate.c
-@@ -2419,24 +2419,27 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
-             break;
+-        retval = ofputil_decode_group_desc_reply(&gd, &b);
++        retval = ofputil_decode_group_desc_reply(&gd, &b, oh->version);
+         if (retval) {
+             if (retval != EOF) {
+                 ds_put_cstr(s, " ***parse error***");
+diff --git a/lib/ofp-util.c b/lib/ofp-util.c
+index 173b534..570447a 100644
+--- a/lib/ofp-util.c
++++ b/lib/ofp-util.c
+@@ -1504,7 +1504,8 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
+             return error;
          }
  
--        case OFPACT_PUSH_MPLS:
--            if (compose_mpls_push_action(ctx,
--                                         ofpact_get_PUSH_MPLS(a)->ethertype)) {
-+        case OFPACT_PUSH_MPLS: {
-+            struct ofpact_push_mpls *oam = ofpact_get_PUSH_MPLS(a);
-+
-+            if (compose_mpls_push_action(ctx, oam->ethertype)) {
-                 return;
-             }
+-        error = ofpacts_pull_openflow11_instructions(&b, b.size, ofpacts);
++        error = ofpacts_pull_openflow11_instructions(&b, oh->version,
++                                                     b.size, ofpacts);
+         if (error) {
+             return error;
+         }
+@@ -2360,7 +2361,8 @@ ofputil_decode_flow_stats_reply(struct ofputil_flow_stats *fs,
+             return EINVAL;
+         }
  
--            /* Save and pop any existing VLAN tags. They will be pushed
--             * back onto the packet after pushing the MPLS LSE. The overall
--             * effect is to push the MPLS LSE after any VLAN tags that may
--             * be present. This is the behaviour described for OpenFlow 1.1
--             * and 1.2. This code needs to be enhanced to make this
--             * conditional to also and support pushing the MPLS LSE before
--             * any VLAN tags that may be present, the behaviour described
--             * for OpenFlow 1.3. */
-+            /* Save and pop any existing VLAN tags if the MPLS LSE should
-+             * be pushed after VLAN tags.  The overall effect is to push
-+             * the MPLS LSE after any VLAN tags that may be present.  This
-+             * is the behaviour described for OpenFlow 1.1 and 1.2.
-+             * Do not save and therefore pop the VLAN tags if the MPLS LSE
-+             * should be pushed before any VLAN tags that are present.
-+             * This is the behaviour described for OpenFlow 1.3. */
-             ctx->xin->vlan_tci = *vlan_tci;
--            flow->vlan_tci = htons(0);
-+            if (!oam->mpls_before_vlan) {
-+                flow->vlan_tci = htons(0);
-+            }
-             vlan_tci = &ctx->xin->vlan_tci;
-             break;
-+        }
+-        if (ofpacts_pull_openflow11_instructions(msg, length - sizeof *ofs -
++        if (ofpacts_pull_openflow11_instructions(msg, oh->version,
++                                                 length - sizeof *ofs -
+                                                  padded_match_len, ofpacts)) {
+             VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply bad instructions");
+             return EINVAL;
+@@ -3092,7 +3094,8 @@ ofputil_decode_packet_out(struct ofputil_packet_out *po,
+             return error;
+         }
  
-         case OFPACT_POP_MPLS:
-             if (compose_mpls_pop_action(ctx,
-diff --git a/tests/ofproto-dpif.at b/tests/ofproto-dpif.at
-index 3d57f37..cb4be48 100644
---- a/tests/ofproto-dpif.at
-+++ b/tests/ofproto-dpif.at
-@@ -1078,6 +1078,243 @@ NXST_FLOW reply:
- OVS_VSWITCHD_STOP
- AT_CLEANUP
+-        error = ofpacts_pull_openflow11_actions(&b, ntohs(opo->actions_len),
++        error = ofpacts_pull_openflow11_actions(&b, oh->version,
++                                                ntohs(opo->actions_len),
+                                                 ofpacts);
+         if (error) {
+             return error;
+@@ -5674,8 +5677,8 @@ ofputil_append_group_desc_reply(const struct ofputil_group_desc *gds,
+ }
  
-+AT_SETUP([ofproto-dpif - OF1.3+ VLAN+MPLS handling])
-+OVS_VSWITCHD_START([dnl
-+   add-port br0 p1 -- set Interface p1 type=dummy
-+])
-+ON_EXIT([kill `cat ovs-ofctl.pid`])
-+
-+AT_CAPTURE_FILE([ofctl_monitor.log])
-+AT_DATA([flows.txt], [dnl
-+cookie=0xa dl_src=40:44:44:44:55:44 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],controller
-+cookie=0xa dl_src=40:44:44:44:55:45 actions=push_vlan:0x8100,mod_vlan_vid:99,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],controller
-+cookie=0xa dl_src=40:44:44:44:55:46 actions=push_vlan:0x8100,mod_vlan_vid:99,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],controller
-+cookie=0xa dl_src=40:44:44:44:55:47 actions=push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],controller
-+cookie=0xa dl_src=40:44:44:44:55:48 actions=push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],controller
-+cookie=0xa dl_src=40:44:44:44:55:49 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],push_vlan:0x8100,mod_vlan_vid:99,controller
-+cookie=0xa dl_src=40:44:44:44:55:50 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],push_vlan:0x8100,mod_vlan_vid:99,controller
-+cookie=0xa dl_src=40:44:44:44:55:51 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,controller
-+cookie=0xa dl_src=40:44:44:44:55:52 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],load:3->OXM_OF_MPLS_TC[[]],push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,controller
-+])
-+AT_CHECK([ovs-ofctl --protocols=OpenFlow13 add-flows br0 flows.txt])
-+
-+dnl Modified MPLS controller action.
-+dnl The input packet has a VLAN tag, but because we push an MPLS tag in
-+dnl OF1.3 mode, we can no longer see it.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:44,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:44,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:44,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:44,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, we push a VLAN tag, then an MPLS tag in OF1.3 mode, so we
-+dnl can only see the MPLS tag in the result.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:45,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:45,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:45,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:45,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, the input packet is vlan-tagged; we update this tag then
-+dnl push an MPLS tag in OF1.3 mode. As such, we can only see the MPLS tag in
-+dnl the result.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:46,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:46,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:46,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:46,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, we push a VLAN tag, then an MPLS tag in OF1.3 mode, so we
-+dnl can only see the MPLS tag in the result.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:47,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:47,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:47,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:47,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, the input packet is vlan-tagged; we update this tag then
-+dnl push an MPLS tag in OF1.3 mode. As such, we can only see the MPLS tag in
-+dnl the result.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:48,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:48,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:48,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
-+mpls,metadata=0,in_port=0,vlan_tci=0x0000,dl_src=40:44:44:44:55:48,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, we push the MPLS tag before pushing a VLAN tag, so we see
-+dnl both of these in the final flow.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:49,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:49,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:49,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:49,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, the input packet in vlan-tagged, which should be stripped
-+dnl before we push the MPLS and VLAN tags.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:50,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=0,dl_src=40:44:44:44:55:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, we push the MPLS tag before pushing a VLAN tag, so we see
-+dnl both of these in the final flow.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:51,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+dnl Modified MPLS controller action.
-+dnl In this test, the input packet in vlan-tagged, which should be stripped
-+dnl before we push the MPLS and VLAN tags.
-+AT_CHECK([ovs-ofctl monitor br0 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
-+
-+for i in 1 2 3; do
-+    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:55:52,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
-+done
-+OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
-+ovs-appctl -t ovs-ofctl exit
-+
-+AT_CHECK([cat ofctl_monitor.log], [0], [dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:52,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:52,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+dnl
-+NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
-+mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:55:52,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=3,mpls_ttl=64,mpls_bos=1
-+])
-+
-+AT_CHECK([ovs-appctl time/warp 5000], [0], [ignore])
-+AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:44 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:45 actions=mod_vlan_vid:99,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:46 actions=mod_vlan_vid:99,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:47 actions=load:0x63->OXM_OF_VLAN_VID[[]],push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:48 actions=load:0x63->OXM_OF_VLAN_VID[[]],push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:49 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],mod_vlan_vid:99,CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:50 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],mod_vlan_vid:99,CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:51 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,CONTROLLER:65535
-+ cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:55:52 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x3->OXM_OF_MPLS_TC[[]],load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,CONTROLLER:65535
-+NXST_FLOW reply:
-+])
-+
-+OVS_VSWITCHD_STOP
-+AT_CLEANUP
-+
- AT_SETUP([ofproto-dpif - fragment handling])
- OVS_VSWITCHD_START
- ADD_OF_PORTS([br0], [1], [2], [3], [4], [5], [6], [90])
+ static enum ofperr
+-ofputil_pull_buckets(struct ofpbuf *msg, size_t buckets_length,
+-                     struct list *buckets)
++ofputil_pull_buckets(struct ofpbuf *msg, enum ofp_version version,
++                     size_t buckets_length, struct list *buckets)
+ {
+     struct ofp11_bucket *ob;
+ 
+@@ -5708,8 +5711,8 @@ ofputil_pull_buckets(struct ofpbuf *msg, size_t buckets_length,
+         buckets_length -= ob_len;
+ 
+         ofpbuf_init(&ofpacts, 0);
+-        error = ofpacts_pull_openflow11_actions(msg, ob_len - sizeof *ob,
+-                                                &ofpacts);
++        error = ofpacts_pull_openflow11_actions(msg, version,
++                                                ob_len - sizeof *ob, &ofpacts);
+         if (error) {
+             ofpbuf_uninit(&ofpacts);
+             ofputil_bucket_list_destroy(buckets);
+@@ -5745,7 +5748,7 @@ ofputil_pull_buckets(struct ofpbuf *msg, size_t buckets_length,
+  * otherwise a positive errno value. */
+ int
+ ofputil_decode_group_desc_reply(struct ofputil_group_desc *gd,
+-                                struct ofpbuf *msg)
++                                struct ofpbuf *msg, enum ofp_version version)
+ {
+     struct ofp11_group_desc_stats *ogds;
+     size_t length;
+@@ -5774,7 +5777,8 @@ ofputil_decode_group_desc_reply(struct ofputil_group_desc *gd,
+         return OFPERR_OFPBRC_BAD_LEN;
+     }
+ 
+-    return ofputil_pull_buckets(msg, length - sizeof *ogds, &gd->buckets);
++    return ofputil_pull_buckets(msg, version, length - sizeof *ogds,
++                                &gd->buckets);
+ }
+ 
+ /* Converts abstract group mod 'gm' into a message for OpenFlow version
+@@ -5857,7 +5861,7 @@ ofputil_decode_group_mod(const struct ofp_header *oh,
+     gm->type = ogm->type;
+     gm->group_id = ntohl(ogm->group_id);
+ 
+-    return ofputil_pull_buckets(&msg, msg.size, &gm->buckets);
++    return ofputil_pull_buckets(&msg, oh->version, msg.size, &gm->buckets);
+ }
+ 
+ /* Parse a queue status request message into 'oqsr'.
+diff --git a/lib/ofp-util.h b/lib/ofp-util.h
+index d5f34d7..5fa8fee 100644
+--- a/lib/ofp-util.h
++++ b/lib/ofp-util.h
+@@ -973,7 +973,7 @@ int ofputil_decode_group_stats_reply(struct ofpbuf *,
+                                      struct ofputil_group_stats *);
+ 
+ int ofputil_decode_group_desc_reply(struct ofputil_group_desc *,
+-                                    struct ofpbuf *);
++                                    struct ofpbuf *, enum ofp_version);
+ 
+ void ofputil_append_group_desc_reply(const struct ofputil_group_desc *,
+                                      struct list *buckets,
+diff --git a/utilities/ovs-ofctl.c b/utilities/ovs-ofctl.c
+index c2cc1f6..00d35aa 100644
+--- a/utilities/ovs-ofctl.c
++++ b/utilities/ovs-ofctl.c
+@@ -2968,8 +2968,8 @@ ofctl_parse_ofp11_actions(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
+         /* Convert to ofpacts. */
+         ofpbuf_init(&ofpacts, 0);
+         size = of11_in.size;
+-        error = ofpacts_pull_openflow11_actions(&of11_in, of11_in.size,
+-                                                &ofpacts);
++        error = ofpacts_pull_openflow11_actions(&of11_in, OFP11_VERSION,
++                                                of11_in.size, &ofpacts);
+         if (error) {
+             printf("bad OF1.1 actions: %s\n\n", ofperr_get_name(error));
+             ofpbuf_uninit(&ofpacts);
+@@ -3036,8 +3036,8 @@ ofctl_parse_ofp11_instructions(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
+         /* Convert to ofpacts. */
+         ofpbuf_init(&ofpacts, 0);
+         size = of11_in.size;
+-        error = ofpacts_pull_openflow11_instructions(&of11_in, of11_in.size,
+-                                                     &ofpacts);
++        error = ofpacts_pull_openflow11_instructions(&of11_in, OFP11_VERSION,
++                                                     of11_in.size, &ofpacts);
+         if (!error) {
+             /* Verify actions. */
+             struct flow flow;
 -- 
 1.8.4
