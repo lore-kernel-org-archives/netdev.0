@@ -1,48 +1,48 @@
-From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
-Date: Fri, 4 Oct 2013 08:22:37 +0200
-Message-ID: <4893FFB3-2A82-4AD4-A6B6-20270798051F@goldelico.com>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com> <20131003.152907.2144013596237714581.davem@davemloft.net> <C7520082-95CC-4D4F-BCE4-96A7D6346DB3@goldelico.com> <20131003.160049.199880461500344692.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131003.160049.199880461500344692.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next] fix unsafe set_memory_rw from softirq
+Date: Thu, 3 Oct 2013 23:30:41 -0700
+Message-ID: <CAADnVQJq7r-e=vQBcvMqxEkFVzMjn=EaZ99j2boPj+YJBAhKxw@mail.gmail.com>
+References: <1380859875-31025-1-git-send-email-ast@plumgrid.com>
+	<1380863798.3564.12.camel@edumazet-glaptop.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f43.google.com ([209.85.128.43]:38208 "EHLO
+	mail-qe0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935Ab3JDGam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 02:30:42 -0400
+In-Reply-To: <1380863798.3564.12.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Oct 3, 2013 at 10:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2013-10-03 at 21:11 -0700, Alexei Starovoitov wrote:
+>
+> -static inline unsigned int sk_filter_len(const struct sk_filter *fp)
+> +static inline unsigned int sk_filter_size(const struct sk_filter *fp,
+> +                                         unsigned int proglen)
+>  {
+> -       return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
+> +       return max(sizeof(*fp),
+> +                  offsetof(struct sk_filter, insns[proglen]));
+>  }
 
-Am 03.10.2013 um 22:00 schrieb David Miller:
+indeed that's cleaner.
+Like this then:
+-static inline unsigned int sk_filter_len(const struct sk_filter *fp)
++static inline unsigned int sk_filter_size(unsigned int proglen)
+ {
+-       return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
++       return max(sizeof(struct sk_filter),
++                  offsetof(struct sk_filter, insns[proglen]));
+ }
 
-> From: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-> Date: Thu, 3 Oct 2013 21:40:34 +0200
-> 
->> I have made the bug observation from debug log that this bit is set in a response
->> each time the modem has a RING message. It might be specific to this modem
->> and firmware version, i.e. a firmware bug. But we have no means to verify or even
->> change it in the firmware.
->> 
->> I.e. the driver must handle it in a better way.
->> 
->> Because the notification is rejected by the driver, the driver will hang up and the
->> whole modem connection breaks down.
->> 
->> With this patch, the problem was never observed again in ~2 years.
->> 
->> I'd hope the maintainer of this driver can shed some light on it.
-> 
-> I think if you suspect the bit is set in response to RING messages
-> then you should define a macro so that the number is not just magic,
-> and put a descriptrive comment above the macro definition for that
-> bit.
-
-Good idea! I will resend the patch.
-
---- hns--
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+testing it... will send v4 shortly
