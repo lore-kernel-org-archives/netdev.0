@@ -1,61 +1,69 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: tx checksum offload in rtl8168evl disabled in driver
-Date: Fri, 4 Oct 2013 11:10:48 +0800
-Message-ID: <74E4D3B5C4DF44108C5A942E88F3B18E@realtek.com.tw>
-References: <OF3E5567E2.6AC62D58-ON80257BF9.004ED219-80257BF9.004F713D@aveillant.com> <20131003230120.GA25047@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>,
-	<jason.morgan@aveillant.com>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] veth: Showing peer of veth type dev in ip link (kernel side)
+Date: Fri,  4 Oct 2013 13:05:29 +0900
+Message-ID: <1380859529-32351-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:35717 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008Ab3JDDK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Oct 2013 23:10:59 -0400
-In-Reply-To: <20131003230120.GA25047@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17996 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750728Ab3JDEFg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Oct 2013 00:05:36 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r9445Zng016495
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 4 Oct 2013 00:05:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-[...]
-> > I'm using 2k to 4k frames with a rtl8168evl.
-> > I've found this message
-> > http://www.spinics.net/lists/netdev/msg216530.html
-> [...]
-> > However the message thread, above indicates that this is 
-> not a problem and 
-> > can be changed to make tx-checksum offload possible.
-> > 
-> > However we are using a newer chip to the on in the message 
-> thread.  I've 
-> > tried to find other, more recent citations without success.
-> > 
-> > So, why is it still turned off ?
-> 
-> It has been disabled since 
-> d58d46b5d85139d18eb939aa7279c160bab70484 ("r8169:
-> jumbo fixes"). Patch was submitted as a RFC on 2011/07/17 and 
-> Hayes was
-> explicitely requested to comment on the jumbo part if 
-> necessary. Patch was
-> submitted for inclusion on 2011/09/22.
-> 
-> Tx checksumming and jumbo are mutually exclusive in Realtek's 
-> driver as well.
-> 
-> It seems no recent gigabit chipset reliably supports it.
-> 
-> > What will be the effect of turning it on (changing false to 
-> true, in the 
-> > driver line) for our chip ?
+ip link has ability to show extra information of net work device if
+kernel provides sunh information. With this patch veth driver can
+provide its peer ifindex information to ip command via netlink
+interface.
 
-Since RTL8111E, the chips support a feature which we call "tx early".
-For jumbo frame, the hw starts to send a packet before getting the whole data.
-However, the checksum has to be calculated after the whole data are fetched.
-Therefore, the jumbo frame and the tx checksum couldn't be enable at the same
-time, otherwise a packet with incorrect checksum would be sent.
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ drivers/net/veth.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index eee1f19..54187b9 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -434,6 +434,25 @@ static const struct nla_policy veth_policy[VETH_INFO_MAX + 1] = {
+ 	[VETH_INFO_PEER]	= { .len = sizeof(struct ifinfomsg) },
+ };
  
-Best Regards,
-Hayes
++static size_t veth_get_size(const struct net_device *dev)
++{
++	return nla_total_size(sizeof(u64)) + /* VETH_INFO_PEER */
++		0;
++}
++
++static int veth_fill_info(struct sk_buff *skb, const struct net_device *dev)
++{
++	struct veth_priv *priv = netdev_priv(dev);
++	struct net_device *peer = rtnl_dereference(priv->peer);
++	u64 peer_ifindex;
++
++	peer_ifindex = peer ? peer->ifindex : 0;
++	if (nla_put_u64(skb, VETH_INFO_PEER, peer_ifindex))
++		return -EMSGSIZE;
++
++	return 0;
++}
++
+ static struct rtnl_link_ops veth_link_ops = {
+ 	.kind		= DRV_NAME,
+ 	.priv_size	= sizeof(struct veth_priv),
+@@ -443,6 +462,8 @@ static struct rtnl_link_ops veth_link_ops = {
+ 	.dellink	= veth_dellink,
+ 	.policy		= veth_policy,
+ 	.maxtype	= VETH_INFO_MAX,
++	.get_size	= veth_get_size,
++	.fill_info	= veth_fill_info,
+ };
+ 
+ /*
+-- 
+1.8.3.1
