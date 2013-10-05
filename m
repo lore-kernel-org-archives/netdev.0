@@ -1,14 +1,11 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 4/8] net: introduce new macro net_get_random_once
-Date: Sun,  6 Oct 2013 01:20:54 +0200
-Message-ID: <1381015258-7667-5-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 5/8] inet: split syncookie keys for ipv4 and ipv6 and initialize with net_get_random_once
+Date: Sun,  6 Oct 2013 01:20:55 +0200
+Message-ID: <1381015258-7667-6-git-send-email-hannes@stressinduktion.org>
 References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Jason Baron <jbaron@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
@@ -17,190 +14,101 @@ In-Reply-To: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_get_random_once is a new macro which handles the initialization
-of secret keys. It is possible to call it in the fast path. Only the
-initialization depends on the spinlock and is rather slow. Otherwise
-it should get used just before the key is used to delay the entropy
-extration as late as possible to get better randomness. It returns true
-if the key got initialized.
+This patch splits the secret key for syncookies for ipv4 and ipv6 and
+initializes them with net_get_random_once. This change was the reason I
+did this series. I think the initialization of the syncookie_secret is
+way to early.
 
-The usage of static_keys for net_get_random_once is a bit uncommon so
-it needs some further explanation why this actually works:
-
-=== In the simple non-HAVE_JUMP_LABEL case we actually have ===
-no constrains to use static_key_(true|false) on keys initialized with
-STATIC_KEY_INIT_(FALSE|TRUE). So this path just expands in favor of
-the likely case that the initialization is already done. The key is
-initialized like this:
-
-___done_key = { .enabled = ATOMIC_INIT(0) }
-
-The check
-
-                if (!static_key_true(&___done_key))                     \
-
-expands into (pseudo code)
-
-                if (!likely(___done_key > 0))
-
-, so we take the fast path as soon as ___done_key is increased from the
-helper function.
-
-=== If HAVE_JUMP_LABELs are available this depends ===
-on patching of jumps into the prepared NOPs, which is done in
-jump_label_init at boot-up time (from start_kernel). It is forbidden
-and dangerous to use net_get_random_once in functions which are called
-before that!
-
-At compilation time NOPs are generated at the call sites of
-net_get_random_once. E.g. net/ipv6/inet6_hashtable.c:inet6_ehashfn (we
-need to call net_get_random_once two times in inet6_ehashfn, so two NOPs):
-
-      71:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
-      76:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
-
-Both will be patched to the actual jumps to the end of the function to
-call __net_get_random_once at boot time as explained above.
-
-arch_static_branch is optimized and inlined for false as return value and
-actually also returns false in case the NOP is placed in the instruction
-stream. So in the fast case we get a "return false". But because we
-initialize ___done_key with (enabled != (entries & 1)) this call-site
-will get patched up at boot thus returning true. The final check looks
-like this:
-
-                if (!static_key_true(&___done_key))                     \
-                        ___ret = __net_get_random_once(buf,             \
-
-expands to
-
-                if (!!static_key_false(&___done_key))                     \
-                        ___ret = __net_get_random_once(buf,             \
-
-So we get true at boot time and as soon as static_key_slow_inc is called
-on the key it will invert the logic and return false for the fast path.
-static_key_slow_inc will change the branch because it got initialized
-with .enabled == 0. After static_key_slow_inc is called on the key the
-branch is replaced with a nop again.
-
-=== Misc: ===
-The helper defers the increment into a workqueue so we don't
-have problems calling this code from atomic sections. A seperate boolean
-(___done) guards the case where we enter net_get_random_once again before
-the increment happend.
-
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Jason Baron <jbaron@redhat.com>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Florian Westphal <fw@strlen.de>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-I tested this patchset with !CC_HAVE_ASM_GOTO and with CC_HAVE_ASM_GOTO
-on x86_64.
+ include/net/tcp.h     |  1 -
+ net/ipv4/syncookies.c | 15 +++++----------
+ net/ipv6/syncookies.c | 12 +++++++++---
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-I quickly reviewed that all architectures which implement HAVE_JUMP_LABEL
-also patch all branch sites on boot-up. But this needs further review
-as this is a security sensitive patch series.
-
-Thank you!
-
- include/linux/net.h | 25 +++++++++++++++++++++++++
- net/core/utils.c    | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index ca9ec85..a489705 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -239,6 +239,31 @@ do {								\
- #define net_random()		prandom_u32()
- #define net_srandom(seed)	prandom_seed((__force u32)(seed))
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index de870ee..9299560 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -475,7 +475,6 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
+ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
  
-+bool __net_get_random_once(void *buf, int nbytes, bool *done,
-+			   struct static_key *done_key);
+ /* From syncookies.c */
+-extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ 		      u32 cookie);
+ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 15e0241..22f5409 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -25,15 +25,7 @@
+ 
+ extern int sysctl_tcp_syncookies;
+ 
+-__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+-EXPORT_SYMBOL(syncookie_secret);
+-
+-static __init int init_syncookies(void)
+-{
+-	get_random_bytes(syncookie_secret, sizeof(syncookie_secret));
+-	return 0;
+-}
+-__initcall(init_syncookies);
++static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+ 
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+@@ -44,8 +36,11 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+-	__u32 *tmp = __get_cpu_var(ipv4_cookie_scratch);
++	__u32 *tmp;
 +
-+#ifdef HAVE_JUMP_LABEL
-+#define ___NET_RANDOM_STATIC_KEY_INIT ((struct static_key) \
-+		{ .enabled = ATOMIC_INIT(0), .entries = (void *)1 })
-+#else /* !HAVE_JUMP_LABEL */
-+#define ___NET_RANDOM_STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
-+#endif /* HAVE_JUMP_LABEL */
++	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+ 
++	tmp  = __get_cpu_var(ipv4_cookie_scratch);
+ 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+ 	tmp[0] = (__force u32)saddr;
+ 	tmp[1] = (__force u32)daddr;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index d703218..413eb7c 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -24,6 +24,8 @@
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
++static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS];
 +
-+/* BE CAREFUL: this function is not interrupt safe */
-+#define net_get_random_once(buf, nbytes)				\
-+	({								\
-+		bool ___ret = false;					\
-+		static bool ___done = false;				\
-+		static struct static_key ___done_key =			\
-+			___NET_RANDOM_STATIC_KEY_INIT;			\
-+		if (!static_key_true(&___done_key))			\
-+			___ret = __net_get_random_once(buf,		\
-+						       nbytes,		\
-+						       &___done,	\
-+						       &___done_key);	\
-+		___ret;							\
-+	})
+ /* RFC 2460, Section 8.3:
+  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
+  *
+@@ -61,14 +63,18 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
+ 		       __be16 sport, __be16 dport, u32 count, int c)
+ {
+-	__u32 *tmp = __get_cpu_var(ipv6_cookie_scratch);
++	__u32 *tmp;
 +
- int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
- 		   size_t num, size_t len);
- int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
-diff --git a/net/core/utils.c b/net/core/utils.c
-index aa88e23..bf09371 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -338,3 +338,51 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
- 				  csum_unfold(*sum)));
- }
- EXPORT_SYMBOL(inet_proto_csum_replace16);
++	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
 +
-+struct __net_random_once_work {
-+	struct work_struct work;
-+	struct static_key *key;
-+};
-+
-+static void __net_random_once_deferred(struct work_struct *w)
-+{
-+	struct __net_random_once_work *work =
-+		container_of(w, struct __net_random_once_work, work);
-+	if (!static_key_enabled(work->key))
-+		static_key_slow_inc(work->key);
-+	kfree(work);
-+}
-+
-+static void __net_random_once_disable_jump(struct static_key *key)
-+{
-+	struct __net_random_once_work *w;
-+
-+	w = kmalloc(sizeof(*w), GFP_ATOMIC);
-+	if (!w)
-+		return;
-+
-+	INIT_WORK(&w->work, __net_random_once_deferred);
-+	w->key = key;
-+	schedule_work(&w->work);
-+}
-+
-+bool __net_get_random_once(void *buf, int nbytes, bool *done,
-+			   struct static_key *done_key)
-+{
-+	static DEFINE_SPINLOCK(lock);
-+
-+	spin_lock_bh(&lock);
-+	if (*done) {
-+		spin_unlock_bh(&lock);
-+		return false;
-+	}
-+
-+	get_random_bytes(buf, nbytes);
-+	*done = true;
-+	spin_unlock_bh(&lock);
-+
-+	__net_random_once_disable_jump(done_key);
-+
-+	return true;
-+}
-+EXPORT_SYMBOL(__net_get_random_once);
++	tmp  = __get_cpu_var(ipv6_cookie_scratch);
+ 
+ 	/*
+ 	 * we have 320 bits of information to hash, copy in the remaining
+-	 * 192 bits required for sha_transform, from the syncookie_secret
++	 * 192 bits required for sha_transform, from the syncookie6_secret
+ 	 * and overwrite the digest with the secret
+ 	 */
+-	memcpy(tmp + 10, syncookie_secret[c], 44);
++	memcpy(tmp + 10, syncookie6_secret[c], 44);
+ 	memcpy(tmp, saddr, 16);
+ 	memcpy(tmp + 4, daddr, 16);
+ 	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
 -- 
 1.8.3.1
