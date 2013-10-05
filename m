@@ -1,112 +1,101 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] 6lowpan: Sync default hardware
- address of lowpan links to their wpan
-Date: Sun, 6 Oct 2013 03:29:08 +0200
-Message-ID: <20131006012907.GA25606@omega>
-References: <1381009080-15945-1-git-send-email-alan@signal11.us>
-	<20131006002451.GA22623@omega> <5250B680.2080301@signal11.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5250B680.2080301-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Subject: Re: [PATCH net-next] net: Separate the close_list and the unreg_list
+Date: Sat,  5 Oct 2013 06:18:22 -0700
+Message-ID: <5250c0b6.45dc420a.738b.6a58@mx.google.com>
+To: fruggeri@aristanetworks.com, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:35464 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab3JFBp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 21:45:27 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so5620419pbc.31
+        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 18:45:27 -0700 (PDT)
+In-reply-To: 87eh818jlx.fsf_-_ () xmission ! com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 05, 2013 at 09:01:52PM -0400, Alan Ott wrote:
-> On 10/05/2013 08:24 PM, Alexander Aring wrote:
-> >Hi Alan,
-> >
-> >On Sat, Oct 05, 2013 at 05:38:00PM -0400, Alan Ott wrote:
-> >>When a lowpan link to a wpan device is created, set the hardware address
-> >>of the lowpan link to that of the wpan device.
-> >>
-> >>Signed-off-by: Alan Ott<alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-> >>---
-> >>  net/ieee802154/6lowpan.c | 3 +++
-> >>  1 file changed, 3 insertions(+)
-> >>
-> >>diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> >>index c85e71e..fb89133 100644
-> >>--- a/net/ieee802154/6lowpan.c
-> >>+++ b/net/ieee802154/6lowpan.c
-> >>@@ -1386,6 +1386,9 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
-> >>  	entry->ldev = dev;
-> >>+	BUG_ON(IEEE802154_ADDR_LEN != dev->addr_len);
-> >So if somebody make a:
-> >"ip link add link $NOT_8BYTE_HWADDR_DEV name $NAME type lowpan"
-> >
-> >the kernel creates a BUG_ON? Okay it seems that case is very unusual but
-> >better is to return a errno so "maybe(I don't know it)" the userspace
-> >software will generate a error and the whole kernel doesn't crash.
-> 
-> That line checks the length of the address of the lowpan device, not
-> the real device the lowpan device is attached to (and on second
-> look, I don't like the Yoda code; didn't notice that before).
-> 
-> Further, running:
->     ip link add link eth0 name lowpan0 type lowpan
-> 
-> like you suggest, crashes the kernel hard, with or without my patch.
-> More stuff to fix....
->
+Hi Eric,
+I am running some more extensive tests with this patch and I ran into the crash below.
 
-Okay isn't the dev->addr_len some static value?
+It may be caused by
 
-Maybe we should check than for:
+@@ -1301,7 +1301,7 @@ int dev_close(struct net_device *dev)
+ 	if (dev->flags & IFF_UP) {
+ 		LIST_HEAD(single);
+ 
+-		list_add(&dev->unreg_list, &single);
++		list_add(&dev->close_list, &single);
+ 		dev_close_many(&single);
+ 		list_del(&single);
+ 	}
 
-if (real_dev->type != ARPHRD_IEEE802154)
-	return -EINVAL;
+dev_close_many expects net_devices to be linked by unreg_list.
+Let me know what you think.
 
-after we set real_dev. It's all ARPHRD_IEEE802154 specific code.
+Thanks,
+Francesco
 
-> 
-> >>+	memcpy(dev->dev_addr, real_dev->dev_addr, IEEE802154_ADDR_LEN);
-> >Is there one case where we read the dev->dev_addr? I saw a case when we
-> >set this [1], but I don't know why we need this. Did you detect some
-> >problems because this isn't the "real" hw addr?
-> >
-> >Other case is I am feeling uneasy when we have two netdev devices with
-> >the same hw addr.
-> >[1]https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/net/ieee802154/6lowpan.c?id=refs/tags/v3.12-rc3#n1102
-> 
-> In my testing, lowpan devices need a hardware address which is the
-> same as the wpan, or else stuff like ping doesn't work at all. In
-> all the examples I've ever seen, the lowpan's hardware address has
-> been set manually.
-> 
-Ah ok.
-
-> What does your test setup look like that you don't have a hardware
-> address for your lowpan device? Are you able to ping other Linux
-> hosts?
-> 
-
-I have a little script for setting up a lowpan device.
-I set the hardware address with:
-
-ip link set $LOWPAN_DEV address $EUI64_ADDR
-
-after I add the lowpan link. I am able to ping linux and contiki(without
-fragmentation).
-
-- Alex
-
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60134791&iu=/4140/ostg.clktrk
+<1>BUG: unable to handle kernel NULL pointer dereference at 0000000000000190
+<1>IP: [<ffffffff8142c709>] packet_notifier+0x1e/0x163
+<4>PGD 94f815067 PUD 0 
+<4>Oops: 0000 [#1] SMP 
+<4>CPU 1 
+<4>Modules linked in: dummy loop tulip veth xt_tcpudp iptable_filter nfsd lockd nfs_acl auth_rpcgss exportfs sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf macvlan dm_mirror dm_region_hash dm_log uinput ip6table_filter ip6_tables bonding kvm_intel kvm fuse xt_multiport iptable_nat ip_tables nf_nat x_tables nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 tun 8021q coretemp hwmon crc32c_intel ghash_clmulni_intel sg joydev iTCO_wdt iTCO_vendor_support pcspkr i2c_i801 microcode i2c_core ioatdma dca raid1 aesni_intel cryptd aes_x86_64 aes_generic isci libsas scsi_transport_sas ehci_hcd igb wmi dm_mod [last unloaded: scsi_wait_scan]
+<4>
+<4>Pid: 14572, comm: Ira Not tainted 3.4.43-1479218.2011fruggeriArora.1.fc14.x86_64 #1 Supermicro X9DRT/X9DRT
+<4>RIP: 0010:[<ffffffff8142c709>]  [<ffffffff8142c709>] packet_notifier+0x1e/0x163
+<4>RSP: 0018:ffff881006c1f668  EFLAGS: 00210292
+<4>RAX: 0000000000000000 RBX: ffff88108dec1810 RCX: ffffffff81a6df10
+<4>RDX: ffff88108dec1810 RSI: 0000000000000009 RDI: ffffffff81a6df10
+<4>RBP: ffff881006c1f698 R08: 0000000000000000 R09: 0000000000000003
+<4>R10: 0000000000000003 R11: 0000000000000000 R12: ffff88108dec1810
+<4>R13: 00000000fffffff3 R14: ffffffffa0207050 R15: 0000000000000009
+<4>FS:  0000000000000000(0000) GS:ffff88103fc20000(0063) knlGS:00000000f5630b00
+<4>CS:  0010 DS: 002b ES: 002b CR0: 0000000080050033
+<4>CR2: 0000000000000190 CR3: 0000000b405bb000 CR4: 00000000000007e0
+<4>DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+<4>DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+<4>Process Ira (pid: 14572, threadinfo ffff881006c1e000, task ffff88094f8d8da0)
+<4>Stack:
+<4> ffff881006c1f698 ffff88108dec1810 0000000000000009 00000000fffffff3
+<4> ffffffffa0207050 ffffffffa02f2060 ffff881006c1f6d8 ffffffff814513a5
+<4> ffffea000a276500 0000000000000000 0000000000000009 ffff88108dec1810
+<4>Call Trace:
+<4> [<ffffffff814513a5>] notifier_call_chain+0x32/0x5e
+<4> [<ffffffff8104ec06>] raw_notifier_call_chain+0xf/0x11
+<4> [<ffffffff813848f6>] call_netdevice_notifiers+0x45/0x4a
+<4> [<ffffffff8138493d>] __dev_close_many+0x42/0xbc
+<4> [<ffffffff81384a67>] dev_close_many+0x6e/0xf8
+<4> [<ffffffff81384b2b>] dev_close+0x3a/0x4d
+<4> [<ffffffff81386b54>] dev_change_net_namespace+0xa4/0x1a0
+<4> [<ffffffff8139249e>] do_setlink+0x77/0x78b
+<4> [<ffffffff810cb555>] ? pmd_offset+0x14/0x3b
+<4> [<ffffffff8144e0b9>] ? _raw_spin_lock+0x9/0xb
+<4> [<ffffffff810f8317>] ? full_name_hash+0x19/0x5c
+<4> [<ffffffff8138661c>] ? dev_name_hash.clone.50+0x24/0x3c
+<4> [<ffffffff81393a9b>] rtnl_newlink+0x24d/0x49a
+<4> [<ffffffff8139390d>] ? rtnl_newlink+0xbf/0x49a
+<4> [<ffffffff8144e0e9>] ? _raw_spin_unlock_irqrestore+0x12/0x14
+<4> [<ffffffff810e7c3b>] ? virt_to_head_page+0x9/0x2c
+<4> [<ffffffff8139364f>] rtnetlink_rcv_msg+0x24c/0x262
+<4> [<ffffffff81393403>] ? __rtnl_unlock+0x12/0x12
+<4> [<ffffffff813a7e44>] netlink_rcv_skb+0x40/0x8c
+<4> [<ffffffff81392d80>] rtnetlink_rcv+0x21/0x28
+<4> [<ffffffff813a795b>] netlink_unicast+0xec/0x155
+<4> [<ffffffff813a7c4c>] netlink_sendmsg+0x288/0x2a6
+<4> [<ffffffff8137414a>] __sock_sendmsg+0x6e/0x7a
+<4> [<ffffffff81374a29>] sock_sendmsg+0xa3/0xbc
+<4> [<ffffffff810b195a>] ? generic_file_aio_write+0xa8/0xb8
+<4> [<ffffffff811665b9>] ? ext4_file_write+0x1eb/0x240
+<4> [<ffffffff810f1247>] ? fget_light+0x33/0x83
+<4> [<ffffffff81374aaa>] ? sockfd_lookup_light+0x1b/0x53
+<4> [<ffffffff81375f7b>] sys_sendto+0x12a/0x16c
+<4> [<ffffffff810ef8a3>] ? fsnotify_modify+0x5d/0x65
+<4> [<ffffffff81375fcc>] sys_send+0xf/0x11
+<4> [<ffffffff8139cc9c>] compat_sys_socketcall+0xd7/0x19b
+<4> [<ffffffff81455bd6>] sysenter_dispatch+0x7/0x21
+<4>Code: ff ff 80 8b 48 04 00 00 01 5b 5b c9 c3 55 48 89 e5 41 57 49 89 f7 41 56 41 55 41 54 49 89 d4 53 48 83 ec 08 48 8b 82 48 04 00 00 <4c> 8b b0 90 01 00 00 e9 06 01 00 00 4c 8b ab 58 04 00 00 4d 85 
+<1>RIP  [<ffffffff8142c709>] packet_notifier+0x1e/0x163
+<4> RSP <ffff881006c1f668>
+<4>CR2: 0000000000000190
