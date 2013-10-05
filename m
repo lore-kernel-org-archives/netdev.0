@@ -1,90 +1,76 @@
 From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] net: secure_seq: Move net_secret_init() definition into CONFIG_IPV6 if block
-Date: Sat,  5 Oct 2013 17:56:58 -0300
-Message-ID: <1381006619-17126-1-git-send-email-festevam@gmail.com>
+Subject: [PATCH v2] net: secure_seq: Fix warning when CONFIG_IPV6 and CONFIG_INET are not selected
+Date: Sat,  5 Oct 2013 17:56:59 -0300
+Message-ID: <1381006619-17126-2-git-send-email-festevam@gmail.com>
+References: <1381006619-17126-1-git-send-email-festevam@gmail.com>
 Cc: edumazet@google.com, hannes@stressinduktion.org,
 	netdev@vger.kernel.org, olof@lixom.net,
 	Fabio Estevam <fabio.estevam@freescale.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f169.google.com ([209.85.213.169]:36623 "EHLO
-	mail-ye0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752481Ab3JEU5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 16:57:11 -0400
-Received: by mail-ye0-f169.google.com with SMTP id r10so312517yen.14
-        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 13:57:10 -0700 (PDT)
+Received: from mail-ye0-f182.google.com ([209.85.213.182]:33236 "EHLO
+	mail-ye0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536Ab3JEVDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 17:03:32 -0400
+Received: by mail-ye0-f182.google.com with SMTP id q7so591536yen.27
+        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 14:03:32 -0700 (PDT)
+In-Reply-To: <1381006619-17126-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Commit 9a3bab6b05 (net: net_secret should not depend on TCP) introduced
-the following build warning when CONFIG_IPV6 is not selected:
+net_secret() is only used when CONFIG_IPV6 or CONFIG_INET are selected.
 
+Building a defconfig with both of these symbols unselected (Using the ARM
+at91sam9rl_defconfig, for example) leads to the following build warning:
+
+$ make at91sam9rl_defconfig
+#
+# configuration written to .config
+#
+
+$ make net/core/secure_seq.o
+scripts/kconfig/conf --silentoldconfig Kconfig
+  CHK     include/config/kernel.release
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/utsrelease.h
+make[1]: `include/generated/mach-types.h' is up to date.
+  CALL    scripts/checksyscalls.sh
+  CC      net/core/secure_seq.o
 net/core/secure_seq.c:17:13: warning: 'net_secret_init' defined but not used [-Wunused-function]
 
-Fix it by moving net_secret_init(void) inside the '#if IS_ENABLED(CONFIG_IPV6)'
-block.
+Fix this warning by protecting the definition of net_secret() with these
+symbols.
 
 Reported-by: Olof Johansson <olof@lixom.net>
 Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- net/core/secure_seq.c | 36 ++++++++++++++++++------------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
+Changes since v1:
+- Add #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
+
+ net/core/secure_seq.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 3f1ec15..ee70541 100644
+index 3f1ec15..8d9d05e 100644
 --- a/net/core/secure_seq.c
 +++ b/net/core/secure_seq.c
-@@ -10,6 +10,24 @@
+@@ -10,6 +10,7 @@
  
  #include <net/secure_seq.h>
  
-+#ifdef CONFIG_INET
-+static u32 seq_scale(u32 seq)
-+{
-+	/*
-+	 *	As close as possible to RFC 793, which
-+	 *	suggests using a 250 kHz clock.
-+	 *	Further reading shows this assumes 2 Mb/s networks.
-+	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
-+	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
-+	 *	we also need to limit the resolution so that the u32 seq
-+	 *	overlaps less than one time per MSL (2 minutes).
-+	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
-+	 */
-+	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
-+}
-+#endif
-+
-+#if IS_ENABLED(CONFIG_IPV6)
++#if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
  #define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
  
  static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
-@@ -30,24 +48,6 @@ static void net_secret_init(void)
+@@ -29,6 +30,7 @@ static void net_secret_init(void)
+ 		cmpxchg(&net_secret[--i], 0, tmp);
  	}
  }
++#endif
  
--#ifdef CONFIG_INET
--static u32 seq_scale(u32 seq)
--{
--	/*
--	 *	As close as possible to RFC 793, which
--	 *	suggests using a 250 kHz clock.
--	 *	Further reading shows this assumes 2 Mb/s networks.
--	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
--	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
--	 *	we also need to limit the resolution so that the u32 seq
--	 *	overlaps less than one time per MSL (2 minutes).
--	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
--	 */
--	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
--}
--#endif
--
--#if IS_ENABLED(CONFIG_IPV6)
- __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 				   __be16 sport, __be16 dport)
- {
+ #ifdef CONFIG_INET
+ static u32 seq_scale(u32 seq)
 -- 
 1.8.1.2
