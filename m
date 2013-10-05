@@ -1,54 +1,174 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Sun, 06 Oct 2013 08:46:26 +1100
-Message-ID: <1381009586.645.141.camel@pasglop>
-References: <cover.1380703262.git.agordeev@redhat.com>
-         <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
-         <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
-         <1380922156.3214.49.camel@bwh-desktop.uk.level5networks.com>
-         <20131005142054.GA11270@dhcp-26-207.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-driver@qlo
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20131005142054.GA11270@dhcp-26-207.brq.redhat.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 2/8] ipv6: split inet6_ehashfn to hash functions per compilation unit
+Date: Sun,  6 Oct 2013 01:20:52 +0200
+Message-ID: <1381015258-7667-3-git-send-email-hannes@stressinduktion.org>
+References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
+Cc: linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-10-05 at 16:20 +0200, Alexander Gordeev wrote:
-> So my point is - drivers should first obtain a number of MSIs they *can*
-> get, then *derive* a number of MSIs the device is fine with and only then
-> request that number. Not terribly different from memory or any other type
-> of resource allocation ;)
+This patch splits the inet6_ehashfn into separate ones in
+ipv6/inet6_hashtables.o and ipv6/udp.o to ease the introduction of
+seperate secrets keys later.
 
-What if the limit is for a group of devices ? Your interface is racy in
-that case, another driver could have eaten into the limit in between the
-calls.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/inet6_hashtables.h | 29 +++++++----------------------
+ include/net/ipv6.h             |  4 ++--
+ net/ipv6/inet6_hashtables.c    | 25 +++++++++++++++++++++++++
+ net/ipv6/udp.c                 | 20 ++++++++++++++++----
+ 4 files changed, 50 insertions(+), 28 deletions(-)
 
-Ben.
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+index f52fa88..ae06135 100644
+--- a/include/net/inet6_hashtables.h
++++ b/include/net/inet6_hashtables.h
+@@ -28,29 +28,14 @@
+ 
+ struct inet_hashinfo;
+ 
+-static inline unsigned int inet6_ehashfn(struct net *net,
+-				const struct in6_addr *laddr, const u16 lport,
+-				const struct in6_addr *faddr, const __be16 fport)
++static inline unsigned int __inet6_ehashfn(const u32 lhash,
++				    const u16 lport,
++				    const u32 fhash,
++				    const __be16 fport,
++				    const u32 initval)
+ {
+-	u32 ports = (((u32)lport) << 16) | (__force u32)fport;
+-
+-	return jhash_3words((__force u32)laddr->s6_addr32[3],
+-			    ipv6_addr_jhash(faddr),
+-			    ports,
+-			    inet_ehash_secret + net_hash_mix(net));
+-}
+-
+-static inline int inet6_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const struct ipv6_pinfo *np = inet6_sk(sk);
+-	const struct in6_addr *laddr = &np->rcv_saddr;
+-	const struct in6_addr *faddr = &np->daddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++	const u32 ports = (((u32)lport) << 16) | (__force u32)fport;
++	return jhash_3words(lhash, fhash, ports, initval);
+ }
+ 
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *twp);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index fe1c7f6..a35055f 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -539,14 +539,14 @@ static inline u32 ipv6_addr_hash(const struct in6_addr *a)
+ }
+ 
+ /* more secured version of ipv6_addr_hash() */
+-static inline u32 ipv6_addr_jhash(const struct in6_addr *a)
++static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
+ {
+ 	u32 v = (__force u32)a->s6_addr32[0] ^ (__force u32)a->s6_addr32[1];
+ 
+ 	return jhash_3words(v,
+ 			    (__force u32)a->s6_addr32[2],
+ 			    (__force u32)a->s6_addr32[3],
+-			    ipv6_hash_secret);
++			    initval);
+ }
+ 
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 32b4a16..0b8e101 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -23,6 +23,31 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
++
++static int inet6_sk_ehashfn(const struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	const struct ipv6_pinfo *np = inet6_sk(sk);
++	const struct in6_addr *laddr = &np->rcv_saddr;
++	const struct in6_addr *faddr = &np->daddr;
++	const __u16 lport = inet->inet_num;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
++
++	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++}
++
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *tw)
+ {
+ 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 8119791..00fb50e 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -53,6 +53,18 @@
+ #include <trace/events/skb.h>
+ #include "udp_impl.h"
+ 
++static unsigned int udp6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
++
+ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
+ {
+ 	const struct in6_addr *sk_rcv_saddr6 = &inet6_sk(sk)->rcv_saddr;
+@@ -217,8 +229,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			} else if (score == SCORE2_MAX)
+ 				goto exact_match;
+@@ -298,8 +310,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+-- 
+1.8.3.1
