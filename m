@@ -1,11 +1,14 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 7/8] tcp: switch tcp_fastopen key generation to net_get_random_once
-Date: Sun,  6 Oct 2013 01:20:57 +0200
-Message-ID: <1381015258-7667-8-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 4/8] net: introduce new macro net_get_random_once
+Date: Sun,  6 Oct 2013 01:20:54 +0200
+Message-ID: <1381015258-7667-5-git-send-email-hannes@stressinduktion.org>
 References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Yuchung Cheng <ycheng@google.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Jason Baron <jbaron@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
@@ -14,99 +17,190 @@ In-Reply-To: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changed key initialization of tcp_fastopen cookies to net_get_random_once.
+net_get_random_once is a new macro which handles the initialization
+of secret keys. It is possible to call it in the fast path. Only the
+initialization depends on the spinlock and is rather slow. Otherwise
+it should get used just before the key is used to delay the entropy
+extration as late as possible to get better randomness. It returns true
+if the key got initialized.
 
-If the user sets a custom key net_get_random_once must be called at
-least once to ensure we don't overwrite the user provided key when the
-first cookie is generated later on.
+The usage of static_keys for net_get_random_once is a bit uncommon so
+it needs some further explanation why this actually works:
 
-Cc: Yuchung Cheng <ycheng@google.com>
+=== In the simple non-HAVE_JUMP_LABEL case we actually have ===
+no constrains to use static_key_(true|false) on keys initialized with
+STATIC_KEY_INIT_(FALSE|TRUE). So this path just expands in favor of
+the likely case that the initialization is already done. The key is
+initialized like this:
+
+___done_key = { .enabled = ATOMIC_INIT(0) }
+
+The check
+
+                if (!static_key_true(&___done_key))                     \
+
+expands into (pseudo code)
+
+                if (!likely(___done_key > 0))
+
+, so we take the fast path as soon as ___done_key is increased from the
+helper function.
+
+=== If HAVE_JUMP_LABELs are available this depends ===
+on patching of jumps into the prepared NOPs, which is done in
+jump_label_init at boot-up time (from start_kernel). It is forbidden
+and dangerous to use net_get_random_once in functions which are called
+before that!
+
+At compilation time NOPs are generated at the call sites of
+net_get_random_once. E.g. net/ipv6/inet6_hashtable.c:inet6_ehashfn (we
+need to call net_get_random_once two times in inet6_ehashfn, so two NOPs):
+
+      71:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+      76:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+
+Both will be patched to the actual jumps to the end of the function to
+call __net_get_random_once at boot time as explained above.
+
+arch_static_branch is optimized and inlined for false as return value and
+actually also returns false in case the NOP is placed in the instruction
+stream. So in the fast case we get a "return false". But because we
+initialize ___done_key with (enabled != (entries & 1)) this call-site
+will get patched up at boot thus returning true. The final check looks
+like this:
+
+                if (!static_key_true(&___done_key))                     \
+                        ___ret = __net_get_random_once(buf,             \
+
+expands to
+
+                if (!!static_key_false(&___done_key))                     \
+                        ___ret = __net_get_random_once(buf,             \
+
+So we get true at boot time and as soon as static_key_slow_inc is called
+on the key it will invert the logic and return false for the fast path.
+static_key_slow_inc will change the branch because it got initialized
+with .enabled == 0. After static_key_slow_inc is called on the key the
+branch is replaced with a nop again.
+
+=== Misc: ===
+The helper defers the increment into a workqueue so we don't
+have problems calling this code from atomic sections. A seperate boolean
+(___done) guards the case where we enter net_get_random_once again before
+the increment happend.
+
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Jason Baron <jbaron@redhat.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/tcp.h          |  2 +-
- net/ipv4/sysctl_net_ipv4.c |  5 +++++
- net/ipv4/tcp_fastopen.c    | 27 ++++++++++++++++-----------
- 3 files changed, 22 insertions(+), 12 deletions(-)
+I tested this patchset with !CC_HAVE_ASM_GOTO and with CC_HAVE_ASM_GOTO
+on x86_64.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9299560..2a26100 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1322,7 +1322,7 @@ extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- int tcp_fastopen_reset_cipher(void *key, unsigned int len);
- void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 			     struct tcp_fastopen_cookie *foc);
--
-+void tcp_fastopen_init_key_once(bool publish);
- #define TCP_FASTOPEN_KEY_LENGTH 16
+I quickly reviewed that all architectures which implement HAVE_JUMP_LABEL
+also patch all branch sites on boot-up. But this needs further review
+as this is a security sensitive patch series.
+
+Thank you!
+
+ include/linux/net.h | 25 +++++++++++++++++++++++++
+ net/core/utils.c    | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 73 insertions(+)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index ca9ec85..a489705 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -239,6 +239,31 @@ do {								\
+ #define net_random()		prandom_u32()
+ #define net_srandom(seed)	prandom_seed((__force u32)(seed))
  
- /* Fastopen key context */
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index c08f096..4b161d5 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -274,6 +274,11 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
- 			ret = -EINVAL;
- 			goto bad_key;
- 		}
-+		/* Generate a dummy secret but don't publish it. This
-+		 * is needed so we don't regenerate a new key on the
-+		 * first invocation of tcp_fastopen_cookie_gen
-+		 */
-+		tcp_fastopen_init_key_once(false);
- 		tcp_fastopen_reset_cipher(user_key, TCP_FASTOPEN_KEY_LENGTH);
- 	}
- 
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index ab7bd35..766032b 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -14,6 +14,20 @@ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- 
- static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
- 
-+void tcp_fastopen_init_key_once(bool publish)
-+{
-+	static u8 key[TCP_FASTOPEN_KEY_LENGTH];
++bool __net_get_random_once(void *buf, int nbytes, bool *done,
++			   struct static_key *done_key);
 +
-+	/* tcp_fastopen_reset_cipher publishes the new context
-+	 * atomically, so we allow this race happening here.
-+	 *
-+	 * All call sites of tcp_fastopen_cookie_gen also check
-+	 * for a valid cookie, so this is an acceptable risk.
-+	 */
-+	if (net_get_random_once(key, sizeof(key)) && publish)
-+		tcp_fastopen_reset_cipher(key, sizeof(key));
++#ifdef HAVE_JUMP_LABEL
++#define ___NET_RANDOM_STATIC_KEY_INIT ((struct static_key) \
++		{ .enabled = ATOMIC_INIT(0), .entries = (void *)1 })
++#else /* !HAVE_JUMP_LABEL */
++#define ___NET_RANDOM_STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
++#endif /* HAVE_JUMP_LABEL */
++
++/* BE CAREFUL: this function is not interrupt safe */
++#define net_get_random_once(buf, nbytes)				\
++	({								\
++		bool ___ret = false;					\
++		static bool ___done = false;				\
++		static struct static_key ___done_key =			\
++			___NET_RANDOM_STATIC_KEY_INIT;			\
++		if (!static_key_true(&___done_key))			\
++			___ret = __net_get_random_once(buf,		\
++						       nbytes,		\
++						       &___done,	\
++						       &___done_key);	\
++		___ret;							\
++	})
++
+ int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
+ 		   size_t num, size_t len);
+ int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
+diff --git a/net/core/utils.c b/net/core/utils.c
+index aa88e23..bf09371 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -338,3 +338,51 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+ 				  csum_unfold(*sum)));
+ }
+ EXPORT_SYMBOL(inet_proto_csum_replace16);
++
++struct __net_random_once_work {
++	struct work_struct work;
++	struct static_key *key;
++};
++
++static void __net_random_once_deferred(struct work_struct *w)
++{
++	struct __net_random_once_work *work =
++		container_of(w, struct __net_random_once_work, work);
++	if (!static_key_enabled(work->key))
++		static_key_slow_inc(work->key);
++	kfree(work);
 +}
 +
- static void tcp_fastopen_ctx_free(struct rcu_head *head)
- {
- 	struct tcp_fastopen_context *ctx =
-@@ -70,6 +84,8 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 	__be32 path[4] = { src, dst, 0, 0 };
- 	struct tcp_fastopen_context *ctx;
- 
-+	tcp_fastopen_init_key_once(true);
++static void __net_random_once_disable_jump(struct static_key *key)
++{
++	struct __net_random_once_work *w;
 +
- 	rcu_read_lock();
- 	ctx = rcu_dereference(tcp_fastopen_ctx);
- 	if (ctx) {
-@@ -78,14 +94,3 @@ void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
- 	}
- 	rcu_read_unlock();
- }
--
--static int __init tcp_fastopen_init(void)
--{
--	__u8 key[TCP_FASTOPEN_KEY_LENGTH];
--
--	get_random_bytes(key, sizeof(key));
--	tcp_fastopen_reset_cipher(key, sizeof(key));
--	return 0;
--}
--
--late_initcall(tcp_fastopen_init);
++	w = kmalloc(sizeof(*w), GFP_ATOMIC);
++	if (!w)
++		return;
++
++	INIT_WORK(&w->work, __net_random_once_deferred);
++	w->key = key;
++	schedule_work(&w->work);
++}
++
++bool __net_get_random_once(void *buf, int nbytes, bool *done,
++			   struct static_key *done_key)
++{
++	static DEFINE_SPINLOCK(lock);
++
++	spin_lock_bh(&lock);
++	if (*done) {
++		spin_unlock_bh(&lock);
++		return false;
++	}
++
++	get_random_bytes(buf, nbytes);
++	*done = true;
++	spin_unlock_bh(&lock);
++
++	__net_random_once_disable_jump(done_key);
++
++	return true;
++}
++EXPORT_SYMBOL(__net_get_random_once);
 -- 
 1.8.3.1
