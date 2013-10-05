@@ -1,11 +1,10 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 5/8] inet: split syncookie keys for ipv4 and ipv6 and initialize with net_get_random_once
-Date: Sun,  6 Oct 2013 01:20:55 +0200
-Message-ID: <1381015258-7667-6-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 1/8] ipv4: split inet_ehashfn to hash functions per compilation unit
+Date: Sun,  6 Oct 2013 01:20:51 +0200
+Message-ID: <1381015258-7667-2-git-send-email-hannes@stressinduktion.org>
 References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
@@ -14,101 +13,146 @@ In-Reply-To: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch splits the secret key for syncookies for ipv4 and ipv6 and
-initializes them with net_get_random_once. This change was the reason I
-did this series. I think the initialization of the syncookie_secret is
-way to early.
+This duplicates a bit of code but let's us easily introduce
+separate secret keys later. The separate compilation units are
+ipv4/inet_hashtabbles.o, ipv4/udp.o and rds/connection.o.
 
-Cc: Florian Westphal <fw@strlen.de>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/tcp.h     |  1 -
- net/ipv4/syncookies.c | 15 +++++----------
- net/ipv6/syncookies.c | 12 +++++++++---
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ include/net/inet_sock.h    | 22 ++++++----------------
+ net/ipv4/inet_hashtables.c | 21 +++++++++++++++++++++
+ net/ipv4/udp.c             | 16 ++++++++++++----
+ net/rds/connection.c       |  6 +++---
+ 4 files changed, 42 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index de870ee..9299560 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -475,7 +475,6 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
- void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 6d9a7e6..8026f9f 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -206,26 +206,16 @@ extern u32 inet_ehash_secret;
+ extern u32 ipv6_hash_secret;
+ void build_ehash_secret(void);
  
- /* From syncookies.c */
--extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
- 		      u32 cookie);
- struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 15e0241..22f5409 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -25,15 +25,7 @@
- 
- extern int sysctl_tcp_syncookies;
- 
--__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
--EXPORT_SYMBOL(syncookie_secret);
--
--static __init int init_syncookies(void)
--{
--	get_random_bytes(syncookie_secret, sizeof(syncookie_secret));
--	return 0;
+-static inline unsigned int inet_ehashfn(struct net *net,
+-					const __be32 laddr, const __u16 lport,
+-					const __be32 faddr, const __be16 fport)
++static inline unsigned int __inet_ehashfn(const __be32 laddr,
++					  const __u16 lport,
++					  const __be32 faddr,
++					  const __be16 fport,
++					  u32 initval)
+ {
+ 	return jhash_3words((__force __u32) laddr,
+ 			    (__force __u32) faddr,
+ 			    ((__u32) lport) << 16 | (__force __u32)fport,
+-			    inet_ehash_secret + net_hash_mix(net));
 -}
--__initcall(init_syncookies);
-+static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
+-
+-static inline int inet_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const __be32 laddr = inet->inet_rcv_saddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be32 faddr = inet->inet_daddr;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet_ehashfn(net, laddr, lport, faddr, fport);
++			    initval);
+ }
  
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
-@@ -44,8 +36,11 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
- static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- 		       u32 count, int c)
+ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 2779037..c8a686f 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -24,6 +24,27 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
++{
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
++}
++
++
++static unsigned int inet_sk_ehashfn(const struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	const __be32 laddr = inet->inet_rcv_saddr;
++	const __u16 lport = inet->inet_num;
++	const __be32 faddr = inet->inet_daddr;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
++
++	return inet_ehashfn(net, laddr, lport, faddr, fport);
++}
++
+ /*
+  * Allocate and initialize a new local port bind bucket.
+  * The bindhash mutex for snum's hash chain must be held here.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c41833e..1ccccbb 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -406,6 +406,14 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+ 	return score;
+ }
+ 
++static unsigned int udp_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
++{
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
++}
++
+ 
+ /* called with read_rcu_lock() */
+ static struct sock *udp4_lib_lookup2(struct net *net,
+@@ -429,8 +437,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+@@ -510,8 +518,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 642ad42..45e2366 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -52,9 +52,9 @@ static struct kmem_cache *rds_conn_slab;
+ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
  {
--	__u32 *tmp = __get_cpu_var(ipv4_cookie_scratch);
-+	__u32 *tmp;
-+
-+	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+ 	/* Pass NULL, don't need struct net for hash */
+-	unsigned long hash = inet_ehashfn(NULL,
+-					  be32_to_cpu(laddr), 0,
+-					  be32_to_cpu(faddr), 0);
++	unsigned long hash = __inet_ehashfn(be32_to_cpu(laddr), 0,
++					    be32_to_cpu(faddr), 0,
++					    inet_ehash_secret);
+ 	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
+ }
  
-+	tmp  = __get_cpu_var(ipv4_cookie_scratch);
- 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
- 	tmp[0] = (__force u32)saddr;
- 	tmp[1] = (__force u32)daddr;
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index d703218..413eb7c 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -24,6 +24,8 @@
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
- 
-+static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS];
-+
- /* RFC 2460, Section 8.3:
-  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
-  *
-@@ -61,14 +63,18 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
- static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
- 		       __be16 sport, __be16 dport, u32 count, int c)
- {
--	__u32 *tmp = __get_cpu_var(ipv6_cookie_scratch);
-+	__u32 *tmp;
-+
-+	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
-+
-+	tmp  = __get_cpu_var(ipv6_cookie_scratch);
- 
- 	/*
- 	 * we have 320 bits of information to hash, copy in the remaining
--	 * 192 bits required for sha_transform, from the syncookie_secret
-+	 * 192 bits required for sha_transform, from the syncookie6_secret
- 	 * and overwrite the digest with the secret
- 	 */
--	memcpy(tmp + 10, syncookie_secret[c], 44);
-+	memcpy(tmp + 10, syncookie6_secret[c], 44);
- 	memcpy(tmp, saddr, 16);
- 	memcpy(tmp + 4, daddr, 16);
- 	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
 -- 
 1.8.3.1
