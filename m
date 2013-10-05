@@ -1,76 +1,37 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v2] net: secure_seq: Fix warning when CONFIG_IPV6 and CONFIG_INET are not selected
-Date: Sat,  5 Oct 2013 17:56:59 -0300
-Message-ID: <1381006619-17126-2-git-send-email-festevam@gmail.com>
-References: <1381006619-17126-1-git-send-email-festevam@gmail.com>
-Cc: edumazet@google.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, olof@lixom.net,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f182.google.com ([209.85.213.182]:33236 "EHLO
-	mail-ye0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536Ab3JEVDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 17:03:32 -0400
-Received: by mail-ye0-f182.google.com with SMTP id q7so591536yen.27
-        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 14:03:32 -0700 (PDT)
-In-Reply-To: <1381006619-17126-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH] 6lowpan: Sync default hardware address of lowpan links to their wpan
+Date: Sat,  5 Oct 2013 17:38:00 -0400
+Message-ID: <1381009080-15945-1-git-send-email-alan@signal11.us>
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Alan Ott <alan@signal11.us>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+When a lowpan link to a wpan device is created, set the hardware address
+of the lowpan link to that of the wpan device.
 
-net_secret() is only used when CONFIG_IPV6 or CONFIG_INET are selected.
-
-Building a defconfig with both of these symbols unselected (Using the ARM
-at91sam9rl_defconfig, for example) leads to the following build warning:
-
-$ make at91sam9rl_defconfig
-#
-# configuration written to .config
-#
-
-$ make net/core/secure_seq.o
-scripts/kconfig/conf --silentoldconfig Kconfig
-  CHK     include/config/kernel.release
-  CHK     include/generated/uapi/linux/version.h
-  CHK     include/generated/utsrelease.h
-make[1]: `include/generated/mach-types.h' is up to date.
-  CALL    scripts/checksyscalls.sh
-  CC      net/core/secure_seq.o
-net/core/secure_seq.c:17:13: warning: 'net_secret_init' defined but not used [-Wunused-function]
-
-Fix this warning by protecting the definition of net_secret() with these
-symbols.
-
-Reported-by: Olof Johansson <olof@lixom.net>
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Signed-off-by: Alan Ott <alan@signal11.us>
 ---
-Changes since v1:
-- Add #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
+ net/ieee802154/6lowpan.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
- net/core/secure_seq.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 3f1ec15..8d9d05e 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -10,6 +10,7 @@
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index c85e71e..fb89133 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1386,6 +1386,9 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
  
- #include <net/secure_seq.h>
+ 	entry->ldev = dev;
  
-+#if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
- #define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
- 
- static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
-@@ -29,6 +30,7 @@ static void net_secret_init(void)
- 		cmpxchg(&net_secret[--i], 0, tmp);
- 	}
- }
-+#endif
- 
- #ifdef CONFIG_INET
- static u32 seq_scale(u32 seq)
++	BUG_ON(IEEE802154_ADDR_LEN != dev->addr_len);
++	memcpy(dev->dev_addr, real_dev->dev_addr, IEEE802154_ADDR_LEN);
++
+ 	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
+ 	INIT_LIST_HEAD(&entry->list);
+ 	list_add_tail(&entry->list, &lowpan_devices);
 -- 
 1.8.1.2
