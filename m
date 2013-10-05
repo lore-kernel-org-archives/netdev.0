@@ -1,99 +1,90 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Update the sysctl permissions handler to test effective uid/gid
-Date: Sat, 05 Oct 2013 13:15:30 -0700
-Message-ID: <87y567lbj1.fsf@xmission.com>
-References: <52139BE4.4020208@redhat.com>
-	<20130820100113.2a2455aa.akpm@linux-foundation.org>
-	<87bo4s1de6.fsf@xmission.com>
-	<20130829074622.GZ13998@dhcp-25-225.brq.redhat.com>
-	<87fvtihptr.fsf_-_@xmission.com> <5249DAA7.9050304@redhat.com>
-	<CAGXu5j+88Bb0Mnbiyq-bTzkn59YXOefCrXtht-evYhq-yUfYFg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Sandeen <sandeen@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"security\@kernel.org" <security@kernel.org>,
-	Petr Matousek <pmatouse@redhat.com>, <netdev@vger.kernel.org>,
-	Kees Cook <keescook@google.com>
-To: David Miller <davem@davemloft.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] net: secure_seq: Move net_secret_init() definition into CONFIG_IPV6 if block
+Date: Sat,  5 Oct 2013 17:09:50 -0300
+Message-ID: <1381003790-12731-1-git-send-email-festevam@gmail.com>
+Cc: edumazet@google.com, hannes@strressinduktion.org,
+	netdev@vger.kernel.org, olof@lixom.net,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60931 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752366Ab3JEUPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 16:15:52 -0400
-In-Reply-To: <CAGXu5j+88Bb0Mnbiyq-bTzkn59YXOefCrXtht-evYhq-yUfYFg@mail.gmail.com>
-	(Kees Cook's message of "Wed, 2 Oct 2013 13:58:30 -0700")
+Received: from mail-ye0-f171.google.com ([209.85.213.171]:34940 "EHLO
+	mail-ye0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752478Ab3JEUQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 16:16:07 -0400
+Received: by mail-ye0-f171.google.com with SMTP id q3so1249148yen.30
+        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 13:16:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-On Tue, 20 Aug 2013 11:40:04 -0500 Eric Sandeen <sandeen@redhat.com> wrote:
-> This was brought up in a Red Hat bug (which may be marked private, I'm sorry):
->
-> Bug 987055 - open O_WRONLY succeeds on some root owned files in /proc for process running with unprivileged EUID
->
-> "On RHEL7 some of the files in /proc can be opened for writing by an unprivileged EUID."
->
-> The flaw existed upstream as well last I checked.
->
-> This commit in kernel v3.8 caused the regression:
->
-> commit cff109768b2d9c03095848f4cd4b0754117262aa
-> Author: Eric W. Biederman <ebiederm@xmission.com>
-> Date:   Fri Nov 16 03:03:01 2012 +0000
->
->     net: Update the per network namespace sysctls to be available to the network namespace owner
->
->     - Allow anyone with CAP_NET_ADMIN rights in the user namespace of the
->       the netowrk namespace to change sysctls.
->     - Allow anyone the uid of the user namespace root the same
->       permissions over the network namespace sysctls as the global root.
->     - Allow anyone with gid of the user namespace root group the same
->       permissions over the network namespace sysctl as the global root group.
->
->     Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> because it changed /sys/net's special permission handler to test current_uid, not
-> current_euid; same for current_gid/current_egid.
->
-> So in this case, root cannot drop privs via set[ug]id, and retains all privs
-> in this codepath.
+Commit 9a3bab6b05 (net: net_secret should not depend on TCP) introduced
+the following build warning when CONFIG_IPV6 is not selected:
 
-Modify the code to use current_euid(), and in_egroup_p, as in done
-in fs/proc/proc_sysctl.c:test_perm()
+net/core/secure_seq.c:17:13: warning: 'net_secret_init' defined but not used [-Wunused-function]
 
-Cc: stable@vger.kernel.org
-Reviewed-by: Eric Sandeen <sandeen@redhat.com>
-Reported-by: Eric Sandeen <sandeen@redhat.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Fix it by moving net_secret_init(void) inside the '#if IS_ENABLED(CONFIG_IPV6)'
+block.
+
+Reported-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
+ net/core/secure_seq.c | 36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
 
-Resubmitting as it looks like this fix got lost.  This patch applies
-cleanly against both net-next and linux-3.12-rc1, and likely quite a few
-early kernel revisions.
-
- net/sysctl_net.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sysctl_net.c b/net/sysctl_net.c
-index 9bc6db04be3e..e7000be321b0 100644
---- a/net/sysctl_net.c
-+++ b/net/sysctl_net.c
-@@ -47,12 +47,12 @@ static int net_ctl_permissions(struct ctl_table_header *head,
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 3f1ec15..ee70541 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -10,6 +10,24 @@
  
- 	/* Allow network administrator to have same access as root. */
- 	if (ns_capable(net->user_ns, CAP_NET_ADMIN) ||
--	    uid_eq(root_uid, current_uid())) {
-+	    uid_eq(root_uid, current_euid())) {
- 		int mode = (table->mode >> 6) & 7;
- 		return (mode << 6) | (mode << 3) | mode;
+ #include <net/secure_seq.h>
+ 
++#ifdef CONFIG_INET
++static u32 seq_scale(u32 seq)
++{
++	/*
++	 *	As close as possible to RFC 793, which
++	 *	suggests using a 250 kHz clock.
++	 *	Further reading shows this assumes 2 Mb/s networks.
++	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
++	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
++	 *	we also need to limit the resolution so that the u32 seq
++	 *	overlaps less than one time per MSL (2 minutes).
++	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
++	 */
++	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
++}
++#endif
++
++#if IS_ENABLED(CONFIG_IPV6)
+ #define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
+ 
+ static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
+@@ -30,24 +48,6 @@ static void net_secret_init(void)
  	}
- 	/* Allow netns root group to have the same access as the root group */
--	if (gid_eq(root_gid, current_gid())) {
-+	if (in_egroup_p(root_gid)) {
- 		int mode = (table->mode >> 3) & 7;
- 		return (mode << 3) | mode;
- 	}
+ }
+ 
+-#ifdef CONFIG_INET
+-static u32 seq_scale(u32 seq)
+-{
+-	/*
+-	 *	As close as possible to RFC 793, which
+-	 *	suggests using a 250 kHz clock.
+-	 *	Further reading shows this assumes 2 Mb/s networks.
+-	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
+-	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
+-	 *	we also need to limit the resolution so that the u32 seq
+-	 *	overlaps less than one time per MSL (2 minutes).
+-	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
+-	 */
+-	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
+-}
+-#endif
+-
+-#if IS_ENABLED(CONFIG_IPV6)
+ __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+ 				   __be16 sport, __be16 dport)
+ {
 -- 
-1.7.5.4
+1.8.1.2
