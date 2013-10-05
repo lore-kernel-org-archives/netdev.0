@@ -1,72 +1,90 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] can: dev: fix nlmsg size calculation in can_get_size()
-Date: Sat, 05 Oct 2013 22:50:05 +0200
-Message-ID: <52507B7D.6030008@grandegger.com>
-References: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, kernel@pengutronix.de
-To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] net: secure_seq: Move net_secret_init() definition into CONFIG_IPV6 if block
+Date: Sat,  5 Oct 2013 17:56:58 -0300
+Message-ID: <1381006619-17126-1-git-send-email-festevam@gmail.com>
+Cc: edumazet@google.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, olof@lixom.net,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f169.google.com ([209.85.213.169]:36623 "EHLO
+	mail-ye0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752481Ab3JEU5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 16:57:11 -0400
+Received: by mail-ye0-f169.google.com with SMTP id r10so312517yen.14
+        for <netdev@vger.kernel.org>; Sat, 05 Oct 2013 13:57:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2013 09:25 PM, Marc Kleine-Budde wrote:
-> This patch fixes the calculation of the nlmsg size, by adding the missing
-> nla_total_size().
-> 
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> ---
-> Hello,
-> 
-> this patch touches the rtnl_link_ops get_size() callback:
-> 
->     static struct rtnl_link_ops can_link_ops __read_mostly = {
->     ...
->     	.get_size	= can_get_size,
->     ...
->     };
-> 
-> By looking at other nlmsg size calculation I think a nla_total_size() for all
-> contributers is needed. Am I correct?
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Yes, seems so, nla_put() calls this code:
+Commit 9a3bab6b05 (net: net_secret should not depend on TCP) introduced
+the following build warning when CONFIG_IPV6 is not selected:
 
-  http://lxr.free-electrons.com/source/lib/nlattr.c#L328
+net/core/secure_seq.c:17:13: warning: 'net_secret_init' defined but not used [-Wunused-function]
 
-Wolfgang.
+Fix it by moving net_secret_init(void) inside the '#if IS_ENABLED(CONFIG_IPV6)'
+block.
 
-> regards,
-> Marc
-> 
->  drivers/net/can/dev.c | 10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-> index f9cba41..1870c47 100644
-> --- a/drivers/net/can/dev.c
-> +++ b/drivers/net/can/dev.c
-> @@ -705,14 +705,14 @@ static size_t can_get_size(const struct net_device *dev)
->  	size_t size;
->  
->  	size = nla_total_size(sizeof(u32));   /* IFLA_CAN_STATE */
-> -	size += sizeof(struct can_ctrlmode);  /* IFLA_CAN_CTRLMODE */
-> +	size += nla_total_size(sizeof(struct can_ctrlmode));  /* IFLA_CAN_CTRLMODE */
->  	size += nla_total_size(sizeof(u32));  /* IFLA_CAN_RESTART_MS */
-> -	size += sizeof(struct can_bittiming); /* IFLA_CAN_BITTIMING */
-> -	size += sizeof(struct can_clock);     /* IFLA_CAN_CLOCK */
-> +	size += nla_total_size(sizeof(struct can_bittiming)); /* IFLA_CAN_BITTIMING */
-> +	size += nla_total_size(sizeof(struct can_clock));     /* IFLA_CAN_CLOCK */
->  	if (priv->do_get_berr_counter)        /* IFLA_CAN_BERR_COUNTER */
-> -		size += sizeof(struct can_berr_counter);
-> +		size += nla_total_size(sizeof(struct can_berr_counter));
->  	if (priv->bittiming_const)	      /* IFLA_CAN_BITTIMING_CONST */
-> -		size += sizeof(struct can_bittiming_const);
-> +		size += nla_total_size(sizeof(struct can_bittiming_const));
->  
->  	return size;
->  }
-> 
+Reported-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ net/core/secure_seq.c | 36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
 
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 3f1ec15..ee70541 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -10,6 +10,24 @@
+ 
+ #include <net/secure_seq.h>
+ 
++#ifdef CONFIG_INET
++static u32 seq_scale(u32 seq)
++{
++	/*
++	 *	As close as possible to RFC 793, which
++	 *	suggests using a 250 kHz clock.
++	 *	Further reading shows this assumes 2 Mb/s networks.
++	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
++	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
++	 *	we also need to limit the resolution so that the u32 seq
++	 *	overlaps less than one time per MSL (2 minutes).
++	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
++	 */
++	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
++}
++#endif
++
++#if IS_ENABLED(CONFIG_IPV6)
+ #define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
+ 
+ static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
+@@ -30,24 +48,6 @@ static void net_secret_init(void)
+ 	}
+ }
+ 
+-#ifdef CONFIG_INET
+-static u32 seq_scale(u32 seq)
+-{
+-	/*
+-	 *	As close as possible to RFC 793, which
+-	 *	suggests using a 250 kHz clock.
+-	 *	Further reading shows this assumes 2 Mb/s networks.
+-	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
+-	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
+-	 *	we also need to limit the resolution so that the u32 seq
+-	 *	overlaps less than one time per MSL (2 minutes).
+-	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
+-	 */
+-	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
+-}
+-#endif
+-
+-#if IS_ENABLED(CONFIG_IPV6)
+ __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+ 				   __be16 sport, __be16 dport)
+ {
+-- 
+1.8.1.2
