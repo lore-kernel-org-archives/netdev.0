@@ -1,36 +1,36 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: RE: [PATCH net-next 02/10] qlcnic: Enhance ethtool to display ring
- indices and interrupt mask
-Date: Fri, 4 Oct 2013 22:21:21 +0000
-Message-ID: <ADFE82A996F10145934E45547759F7638C91F870@avmb3.qlogic.org>
-References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
-	 <6802e3c08711090eada36dead165ab931c4e61db.1380937706.git.himanshu.madhani@qlogic.com>
- <1380919061.3214.13.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54867 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751348Ab3JDWV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Oct 2013 18:21:28 -0400
-In-Reply-To: <1380919061.3214.13.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] net: hamradio/scc: remove deprecated IRQF_DISABLED
+Date: Sat,  5 Oct 2013 06:22:30 +0200
+Message-ID: <1380946950-3482-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: jreuter@yaina.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiANCj4gVGhpcyBpcyByZWFsbHkgc2FkOyB3aHkgZG9uJ3QgeW91IHdyaXRlIGEgcHJvcGVyIGR1
-bXAgcGFyc2VyIGZvciBldGh0b29sDQo+IHJhdGhlciB0aGFuIGluY2x1ZGluZyBtYXJrZXJzIHRo
-YXQgbWFrZSBpdCBzbGlnaHRseSBlYXNpZXIgdG8gcmVhZCBoZXgNCj4gZHVtcHM/DQo+IA0KPiBB
-bmQgd2hlbiBjaGFuZ2luZyB0aGUgZHVtcCBmb3JtYXQgaW4gYW4gaW5jb21wYXRpYmxlIHdheSBs
-aWtlIHRoaXMsIHlvdQ0KPiBzaG91bGQgYWxzbyBidW1wIHRoZSB2ZXJzaW9uIG51bWJlci4NCj4g
-DQoNCldlIHdpbGwgcmVzdWJtaXQgdGhlIHBhdGNoIGFmdGVyIG1ha2luZyB0aGUgYXBwcm9wcmlh
-dGUgY2hhbmdlcy4NCg0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBF
-bmdpbmVlciwgU29sYXJmbGFyZQ0KPiBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0
-J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5v
-dGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
+This patch proposes to remove the use of the IRQF_DISABLED flag
+
+It's a NOOP since 2.6.35 and it will be removed one day.
+
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ drivers/net/hamradio/scc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
+index bc1d521..4bc6ee8 100644
+--- a/drivers/net/hamradio/scc.c
++++ b/drivers/net/hamradio/scc.c
+@@ -1734,7 +1734,7 @@ static int scc_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			if (!Ivec[hwcfg.irq].used && hwcfg.irq)
+ 			{
+ 				if (request_irq(hwcfg.irq, scc_isr,
+-						IRQF_DISABLED, "AX.25 SCC",
++						0, "AX.25 SCC",
+ 						(void *)(long) hwcfg.irq))
+ 					printk(KERN_WARNING "z8530drv: warning, cannot get IRQ %d\n", hwcfg.irq);
+ 				else
+-- 
+1.8.1.2
