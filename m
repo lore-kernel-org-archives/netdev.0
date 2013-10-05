@@ -1,59 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: secure_seq: Move net_secret_init() definition
- into CONFIG_IPV6 if block
-Date: Sat, 05 Oct 2013 16:27:52 -0400 (EDT)
-Message-ID: <20131005.162752.155685316245760253.davem@davemloft.net>
-References: <1381003790-12731-1-git-send-email-festevam@gmail.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: dev: fix nlmsg size calculation in can_get_size()
+Date: Sat, 05 Oct 2013 22:50:05 +0200
+Message-ID: <52507B7D.6030008@grandegger.com>
+References: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, hannes@strressinduktion.org,
-	netdev@vger.kernel.org, olof@lixom.net, fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44189 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752366Ab3JEU1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 16:27:55 -0400
-In-Reply-To: <1381003790-12731-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-can@vger.kernel.org, kernel@pengutronix.de
+To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Sat,  5 Oct 2013 17:09:50 -0300
-
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+On 10/05/2013 09:25 PM, Marc Kleine-Budde wrote:
+> This patch fixes the calculation of the nlmsg size, by adding the missing
+> nla_total_size().
 > 
-> Commit 9a3bab6b05 (net: net_secret should not depend on TCP) introduced
-> the following build warning when CONFIG_IPV6 is not selected:
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+> Hello,
 > 
-> net/core/secure_seq.c:17:13: warning: 'net_secret_init' defined but not used [-Wunused-function]
+> this patch touches the rtnl_link_ops get_size() callback:
 > 
-> Fix it by moving net_secret_init(void) inside the '#if IS_ENABLED(CONFIG_IPV6)'
-> block.
+>     static struct rtnl_link_ops can_link_ops __read_mostly = {
+>     ...
+>     	.get_size	= can_get_size,
+>     ...
+>     };
 > 
-> Reported-by: Olof Johansson <olof@lixom.net>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> By looking at other nlmsg size calculation I think a nla_total_size() for all
+> contributers is needed. Am I correct?
 
-seq_scale is used by secure_tcp_sequence_number, which is only protected
-by CONFIG_INET.  I have no idea how you can get this build problem.
+Yes, seems so, nla_put() calls this code:
 
-And I cannot reproduce it here:
+  http://lxr.free-electrons.com/source/lib/nlattr.c#L328
 
-[davem@drr net]$ egrep CONFIG_IPV6 .config
-# CONFIG_IPV6 is not set
-[davem@drr net]$ make net/core/secure_seq.o
-scripts/kconfig/conf --silentoldconfig Kconfig
-make[1]: Nothing to be done for `all'.
-make[1]: Nothing to be done for `relocs'.
-  CHK     include/config/kernel.release
-  CHK     include/generated/uapi/linux/version.h
-  CHK     include/generated/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  CC      net/core/secure_seq.o
-[davem@drr net]$ 
+Wolfgang.
 
-Furthermore your commit message is talking about net_secret_init but
-your patch does things with seq_scale.
+> regards,
+> Marc
+> 
+>  drivers/net/can/dev.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+> index f9cba41..1870c47 100644
+> --- a/drivers/net/can/dev.c
+> +++ b/drivers/net/can/dev.c
+> @@ -705,14 +705,14 @@ static size_t can_get_size(const struct net_device *dev)
+>  	size_t size;
+>  
+>  	size = nla_total_size(sizeof(u32));   /* IFLA_CAN_STATE */
+> -	size += sizeof(struct can_ctrlmode);  /* IFLA_CAN_CTRLMODE */
+> +	size += nla_total_size(sizeof(struct can_ctrlmode));  /* IFLA_CAN_CTRLMODE */
+>  	size += nla_total_size(sizeof(u32));  /* IFLA_CAN_RESTART_MS */
+> -	size += sizeof(struct can_bittiming); /* IFLA_CAN_BITTIMING */
+> -	size += sizeof(struct can_clock);     /* IFLA_CAN_CLOCK */
+> +	size += nla_total_size(sizeof(struct can_bittiming)); /* IFLA_CAN_BITTIMING */
+> +	size += nla_total_size(sizeof(struct can_clock));     /* IFLA_CAN_CLOCK */
+>  	if (priv->do_get_berr_counter)        /* IFLA_CAN_BERR_COUNTER */
+> -		size += sizeof(struct can_berr_counter);
+> +		size += nla_total_size(sizeof(struct can_berr_counter));
+>  	if (priv->bittiming_const)	      /* IFLA_CAN_BITTIMING_CONST */
+> -		size += sizeof(struct can_bittiming_const);
+> +		size += nla_total_size(sizeof(struct can_bittiming_const));
+>  
+>  	return size;
+>  }
+> 
 
-I'm not applying this patch.
