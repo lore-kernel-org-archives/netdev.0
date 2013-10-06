@@ -1,122 +1,115 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
-Date: Sun, 6 Oct 2013 23:05:22 +0800
-Message-ID: <CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>
-References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4_en: Fix pages never dma unmapped on rx
+Date: Sun, 6 Oct 2013 18:05:47 +0300
+Message-ID: <52517C4B.3070503@mellanox.com>
+References: <1381064240-12902-1-git-send-email-amirv@mellanox.com> <1381069372.3564.68.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>, mugunthanvnm@ti.com
-To: Dan Murphy <dmurphy@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+	"Eugenia Emantayev" <eugenia@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:52186 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753358Ab3JFPG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 11:06:57 -0400
+In-Reply-To: <1381069372.3564.68.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 5, 2013 at 2:25 AM, Dan Murphy <dmurphy@ti.com> wrote:
-> If the smsc95xx does not have a valid MAC address stored within
-> the eeprom then a random number is generated.  The MAC can also
-> be set by uBoot but the smsc95xx does not have a way to read this.
->
-> Create the binding for the smsc95xx so that uBoot can set the MAC
-> and the code can retrieve the MAC from the modified DTB file.
-
-Suppose there are two smsc95xx usbnet devices connected to usb bus, and
-one is built-in, another is hotplug device, can your patch handle the situation
-correctly?
-
->
-> Signed-off-by: Dan Murphy <dmurphy@ti.com>
-> ---
->  Documentation/devicetree/bindings/net/smsc95xx.txt |   17 ++++++++++++++
->  drivers/net/usb/smsc95xx.c                         |   24 ++++++++++++++++++++
->  2 files changed, 41 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/smsc95xx.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/smsc95xx.txt b/Documentation/devicetree/bindings/net/smsc95xx.txt
-> new file mode 100644
-> index 0000000..4c37280
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/smsc95xx.txt
-> @@ -0,0 +1,17 @@
-> +* Smart Mixed-Signal Connectivity (SMSC) 95xx Controller
-> +
-> +Required properties:
-> +None
-> +
-> +Optional properties:
-> +- mac-address - Read the mac address that was stored by uBoot
-> +- local-address - Read the mac address that was stored by uBoot
-> +- address - Read the mac address that was stored by uBoot
-> +
-> +Examples:
-> +
-> +smsc0: smsc95xx@0 {
-> +       /* Filled in by U-Boot */
-> +       mac-address = [ 00 00 00 00 00 00 ];
-> +};
-> +
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index 3f38ba8..baee0bd 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -31,6 +31,9 @@
->  #include <linux/crc32.h>
->  #include <linux/usb/usbnet.h>
->  #include <linux/slab.h>
-> +#include <linux/of.h>
-> +#include <linux/of_net.h>
-> +
->  #include "smsc95xx.h"
->
->  #define SMSC_CHIPNAME                  "smsc95xx"
-> @@ -62,6 +65,8 @@
->  #define SUSPEND_ALLMODES               (SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
->                                          SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
->
-> +#define SMSC95XX_OF_NAME       "/smsc95xx@"
-> +
->  struct smsc95xx_priv {
->         u32 mac_cr;
->         u32 hash_hi;
-> @@ -767,6 +772,25 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
->
->  static void smsc95xx_init_mac_address(struct usbnet *dev)
+On 06/10/2013 17:22, Eric Dumazet wrote:
+> On Sun, 2013-10-06 at 14:57 +0200, Amir Vadai wrote:
+>> This patch fixes a bug introduced by commit 51151a16 (mlx4: allow
+>> order-0 memory allocations in RX path).
+>>
+>> dma_unmap_page never reached because condition to detect last fragment
+>> in page is wrong. offset+frag_stride can't be greater than size, need to
+>> make sure no additional frag will fit in page => compare offset +
+>> frag_stride + next_frag_size instead.
+>> next_frag_size could be next frag in the same skb, or the first frag in
+>> the next.
+>>
+>> CC: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> index dec455c..44d8865 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> @@ -131,8 +131,11 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
+>>  			      int i)
+>>  {
+>>  	const struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
+>> +	u16 next_frag_end = frags[i].offset + frag_info->frag_stride;
+>>  
+> 
+> Hmm, could you make this an u32 ?
+> 
+> frags[i].offset and frags[i].size are u32
+> 
+> Maybe some folks want to use PAGE_SIZE=65536 or whatever high order
+> allocs
+> 
+> 
+>> -	if (frags[i].offset + frag_info->frag_stride > frags[i].size)
+>> +	next_frag_end += frags[(i + 1) % priv->num_frags].size;
+>> +
+>> +	if (next_frag_end > frags[i].size)
+>>  		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].size,
+>>  					 PCI_DMA_FROMDEVICE);
+>>  
+> 
+> Not sure I understand how this can work. How was this tested ?
+> 
+> frags[i + 1].size is the size of the page containing next fragment,
+> so now test should _always_ trigger.
+> 
+> (We could rename @size to @page_size to avoid confusion)
+> 
+> I think you meant to add the size of the next fragment ?
+> 
+> What about following instead (I also removed the divide operation)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index dec455c..22444de 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -131,10 +131,17 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
+>  			      int i)
 >  {
+>  	const struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
+> +	u32 next_frag_end = frags[i].offset + frag_info->frag_stride;
+>  
+> -	if (frags[i].offset + frag_info->frag_stride > frags[i].size)
+> +	frag_info++;
+> +	if (i + 1 == priv->num_frags)
+> +		frag_info = &priv->frag_info[0];
 > +
-> +#ifdef CONFIG_OF
-> +       struct device_node *ap;
-> +       const char *mac = NULL;
-> +       char *of_name = SMSC95XX_OF_NAME;
+> +	next_frag_end += frag_info->frag_stride;
 > +
-> +       sprintf(of_name, "%s%i", SMSC95XX_OF_NAME, dev->udev->dev.id);
-> +       ap = of_find_node_by_path(of_name);
-> +       if (ap) {
-> +               mac = of_get_mac_address(ap);
-> +               if (is_valid_ether_addr(mac)) {
-> +                       /* Device tree has a mac for this so use that */
-> +                       memcpy(dev->net->dev_addr, mac, ETH_ALEN);
-> +                       netif_dbg(dev, ifup, dev->net, "MAC address read from DTB\n");
-> +                       return;
-> +               }
-> +       }
-> +#endif
-> +
->         /* try reading mac address from EEPROM */
->         if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
->                         dev->net->dev_addr) == 0) {
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> +	if (next_frag_end > frags[i].size)
+>  		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].size,
+> -					 PCI_DMA_FROMDEVICE);
+> +			       PCI_DMA_FROMDEVICE);
+>  
+>  	if (frags[i].page)
+>  		put_page(frags[i].page);
+> 
+> 
 
+It looks good.
+
+Will also change it into a small patchset with a new patch to rename
+@size to @page_size and @offset to @page_offset.
+
+I Will send it after I finish testing.
+(Previously I had the typo added just after I removed the prints I used
+while testing).
 
 Thanks,
--- 
-Ming Lei
+Amir
