@@ -1,59 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
-Date: Sun, 6 Oct 2013 18:19:10 +0200
-Message-ID: <20131006161910.GC9295@order.stressinduktion.org>
-References: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com> <20131005140636.GA25076@order.stressinduktion.org> <CABfLueFYZkzpEpDJ7YcHJaXfm-=QcgnL3-Es8gybea2cAacQQw@mail.gmail.com> <20131006151351.GB9295@order.stressinduktion.org> <CABfLueGefWM6m6h44yAMBo7=BMUcA=OvcFVYka06QvsxXUAJtw@mail.gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: secure_seq: Move net_secret_init() definition into
+ CONFIG_IPV6 if block
+Date: Sun, 6 Oct 2013 13:29:47 -0300
+Message-ID: <CAOMZO5B+wr67_xw867w8GiuYT_wxBo-jOw-49dogPzZRNdpWew@mail.gmail.com>
+References: <1381003790-12731-1-git-send-email-festevam@gmail.com>
+	<20131005.162752.155685316245760253.davem@davemloft.net>
+	<CAOesGMi6LuP7uVJnHOgpG2RK2Q0R3bJ4kG1ZY3=b-W3k0YhnBg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CABfLueGefWM6m6h44yAMBo7=BMUcA=OvcFVYka06QvsxXUAJtw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, edumazet <edumazet@google.com>,
+	hannes@strressinduktion.org,
+	Network Development <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Olof Johansson <olof@lixom.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:44999 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751202Ab3JFQ3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 12:29:48 -0400
+Received: by mail-wi0-f174.google.com with SMTP id hj3so3724769wib.7
+        for <netdev@vger.kernel.org>; Sun, 06 Oct 2013 09:29:47 -0700 (PDT)
+In-Reply-To: <CAOesGMi6LuP7uVJnHOgpG2RK2Q0R3bJ4kG1ZY3=b-W3k0YhnBg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 06, 2013 at 04:36:56PM +0100, Oussama Ghorbel wrote:
-> On Sun, Oct 6, 2013 at 4:13 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Sun, Oct 06, 2013 at 03:42:15PM +0100, Oussama Ghorbel wrote:
-> >> The initialization  in ip6gre_tnl_link_config is done as the following:
-> >> static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
-> >> {
-> >> ...
-> >> int addend = sizeof(struct ipv6hdr) + 4;
-> >> ...
-> >> /* Precalculate GRE options length */
-> >> if (t->parms.o_flags&(GRE_CSUM|GRE_KEY|GRE_SEQ)) {
-> >> if (t->parms.o_flags&GRE_CSUM)
-> >> addend += 4;
-> >> if (t->parms.o_flags&GRE_KEY)
-> >> addend += 4;
-> >> if (t->parms.o_flags&GRE_SEQ)
-> >> addend += 4;
-> >> }
-> >> ...
-> >> dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
-> >> ...
-> >> t->hlen = addend;
-> >> ..
-> >> }
-> >>
-> >> Unless they are other reasons, the hard_header_len is taken into
-> >> account the GRE_KEY, GRE_SEQ ..
-> >
-> > But only if a new route is found. The hard_header_len reinitialization is
-> > guarded by a (rt == NULL). We may have not found one on boot up.
-> >
-> In that case the function will make a return and hlen will be zero.
-> Subtracting hlen in  ip6gre_tunnel_change_mtu has no effect ...
+Hi Olof,
 
-Oh yes, somehow I missed that.
+On Sun, Oct 6, 2013 at 2:25 AM, Olof Johansson <olof@lixom.net> wrote:
 
-We depend on t->hlen when pushing the gre header onto the skb. t->hlen == 0
-should never be the case because we assume t->hlen > sizeof(struct ipv6_hdr).
+> You get it if you have CONFIG_NET enabled, but CONFIG_INET off. We
+> seem to have a few defconfigs on arm that has that setting, likely
+> because they lack native network interfaces but need local unix
+> sockets. Or whatever. But that's how you hit it.
+>
+> Steps to reproduce, even with ARCH=sparc:
+>
+> make allnoconfig
+> edit .config, set CONFIG_NET=y
+> yes "" | make oldconfig
+> make
+
+Yes, I fixed the commit log and patch in v2.
+
+Regards,
+
+Fabio Estevam
