@@ -1,102 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net/mlx4_en: Fix pages never dma unmapped on rx
-Date: Sun, 06 Oct 2013 07:22:52 -0700
-Message-ID: <1381069372.3564.68.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381064240-12902-1-git-send-email-amirv@mellanox.com>
+From: Oussama Ghorbel <ou.ghorbel@gmail.com>
+Subject: Re: [PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
+Date: Sun, 6 Oct 2013 15:42:15 +0100
+Message-ID: <CABfLueFYZkzpEpDJ7YcHJaXfm-=QcgnL3-Es8gybea2cAacQQw@mail.gmail.com>
+References: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com>
+	<20131005140636.GA25076@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:40369 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752712Ab3JFOWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 10:22:54 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kp14so6223004pab.34
-        for <netdev@vger.kernel.org>; Sun, 06 Oct 2013 07:22:54 -0700 (PDT)
-In-Reply-To: <1381064240-12902-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Oussama Ghorbel <ou.ghorbel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131005140636.GA25076@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-10-06 at 14:57 +0200, Amir Vadai wrote:
-> This patch fixes a bug introduced by commit 51151a16 (mlx4: allow
-> order-0 memory allocations in RX path).
-> 
-> dma_unmap_page never reached because condition to detect last fragment
-> in page is wrong. offset+frag_stride can't be greater than size, need to
-> make sure no additional frag will fit in page => compare offset +
-> frag_stride + next_frag_size instead.
-> next_frag_size could be next frag in the same skb, or the first frag in
-> the next.
-> 
-> CC: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index dec455c..44d8865 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -131,8 +131,11 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
->  			      int i)
->  {
->  	const struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
-> +	u16 next_frag_end = frags[i].offset + frag_info->frag_stride;
->  
+On Sat, Oct 5, 2013 at 3:06 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Fri, Oct 04, 2013 at 10:52:13AM +0100, Oussama Ghorbel wrote:
+>> Unlike ipv4, the struct member hlen holds the length of the GRE and ipv6
+>> headers. This length is also counted in dev->hard_header_len.
+>> Perhaps, it's more clean to modify the hlen to count only the GRE header
+>> without ipv6 header as the variable name suggest, but the simple way to fix
+>> this without regression risk is simply modify the calculation of the limit
+>> in ip6gre_tunnel_change_mtu function.
+>> Verified in kernel version v3.11.
+>>
+>> Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
+>> ---
+>>  net/ipv6/ip6_gre.c |    3 +--
+>>  1 file changed, 1 insertion(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+>> index 90747f1..41487ab 100644
+>> --- a/net/ipv6/ip6_gre.c
+>> +++ b/net/ipv6/ip6_gre.c
+>> @@ -1175,9 +1175,8 @@ done:
+>>
+>>  static int ip6gre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+>>  {
+>> -     struct ip6_tnl *tunnel = netdev_priv(dev);
+>>       if (new_mtu < 68 ||
+>> -         new_mtu > 0xFFF8 - dev->hard_header_len - tunnel->hlen)
+>> +         new_mtu > 0xFFF8 - dev->hard_header_len)
+>>               return -EINVAL;
+>>       dev->mtu = new_mtu;
+>>       return 0;
+>
+> Hmmm...
+>
+> dev->hard_header_len is initialized to LL_MAX_HEADER + sizeof(struct ipv6hdr)
+> + 4 but won't include the additional head space needed for GRE_SEQ, GRE_KEY
+> etc. if at time of tunnel creation the routing table did not had a good guess
+> for the outgoing device.
+>
+This hard_header_len initialization that you have shown above is taken
+from ip6gre_tunnel_setup, however this same variable seems to be
+reinitialized in ip6gre_tnl_link_config() which are called from
+ip6gre_newlink()
+The initialization  in ip6gre_tnl_link_config is done as the following:
+static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+{
+...
+int addend = sizeof(struct ipv6hdr) + 4;
+...
+/* Precalculate GRE options length */
+if (t->parms.o_flags&(GRE_CSUM|GRE_KEY|GRE_SEQ)) {
+if (t->parms.o_flags&GRE_CSUM)
+addend += 4;
+if (t->parms.o_flags&GRE_KEY)
+addend += 4;
+if (t->parms.o_flags&GRE_SEQ)
+addend += 4;
+}
+...
+dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
+...
+t->hlen = addend;
+..
+}
 
-Hmm, could you make this an u32 ?
+Unless they are other reasons, the hard_header_len is taken into
+account the GRE_KEY, GRE_SEQ ..
 
-frags[i].offset and frags[i].size are u32
+> To make this correct we would have to refactor the usage of the variables a
+> bit as is done in ipv4/ip_tunnel.c. The safest thing would be to leave this
+> check as-is currently although we exclude some allowed mtus.
+>
+> Perhaps you want to take a look how to achieve that? ;)
+>
+Why not, consistency is good ...
 
-Maybe some folks want to use PAGE_SIZE=65536 or whatever high order
-allocs
+> Greetings,
+>
+>   Hannes
+>
 
-
-> -	if (frags[i].offset + frag_info->frag_stride > frags[i].size)
-> +	next_frag_end += frags[(i + 1) % priv->num_frags].size;
-> +
-> +	if (next_frag_end > frags[i].size)
->  		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].size,
->  					 PCI_DMA_FROMDEVICE);
->  
-
-Not sure I understand how this can work. How was this tested ?
-
-frags[i + 1].size is the size of the page containing next fragment,
-so now test should _always_ trigger.
-
-(We could rename @size to @page_size to avoid confusion)
-
-I think you meant to add the size of the next fragment ?
-
-What about following instead (I also removed the divide operation)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index dec455c..22444de 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -131,10 +131,17 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
- 			      int i)
- {
- 	const struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
-+	u32 next_frag_end = frags[i].offset + frag_info->frag_stride;
- 
--	if (frags[i].offset + frag_info->frag_stride > frags[i].size)
-+	frag_info++;
-+	if (i + 1 == priv->num_frags)
-+		frag_info = &priv->frag_info[0];
-+
-+	next_frag_end += frag_info->frag_stride;
-+
-+	if (next_frag_end > frags[i].size)
- 		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].size,
--					 PCI_DMA_FROMDEVICE);
-+			       PCI_DMA_FROMDEVICE);
- 
- 	if (frags[i].page)
- 		put_page(frags[i].page);
+Thanks,
+Oussama
