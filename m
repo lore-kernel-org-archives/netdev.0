@@ -1,45 +1,61 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-10-09
-Date: Wed,  9 Oct 2013 23:11:55 +0200
-Message-ID: <1381353118-25111-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] netem: free skb's in tree on reset
+Date: Sun, 6 Oct 2013 15:16:49 -0700
+Message-ID: <20131006151649.38038c0e@nehalam.linuxnetplumber.net>
+References: <20131006151533.52988624@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:43401 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500Ab3JIVUA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 17:20:00 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so1544896pdj.8
+        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 14:19:59 -0700 (PDT)
+In-Reply-To: <20131006151533.52988624@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+Netem can leak memory because packets get stored in red-black
+tree and it is not cleared on reset.
 
-here are three fixes for the v3.12 release cycle. The first fixes a regression
-in the flexcan driver which was introduced in a previous v3.12 patch. The
-second one fixes the mx28 detection in the flexcan driver. The third one
-targets the at91_can driver and fixes the driver data mapping for platform
-devices.
+Reported by: =D0=A1=D0=B5=D1=80=D0=B3=D0=B5=D0=B5=D0=B2 =D0=A1=D0=B5=D1=
+=80=D0=B3=D0=B5=D0=B9 <adron@yapic.net>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-regards, Marc
----
-
-The following changes since commit 87b0a0b5c46aea63cdc5c5d788fe2c91406e3161:
-
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless (2013-10-09 14:04:00 -0400)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.12
-
-for you to fetch changes up to 5abbeea553c8260ed4e2ac4aae962aff800b6c6d:
-
-  can: at91-can: fix device to driver data mapping for platform devices (2013-10-09 23:04:31 +0200)
-
-----------------------------------------------------------------
-Marc Kleine-Budde (3):
-      can: flexcan: flexcan_chip_start: fix regression, mark one MB for TX and abort pending TX
-      can: flexcan: fix mx28 detection by rearanging OF match table
-      can: at91-can: fix device to driver data mapping for platform devices
-
- drivers/net/can/at91_can.c |  4 ++--
- drivers/net/can/flexcan.c  | 14 ++++++++++----
- 2 files changed, 12 insertions(+), 6 deletions(-)
-
+--- a/net/sched/sch_netem.c	2013-10-06 15:10:03.957219532 -0700
++++ b/net/sched/sch_netem.c	2013-10-06 15:10:10.521150202 -0700
+@@ -358,6 +358,21 @@ static psched_time_t packet_len_2_sched_
+ 	return PSCHED_NS2TICKS(ticks);
+ }
+=20
++static void tfifo_reset(struct Qdisc *sch)
++{
++	struct netem_sched_data *q =3D qdisc_priv(sch);
++	struct rb_node *p;
++
++	while ((p =3D rb_first(&q->t_root)) {
++		struct sk_buff *skb =3D netem_rb_to_skb(p);
++
++		rb_erase(p, &q->t_root);
++		skb->next =3D NULL;
++		skb->prev =3D NULL;
++		kfree_skb(skb);
++	}
++}
++
+ static void tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q =3D qdisc_priv(sch);
+@@ -610,6 +625,7 @@ static void netem_reset(struct Qdisc *sc
+ 	struct netem_sched_data *q =3D qdisc_priv(sch);
+=20
+ 	qdisc_reset_queue(sch);
++	tfifo_reset(sch);
+ 	if (q->qdisc)
+ 		qdisc_reset(q->qdisc);
+ 	qdisc_watchdog_cancel(&q->watchdog);
