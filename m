@@ -1,47 +1,38 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] net: secure_seq: Move net_secret_init() definition into
- CONFIG_IPV6 if block
-Date: Sun, 6 Oct 2013 13:29:47 -0300
-Message-ID: <CAOMZO5B+wr67_xw867w8GiuYT_wxBo-jOw-49dogPzZRNdpWew@mail.gmail.com>
-References: <1381003790-12731-1-git-send-email-festevam@gmail.com>
-	<20131005.162752.155685316245760253.davem@davemloft.net>
-	<CAOesGMi6LuP7uVJnHOgpG2RK2Q0R3bJ4kG1ZY3=b-W3k0YhnBg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next] fix unsafe set_memory_rw from softirq
+Date: Sun, 06 Oct 2013 09:56:32 -0700
+Message-ID: <1381078592.12191.0.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1380870846-3357-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, edumazet <edumazet@google.com>,
-	hannes@strressinduktion.org,
-	Network Development <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Olof Johansson <olof@lixom.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:44999 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202Ab3JFQ3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 12:29:48 -0400
-Received: by mail-wi0-f174.google.com with SMTP id hj3so3724769wib.7
-        for <netdev@vger.kernel.org>; Sun, 06 Oct 2013 09:29:47 -0700 (PDT)
-In-Reply-To: <CAOesGMi6LuP7uVJnHOgpG2RK2Q0R3bJ4kG1ZY3=b-W3k0YhnBg@mail.gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:43955 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203Ab3JFQ4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 12:56:35 -0400
+In-Reply-To: <1380870846-3357-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Olof,
+On Fri, 2013-10-04 at 00:14 -0700, Alexei Starovoitov wrote:
+> on x86 system with net.core.bpf_jit_enable = 1
 
-On Sun, Oct 6, 2013 at 2:25 AM, Olof Johansson <olof@lixom.net> wrote:
+> cannot reuse jited filter memory, since it's readonly,
+> so use original bpf insns memory to hold work_struct
+> 
+> defer kfree of sk_filter until jit completed freeing
+> 
+> tested on x86_64 and i386
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-> You get it if you have CONFIG_NET enabled, but CONFIG_INET off. We
-> seem to have a few defconfigs on arm that has that setting, likely
-> because they lack native network interfaces but need local unix
-> sockets. Or whatever. But that's how you hit it.
->
-> Steps to reproduce, even with ARCH=sparc:
->
-> make allnoconfig
-> edit .config, set CONFIG_NET=y
-> yes "" | make oldconfig
-> make
-
-Yes, I fixed the commit log and patch in v2.
-
-Regards,
-
-Fabio Estevam
+Acked-by: Eric Dumazet <edumazet@google.com>
