@@ -1,103 +1,122 @@
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Subject: Re: [PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
-Date: Sun, 6 Oct 2013 15:42:15 +0100
-Message-ID: <CABfLueFYZkzpEpDJ7YcHJaXfm-=QcgnL3-Es8gybea2cAacQQw@mail.gmail.com>
-References: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com>
-	<20131005140636.GA25076@order.stressinduktion.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
+Date: Sun, 6 Oct 2013 23:05:22 +0800
+Message-ID: <CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>
+References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: Oussama Ghorbel <ou.ghorbel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>, mugunthanvnm@ti.com
+To: Dan Murphy <dmurphy@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131005140636.GA25076@order.stressinduktion.org>
+In-Reply-To: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 5, 2013 at 3:06 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Fri, Oct 04, 2013 at 10:52:13AM +0100, Oussama Ghorbel wrote:
->> Unlike ipv4, the struct member hlen holds the length of the GRE and ipv6
->> headers. This length is also counted in dev->hard_header_len.
->> Perhaps, it's more clean to modify the hlen to count only the GRE header
->> without ipv6 header as the variable name suggest, but the simple way to fix
->> this without regression risk is simply modify the calculation of the limit
->> in ip6gre_tunnel_change_mtu function.
->> Verified in kernel version v3.11.
->>
->> Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
->> ---
->>  net/ipv6/ip6_gre.c |    3 +--
->>  1 file changed, 1 insertion(+), 2 deletions(-)
->>
->> diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
->> index 90747f1..41487ab 100644
->> --- a/net/ipv6/ip6_gre.c
->> +++ b/net/ipv6/ip6_gre.c
->> @@ -1175,9 +1175,8 @@ done:
->>
->>  static int ip6gre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
->>  {
->> -     struct ip6_tnl *tunnel = netdev_priv(dev);
->>       if (new_mtu < 68 ||
->> -         new_mtu > 0xFFF8 - dev->hard_header_len - tunnel->hlen)
->> +         new_mtu > 0xFFF8 - dev->hard_header_len)
->>               return -EINVAL;
->>       dev->mtu = new_mtu;
->>       return 0;
+On Sat, Oct 5, 2013 at 2:25 AM, Dan Murphy <dmurphy@ti.com> wrote:
+> If the smsc95xx does not have a valid MAC address stored within
+> the eeprom then a random number is generated.  The MAC can also
+> be set by uBoot but the smsc95xx does not have a way to read this.
 >
-> Hmmm...
->
-> dev->hard_header_len is initialized to LL_MAX_HEADER + sizeof(struct ipv6hdr)
-> + 4 but won't include the additional head space needed for GRE_SEQ, GRE_KEY
-> etc. if at time of tunnel creation the routing table did not had a good guess
-> for the outgoing device.
->
-This hard_header_len initialization that you have shown above is taken
-from ip6gre_tunnel_setup, however this same variable seems to be
-reinitialized in ip6gre_tnl_link_config() which are called from
-ip6gre_newlink()
-The initialization  in ip6gre_tnl_link_config is done as the following:
-static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
-{
-...
-int addend = sizeof(struct ipv6hdr) + 4;
-...
-/* Precalculate GRE options length */
-if (t->parms.o_flags&(GRE_CSUM|GRE_KEY|GRE_SEQ)) {
-if (t->parms.o_flags&GRE_CSUM)
-addend += 4;
-if (t->parms.o_flags&GRE_KEY)
-addend += 4;
-if (t->parms.o_flags&GRE_SEQ)
-addend += 4;
-}
-...
-dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
-...
-t->hlen = addend;
-..
-}
+> Create the binding for the smsc95xx so that uBoot can set the MAC
+> and the code can retrieve the MAC from the modified DTB file.
 
-Unless they are other reasons, the hard_header_len is taken into
-account the GRE_KEY, GRE_SEQ ..
+Suppose there are two smsc95xx usbnet devices connected to usb bus, and
+one is built-in, another is hotplug device, can your patch handle the situation
+correctly?
 
-> To make this correct we would have to refactor the usage of the variables a
-> bit as is done in ipv4/ip_tunnel.c. The safest thing would be to leave this
-> check as-is currently although we exclude some allowed mtus.
 >
-> Perhaps you want to take a look how to achieve that? ;)
+> Signed-off-by: Dan Murphy <dmurphy@ti.com>
+> ---
+>  Documentation/devicetree/bindings/net/smsc95xx.txt |   17 ++++++++++++++
+>  drivers/net/usb/smsc95xx.c                         |   24 ++++++++++++++++++++
+>  2 files changed, 41 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/smsc95xx.txt
 >
-Why not, consistency is good ...
+> diff --git a/Documentation/devicetree/bindings/net/smsc95xx.txt b/Documentation/devicetree/bindings/net/smsc95xx.txt
+> new file mode 100644
+> index 0000000..4c37280
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/smsc95xx.txt
+> @@ -0,0 +1,17 @@
+> +* Smart Mixed-Signal Connectivity (SMSC) 95xx Controller
+> +
+> +Required properties:
+> +None
+> +
+> +Optional properties:
+> +- mac-address - Read the mac address that was stored by uBoot
+> +- local-address - Read the mac address that was stored by uBoot
+> +- address - Read the mac address that was stored by uBoot
+> +
+> +Examples:
+> +
+> +smsc0: smsc95xx@0 {
+> +       /* Filled in by U-Boot */
+> +       mac-address = [ 00 00 00 00 00 00 ];
+> +};
+> +
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+> index 3f38ba8..baee0bd 100644
+> --- a/drivers/net/usb/smsc95xx.c
+> +++ b/drivers/net/usb/smsc95xx.c
+> @@ -31,6 +31,9 @@
+>  #include <linux/crc32.h>
+>  #include <linux/usb/usbnet.h>
+>  #include <linux/slab.h>
+> +#include <linux/of.h>
+> +#include <linux/of_net.h>
+> +
+>  #include "smsc95xx.h"
+>
+>  #define SMSC_CHIPNAME                  "smsc95xx"
+> @@ -62,6 +65,8 @@
+>  #define SUSPEND_ALLMODES               (SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
+>                                          SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
+>
+> +#define SMSC95XX_OF_NAME       "/smsc95xx@"
+> +
+>  struct smsc95xx_priv {
+>         u32 mac_cr;
+>         u32 hash_hi;
+> @@ -767,6 +772,25 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+>
+>  static void smsc95xx_init_mac_address(struct usbnet *dev)
+>  {
+> +
+> +#ifdef CONFIG_OF
+> +       struct device_node *ap;
+> +       const char *mac = NULL;
+> +       char *of_name = SMSC95XX_OF_NAME;
+> +
+> +       sprintf(of_name, "%s%i", SMSC95XX_OF_NAME, dev->udev->dev.id);
+> +       ap = of_find_node_by_path(of_name);
+> +       if (ap) {
+> +               mac = of_get_mac_address(ap);
+> +               if (is_valid_ether_addr(mac)) {
+> +                       /* Device tree has a mac for this so use that */
+> +                       memcpy(dev->net->dev_addr, mac, ETH_ALEN);
+> +                       netif_dbg(dev, ifup, dev->net, "MAC address read from DTB\n");
+> +                       return;
+> +               }
+> +       }
+> +#endif
+> +
+>         /* try reading mac address from EEPROM */
+>         if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
+>                         dev->net->dev_addr) == 0) {
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-> Greetings,
->
->   Hannes
->
 
 Thanks,
-Oussama
+-- 
+Ming Lei
