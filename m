@@ -1,32 +1,52 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: Re: IPv6 path MTU discovery broken
-Date: Sun, 6 Oct 2013 14:48:19 +0200
-Message-ID: <20131006124819.GB27852@sesse.net>
-References: <20130927201420.GB12043@sesse.net>
- <20130928203318.GC23654@order.stressinduktion.org>
- <20131006120612.GA27852@sesse.net>
- <20131006124403.GA9295@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, edumazet@google.com
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Fix pages never dma unmapped on rx
+Date: Sun,  6 Oct 2013 14:57:20 +0200
+Message-ID: <1381064240-12902-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:38796 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115Ab3JFMs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 08:48:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20131006124403.GA9295@order.stressinduktion.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:39322 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752062Ab3JFM5x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Oct 2013 08:57:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 06, 2013 at 02:44:03PM +0200, Hannes Frederic Sowa wrote:
-> Do you know which remote IP address is part in the failing communication? Same
-> as above?
+This patch fixes a bug introduced by commit 51151a16 (mlx4: allow
+order-0 memory allocations in RX path).
 
-It's in 2001:67c:a4:3::/64 or 2001:67c:a4:1::/64. Unsure which, because now
-I rebooted the client for a different reason (giving it a different privacy
-address and possibly subnet), and now it's unreproducible again...
+dma_unmap_page never reached because condition to detect last fragment
+in page is wrong. offset+frag_stride can't be greater than size, need to
+make sure no additional frag will fit in page => compare offset +
+frag_stride + next_frag_size instead.
+next_frag_size could be next frag in the same skb, or the first frag in
+the next.
 
-/* Steinar */
+CC: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index dec455c..44d8865 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -131,8 +131,11 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
+ 			      int i)
+ {
+ 	const struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
++	u16 next_frag_end = frags[i].offset + frag_info->frag_stride;
+ 
+-	if (frags[i].offset + frag_info->frag_stride > frags[i].size)
++	next_frag_end += frags[(i + 1) % priv->num_frags].size;
++
++	if (next_frag_end > frags[i].size)
+ 		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].size,
+ 					 PCI_DMA_FROMDEVICE);
+ 
 -- 
-Homepage: http://www.sesse.net/
+1.8.3.4
