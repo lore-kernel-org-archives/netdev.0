@@ -1,183 +1,300 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Separate the close_list and the unreg_list v2
-Date: Sat, 05 Oct 2013 19:26:05 -0700
-Message-ID: <87txgv9ltu.fsf@xmission.com>
-References: <5250c0b6.45dc420a.738b.6a58@mx.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:40148 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752759Ab3JFC0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Oct 2013 22:26:18 -0400
-In-Reply-To: <5250c0b6.45dc420a.738b.6a58@mx.google.com> (Francesco Ruggeri's
-	message of "Sat, 5 Oct 2013 06:18:22 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Matthew Whitehead <tedheadster@gmail.com>
+Subject: [PATCH] eisa: standardize on eisa_register_driver like similar bus registrations
+Date: Sat,  5 Oct 2013 22:35:58 -0400
+Message-ID: <1381026958-4459-1-git-send-email-tedheadster@gmail.com>
+Cc: linux-scsi@vger.kernel.org,
+	Matthew Whitehead <tedheadster@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The other buses (isa, pci, pnp, parport, usb, tty, etc) all use the convention
+of ${BUSNAME}_register_driver. Rewrite the little remaining code that uses EISA
+to follow this convention for easier readability.
 
-Separate the unreg_list and the close_list in dev_close_many preventing
-dev_close_many from permuting the unreg_list.  The permutations of the
-unreg_list have resulted in cases where the loopback device is accessed
-it has been freed in code such as dst_ifdown.  Resulting in subtle memory
-corruption.
+This affects the EISA bus, SCSI, and networking subsystems so only one should
+ultimately merge the patch if it is accepted.
 
-This is the second bug from sharing the storage between the close_list
-and the unreg_list.  The issues that crop up with sharing are
-apparently too subtle to show up in normal testing or usage, so let's
-forget about being clever and use two separate lists.
-
-v2: Make all callers pass in a close_list to dev_close_many
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 ---
+ drivers/eisa/eisa-bus.c                |    8 ++++----
+ drivers/net/ethernet/3com/3c509.c      |    4 ++--
+ drivers/net/ethernet/3com/3c59x.c      |    6 +++---
+ drivers/net/ethernet/dec/tulip/de4x5.c |    4 ++--
+ drivers/net/ethernet/hp/hp100.c        |    6 +++---
+ drivers/net/fddi/defxx.c               |    4 ++--
+ drivers/scsi/advansys.c                |    6 +++---
+ drivers/scsi/aha1740.c                 |    4 ++--
+ drivers/scsi/aic7xxx/aic7770_osm.c     |    4 ++--
+ drivers/scsi/sim710.c                  |    4 ++--
+ include/linux/eisa.h                   |    8 ++++----
+ 11 files changed, 29 insertions(+), 29 deletions(-)
 
-Sending the complete diff because this version is actually more
-readable and more obviously correct.
-
- include/linux/netdevice.h |    1 +
- net/core/dev.c            |   25 ++++++++++++++-----------
- net/sched/sch_generic.c   |    6 +++---
- 3 files changed, 18 insertions(+), 14 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f5cd464271bf..6d77e0f3cc10 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1143,6 +1143,7 @@ struct net_device {
- 	struct list_head	dev_list;
- 	struct list_head	napi_list;
- 	struct list_head	unreg_list;
-+	struct list_head	close_list;
+diff --git a/drivers/eisa/eisa-bus.c b/drivers/eisa/eisa-bus.c
+index 272a3ec..9fe589b 100644
+--- a/drivers/eisa/eisa-bus.c
++++ b/drivers/eisa/eisa-bus.c
+@@ -143,18 +143,18 @@ struct bus_type eisa_bus_type = {
+ };
+ EXPORT_SYMBOL(eisa_bus_type);
  
- 	/* directly linked devices, like slaves for bonding */
- 	struct {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c25db20a4246..fa0b2b06c1a6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1307,7 +1307,7 @@ static int __dev_close_many(struct list_head *head)
- 	ASSERT_RTNL();
- 	might_sleep();
+-int eisa_driver_register(struct eisa_driver *edrv)
++int eisa_register_driver(struct eisa_driver *edrv)
+ {
+ 	edrv->driver.bus = &eisa_bus_type;
+ 	return driver_register(&edrv->driver);
+ }
+-EXPORT_SYMBOL(eisa_driver_register);
++EXPORT_SYMBOL(eisa_register_driver);
  
--	list_for_each_entry(dev, head, unreg_list) {
-+	list_for_each_entry(dev, head, close_list) {
- 		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+-void eisa_driver_unregister(struct eisa_driver *edrv)
++void eisa_unregister_driver(struct eisa_driver *edrv)
+ {
+ 	driver_unregister(&edrv->driver);
+ }
+-EXPORT_SYMBOL(eisa_driver_unregister);
++EXPORT_SYMBOL(eisa_unregister_driver);
  
- 		clear_bit(__LINK_STATE_START, &dev->state);
-@@ -1323,7 +1323,7 @@ static int __dev_close_many(struct list_head *head)
+ static ssize_t eisa_show_sig(struct device *dev, struct device_attribute *attr,
+ 			     char *buf)
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index ede8daa..ddfc2f0 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -1417,7 +1417,7 @@ static int __init el3_init_module(void)
+ 			isa_registered = 1;
+ 	}
+ #ifdef CONFIG_EISA
+-	ret = eisa_driver_register(&el3_eisa_driver);
++	ret = eisa_register_driver(&el3_eisa_driver);
+ 	if (!ret)
+ 		eisa_registered = 1;
+ #endif
+@@ -1447,7 +1447,7 @@ static void __exit el3_cleanup_module(void)
+ 		release_region(id_port, 1);
+ #ifdef CONFIG_EISA
+ 	if (eisa_registered)
+-		eisa_driver_unregister(&el3_eisa_driver);
++		eisa_unregister_driver(&el3_eisa_driver);
+ #endif
+ }
  
- 	dev_deactivate_many(head);
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index ad5272b..df22872 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -976,12 +976,12 @@ static int __init vortex_eisa_init(void)
+ #ifdef CONFIG_EISA
+ 	int err;
  
--	list_for_each_entry(dev, head, unreg_list) {
-+	list_for_each_entry(dev, head, close_list) {
- 		const struct net_device_ops *ops = dev->netdev_ops;
- 
+-	err = eisa_driver_register (&vortex_eisa_driver);
++	err = eisa_register_driver (&vortex_eisa_driver);
+ 	if (!err) {
  		/*
-@@ -1351,7 +1351,7 @@ static int __dev_close(struct net_device *dev)
- 	/* Temporarily disable netpoll until the interface is down */
- 	netpoll_rx_disable(dev);
+ 		 * Because of the way EISA bus is probed, we cannot assume
+ 		 * any device have been found when we exit from
+-		 * eisa_driver_register (the bus root driver may not be
++		 * eisa_register_driver (the bus root driver may not be
+ 		 * initialized yet). So we blindly assume something was
+ 		 * found, and let the sysfs magic happened...
+ 		 */
+@@ -3295,7 +3295,7 @@ static void __exit vortex_eisa_cleanup(void)
  
--	list_add(&dev->unreg_list, &single);
-+	list_add(&dev->close_list, &single);
- 	retval = __dev_close_many(&single);
- 	list_del(&single);
+ #ifdef CONFIG_EISA
+ 	/* Take care of the EISA devices */
+-	eisa_driver_unregister(&vortex_eisa_driver);
++	eisa_unregister_driver(&vortex_eisa_driver);
+ #endif
  
-@@ -1362,21 +1362,20 @@ static int __dev_close(struct net_device *dev)
- static int dev_close_many(struct list_head *head)
+ 	if (compaq_net_device) {
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index 263b92c..1df85a1 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -5570,7 +5570,7 @@ static int __init de4x5_module_init (void)
+ 	err = pci_register_driver(&de4x5_pci_driver);
+ #endif
+ #ifdef CONFIG_EISA
+-	err |= eisa_driver_register (&de4x5_eisa_driver);
++	err |= eisa_register_driver (&de4x5_eisa_driver);
+ #endif
+ 
+ 	return err;
+@@ -5582,7 +5582,7 @@ static void __exit de4x5_module_exit (void)
+ 	pci_unregister_driver (&de4x5_pci_driver);
+ #endif
+ #ifdef CONFIG_EISA
+-	eisa_driver_unregister (&de4x5_eisa_driver);
++	eisa_unregister_driver (&de4x5_eisa_driver);
+ #endif
+ }
+ 
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index 91227d0..bf817ff 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -3030,7 +3030,7 @@ static int __init hp100_module_init(void)
+ 	if (err && err != -ENODEV)
+ 		goto out;
+ #ifdef CONFIG_EISA
+-	err = eisa_driver_register(&hp100_eisa_driver);
++	err = eisa_register_driver(&hp100_eisa_driver);
+ 	if (err && err != -ENODEV)
+ 		goto out2;
+ #endif
+@@ -3043,7 +3043,7 @@ static int __init hp100_module_init(void)
+ 	return err;
+  out3:
+ #ifdef CONFIG_EISA
+-	eisa_driver_unregister (&hp100_eisa_driver);
++	eisa_unregister_driver (&hp100_eisa_driver);
+  out2:
+ #endif
+ 	hp100_isa_cleanup();
+@@ -3055,7 +3055,7 @@ static void __exit hp100_module_exit(void)
  {
- 	struct net_device *dev, *tmp;
--	LIST_HEAD(tmp_list);
+ 	hp100_isa_cleanup();
+ #ifdef CONFIG_EISA
+-	eisa_driver_unregister (&hp100_eisa_driver);
++	eisa_unregister_driver (&hp100_eisa_driver);
+ #endif
+ #ifdef CONFIG_PCI
+ 	pci_unregister_driver (&hp100_pci_driver);
+diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
+index 0b40e1c..01ce473 100644
+--- a/drivers/net/fddi/defxx.c
++++ b/drivers/net/fddi/defxx.c
+@@ -3713,7 +3713,7 @@ static int dfx_init(void)
  
--	list_for_each_entry_safe(dev, tmp, head, unreg_list)
-+	/* Remove the devices that don't need to be closed */
-+	list_for_each_entry_safe(dev, tmp, head, close_list)
- 		if (!(dev->flags & IFF_UP))
--			list_move(&dev->unreg_list, &tmp_list);
-+			list_del_init(&dev->close_list);
+ 	status = pci_register_driver(&dfx_pci_driver);
+ 	if (!status)
+-		status = eisa_driver_register(&dfx_eisa_driver);
++		status = eisa_register_driver(&dfx_eisa_driver);
+ 	if (!status)
+ 		status = tc_register_driver(&dfx_tc_driver);
+ 	return status;
+@@ -3722,7 +3722,7 @@ static int dfx_init(void)
+ static void dfx_cleanup(void)
+ {
+ 	tc_unregister_driver(&dfx_tc_driver);
+-	eisa_driver_unregister(&dfx_eisa_driver);
++	eisa_unregister_driver(&dfx_eisa_driver);
+ 	pci_unregister_driver(&dfx_pci_driver);
+ }
  
- 	__dev_close_many(head);
+diff --git a/drivers/scsi/advansys.c b/drivers/scsi/advansys.c
+index c67e401..17451e8 100644
+--- a/drivers/scsi/advansys.c
++++ b/drivers/scsi/advansys.c
+@@ -12307,7 +12307,7 @@ static int __init advansys_init(void)
+ 	if (error)
+ 		goto unregister_isa;
  
--	list_for_each_entry(dev, head, unreg_list) {
-+	list_for_each_entry_safe(dev, tmp, head, close_list) {
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
- 		call_netdevice_notifiers(NETDEV_DOWN, dev);
-+		list_del_init(&dev->close_list);
- 	}
+-	error = eisa_driver_register(&advansys_eisa_driver);
++	error = eisa_register_driver(&advansys_eisa_driver);
+ 	if (error)
+ 		goto unregister_vlb;
  
--	/* rollback_registered_many needs the complete original list */
--	list_splice(&tmp_list, head);
+@@ -12318,7 +12318,7 @@ static int __init advansys_init(void)
  	return 0;
- }
  
-@@ -1397,7 +1396,7 @@ int dev_close(struct net_device *dev)
- 		/* Block netpoll rx while the interface is going down */
- 		netpoll_rx_disable(dev);
- 
--		list_add(&dev->unreg_list, &single);
-+		list_add(&dev->close_list, &single);
- 		dev_close_many(&single);
- 		list_del(&single);
- 
-@@ -5439,6 +5438,7 @@ static void net_set_todo(struct net_device *dev)
- static void rollback_registered_many(struct list_head *head)
+  unregister_eisa:
+-	eisa_driver_unregister(&advansys_eisa_driver);
++	eisa_unregister_driver(&advansys_eisa_driver);
+  unregister_vlb:
+ 	isa_unregister_driver(&advansys_vlb_driver);
+  unregister_isa:
+@@ -12330,7 +12330,7 @@ static int __init advansys_init(void)
+ static void __exit advansys_exit(void)
  {
- 	struct net_device *dev, *tmp;
-+	LIST_HEAD(close_head);
- 
- 	BUG_ON(dev_boot_phase);
- 	ASSERT_RTNL();
-@@ -5461,7 +5461,9 @@ static void rollback_registered_many(struct list_head *head)
- 	}
- 
- 	/* If device is running, close it first. */
--	dev_close_many(head);
-+	list_for_each_entry(dev, head, unreg_list)
-+		list_add_tail(&dev->close_list, &close_head);
-+	dev_close_many(&close_head);
- 
- 	list_for_each_entry(dev, head, unreg_list) {
- 		/* And unlink it from device chain. */
-@@ -6257,6 +6259,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 
- 	INIT_LIST_HEAD(&dev->napi_list);
- 	INIT_LIST_HEAD(&dev->unreg_list);
-+	INIT_LIST_HEAD(&dev->close_list);
- 	INIT_LIST_HEAD(&dev->link_watch_list);
- 	INIT_LIST_HEAD(&dev->adj_list.upper);
- 	INIT_LIST_HEAD(&dev->adj_list.lower);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e7121d29c4bd..7fc899a943a8 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -829,7 +829,7 @@ void dev_deactivate_many(struct list_head *head)
- 	struct net_device *dev;
- 	bool sync_needed = false;
- 
--	list_for_each_entry(dev, head, unreg_list) {
-+	list_for_each_entry(dev, head, close_list) {
- 		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
- 					 &noop_qdisc);
- 		if (dev_ingress_queue(dev))
-@@ -848,7 +848,7 @@ void dev_deactivate_many(struct list_head *head)
- 		synchronize_net();
- 
- 	/* Wait for outstanding qdisc_run calls. */
--	list_for_each_entry(dev, head, unreg_list)
-+	list_for_each_entry(dev, head, close_list)
- 		while (some_qdisc_is_busy(dev))
- 			yield();
+ 	pci_unregister_driver(&advansys_pci_driver);
+-	eisa_driver_unregister(&advansys_eisa_driver);
++	eisa_unregister_driver(&advansys_eisa_driver);
+ 	isa_unregister_driver(&advansys_vlb_driver);
+ 	isa_unregister_driver(&advansys_isa_driver);
  }
-@@ -857,7 +857,7 @@ void dev_deactivate(struct net_device *dev)
+diff --git a/drivers/scsi/aha1740.c b/drivers/scsi/aha1740.c
+index 5f31017..5f6bfed 100644
+--- a/drivers/scsi/aha1740.c
++++ b/drivers/scsi/aha1740.c
+@@ -664,12 +664,12 @@ static struct eisa_driver aha1740_driver = {
+ 
+ static __init int aha1740_init (void)
  {
- 	LIST_HEAD(single);
- 
--	list_add(&dev->unreg_list, &single);
-+	list_add(&dev->close_list, &single);
- 	dev_deactivate_many(&single);
- 	list_del(&single);
+-	return eisa_driver_register (&aha1740_driver);
++	return eisa_register_driver (&aha1740_driver);
  }
+ 
+ static __exit void aha1740_exit (void)
+ {
+-	eisa_driver_unregister (&aha1740_driver);
++	eisa_unregister_driver (&aha1740_driver);
+ }
+ 
+ module_init (aha1740_init);
+diff --git a/drivers/scsi/aic7xxx/aic7770_osm.c b/drivers/scsi/aic7xxx/aic7770_osm.c
+index 0cb8ef6..cbe99e4 100644
+--- a/drivers/scsi/aic7xxx/aic7770_osm.c
++++ b/drivers/scsi/aic7xxx/aic7770_osm.c
+@@ -146,11 +146,11 @@ static struct eisa_driver aic7770_driver = {
+ int
+ ahc_linux_eisa_init(void)
+ {
+-	return eisa_driver_register(&aic7770_driver);
++	return eisa_register_driver(&aic7770_driver);
+ }
+   
+ void
+ ahc_linux_eisa_exit(void)
+ {
+-	eisa_driver_unregister(&aic7770_driver);
++	eisa_unregister_driver(&aic7770_driver);
+ }
+diff --git a/drivers/scsi/sim710.c b/drivers/scsi/sim710.c
+index 3b3b56f..d5c20cf 100644
+--- a/drivers/scsi/sim710.c
++++ b/drivers/scsi/sim710.c
+@@ -235,7 +235,7 @@ static int __init sim710_init(void)
+ #endif
+ 
+ #ifdef CONFIG_EISA
+-	err = eisa_driver_register(&sim710_eisa_driver);
++	err = eisa_register_driver(&sim710_eisa_driver);
+ #endif
+ 	/* FIXME: what we'd really like to return here is -ENODEV if
+ 	 * no devices have actually been found.  Instead, the err
+@@ -248,7 +248,7 @@ static int __init sim710_init(void)
+ static void __exit sim710_exit(void)
+ {
+ #ifdef CONFIG_EISA
+-	eisa_driver_unregister(&sim710_eisa_driver);
++	eisa_unregister_driver(&sim710_eisa_driver);
+ #endif
+ }
+ 
+diff --git a/include/linux/eisa.h b/include/linux/eisa.h
+index 6925249..ab8bdb8 100644
+--- a/include/linux/eisa.h
++++ b/include/linux/eisa.h
+@@ -65,13 +65,13 @@ struct eisa_driver {
+ #ifdef CONFIG_EISA
+ 
+ extern struct bus_type eisa_bus_type;
+-int eisa_driver_register (struct eisa_driver *edrv);
+-void eisa_driver_unregister (struct eisa_driver *edrv);
++int eisa_register_driver (struct eisa_driver *edrv);
++void eisa_unregister_driver (struct eisa_driver *edrv);
+ 
+ #else /* !CONFIG_EISA */
+ 
+-static inline int eisa_driver_register (struct eisa_driver *edrv) { return 0; }
+-static inline void eisa_driver_unregister (struct eisa_driver *edrv) { }
++static inline int eisa_register_driver (struct eisa_driver *edrv) { return 0; }
++static inline void eisa_unregister_driver (struct eisa_driver *edrv) { }
+ 
+ #endif /* !CONFIG_EISA */
+ 
 -- 
-1.7.5.4
+1.7.2.5
+
