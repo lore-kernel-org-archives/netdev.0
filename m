@@ -1,61 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
-Date: Mon, 7 Oct 2013 04:02:18 +0200
-Message-ID: <20131007020218.GF9295@order.stressinduktion.org>
-References: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com> <20131005140636.GA25076@order.stressinduktion.org> <CABfLueFYZkzpEpDJ7YcHJaXfm-=QcgnL3-Es8gybea2cAacQQw@mail.gmail.com> <20131006151351.GB9295@order.stressinduktion.org> <CABfLueGefWM6m6h44yAMBo7=BMUcA=OvcFVYka06QvsxXUAJtw@mail.gmail.com> <20131006161910.GC9295@order.stressinduktion.org> <CABfLueGW34XnTEJWsb5FA=pWfwwKqTTj31xCZyr78CNtTZWx6Q@mail.gmail.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Mon, 07 Oct 2013 11:07:01 +0800
+Message-ID: <52522555.70407@cn.fujitsu.com>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CABfLueGW34XnTEJWsb5FA=pWfwwKqTTj31xCZyr78CNtTZWx6Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	cgroups@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:46322 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755361Ab3JGDFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Oct 2013 23:05:55 -0400
+In-Reply-To: <1380910855-12325-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 06, 2013 at 08:18:15PM +0100, Oussama Ghorbel wrote:
-> Yes, to summarize, the idea of this patch was to fix the incoherence
-> in the condition of ip6gre_tunnel_change_mtu function
-> 
->   if (new_mtu < 68 ||
->    new_mtu > 0xFFF8 - dev->hard_header_len - tunnel->hlen)
-> 
-> From the ip6gre_tnl_link_config function we can see that:
-> The variable addend is equal the ipv6 header + gre header (including
-> the gre options)
-> On the other hand hard_header_len equal to the header of the lower
-> layer + addend.
-> So the quantity - (dev->hard_header_len + tunnel->hlen) equals - (eth
-> header + ipv6 header + gre header + ipv6 header + gre header) which by
-> no means this would represent anything!  (I've just taken ipv6 over
-> ethernet as example)
-> 
-> As we have seen there is another approach to fix this issue is to
-> re-factor the hlen to hold only the length of gre as it's done for
-> ipv4 gre, however the solution provided in the patch seems to be
-> regression risk-less.
+On 10/05/2013 02:20 AM, Daniel Borkmann wrote:
+> +static void cgroup_attach(struct cgroup_subsys_state *css,
+> +			  struct cgroup_taskset *tset)
+> +{
+> +	struct task_struct *p;
+> +	void *v;
+> +
+> +	cgroup_taskset_for_each(p, css, tset) {
+> +		task_lock(p);
+> +		v = (void *)(unsigned long) task_fwid(p);
 
-I agree, it actually does not worsen the situation:
+Shouldn't v be css_nf_state(css)->fwid?
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-> Although the value hold by hlen is not coherent with the variable name
-> nor with ipv4, I think there is an advantage of the current approach
-> of ipv6 hlen over ipv4 hlen, because we save the calculation of ipv6
-> header each time. Ex:
-> In ipv4 gre and in the function ipgre_header:
-> iph = (struct iphdr *)skb_push(skb, t->hlen + sizeof(*iph));
-> In ipv6 and in the function ip6gre_header
-> ipv6h = (struct ipv6hdr *)skb_push(skb, t->hlen);
-
-I see your point. But we should take care that t->hlen is always initialized,
-regardless if we got a route and outgoing device or not.
-
-Greetings,
-
-  Hannes
+> +		iterate_fd(p->files, 0, cgroup_fwid_update, v);
+> +		task_unlock(p);
+> +	}
+> +}
