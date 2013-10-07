@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] be2net: Warn users of possible broken
- functionality on BE2 cards with very old FW versions with latest driver
-Date: Mon, 07 Oct 2013 12:31:16 -0400 (EDT)
-Message-ID: <20131007.123116.1462434377931881914.davem@davemloft.net>
-References: <cca19523-3f51-4f87-b0e1-2ecec6ba37d4@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCHv2] IPv6: Allow the MTU of ipip6 tunnel to be set below
+ 1280
+Date: Mon, 07 Oct 2013 12:33:24 -0400 (EDT)
+Message-ID: <20131007.123324.1905399400311888938.davem@davemloft.net>
+References: <1380808166-13280-1-git-send-email-ou.ghorbel@gmail.com>
+	<20131004133223.GA11410@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60799 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756491Ab3JGQbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 12:31:18 -0400
-In-Reply-To: <cca19523-3f51-4f87-b0e1-2ecec6ba37d4@CMEXHTCAS1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ou.ghorbel@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131004133223.GA11410@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Thu, 3 Oct 2013 15:34:29 +0530
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 4 Oct 2013 15:32:23 +0200
 
-> +	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
-> +		dev_err(dev, "Firmware version is too old.IRQs may not work\n");
+> On Thu, Oct 03, 2013 at 02:49:26PM +0100, Oussama Ghorbel wrote:
+>> The (inner) MTU of a ipip6 (IPv4-in-IPv6) tunnel cannot be set below 1280, which is the minimum MTU in IPv6.
+>> However, there should be no IPv6 on the tunnel interface at all, so the IPv6 rules should not apply.
+>> More info at https://bugzilla.kernel.org/show_bug.cgi?id=15530
+>> 
+>> This patch allows to check the minimum MTU for ipv6 tunnel according to these rules:
+>> -In case the tunnel is configured with ipip6 mode the minimum MTU is 68.
+>> -In case the tunnel is configured with ip6ip6 or any mode the minimum MTU is 1280.
+>> 
+>> Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
+ ...
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-So many grammatical mistakes in one line.
+Applied, but please do not capitalize "IPv6" when using it as a subsystem
+prefix in Subject lines.
 
-First sentence got a period, second one did not.
-
-Missing space between period and second sentence.
+Thanks.
