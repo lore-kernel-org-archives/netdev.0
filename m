@@ -1,88 +1,74 @@
-From: Matt Wilson <msw@linux.com>
-Subject: Re: [PATCH net-next] xen-netback: fix xenvif_count_skb_slots()
-Date: Sun, 6 Oct 2013 17:07:41 -0700
-Message-ID: <20131007000741.GB5970@u109add4315675089e695.ant.amazon.com>
-References: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
- <20131007000652.GA5970@u109add4315675089e695.ant.amazon.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 path MTU discovery broken
+Date: Mon, 7 Oct 2013 03:52:52 +0200
+Message-ID: <20131007015252.GE9295@order.stressinduktion.org>
+References: <20130927201420.GB12043@sesse.net> <20130928203318.GC23654@order.stressinduktion.org> <20131006120612.GA27852@sesse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Xi Xiong <xixiong@amazon.com>, Matt Wilson <msw@amazon.com>,
-	Annie Li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Simon Graham <simon.graham@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, edumazet@google.com, fan.du@windriver.com
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:44530 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754941Ab3JGAHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 20:07:45 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so6353205pdj.3
-        for <netdev@vger.kernel.org>; Sun, 06 Oct 2013 17:07:44 -0700 (PDT)
+Received: from order.stressinduktion.org ([87.106.68.36]:44588 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753953Ab3JGBwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 21:52:54 -0400
 Content-Disposition: inline
-In-Reply-To: <20131007000652.GA5970@u109add4315675089e695.ant.amazon.com>
+In-Reply-To: <20131006120612.GA27852@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 06, 2013 at 05:06:52PM -0700, Matt Wilson wrote:
-> On Fri, Oct 04, 2013 at 05:26:23PM +0100, Paul Durrant wrote:
-> > Commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c introduced an error into
-> > xenvif_count_skb_slots() for skbs with a linear area spanning a page
-> > boundary. The alignment of skb->data needs to be taken into account, not
-> > just the head length. This patch fixes the issue by dry-running the code
-> > from xenvif_gop_skb() (and adjusting the comment above the function to note
-> > that).
-> > 
-> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> > Cc: Xi Xiong <xixiong@amazon.com>
-> > Cc: Matt Wilson <msw@amazon.com>
-> > Cc: Annie Li <annie.li@oracle.com>
-> > Cc: Wei Liu <wei.liu2@citrix.com>
-> > Cc: Ian Campbell <Ian.Campbell@citrix.com>
-> 
-> Paul, can you reconcile this change with the one made by Simon in cs
-> 8f985b4f7a5394c8f8725a5109451a541ddb9eea?
+On Sun, Oct 06, 2013 at 02:06:12PM +0200, Steinar H. Gunderson wrote:
+> On Sat, Sep 28, 2013 at 10:33:18PM +0200, Hannes Frederic Sowa wrote:
+> >> So the =E2=80=9Cpacket too big=E2=80=9D packets really look like t=
+hey're being ignored.
+> >> However, they _do_ reach the kernel somehow, since Icmp6InPktTooBi=
+gs
+> >> seems to increase.
+> >>=20
+> >> Could this be related somehow to the packets coming from 2001:67c:=
+29f4::31,
+> >> while the default route is to a link-local address? (An RPF issue?=
+) This used
+> >> to work (although it was often flaky for me) in 3.10 and before. I=
+ can't
+> >> easily bisect, though, as I don't boot this machine too often.
+> > This looks like a bug and should definitely get fixed. There should=
+ be
+> > no RPF issue. May I have a look at your /proc/net/ipv6_route?
+>=20
+> It started again, so now I could capture what you asked for:
+>=20
+> pannekake:~> cat /proc/net/ipv6_route=20
+> 2001067c00a400037c4d9ae8ab73230f 80 00000000000000000000000000000000 =
+00 fe80000000000000023048fffe555743 00000000 00000001 00000137 01000023=
+     eth0
 
-Correction: e26b203ede31fffd52571a5ba607a26c79dc5c0d
+This one does look like the most probable route which could have the pr=
+oblem.
+It has a RTF_MODIFIED flag indicating it received a pmtu update.
 
-> --msw
-> 
-> > ---
-> >  drivers/net/xen-netback/netback.c |   17 +++++++++++++++--
-> >  1 file changed, 15 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> > index d0b0feb..6f680f4 100644
-> > --- a/drivers/net/xen-netback/netback.c
-> > +++ b/drivers/net/xen-netback/netback.c
-> > @@ -223,15 +223,28 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
-> >  /*
-> >   * Figure out how many ring slots we're going to need to send @skb to
-> >   * the guest. This function is essentially a dry run of
-> > - * xenvif_gop_frag_copy.
-> > + * xenvif_gop_skb.
-> >   */
-> >  unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
-> >  {
-> > +	unsigned char *data;
-> >  	unsigned int count;
-> >  	int i, copy_off;
-> >  	struct skb_cb_overlay *sco;
-> >  
-> > -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
-> > +	count = 0;
-> > +
-> > +	data = skb->data;
-> > +	while (data < skb_tail_pointer(skb)) {
-> > +		unsigned int offset = offset_in_page(data);
-> > +		unsigned int len = PAGE_SIZE - offset;
-> > +
-> > +		if (data + len > skb_tail_pointer(skb))
-> > +			len = skb_tail_pointer(skb) - data;
-> > +
-> > +		count++;
-> > +		data += len;
-> > +	}
-> >  
-> >  	copy_off = skb_headlen(skb) % PAGE_SIZE;
-> >  
+Did you take the snapshot while the tcp connection was hanging? We norm=
+ally
+take 2 references to the rt6_info while the tcp connection is running, =
+this
+oddly only has one (but got used a lot). But doing a judgement on the
+reference count is imprecise.
+
+If you write that this got worse in recent kernels I suspect commit
+
+commit ca4c3fc24e293719fe7410c4e63da9b6bc633b83
+Author: fan.du <fan.du@windriver.com>
+Date:   Tue Jul 30 08:33:53 2013 +0800
+
+    net: split rt_genid for ipv4 and ipv6
+
+
+The commit itself is fine, we may have a problem in our dst check logic
+or do not bump rt6_genid at some point? If this is the case I might hav=
+e
+an idea how to reproduce the problem.
+
+Greetings,
+
+  Hannes
