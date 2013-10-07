@@ -1,44 +1,31 @@
-From: djduanjiong@gmail.com
-Subject: [PATCH] wimax: Use WARN(1,...) rather than printk followed by WARN_ON(1)
-Date: Mon,  7 Oct 2013 17:30:38 -0700
-Message-ID: <1381192238-6486-1-git-send-email-duanj.fnst@cn.fujitsu.com>
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-wimax@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] be2net: Warn users of possible broken
+ functionality on BE2 cards with very old FW versions with latest driver
+Date: Mon, 07 Oct 2013 12:31:16 -0400 (EDT)
+Message-ID: <20131007.123116.1462434377931881914.davem@davemloft.net>
+References: <cca19523-3f51-4f87-b0e1-2ecec6ba37d4@CMEXHTCAS1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:53135 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756480Ab3JGQbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 12:31:08 -0400
-Received: by mail-pb0-f51.google.com with SMTP id jt11so7498120pbb.10
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 09:31:08 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:60799 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756491Ab3JGQbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 12:31:18 -0400
+In-Reply-To: <cca19523-3f51-4f87-b0e1-2ecec6ba37d4@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Thu, 3 Oct 2013 15:34:29 +0530
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/wimax/id-table.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+> +	if (BE2_chip(adapter) && memcmp(adapter->fw_ver, "4.", 2) < 0) {
+> +		dev_err(dev, "Firmware version is too old.IRQs may not work\n");
 
-diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
-index 72273ab..635a4d2 100644
---- a/net/wimax/id-table.c
-+++ b/net/wimax/id-table.c
-@@ -136,10 +136,8 @@ void wimax_id_table_release(void)
- 	return;
- #endif
- 	spin_lock(&wimax_id_table_lock);
--	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
--		printk(KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
-+	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node)
-+		WARN(1, KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
- 		       __func__, wimax_dev, wimax_dev->net_dev->ifindex);
--		WARN_ON(1);
--	}
- 	spin_unlock(&wimax_id_table_lock);
- }
--- 
-1.7.7.6
+So many grammatical mistakes in one line.
+
+First sentence got a period, second one did not.
+
+Missing space between period and second sentence.
