@@ -1,38 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix the upper MTU limit in ipv6 GRE tunnel
-Date: Mon, 07 Oct 2013 12:53:26 -0400 (EDT)
-Message-ID: <20131007.125326.895480090584703586.davem@davemloft.net>
-References: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO]
+Date: Mon, 7 Oct 2013 18:53:43 +0200
+Message-ID: <20131007165343.GI9295@order.stressinduktion.org>
+References: <20131001120907.GH10771@order.stressinduktion.org> <20131001123214.GI10771@order.stressinduktion.org> <20131001214721.GJ10771@order.stressinduktion.org> <20131001232534.GM10771@order.stressinduktion.org> <20131002085842.GA1528@minipsycho.brq.redhat.com> <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com> <20131002121207.GO10771@order.stressinduktion.org> <20131002130329.GP10771@order.stressinduktion.org> <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com> <20131002162730.GA3991@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ou.ghorbel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1380880333-3546-1-git-send-email-ou.ghorbel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: jdmason@kudzu.us, Jiri Pirko <jiri@resnulli.us>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, herbert@gondor.apana.org.au,
+	eric.dumazet@gmail.com
+To: jon.mason@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:46070 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756244Ab3JGQxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 12:53:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20131002162730.GA3991@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Date: Fri,  4 Oct 2013 10:52:13 +0100
+Hi Jon!
 
-> Unlike ipv4, the struct member hlen holds the length of the GRE and ipv6
-> headers. This length is also counted in dev->hard_header_len.
-> Perhaps, it's more clean to modify the hlen to count only the GRE header
-> without ipv6 header as the variable name suggest, but the simple way to fix
-> this without regression risk is simply modify the calculation of the limit
-> in ip6gre_tunnel_change_mtu function.
-> Verified in kernel version v3.11.
+Maybe I got the wrong email address for the neterion driver from the
+maintainers filer? If you are (still) affiliated with the neterion driver,
+maybe you could have a short look at the quoted mail below?
+
+Thanks,
+
+  Hannes
+
+On Wed, Oct 02, 2013 at 06:27:30PM +0200, Hannes Frederic Sowa wrote:
+> Hi!
 > 
-> Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
-
-Please resubmit this with a proper Subject line.
-
-It should be "[PATCH] " then a legitimate subsystem prefix.
-In this case "ipv6: " would be appropriate.  And then
-the "ipv6" in your existing Subject text is redundant so
-can be removed.
-
-Thanks.
+> I have a question regarding UFO and the neterion driver, which as the only one
+> advertises hardware UFO support:
+> 
+> The patch discusses in this thread
+> http://thread.gmane.org/gmane.linux.network/284348/focus=285405 could change
+> some semantics how packets are constructed before submitted to the driver.
+> 
+> We currently guarantee that we have the MAC/IP/UDP header in skb->data and the
+> payload is attached in the skb's frags. With the changes discussed in this
+> thread it is possible that we also append to skb->data some amount of data
+> which is not targeted for the header. From reading the driver sources it seems
+> the hardware interprets the skb->data to skb_headlen as the header, so we
+> could include some data in the fragments more than once.
+> 
+> Do you think this change is safe? Otherwise I would suggest that the UFO
+> capability is switched off until the driver signals the hardware the start and
+> end of the headers correctly?
+> 
+> I left the mail below intact which points to the specific place in s2io.c
+> where I think the problem is.
+> 
+> On Wed, Oct 02, 2013 at 08:14:27AM -0700, Eric Dumazet wrote:
+> > On Wed, 2013-10-02 at 15:03 +0200, Hannes Frederic Sowa wrote:
+> > > On Wed, Oct 02, 2013 at 02:12:07PM +0200, Hannes Frederic Sowa wrote:
+> > > > Hi Eric!
+> > > > 
+> > > > On Wed, Oct 02, 2013 at 03:41:28AM -0700, Eric Dumazet wrote:
+> > > > > On Wed, 2013-10-02 at 10:58 +0200, Jiri Pirko wrote:
+> > > > > > Wed, Oct 02, 2013 at 01:25:34AM CEST, hannes@stressinduktion.org wrote:
+> > > > > > >-	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
+> > > > > > >+	if (((length > mtu) || (skb && skb_has_frags(skb))) &&
+> > > > > 
+> > > > > > 
+> > > > > > This seems correct to me. sk_is_gso would work as well is you apply my
+> > > > > > patch "[patch net] ip6_output: do skb ufo init for peeked non ufo skb as
+> > > > > > well" which does the setting of gso_size.
+> > > > > 
+> > > > > Well, skb having frags or not should not be a concern :
+> > > > > Thats an allocation choice (lets say to avoid high order allocations). 
+> > > > > 
+> > > > > Setting gso_size is probably better.
+> > > > 
+> > > > e89e9cf539a28df7d0eb1d0a545368e9920b34ac ("[IPv4/IPv6]: UFO Scatter-gather
+> > > > approach") states:
+> > > > 
+> > > > "
+> > > > skb->data will contain MAC/IP/UDP header and skb_shinfo(skb)->frags[]
+> > > > contains the data payload. The skb->ip_summed will be set to CHECKSUM_HW
+> > > > indicating that hardware has to do checksum calculation. Hardware should
+> > > > compute the UDP checksum of complete datagram and also ip header checksum of
+> > > > each fragmented IP packet.
+> > > > "
+> > > > 
+> > > > This is the reason why I tried not to update the gso_size. If it is ok, I am
+> > > > fine with that.
+> > > 
+> > > Especially, drivers/net/ethernet/neterion/s2io.c states that the first dma
+> > > mapping (skb->data with skb_headlen, which is fine) is used as the inband
+> > > header:
+> > > 
+> > >         if (offload_type == SKB_GSO_UDP)
+> > >                 frg_cnt++; /* as Txd0 was used for inband header */
+> > > 
+> > > That is my only other hint that we maybe should not update gso_size and
+> > > gso_type. I guess software fallback does not have this problem, but I won't
+> > > have time to check until this evening.
+> > > 
+> > > I am really not sure if just setting gso_size does not break neterion UFO
+> > > offloading. :/
+> > 
+> > Well, just ask Jon Mason to double check ;)
+> > 
+> > I think the commit intent was to set gso_size :
+> > 
+> >    skb_shinfo(skb)->ufo_size will indicate the length of data part in each IP
+> >     fragment going out of the adapter after IP fragmentation by hardware.
+> > 
+> > The fact that it states "skb->data will contain MAC/IP/UDP header and
+> > skb_shinfo(skb)->frags[] contains the data payload." seems irrelevant.
+> > 
+> > If Neterion driver mandates that skb->head *only* contains the
+> > MAC/IP/UDP header, that should be handled in the driver itself.
+> 
+> Thanks Eric for clearing this up.
+> 
+> I really thought it would be the common pattern for UFO to have only headers
+> in skb->data, so I didn't bother to ask in the first place.
+> 
+> Thanks,
+> 
+>   Hannes
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
