@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix ineffective source address selection
-Date: Mon, 07 Oct 2013 15:27:25 -0400 (EDT)
-Message-ID: <20131007.152725.1114664126409429664.davem@davemloft.net>
-References: <245895a0777442b56ecea1453be041aa1b31c5a2.1380898983.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next] xen-netback: fix xenvif_count_skb_slots()
+Date: Mon, 07 Oct 2013 15:36:22 -0400 (EDT)
+Message-ID: <20131007.153622.1392772445100851507.davem@davemloft.net>
+References: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jbenc@redhat.com
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	xixiong@amazon.com, msw@amazon.com, annie.li@oracle.com,
+	wei.liu2@citrix.com, Ian.Campbell@citrix.com
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35414 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35544 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab3JGT11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:27:27 -0400
-In-Reply-To: <245895a0777442b56ecea1453be041aa1b31c5a2.1380898983.git.jbenc@redhat.com>
+	with ESMTP id S1755570Ab3JGTgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:36:25 -0400
+In-Reply-To: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Fri,  4 Oct 2013 17:04:48 +0200
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Fri, 4 Oct 2013 17:26:23 +0100
 
-> When sending out multicast messages, the source address in inet->mc_addr is
-> ignored and rewritten by an autoselected one. This is caused by a typo in
-> commit 813b3b5db831 ("ipv4: Use caller's on-stack flowi as-is in output
-> route lookups").
+> Commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c introduced an error into
+> xenvif_count_skb_slots() for skbs with a linear area spanning a page
+> boundary. The alignment of skb->data needs to be taken into account, not
+> just the head length. This patch fixes the issue by dry-running the code
+> from xenvif_gop_skb() (and adjusting the comment above the function to note
+> that).
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 
-My bad :-)  Applied and queued up for -stable, thanks!
+There seems to be a lot of back and forth about what is the most
+desirable way forward wrt. this commit and another similar one.
+
+Please advise.
