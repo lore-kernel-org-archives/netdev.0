@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fujitsu: Remove ISA depdendency from
- Kconfig
-Date: Mon, 07 Oct 2013 15:53:07 -0400 (EDT)
-Message-ID: <20131007.155307.1164325321205493010.davem@davemloft.net>
-References: <1380920588-4121-1-git-send-email-tedheadster@gmail.com>
+Subject: Re: [PATCH] can: dev: fix nlmsg size calculation in can_get_size()
+Date: Mon, 07 Oct 2013 15:56:10 -0400 (EDT)
+Message-ID: <20131007.155610.1175248330541668920.davem@davemloft.net>
+References: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tedheadster@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35760 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756372Ab3JGTxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:53:09 -0400
-In-Reply-To: <1380920588-4121-1-git-send-email-tedheadster@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, wg@grandegger.com
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Whitehead <tedheadster@gmail.com>
-Date: Fri,  4 Oct 2013 17:03:08 -0400
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sat,  5 Oct 2013 21:25:17 +0200
 
-> There no longer are ISA drivers in the fujitsu directory, so remove the
-> dependency from the Kconfig.
+> This patch fixes the calculation of the nlmsg size, by adding the missing
+> nla_total_size().
 > 
-> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-Applied, thank you.
+Applied and queued up for -stable, thanks.
