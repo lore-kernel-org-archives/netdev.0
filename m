@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bug in passing file descriptors
-Date: Mon, 07 Oct 2013 15:42:26 -0400 (EDT)
-Message-ID: <20131007.154226.533738557474978526.davem@davemloft.net>
-References: <5253061A.7060701@nec-labs.com>
-	<20131007.151233.2237348893254566536.davem@davemloft.net>
-	<525308C4.1030007@nec-labs.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] pkt_sched: fq: fix typo for initial_quantum
+Date: Mon, 07 Oct 2013 12:50:18 -0700
+Message-ID: <1381175418.12191.19.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, netdev@vger.kernel.org,
-	mtk.manpages@gmail.com, ebiederm@xmission.com
-To: sar@nec-labs.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35678 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995Ab3JGTm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:42:28 -0400
-In-Reply-To: <525308C4.1030007@nec-labs.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:46854 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311Ab3JGTuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:50:19 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc17so7548026pbc.32
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 12:50:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Rago <sar@nec-labs.com>
-Date: Mon, 7 Oct 2013 15:17:24 -0400
+From: Eric Dumazet <edumazet@google.com>
 
-> Except when sizeof(long) can change and you need to maintain binary
-> compatibility with older applications.  x86 comes to mind as a
-> relevant example: used to be 32 bits, but is 64 now.
+TCA_FQ_INITIAL_QUANTUM should set q->initial_quantum
 
-There is no compatability issue.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_fq.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-32-bit tasks will always see the 4-byte align/length.
-64-bit tasks will always see the 8-byte align/length.
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index a2fef8b..d8cb3b5 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -656,7 +656,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->quantum = nla_get_u32(tb[TCA_FQ_QUANTUM]);
+ 
+ 	if (tb[TCA_FQ_INITIAL_QUANTUM])
+-		q->quantum = nla_get_u32(tb[TCA_FQ_INITIAL_QUANTUM]);
++		q->initial_quantum = nla_get_u32(tb[TCA_FQ_INITIAL_QUANTUM]);
+ 
+ 	if (tb[TCA_FQ_FLOW_DEFAULT_RATE])
+ 		q->flow_default_rate = nla_get_u32(tb[TCA_FQ_FLOW_DEFAULT_RATE]);
