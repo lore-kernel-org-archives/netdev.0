@@ -1,64 +1,63 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netback: transition to CLOSED when removing a VIF
-Date: Mon, 7 Oct 2013 13:55:19 +0100
-Message-ID: <1381150519-14557-1-git-send-email-david.vrabel@citrix.com>
+From: Dan Murphy <dmurphy-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
+Date: Mon, 7 Oct 2013 08:30:31 -0500
+Message-ID: <5252B777.2080102@ti.com>
+References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>	<CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>	<52519E7A.40804@ti.com> <CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: <xen-devel@lists.xen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:51173 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751734Ab3JGMzu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Oct 2013 08:55:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
+On 10/07/2013 06:42 AM, Ming Lei wrote:
+> On Mon, Oct 7, 2013 at 1:31 AM, Dan Murphy <dmurphy-l0cyMroinI0@public.gmane.org> wrote:
+>> On 10/06/2013 10:05 AM, Ming Lei wrote:
+>>> On Sat, Oct 5, 2013 at 2:25 AM, Dan Murphy <dmurphy-l0cyMroinI0@public.gmane.org> wrote:
+>>>> If the smsc95xx does not have a valid MAC address stored within
+>>>> the eeprom then a random number is generated.  The MAC can also
+>>>> be set by uBoot but the smsc95xx does not have a way to read this.
+>>>>
+>>>> Create the binding for the smsc95xx so that uBoot can set the MAC
+>>>> and the code can retrieve the MAC from the modified DTB file.
+>>> Suppose there are two smsc95xx usbnet devices connected to usb bus, and
+>>> one is built-in, another is hotplug device, can your patch handle the situation
+>>> correctly?
+>> Look at this line in the patch below
+>>
+>> sprintf(of_name, "%s%i", SMSC95XX_OF_NAME, dev->udev->dev.id);
+>>
+>> I am appending the dev ID of the device to the of_name here.  As long as init_mac_address is called, the dev.id and the uBoot
+>> entry match then yes.
+> Currently, non-root-hub usb device is created and added into usb bus without
+> any platform(device tree) knowledge, so you can't expect the match here.
 
-If a guest is destroyed without transitioning its frontend to CLOSED,
-the domain becomes a zombie as netback was not grant unmapping the
-shared rings.
+That is correct.  Platform/dev tree will have no concept of the PnP USB dongle therefore there should be no entry in either.
 
-When removing a VIF, transition the backend to CLOSED so the VIF is
-disconnected if necessary (which will unmap the shared rings etc).
+I will need to test this issue with a PnP usb->ethernet dongle.
 
-This fixes a regression introduced by
-279f438e36c0a70b23b86d2090aeec50155034a9 (xen-netback: Don't destroy
-the netdev until the vif is shut down).
+Dan
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Paul Durrant <Paul.Durrant@citrix.com>
----
- drivers/net/xen-netback/xenbus.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index b45bce2..1b08d87 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -39,11 +39,15 @@ static int connect_rings(struct backend_info *);
- static void connect(struct backend_info *);
- static void backend_create_xenvif(struct backend_info *be);
- static void unregister_hotplug_status_watch(struct backend_info *be);
-+static void set_backend_state(struct backend_info *be,
-+			      enum xenbus_state state);
- 
- static int netback_remove(struct xenbus_device *dev)
- {
- 	struct backend_info *be = dev_get_drvdata(&dev->dev);
- 
-+	set_backend_state(be, XenbusStateClosed);
-+
- 	unregister_hotplug_status_watch(be);
- 	if (be->vif) {
- 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+
+
+> Also not mention the two smsc95xx devices may attach to two different
+> usb host controllers(buses).
+>
+> Thanks,
+
+
 -- 
-1.7.2.5
+------------------
+Dan Murphy
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
