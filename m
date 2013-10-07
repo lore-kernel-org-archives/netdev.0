@@ -1,37 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPv6 path MTU discovery broken
-Date: Mon, 07 Oct 2013 08:49:36 -0700
-Message-ID: <1381160976.12191.16.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20130927201420.GB12043@sesse.net>
-	 <20130928203318.GC23654@order.stressinduktion.org>
-	 <20131006120612.GA27852@sesse.net>
-	 <20131007015252.GE9295@order.stressinduktion.org>
-	 <20131007030910.GG9295@order.stressinduktion.org>
-	 <20131007083228.GB18903@sesse.net>
-	 <20131007143206.GH9295@order.stressinduktion.org>
-	 <20131007143404.GA24997@sesse.net>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] static_key: WARN on usage before jump_label_init was
+ called
+Date: Mon, 7 Oct 2013 11:51:52 -0400
+Message-ID: <20131007115152.0964afde@gandalf.local.home>
+References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org>
+	<1381015258-7667-4-git-send-email-hannes@stressinduktion.org>
+	<20131005200558.3be2f841@gandalf.local.home>
+	<20131006001247.GB25076@order.stressinduktion.org>
+	<20131006182919.GD9295@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, fan.du@windriver.com
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Jason Baron <jbaron@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Eric Dumazet <edumazet@google.com>,
+	"andi @ firstfloor. org David S. Miller" <davem@davemloft.net>,
+	x86@kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:58595 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab3JGPtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 11:49:39 -0400
-Received: by mail-pb0-f49.google.com with SMTP id xb4so7192389pbc.8
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 08:49:39 -0700 (PDT)
-In-Reply-To: <20131007143404.GA24997@sesse.net>
+Received: from cdptpa-outbound-snat.email.rr.com ([107.14.166.225]:26914 "EHLO
+	cdptpa-oedge-vip.email.rr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750954Ab3JGPv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 11:51:57 -0400
+In-Reply-To: <20131006182919.GD9295@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-10-07 at 16:34 +0200, Steinar H. Gunderson wrote:
-> On Mon, Oct 07, 2013 at 04:32:06PM +0200, Hannes Frederic Sowa wrote:
-> > Strange, I have them in nstat:
-> > 
-> > $ nstat -z | egrep  '(TcpExtOutOfWindowIcmps|Icmp6InErrors|TcpExtTCPMinTTLDrop|TcpExtListenDrops)'
-> 
-> -z was the trick. (I've never used nstat before.)
+On Sun, 6 Oct 2013 20:29:19 +0200
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Best might be to use -a  (absolute counters).
+
+> diff --git a/lib/jump_label_initialized.c b/lib/jump_label_initialized.c
+> new file mode 100644
+> index 0000000..a668a40
+> --- /dev/null
+> +++ b/lib/jump_label_initialized.c
+> @@ -0,0 +1,6 @@
+> +#include <linux/types.h>
+> +#include <linux/cache.h>
+> +
+> +bool static_key_initialized __read_mostly = false;
+> +EXPORT_SYMBOL_GPL(static_key_initialized);
+> +
+
+So far, the only thing I don't like about this patch is the creation of
+this file for the sole purpose of adding this variable.
+
+Perhaps it can just be added to init/main.c?
+
+-- Steve
