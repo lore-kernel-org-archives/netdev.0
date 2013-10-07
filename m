@@ -1,54 +1,51 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
- group matching
-Date: Mon, 07 Oct 2013 17:42:49 +0800
-Message-ID: <52528219.6000002@cn.fujitsu.com>
-References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <52522555.70407@cn.fujitsu.com> <52527C3E.1060004@redhat.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netback: fix	xenvif_count_skb_slots()
+Date: Mon, 7 Oct 2013 10:50:12 +0100
+Message-ID: <525283D4.7010504@citrix.com>
+References: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52527C3E.1060004-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Annie Li <annie.li@oracle.com>, Matt Wilson <msw@amazon.com>,
+	Xi Xiong <xixiong@amazon.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:59199 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754093Ab3JGJuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 05:50:15 -0400
+In-Reply-To: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2013 05:17 PM, Daniel Borkmann wrote:
-> On 10/07/2013 05:07 AM, Gao feng wrote:
->> On 10/05/2013 02:20 AM, Daniel Borkmann wrote:
->>> +static void cgroup_attach(struct cgroup_subsys_state *css,
->>> +              struct cgroup_taskset *tset)
->>> +{
->>> +    struct task_struct *p;
->>> +    void *v;
->>> +
->>> +    cgroup_taskset_for_each(p, css, tset) {
->>> +        task_lock(p);
->>> +        v = (void *)(unsigned long) task_fwid(p);
->>
->> Shouldn't v be css_nf_state(css)->fwid?
-> 
-> Nope, this is in line with net_cls and net_prio; the task has been
-> moved there via cgroup backend already through cgroup_attach_task(),
+On 04/10/13 17:26, Paul Durrant wrote:
+> Commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c introduced an error into
+> xenvif_count_skb_slots() for skbs with a linear area spanning a page
+> boundary. The alignment of skb->data needs to be taken into account, not
+> just the head length. This patch fixes the issue by dry-running the code
+> from xenvif_gop_skb() (and adjusting the comment above the function to note
+> that).
 
-Yes, these tasks have already been migrated to this cgroup.
+If 4f0581d2582 is causing the skb->data to be fully packed into a
+minimal number of slots then the simple DIV_ROUND_UP(skb_headlen(skb))
+is correct.
 
-> so we only need to update each of it's socket sk_cgrp_fwid parts.
+I think this change will miscount in the number of slots,
+over-estimating the count which I think will eventually cause netback to
+think the ring has no space when it has some.
 
-Sorry, I still don't know in which situation that css_nf_state(css)->fwid
-isn't equal to task_fwid(p).
+Is the problem here not the miscounting of slots but running out of
+space in the grant table op array because we know use more copy ops?
 
-two threads write the same pid to different cgroup at the same time?
-it seems can not happen since we have cgroup_mutex protected.
+I didn't think there was any real merit in the problematic commit (or at
+least there was no evidence that it was better) so I would suggest just
+reverting it instead of trying to fix it up.
 
-> css is not strictly for net_filter. See also: 6a328d8c6f (cgroup:
-> net_cls: Rework update socket logic)
-> 
->>> +        iterate_fd(p->files, 0, cgroup_fwid_update, v);
->>> +        task_unlock(p);
->>> +    }
->>> +}
-> 
+If we do want to change how netback fills the ring then netback needs
+some redesign (i.e., change it so it doesn't have to this counting in
+advance) to make it much less fragile to changes in this area.
+
+David
