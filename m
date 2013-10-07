@@ -1,78 +1,59 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [E1000-devel] [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts
- enablement pattern
-Date: Mon, 7 Oct 2013 22:21:49 +0000
-Message-ID: <1381184508.16853.20.camel@ppwaskie-mobl2>
-References: <cover.1380703262.git.agordeev@redhat.com>
-         <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
-         <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
-         <1380922156.3214.49.camel@bwh-desktop.uk.level5networks.com>
-         <20131005142054.GA11270@dhcp-26-207.brq.redhat.com>
-         <1381009586.645.141.camel@pasglop>
-         <20131006060243.GB28142@dhcp-26-207.brq.redhat.com>
-         <1381040386.645.143.camel@pasglop>
-         <20131006071027.GA29143@dhcp-26-207.brq.redhat.com>
-         <20131007180111.GC2481@htj.dyndns.org> <1381176656.645.171.camel@pasglop>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 1/2] net: Add layer 2 hardware acceleration operations
+ for macvlan devices
+Date: Mon, 07 Oct 2013 15:39:01 -0700
+Message-ID: <52533805.2010607@gmail.com>
+References: <20131007.155214.2232375975382665567.davem@davemloft.net> <20131007212000.GA1596@hmsreliant.think-freely.org> <20131007.173433.163556658910279518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tejun Heo <tj@kernel.org>,
-        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-        "VMware, Inc." <pv-drivers@vmware.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "linux-nvme@lists.infradead.org" <linux-nvme@lists.infradead.org>,
-        "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
-        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-        King <acking@vmware.com>,
-        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "x86@kernel.org" <x86@kernel.org>,
-        "Ben Hutchings" <bhutchings@solarflare.com>,
-        Alexander Gordeev <agordeev@redhat.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        "iss_storagedev@hp.com" <iss_storagedev@hp.com>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        "lin
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1381176656.645.171.camel@pasglop>
-Content-Language: en-US
-Content-ID: <5266EE94AAF93F43AF6E5E9594A7A470@intel.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:41247 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881Ab3JGWjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 18:39:13 -0400
+Received: by mail-ie0-f174.google.com with SMTP id u16so17190313iet.19
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 15:39:13 -0700 (PDT)
+In-Reply-To: <20131007.173433.163556658910279518.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDEzLTEwLTA4IGF0IDA3OjEwICsxMTAwLCBCZW5qYW1pbiBIZXJyZW5zY2htaWR0
-IHdyb3RlOg0KPiBPbiBNb24sIDIwMTMtMTAtMDcgYXQgMTQ6MDEgLTA0MDAsIFRlanVuIEhlbyB3
-cm90ZToNCj4gPiBJIGRvbid0IHRoaW5rIHRoZSBzYW1lIHJhY2UgY29uZGl0aW9uIHdvdWxkIGhh
-cHBlbiB3aXRoIHRoZSBsb29wLiAgVGhlDQo+ID4gcHJvYmxlbSBjYXNlIGlzIHdoZXJlIG11bHRp
-cGxlIG1zaSh4KSBhbGxvY2F0aW9uIGZhaWxzIGNvbXBsZXRlbHkNCj4gPiBiZWNhdXNlIHRoZSBn
-bG9iYWwgbGltaXQgd2VudCBkb3duIGJlZm9yZSBpbnF1aXJ5IGFuZCBhbGxvY2F0aW9uLiAgSW4N
-Cj4gPiB0aGUgbG9vcCBiYXNlZCBpbnRlcmZhY2UsIGl0J2QgcmV0cnkgd2l0aCB0aGUgbG93ZXIg
-bnVtYmVyLg0KPiA+IA0KPiA+IEFzIGxvbmcgYXMgdGhlIG51bWJlciBvZiBkcml2ZXJzIHdoaWNo
-IG5lZWQgdGhpcyBzb3J0IG9mIGFkYXB0aXZlDQo+ID4gYWxsb2NhdGlvbiBpc24ndCB0b28gaGln
-aCBhbmQgdGhlIGNvbW1vbiBjYXNlcyBjYW4gYmUgbWFkZSBzaW1wbGUsIEkNCj4gPiBkb24ndCB0
-aGluayB0aGUgImNvbXBsZXgiIHBhcnQgb2YgaW50ZXJmYWNlIGlzIGFsbCB0aGF0IGltcG9ydGFu
-dC4NCj4gPiBNYXliZSB3ZSBjYW4gaGF2ZSByZXNlcnZlIC8gY2FuY2VsIHR5cGUgaW50ZXJmYWNl
-IG9yIGp1c3Qga2VlcCB0aGUNCj4gPiBsb29wIHdpdGggbW9yZSBleHBsaWNpdCBmdW5jdGlvbiBu
-YW1lcyAoaWUuIHRyeV9lbmFibGUgb3Igc29tZXRoaW5nDQo+ID4gbGlrZSB0aGF0KS4NCj4gDQo+
-IFdlIHdhbnQgdG8gYmUgYWJsZSB0byByZXF1ZXN0IGFuIE1TSS1YIGF0IHJ1bnRpbWUgYW55d2F5
-IC4uLiBpZiBJIHdhbnQNCj4gdG8gZHluYW1pY2FsbHkgYWRkIGEgcXVldWUgdG8gbXkgbmV0d29y
-ayBpbnRlcmZhY2UsIEkgd2FudCBpdCB0byBiZSBhYmxlDQo+IHRvIHBvcCBhIG5ldyBhcmJpdHJh
-cnkgTVNJLVguDQoNCklmIHlvdSB3YW50IHRvIGR5bmFtaWNhbGx5IGFsbG9jYXRlIGFub3RoZXIg
-cXVldWUsIHlvdSdkIGVpdGhlciBuZWVkIHRvDQpoYXZlIHRoZW0gYWxsIHByZS1hbGxvY2F0ZWQg
-YXQgYWxsb2NfZXRoZXJkZXZfbXFzKCksIG9yIGFkZCBhIG5ldyBBUEkgdG8NCm5ldGRldiB0aGF0
-IGFsbG93cyBhZGRpbmcgbmV3IHF1ZXVlcyBvbiB0aGUgZmx5Lg0KDQpIb3cgdGhpbmdzIGFyZSBk
-b25lIHRvZGF5LCB0aGUgVHggcXVldWVzIGFyZSBhbGwgdGFja2VkIG9udG8gdGhlIGVuZCBvZg0K
-dGhlIG5ldGRldiBzdHJ1Y3QuICBUaGF0IHdvdWxkIGhhdmUgdG8gY2hhbmdlIHRvIHByb2JhYmx5
-IGEgbGlua2VkIGxpc3QNCm9mIHF1ZXVlcyB0aGF0IGNvdWxkIGJlIGdyb3duIG9yIHNocnVuayBv
-biB0aGUgZmx5Lg0KbmV0aWZfYWxsb2NfbmV0ZGV2X3F1ZXVlcygpIHdvdWxkIG5lZWQgdG8gY2hh
-bmdlIHRoZSBremFsbG9jKCkgdG8gYSBsaXN0DQphbGxvY2F0aW9uLg0KDQpDaGVlcnMsDQotUEoN
-Cg==
+On 10/07/2013 02:34 PM, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 7 Oct 2013 17:20:00 -0400
+>
+>> Thats me experimenting.  I was thinking that origionally this functionality
+>> might be grouped separately, so that we could handle it independently of the
+>> standard network device operations (you might have noticed in v1 of my patch I
+>> had a size_t variable in there, so I thought the separation might be
+>> organizationally nice).  It was also something I was tinkering with for
+>> potential future work to support other data plane accelerators (like the FM6000
+>> switch chip from intel) in a manner that didn't pollute the more typical host network
+>> devices.  Like I said though, just experimenting at the moment....
+>
+
+We can do something like the dcbnl ops and add another pointer off
+the net device structure and then use the skb->dev field to find the
+correct set of ops? This seems like the simplest option to me and
+isolates the ops structure.
+
+Is there some information loss from hanging it off the netdevice
+structure vs the skb? I can't see any.
+
+> Can these dataplane devices still act like a normal networking port and
+> send and receive packets at the host level?
+>
+
+Yes they act like normal networking ports except for there is a
+switching component in the hardware. These patches are not looking at
+virtual or multiple physical functions at the moment.
+
+> If yes, that would be an extremely strong argument for netdev_ops.
+
+I agree.
+
+
+-- 
+John Fastabend         Intel Corporation
