@@ -1,36 +1,48 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net V1 0/2] net/mlx4_en: Fix pages never dma unmapped on rx
-Date: Mon,  7 Oct 2013 13:38:11 +0200
-Message-ID: <1381145893-20930-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:53106 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751369Ab3JGLio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Oct 2013 07:38:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
+Date: Mon, 7 Oct 2013 19:42:38 +0800
+Message-ID: <CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ@mail.gmail.com>
+References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
+	<CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>
+	<52519E7A.40804@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>, mugunthanvnm@ti.com
+To: Dan Murphy <dmurphy@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52519E7A.40804@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset fixes a bug introduced by commit 51151a16 (mlx4: allow order-0
-memory allocations in RX path). Where dma_unmap_page wasn't called.
+On Mon, Oct 7, 2013 at 1:31 AM, Dan Murphy <dmurphy@ti.com> wrote:
+> On 10/06/2013 10:05 AM, Ming Lei wrote:
+>> On Sat, Oct 5, 2013 at 2:25 AM, Dan Murphy <dmurphy@ti.com> wrote:
+>>> If the smsc95xx does not have a valid MAC address stored within
+>>> the eeprom then a random number is generated.  The MAC can also
+>>> be set by uBoot but the smsc95xx does not have a way to read this.
+>>>
+>>> Create the binding for the smsc95xx so that uBoot can set the MAC
+>>> and the code can retrieve the MAC from the modified DTB file.
+>> Suppose there are two smsc95xx usbnet devices connected to usb bus, and
+>> one is built-in, another is hotplug device, can your patch handle the situation
+>> correctly?
+>
+> Look at this line in the patch below
+>
+> sprintf(of_name, "%s%i", SMSC95XX_OF_NAME, dev->udev->dev.id);
+>
+> I am appending the dev ID of the device to the of_name here.  As long as init_mac_address is called, the dev.id and the uBoot
+> entry match then yes.
 
-Changes from V0:
-- Added "Rename name of mlx4_en_rx_alloc members". Old names were confusing.
-- Last frag in page calculation was wrong. Since all frags in page are of the
-  same size, need to add this frag_stride to end of frag offset, and not the
-  size of next frag in skb.
+Currently, non-root-hub usb device is created and added into usb bus without
+any platform(device tree) knowledge, so you can't expect the match here.
 
-Amir Vadai (2):
-  net/mlx4_en: Rename name of mlx4_en_rx_alloc members
-  net/mlx4_en: Fix pages never dma unmapped on rx
+Also not mention the two smsc95xx devices may attach to two different
+usb host controllers(buses).
 
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 41 ++++++++++++++++------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  4 +--
- 2 files changed, 26 insertions(+), 19 deletions(-)
-
+Thanks,
 -- 
-1.8.3.4
+Ming Lei
