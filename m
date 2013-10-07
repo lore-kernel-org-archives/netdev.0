@@ -1,39 +1,42 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] net: vlan: fix nlmsg size calculation in vlan_get_size()
-Date: Mon,  7 Oct 2013 23:19:58 +0200
-Message-ID: <1381180798-26654-1-git-send-email-mkl@pengutronix.de>
-Cc: kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: bug in passing file descriptors
+Date: Mon, 07 Oct 2013 17:32:37 -0400 (EDT)
+Message-ID: <20131007.173237.1669132001431607341.davem@davemloft.net>
+References: <525308C4.1030007@nec-labs.com>
+	<20131007.154226.533738557474978526.davem@davemloft.net>
+	<5253199B.3000109@nec-labs.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: luto@amacapital.net, netdev@vger.kernel.org,
+	mtk.manpages@gmail.com, ebiederm@xmission.com
+To: sar@nec-labs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60915 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752785Ab3JGVUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 17:20:15 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:37450 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456Ab3JGVck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 17:32:40 -0400
+In-Reply-To: <5253199B.3000109@nec-labs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the calculation of the nlmsg size, by adding the missing
-nla_total_size().
+From: Steve Rago <sar@nec-labs.com>
+Date: Mon, 7 Oct 2013 16:29:15 -0400
 
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- net/8021q/vlan_netlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On 10/07/2013 03:42 PM, David Miller wrote:
+>> There is no compatability issue.
+>>
+>> 32-bit tasks will always see the 4-byte align/length.
+>> 64-bit tasks will always see the 8-byte align/length.
+>>
+> 
+> Really?  So when I compile my application on a 32-bit Linux box and
+> then try to run it on a 64-bit Linux box, you're not going to overrun
+> my buffer when CMSG_SPACE led me to allocate an insufficient amount of
+> memory needed to account for padding on the 64-bit platform?
 
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index 3091297..c7e634a 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -171,7 +171,7 @@ static size_t vlan_get_size(const struct net_device *dev)
- 
- 	return nla_total_size(2) +	/* IFLA_VLAN_PROTOCOL */
- 	       nla_total_size(2) +	/* IFLA_VLAN_ID */
--	       sizeof(struct ifla_vlan_flags) + /* IFLA_VLAN_FLAGS */
-+	       nla_total_size(sizeof(struct ifla_vlan_flags)) + /* IFLA_VLAN_FLAGS */
- 	       vlan_qos_map_size(vlan->nr_ingress_mappings) +
- 	       vlan_qos_map_size(vlan->nr_egress_mappings);
- }
--- 
-1.8.4.rc3
+We have a compatability layer that gives 32-bit applications the
+same behavior as if they had run on a 32-bit machine.
+
+Search around for the MSG_MSG_COMPAT flag and how that is used in
+net/socket.c
