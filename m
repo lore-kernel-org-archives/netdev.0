@@ -1,60 +1,80 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Mon, 7 Oct 2013 14:21:17 -0400
-Message-ID: <20131007182117.GC27396@htj.dyndns.org>
-References: <cover.1380703262.git.agordeev@redhat.com>
+From: dormando <dormando@rydia.net>
+Subject: Re: IPv6 kernel warning
+Date: Mon, 7 Oct 2013 11:13:37 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1310071111240.17658@dtop>
+References: <20130920131153.GF12758@n2100.arm.linux.org.uk> <20130920160830.GA4241@marquez.int.rhx> <CAK6E8=eNFG0fic+NYeQBjEoUQMeZKSAT3LU0JSQyE-4i_cDaZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>, linux-sc
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1380703262.git.agordeev@redhat.com>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Michele Baldessari <michele@acksyn.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rydia.net ([69.46.88.68]:41614 "EHLO mail.rydia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751475Ab3JGSZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Oct 2013 14:25:09 -0400
+In-Reply-To: <CAK6E8=eNFG0fic+NYeQBjEoUQMeZKSAT3LU0JSQyE-4i_cDaZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Alexander.
+> >
+> > there's been multiple reports about this one:
+> > https://bugzilla.redhat.com/show_bug.cgi?id=989251
+> > http://bugzilla.kernel.org/show_bug.cgi?id=60779
+> >
+> > Could you try Yuchung's debug patch?
+> > http://www.spinics.net/lists/netdev/msg250193.html
+> Yes it looks like the same bug. Please try that patch to help identify
+> this elusive bug.
+>
 
-On Wed, Oct 02, 2013 at 12:48:16PM +0200, Alexander Gordeev wrote:
-> Alexander Gordeev (77):
->   PCI/MSI: Fix return value when populate_msi_sysfs() failed
->   PCI/MSI/PPC: Fix wrong RTAS error code reporting
->   PCI/MSI/s390: Fix single MSI only check
->   PCI/MSI/s390: Remove superfluous check of MSI type
->   PCI/MSI: Convert pci_msix_table_size() to a public interface
->   PCI/MSI: Factor out pci_get_msi_cap() interface
->   PCI/MSI: Re-design MSI/MSI-X interrupts enablement pattern
->   PCI/MSI: Get rid of pci_enable_msi_block_auto() interface
->   ahci: Update MSI/MSI-X interrupts enablement code
->   ahci: Check MRSM bit when multiple MSIs enabled
-...
+Hi!
 
-Whee.... that's a lot more than I expected.  I was just scanning
-multiple msi users.  Maybe we can stage the work in more manageable
-steps so that you don't have to go through massive conversion only to
-do it all over again afterwards and likewise people don't get
-bombarded on each iteration?  Maybe we can first update pci / msi code
-proper, msi and then msix?
+We get this one a few times a day in production. Here's a warning with
+your debug trace in the line immediately following:
+(I censored a few things)
 
-Thanks.
+ [125311.721950] ------------[ cut here ]------------
+ [125311.721961] WARNING: at net/ipv4/tcp_input.c:2776 tcp_fastretrans_alert+0xb58/0xc80()
+ [125311.721962] Modules linked in: bridge ip_vs macvlan coretemp crc32_pclmul ghash_clmulni_intel gpio_ich ipmi_watchdog microcode ipmi_devintf sb_edac lpc_ich edac_core mfd_core ipmi_si ipmi_msghandler iptable_nat nf_nat_ipv4 nf_nat ixgbe igb mdio i2c_algo_bit ptp pps_core
+ [125311.721981] CPU: 11 PID: 0 Comm: swapper/11 Not tainted 3.10.13 #1
+ [125311.721982] Hardware name: Supermicro XXXXXXXXXXX, BIOS 1.1 10/03/2012
+ [125311.721984]  ffffffff81a82007 ffff88407fc63958 ffffffff816bb9cc ffff88407fc63998
+ [125311.721986]  ffffffff8104b940 00ff8840ad904f82 ffff883b8a165b00 0000000000004120
+ [125311.721989]  0000000000000001 0000000000000019 0000000000000000 ffff88407fc639a8
+ [125311.721991] Call Trace:
+ [125311.721992]  <IRQ>  [<ffffffff816bb9cc>] dump_stack+0x19/0x1d
+ [125311.722002]  [<ffffffff8104b940>] warn_slowpath_common+0x70/0xa0
+ [125311.722005]  [<ffffffff8104b98a>] warn_slowpath_null+0x1a/0x20
+ [125311.722007]  [<ffffffff81616db8>] tcp_fastretrans_alert+0xb58/0xc80
+ [125311.722011]  [<ffffffff8161891f>] tcp_ack+0x6df/0xe90
+ [125311.722016]  [<ffffffff8164e0ca>] ? ipt_do_table+0x22a/0x680
+ [125311.722018]  [<ffffffff816194b3>] ? tcp_validate_incoming+0x63/0x320
+ [125311.722021]  [<ffffffff8161a55c>] tcp_rcv_established+0x2cc/0x810
+ [125311.722023]  [<ffffffff81622c84>] tcp_v4_do_rcv+0x254/0x4f0
+ [125311.722025]  [<ffffffff816245ac>] tcp_v4_rcv+0x5fc/0x750
+ [125311.722027]  [<ffffffff815ffa00>] ? ip_rcv+0x350/0x350
+ [125311.722032]  [<ffffffff815df3ad>] ? nf_hook_slow+0x7d/0x160
+ [125311.722034]  [<ffffffff815ffa00>] ? ip_rcv+0x350/0x350
+ [125311.722036]  [<ffffffff815fface>] ip_local_deliver_finish+0xce/0x250
+ [125311.722037]  [<ffffffff815ffc9c>] ip_local_deliver+0x4c/0x80
+ [125311.722039]  [<ffffffff815ff329>] ip_rcv_finish+0x119/0x360
+ [125311.722040]  [<ffffffff815ff8e0>] ip_rcv+0x230/0x350
+ [125311.722046]  [<ffffffff815b4067>] __netif_receive_skb_core+0x477/0x600
+ [125311.722049]  [<ffffffff815b4217>] __netif_receive_skb+0x27/0x70
+ [125311.722051]  [<ffffffff815b4354>] process_backlog+0xf4/0x1e0
+ [125311.722053]  [<ffffffff815b4b45>] net_rx_action+0xf5/0x250
+ [125311.722056]  [<ffffffff81053a5f>] __do_softirq+0xef/0x270
+ [125311.722058]  [<ffffffff81053cb5>] irq_exit+0x95/0xa0
+ [125311.722062]  [<ffffffff816c8f26>] do_IRQ+0x66/0xe0
+ [125311.722065]  [<ffffffff816bf62a>] common_interrupt+0x6a/0x6a
+ [125311.722065]  <EOI>  [<ffffffff8100abf1>] ? default_idle+0x21/0xc0
+ [125311.722082]  [<ffffffff8100a54f>] arch_cpu_idle+0xf/0x20
+ [125311.722086]  [<ffffffff8108f353>] cpu_startup_entry+0xb3/0x230
+ [125311.722091]  [<ffffffff816b439e>] start_secondary+0x1dc/0x1e3
+ [125311.722093] ---[ end trace e77cd5ba583fcbe9 ]---
+ [125311.722096] 355.355.1.355:22496 F0x4120 S1 s7 IF25+17-1-24f0 ur57 rr3 rt0 um0 hs23120 nxt23120
 
--- 
-tejun
+It's been happening with all 3.10 kernels, and the one above is .13 as
+stated in the trace.
