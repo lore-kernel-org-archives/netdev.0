@@ -1,49 +1,84 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: af802154: Fix wrong structure declaration
-Date: Sun, 06 Oct 2013 16:18:17 -0700
-Message-ID: <5251EFB9.7040206@roeck-us.net>
-References: <1381095841-15031-1-git-send-email-linux@roeck-us.net> <1381098047.2081.169.camel@joe-AO722>
+From: Matt Wilson <msw@linux.com>
+Subject: Re: [PATCH net-next] xen-netback: fix xenvif_count_skb_slots()
+Date: Sun, 6 Oct 2013 17:06:52 -0700
+Message-ID: <20131007000652.GA5970@u109add4315675089e695.ant.amazon.com>
+References: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	Xi Xiong <xixiong@amazon.com>, Matt Wilson <msw@amazon.com>,
+	Annie Li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Simon Graham <simon.graham@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:51615 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754905Ab3JFXSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 19:18:23 -0400
-In-Reply-To: <1381098047.2081.169.camel@joe-AO722>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:62691 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754905Ab3JGAG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Oct 2013 20:06:56 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr4so6254292pbb.20
+        for <netdev@vger.kernel.org>; Sun, 06 Oct 2013 17:06:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1380903983-27429-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2013 03:20 PM, Joe Perches wrote:
-> On Sun, 2013-10-06 at 14:44 -0700, Guenter Roeck wrote:
->> net_devce doesn't exist.
-> []
->> diff --git a/net/ieee802154/af802154.h b/net/ieee802154/af802154.h
-> []
->> @@ -25,7 +25,7 @@
->>   #define AF802154_H
->>
->>   struct sk_buff;
->> -struct net_devce;
->> +struct net_device;
->
-> That argues more for deletion than correction.
->
+On Fri, Oct 04, 2013 at 05:26:23PM +0100, Paul Durrant wrote:
+> Commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c introduced an error into
+> xenvif_count_skb_slots() for skbs with a linear area spanning a page
+> boundary. The alignment of skb->data needs to be taken into account, not
+> just the head length. This patch fixes the issue by dry-running the code
+> from xenvif_gop_skb() (and adjusting the comment above the function to note
+> that).
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Xi Xiong <xixiong@amazon.com>
+> Cc: Matt Wilson <msw@amazon.com>
+> Cc: Annie Li <annie.li@oracle.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <Ian.Campbell@citrix.com>
 
-I thought the idea was to ensure that every structure is declared.
-In this case it appears that the structure happens to be declared
-in other include files, so we are lucky. On the other side, if so,
-"struct proto", "struct net" and "struct ieee802154_addr" should
-probably be declared as well ...
+Paul, can you reconcile this change with the one made by Simon in cs
+8f985b4f7a5394c8f8725a5109451a541ddb9eea?
 
-Ultimately, I don't really care one way or another. I just happened
-to stumble over it. Fine with me to remove it. Maybe the maintainers
-should decide what if anything to do.
+--msw
 
-Guenter
+> ---
+>  drivers/net/xen-netback/netback.c |   17 +++++++++++++++--
+>  1 file changed, 15 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index d0b0feb..6f680f4 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -223,15 +223,28 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>  /*
+>   * Figure out how many ring slots we're going to need to send @skb to
+>   * the guest. This function is essentially a dry run of
+> - * xenvif_gop_frag_copy.
+> + * xenvif_gop_skb.
+>   */
+>  unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+>  {
+> +	unsigned char *data;
+>  	unsigned int count;
+>  	int i, copy_off;
+>  	struct skb_cb_overlay *sco;
+>  
+> -	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
+> +	count = 0;
+> +
+> +	data = skb->data;
+> +	while (data < skb_tail_pointer(skb)) {
+> +		unsigned int offset = offset_in_page(data);
+> +		unsigned int len = PAGE_SIZE - offset;
+> +
+> +		if (data + len > skb_tail_pointer(skb))
+> +			len = skb_tail_pointer(skb) - data;
+> +
+> +		count++;
+> +		data += len;
+> +	}
+>  
+>  	copy_off = skb_headlen(skb) % PAGE_SIZE;
+>  
