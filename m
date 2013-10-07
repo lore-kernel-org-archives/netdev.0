@@ -1,81 +1,78 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 09/11] ssb: convert bus code to use dev_groups
-Date: Sun,  6 Oct 2013 23:55:48 -0700
-Message-ID: <1381128950-28125-10-git-send-email-gregkh@linuxfoundation.org>
-References: <1381128950-28125-1-git-send-email-gregkh@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Michael Buesch <m@bues.ch>, <netdev@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381128950-28125-1-git-send-email-gregkh@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next] bonding: ensure that TLB mode's active slave has correct mac filter
+Date: Mon,  7 Oct 2013 09:17:20 +0200
+Message-ID: <1381130240-3561-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Yuval Mintz <yuvalmin@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46191 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689Ab3JGHQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Oct 2013 03:16:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dev_attrs field of struct bus_type is going away soon, dev_groups
-should be used instead.  This converts the ssb bus code to use the
-correct field.
+Currently, in TLB mode we change mac addresses only by memcpy-ing the to
+net_device->dev_addr, without actually setting them via
+dev_set_mac_address(). This permits us to receive all the traffic always on
+one mac address.
 
-Cc: Michael Buesch <m@bues.ch>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+However, in case the interface flips, some drivers might enforce the
+mac filtering for its FW/HW based on current ->dev_addr, and thus we won't
+be able to receive traffic on that interface, in case it will be selected
+as active in TLB mode.
+
+Fix it by setting the mac address forcefully on every new active slave that
+we select in TLB mode.
+
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Yuval Mintz <yuvalmin@broadcom.com>
+Reported-by: Yuval Mintz <yuvalmin@broadcom.com>
+Tested-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
-Michael, I can take this through my driver-core tree if you like, just
-let me know what would be the easiest for you.
+Notes:
+    It seems that it's the least intrusive fix. The, maybe, better
+    way would be to leave the dev_addr unchainged and play around
+    with mac addresses in logic, however it's making the code a lot
+    more bloated, error prone and hard to read, so it's not worth it,
+    imho.
 
- drivers/ssb/main.c | 25 ++++++++++++++-----------
- 1 file changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/bonding/bond_alb.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index e55ddf7..32a811d 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -374,7 +374,8 @@ static ssize_t \
- attrib##_show(struct device *dev, struct device_attribute *attr, char *buf) \
- { \
- 	return sprintf(buf, format_string, dev_to_ssb_dev(dev)->field); \
--}
-+} \
-+static DEVICE_ATTR_RO(attrib);
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e960418..576ccea 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1699,6 +1699,23 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
  
- ssb_config_attr(core_num, core_index, "%u\n")
- ssb_config_attr(coreid, id.coreid, "0x%04x\n")
-@@ -387,16 +388,18 @@ name_show(struct device *dev, struct device_attribute *attr, char *buf)
- 	return sprintf(buf, "%s\n",
- 		       ssb_core_name(dev_to_ssb_dev(dev)->id.coreid));
- }
--
--static struct device_attribute ssb_device_attrs[] = {
--	__ATTR_RO(name),
--	__ATTR_RO(core_num),
--	__ATTR_RO(coreid),
--	__ATTR_RO(vendor),
--	__ATTR_RO(revision),
--	__ATTR_RO(irq),
--	__ATTR_NULL,
-+static DEVICE_ATTR_RO(name);
+ 	ASSERT_RTNL();
+ 
++	/* in TLB mode, the slave might flip down/up with the old dev_addr,
++	 * and thus filter bond->dev_addr's packets, so force bond's mac
++	 */
++	if (bond->params.mode == BOND_MODE_TLB) {
++		struct sockaddr sa;
++		u8 tmp_addr[ETH_ALEN];
 +
-+static struct attribute *ssb_device_attrs[] = {
-+	&dev_attr_name.attr,
-+	&dev_attr_core_num.attr,
-+	&dev_attr_coreid.attr,
-+	&dev_attr_vendor.attr,
-+	&dev_attr_revision.attr,
-+	&dev_attr_irq.attr,
-+	NULL,
- };
-+ATTRIBUTE_GROUPS(ssb_device);
- 
- static struct bus_type ssb_bustype = {
- 	.name		= "ssb",
-@@ -407,7 +410,7 @@ static struct bus_type ssb_bustype = {
- 	.suspend	= ssb_device_suspend,
- 	.resume		= ssb_device_resume,
- 	.uevent		= ssb_device_uevent,
--	.dev_attrs	= ssb_device_attrs,
-+	.dev_groups	= ssb_device_groups,
- };
- 
- static void ssb_buses_lock(void)
++		memcpy(tmp_addr, new_slave->dev->dev_addr, ETH_ALEN);
++
++		memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev->addr_len);
++		sa.sa_family = bond->dev->type;
++		/* we don't care if it can't change its mac, best effort */
++		dev_set_mac_address(new_slave->dev, &sa);
++
++		memcpy(new_slave->dev->dev_addr, tmp_addr, ETH_ALEN);
++	}
++
+ 	/* curr_active_slave must be set before calling alb_swap_mac_addr */
+ 	if (swap_slave) {
+ 		/* swap mac address */
 -- 
-1.8.4.6.g82e253f.dirty
+1.8.4
