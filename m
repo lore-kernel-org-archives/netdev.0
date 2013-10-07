@@ -1,58 +1,95 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH RFC 05/77] PCI/MSI: Convert pci_msix_table_size() to a
- public interface
-Date: Mon, 7 Oct 2013 14:10:43 -0400
-Message-ID: <20131007181043.GA27396@htj.dyndns.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH RFC 07/77] PCI/MSI: Re-design MSI/MSI-X interrupts
+ enablement pattern
+Date: Mon, 7 Oct 2013 14:17:49 -0400
+Message-ID: <20131007181749.GB27396@htj.dyndns.org>
 References: <cover.1380703262.git.agordeev@redhat.com>
- <e8b51bd48c24d0fc4ee8adea5c138c9bf84191e9.1380703262.git.agordeev@redhat.com>
+ <d8c36203ada6efbfa9f7ce92c2f713ee3b6d6b8d.1380703262.git.agordeev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iss_storagedev-VXdhtT5mjnY@public.gmane.org,
-	linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	"VMware, Inc." <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, linux-sc
-To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	linux-pci@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+	linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"VMware, Inc." <pv-dr
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <e8b51bd48c24d0fc4ee8adea5c138c9bf84191e9.1380703262.git.agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <d8c36203ada6efbfa9f7ce92c2f713ee3b6d6b8d.1380703262.git.agordeev@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello,
 
-On Wed, Oct 02, 2013 at 12:48:21PM +0200, Alexander Gordeev wrote:
-> Make pci_msix_table_size() to return a error code if the device
-> does not support MSI-X. This update is needed to facilitate a
-> forthcoming re-design MSI/MSI-X interrupts enabling pattern.
-> 
-> Device drivers will use this interface to obtain maximum number
-> of MSI-X interrupts the device supports and use that value in
-> the following call to pci_enable_msix() interface.
-> 
-> Signed-off-by: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+On Wed, Oct 02, 2013 at 12:48:23PM +0200, Alexander Gordeev wrote:
+> +static int foo_driver_enable_msi(struct foo_adapter *adapter, int nvec)
+> +{
+> +	rc = pci_get_msi_cap(adapter->pdev);
+> +	if (rc < 0)
+> +		return rc;
+> +
+> +	nvec = min(nvec, rc);
+> +	if (nvec < FOO_DRIVER_MINIMUM_NVEC) {
+> +		return -ENOSPC;
+> +
+> +	rc = pci_enable_msi_block(adapter->pdev, nvec);
+> +	return rc;
+> +}
 
-Hmmm... I probably missed something but why is this necessary?  To
-discern between -EINVAL and -ENOSPC?  If so, does that really matter?
+If there are many which duplicate the above pattern, it'd probably be
+worthwhile to provide a helper?  It's usually a good idea to reduce
+the amount of boilerplate code in drivers.
+
+>  static int foo_driver_enable_msix(struct foo_adapter *adapter, int nvec)
+>  {
+> +	rc = pci_msix_table_size(adapter->pdev);
+> +	if (rc < 0)
+> +		return rc;
+> +
+> +	nvec = min(nvec, rc);
+> +	if (nvec < FOO_DRIVER_MINIMUM_NVEC) {
+> +		return -ENOSPC;
+> +
+> +	for (i = 0; i < nvec; i++)
+> +		adapter->msix_entries[i].entry = i;
+> +
+> +	rc = pci_enable_msix(adapter->pdev, adapter->msix_entries, nvec);
+> +	return rc;
+>  }
+
+Ditto.
+
+> @@ -975,7 +951,7 @@ int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+>  	if (nr_entries < 0)
+>  		return nr_entries;
+>  	if (nvec > nr_entries)
+> -		return nr_entries;
+> +		return -EINVAL;
+>  
+>  	/* Check for any invalid entries */
+>  	for (i = 0; i < nvec; i++) {
+
+If we do things this way, it breaks all drivers using this interface
+until they're converted, right?  Also, it probably isn't the best idea
+to flip the behavior like this as this can go completely unnoticed (no
+compiler warning or anything, the same function just behaves
+differently).  Maybe it'd be a better idea to introduce a simpler
+interface that most can be converted to?
 
 Thanks.
 
 -- 
 tejun
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
