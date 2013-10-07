@@ -1,45 +1,25 @@
-From: Steve Rago <sar@nec-labs.com>
-Subject: Re: bug in passing file descriptors
-Date: Mon, 7 Oct 2013 15:06:02 -0400
-Message-ID: <5253061A.7060701@nec-labs.com>
-References: <5252FD2B.5040800@nec-labs.com> <CALCETrXmmW-nRTr4-yWJnNr2GWW37KW-7B1m=kSRnmYjhMTajA@mail.gmail.com>
+From: Madina Yakou <ma.yak@laposte.net>
+Subject: I need your urgent cooperation.
+Date: Mon, 7 Oct 2013 09:31:35 -0700 (PDT)
+Message-ID: <1381163495.80452.YahooMailBasic@web140906.mail.bf1.yahoo.com>
+Reply-To: madii002@terra.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
-	Eric Biederman <ebiederm@xmission.com>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nec-labs.com ([138.15.200.209]:51972 "EHLO
-	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642Ab3JGTGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:06:08 -0400
-In-Reply-To: <CALCETrXmmW-nRTr4-yWJnNr2GWW37KW-7B1m=kSRnmYjhMTajA@mail.gmail.com>
+Received: from nm34.bullet.mail.ne1.yahoo.com ([98.138.229.27]:20458 "EHLO
+	nm34.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751234Ab3JGTHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 15:07:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2013 02:44 PM, Andy Lutomirski wrote:
->
-> ISTM that, in order for further cmsgs to be correctly decoded, all of
-> the relevant things need to match.
->
-> put_cmsg uses this layout: cmsghdr, padding, payload, padding.
-> CMSG_SPACE matches that calculation.
->
-> scm_detach_fds is the actual code path for SCM_RIGHTS.  It does the same thing.
->
-> CMSG_DATA also things that there's possible padding after cmsghdr.
->
-> So I think everything's okay.
->
-> --Andy
->
 
-Maybe.  So a client expecting to receive x bytes of control information should make sure their buffer is at least 
-CMSG_SPACE(x) bytes long instead of CMSG_LEN(x) bytes long, because you feel compelled to copy the final padding from 
-kernel space to user space?  Seems wrong to me.  IMHO, the final padding should only come into play when calculating 
-where the next header should begin.
+Dear Friend,
 
-Steve
+I am contacting you to assist me in a fund transfer of $6,200,000.00 US dollars into your personal bank account for the benefit of both of us, this transaction is confidential and we MUST remain fiducially in all our dealings since I cannot execute this opportunity alone without the support of a foreigner. This is in line with the Laws governing my Bank and that is why I have contacted you in this manner.
+
+For your role in assisting me actualize this opportunity, you will be entitled to 30% of the total sum while 70% will be for me. However, what I need is your maximum cooperation and to provide a valid bank account where my bank will transfer this fund for our benefit. By indicating your interest on assurance of trust I will send you the full details and how this business will be executed and your urgent response to this proposal will be highly appreciated.
+
+Best regards,
+Mrs. Madina.
