@@ -1,47 +1,117 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: [raw v1 2/4] [NET] Use raw_cpu ops for SNMP stats
-Date: Mon, 7 Oct 2013 18:31:58 +0000
-Message-ID: <0000014194309205-d0af4d2d-a046-4189-b4f0-ffea37374988-000000@email.amazonses.com>
-References: <20131007183226.334180014@linux.com>
-Cc: akpm@linuxfoundation.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Cc: Steven Rostedt <srostedt@redhat.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: Re: [PATCH RFC 54/77] ntb: Ensure number of MSIs on SNB is enough
+ for the link interrupt
+Date: Mon, 7 Oct 2013 20:38:45 +0200
+Message-ID: <20131007183845.GA1834@dhcp-26-207.brq.redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <5d9c5b2d3bbc444ff32bddeece7a239d046bd79c.1380703263.git.agordeev@redhat.com>
+ <20131003004805.GL6768@jonmason-lab>
+ <20131005214303.GA21589@dhcp-26-207.brq.redhat.com>
+ <20131007165056.GA24536@jonmason-lab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        stable@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+        linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+        linux-driver@qlog
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20131007165056.GA24536@jonmason-lab>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-SNMP stats are not protected by preemption but by bh handling.
-Since protection is provided outside of preemption raw_cpu_ops
-need to be used to avoid false positives.
+On Mon, Oct 07, 2013 at 09:50:57AM -0700, Jon Mason wrote:
+> On Sat, Oct 05, 2013 at 11:43:04PM +0200, Alexander Gordeev wrote:
+> > On Wed, Oct 02, 2013 at 05:48:05PM -0700, Jon Mason wrote:
+> > > On Wed, Oct 02, 2013 at 12:49:10PM +0200, Alexander Gordeev wrote:
+> > > > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> > > > ---
+> > > >  drivers/ntb/ntb_hw.c |    2 +-
+> > > >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > > > 
+> > > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+> > > > index de2062c..eccd5e5 100644
+> > > > --- a/drivers/ntb/ntb_hw.c
+> > > > +++ b/drivers/ntb/ntb_hw.c
+> > > > @@ -1066,7 +1066,7 @@ static int ntb_setup_msix(struct ntb_device *ndev)
+> > > >  		/* On SNB, the link interrupt is always tied to 4th vector.  If
+> > > >  		 * we can't get all 4, then we can't use MSI-X.
+> > > >  		 */
+> > > > -		if (ndev->hw_type != BWD_HW) {
+> > > > +		if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
+> > > 
+> > > Nack, this check is unnecessary.
+> > 
+> > If SNB can do more than SNB_MSIX_CNT MSI-Xs then this check is needed
+> > to enable less than maximum MSI-Xs in case the maximum was not allocated.
+> > Otherwise SNB will fallback to single MSI instead of multiple MSI-Xs.
+> 
+> Per the comment in the code snippet above, "If we can't get all 4,
+> then we can't use MSI-X".  There is already a check to see if more
+> than 4 were acquired.  So it's not possible to hit this.  Even if it
+> was, don't use SNB_MSIX_CNT here (limits.msix_cnt is the preferred
+> variable).  Also, the "()" are unnecessary.
 
-Cc: Eric Dumazet <edumazet@google.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Christoph Lameter <cl@linux.com>
+The changelog is definitely bogus. I meant here an improvement to the
+existing scheme, not a conversion to the new one:
 
-Index: linux/include/net/snmp.h
-===================================================================
---- linux.orig/include/net/snmp.h	2013-10-07 09:16:07.595206864 -0500
-+++ linux/include/net/snmp.h	2013-10-07 09:16:07.591206909 -0500
-@@ -126,7 +126,7 @@ struct linux_xfrm_mib {
- 	extern __typeof__(type) __percpu *name[SNMP_ARRAY_SZ]
- 
- #define SNMP_INC_STATS_BH(mib, field)	\
--			__this_cpu_inc(mib[0]->mibs[field])
-+			raw_cpu_inc(mib[0]->mibs[field])
- 
- #define SNMP_INC_STATS_USER(mib, field)	\
- 			this_cpu_inc(mib[0]->mibs[field])
-@@ -141,7 +141,7 @@ struct linux_xfrm_mib {
- 			this_cpu_dec(mib[0]->mibs[field])
- 
- #define SNMP_ADD_STATS_BH(mib, field, addend)	\
--			__this_cpu_add(mib[0]->mibs[field], addend)
-+			raw_cpu_add(mib[0]->mibs[field], addend)
- 
- #define SNMP_ADD_STATS_USER(mib, field, addend)	\
- 			this_cpu_add(mib[0]->mibs[field], addend)
+	msix_entries = msix_table_size(val);
+
+Getting i.e. 16 vectors here.
+
+	if (msix_entries > ndev->limits.msix_cnt) {
+		rc = -EINVAL;
+		goto err;
+	}
+
+Upper limit check i.e. succeeds.
+
+	[...]
+
+	rc = pci_enable_msix(pdev, ndev->msix_entries, msix_entries);
+
+pci_enable_msix() does not success and returns i.e. 8 here, should retry.
+
+	if (rc < 0)
+		goto err1;
+	if (rc > 0) {
+		/* On SNB, the link interrupt is always tied to 4th vector.  If
+		 * we can't get all 4, then we can't use MSI-X.
+		 */
+		if (ndev->hw_type != BWD_HW) {
+
+On SNB bail out here, although could have continue with 8 vectors.
+Can only use SNB_MSIX_CNT here, since limits.msix_cnt is the upper limit.
+
+			rc = -EIO;
+			goto err1;
+		}
+
+		[...]
+	}
+
+-- 
+Regards,
+Alexander Gordeev
+agordeev@redhat.com
