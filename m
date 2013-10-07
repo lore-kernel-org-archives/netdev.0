@@ -1,42 +1,33 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
- group matching
-Date: Mon, 07 Oct 2013 11:17:50 +0200
-Message-ID: <52527C3E.1060004@redhat.com>
-References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <52522555.70407@cn.fujitsu.com>
+From: <office3@Offer476.onmicrosoft.com>
+Subject: Congratulations !!!
+Date: Mon, 7 Oct 2013 14:58:54 +0530
+Message-ID: <6f795ff7-99af-432f-ac60-8ae30f46f7b5@AM3PR06MB019.eurprd06.prod.outlook.com>
+Reply-To: <colaclaims13@msn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	cgroups@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <52522555.70407@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <office3@Offer476.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.102]:46246
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755198Ab3JGJ3V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 05:29:21 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2013 05:07 AM, Gao feng wrote:
-> On 10/05/2013 02:20 AM, Daniel Borkmann wrote:
->> +static void cgroup_attach(struct cgroup_subsys_state *css,
->> +			  struct cgroup_taskset *tset)
->> +{
->> +	struct task_struct *p;
->> +	void *v;
->> +
->> +	cgroup_taskset_for_each(p, css, tset) {
->> +		task_lock(p);
->> +		v = (void *)(unsigned long) task_fwid(p);
->
-> Shouldn't v be css_nf_state(css)->fwid?
+Ticket Number: 7PWYZ2008
+Ballot Number: BT:12052008/20
+Draw:#1471
 
-Nope, this is in line with net_cls and net_prio; the task has been
-moved there via cgroup backend already through cgroup_attach_task(),
-so we only need to update each of it's socket sk_cgrp_fwid parts.
-css is not strictly for net_filter. See also: 6a328d8c6f (cgroup:
-net_cls: Rework update socket logic)
+Special Notification to you,You are receiving this email because you have just been picked for a total grand prize of One Million Dollars in the top 10 winners of the Coca-Cola Consumer`s Award for the year 2013: kindly send your:
 
->> +		iterate_fd(p->files, 0, cgroup_fwid_update, v);
->> +		task_unlock(p);
->> +	}
->> +}
+Name:
+Address:
+Country:
+Phone Number:
+
+To Mr. Bruce Morgan
+via Email: colaclaims13@msn.com
+Telephone Number:+44701006909
