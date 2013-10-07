@@ -1,8 +1,8 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
  pattern
-Date: Mon, 7 Oct 2013 21:46:06 +0100
-Message-ID: <1381178766.1536.26.camel@bwh-desktop.uk.level5networks.com>
+Date: Mon, 7 Oct 2013 21:48:01 +0100
+Message-ID: <1381178881.1536.28.camel@bwh-desktop.uk.level5networks.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
 	 <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
 	 <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
@@ -12,71 +12,60 @@ References: <cover.1380703262.git.agordeev@redhat.com>
 	 <20131006060243.GB28142@dhcp-26-207.brq.redhat.com>
 	 <1381040386.645.143.camel@pasglop>
 	 <20131006071027.GA29143@dhcp-26-207.brq.redhat.com>
-	 <20131007180111.GC2481@htj.dyndns.org> <1381176656.645.171.camel@pasglop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, Alexander Gordeev <agordeev@redhat.com>,
-	<linux-kernel@vger.kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"Ralf Baechle" <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>,
-	"Jon Mason" <jon.mason@intel.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	<linux-pci@vger.kernel.org>, <linux-mips@linux-mips.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <linux390@de.ibm.com>,
-	<linux-s390@vger.kernel.org>, <x86@kernel.org>,
-	<linux-ide@vger.kernel.org>, <iss_storagedev@hp.com>,
-	<linux-nvme@lists.infradead.org>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<linux-driver@qlogic.com>,
-	"Solarflare linux maintainers" <linux-net-drivers@solarflare.co
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1381176656.645.171.camel@pasglop>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"Ralf Baechle" <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	<linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>, <linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	<linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iss_storagedev-VXdhtT5mjnY@public.gmane.org>,
+	<linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	<linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarfla
+To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131006071027.GA29143-hdGaXg0bp3uRXgp2RCiI5R/sF2h8X+2i0E9HWUfgJXw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-08 at 07:10 +1100, Benjamin Herrenschmidt wrote:
-> On Mon, 2013-10-07 at 14:01 -0400, Tejun Heo wrote:
-> > I don't think the same race condition would happen with the loop.  The
-> > problem case is where multiple msi(x) allocation fails completely
-> > because the global limit went down before inquiry and allocation.  In
-> > the loop based interface, it'd retry with the lower number.
+On Sun, 2013-10-06 at 09:10 +0200, Alexander Gordeev wrote:
+> On Sun, Oct 06, 2013 at 05:19:46PM +1100, Benjamin Herrenschmidt wrote:
+> > On Sun, 2013-10-06 at 08:02 +0200, Alexander Gordeev wrote:
+> > > In fact, in the current design to address the quota race decently the
+> > > drivers would have to protect the *loop* to prevent the quota change
+> > > between a pci_enable_msix() returned a positive number and the the next
+> > > call to pci_enable_msix() with that number. Is it doable?
 > > 
-> > As long as the number of drivers which need this sort of adaptive
-> > allocation isn't too high and the common cases can be made simple, I
-> > don't think the "complex" part of interface is all that important.
-> > Maybe we can have reserve / cancel type interface or just keep the
-> > loop with more explicit function names (ie. try_enable or something
-> > like that).
+> > I am not advocating for the current design, simply saying that your
+> > proposal doesn't address this issue while Ben's does.
 > 
-> I'm thinking a better API overall might just have been to request
-> individual MSI-X one by one :-)
-> 
-> We want to be able to request an MSI-X at runtime anyway ... if I want
-> to dynamically add a queue to my network interface, I want it to be able
-> to pop a new arbitrary MSI-X.
+> There is one major flaw in min-max approach - the generic MSI layer
+> will have to take decisions on exact number of MSIs to request, not
+> device drivers.
+[...
 
-Yes, this would be very useful.
-
-> And we don't want to lock drivers into contiguous MSI-X sets either.
-
-I don't think there's any such limitation now.  The entries array passed
-to pci_enable_msix() specifies which MSI-X vectors the driver wants to
-enable.  It's usually filled with 0..nvec-1 in order, but not always.
-And the IRQ numbers returned aren't usually contiguous either, on x86.
+No, the min-max functions should be implemented using the same loop that
+drivers are expected to use now.
 
 Ben.
-
-> And for the cleanup ... well that's what the "pcim" functions are for,
-> we can just make MSI-X variants.
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
