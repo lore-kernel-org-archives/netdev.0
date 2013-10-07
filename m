@@ -1,59 +1,89 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCHv1 net] xen-netback: transition to CLOSED when removing a
- VIF
-Date: Mon, 7 Oct 2013 15:15:23 +0100
-Message-ID: <20131007141523.GE28411@zion.uk.xensource.com>
-References: <1381150519-14557-1-git-send-email-david.vrabel@citrix.com>
- <20131007134314.GD28411@zion.uk.xensource.com>
- <5252BDD1.1000301@citrix.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: dev: fix nlmsg size calculation in  =?UTF-8?Q?can=5Fget=5Fsize=28=29?=
+Date: Mon, 07 Oct 2013 16:24:28 +0200
+Message-ID: <705c23ba0332d9658b8760cd5d460e8a@grandegger.com>
+References: <1381001117-19624-1-git-send-email-mkl@pengutronix.de>
+ <52507B7D.6030008@grandegger.com> <5252C1CC.4060809@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:29426 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753031Ab3JGOPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 10:15:25 -0400
-Content-Disposition: inline
-In-Reply-To: <5252BDD1.1000301@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+	<kernel@pengutronix.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5252C1CC.4060809@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 07, 2013 at 02:57:37PM +0100, David Vrabel wrote:
-> On 07/10/13 14:43, Wei Liu wrote:
-> > On Mon, Oct 07, 2013 at 01:55:19PM +0100, David Vrabel wrote:
-> >> From: David Vrabel <david.vrabel@citrix.com>
-> >>
-> >> If a guest is destroyed without transitioning its frontend to CLOSED,
-> >> the domain becomes a zombie as netback was not grant unmapping the
-> >> shared rings.
-> >>
-> >> When removing a VIF, transition the backend to CLOSED so the VIF is
-> >> disconnected if necessary (which will unmap the shared rings etc).
-> >>
-> >> This fixes a regression introduced by
-> >> 279f438e36c0a70b23b86d2090aeec50155034a9 (xen-netback: Don't destroy
-> >> the netdev until the vif is shut down).
-> >>
-> > 
-> > Is this regression solely caused by 279f438e36c or caused by both
-> > ea732dff5c and 279f438e36c? I ask because you make use of the new state
-> > machine introduced in ea732dff5c. Or are you simply using the new state
-> > machine to fix the regression instead of going back to old code?
+On Mon, 07 Oct 2013 16:14:36 +0200, Marc Kleine-Budde <mkl@pengutronix.de>
+
+wrote:
+
+> On 10/05/2013 10:50 PM, Wolfgang Grandegger wrote:
+
+>> On 10/05/2013 09:25 PM, Marc Kleine-Budde wrote:
+
+>>> This patch fixes the calculation of the nlmsg size, by adding the
+
+>>> missing
+
+>>> nla_total_size().
+
+>>>
+
+>>> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+>>> ---
+
+>>> Hello,
+
+>>>
+
+>>> this patch touches the rtnl_link_ops get_size() callback:
+
+>>>
+
+>>>     static struct rtnl_link_ops can_link_ops __read_mostly = {
+
+>>>     ...
+
+>>>     	.get_size	= can_get_size,
+
+>>>     ...
+
+>>>     };
+
+>>>
+
+>>> By looking at other nlmsg size calculation I think a nla_total_size()
+
+>>> for all
+
+>>> contributers is needed. Am I correct?
+
+>> 
+
+>> Yes, seems so, nla_put() calls this code:
+
+>> 
+
+>>   http://lxr.free-electrons.com/source/lib/nlattr.c#L328
+
 > 
-> I bisected it to 279f438.  I'm just using the handy new state machine to
-> fix it.
+
+> Is this an Acked-by? :)
+
+
+
+Yep, obviously a long time ago that I did something for Linux-CAN :(.
+
+
+
+Wolfgang.
+
+
+
 > 
 
-Thanks for the explanation.
-
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-
-Wei.
-
-> David
+> Marc
