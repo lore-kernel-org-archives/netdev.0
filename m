@@ -1,121 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pkt_sched: fq: fix non TCP flows pacing
-Date: Mon, 07 Oct 2013 14:44:29 -0700
-Message-ID: <1381182269.12191.27.camel@edumazet-glaptop.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 0/2 v2] net: alternate proposal for using macvlans
+ with forwarding acceleration
+Date: Mon, 07 Oct 2013 15:09:11 -0700
+Message-ID: <52533107.6060306@gmail.com>
+References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com> <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Steinar H. Gunderson" <sesse@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:63008 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456Ab3JGVob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 17:44:31 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kl14so7800735pab.25
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 14:44:31 -0700 (PDT)
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:46220 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075Ab3JGWJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 18:09:38 -0400
+Received: by mail-ie0-f179.google.com with SMTP id e14so16755199iej.24
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 15:09:37 -0700 (PDT)
+In-Reply-To: <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 10/04/2013 01:10 PM, Neil Horman wrote:
+> Hey all-
+>       heres the next, updated version of the vsi/macvlan integration that we've
+> been discussing.
+>
+> Some change notes:
+>
+> * Changes to the fowarding ops structure - Removed the priv_size field, and
+> added a flags field.  Removal of the priv_size field was accomplished by just
+> having the add method return a void * and using ERR_PTR and PTR_ERR checks,
+> which also allows us to allocate memory for the acceleration path in the driver,
+> which I like.  I'm not super happy still with how I'm using the flags (currenly
+> only used to indicate support for feature sets), but at least we have the flags
+> now, and they can be exposed to user space via iproute2 or ethtool if need be
 
-Steinar reported FQ pacing was not working for UDP flows.
+For the flag why not use the existing feature flag namespace? Adding
+NETIF_F_HW_L2FW_DOFFLOAD or something equivalent to netdev_features.h
+and also doing the string updates would get the userspace support for
+free.
 
-It looks like the initial sk->sk_pacing_rate value of 0 was
-a wrong choice. We should init it to ~0U like sk_max_pacing_rate
+The one downside of a global feature flag approach like this is if
+the user wants to create some offloaded macvlan devices and some SW
+only macvlans the control sequence is a bit clumsy. But unless we add
+a new flag to the macvlan netlink message I'm not sure how to avoid
+this. Further if you have multiple control applications
+creating/deleting these macvlans the flag mechanism starts to break
+down. One app sets the flag the other deletes, you get the idea.
 
-Then, TCA_FQ_FLOW_DEFAULT_RATE should be removed because it makes
-no real sense. (The default rate is really : ~0U)
+It might be worth adding a netlink flag to change the state of
+the HW offload. I know this goes against the 'it just gets offloaded'
+line of thought, but if you make the default to offload then it should
+be OK.
 
-While debugging this issue, I realized sk_pacing_rate is shared between
-transport and packet scheduler without locking / barriers :
+>
+> * Changes to the Transmit path - Specifically I'm using dev_queue_xmit to send
+> frames now, which I like as it makes the macvlan subject to the lowerdevs qdisc
+> configuration.
 
-We should use ACCESS_ONCE() to make sure compiler wont perform
-multiple loads or stores.
+This creates perhaps another oddity where on TX the packets will be
+visible to the lowerdev. Think tcpdump and egress qdisc. But on ingress
+the packets will be delivered directly to macvlan device. Also I was
+thinking there might be good reasons to skip the lowerdev qdisc, for
+performance reasons or QOS setups.
 
-Reported-by: Steinar H. Gunderson <sesse@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/sock.c      |    1 +
- net/ipv4/tcp_input.c |    7 ++++++-
- net/sched/sch_fq.c   |   20 +++++++++-----------
- 3 files changed, 16 insertions(+), 12 deletions(-)
+So it might be best the way you had it in the previous revision even if
+it was not functionally equivalent to the SW path. If you skip the lower
+dev and submit directly to the hardware then you also don't need a
+sk_buff change. The driver can do a lookup via the skb->dev field and
+additional hints from the stack are not needed.
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 2bd9b3f..fd6afa2 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2331,6 +2331,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- #endif
- 
- 	sk->sk_max_pacing_rate = ~0U;
-+	sk->sk_pacing_rate = ~0U;
- 	/*
- 	 * Before updating sk_refcnt, we must commit prior changes to memory
- 	 * (Documentation/RCU/rculist_nulls.txt for details)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index fa6cf1f..d95f875 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -755,7 +755,12 @@ static void tcp_update_pacing_rate(struct sock *sk)
- 	if (tp->srtt > 8 + 2)
- 		do_div(rate, tp->srtt);
- 
--	sk->sk_pacing_rate = min_t(u64, rate, sk->sk_max_pacing_rate);
-+	/* ACCESS_ONCE() is needed because FQ fetches sk_pacing_rate without
-+	 * any lock. We want to make sure compiler wont use sk_pacing_rate
-+	 * with intermediate values.
-+	 */
-+	ACCESS_ONCE(sk->sk_pacing_rate) = min_t(u64, rate,
-+						sk->sk_max_pacing_rate);
- }
- 
- /* Calculate rto without backoff.  This is the second half of Van Jacobson's
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index a2fef8b..46b2adb 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -472,20 +472,16 @@ begin:
- 	if (f->credit > 0 || !q->rate_enable)
- 		goto out;
- 
--	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT) {
--		rate = skb->sk->sk_pacing_rate ?: q->flow_default_rate;
-+	rate = q->flow_max_rate;
-+	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
-+		rate = min(ACCESS_ONCE(skb->sk->sk_pacing_rate), rate);
- 
--		rate = min(rate, q->flow_max_rate);
--	} else {
--		rate = q->flow_max_rate;
--		if (rate == ~0U)
--			goto out;
--	}
--	if (rate) {
-+	if (rate != ~0U) {
- 		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
- 		u64 len = (u64)plen * NSEC_PER_SEC;
- 
--		do_div(len, rate);
-+		if (likely(rate))
-+			do_div(len, rate);
- 		/* Since socket rate can change later,
- 		 * clamp the delay to 125 ms.
- 		 * TODO: maybe segment the too big skb, as in commit
-@@ -735,12 +731,14 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	if (opts == NULL)
- 		goto nla_put_failure;
- 
-+	/* TCA_FQ_FLOW_DEFAULT_RATE is not used anymore,
-+	 * do not bother giving its value
-+	 */
- 	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
- 	    nla_put_u32(skb, TCA_FQ_QUANTUM, q->quantum) ||
- 	    nla_put_u32(skb, TCA_FQ_INITIAL_QUANTUM, q->initial_quantum) ||
- 	    nla_put_u32(skb, TCA_FQ_RATE_ENABLE, q->rate_enable) ||
--	    nla_put_u32(skb, TCA_FQ_FLOW_DEFAULT_RATE, q->flow_default_rate) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_MAX_RATE, q->flow_max_rate) ||
- 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
- 		goto nla_put_failure;
+If there is a perceived problem with not having the HW and SW completely
+equivalent functionally we could always default the feature flag to off.
+Then enabling the feature would be a single 'ethtool' command. This
+seems like a nice compromise.
+
+I like where this is going though!
+
+Thanks,
+John
+
+-- 
+John Fastabend         Intel Corporation
