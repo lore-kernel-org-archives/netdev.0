@@ -1,185 +1,156 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2] static_key: WARN on usage before jump_label_init was called
-Date: Mon, 7 Oct 2013 18:57:36 +0200
-Message-ID: <20131007165736.GJ9295@order.stressinduktion.org>
-References: <1381015258-7667-1-git-send-email-hannes@stressinduktion.org> <1381015258-7667-4-git-send-email-hannes@stressinduktion.org> <20131005200558.3be2f841@gandalf.local.home> <20131006001247.GB25076@order.stressinduktion.org> <20131006182919.GD9295@order.stressinduktion.org> <20131007115152.0964afde@gandalf.local.home>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets
+ following an UFO enqueued packet need also be handled by UFO]
+Date: Mon, 7 Oct 2013 10:19:41 -0700
+Message-ID: <20131007171941.GB24536@jonmason-lab>
+References: <20131001123214.GI10771@order.stressinduktion.org>
+ <20131001214721.GJ10771@order.stressinduktion.org>
+ <20131001232534.GM10771@order.stressinduktion.org>
+ <20131002085842.GA1528@minipsycho.brq.redhat.com>
+ <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131002121207.GO10771@order.stressinduktion.org>
+ <20131002130329.GP10771@order.stressinduktion.org>
+ <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131002162730.GA3991@order.stressinduktion.org>
+ <20131007165343.GI9295@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, Jason Baron <jbaron@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Eric Dumazet <edumazet@google.com>,
-	"andi @ firstfloor. org David S. Miller" <davem@davemloft.net>,
-	x86@kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: jdmason@kudzu.us, Jiri Pirko <jiri@resnulli.us>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, herbert@gondor.apana.org.au,
+	eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:14477 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755841Ab3JGRTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Oct 2013 13:19:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20131007115152.0964afde@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131007165343.GI9295@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 07, 2013 at 11:51:52AM -0400, Steven Rostedt wrote:
-> On Sun, 6 Oct 2013 20:29:19 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Mon, Oct 07, 2013 at 06:53:43PM +0200, Hannes Frederic Sowa wrote:
+> Hi Jon!
 > 
+> Maybe I got the wrong email address for the neterion driver from the
+> maintainers filer? If you are (still) affiliated with the neterion driver,
+> maybe you could have a short look at the quoted mail below?
+
+Both are valid email addresses, but I prefer to address non-Intel
+issues with my kudzu.us email account.
+
+I apologize for not addressing your question yet.  What you are saying
+makes sense, but I want to dig through the documentation and verify.
+However, I haven't had the time.  I'll brew up a pot of coffee when I
+get home and I'll get an answer to you before I go to bed tonight :)
+
+Thanks,
+Jon
+
 > 
-> > diff --git a/lib/jump_label_initialized.c b/lib/jump_label_initialized.c
-> > new file mode 100644
-> > index 0000000..a668a40
-> > --- /dev/null
-> > +++ b/lib/jump_label_initialized.c
-> > @@ -0,0 +1,6 @@
-> > +#include <linux/types.h>
-> > +#include <linux/cache.h>
-> > +
-> > +bool static_key_initialized __read_mostly = false;
-> > +EXPORT_SYMBOL_GPL(static_key_initialized);
-> > +
+> Thanks,
 > 
-> So far, the only thing I don't like about this patch is the creation of
-> this file for the sole purpose of adding this variable.
+>   Hannes
 > 
-> Perhaps it can just be added to init/main.c?
-
-Yes, init/main.c seems to be a good fit. I also fixed some whitespace issues
-and simplified the macro (as it is only one statement).
-
-[PATCH v2] static_key: WARN on usage before jump_label_init was called
-
-Based on a patch from Andi Kleen.
-
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Andi Kleen <andi@firstfloor.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/jump_label.h           | 10 ++++++++++
- include/linux/jump_label_ratelimit.h |  2 ++
- init/main.c                          |  7 +++++++
- kernel/jump_label.c                  |  5 +++++
- 4 files changed, 24 insertions(+)
-
-diff --git a/include/linux/jump_label.h b/include/linux/jump_label.h
-index a507907..e96be72 100644
---- a/include/linux/jump_label.h
-+++ b/include/linux/jump_label.h
-@@ -48,6 +48,13 @@
- 
- #include <linux/types.h>
- #include <linux/compiler.h>
-+#include <linux/bug.h>
-+
-+extern bool static_key_initialized;
-+
-+#define STATIC_KEY_CHECK_USE() WARN(!static_key_initialized,		      \
-+				    "%s used before call to jump_label_init", \
-+				    __func__)
- 
- #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
- 
-@@ -128,6 +135,7 @@ struct static_key {
- 
- static __always_inline void jump_label_init(void)
- {
-+	static_key_initialized = true;
- }
- 
- static __always_inline bool static_key_false(struct static_key *key)
-@@ -146,11 +154,13 @@ static __always_inline bool static_key_true(struct static_key *key)
- 
- static inline void static_key_slow_inc(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_inc(&key->enabled);
- }
- 
- static inline void static_key_slow_dec(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_dec(&key->enabled);
- }
- 
-diff --git a/include/linux/jump_label_ratelimit.h b/include/linux/jump_label_ratelimit.h
-index 1137883..089f70f 100644
---- a/include/linux/jump_label_ratelimit.h
-+++ b/include/linux/jump_label_ratelimit.h
-@@ -23,12 +23,14 @@ struct static_key_deferred {
- };
- static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	static_key_slow_dec(&key->key);
- }
- static inline void
- jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- }
- #endif	/* HAVE_JUMP_LABEL */
- #endif	/* _LINUX_JUMP_LABEL_RATELIMIT_H */
-diff --git a/init/main.c b/init/main.c
-index af310af..6735b631 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -136,6 +136,13 @@ static char *execute_command;
- static char *ramdisk_execute_command;
- 
- /*
-+ * Used to generate warnings if static_key manipulation functions are used
-+ * before boot
-+ */
-+bool static_key_initialized __read_mostly = false;
-+EXPORT_SYMBOL_GPL(static_key_initialized);
-+
-+/*
-  * If set, this is an indication to the drivers that reset the underlying
-  * device before going ahead with the initialization otherwise driver might
-  * rely on the BIOS and skip the reset operation.
-diff --git a/kernel/jump_label.c b/kernel/jump_label.c
-index 297a924..9019f15 100644
---- a/kernel/jump_label.c
-+++ b/kernel/jump_label.c
-@@ -58,6 +58,7 @@ static void jump_label_update(struct static_key *key, int enable);
- 
- void static_key_slow_inc(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	if (atomic_inc_not_zero(&key->enabled))
- 		return;
- 
-@@ -103,12 +104,14 @@ static void jump_label_update_timeout(struct work_struct *work)
- 
- void static_key_slow_dec(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(key, 0, NULL);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec);
- 
- void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(&key->key, key->timeout, &key->work);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
-@@ -116,6 +119,7 @@ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
- void jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- 	key->timeout = rl;
- 	INIT_DELAYED_WORK(&key->work, jump_label_update_timeout);
- }
-@@ -212,6 +216,7 @@ void __init jump_label_init(void)
- 		key->next = NULL;
- #endif
- 	}
-+	static_key_initialized = true;
- 	jump_label_unlock();
- }
- 
--- 
-1.8.3.1
+> On Wed, Oct 02, 2013 at 06:27:30PM +0200, Hannes Frederic Sowa wrote:
+> > Hi!
+> > 
+> > I have a question regarding UFO and the neterion driver, which as the only one
+> > advertises hardware UFO support:
+> > 
+> > The patch discusses in this thread
+> > http://thread.gmane.org/gmane.linux.network/284348/focus=285405 could change
+> > some semantics how packets are constructed before submitted to the driver.
+> > 
+> > We currently guarantee that we have the MAC/IP/UDP header in skb->data and the
+> > payload is attached in the skb's frags. With the changes discussed in this
+> > thread it is possible that we also append to skb->data some amount of data
+> > which is not targeted for the header. From reading the driver sources it seems
+> > the hardware interprets the skb->data to skb_headlen as the header, so we
+> > could include some data in the fragments more than once.
+> > 
+> > Do you think this change is safe? Otherwise I would suggest that the UFO
+> > capability is switched off until the driver signals the hardware the start and
+> > end of the headers correctly?
+> > 
+> > I left the mail below intact which points to the specific place in s2io.c
+> > where I think the problem is.
+> > 
+> > On Wed, Oct 02, 2013 at 08:14:27AM -0700, Eric Dumazet wrote:
+> > > On Wed, 2013-10-02 at 15:03 +0200, Hannes Frederic Sowa wrote:
+> > > > On Wed, Oct 02, 2013 at 02:12:07PM +0200, Hannes Frederic Sowa wrote:
+> > > > > Hi Eric!
+> > > > > 
+> > > > > On Wed, Oct 02, 2013 at 03:41:28AM -0700, Eric Dumazet wrote:
+> > > > > > On Wed, 2013-10-02 at 10:58 +0200, Jiri Pirko wrote:
+> > > > > > > Wed, Oct 02, 2013 at 01:25:34AM CEST, hannes@stressinduktion.org wrote:
+> > > > > > > >-	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
+> > > > > > > >+	if (((length > mtu) || (skb && skb_has_frags(skb))) &&
+> > > > > > 
+> > > > > > > 
+> > > > > > > This seems correct to me. sk_is_gso would work as well is you apply my
+> > > > > > > patch "[patch net] ip6_output: do skb ufo init for peeked non ufo skb as
+> > > > > > > well" which does the setting of gso_size.
+> > > > > > 
+> > > > > > Well, skb having frags or not should not be a concern :
+> > > > > > Thats an allocation choice (lets say to avoid high order allocations). 
+> > > > > > 
+> > > > > > Setting gso_size is probably better.
+> > > > > 
+> > > > > e89e9cf539a28df7d0eb1d0a545368e9920b34ac ("[IPv4/IPv6]: UFO Scatter-gather
+> > > > > approach") states:
+> > > > > 
+> > > > > "
+> > > > > skb->data will contain MAC/IP/UDP header and skb_shinfo(skb)->frags[]
+> > > > > contains the data payload. The skb->ip_summed will be set to CHECKSUM_HW
+> > > > > indicating that hardware has to do checksum calculation. Hardware should
+> > > > > compute the UDP checksum of complete datagram and also ip header checksum of
+> > > > > each fragmented IP packet.
+> > > > > "
+> > > > > 
+> > > > > This is the reason why I tried not to update the gso_size. If it is ok, I am
+> > > > > fine with that.
+> > > > 
+> > > > Especially, drivers/net/ethernet/neterion/s2io.c states that the first dma
+> > > > mapping (skb->data with skb_headlen, which is fine) is used as the inband
+> > > > header:
+> > > > 
+> > > >         if (offload_type == SKB_GSO_UDP)
+> > > >                 frg_cnt++; /* as Txd0 was used for inband header */
+> > > > 
+> > > > That is my only other hint that we maybe should not update gso_size and
+> > > > gso_type. I guess software fallback does not have this problem, but I won't
+> > > > have time to check until this evening.
+> > > > 
+> > > > I am really not sure if just setting gso_size does not break neterion UFO
+> > > > offloading. :/
+> > > 
+> > > Well, just ask Jon Mason to double check ;)
+> > > 
+> > > I think the commit intent was to set gso_size :
+> > > 
+> > >    skb_shinfo(skb)->ufo_size will indicate the length of data part in each IP
+> > >     fragment going out of the adapter after IP fragmentation by hardware.
+> > > 
+> > > The fact that it states "skb->data will contain MAC/IP/UDP header and
+> > > skb_shinfo(skb)->frags[] contains the data payload." seems irrelevant.
+> > > 
+> > > If Neterion driver mandates that skb->head *only* contains the
+> > > MAC/IP/UDP header, that should be handled in the driver itself.
+> > 
+> > Thanks Eric for clearing this up.
+> > 
+> > I really thought it would be the common pattern for UFO to have only headers
+> > in skb->data, so I didn't bother to ask in the first place.
+> > 
+> > Thanks,
+> > 
+> >   Hannes
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
