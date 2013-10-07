@@ -1,74 +1,64 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH RFC 54/77] ntb: Ensure number of MSIs on SNB is enough
- for the link interrupt
-Date: Mon, 7 Oct 2013 09:50:57 -0700
-Message-ID: <20131007165056.GA24536@jonmason-lab>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <5d9c5b2d3bbc444ff32bddeece7a239d046bd79c.1380703263.git.agordeev@redhat.com>
- <20131003004805.GL6768@jonmason-lab>
- <20131005214303.GA21589@dhcp-26-207.brq.redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Mon, 7 Oct 2013 12:46:47 -0400
+Message-ID: <20131007164647.GA2481@htj.dyndns.org>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	stable@vger.kernel.org, linux-pci@vger.kernel.org,
-	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-drivers@vmw
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, cgroups@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131005214303.GA21589@dhcp-26-207.brq.redhat.com>
-Sender: linux-ide-owner@vger.kernel.org
+In-Reply-To: <1380910855-12325-1-git-send-email-dborkman@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 05, 2013 at 11:43:04PM +0200, Alexander Gordeev wrote:
-> On Wed, Oct 02, 2013 at 05:48:05PM -0700, Jon Mason wrote:
-> > On Wed, Oct 02, 2013 at 12:49:10PM +0200, Alexander Gordeev wrote:
-> > > Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
-> > > ---
-> > >  drivers/ntb/ntb_hw.c |    2 +-
-> > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > > index de2062c..eccd5e5 100644
-> > > --- a/drivers/ntb/ntb_hw.c
-> > > +++ b/drivers/ntb/ntb_hw.c
-> > > @@ -1066,7 +1066,7 @@ static int ntb_setup_msix(struct ntb_device *ndev)
-> > >  		/* On SNB, the link interrupt is always tied to 4th vector.  If
-> > >  		 * we can't get all 4, then we can't use MSI-X.
-> > >  		 */
-> > > -		if (ndev->hw_type != BWD_HW) {
-> > > +		if ((rc < SNB_MSIX_CNT) && (ndev->hw_type != BWD_HW)) {
-> > 
-> > Nack, this check is unnecessary.
+Hello,
+
+On Fri, Oct 04, 2013 at 08:20:55PM +0200, Daniel Borkmann wrote:
+> It would be useful e.g. in a server or desktop environment to have
+> a facility in the notion of fine-grained "per application" or "per
+> application group" firewall policies. Probably, users in the mobile/
+> embedded area (e.g. Android based) with different security policy
+> requirements for application groups could have great benefit from
+> that as well. For example, with a little bit of configuration effort,
+> an admin could whitelist well-known applications, and thus block
+> otherwise unwanted "hard-to-track" applications like [1] from a
+> user's machine.
 > 
-> If SNB can do more than SNB_MSIX_CNT MSI-Xs then this check is needed
-> to enable less than maximum MSI-Xs in case the maximum was not allocated.
-> Otherwise SNB will fallback to single MSI instead of multiple MSI-Xs.
+> Implementation of PID-based matching would not be appropriate
+> as they frequently change, and child tracking would make that
+> even more complex and ugly. Cgroups would be a perfect candidate
+> for accomplishing that as they associate a set of tasks with a
+> set of parameters for one or more subsystems, in our case the
+> netfilter subsystem, which, of course, can be combined with other
+> cgroup subsystems into something more complex.
+> 
+> As mentioned, to overcome this constraint, such processes could
+> be placed into one or multiple cgroups where different fine-grained
+> rules can be defined depending on the application scenario, while
+> e.g. everything else that is not part of that could be dropped (or
+> vice versa), thus making life harder for unwanted processes to
+> communicate to the outside world. So, we make use of cgroups here
+> to track jobs and limit their resources in terms of iptables
+> policies; in other words, limiting what they are allowed to
+> communicate.
+> 
+> We have similar cgroup facilities in networking for traffic
+> classifier, and netprio cgroups. This feature adds a lightweight
+> cgroup id matching in terms of network security resp. network
+> traffic isolation as part of netfilter's xtables subsystem.
 
-Per the comment in the code snippet above, "If we can't get all 4,
-then we can't use MSI-X".  There is already a check to see if more
-than 4 were acquired.  So it's not possible to hit this.  Even if it
-was, don't use SNB_MSIX_CNT here (limits.msix_cnt is the preferred
-variable).  Also, the "()" are unnecessary.
+I don't think the two net cgroups were a good idea and definitely
+don't want to continue the trend.  I think this is being done
+backwards.  Wouldn't it be more logical to implement netfilter rule to
+match the target cgroup paths?  It really doesn't make much sense to
+me to add separate controllers to just tag processes.  Please classify
+tasks in cgroup and let netfilter match the cgroups.
 
-Thanks,
-Jon
+Thanks.
 
-> -- 
-> Regards,
-> Alexander Gordeev
-> agordeev@redhat.com
+-- 
+tejun
