@@ -1,63 +1,37 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: increment drop counters in
- qdisc_tree_decrease_qlen()
-Date: Mon, 07 Oct 2013 08:32:32 -0700
-Message-ID: <1381159952.12191.14.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: IPv6 path MTU discovery broken
+Date: Mon, 07 Oct 2013 08:49:36 -0700
+Message-ID: <1381160976.12191.16.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20130927201420.GB12043@sesse.net>
+	 <20130928203318.GC23654@order.stressinduktion.org>
+	 <20131006120612.GA27852@sesse.net>
+	 <20131007015252.GE9295@order.stressinduktion.org>
+	 <20131007030910.GG9295@order.stressinduktion.org>
+	 <20131007083228.GB18903@sesse.net>
+	 <20131007143206.GH9295@order.stressinduktion.org>
+	 <20131007143404.GA24997@sesse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, edumazet@google.com, fan.du@windriver.com
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:60356 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634Ab3JGPce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 11:32:34 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so7213524pdj.8
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 08:32:34 -0700 (PDT)
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:58595 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751508Ab3JGPtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 11:49:39 -0400
+Received: by mail-pb0-f49.google.com with SMTP id xb4so7192389pbc.8
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 08:49:39 -0700 (PDT)
+In-Reply-To: <20131007143404.GA24997@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2013-10-07 at 16:34 +0200, Steinar H. Gunderson wrote:
+> On Mon, Oct 07, 2013 at 04:32:06PM +0200, Hannes Frederic Sowa wrote:
+> > Strange, I have them in nstat:
+> > 
+> > $ nstat -z | egrep  '(TcpExtOutOfWindowIcmps|Icmp6InErrors|TcpExtTCPMinTTLDrop|TcpExtListenDrops)'
+> 
+> -z was the trick. (I've never used nstat before.)
 
-qdisc_tree_decrease_qlen() is called when some packets are dropped
-on a qdisc, and we want to notify parents of qlen changes.
-
-We also can increment parents qdisc qstats drop counters.
-
-This permits more accurate drop counters up to root qdisc.
-
-For example a graft operation typically resets a qdisc 
-(drops all packets) and call qdisc_tree_decrease_qlen()
-
-Note that callers are responsible for their drop counters.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_api.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 2adda7f..cd81505 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -737,9 +737,11 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 	const struct Qdisc_class_ops *cops;
- 	unsigned long cl;
- 	u32 parentid;
-+	int drops;
- 
- 	if (n == 0)
- 		return;
-+	drops = max_t(int, n, 0);
- 	while ((parentid = sch->parent)) {
- 		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
- 			return;
-@@ -756,6 +758,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 			cops->put(sch, cl);
- 		}
- 		sch->q.qlen -= n;
-+		sch->qstats.drops += drops;
- 	}
- }
- EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
+Best might be to use -a  (absolute counters).
