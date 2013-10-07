@@ -1,87 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 0/2 v2] net: alternate proposal for using macvlans
- with forwarding acceleration
-Date: Mon, 07 Oct 2013 15:09:11 -0700
-Message-ID: <52533107.6060306@gmail.com>
-References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com> <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [E1000-devel] [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts
+ enablement pattern
+Date: Mon, 7 Oct 2013 22:21:49 +0000
+Message-ID: <1381184508.16853.20.camel@ppwaskie-mobl2>
+References: <cover.1380703262.git.agordeev@redhat.com>
+         <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
+         <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
+         <1380922156.3214.49.camel@bwh-desktop.uk.level5networks.com>
+         <20131005142054.GA11270@dhcp-26-207.brq.redhat.com>
+         <1381009586.645.141.camel@pasglop>
+         <20131006060243.GB28142@dhcp-26-207.brq.redhat.com>
+         <1381040386.645.143.camel@pasglop>
+         <20131006071027.GA29143@dhcp-26-207.brq.redhat.com>
+         <20131007180111.GC2481@htj.dyndns.org> <1381176656.645.171.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:46220 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751075Ab3JGWJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 18:09:38 -0400
-Received: by mail-ie0-f179.google.com with SMTP id e14so16755199iej.24
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 15:09:37 -0700 (PDT)
-In-Reply-To: <1380917405-23801-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tejun Heo <tj@kernel.org>,
+        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
+        "VMware, Inc." <pv-drivers@vmware.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "linux-nvme@lists.infradead.org" <linux-nvme@lists.infradead.org>,
+        "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        King <acking@vmware.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "x86@kernel.org" <x86@kernel.org>,
+        "Ben Hutchings" <bhutchings@solarflare.com>,
+        Alexander Gordeev <agordeev@redhat.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        "iss_storagedev@hp.com" <iss_storagedev@hp.com>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        "lin
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1381176656.645.171.camel@pasglop>
+Content-Language: en-US
+Content-ID: <5266EE94AAF93F43AF6E5E9594A7A470@intel.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On 10/04/2013 01:10 PM, Neil Horman wrote:
-> Hey all-
->       heres the next, updated version of the vsi/macvlan integration that we've
-> been discussing.
->
-> Some change notes:
->
-> * Changes to the fowarding ops structure - Removed the priv_size field, and
-> added a flags field.  Removal of the priv_size field was accomplished by just
-> having the add method return a void * and using ERR_PTR and PTR_ERR checks,
-> which also allows us to allocate memory for the acceleration path in the driver,
-> which I like.  I'm not super happy still with how I'm using the flags (currenly
-> only used to indicate support for feature sets), but at least we have the flags
-> now, and they can be exposed to user space via iproute2 or ethtool if need be
-
-For the flag why not use the existing feature flag namespace? Adding
-NETIF_F_HW_L2FW_DOFFLOAD or something equivalent to netdev_features.h
-and also doing the string updates would get the userspace support for
-free.
-
-The one downside of a global feature flag approach like this is if
-the user wants to create some offloaded macvlan devices and some SW
-only macvlans the control sequence is a bit clumsy. But unless we add
-a new flag to the macvlan netlink message I'm not sure how to avoid
-this. Further if you have multiple control applications
-creating/deleting these macvlans the flag mechanism starts to break
-down. One app sets the flag the other deletes, you get the idea.
-
-It might be worth adding a netlink flag to change the state of
-the HW offload. I know this goes against the 'it just gets offloaded'
-line of thought, but if you make the default to offload then it should
-be OK.
-
->
-> * Changes to the Transmit path - Specifically I'm using dev_queue_xmit to send
-> frames now, which I like as it makes the macvlan subject to the lowerdevs qdisc
-> configuration.
-
-This creates perhaps another oddity where on TX the packets will be
-visible to the lowerdev. Think tcpdump and egress qdisc. But on ingress
-the packets will be delivered directly to macvlan device. Also I was
-thinking there might be good reasons to skip the lowerdev qdisc, for
-performance reasons or QOS setups.
-
-So it might be best the way you had it in the previous revision even if
-it was not functionally equivalent to the SW path. If you skip the lower
-dev and submit directly to the hardware then you also don't need a
-sk_buff change. The driver can do a lookup via the skb->dev field and
-additional hints from the stack are not needed.
-
-If there is a perceived problem with not having the HW and SW completely
-equivalent functionally we could always default the feature flag to off.
-Then enabling the feature would be a single 'ethtool' command. This
-seems like a nice compromise.
-
-I like where this is going though!
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+T24gVHVlLCAyMDEzLTEwLTA4IGF0IDA3OjEwICsxMTAwLCBCZW5qYW1pbiBIZXJyZW5zY2htaWR0
+IHdyb3RlOg0KPiBPbiBNb24sIDIwMTMtMTAtMDcgYXQgMTQ6MDEgLTA0MDAsIFRlanVuIEhlbyB3
+cm90ZToNCj4gPiBJIGRvbid0IHRoaW5rIHRoZSBzYW1lIHJhY2UgY29uZGl0aW9uIHdvdWxkIGhh
+cHBlbiB3aXRoIHRoZSBsb29wLiAgVGhlDQo+ID4gcHJvYmxlbSBjYXNlIGlzIHdoZXJlIG11bHRp
+cGxlIG1zaSh4KSBhbGxvY2F0aW9uIGZhaWxzIGNvbXBsZXRlbHkNCj4gPiBiZWNhdXNlIHRoZSBn
+bG9iYWwgbGltaXQgd2VudCBkb3duIGJlZm9yZSBpbnF1aXJ5IGFuZCBhbGxvY2F0aW9uLiAgSW4N
+Cj4gPiB0aGUgbG9vcCBiYXNlZCBpbnRlcmZhY2UsIGl0J2QgcmV0cnkgd2l0aCB0aGUgbG93ZXIg
+bnVtYmVyLg0KPiA+IA0KPiA+IEFzIGxvbmcgYXMgdGhlIG51bWJlciBvZiBkcml2ZXJzIHdoaWNo
+IG5lZWQgdGhpcyBzb3J0IG9mIGFkYXB0aXZlDQo+ID4gYWxsb2NhdGlvbiBpc24ndCB0b28gaGln
+aCBhbmQgdGhlIGNvbW1vbiBjYXNlcyBjYW4gYmUgbWFkZSBzaW1wbGUsIEkNCj4gPiBkb24ndCB0
+aGluayB0aGUgImNvbXBsZXgiIHBhcnQgb2YgaW50ZXJmYWNlIGlzIGFsbCB0aGF0IGltcG9ydGFu
+dC4NCj4gPiBNYXliZSB3ZSBjYW4gaGF2ZSByZXNlcnZlIC8gY2FuY2VsIHR5cGUgaW50ZXJmYWNl
+IG9yIGp1c3Qga2VlcCB0aGUNCj4gPiBsb29wIHdpdGggbW9yZSBleHBsaWNpdCBmdW5jdGlvbiBu
+YW1lcyAoaWUuIHRyeV9lbmFibGUgb3Igc29tZXRoaW5nDQo+ID4gbGlrZSB0aGF0KS4NCj4gDQo+
+IFdlIHdhbnQgdG8gYmUgYWJsZSB0byByZXF1ZXN0IGFuIE1TSS1YIGF0IHJ1bnRpbWUgYW55d2F5
+IC4uLiBpZiBJIHdhbnQNCj4gdG8gZHluYW1pY2FsbHkgYWRkIGEgcXVldWUgdG8gbXkgbmV0d29y
+ayBpbnRlcmZhY2UsIEkgd2FudCBpdCB0byBiZSBhYmxlDQo+IHRvIHBvcCBhIG5ldyBhcmJpdHJh
+cnkgTVNJLVguDQoNCklmIHlvdSB3YW50IHRvIGR5bmFtaWNhbGx5IGFsbG9jYXRlIGFub3RoZXIg
+cXVldWUsIHlvdSdkIGVpdGhlciBuZWVkIHRvDQpoYXZlIHRoZW0gYWxsIHByZS1hbGxvY2F0ZWQg
+YXQgYWxsb2NfZXRoZXJkZXZfbXFzKCksIG9yIGFkZCBhIG5ldyBBUEkgdG8NCm5ldGRldiB0aGF0
+IGFsbG93cyBhZGRpbmcgbmV3IHF1ZXVlcyBvbiB0aGUgZmx5Lg0KDQpIb3cgdGhpbmdzIGFyZSBk
+b25lIHRvZGF5LCB0aGUgVHggcXVldWVzIGFyZSBhbGwgdGFja2VkIG9udG8gdGhlIGVuZCBvZg0K
+dGhlIG5ldGRldiBzdHJ1Y3QuICBUaGF0IHdvdWxkIGhhdmUgdG8gY2hhbmdlIHRvIHByb2JhYmx5
+IGEgbGlua2VkIGxpc3QNCm9mIHF1ZXVlcyB0aGF0IGNvdWxkIGJlIGdyb3duIG9yIHNocnVuayBv
+biB0aGUgZmx5Lg0KbmV0aWZfYWxsb2NfbmV0ZGV2X3F1ZXVlcygpIHdvdWxkIG5lZWQgdG8gY2hh
+bmdlIHRoZSBremFsbG9jKCkgdG8gYSBsaXN0DQphbGxvY2F0aW9uLg0KDQpDaGVlcnMsDQotUEoN
+Cg==
