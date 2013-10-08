@@ -1,48 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] Improve UDP multicast receive latency
-Date: Tue, 08 Oct 2013 16:51:47 -0400 (EDT)
-Message-ID: <20131008.165147.1204109363656237950.davem@davemloft.net>
-References: <1381161700-14453-1-git-send-email-shawn.bohrer@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] cgroup: netprio: remove unnecessary task_netprioidx
+Date: Tue, 08 Oct 2013 16:52:00 -0400 (EDT)
+Message-ID: <20131008.165200.1283976903385872809.davem@davemloft.net>
+References: <1381201520-25938-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tomk@rgmadvisors.com,
-	eric.dumazet@gmail.com, sbohrer@rgmadvisors.com
-To: shawn.bohrer@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754699Ab3JHUvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:51:48 -0400
-In-Reply-To: <1381161700-14453-1-git-send-email-shawn.bohrer@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org
+To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1381201520-25938-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Date: Mon,  7 Oct 2013 11:01:37 -0500
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Date: Tue, 8 Oct 2013 11:05:19 +0800
 
-> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> Since the tasks have been migrated to the cgroup,
+> there is no need to call task_netprioidx to get
+> task's cgroup id.
 > 
-> The removal of the routing cache in 3.6 had impacted the latency of our
-> UDP multicast workload.  This patch series brings down the latency to
-> what we were seeing with 3.4.
-> 
-> Patch 1 "udp: Only allow busy read/poll on connected sockets" is mostly
-> done for correctness and because it allows unifying the unicast and
-> multicast paths when a socket is found in early demux.  It can also
-> improve latency for a connected multicast socket if busy read/poll is
-> used.
-> 
-> Patches 2&3 remove the fib lookups and restore latency for our workload
-> to the pre 3.6 levels.
-> 
-> Benchmark results from a netperf UDP_RR test:
-> v3.12-rc3-447-g40dc9ab kernel   87961.22 transactions/s
-> v3.12-rc3-447-g40dc9ab + series 90587.62 transactions/s
-> 
-> Benchmark results from a fio 1 byte UDP multicast pingpong test
-> (Multicast one way unicast response):
-> v3.12-rc3-447-g40dc9ab kernel   12.97us RTT
-> v3.12-rc3-447-g40dc9ab + series 12.48us RTT
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 
-Great work, all applied to net-next, thanks!
+Applied.
