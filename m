@@ -1,92 +1,54 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] moxa: fix the error handling in moxart_mac_probe()
-Date: Tue, 8 Oct 2013 11:26:41 +0800
-Message-ID: <CAPgLHd95Rv=sCCWFsuLwtGz5GL5+7N-y6zQ195uOXF3ebgcj3A@mail.gmail.com>
+Subject: [PATCH] qlcnic: add missing destroy_workqueue() on error path in qlcnic_probe()
+Date: Tue, 8 Oct 2013 11:32:17 +0800
+Message-ID: <CAPgLHd9oA08=1o_DWE0SGeg_7nokr3-WPEAOrG71bYg2C1676A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: grant.likely@linaro.org, rob.herring@calxeda.com,
-	davem@davemloft.net, jg1.han@samsung.com, b.zolnierkie@samsung.com,
-	kyungmin.park@samsung.com
+Cc: yongjun_wei@trendmicro.com.cn, linux-driver@qlogic.com,
+	netdev@vger.kernel.org
+To: himanshu.madhani@qlogic.com, rajesh.borundia@qlogic.com,
+	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
+	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:55096 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806Ab3JHD0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 23:26:42 -0400
-Received: by mail-bk0-f45.google.com with SMTP id mx11so2947250bkb.4
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 20:26:41 -0700 (PDT)
+Received: from mail-bk0-f53.google.com ([209.85.214.53]:41202 "EHLO
+	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751806Ab3JHDcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 23:32:19 -0400
+Received: by mail-bk0-f53.google.com with SMTP id d7so2935603bkh.40
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 20:32:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-This patch fix the error handling in moxart_mac_probe():
- - return -ENOMEM in some memory alloc fail cases
- - add missing free_netdev() in the error handling case
+Add the missing destroy_workqueue() before return from
+qlcnic_probe() in the error handling case.
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/ethernet/moxa/moxart_ether.c | 22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index bd1a2d2..ea54d95 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -448,7 +448,8 @@ static int moxart_mac_probe(struct platform_device *pdev)
- 	irq = irq_of_parse_and_map(node, 0);
- 	if (irq <= 0) {
- 		netdev_err(ndev, "irq_of_parse_and_map failed\n");
--		return -EINVAL;
-+		ret = -EINVAL;
-+		goto irq_map_fail;
- 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 21d00a0..f07f2b0 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2257,7 +2257,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	priv = netdev_priv(ndev);
-@@ -472,24 +473,32 @@ static int moxart_mac_probe(struct platform_device *pdev)
- 	priv->tx_desc_base = dma_alloc_coherent(NULL, TX_REG_DESC_SIZE *
- 						TX_DESC_NUM, &priv->tx_base,
- 						GFP_DMA | GFP_KERNEL);
--	if (priv->tx_desc_base == NULL)
-+	if (priv->tx_desc_base == NULL) {
-+		ret = -ENOMEM;
- 		goto init_fail;
-+	}
+ 	err = qlcnic_alloc_adapter_resources(adapter);
+ 	if (err)
+-		goto err_out_free_netdev;
++		goto err_out_free_wq;
  
- 	priv->rx_desc_base = dma_alloc_coherent(NULL, RX_REG_DESC_SIZE *
- 						RX_DESC_NUM, &priv->rx_base,
- 						GFP_DMA | GFP_KERNEL);
--	if (priv->rx_desc_base == NULL)
-+	if (priv->rx_desc_base == NULL) {
-+		ret = -ENOMEM;
- 		goto init_fail;
-+	}
+ 	adapter->dev_rst_time = jiffies;
+ 	adapter->ahw->revision_id = pdev->revision;
+@@ -2396,6 +2396,9 @@ err_out_disable_msi:
+ err_out_free_hw:
+ 	qlcnic_free_adapter_resources(adapter);
  
- 	priv->tx_buf_base = kmalloc(priv->tx_buf_size * TX_DESC_NUM,
- 				    GFP_ATOMIC);
--	if (!priv->tx_buf_base)
-+	if (!priv->tx_buf_base) {
-+		ret = -ENOMEM;
- 		goto init_fail;
-+	}
- 
- 	priv->rx_buf_base = kmalloc(priv->rx_buf_size * RX_DESC_NUM,
- 				    GFP_ATOMIC);
--	if (!priv->rx_buf_base)
-+	if (!priv->rx_buf_base) {
-+		ret = -ENOMEM;
- 		goto init_fail;
-+	}
- 
- 	platform_set_drvdata(pdev, ndev);
- 
-@@ -522,7 +531,8 @@ static int moxart_mac_probe(struct platform_device *pdev)
- init_fail:
- 	netdev_err(ndev, "init failed\n");
- 	moxart_mac_free_memory(ndev);
--
-+irq_map_fail:
-+	free_netdev(ndev);
- 	return ret;
- }
++err_out_free_wq:
++	destroy_workqueue(adapter->qlcnic_wq);
++
+ err_out_free_netdev:
+ 	free_netdev(netdev);
  
