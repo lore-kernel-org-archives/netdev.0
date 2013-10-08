@@ -1,115 +1,50 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v2 1/5] xen-netback: add IPv6 checksum offload
- to guest
-Date: Tue, 8 Oct 2013 13:14:30 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD012F261@AMSPEX01CL01.citrite.net>
-References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
- <1381229896-18657-2-git-send-email-paul.durrant@citrix.com>
- <20131008131000.GH28411@zion.uk.xensource.com>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] cgroup: netprio: remove unnecessary task_netprioidx
+Date: Tue, 8 Oct 2013 09:15:27 -0400
+Message-ID: <20131008131527.GA13089@hmsreliant.think-freely.org>
+References: <1381201520-25938-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:3952 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751746Ab3JHNOd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 09:14:33 -0400
-In-Reply-To: <20131008131000.GH28411@zion.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org
+To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1381201520-25938-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 08 October 2013 14:10
-> To: Paul Durrant
-> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
-> Ian Campbell
-> Subject: Re: [PATCH net-next v2 1/5] xen-netback: add IPv6 checksum
-> offload to guest
+On Tue, Oct 08, 2013 at 11:05:19AM +0800, Gao feng wrote:
+> Since the tasks have been migrated to the cgroup,
+> there is no need to call task_netprioidx to get
+> task's cgroup id.
 > 
-> On Tue, Oct 08, 2013 at 11:58:12AM +0100, Paul Durrant wrote:
-> > Check xenstore flag feature-ipv6-csum-offload to determine if a
-> > guest is happy to accept IPv6 packets with only partial checksum.
-> > Also check analogous feature-ip-csum-offload to determone if a
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> ---
+>  net/core/netprio_cgroup.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
-> determone -> determine
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index d9cd627..9b7cf6c 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -222,11 +222,10 @@ static void net_prio_attach(struct cgroup_subsys_state *css,
+>  			    struct cgroup_taskset *tset)
+>  {
+>  	struct task_struct *p;
+> -	void *v;
+> +	void *v = (void *)(unsigned long)css->cgroup->id;
+>  
+>  	cgroup_taskset_for_each(p, css, tset) {
+>  		task_lock(p);
+> -		v = (void *)(unsigned long)task_netprioidx(p);
+>  		iterate_fd(p->files, 0, update_netprio, v);
+>  		task_unlock(p);
+>  	}
+> -- 
+> 1.8.3.1
 > 
-
-Ok.
-
-> > guest is happy to accept IPv4 packets with only partial checksum
-> > as a replacement for a negated feature-no-csum-offload value and
-> > add a comment to deprecate use of feature-no-csum-offload.
-> >
-> [...]
-> > @@ -306,7 +308,7 @@ struct xenvif *xenvif_alloc(struct device *parent,
-> domid_t domid,
-> >  	vif->domid  = domid;
-> >  	vif->handle = handle;
-> >  	vif->can_sg = 1;
-> > -	vif->csum = 1;
-> > +	vif->ip_csum = 1;
-> 
-> Not setting a default value for vif->ipv6_csum?
 > 
 
-The default is 0 so no need.
-
-> >  	vif->dev = dev;
-> >
-> [...]
-> > +	/* Before feature-ipv6-csum-offload was introduced, checksum
-> offload
-> > +	 * was turned on by a zero value in (or lack of)
-> > +	 * feature-no-csum-offload. Therefore, for compatibility, assume
-> > +	 * that if feature-ip-csum-offload is missing that IP (v4) offload
-> > +	 * is turned on. If this is not the case then the flag will be
-> > +	 * cleared when we subsequently sample feature-no-csum-offload.
-> > +	 */
-> > +	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-ip-csum-
-> offload",
-> > +			 "%d", &val) < 0)
-> > +		val = 1;
-> > +	vif->ip_csum = !!val;
-> > +
-> > +	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-ipv6-csum-
-> offload",
-> > +			 "%d", &val) < 0)
-> > +		val = 0;
-> > +	vif->ipv6_csum = !!val;
-> > +
-> > +	/* This is deprecated. Frontends should set IP v4 and v6 checksum
-> > +	 * offload using feature-ip-csum-offload and
-> > +	 * feature-ipv6-csum-offload respectively.
-> > +	 */
-> 
-> These comments on feature flags should also be synchronized to master
-> netif.h in Xen and Linux's header. We've been trying to document thing
-> along the way for quite some time and the long term benifit is big.
-> 
-
-Ok. That sounds like a good idea. I'll add a patch to do that.
-
-> >  	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-no-csum-
-> offload",
-> >  			 "%d", &val) < 0)
-> >  		val = 0;
-> > -	vif->csum = !val;
-> > +	if (val)
-> > +		vif->ip_csum = 0;
-> 
-> Do you also need to set vif->ipv6_csum to 0? I don't think a frontend
-> which cannot deal with V4 csum offload has the ability to deal with V6
-> csum offload.
-> 
-
-I was just trying to preserve the existing semantic of feature-no-csum-offload, which only affects v4. Since it's deprecated, should we add a new semantic?
-
-  Paul
+Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
