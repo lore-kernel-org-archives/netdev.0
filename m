@@ -1,148 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: gro: allow to build full sized skb
-Date: Tue, 08 Oct 2013 09:02:23 -0700
-Message-ID: <1381248143.12191.53.camel@edumazet-glaptop.roam.corp.google.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: bug in passing file descriptors
+Date: Tue, 8 Oct 2013 09:02:38 -0700
+Message-ID: <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com>
+References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net>
+ <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net>
+ <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Steve Rago <sar@nec-labs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:54383 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872Ab3JHQC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:02:26 -0400
-Received: by mail-pa0-f54.google.com with SMTP id kx10so9126409pab.27
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 09:02:26 -0700 (PDT)
+Received: from mail-la0-f45.google.com ([209.85.215.45]:57216 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755949Ab3JHQDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:03:00 -0400
+Received: by mail-la0-f45.google.com with SMTP id eh20so7195753lab.32
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 09:02:58 -0700 (PDT)
+In-Reply-To: <52541769.1000306@nec-labs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Oct 8, 2013 at 7:32 AM, Steve Rago <sar@nec-labs.com> wrote:
+> On 10/07/2013 06:55 PM, Andi Kleen wrote:
+>>
+>> David Miller <davem@davemloft.net> writes:
+>>
+>>> From: Steve Rago <sar@nec-labs.com>
+>>> Date: Mon, 7 Oct 2013 16:29:15 -0400
+>>>
+>>>> On 10/07/2013 03:42 PM, David Miller wrote:
+>>>>>
+>>>>> There is no compatability issue.
+>>>>>
+>>>>> 32-bit tasks will always see the 4-byte align/length.
+>>>>> 64-bit tasks will always see the 8-byte align/length.
+>>>>>
+>>>>
+>>>> Really?  So when I compile my application on a 32-bit Linux box and
+>>>> then try to run it on a 64-bit Linux box, you're not going to overrun
+>>>> my buffer when CMSG_SPACE led me to allocate an insufficient amount of
+>>>> memory needed to account for padding on the 64-bit platform?
+>>>
+>>>
+>>> We have a compatability layer that gives 32-bit applications the
+>>> same behavior as if they had run on a 32-bit machine.
+>>>
+>>> Search around for the MSG_MSG_COMPAT flag and how that is used in
+>>> net/socket.c
+>>
+>>
+>> But it seems the compat layer doesn't handle this correctly,
+>> otherwise Steve's original test case would work.
+>>
+>> Must be a bug somewhere in the compat layer.
+>>
+>> -Andi
+>>
+>
+> I did some research last night and I think the problem stems from an
+> underspecified standard.  CMSG_LEN and CMSG_SPACE seem to have originated
+> with RFC 2292, which has since been obsoleted by RFC 3542.  The difference
+> is that CMSG_SPACE accounts for padding at the end, which is needed when you
+> stuff multiple cmsghdr objects in the same buffer.  CMSG_LEN is required to
+> be used to initialize the cmsg_len member of the structure.  When you only
+> have one cmsghdr object in your call to recvmsg, it is unclear whether you
+> need to have a buffer as large as CMSG_SPACE or CMSG_LEN.  Historically,
+> BSD-based platforms never had these macros and didn't return the ancillary
+> data if the space provided by the application wasn't big enough.  Linux,
+> *which has a bug*, won't copy more bytes than cmsg_len specifies when the
+> application uses CMSG_LEN instead of CMSG_SPACE, but then lies to the
+> application by overwriting msg_controllen.  Look in put_cmsg() in
+> net/core/scm.c: "cmlen" is calculated using CM_LEN, and then msg_controllen
+> is checked against it to make sure you don't overwrite the user's buffer.
+> However, in recvmsg(), msg_controllen is overwritten by "msg_sys.msg_control
+> - cmsg_ptr".  msg_control was incremented by CMSG_SPACE at the end of
+> scm_detach_fds().
+>
+> The Linux kernel code seems to copy the right amount of data, even in the
+> compat case, as far as I can tell.  The only bug I see is that
+> msg_controllen returns from recvmsg() with the wrong value.
 
-skb_gro_receive() is currently limited to 16 or 17 MSS per GRO skb,
-typically 24616 bytes, because it fills up to MAX_SKB_FRAGS frags.
+I don't see how the other behavior would be any less surprising.
+Suppose you had a control message with CMSG_LEN=12 and CMSG_SPACE=16.
+Then, with the semantics you want, one of them takes 12 bytes, two of
+them take 28 bytes, three take 44 bytes, etc.
 
-It's relatively easy to extend the skb using frag_list to allow
-more frags to be appended into the last sk_buff.
+That seems considerably more surprising than having then take 16, 32,
+and 48 bytes respectively.
 
-This still builds very efficient skbs, and allows reaching 45 MSS per
-skb.
-
-(45 MSS GRO packet uses one skb plus a frag_list containing 2 additional
-sk_buff)
-
-High speed TCP flows benefit from this extension by lowering TCP stack
-cpu usage (less packets stored in receive queue, less ACK packets
-processed)
-
-Forwarding setups could be hurt, as such skbs will need to be
-linearized, although its not a new problem, as GRO could already
-provide skbs with a frag_list.
-
-We could make the 65536 bytes threshold a tunable to mitigate this.
-
-(First time we need to linearize skb in skb_needs_linearize(), we could
-lower the tunable to ~16*1460 so that following skb_gro_receive() calls
-build smaller skbs)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |   43 ++++++++++++++++++++++++++-----------------
- 1 file changed, 26 insertions(+), 17 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d81cff1..8ead744 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2936,32 +2936,30 @@ EXPORT_SYMBOL_GPL(skb_segment);
- 
- int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
--	struct sk_buff *p = *head;
--	struct sk_buff *nskb;
--	struct skb_shared_info *skbinfo = skb_shinfo(skb);
--	struct skb_shared_info *pinfo = skb_shinfo(p);
--	unsigned int headroom;
--	unsigned int len = skb_gro_len(skb);
-+	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
- 	unsigned int offset = skb_gro_offset(skb);
- 	unsigned int headlen = skb_headlen(skb);
-+	struct sk_buff *nskb, *lp, *p = *head;
-+	unsigned int len = skb_gro_len(skb);
- 	unsigned int delta_truesize;
-+	unsigned int headroom;
- 
--	if (p->len + len >= 65536)
-+	if (unlikely(p->len + len >= 65536))
- 		return -E2BIG;
- 
--	if (pinfo->frag_list)
--		goto merge;
--	else if (headlen <= offset) {
-+	lp = NAPI_GRO_CB(p)->last ?: p;
-+	pinfo = skb_shinfo(lp);
-+
-+	if (headlen <= offset) {
- 		skb_frag_t *frag;
- 		skb_frag_t *frag2;
- 		int i = skbinfo->nr_frags;
- 		int nr_frags = pinfo->nr_frags + i;
- 
--		offset -= headlen;
--
- 		if (nr_frags > MAX_SKB_FRAGS)
--			return -E2BIG;
-+			goto merge;
- 
-+		offset -= headlen;
- 		pinfo->nr_frags = nr_frags;
- 		skbinfo->nr_frags = 0;
- 
-@@ -2992,7 +2990,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		unsigned int first_offset;
- 
- 		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
--			return -E2BIG;
-+			goto merge;
- 
- 		first_offset = skb->data -
- 			       (unsigned char *)page_address(page) +
-@@ -3010,7 +3008,10 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
- 		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
- 		goto done;
--	} else if (skb_gro_len(p) != pinfo->gso_size)
-+	}
-+	if (pinfo->frag_list)
-+		goto merge;
-+	if (skb_gro_len(p) != pinfo->gso_size)
- 		return -E2BIG;
- 
- 	headroom = skb_headroom(p);
-@@ -3062,16 +3063,24 @@ merge:
- 
- 	__skb_pull(skb, offset);
- 
--	NAPI_GRO_CB(p)->last->next = skb;
-+	if (!NAPI_GRO_CB(p)->last)
-+		skb_shinfo(p)->frag_list = skb;
-+	else
-+		NAPI_GRO_CB(p)->last->next = skb;
- 	NAPI_GRO_CB(p)->last = skb;
- 	skb_header_release(skb);
-+	lp = p;
- 
- done:
- 	NAPI_GRO_CB(p)->count++;
- 	p->data_len += len;
- 	p->truesize += delta_truesize;
- 	p->len += len;
--
-+	if (lp != p) {
-+		lp->data_len += len;
-+		lp->truesize += delta_truesize;
-+		lp->len += len;
-+	}
- 	NAPI_GRO_CB(skb)->same_flow = 1;
- 	return 0;
- }
+--Andy
