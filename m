@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: fq: fix non TCP flows pacing
-Date: Tue, 08 Oct 2013 16:53:18 -0400 (EDT)
-Message-ID: <20131008.165318.1392122841162708841.davem@davemloft.net>
-References: <1381182269.12191.27.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH] moxa: fix the error handling in moxart_mac_probe()
+Date: Tue, 08 Oct 2013 16:53:25 -0400 (EDT)
+Message-ID: <20131008.165325.685988143607110163.davem@davemloft.net>
+References: <CAPgLHd95agB+cseQmD4wg50wX_ddyZ0=0VxJ8vAR80ZbcFsMTw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sesse@google.com
-To: eric.dumazet@gmail.com
+Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
+	jg1.han@samsung.com, b.zolnierkie@samsung.com,
+	kyungmin.park@samsung.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55304 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55307 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753469Ab3JHUxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:53:20 -0400
-In-Reply-To: <1381182269.12191.27.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1756790Ab3JHUx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:53:27 -0400
+In-Reply-To: <CAPgLHd95agB+cseQmD4wg50wX_ddyZ0=0VxJ8vAR80ZbcFsMTw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 07 Oct 2013 14:44:29 -0700
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Tue, 8 Oct 2013 11:19:19 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Steinar reported FQ pacing was not working for UDP flows.
+> This patch fix the error handling in moxart_mac_probe():
+>  - return -ENOMEM in some memory alloc fail cases
+>  - add missing free_netdev() in the error handling case
 > 
-> It looks like the initial sk->sk_pacing_rate value of 0 was
-> a wrong choice. We should init it to ~0U like sk_max_pacing_rate
-> 
-> Then, TCA_FQ_FLOW_DEFAULT_RATE should be removed because it makes
-> no real sense. (The default rate is really : ~0U)
-> 
-> While debugging this issue, I realized sk_pacing_rate is shared between
-> transport and packet scheduler without locking / barriers :
-> 
-> We should use ACCESS_ONCE() to make sure compiler wont perform
-> multiple loads or stores.
-> 
-> Reported-by: Steinar H. Gunderson <sesse@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Is this meant for net or net-next?  It doesn't apply cleanly to the
-former.
+Applied.
