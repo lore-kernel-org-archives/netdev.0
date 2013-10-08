@@ -1,65 +1,90 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH RFC 05/77] PCI/MSI: Convert pci_msix_table_size() to a
- public interface
-Date: Tue, 8 Oct 2013 09:56:59 +0200
-Message-ID: <20131008075658.GE10669@dhcp-26-207.brq.redhat.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <e8b51bd48c24d0fc4ee8adea5c138c9bf84191e9.1380703262.git.agordeev@redhat.com>
- <20131007181043.GA27396@htj.dyndns.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Tue, 08 Oct 2013 10:05:02 +0200
+Message-ID: <5253BCAE.5060409@redhat.com>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <20131007164647.GA2481@htj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-driver@qlogic.com,
-        So
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, cgroups@vger.kernel.org
 To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20131007181043.GA27396@htj.dyndns.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20131007164647.GA2481@htj.dyndns.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 07, 2013 at 02:10:43PM -0400, Tejun Heo wrote:
-> On Wed, Oct 02, 2013 at 12:48:21PM +0200, Alexander Gordeev wrote:
-> > Make pci_msix_table_size() to return a error code if the device
-> > does not support MSI-X. This update is needed to facilitate a
-> > forthcoming re-design MSI/MSI-X interrupts enabling pattern.
-> > 
-> > Device drivers will use this interface to obtain maximum number
-> > of MSI-X interrupts the device supports and use that value in
-> > the following call to pci_enable_msix() interface.
-> 
-> Hmmm... I probably missed something but why is this necessary?  To
-> discern between -EINVAL and -ENOSPC?  If so, does that really matter?
+Hi Tejun,
 
-pci_msix_table_size() is kind of helper and returns 0 if a device does
-not have MSI-X table. If we want drivers to use it we need return -EINVAL
-for MSI-X incapable/disabled devices. Nothing about -ENOSPC.
+On 10/07/2013 06:46 PM, Tejun Heo wrote:
+> On Fri, Oct 04, 2013 at 08:20:55PM +0200, Daniel Borkmann wrote:
+>> It would be useful e.g. in a server or desktop environment to have
+>> a facility in the notion of fine-grained "per application" or "per
+>> application group" firewall policies. Probably, users in the mobile/
+>> embedded area (e.g. Android based) with different security policy
+>> requirements for application groups could have great benefit from
+>> that as well. For example, with a little bit of configuration effort,
+>> an admin could whitelist well-known applications, and thus block
+>> otherwise unwanted "hard-to-track" applications like [1] from a
+>> user's machine.
+>>
+>> Implementation of PID-based matching would not be appropriate
+>> as they frequently change, and child tracking would make that
+>> even more complex and ugly. Cgroups would be a perfect candidate
+>> for accomplishing that as they associate a set of tasks with a
+>> set of parameters for one or more subsystems, in our case the
+>> netfilter subsystem, which, of course, can be combined with other
+>> cgroup subsystems into something more complex.
+>>
+>> As mentioned, to overcome this constraint, such processes could
+>> be placed into one or multiple cgroups where different fine-grained
+>> rules can be defined depending on the application scenario, while
+>> e.g. everything else that is not part of that could be dropped (or
+>> vice versa), thus making life harder for unwanted processes to
+>> communicate to the outside world. So, we make use of cgroups here
+>> to track jobs and limit their resources in terms of iptables
+>> policies; in other words, limiting what they are allowed to
+>> communicate.
+>>
+>> We have similar cgroup facilities in networking for traffic
+>> classifier, and netprio cgroups. This feature adds a lightweight
+>> cgroup id matching in terms of network security resp. network
+>> traffic isolation as part of netfilter's xtables subsystem.
+>
+> I don't think the two net cgroups were a good idea and definitely
+> don't want to continue the trend.  I think this is being done
+> backwards.  Wouldn't it be more logical to implement netfilter rule to
+> match the target cgroup paths?  It really doesn't make much sense to
+> me to add separate controllers to just tag processes.  Please classify
+> tasks in cgroup and let netfilter match the cgroups.
 
-> tejun
+Thanks for your feedback!
 
--- 
-Regards,
-Alexander Gordeev
-agordeev@redhat.com
+Could you elaborate on "Wouldn't it be more logical to implement netfilter
+rule to match the target cgroup paths?". I don't think (or hope) you mean
+some string comparison on the dentry path here? :) With our proposal, we
+have in the network stack's critical path only the following code that is
+being executed here to match the cgroup ...
+
+static bool
+cgroup_mt(const struct sk_buff *skb, struct xt_action_param *par)
+{
+	const struct xt_cgroup_info *info = par->matchinfo;
+
+	if (skb->sk == NULL)
+		return false;
+
+	return (info->id == skb->sk->sk_cgrp_fwid) ^ info->invert;
+}
+
+... where ``info->id == skb->sk->sk_cgrp_fwid'' is the actual work, so very
+lightweight, which is good for high loads (1Gbit/s, 10Gbit/s and beyond), of
+course. Also, it would be intuitive for admins familiar with other subsystems
+to just set up and use these cgroup ids in iptabels. I'm not yet quite sure
+how your suggestion would look like, so you would need to setup some "dummy"
+subgroups first just to have a path that you can match on?
+
+Thanks,
+
+Daniel
