@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix the upper MTU limit in GRE tunnel
-Date: Tue, 08 Oct 2013 16:52:39 -0400 (EDT)
-Message-ID: <20131008.165239.783847414637978838.davem@davemloft.net>
-References: <1381168205-7465-1-git-send-email-ou.ghorbel@gmail.com>
+Subject: Re: [PATCH] pkt_sched: fq: fix typo for initial_quantum
+Date: Tue, 08 Oct 2013 16:52:50 -0400 (EDT)
+Message-ID: <20131008.165250.1455903432621627430.davem@davemloft.net>
+References: <1381175418.12191.19.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ou.ghorbel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381168205-7465-1-git-send-email-ou.ghorbel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756737Ab3JHUww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:52:52 -0400
+In-Reply-To: <1381175418.12191.19.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Date: Mon,  7 Oct 2013 18:50:05 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 07 Oct 2013 12:50:18 -0700
 
-> Unlike ipv4, the struct member hlen holds the length of the GRE and ipv6
-> headers. This length is also counted in dev->hard_header_len.
-> Perhaps, it's more clean to modify the hlen to count only the GRE header
-> without ipv6 header as the variable name suggest, but the simple way to fix
-> this without regression risk is simply modify the calculation of the limit
-> in ip6gre_tunnel_change_mtu function.
-> Verified in kernel version v3.11.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> TCA_FQ_INITIAL_QUANTUM should set q->initial_quantum
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
