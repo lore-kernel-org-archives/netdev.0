@@ -1,32 +1,33 @@
 From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Tue, 8 Oct 2013 09:33:02 +0200
-Message-ID: <20131008073301.GC10669@dhcp-26-207.brq.redhat.com>
+Subject: Re: [PATCH RFC 07/77] PCI/MSI: Re-design MSI/MSI-X interrupts
+ enablement pattern
+Date: Tue, 8 Oct 2013 09:48:26 +0200
+Message-ID: <20131008074826.GD10669@dhcp-26-207.brq.redhat.com>
 References: <cover.1380703262.git.agordeev@redhat.com>
- <20131008043330.GF31666@concordia>
+ <d8c36203ada6efbfa9f7ce92c2f713ee3b6d6b8d.1380703262.git.agordeev@redhat.com>
+ <20131007181749.GB27396@htj.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
         Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
         Benjamin Herrenschmidt <benh@kernel.crashing.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Ingo Molnar <mingo@redhat.com>,
         Dan Williams <dan.j.williams@intel.com>,
         Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
         Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-pci@vger.kernel.org, linux-doc@vger.kernel.org,
+        linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
+        linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
         linux-ide@vger.kernel.org, iss_storagedev@hp.com,
         linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
         netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-driver@qlogic.com,
-        Solarflare linux maintaine
-To: Michael Ellerman <michael@ellerman.id.au>
+        linux-dr
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-mips-bounce@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <20131008043330.GF31666@concordia>
+In-Reply-To: <20131007181749.GB27396@htj.dyndns.org>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-help: <mailto:ecartis@linux-mips.org?Subject=help>
@@ -38,32 +39,57 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 08, 2013 at 03:33:30PM +1100, Michael Ellerman wrote:
-> On Wed, Oct 02, 2013 at 12:29:04PM +0200, Alexander Gordeev wrote:
-> > This technique proved to be confusing and error-prone. Vast share
-> > of device drivers simply fail to follow the described guidelines.
+On Mon, Oct 07, 2013 at 02:17:49PM -0400, Tejun Heo wrote:
+> Hello,
 > 
-> To clarify "Vast share of device drivers":
+> On Wed, Oct 02, 2013 at 12:48:23PM +0200, Alexander Gordeev wrote:
+> > +static int foo_driver_enable_msi(struct foo_adapter *adapter, int nvec)
+> > +{
+> > +	rc = pci_get_msi_cap(adapter->pdev);
+> > +	if (rc < 0)
+> > +		return rc;
+> > +
+> > +	nvec = min(nvec, rc);
+> > +	if (nvec < FOO_DRIVER_MINIMUM_NVEC) {
+> > +		return -ENOSPC;
+> > +
+> > +	rc = pci_enable_msi_block(adapter->pdev, nvec);
+> > +	return rc;
+> > +}
 > 
->  - 58 drivers call pci_enable_msix()
->  - 24 try a single allocation and then fallback to MSI/LSI
->  - 19 use the loop style allocation as above
->  - 14 try an allocation, and if it fails retry once
->  - 1  incorrectly continues when pci_enable_msix() returns > 0
+> If there are many which duplicate the above pattern, it'd probably be
+> worthwhile to provide a helper?  It's usually a good idea to reduce
+> the amount of boilerplate code in drivers.
+
+I wanted to limit discussion in v1 to as little changes as possible.
+I 'planned' those helper(s) for a separate effort if/when the most
+important change is accepted and soaked a bit.
+
+> > @@ -975,7 +951,7 @@ int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
+> >  	if (nr_entries < 0)
+> >  		return nr_entries;
+> >  	if (nvec > nr_entries)
+> > -		return nr_entries;
+> > +		return -EINVAL;
+> >  
+> >  	/* Check for any invalid entries */
+> >  	for (i = 0; i < nvec; i++) {
 > 
-> So 33 drivers (> 50%) successfully make use of the "confusing and
-> error-prone" return value.
+> If we do things this way, it breaks all drivers using this interface
+> until they're converted, right?
 
-Ok, you caught me - 'vast share' is incorrect and is a subject to
-rewording. But out of 19/58 how many drivers tested fallbacks on the
-real hardware? IOW, which drivers are affected by the pSeries quota?
+Right. And the rest of the series does it.
 
-> And yes, one is buggy, so obviously the interface is too complex. Thanks
-> drivers/ntb/ntb_hw.c
+> Also, it probably isn't the best idea
+> to flip the behavior like this as this can go completely unnoticed (no
+> compiler warning or anything, the same function just behaves
+> differently).  Maybe it'd be a better idea to introduce a simpler
+> interface that most can be converted to?
 
-vmxnet3 would be the best example.
+Well, an *other* interface is a good idea. What do you mean with the
+simpler here?
 
-> cheers
+> tejun
 
 -- 
 Regards,
