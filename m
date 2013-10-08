@@ -1,56 +1,44 @@
-From: Steve Rago <sar@nec-labs.com>
-Subject: Re: bug in passing file descriptors
-Date: Tue, 8 Oct 2013 12:51:11 -0400
-Message-ID: <525437FF.5020905@nec-labs.com>
-References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net> <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net> <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com> <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com> <52543065.7000209@nec-labs.com> <20131008164108.GO6882@two.firstfloor.org>
+From: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Subject: RE: [PATCH net] vti: get rid of nf mark rule in prerouting
+Date: Tue, 8 Oct 2013 09:48:59 -0700
+Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC1272BFA276@HQ1-EXCH02.corp.brocade.com>
+References: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: Christophe Gouault <christophe.gouault@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nec-labs.com ([138.15.200.209]:47368 "EHLO
-	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755909Ab3JHQv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:51:27 -0400
-In-Reply-To: <20131008164108.GO6882@two.firstfloor.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:52460 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753579Ab3JHRIS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Oct 2013 13:08:18 -0400
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id r98G5rPR011327
+	for <netdev@vger.kernel.org>; Tue, 8 Oct 2013 09:49:05 -0700
+Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
+	by mx0b-000f0801.pphosted.com with ESMTP id 1fc1hn0qhm-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 09:49:05 -0700
+In-Reply-To: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2013 12:41 PM, Andi Kleen wrote:
->> I just want the semantics to be consistent.  If you want Linux to
->> always require applications that call recvmsg to provide a buffer
->> size of CMSG_SPACE bytes long to retrieve control information, then
->> fail the system call when the buffer is smaller.  But if you do
->> this, you risk breaking applications that work with FreeBSD, Mac OS
->> X, Solaris, and probably a few others.
->
-> The primary concern is to be binary compatible with Linux.
->
-> But not being compatible between 32bit and 64bit Linux processes on the same
-> host would seem like a serious problem to me.
->
->> Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
->
-> The question is could it break existing Linux applications to change it?
-> And would it help with the 32/64bit compatibility?
->
-> If not some other way to fix the compat layer would need to be found.
->
-> -Andi
->
 
-I'm not sure if a 64-bit process and a 32-bit process exchange file descriptors on the same system has a problem.  It 
-certainly looks like the compat code does the right thing.  I can test this tonight if you want.  The discrepancy arises 
-because file descriptors are 4-byte quantities and treated differently (for example, when more than one is specified, 
-each one isn't padded to an 8-byte boundary).
 
-The way I discovered the problem is that I had an example program in APUE that was validating that msg_controllen had 
-the correct value after calling recvmsg().  It worked on my 32-bit platform, but when I recompiled it and ran it on my 
-64-bit platform, the test failed, because msg_controllen was larger than the size that was sent via sendmsg().
+> -----Original Message-----
+> From: Christophe Gouault [mailto:christophe.gouault@6wind.com]
+> Sent: Tuesday, October 08, 2013 8:21 AM
+> To: netdev@vger.kernel.org
+> Cc: David S. Miller; Cong Wang; Saurabh Mohan; Christophe Gouault
+> Subject: [PATCH net] vti: get rid of nf mark rule in prerouting
+> 
+> This patch fixes and improves the use of vti interfaces (while lightly changing
+> the way of configuring them).
+> 
 
-Steve
+Good fix. Thanks for doing this!
