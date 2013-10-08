@@ -1,102 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] pkt_sched: fq: fix non TCP flows pacing
-Date: Tue, 08 Oct 2013 15:16:00 -0700
-Message-ID: <1381270560.12191.64.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381182269.12191.27.camel@edumazet-glaptop.roam.corp.google.com>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: Re: [PATCH 1/3] net: bpf jit: ppc: optimize choose_load_func error
+ path
+Date: Wed, 09 Oct 2013 00:50:32 +0200
+Message-ID: <52548C38.9040308@googlemail.com>
+References: <1381249910-17338-1-git-send-email-murzin.v@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Steinar H. Gunderson" <sesse@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: av1474@comtv.ru, Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Matt Evans <matt@ozlabs.org>
+To: Vladimir Murzin <murzin.v@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:43768 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754057Ab3JHWQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 18:16:02 -0400
-Received: by mail-pd0-f180.google.com with SMTP id y10so9280190pdj.39
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 15:16:01 -0700 (PDT)
-In-Reply-To: <1381182269.12191.27.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:59432 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755341Ab3JHWuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 18:50:37 -0400
+Received: by mail-bk0-f54.google.com with SMTP id mz12so3593548bkb.13
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 15:50:36 -0700 (PDT)
+In-Reply-To: <1381249910-17338-1-git-send-email-murzin.v@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Vladimir Murzin schrieb:
+> Macro CHOOSE_LOAD_FUNC returns handler for "any offset" if checks for K
+> were not passed. At the same time handlers for "any offset" cases make
+> the same checks against r_addr at run-time, that will always lead to
+> bpf_error.
+> 
 
-Steinar reported FQ pacing was not working for UDP flows.
+Hmmm, if i only would remember why i wrote it that way....
+I memory serves me right the idea was to always have a solid fall back, no
+matter what, to the generic load function which works more like the load_pointer
+from filter.c.
+This way the COOSE-macro may could have been used at more places, but that
+never played out.
 
-It looks like the initial sk->sk_pacing_rate value of 0 was
-a wrong choice. We should init it to ~0U (unlimited)
+And since all i wanted was to get the negative indirect load fixed,
+optimizing the constant error case was not on my plate.
+That you can get your negative K filter JITed in the first place, even
+if the constant error case was slower than necessary, was good enough ;)
 
-Then, TCA_FQ_FLOW_DEFAULT_RATE should be removed because it makes
-no real sense. The default rate is really unlimited, and we
-need to avoid a zero divide.
+The ARM JIT is broken till this date...
 
-Reported-by: Steinar H. Gunderson <sesse@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-I removed the ACCESS_ONCE() stuff, as it adds conflicts for
-next (net / net-next) merge. I'll send a separate patch later.
+You can have my
+I'm-OK-with-this: Jan Seiffert <kaffeemonster@googlemail.com>
 
- net/core/sock.c    |    1 +
- net/sched/sch_fq.c |   20 +++++++++-----------
- 2 files changed, 10 insertions(+), 11 deletions(-)
+for all three patches, -ENOTIME for a full review ATM.
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5b6beba..0b39e7a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2319,6 +2319,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	sk->sk_ll_usec		=	sysctl_net_busy_read;
- #endif
- 
-+	sk->sk_pacing_rate = ~0U;
- 	/*
- 	 * Before updating sk_refcnt, we must commit prior changes to memory
- 	 * (Documentation/RCU/rculist_nulls.txt for details)
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 48501a2..a9dfdda 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -472,20 +472,16 @@ begin:
- 	if (f->credit > 0 || !q->rate_enable)
- 		goto out;
- 
--	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT) {
--		rate = skb->sk->sk_pacing_rate ?: q->flow_default_rate;
-+	rate = q->flow_max_rate;
-+	if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
-+		rate = min(skb->sk->sk_pacing_rate, rate);
- 
--		rate = min(rate, q->flow_max_rate);
--	} else {
--		rate = q->flow_max_rate;
--		if (rate == ~0U)
--			goto out;
--	}
--	if (rate) {
-+	if (rate != ~0U) {
- 		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
- 		u64 len = (u64)plen * NSEC_PER_SEC;
- 
--		do_div(len, rate);
-+		if (likely(rate))
-+			do_div(len, rate);
- 		/* Since socket rate can change later,
- 		 * clamp the delay to 125 ms.
- 		 * TODO: maybe segment the too big skb, as in commit
-@@ -735,12 +731,14 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	if (opts == NULL)
- 		goto nla_put_failure;
- 
-+	/* TCA_FQ_FLOW_DEFAULT_RATE is not used anymore,
-+	 * do not bother giving its value
-+	 */
- 	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
- 	    nla_put_u32(skb, TCA_FQ_QUANTUM, q->quantum) ||
- 	    nla_put_u32(skb, TCA_FQ_INITIAL_QUANTUM, q->initial_quantum) ||
- 	    nla_put_u32(skb, TCA_FQ_RATE_ENABLE, q->rate_enable) ||
--	    nla_put_u32(skb, TCA_FQ_FLOW_DEFAULT_RATE, q->flow_default_rate) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_MAX_RATE, q->flow_max_rate) ||
- 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
- 		goto nla_put_failure;
+> Run-time checks are still necessary for indirect load operations, but
+> error path for absolute and mesh loads are worth to optimize during bpf
+> compile time.
+> 
+> Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+> 
+> Cc: Jan Seiffert <kaffeemonster@googlemail.com>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Matt Evans <matt@ozlabs.org>
+> 
+> ---
+>  arch/powerpc/net/bpf_jit_comp.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+> index bf56e33..754320a 100644
+> --- a/arch/powerpc/net/bpf_jit_comp.c
+> +++ b/arch/powerpc/net/bpf_jit_comp.c
+> @@ -132,7 +132,7 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
+>  }
+>  
+>  #define CHOOSE_LOAD_FUNC(K, func) \
+> -	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
+> +	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : NULL) : func##_positive_offset)
+>  
+>  /* Assemble the body code between the prologue & epilogue. */
+>  static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+> @@ -427,6 +427,11 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+>  		case BPF_S_LD_B_ABS:
+>  			func = CHOOSE_LOAD_FUNC(K, sk_load_byte);
+>  		common_load:
+> +			if (!func) {
+> +				PPC_LI(r_ret, 0);
+> +				PPC_JMP(exit_addr);
+> +				break;
+> +			}
+>  			/* Load from [K]. */
+>  			ctx->seen |= SEEN_DATAREF;
+>  			PPC_LI64(r_scratch1, func);
+> 
+
+
+-- 
+An UDP packet walks into a
