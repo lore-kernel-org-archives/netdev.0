@@ -1,44 +1,93 @@
-From: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Subject: RE: [PATCH net] vti: get rid of nf mark rule in prerouting
-Date: Tue, 8 Oct 2013 09:48:59 -0700
-Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC1272BFA276@HQ1-EXCH02.corp.brocade.com>
-References: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc 2013-10-08
+Date: Tue, 8 Oct 2013 18:41:31 +0100
+Message-ID: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-tpo2SOP3IJ2MyLiOH9OG"
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:52460 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753579Ab3JHRIS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Oct 2013 13:08:18 -0400
-Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id r98G5rPR011327
-	for <netdev@vger.kernel.org>; Tue, 8 Oct 2013 09:49:05 -0700
-Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
-	by mx0b-000f0801.pphosted.com with ESMTP id 1fc1hn0qhm-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 09:49:05 -0700
-In-Reply-To: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:56378 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747Ab3JHRlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:41:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=-tpo2SOP3IJ2MyLiOH9OG
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+The following changes since commit 5e8a402f831dbe7ee831340a91439e46f0d38acd=
+:
 
-> -----Original Message-----
-> From: Christophe Gouault [mailto:christophe.gouault@6wind.com]
-> Sent: Tuesday, October 08, 2013 8:21 AM
-> To: netdev@vger.kernel.org
-> Cc: David S. Miller; Cong Wang; Saurabh Mohan; Christophe Gouault
-> Subject: [PATCH net] vti: get rid of nf mark rule in prerouting
-> 
-> This patch fixes and improves the use of vti interfaces (while lightly changing
-> the way of configuring them).
-> 
+  tcp: do not forget FIN in tcp_shifted_skb() (2013-10-04 14:16:36 -0400)
 
-Good fix. Thanks for doing this!
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.12
+
+for you to fetch changes up to ecb1c9cc215cb5a4390b714d8b09de637f54fa3f:
+
+  sfc: Only bind to EF10 functions with the LinkCtrl and Trusted flags (201=
+3-10-07 20:11:19 +0100)
+
+Some more fixes for EF10 support; hopefully the last lot:
+
+1. Fixes for reading statistics, from Edward Cree and Jon Cooper.
+2. Addition of ethtool statistics for packets dropped by the hardware
+before they were associated with a specific function, from Edward Cree.
+3. Only bind to functions that are in control of their associated port,
+as the driver currently assumes this is the case.
+
+Ben.
+
+----------------------------------------------------------------
+Ben Hutchings (1):
+      sfc: Only bind to EF10 functions with the LinkCtrl and Trusted flags
+
+Edward Cree (3):
+      sfc: Fix internal indices of ethtool stats for EF10
+      sfc: Refactor EF10 stat mask code to allow for more conditional stats
+      sfc: Add PM and RXDP drop counters to ethtool stats
+
+Jon Cooper (1):
+      sfc: Add rmb() between reading stats and generation count to ensure c=
+onsistency
+
+Matthew Slattery (1):
+      sfc: Add definitions for new stats counters and capability flag
+
+ drivers/net/ethernet/sfc/ef10.c      | 87 +++++++++++++++++++++++++++-----=
+----
+ drivers/net/ethernet/sfc/mcdi.c      | 18 +++++++-
+ drivers/net/ethernet/sfc/mcdi_pcol.h | 56 ++++++++++++++++++++++-
+ drivers/net/ethernet/sfc/nic.c       |  9 ++--
+ drivers/net/ethernet/sfc/nic.h       | 12 +++++
+ 5 files changed, 151 insertions(+), 31 deletions(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--=-tpo2SOP3IJ2MyLiOH9OG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQEcBAABCAAGBQJSVEPLAAoJEGkILBsOca60JWsH/3JdWRemGd0ESsbgEeAZD+S+
++nT41jDULEUBus/41c5KE4mY/l9rGNfpXQxj6ODMyFbhPYk0calgY8KdBbRL6/ki
+9dNQqIDOGUp2gLwFybWQZYsbk55ZmCuUg8ZD4Jr030KeKn8QvfreF+6m7LS60nrF
+idFeOpikoIxzHvPYEGcLxics3jiursKxO+UdkNdIBAuwLuL5re4AYAxFBKXSWFfu
+UHUvDuTLgP8wneJbWOtyIENB0adw8ja3R7CUPi/jO9XU94vpRx9B7yO7+1KlcO8F
+px76kHS/JWCwju4frgfbLAwP4PebZzYqM5ujpLaiP1kdpczWSHQ19sXcmLQjBVo=
+=uEIc
+-----END PGP SIGNATURE-----
+
+--=-tpo2SOP3IJ2MyLiOH9OG--
