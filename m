@@ -1,127 +1,54 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6
- checksum offload from guest
-Date: Tue, 8 Oct 2013 17:19:25 +0100
-Message-ID: <20131008161925.GL28411@zion.uk.xensource.com>
-References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
- <1381229896-18657-3-git-send-email-paul.durrant@citrix.com>
- <20131008133045.GI28411@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD012F345@AMSPEX01CL01.citrite.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: bug in passing file descriptors
+Date: Tue, 8 Oct 2013 18:41:08 +0200
+Message-ID: <20131008164108.GO6882@two.firstfloor.org>
+References: <525308C4.1030007@nec-labs.com>
+ <20131007.154226.533738557474978526.davem@davemloft.net>
+ <5253199B.3000109@nec-labs.com>
+ <20131007.173237.1669132001431607341.davem@davemloft.net>
+ <87li24zo6x.fsf@tassilo.jf.intel.com>
+ <52541769.1000306@nec-labs.com>
+ <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com>
+ <52543065.7000209@nec-labs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Steve Rago <sar@nec-labs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:25593 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753131Ab3JHQT0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Oct 2013 12:19:26 -0400
+Received: from one.firstfloor.org ([193.170.194.197]:40242 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888Ab3JHQlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:41:11 -0400
 Content-Disposition: inline
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD012F345@AMSPEX01CL01.citrite.net>
+In-Reply-To: <52543065.7000209@nec-labs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 08, 2013 at 02:50:27PM +0100, Paul Durrant wrote:
-[...]
-> > > -#define PKT_PROT_LEN    (ETH_HLEN + \
-> > > -			 VLAN_HLEN + \
-> > > -			 sizeof(struct iphdr) + MAX_IPOPTLEN + \
-> > > -			 sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE)
-> > > +#define PKT_PROT_LEN 128
-> > >
-> > 
-> > Where does 128 come from?
-> > 
-> 
-> It's just an arbitrary power of 2 that was chosen because it seems to
-> cover most likely v6 headers and all v4 headers.
-> 
+> I just want the semantics to be consistent.  If you want Linux to
+> always require applications that call recvmsg to provide a buffer
+> size of CMSG_SPACE bytes long to retrieve control information, then
+> fail the system call when the buffer is smaller.  But if you do
+> this, you risk breaking applications that work with FreeBSD, Mac OS
+> X, Solaris, and probably a few others.
 
-Hmm... How about using the value of MAX_TCP_HEADER? I guess that can
-cover all V4 / V6 headers.
+The primary concern is to be binary compatible with Linux.
 
-MAX_TCP_HEADER varies, depending on configuration. To make sure we can
-accommodate all guests packet we might need to use its maximum value
-which can be as big as 128 + 128 + 48.
+But not being compatible between 32bit and 64bit Linux processes on the same
+host would seem like a serious problem to me.
 
-> > >  		if (recalculate_partial_csum) {
-> > >  			struct tcphdr *tcph = tcp_hdr(skb);
-> > > +
-> > > +			header_size = skb->network_header +
-> > > +				off +
-> > > +				sizeof(struct tcphdr) +
-> > > +				MAX_TCP_OPTION_SPACE;
-> > > +			maybe_pull_tail(skb, header_size);
-> > > +
-> > 
-> > I presume this function is checksum_setup stripped down to handle IPv4
-> > packet. What's the purpose of changing its behaviour? Why the pull_tail
-> > here?
-> > 
-> 
-> We have to make sure that the TCP header is in the linear area as we
-> are about to write to the checksum field. In practice, the 128 byte
-> pull should guarantee this but in case that is varied later I wanted
-> to make sure things did not start to fail in an add way.
-> 
+> Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
 
-If you already set the pull size to maximum possible value then this
-will not be necessary anymore, right?
+The question is could it break existing Linux applications to change it?
+And would it help with the 32/64bit compatibility?
 
-> > > +	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len))
-> > &&
-> > > +	       !done) {
-> > > +		/* We only access at most the first 2 bytes of any option
-> > header
-> > > +		 * to determine the next one.
-> > > +		 */
-> > > +		header_size = skb->network_header + off + 2;
-> > > +		maybe_pull_tail(skb, header_size);
-> > > +
-> > 
-> > Will this cause performance problem? Is it possible that you pull too
-> > many times?
-> > 
-> 
-> I guess it means we may get two pulls for the TCP/UDP headers rather
-> than one so could push the pulls into the individual cases if you
-> think it will affect performance that badly.
+If not some other way to fix the compat layer would need to be found.
 
-Hmm... Not sure I get what you mean here. The main problem I'm seeing is
-that maybe_pull_tail is called in every loop.
+-Andi
 
-I would like to see as few pulls as possible because __pskb_pull_tail
-can be expensive and only expected to use in "exceptional cases" (quoted
-from the comment above that function).
-
-Is it possible to pull TCP_MAX_HEADER bytes once to eliminate all other
-pulls in checksum_setup{,_ipv4,_ipv6}?
-
-> 
-[...]
-> > 
-> > Can you make the logic explicit here?
-> > 
-> >    case IPPROTO_TCP:
-> >    case IPPROTO_UDP:
-> >         done = true;
-> > 	break;
-> >    default:
-> >         break;
-> > 
-> > Another minor suggestion is that change "done" to "found" because you're
-> > trying to find the two type of headers.
-> > 
-> 
-> Yes, I could code it that way if you prefer.
-> 
-
-Explicity is better than implicity IMHO. After this change could you
-also move the default branch (netdev_err) in the following "switch" to
-the first "switch".
-
-Wei.
+-- 
+ak@linux.intel.com -- Speaking for myself only.
