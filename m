@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: don't look at current when non-blocking
-Date: Tue, 08 Oct 2013 15:46:14 -0400 (EDT)
-Message-ID: <20131008.154614.1435858706789904414.davem@davemloft.net>
-References: <20131006182512.GA16504@redhat.com>
+Subject: Re: [PATCH] net: af802154: Fix wrong structure declaration
+Date: Tue, 08 Oct 2013 15:49:10 -0400 (EDT)
+Message-ID: <20131008.154910.1164614425435689551.davem@davemloft.net>
+References: <1381095841-15031-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jasowang@redhat.com, edumazet@google.com, xemul@parallels.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131006182512.GA16504@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: linux@roeck-us.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54294 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753436Ab3JHTtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 15:49:12 -0400
+In-Reply-To: <1381095841-15031-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 6 Oct 2013 21:25:12 +0300
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Sun,  6 Oct 2013 14:44:01 -0700
 
-> We play with a wait queue even if socket is
-> non blocking. This is an obvious waste.
-> Besides, it will prevent calling the non blocking
-> variant when current is not valid.
+> net_devce doesn't exist.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Applied and queued up for -stable, thanks.
+This is simply rediculous.
+
+The reason I say this is that every user of this header includes
+net/sock.h which in turn includes linux/skbuff.h and linux/netdevice.h
+which therefore bring in all the necessary structure definitions.
+
+Really, the most correct change is to make af802154.h explicitly
+include those header files.
