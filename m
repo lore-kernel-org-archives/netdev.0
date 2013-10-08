@@ -1,7 +1,7 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v2 4/5] xen-netback: handle IPv6 TCP GSO packets from the guest
-Date: Tue, 8 Oct 2013 11:58:15 +0100
-Message-ID: <1381229896-18657-5-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6 checksum offload from guest
+Date: Tue, 8 Oct 2013 11:58:13 +0100
+Message-ID: <1381229896-18657-3-git-send-email-paul.durrant@citrix.com>
 References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,89 +11,335 @@ Cc: Paul Durrant <paul.durrant@citrix.com>,
 	Ian Campbell <ian.campbell@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:7529 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:44908 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756032Ab3JHK6V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Oct 2013 06:58:21 -0400
+	id S1756054Ab3JHK6W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Oct 2013 06:58:22 -0400
 In-Reply-To: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch a xenstore flag, festure-gso-tcpv6, to adevrtise netback can
-handle IPv6 TCP GSO packets and creates SKB_GSO_TCPV6 skbs if the frontend
-passes an extra segment with the new type XEN_NETIF_GSO_TYPE_TCPV6 added to
-netif.h.
+For performance of VM to VM traffic on a single host it is better to avoid
+calculation of TCP/UDP checksum in the sending frontend. To allow this this
+patch adds the code necessary to set up partial checksum for IPv6 packets
+and xenstore flag feature-ipv6-csum-offload to advertise that fact to
+frontends.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 Cc: Wei Liu <wei.liu2@citrix.com>
 Cc: David Vrabel <david.vrabel@citrix.com>
 Cc: Ian Campbell <ian.campbell@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |   11 ++++++++---
- drivers/net/xen-netback/xenbus.c  |    7 +++++++
- include/xen/interface/io/netif.h  |    3 ++-
- 3 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/xen-netback/netback.c |  224 ++++++++++++++++++++++++++++++-------
+ drivers/net/xen-netback/xenbus.c  |    9 ++
+ 2 files changed, 191 insertions(+), 42 deletions(-)
 
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 35b1fa6..ac42f73 100644
+index f3e591c..35b1fa6 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -1096,15 +1096,20 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
- 		return -EINVAL;
- 	}
+@@ -109,15 +109,10 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
+ 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(vif, idx));
+ }
  
--	/* Currently only TCPv4 S.O. is supported. */
--	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
-+	switch (gso->u.gso.type) {
-+	case XEN_NETIF_GSO_TYPE_TCPV4:
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+-/*
+- * This is the amount of packet we copy rather than map, so that the
+- * guest can't fiddle with the contents of the headers while we do
+- * packet processing on them (netfilter, routing, etc).
++/* This is a miniumum size for the linear area to avoid lots of
++ * calls to __pskb_pull_tail() as we set up checksum offsets.
+  */
+-#define PKT_PROT_LEN    (ETH_HLEN + \
+-			 VLAN_HLEN + \
+-			 sizeof(struct iphdr) + MAX_IPOPTLEN + \
+-			 sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE)
++#define PKT_PROT_LEN 128
+ 
+ static u16 frag_get_pending_idx(skb_frag_t *frag)
+ {
+@@ -1118,61 +1113,72 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+ 	return 0;
+ }
+ 
+-static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
++static inline void maybe_pull_tail(struct sk_buff *skb, unsigned int len)
+ {
+-	struct iphdr *iph;
++	if (skb_is_nonlinear(skb) && skb_headlen(skb) < len) {
++		int target = min_t(int, skb->len, len);
++		__pskb_pull_tail(skb, target - skb_headlen(skb));
++	}
++}
++
++static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
++			     int recalculate_partial_csum)
++{
++	struct iphdr *iph = (void *)skb->data;
++	unsigned int header_size;
++	unsigned int off;
+ 	int err = -EPROTO;
+-	int recalculate_partial_csum = 0;
+ 
+-	/*
+-	 * A GSO SKB must be CHECKSUM_PARTIAL. However some buggy
+-	 * peers can fail to set NETRXF_csum_blank when sending a GSO
+-	 * frame. In this case force the SKB to CHECKSUM_PARTIAL and
+-	 * recalculate the partial checksum.
+-	 */
+-	if (skb->ip_summed != CHECKSUM_PARTIAL && skb_is_gso(skb)) {
+-		vif->rx_gso_checksum_fixup++;
+-		skb->ip_summed = CHECKSUM_PARTIAL;
+-		recalculate_partial_csum = 1;
+-	}
++	off = sizeof(struct iphdr);
+ 
+-	/* A non-CHECKSUM_PARTIAL SKB does not require setup. */
+-	if (skb->ip_summed != CHECKSUM_PARTIAL)
+-		return 0;
++	header_size = skb->network_header + off + MAX_IPOPTLEN;
++	maybe_pull_tail(skb, header_size);
+ 
+-	if (skb->protocol != htons(ETH_P_IP))
+-		goto out;
++	off = iph->ihl * 4;
+ 
+-	iph = (void *)skb->data;
+ 	switch (iph->protocol) {
+ 	case IPPROTO_TCP:
+-		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
++		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct tcphdr, check)))
+ 			goto out;
+ 
+ 		if (recalculate_partial_csum) {
+ 			struct tcphdr *tcph = tcp_hdr(skb);
++
++			header_size = skb->network_header +
++				off +
++				sizeof(struct tcphdr) +
++				MAX_TCP_OPTION_SPACE;
++			maybe_pull_tail(skb, header_size);
++
+ 			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+-							 skb->len - iph->ihl*4,
++							 skb->len - off,
+ 							 IPPROTO_TCP, 0);
+ 		}
+ 		break;
+ 	case IPPROTO_UDP:
+-		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
++		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct udphdr, check)))
+ 			goto out;
+ 
+ 		if (recalculate_partial_csum) {
+ 			struct udphdr *udph = udp_hdr(skb);
++
++			header_size = skb->network_header +
++				off +
++				sizeof(struct udphdr);
++			maybe_pull_tail(skb, header_size);
++
+ 			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+-							 skb->len - iph->ihl*4,
++							 skb->len - off,
+ 							 IPPROTO_UDP, 0);
+ 		}
+ 		break;
+ 	default:
+ 		if (net_ratelimit())
+ 			netdev_err(vif->dev,
+-				   "Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
++				   "Attempting to checksum a non-TCP/UDP packet, "
++				   "dropping a protocol %d packet\n",
+ 				   iph->protocol);
+ 		goto out;
+ 	}
+@@ -1183,6 +1189,148 @@ out:
+ 	return err;
+ }
+ 
++static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
++			       int recalculate_partial_csum)
++{
++	int err = -EPROTO;
++	struct ipv6hdr *ipv6h = (void *)skb->data;
++	u8 nexthdr;
++	unsigned int header_size;
++	unsigned int off;
++	bool done;
++
++	done = false;
++	off = sizeof(struct ipv6hdr);
++
++	header_size = skb->network_header + off;
++	maybe_pull_tail(skb, header_size);
++
++	nexthdr = ipv6h->nexthdr;
++
++	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len)) &&
++	       !done) {
++		/* We only access at most the first 2 bytes of any option header
++		 * to determine the next one.
++		 */
++		header_size = skb->network_header + off + 2;
++		maybe_pull_tail(skb, header_size);
++
++		switch (nexthdr) {
++		case IPPROTO_FRAGMENT: {
++			struct frag_hdr *hp = (void *)(skb->data + off);
++
++			nexthdr = hp->nexthdr;
++			off += 8;
++			break;
++		}
++		case IPPROTO_DSTOPTS:
++		case IPPROTO_HOPOPTS:
++		case IPPROTO_ROUTING: {
++			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
++
++			nexthdr = hp->nexthdr;
++			off += ipv6_optlen(hp);
++			break;
++		}
++		case IPPROTO_AH: {
++			struct ip_auth_hdr *hp = (void *)(skb->data + off);
++
++			nexthdr = hp->nexthdr;
++			off += (hp->hdrlen+2)<<2;
++			break;
++		}
++		default:
++			done = true;
++			break;
++		}
++	}
++
++	if (!done)
++		goto out;
++
++	switch (nexthdr) {
++	case IPPROTO_TCP:
++		if (!skb_partial_csum_set(skb, off,
++					  offsetof(struct tcphdr, check)))
++			goto out;
++
++		if (recalculate_partial_csum) {
++			struct tcphdr *tcph = tcp_hdr(skb);
++
++			header_size = skb->network_header +
++				off +
++				sizeof(struct tcphdr) +
++				MAX_TCP_OPTION_SPACE;
++			maybe_pull_tail(skb, header_size);
++
++			tcph->check = ~csum_ipv6_magic(&ipv6h->saddr,
++						       &ipv6h->daddr,
++						       skb->len - off,
++						       IPPROTO_TCP, 0);
++		}
 +		break;
-+	case XEN_NETIF_GSO_TYPE_TCPV6:
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++	case IPPROTO_UDP:
++		if (!skb_partial_csum_set(skb, off,
++					  offsetof(struct udphdr, check)))
++			goto out;
++
++		if (recalculate_partial_csum) {
++			struct udphdr *udph = udp_hdr(skb);
++
++			header_size = skb->network_header +
++				off +
++				sizeof(struct udphdr);
++			maybe_pull_tail(skb, header_size);
++
++			udph->check = ~csum_ipv6_magic(&ipv6h->saddr,
++						       &ipv6h->daddr,
++						       skb->len - off,
++						       IPPROTO_UDP, 0);
++		}
 +		break;
 +	default:
- 		netdev_err(vif->dev, "Bad GSO type %d.\n", gso->u.gso.type);
- 		xenvif_fatal_tx_err(vif);
- 		return -EINVAL;
- 	}
++		if (net_ratelimit())
++			netdev_err(vif->dev,
++				   "Attempting to checksum a non-TCP/UDP packet, "
++				   "dropping a protocol %d packet\n",
++				   nexthdr);
++		goto out;
++	}
++
++	err = 0;
++
++out:
++	return err;
++}
++
++static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
++{
++	int err = -EPROTO;
++	int recalculate_partial_csum = 0;
++
++	/* A GSO SKB must be CHECKSUM_PARTIAL. However some buggy
++	 * peers can fail to set NETRXF_csum_blank when sending a GSO
++	 * frame. In this case force the SKB to CHECKSUM_PARTIAL and
++	 * recalculate the partial checksum.
++	 */
++	if (skb->ip_summed != CHECKSUM_PARTIAL && skb_is_gso(skb)) {
++		vif->rx_gso_checksum_fixup++;
++		skb->ip_summed = CHECKSUM_PARTIAL;
++		recalculate_partial_csum = 1;
++	}
++
++	/* A non-CHECKSUM_PARTIAL SKB does not require setup. */
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
++
++	if (skb->protocol == htons(ETH_P_IP))
++		err = checksum_setup_ip(vif, skb, recalculate_partial_csum);
++	else if (skb->protocol == htons(ETH_P_IPV6))
++		err = checksum_setup_ipv6(vif, skb, recalculate_partial_csum);
++
++	return err;
++}
++
+ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ {
+ 	unsigned long now = jiffies;
+@@ -1428,15 +1576,7 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
  
- 	skb_shinfo(skb)->gso_size = gso->u.gso.size;
--	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ 		xenvif_fill_frags(vif, skb);
  
- 	/* Header must be checked, and gso_segs computed. */
- 	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+-		/*
+-		 * If the initial fragment was < PKT_PROT_LEN then
+-		 * pull through some bytes from the other fragments to
+-		 * increase the linear region to PKT_PROT_LEN bytes.
+-		 */
+-		if (skb_headlen(skb) < PKT_PROT_LEN && skb_is_nonlinear(skb)) {
+-			int target = min_t(int, skb->len, PKT_PROT_LEN);
+-			__pskb_pull_tail(skb, target - skb_headlen(skb));
+-		}
++		maybe_pull_tail(skb, PKT_PROT_LEN);
+ 
+ 		skb->dev      = vif->dev;
+ 		skb->protocol = eth_type_trans(skb, skb->dev);
 diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index dff423b..389fa72 100644
+index 5e45b00..dff423b 100644
 --- a/drivers/net/xen-netback/xenbus.c
 +++ b/drivers/net/xen-netback/xenbus.c
-@@ -101,6 +101,13 @@ static int netback_probe(struct xenbus_device *dev,
+@@ -101,6 +101,15 @@ static int netback_probe(struct xenbus_device *dev,
  			goto abort_transaction;
  		}
  
-+		err = xenbus_printf(xbt, dev->nodename, "feature-gso-tcpv6",
-+				    "%d", sg);
++		/* We support partial checksum setup for IPv6 packets */
++		err = xenbus_printf(xbt, dev->nodename,
++				    "feature-ipv6-csum-offload",
++				    "%d", 1);
 +		if (err) {
-+			message = "writing feature-gso-tcpv6";
++			message = "writing feature-ipv6-csum-offload";
 +			goto abort_transaction;
 +		}
 +
- 		/* We support partial checksum setup for IPv6 packets */
+ 		/* We support rx-copy path. */
  		err = xenbus_printf(xbt, dev->nodename,
- 				    "feature-ipv6-csum-offload",
-diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-index eb262e3..c19cc06 100644
---- a/include/xen/interface/io/netif.h
-+++ b/include/xen/interface/io/netif.h
-@@ -95,8 +95,9 @@ struct xen_netif_tx_request {
- #define _XEN_NETIF_EXTRA_FLAG_MORE	(0)
- #define  XEN_NETIF_EXTRA_FLAG_MORE	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
- 
--/* GSO types - only TCPv4 currently supported. */
-+/* GSO types */
- #define XEN_NETIF_GSO_TYPE_TCPV4	(1)
-+#define XEN_NETIF_GSO_TYPE_TCPV6	(2)
- 
- /*
-  * This structure needs to fit within both netif_tx_request and
+ 				    "feature-rx-copy", "%d", 1);
 -- 
 1.7.10.4
