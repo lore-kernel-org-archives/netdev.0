@@ -1,32 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/3] Fix race conditions in mrf24j40 interrupts
-Date: Tue, 08 Oct 2013 15:32:43 -0400 (EDT)
-Message-ID: <20131008.153243.1255629541932988146.davem@davemloft.net>
-References: <1369188080-8904-1-git-send-email-alan@signal11.us>
-	<1381031544-2960-1-git-send-email-alan@signal11.us>
+Subject: [PATCH] l2tp: Fix build warning with ipv6 disabled.
+Date: Tue, 08 Oct 2013 15:45:14 -0400 (EDT)
+Message-ID: <20131008.154514.1422524548022059570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	david@hauweele.net, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alan@signal11.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381031544-2960-1-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54214 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752705Ab3JHTpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 15:45:15 -0400
+Received: from localhost (cpe-74-68-127-86.nyc.res.rr.com [74.68.127.86])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id F1B6E581CB3
+	for <netdev@vger.kernel.org>; Tue,  8 Oct 2013 12:45:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Ott <alan@signal11.us>
-Date: Sat,  5 Oct 2013 23:52:21 -0400
-
-> After testing with the betas of this patchset, it's been rebased and is
-> ready for inclusion.
-> 
-> David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
-> period of heavy traffic.  Two race conditions were discovered, and the
-> driver was changed to use threaded interrupts, since the enable/disable of
-> interrupts in the driver has recently been a lighning rod whenever issues
-> arise related to interrupts (costing engineering time), and since threaded
-> interrupts are the right way to do it.
-
-Series applied, thanks.
+DQpuZXQvbDJ0cC9sMnRwX2NvcmUuYzogSW4gZnVuY3Rpb24goWwydHBfdmVyaWZ5X3VkcF9jaGVj
+a3N1baI6DQpuZXQvbDJ0cC9sMnRwX2NvcmUuYzo0OTk6MjI6IHdhcm5pbmc6IHVudXNlZCB2YXJp
+YWJsZSChdHVubmVsoiBbLVd1bnVzZWQtdmFyaWFibGVdDQoNCkNyZWF0ZSBhIGhlbHBlciAibDJ0
+cF90dW5uZWwoKSIgdG8gZmFjaWxpdGF0ZSB0aGlzLCBhbmQgYXMgYSBzaWRlDQplZmZlY3QgZ2V0
+IHJpZCBvZiBhIGJ1bmNoIG9mIHVubmVjZXNzYXJ5IHZvaWQgcG9pbnRlciBjYXN0cy4NCg0KU2ln
+bmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0tDQog
+bmV0L2wydHAvbDJ0cF9jb3JlLmMgfCAxMyArKysrKysrKy0tLS0tDQogMSBmaWxlIGNoYW5nZWQs
+IDggaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL25ldC9sMnRw
+L2wydHBfY29yZS5jIGIvbmV0L2wydHAvbDJ0cF9jb3JlLmMNCmluZGV4IGFlZGFhMmMuLmIwNzZl
+ODMgMTAwNjQ0DQotLS0gYS9uZXQvbDJ0cC9sMnRwX2NvcmUuYw0KKysrIGIvbmV0L2wydHAvbDJ0
+cF9jb3JlLmMNCkBAIC0xMTUsNiArMTE1LDExIEBAIHN0cnVjdCBsMnRwX25ldCB7DQogc3RhdGlj
+IHZvaWQgbDJ0cF9zZXNzaW9uX3NldF9oZWFkZXJfbGVuKHN0cnVjdCBsMnRwX3Nlc3Npb24gKnNl
+c3Npb24sIGludCB2ZXJzaW9uKTsNCiBzdGF0aWMgdm9pZCBsMnRwX3R1bm5lbF9mcmVlKHN0cnVj
+dCBsMnRwX3R1bm5lbCAqdHVubmVsKTsNCiANCitzdGF0aWMgaW5saW5lIHN0cnVjdCBsMnRwX3R1
+bm5lbCAqbDJ0cF90dW5uZWwoc3RydWN0IHNvY2sgKnNrKQ0KK3sNCisJcmV0dXJuIHNrLT5za191
+c2VyX2RhdGE7DQorfQ0KKw0KIHN0YXRpYyBpbmxpbmUgc3RydWN0IGwydHBfbmV0ICpsMnRwX3Bl
+cm5ldChzdHJ1Y3QgbmV0ICpuZXQpDQogew0KIAlCVUdfT04oIW5ldCk7DQpAQCAtNDk2LDcgKzUw
+MSw2IEBAIG91dDoNCiBzdGF0aWMgaW5saW5lIGludCBsMnRwX3ZlcmlmeV91ZHBfY2hlY2tzdW0o
+c3RydWN0IHNvY2sgKnNrLA0KIAkJCQkJICAgc3RydWN0IHNrX2J1ZmYgKnNrYikNCiB7DQotCXN0
+cnVjdCBsMnRwX3R1bm5lbCAqdHVubmVsID0gKHN0cnVjdCBsMnRwX3R1bm5lbCAqKXNrLT5za191
+c2VyX2RhdGE7DQogCXN0cnVjdCB1ZHBoZHIgKnVoID0gdWRwX2hkcihza2IpOw0KIAl1MTYgdWxl
+biA9IG50b2hzKHVoLT5sZW4pOw0KIAlfX3dzdW0gcHN1bTsNCkBAIC01MDUsNyArNTA5LDcgQEAg
+c3RhdGljIGlubGluZSBpbnQgbDJ0cF92ZXJpZnlfdWRwX2NoZWNrc3VtKHN0cnVjdCBzb2NrICpz
+aywNCiAJCXJldHVybiAwOw0KIA0KICNpZiBJU19FTkFCTEVEKENPTkZJR19JUFY2KQ0KLQlpZiAo
+c2stPnNrX2ZhbWlseSA9PSBQRl9JTkVUNiAmJiAhdHVubmVsLT52NG1hcHBlZCkgew0KKwlpZiAo
+c2stPnNrX2ZhbWlseSA9PSBQRl9JTkVUNiAmJiAhbDJ0cF90dW5uZWwoc2spLT52NG1hcHBlZCkg
+ew0KIAkJaWYgKCF1aC0+Y2hlY2spIHsNCiAJCQlMSU1JVF9ORVRERUJVRyhLRVJOX0lORk8gIkwy
+VFA6IElQdjY6IGNoZWNrc3VtIGlzIDBcbiIpOw0KIAkJCXJldHVybiAxOw0KQEAgLTEzMDUsMTAg
+KzEzMDksOSBAQCBFWFBPUlRfU1lNQk9MX0dQTChsMnRwX3htaXRfc2tiKTsNCiAgKi8NCiBzdGF0
+aWMgdm9pZCBsMnRwX3R1bm5lbF9kZXN0cnVjdChzdHJ1Y3Qgc29jayAqc2spDQogew0KLQlzdHJ1
+Y3QgbDJ0cF90dW5uZWwgKnR1bm5lbDsNCisJc3RydWN0IGwydHBfdHVubmVsICp0dW5uZWwgPSBs
+MnRwX3R1bm5lbChzayk7DQogCXN0cnVjdCBsMnRwX25ldCAqcG47DQogDQotCXR1bm5lbCA9IHNr
+LT5za191c2VyX2RhdGE7DQogCWlmICh0dW5uZWwgPT0gTlVMTCkNCiAJCWdvdG8gZW5kOw0KIA0K
+QEAgLTE2NzYsNyArMTY3OSw3IEBAIGludCBsMnRwX3R1bm5lbF9jcmVhdGUoc3RydWN0IG5ldCAq
+bmV0LCBpbnQgZmQsIGludCB2ZXJzaW9uLCB1MzIgdHVubmVsX2lkLCB1MzINCiAJfQ0KIA0KIAkv
+KiBDaGVjayBpZiB0aGlzIHNvY2tldCBoYXMgYWxyZWFkeSBiZWVuIHByZXBwZWQgKi8NCi0JdHVu
+bmVsID0gKHN0cnVjdCBsMnRwX3R1bm5lbCAqKXNrLT5za191c2VyX2RhdGE7DQorCXR1bm5lbCA9
+IGwydHBfdHVubmVsKHNrKTsNCiAJaWYgKHR1bm5lbCAhPSBOVUxMKSB7DQogCQkvKiBUaGlzIHNv
+Y2tldCBoYXMgYWxyZWFkeSBiZWVuIHByZXBwZWQgKi8NCiAJCWVyciA9IC1FQlVTWTsNCi0tIA0K
+MS43LjExLjcNCg0K
