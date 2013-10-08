@@ -1,85 +1,60 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Tue, 8 Oct 2013 14:22:16 +0200
-Message-ID: <20131008122215.GA14389@dhcp-26-207.brq.redhat.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
- <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
- <1380922156.3214.49.camel@bwh-desktop.uk.level5networks.com>
- <20131005142054.GA11270@dhcp-26-207.brq.redhat.com>
- <1381009586.645.141.camel@pasglop>
- <20131006060243.GB28142@dhcp-26-207.brq.redhat.com>
- <1381040386.645.143.camel@pasglop>
- <20131006071027.GA29143@dhcp-26-207.brq.redhat.com>
- <20131007180111.GC2481@htj.dyndns.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net RFC 1/2] netdevice: add might_sleep() call to napi_disable
+Date: Tue, 8 Oct 2013 15:39:18 +0300
+Message-ID: <5253FCF6.1040808@mellanox.com>
+References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com> <20130918201949.8697.50700.stgit@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Ben Hutchings <bhutchings@solarflare.com>,
-        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourcefor
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20131007180111.GC2481@htj.dyndns.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Alex Duyck <alexander.h.duyck@intel.com>,
+	Hyong-Youb Kim <hykim@myri.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Jacob Keller <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:39115 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751635Ab3JHMjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 08:39:33 -0400
+In-Reply-To: <20130918201949.8697.50700.stgit@jekeller-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 07, 2013 at 02:01:11PM -0400, Tejun Heo wrote:
-> > What about introducing pci_lock_msi() and pci_unlock_msi() and let device
-> > drivers care about their ranges and specifics in race-safe manner?
-> > I do not call to introduce it right now (since it appears pSeries has not
-> > been hitting the race for years) just as a possible alternative to Ben's
-> > proposal.
+On 18/09/2013 23:20, Jacob Keller wrote:
+> napi_disable potentially calls msleep(1) if the NAPI_STATE_SCHED bit is
+> previously set by something else. Because it does not always call msleep, it
+> was difficult to track down a bug related to calling napi_disable within
+> local_bh_disable()d context. This patch adds a might_sleep() call to the
+> napi_disable routine in order to aid in the future debugging of similar issues.
+> This will cause a BUG in drivers which have implemented busy polling in a
+> similar fashion to ixgbe, and which call napi_disable inside the
+> local_bh_disable()d section where the vector napi lock is taken.
 > 
-> I don't think the same race condition would happen with the loop.
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> Cc: Alex Duyck <alexander.h.duyck@intel.com>
+> Cc: Hyong-Youb Kim <hykim@myri.com>
+> Cc: Amir Vadai <amirv@mellanox.com>
+> Cc: Dmitry Kravkov <dmitry@broadcom.com>
+> ---
+>  include/linux/netdevice.h |    2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 3de49ac..81dab00 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -483,6 +483,8 @@ extern void napi_hash_del(struct napi_struct *napi);
+>   */
+>  static inline void napi_disable(struct napi_struct *n)
+>  {
+> +	might_sleep();
+> +
+>  	set_bit(NAPI_STATE_DISABLE, &n->state);
+>  	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+>  		msleep(1);
+> 
 
-We need to distinguish the contexts we're discussing.
+Works ok with mlx4_en driver.
 
-If we talk about pSeries quota, then the current pSeries pci_enable_msix()
-implementation is racy internally and could fail if the quota went down
-*while* pci_enable_msix() is executing. In this case the loop will have to
-exit rather than retry with a lower number (what number?).
-
-In this regard the new scheme does not bring anything new and relies on
-the fact this race does not hit and therefore does not worry.
-
-If we talk about quota as it has to be, then yes - the loop scheme seems
-more preferable.
-
-Overall, looks like we just need to fix the pSeries implementation,
-if the guys want it, he-he :)
-
-> The problem case is where multiple msi(x) allocation fails completely
-> because the global limit went down before inquiry and allocation.  In
-> the loop based interface, it'd retry with the lower number.
-
-I am probably missing something here. If the global limit went down before
-inquiry then the inquiry will get what is available and try to allocate with
-than number.
-
--- 
-Regards,
-Alexander Gordeev
-agordeev@redhat.com
+Acked-By: Amir Vadai <amirv@mellanox.com>
