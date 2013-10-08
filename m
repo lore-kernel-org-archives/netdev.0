@@ -1,112 +1,172 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [PATCH net stable REPOST] ipv6: restrict neighbor entry creation to
- output flow
-Date: Tue, 8 Oct 2013 16:41:13 +0200
-Message-ID: <20131008144113.GA4293@minipsycho.orion>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH] xen-netback: Don't destroy the netdev until the vif is
+ shut
+Date: Tue, 8 Oct 2013 14:41:17 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD012F463@AMSPEX01CL01.citrite.net>
+References: <20131004.002248.789391156050342547.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hannes@stressinduktion.org, jiri@resnulli.us, dbanerje@akamai.com,
-	yoshfuji@linux-ipv6.org, mleitner@redhat.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:39719 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754509Ab3JHOlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 10:41:16 -0400
-Received: by mail-ea0-f179.google.com with SMTP id b10so4053056eae.10
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 07:41:15 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp.citrix.com ([66.165.176.89]:30050 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752969Ab3JHOly convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 10:41:54 -0400
+In-Reply-To: <20131004.002248.789391156050342547.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: 04 October 2013 05:23
+> To: Paul Durrant
+> Cc: netdev@vger.kernel.org; Wei Liu
+> Subject: Re: [PATCH] xen-netback: Don't destroy the netdev until the vif is
+> shut
+> 
+> 
+> Can one of you do -stable backports of this change for v3.11 and any
+> other active -stable branch where this fix is relevant?
+> 
+> I gave it a shot, and it got outside my realm of expertise.
+> 
+> Thanks!
 
-This patch is based on 3.2.y branch, the one used by reporter. Please let me
-know if it should be different. Thanks.
+Here is a patch for 3.10.
 
-The patch which introduced the regression was applied on stables:
-3.0.64 3.4.31 3.7.8 3.2.39
+--8<--
+>From e626fc73f445f05d976756d022614f06461cab74 Mon Sep 17 00:00:00 2001
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Tue, 8 Oct 2013 14:22:56 +0100
+Subject: [PATCH] xen-netback: Don't destroy the netdev until the vif is shut
+ down
 
-The patch which introduced the regression was for stable trees only.
+[ upstream commit id: 279f438e36c0a70b23b86d2090aeec50155034a9 ]
 
----8<---
+Without this patch, if a frontend cycles through states Closing
+and Closed (which Windows frontends need to do) then the netdev
+will be destroyed and requires re-invocation of hotplug scripts
+to restore state before the frontend can move to Connected. Thus
+when udev is not in use the backend gets stuck in InitWait.
 
-Commit 0d6a77079c475033cb622c07c5a880b392ef664e "ipv6: do not create
-neighbor entries for local delivery" introduced a regression on
-which routes to local delivery would not work anymore. Like this:
+With this patch, the netdev is left alone whilst the backend is
+still online and is only de-registered and freed just prior to
+destroying the vif (which is also nicely symmetrical with the
+netdev allocation and registration being done during probe) so
+no re-invocation of hotplug scripts is required.
 
-    $ ip -6 route add local 2001::/64 dev lo
-    $ ping6 -c1 2001::9
-    PING 2001::9(2001::9) 56 data bytes
-    ping: sendmsg: Invalid argument
-
-As this is a local delivery, that commit would not allow the creation of a
-neighbor entry and thus the packet cannot be sent.
-
-But as TPROXY scenario actually needs to avoid the neighbor entry creation only
-for input flow, this patch now limits previous patch to input flow, keeping
-output as before that patch.
-
-Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
 ---
- net/ipv6/route.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |   12 ++++++++++--
+ drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
+ 3 files changed, 23 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 18ea73c..bc9103d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -791,7 +791,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 9d7f172..1a28508 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -115,6 +115,7 @@ struct xenvif *xenvif_alloc(struct device *parent,
+ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+ 		   unsigned long rx_ring_ref, unsigned int evtchn);
+ void xenvif_disconnect(struct xenvif *vif);
++void xenvif_free(struct xenvif *vif);
+ 
+ void xenvif_get(struct xenvif *vif);
+ void xenvif_put(struct xenvif *vif);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index d984141..3a294c2 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -304,6 +304,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	}
+ 
+ 	netdev_dbg(dev, "Successfully created xenvif\n");
++
++	__module_get(THIS_MODULE);
++
+ 	return vif;
  }
  
- static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
--				      struct flowi6 *fl6, int flags)
-+				      struct flowi6 *fl6, int flags, bool input)
- {
- 	struct fib6_node *fn;
- 	struct rt6_info *rt, *nrt;
-@@ -799,8 +799,11 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 	int attempts = 3;
- 	int err;
- 	int reachable = net->ipv6.devconf_all->forwarding ? 0 : RT6_LOOKUP_F_REACHABLE;
-+	int local = RTF_NONEXTHOP;
+@@ -369,9 +372,14 @@ void xenvif_disconnect(struct xenvif *vif)
+ 	if (vif->irq)
+ 		unbind_from_irqhandler(vif->irq, vif);
  
- 	strict |= flags & RT6_LOOKUP_F_IFACE;
-+	if (input)
-+		local |= RTF_LOCAL;
+-	unregister_netdev(vif->dev);
+-
+ 	xen_netbk_unmap_frontend_rings(vif);
++}
++
++void xenvif_free(struct xenvif *vif)
++{
++	unregister_netdev(vif->dev);
  
- relookup:
- 	read_lock_bh(&table->tb6_lock);
-@@ -820,7 +823,7 @@ restart:
- 	read_unlock_bh(&table->tb6_lock);
- 
- 	if (!dst_get_neighbour_raw(&rt->dst)
--	    && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
-+	    && !(rt->rt6i_flags & local))
- 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
- 	else if (!(rt->dst.flags & DST_HOST))
- 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-@@ -864,7 +867,7 @@ out2:
- static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
- 					    struct flowi6 *fl6, int flags)
- {
--	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
-+	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags, true);
+ 	free_netdev(vif->dev);
++
++	module_put(THIS_MODULE);
  }
- 
- void ip6_route_input(struct sk_buff *skb)
-@@ -890,7 +893,7 @@ void ip6_route_input(struct sk_buff *skb)
- static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
- 					     struct flowi6 *fl6, int flags)
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 410018c..abe24ff 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
+ 	if (be->vif) {
+ 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+-		xenvif_disconnect(be->vif);
++		xenvif_free(be->vif);
+ 		be->vif = NULL;
+ 	}
+ 	kfree(be);
+@@ -203,9 +203,18 @@ static void disconnect_backend(struct xenbus_device *dev)
  {
--	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
-+	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags, false);
- }
+ 	struct backend_info *be = dev_get_drvdata(&dev->dev);
  
- struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
++	if (be->vif)
++		xenvif_disconnect(be->vif);
++}
++
++static void destroy_backend(struct xenbus_device *dev)
++{
++	struct backend_info *be = dev_get_drvdata(&dev->dev);
++
+ 	if (be->vif) {
++		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+-		xenvif_disconnect(be->vif);
++		xenvif_free(be->vif);
+ 		be->vif = NULL;
+ 	}
+ }
+@@ -237,14 +246,11 @@ static void frontend_changed(struct xenbus_device *dev,
+ 	case XenbusStateConnected:
+ 		if (dev->state == XenbusStateConnected)
+ 			break;
+-		backend_create_xenvif(be);
+ 		if (be->vif)
+ 			connect(be);
+ 		break;
+ 
+ 	case XenbusStateClosing:
+-		if (be->vif)
+-			kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+ 		disconnect_backend(dev);
+ 		xenbus_switch_state(dev, XenbusStateClosing);
+ 		break;
+@@ -253,6 +259,7 @@ static void frontend_changed(struct xenbus_device *dev,
+ 		xenbus_switch_state(dev, XenbusStateClosed);
+ 		if (xenbus_dev_is_online(dev))
+ 			break;
++		destroy_backend(dev);
+ 		/* fall through if not online */
+ 	case XenbusStateUnknown:
+ 		device_unregister(&dev->dev);
 -- 
-1.8.3.1
+1.7.10.4
