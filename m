@@ -1,35 +1,41 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: Re: [PATCH net-next] Revert "xen-netback: improve ring effeciency
- for guest RX"
-Date: Tue, 8 Oct 2013 11:21:47 +0100
-Message-ID: <1381227707.3804.65.camel@hastur.hellion.org.uk>
-References: <1381226061-6521-1-git-send-email-wei.liu2@citrix.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [raw v1 2/4] [NET] Use raw_cpu ops for SNMP stats
+Date: Tue, 8 Oct 2013 12:21:42 +0200
+Message-ID: <20131008102142.GT3081@twins.programming.kicks-ass.net>
+References: <20131007183226.334180014@linux.com>
+ <0000014194309205-d0af4d2d-a046-4189-b4f0-ffea37374988-000000@email.amazonses.com>
+ <20131008072114.GA4455@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	Annie Li <annie.li@oracle.com>, Matt Wilson <msw@amazon.com>,
-	Xi Xiong <xixiong@amazon.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:55500 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756172Ab3JHKVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 06:21:51 -0400
-In-Reply-To: <1381226061-6521-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>,
+	akpm@linuxfoundation.org, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org, Steven Rostedt <srostedt@redhat.com>,
+	linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131008072114.GA4455@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-08 at 10:54 +0100, Wei Liu wrote:
-> This reverts commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c.
+On Tue, Oct 08, 2013 at 09:21:14AM +0200, Ingo Molnar wrote:
 > 
-> The named changeset is causing problem. Let's aim to make this part less
-> fragile before trying to improve things.
+> * Christoph Lameter <cl@linux.com> wrote:
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > SNMP stats are not protected by preemption but by bh handling.
+> 
+> Most forms of bh exclusion work via the preemption count though, and 
+> softirq contexts themselves are generally not preemptible [to other CPUs] 
+> either.
+> 
+> So the warnings should, in most cases, not trigger.
 
-Although I thought davem would just run git revert so I don't know if it
-is needed.
+Right, so softirqs run either in the irq tail at which point
+preempt_count += SOFTIRQ_OFFSET and thus preemption is disabled, or it
+runs in ksoftirqd which has strict cpu affinity which also disables the
+warning, and it also increments preempt_count with SOFTIRQ_OFFSET to
+exclude the softirq from interrupts while its running, also disabling
+the warning.
+
+So it should very much not trigger.. if it does you want to know about
+it.
