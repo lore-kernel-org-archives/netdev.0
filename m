@@ -1,61 +1,105 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net-next] net: gro: allow to build full sized skb
-Date: Tue, 08 Oct 2013 09:14:47 -0700
-Message-ID: <52542F77.2050308@candelatech.com>
-References: <1381248143.12191.53.camel@edumazet-glaptop.roam.corp.google.com>
+From: Steve Rago <sar@nec-labs.com>
+Subject: Re: bug in passing file descriptors
+Date: Tue, 8 Oct 2013 12:18:45 -0400
+Message-ID: <52543065.7000209@nec-labs.com>
+References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net> <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net> <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com> <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:52267 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665Ab3JHQOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:14:50 -0400
-In-Reply-To: <1381248143.12191.53.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail.nec-labs.com ([138.15.200.209]:46493 "EHLO
+	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753131Ab3JHQTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:19:04 -0400
+In-Reply-To: <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2013 09:02 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 10/08/2013 12:02 PM, Andy Lutomirski wrote:
+> On Tue, Oct 8, 2013 at 7:32 AM, Steve Rago <sar@nec-labs.com> wrote:
+>> On 10/07/2013 06:55 PM, Andi Kleen wrote:
+>>>
+>>> David Miller <davem@davemloft.net> writes:
+>>>
+>>>> From: Steve Rago <sar@nec-labs.com>
+>>>> Date: Mon, 7 Oct 2013 16:29:15 -0400
+>>>>
+>>>>> On 10/07/2013 03:42 PM, David Miller wrote:
+>>>>>>
+>>>>>> There is no compatability issue.
+>>>>>>
+>>>>>> 32-bit tasks will always see the 4-byte align/length.
+>>>>>> 64-bit tasks will always see the 8-byte align/length.
+>>>>>>
+>>>>>
+>>>>> Really?  So when I compile my application on a 32-bit Linux box and
+>>>>> then try to run it on a 64-bit Linux box, you're not going to overrun
+>>>>> my buffer when CMSG_SPACE led me to allocate an insufficient amount of
+>>>>> memory needed to account for padding on the 64-bit platform?
+>>>>
+>>>>
+>>>> We have a compatability layer that gives 32-bit applications the
+>>>> same behavior as if they had run on a 32-bit machine.
+>>>>
+>>>> Search around for the MSG_MSG_COMPAT flag and how that is used in
+>>>> net/socket.c
+>>>
+>>>
+>>> But it seems the compat layer doesn't handle this correctly,
+>>> otherwise Steve's original test case would work.
+>>>
+>>> Must be a bug somewhere in the compat layer.
+>>>
+>>> -Andi
+>>>
+>>
+>> I did some research last night and I think the problem stems from an
+>> underspecified standard.  CMSG_LEN and CMSG_SPACE seem to have originated
+>> with RFC 2292, which has since been obsoleted by RFC 3542.  The difference
+>> is that CMSG_SPACE accounts for padding at the end, which is needed when you
+>> stuff multiple cmsghdr objects in the same buffer.  CMSG_LEN is required to
+>> be used to initialize the cmsg_len member of the structure.  When you only
+>> have one cmsghdr object in your call to recvmsg, it is unclear whether you
+>> need to have a buffer as large as CMSG_SPACE or CMSG_LEN.  Historically,
+>> BSD-based platforms never had these macros and didn't return the ancillary
+>> data if the space provided by the application wasn't big enough.  Linux,
+>> *which has a bug*, won't copy more bytes than cmsg_len specifies when the
+>> application uses CMSG_LEN instead of CMSG_SPACE, but then lies to the
+>> application by overwriting msg_controllen.  Look in put_cmsg() in
+>> net/core/scm.c: "cmlen" is calculated using CM_LEN, and then msg_controllen
+>> is checked against it to make sure you don't overwrite the user's buffer.
+>> However, in recvmsg(), msg_controllen is overwritten by "msg_sys.msg_control
+>> - cmsg_ptr".  msg_control was incremented by CMSG_SPACE at the end of
+>> scm_detach_fds().
+>>
+>> The Linux kernel code seems to copy the right amount of data, even in the
+>> compat case, as far as I can tell.  The only bug I see is that
+>> msg_controllen returns from recvmsg() with the wrong value.
 >
-> skb_gro_receive() is currently limited to 16 or 17 MSS per GRO skb,
-> typically 24616 bytes, because it fills up to MAX_SKB_FRAGS frags.
+> I don't see how the other behavior would be any less surprising.
+> Suppose you had a control message with CMSG_LEN=12 and CMSG_SPACE=16.
+> Then, with the semantics you want, one of them takes 12 bytes, two of
+> them take 28 bytes, three take 44 bytes, etc.
 >
-> It's relatively easy to extend the skb using frag_list to allow
-> more frags to be appended into the last sk_buff.
+> That seems considerably more surprising than having then take 16, 32,
+> and 48 bytes respectively.
 >
-> This still builds very efficient skbs, and allows reaching 45 MSS per
-> skb.
+> --Andy
 >
-> (45 MSS GRO packet uses one skb plus a frag_list containing 2 additional
-> sk_buff)
->
-> High speed TCP flows benefit from this extension by lowering TCP stack
-> cpu usage (less packets stored in receive queue, less ACK packets
-> processed)
->
-> Forwarding setups could be hurt, as such skbs will need to be
-> linearized, although its not a new problem, as GRO could already
-> provide skbs with a frag_list.
->
-> We could make the 65536 bytes threshold a tunable to mitigate this.
->
-> (First time we need to linearize skb in skb_needs_linearize(), we could
-> lower the tunable to ~16*1460 so that following skb_gro_receive() calls
-> build smaller skbs)
 
-On multi-homed boxes you could easily have paths that would never need linearize
-and other paths that always need it, for whatever reason.
+I just want the semantics to be consistent.  If you want Linux to always require applications that call recvmsg to 
+provide a buffer size of CMSG_SPACE bytes long to retrieve control information, then fail the system call when the 
+buffer is smaller.  But if you do this, you risk breaking applications that work with FreeBSD, Mac OS X, Solaris, and 
+probably a few others.
 
-Maybe a per-netdev check for needs linearize instead of something global
-would be better...and maybe let users over-ride the default behaviour
-regardless?
+No wonder the Single UNIX Specification didn't standardize these two macros.
 
-Thanks,
-Ben
+Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Steve
