@@ -1,37 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: gro: allow to build full sized skb
-Date: Tue, 08 Oct 2013 09:50:42 -0700
-Message-ID: <1381251042.12191.56.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381248143.12191.53.camel@edumazet-glaptop.roam.corp.google.com>
-	 <52542F77.2050308@candelatech.com>
+From: Steve Rago <sar@nec-labs.com>
+Subject: Re: bug in passing file descriptors
+Date: Tue, 8 Oct 2013 12:51:11 -0400
+Message-ID: <525437FF.5020905@nec-labs.com>
+References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net> <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net> <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com> <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com> <52543065.7000209@nec-labs.com> <20131008164108.GO6882@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:35033 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755504Ab3JHQun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:50:43 -0400
-Received: by mail-pb0-f53.google.com with SMTP id up15so8896614pbc.12
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 09:50:43 -0700 (PDT)
-In-Reply-To: <52542F77.2050308@candelatech.com>
+Received: from mail.nec-labs.com ([138.15.200.209]:47368 "EHLO
+	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755909Ab3JHQv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 12:51:27 -0400
+In-Reply-To: <20131008164108.GO6882@two.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-10-08 at 09:14 -0700, Ben Greear wrote:
+On 10/08/2013 12:41 PM, Andi Kleen wrote:
+>> I just want the semantics to be consistent.  If you want Linux to
+>> always require applications that call recvmsg to provide a buffer
+>> size of CMSG_SPACE bytes long to retrieve control information, then
+>> fail the system call when the buffer is smaller.  But if you do
+>> this, you risk breaking applications that work with FreeBSD, Mac OS
+>> X, Solaris, and probably a few others.
+>
+> The primary concern is to be binary compatible with Linux.
+>
+> But not being compatible between 32bit and 64bit Linux processes on the same
+> host would seem like a serious problem to me.
+>
+>> Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
+>
+> The question is could it break existing Linux applications to change it?
+> And would it help with the 32/64bit compatibility?
+>
+> If not some other way to fix the compat layer would need to be found.
+>
+> -Andi
+>
 
-> On multi-homed boxes you could easily have paths that would never need linearize
-> and other paths that always need it, for whatever reason.
-> 
-> Maybe a per-netdev check for needs linearize instead of something global
-> would be better...and maybe let users over-ride the default behaviour
-> regardless?
+I'm not sure if a 64-bit process and a 32-bit process exchange file descriptors on the same system has a problem.  It 
+certainly looks like the compat code does the right thing.  I can test this tonight if you want.  The discrepancy arises 
+because file descriptors are 4-byte quantities and treated differently (for example, when more than one is specified, 
+each one isn't padded to an 8-byte boundary).
 
-Sure. Note that this has yet to be discussed.
+The way I discovered the problem is that I had an example program in APUE that was validating that msg_controllen had 
+the correct value after calling recvmsg().  It worked on my 32-bit platform, but when I recompiled it and ran it on my 
+64-bit platform, the test failed, because msg_controllen was larger than the size that was sent via sendmsg().
 
-I mentioned this in the changelog for completeness.
-
-I know people just disabling GRO in forwarding setups, probably because
-we lack control of latencies / bursts.
+Steve
