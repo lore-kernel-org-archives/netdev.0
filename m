@@ -1,46 +1,43 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: port CCMP to cryptoapi's CCM driver
-Date: Tue, 08 Oct 2013 21:08:36 +0200
-Message-ID: <1381259316.13359.17.camel@jlt4.sipsolutions.net>
-References: <1381231915-24232-1-git-send-email-ard.biesheuvel@linaro.org>
-	 (sfid-20131008_133333_304168_2D31449F)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] Revert "xen-netback: improve ring effeciency
+ for guest RX"
+Date: Tue, 08 Oct 2013 15:11:23 -0400 (EDT)
+Message-ID: <20131008.151123.1574778991747124379.davem@davemloft.net>
+References: <1381226061-6521-1-git-send-email-wei.liu2@citrix.com>
+	<1381227707.3804.65.camel@hastur.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1381231915-24232-1-git-send-email-ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> (sfid-20131008_133333_304168_2D31449F)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: wei.liu2@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, annie.li@oracle.com, msw@amazon.com,
+	xixiong@amazon.com, david.vrabel@citrix.com,
+	paul.durrant@citrix.com
+To: ian.campbell@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53669 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665Ab3JHTL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 15:11:27 -0400
+In-Reply-To: <1381227707.3804.65.camel@hastur.hellion.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm not too familiar with the aead API, so here's another question:
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Tue, 8 Oct 2013 11:21:47 +0100
 
-> +	sg_init_one(&pt, data, data_len);
-> +	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
-> +	sg_init_table(ct, 2);
-> +	sg_set_buf(&ct[0], cdata, data_len);
-> +	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
+> On Tue, 2013-10-08 at 10:54 +0100, Wei Liu wrote:
+>> This reverts commit 4f0581d25827d5e864bcf07b05d73d0d12a20a5c.
+>> 
+>> The named changeset is causing problem. Let's aim to make this part less
+>> fragile before trying to improve things.
+>> 
+>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> 
+> Although I thought davem would just run git revert so I don't know if it
+> is needed.
 
-Is it guaranteed to be allowed that the input and output are the same
-buffer? It seems we rely on that for encrypt_one(), but is it true here
-as well?
+This works too, because it gives you guys an opportunity to add
+some explanation to the commit message.
 
-(Btw - why pass in data/cdata as separate pointers into the function?)
-
-> @@ -343,7 +337,7 @@ static void ccmp_special_blocks(struct sk_buff *skb, u8 *pn, u8 *scratch,
->  		data_len -= IEEE80211_CCMP_MIC_LEN;
->  
->  	/* First block, b_0 */
-> -	b_0[0] = 0x59; /* flags: Adata: 1, M: 011, L: 001 */
-> +	b_0[0] = 0x1; /* set L := 1, M and Adata flags are implied */
-
-Hmm. I don't think I understand, can you explain this to me?
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
