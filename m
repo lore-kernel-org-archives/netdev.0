@@ -1,7 +1,7 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
 Subject: [PATCH] moxa: fix the error handling in moxart_mac_probe()
-Date: Tue, 8 Oct 2013 11:19:19 +0800
-Message-ID: <CAPgLHd95agB+cseQmD4wg50wX_ddyZ0=0VxJ8vAR80ZbcFsMTw@mail.gmail.com>
+Date: Tue, 8 Oct 2013 11:26:41 +0800
+Message-ID: <CAPgLHd95Rv=sCCWFsuLwtGz5GL5+7N-y6zQ195uOXF3ebgcj3A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
@@ -9,12 +9,12 @@ To: grant.likely@linaro.org, rob.herring@calxeda.com,
 	davem@davemloft.net, jg1.han@samsung.com, b.zolnierkie@samsung.com,
 	kyungmin.park@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:42077 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752045Ab3JHDTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 23:19:21 -0400
-Received: by mail-bk0-f53.google.com with SMTP id d7so3058932bkh.12
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 20:19:19 -0700 (PDT)
+Received: from mail-bk0-f45.google.com ([209.85.214.45]:55096 "EHLO
+	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751806Ab3JHD0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 23:26:42 -0400
+Received: by mail-bk0-f45.google.com with SMTP id mx11so2947250bkb.4
+        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 20:26:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
