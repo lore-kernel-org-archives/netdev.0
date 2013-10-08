@@ -1,58 +1,86 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: [PATCH iproute2] xfrm: enable to set non-wildcard mark 0 on SAs and SPs
-Date: Tue,  8 Oct 2013 14:56:06 +0200
-Message-ID: <1381236966-12436-1-git-send-email-christophe.gouault@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Christophe Gouault <christophe.gouault@6wind.com>
-To: shemminger@vyatta.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v2 1/5] xen-netback: add IPv6 checksum offload
+ to guest
+Date: Tue, 8 Oct 2013 14:10:00 +0100
+Message-ID: <20131008131000.GH28411@zion.uk.xensource.com>
+References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
+ <1381229896-18657-2-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:52974 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665Ab3JHNEn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 09:04:43 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:54510 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752191Ab3JHNKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Oct 2013 09:10:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1381229896-18657-2-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip xfrm considers that the user-defined mark is "any" as soon as
-(mark.v & mark.m == 0), which prevents from specifying non-wildcard
-marks that include the value 0 (typically 0/0xffffffff).
+On Tue, Oct 08, 2013 at 11:58:12AM +0100, Paul Durrant wrote:
+> Check xenstore flag feature-ipv6-csum-offload to determine if a
+> guest is happy to accept IPv6 packets with only partial checksum.
+> Also check analogous feature-ip-csum-offload to determone if a
 
-Yet, matching exactly mark 0 is useful for instance to separate
-vti policies from global policies.
+determone -> determine
 
-Always configure the user mark if mark.m != 0.
+> guest is happy to accept IPv4 packets with only partial checksum
+> as a replacement for a negated feature-no-csum-offload value and
+> add a comment to deprecate use of feature-no-csum-offload.
+> 
+[...]
+> @@ -306,7 +308,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>  	vif->domid  = domid;
+>  	vif->handle = handle;
+>  	vif->can_sg = 1;
+> -	vif->csum = 1;
+> +	vif->ip_csum = 1;
 
-Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
----
- ip/xfrm_policy.c |    2 +-
- ip/xfrm_state.c  |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Not setting a default value for vif->ipv6_csum?
 
-diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-index 36e33c9..a8d8b98 100644
---- a/ip/xfrm_policy.c
-+++ b/ip/xfrm_policy.c
-@@ -373,7 +373,7 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
- 			  (void *)tmpls_buf, tmpls_len);
- 	}
- 
--	if (mark.m & mark.v) {
-+	if (mark.m) {
- 		int r = addattr_l(&req.n, sizeof(req.buf), XFRMA_MARK,
- 				  (void *)&mark, sizeof(mark));
- 		if (r < 0) {
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index f4ad4cb..c4d2bf6 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -528,7 +528,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 		exit(1);
- 	}
- 
--	if (mark.m & mark.v) {
-+	if (mark.m) {
- 		int r = addattr_l(&req.n, sizeof(req.buf), XFRMA_MARK,
- 				  (void *)&mark, sizeof(mark));
- 		if (r < 0) {
--- 
-1.7.10.4
+>  	vif->dev = dev;
+>  
+[...]
+> +	/* Before feature-ipv6-csum-offload was introduced, checksum offload
+> +	 * was turned on by a zero value in (or lack of)
+> +	 * feature-no-csum-offload. Therefore, for compatibility, assume
+> +	 * that if feature-ip-csum-offload is missing that IP (v4) offload
+> +	 * is turned on. If this is not the case then the flag will be
+> +	 * cleared when we subsequently sample feature-no-csum-offload.
+> +	 */
+> +	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-ip-csum-offload",
+> +			 "%d", &val) < 0)
+> +		val = 1;
+> +	vif->ip_csum = !!val;
+> +
+> +	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-ipv6-csum-offload",
+> +			 "%d", &val) < 0)
+> +		val = 0;
+> +	vif->ipv6_csum = !!val;
+> +
+> +	/* This is deprecated. Frontends should set IP v4 and v6 checksum
+> +	 * offload using feature-ip-csum-offload and
+> +	 * feature-ipv6-csum-offload respectively.
+> +	 */
+
+These comments on feature flags should also be synchronized to master
+netif.h in Xen and Linux's header. We've been trying to document thing
+along the way for quite some time and the long term benifit is big.
+
+>  	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-no-csum-offload",
+>  			 "%d", &val) < 0)
+>  		val = 0;
+> -	vif->csum = !val;
+> +	if (val)
+> +		vif->ip_csum = 0;
+
+Do you also need to set vif->ipv6_csum to 0? I don't think a frontend
+which cannot deal with V4 csum offload has the ability to deal with V6
+csum offload.
+
+Wei.
