@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net ipv4: Allow unprivileged users to use most of the
- per net systctls
-Date: Tue, 08 Oct 2013 00:45:09 -0400 (EDT)
-Message-ID: <20131008.004509.2088608232981571154.davem@davemloft.net>
-References: <878uy4skek.fsf@xmission.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH] eisa: standardize on eisa_register_driver like similar
+ bus registrations
+Date: Tue, 08 Oct 2013 08:53:18 +0400
+Message-ID: <1381207998.7959.1.camel@dabdike>
+References: <1381026958-4459-1-git-send-email-tedheadster@gmail.com>
+	 <20131007.160225.1679994399484815968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42087 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529Ab3JHEpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 00:45:13 -0400
-In-Reply-To: <878uy4skek.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tedheadster@gmail.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20131007.160225.1679994399484815968.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 07 Oct 2013 16:58:43 -0700
+On Mon, 2013-10-07 at 16:02 -0400, David Miller wrote:
+> From: Matthew Whitehead <tedheadster@gmail.com>
+> Date: Sat,  5 Oct 2013 22:35:58 -0400
+>=20
+> > The other buses (isa, pci, pnp, parport, usb, tty, etc) all use the=
+ convention
+> > of ${BUSNAME}_register_driver. Rewrite the little remaining code th=
+at uses EISA
+> > to follow this convention for easier readability.
+> >=20
+> > This affects the EISA bus, SCSI, and networking subsystems so only =
+one should
+> > ultimately merge the patch if it is accepted.
+> >=20
+> > Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
+>=20
+> I'm fine with someone else taking this, for networking parts:
 
-> 
-> Allow unprivileged users to use:
-> /proc/sys/net/ipv4/icmp_echo_ignore_all
-> /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
-> /proc/sys/net/ipv4/icmp_ignore_bogus_error_response
-> /proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr
-> /proc/sys/net/ipv4/icmp_ratelimit
-> /proc/sys/net/ipv4/icmp_ratemask
-> /proc/sys/net/ipv4/ping_group_range
-> /proc/sys/net/ipv4/tcp_ecn
-> /proc/sys/net/ipv4/ip_local_ports_range
- ...
-> -			table[0].procname = NULL;
-> +			table[9].procname = NULL;
+I don't really see much value in the rename, especially as eisa is
+probably not long for this world.  However, its a trivial rename, so
+bundle it all up into a single patch and send it to Ji=C5=99=C3=AD Kosi=
+na
+<trivial@vger.kernel.org> he'll take care of it.
 
-Regardless of what I think semantically of this change, you really
-have to find some way to avoid this magic constant.
+James
 
-Thanks.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
