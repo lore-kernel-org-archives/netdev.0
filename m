@@ -1,34 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] moxa: fix the error handling in moxart_mac_probe()
-Date: Tue, 08 Oct 2013 16:53:25 -0400 (EDT)
-Message-ID: <20131008.165325.685988143607110163.davem@davemloft.net>
-References: <CAPgLHd95agB+cseQmD4wg50wX_ddyZ0=0VxJ8vAR80ZbcFsMTw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: NAPI requires netif_receive_skb()
+Date: Tue, 08 Oct 2013 23:52:13 +0200
+Message-ID: <52547E8D.3080101@cogentembedded.com>
+References: <201309030303.11381.sergei.shtylyov@cogentembedded.com> <20130904.141252.532474080722830977.davem@davemloft.net> <Pine.LNX.4.64.1309261751200.11968@axis700.grange>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
-	jg1.han@samsung.com, b.zolnierkie@samsung.com,
-	kyungmin.park@samsung.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55307 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756790Ab3JHUx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:53:27 -0400
-In-Reply-To: <CAPgLHd95agB+cseQmD4wg50wX_ddyZ0=0VxJ8vAR80ZbcFsMTw@mail.gmail.com>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:46553 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756609Ab3JHUxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 16:53:31 -0400
+Received: by mail-ee0-f44.google.com with SMTP id b47so4315471eek.3
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 13:53:30 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.1309261751200.11968@axis700.grange>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 8 Oct 2013 11:19:19 +0800
+Hello.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> This patch fix the error handling in moxart_mac_probe():
->  - return -ENOMEM in some memory alloc fail cases
->  - add missing free_netdev() in the error handling case
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 26-09-2013 18:12, Guennadi Liakhovetski wrote:
 
-Applied.
+>> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> Date: Tue, 3 Sep 2013 03:03:10 +0400
+
+>>> Driver supporting NAPI should use NAPI-specific function for receiving packets,
+>>> so netif_rx() should be changed to netif_receive_skb().
+
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> This patch breaks NFS boot on Armadillo800eva for me. Network
+> communication slows down to a crawl with
+
+> net eth0: Receive FIFO Overflow
+> nfs: server 192.168.x.y not responding, still trying
+
+> With this patch reverted (e.g. in today's Linus tree snapshot) boot is
+> restored.
+
+    Guennadi, are you expecting some actions (like looking into what Eric have 
+suggested) from me? If so, I'm still on vacation, should be back next Tuesday.
+    I don't think reverting the patch is a Right Thing to do.
+
+> Thanks
+> Guennadi
+
+WBR, Sergei
