@@ -1,35 +1,58 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH] mac80211: port CCMP to cryptoapi's CCM driver
-Date: Tue, 8 Oct 2013 14:01:36 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B737B@saturn3.aculab.com>
-References: <1381231915-24232-1-git-send-email-ard.biesheuvel@linaro.org> (sfid-20131008_133333_304168_2D31449F) <1381233152.13359.10.camel@jlt4.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Ard Biesheuvel" <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1381233152.13359.10.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [PATCH iproute2] xfrm: enable to set non-wildcard mark 0 on SAs and SPs
+Date: Tue,  8 Oct 2013 14:56:06 +0200
+Message-ID: <1381236966-12436-1-git-send-email-christophe.gouault@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Christophe Gouault <christophe.gouault@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:52974 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665Ab3JHNEn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 09:04:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBIbW0sIHRoYW5rcyBJIGd1ZXNzLiBJJ2xsIG5lZWQgdG8gcmV2aWV3IHRoaXMgaW4gbW9yZSBk
-ZXRhaWwsIGJ1dCBJIGhhdmUNCj4gYSBxdWVzdGlvbiBmaXJzdDoNCj4gDQo+ID4gKwkvKiBhbGxv
-Y2F0ZSB0aGUgdmFyaWFibGUgc2l6ZWQgYWVhZF9yZXF1ZXN0IG9uIHRoZSBzdGFjayAqLw0KPiA+
-ICsJaW50IGwgPSBESVZfUk9VTkRfVVAoY3J5cHRvX2FlYWRfcmVxc2l6ZSh0Zm0pLA0KPiA+ICsJ
-CQkgICAgIHNpemVvZihzdHJ1Y3QgYWVhZF9yZXF1ZXN0KSk7DQo+ID4gKwlzdHJ1Y3QgYWVhZF9y
-ZXF1ZXN0IHJlcVsxICsgbF07DQo+IA0KPiBUaGlzIGxvb2tzIGEgYml0IG9kZCwgd2h5IHJvdW5k
-IHVwIGZpcnN0IGFuZCB0aGVuIGFkZCBvbmU/IFdoeSBldmVuDQo+IGJvdGhlciB1c2luZyBhIHN0
-cnVjdCBhcnJheSByYXRoZXIgdGhhbiBzb21lIGxvY2FsIHN0cnVjdCBsaWtlDQoNCklzIGl0IGV2
-ZW4gYSBnb29kIGlkZWEgdG8gYmUgYWxsb2NhdGluZyB2YXJpYWJsZSBzaXplZCBpdGVtcw0Kb24g
-dGhlIGtlcm5lbCBzdGFjaz8NCg0KVGhlcmUgaGFzIHRvIGJlIGVub3VnaCBzdGFjayBhdmFpbGFi
-bGUgZm9yIHRoZSBtYXhpbXVtIG51bWJlcg0Kb2YgZW50cmllcyAtIHNvIHRoZXJlIGlzIGxpdHRs
-ZSBwb2ludCBpbiBkeW5hbWljYWxseSBzaXppbmcgaXQuDQoNCglEYXZpZA0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ip xfrm considers that the user-defined mark is "any" as soon as
+(mark.v & mark.m == 0), which prevents from specifying non-wildcard
+marks that include the value 0 (typically 0/0xffffffff).
+
+Yet, matching exactly mark 0 is useful for instance to separate
+vti policies from global policies.
+
+Always configure the user mark if mark.m != 0.
+
+Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
+---
+ ip/xfrm_policy.c |    2 +-
+ ip/xfrm_state.c  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+index 36e33c9..a8d8b98 100644
+--- a/ip/xfrm_policy.c
++++ b/ip/xfrm_policy.c
+@@ -373,7 +373,7 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			  (void *)tmpls_buf, tmpls_len);
+ 	}
+ 
+-	if (mark.m & mark.v) {
++	if (mark.m) {
+ 		int r = addattr_l(&req.n, sizeof(req.buf), XFRMA_MARK,
+ 				  (void *)&mark, sizeof(mark));
+ 		if (r < 0) {
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index f4ad4cb..c4d2bf6 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -528,7 +528,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
+ 		exit(1);
+ 	}
+ 
+-	if (mark.m & mark.v) {
++	if (mark.m) {
+ 		int r = addattr_l(&req.n, sizeof(req.buf), XFRMA_MARK,
+ 				  (void *)&mark, sizeof(mark));
+ 		if (r < 0) {
+-- 
+1.7.10.4
