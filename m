@@ -1,72 +1,51 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Subject: Re: [PATCH] mac80211: port CCMP to cryptoapi's CCM driver
-Date: Tue, 8 Oct 2013 15:16:48 +0200
-Message-ID: <CAKv+Gu-VZTnPGB8YN__vWySceDHEtcBZmgjbEWRzy2HL_eGM2g@mail.gmail.com>
-References: <1381231915-24232-1-git-send-email-ard.biesheuvel@linaro.org>
-	<1381233152.13359.10.camel@jlt4.sipsolutions.net>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B737B@saturn3.aculab.com>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 2/2] cgroup: cls: remove unnecessary task_cls_classid
+Date: Tue, 8 Oct 2013 09:17:48 -0400
+Message-ID: <20131008131748.GB13089@hmsreliant.think-freely.org>
+References: <1381201520-25938-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1381201520-25938-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Patch Tracking <patches@linaro.org>,
-	John Linville <linville@tuxdriver.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:56009 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191Ab3JHNQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 09:16:50 -0400
-Received: by mail-lb0-f182.google.com with SMTP id c11so6730924lbj.41
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 06:16:48 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B737B@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org
+To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1381201520-25938-2-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 8 October 2013 15:01, David Laight <David.Laight@aculab.com> wrote:
->> Hmm, thanks I guess. I'll need to review this in more detail, but I have
->> a question first:
->>
->> > +   /* allocate the variable sized aead_request on the stack */
->> > +   int l = DIV_ROUND_UP(crypto_aead_reqsize(tfm),
->> > +                        sizeof(struct aead_request));
->> > +   struct aead_request req[1 + l];
->>
->> This looks a bit odd, why round up first and then add one? Why even
->> bother using a struct array rather than some local struct like
->
-> Is it even a good idea to be allocating variable sized items
-> on the kernel stack?
->
-> There has to be enough stack available for the maximum number
-> of entries - so there is little point in dynamically sizing it.
->
+On Tue, Oct 08, 2013 at 11:05:20AM +0800, Gao feng wrote:
+> We can get classid through cgroup_subsys_state,
+> this is directviewing and effective.
+> 
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> ---
+>  net/sched/cls_cgroup.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+> index 867b4a3..16006c9 100644
+> --- a/net/sched/cls_cgroup.c
+> +++ b/net/sched/cls_cgroup.c
+> @@ -72,11 +72,11 @@ static void cgrp_attach(struct cgroup_subsys_state *css,
+>  			struct cgroup_taskset *tset)
+>  {
+>  	struct task_struct *p;
+> -	void *v;
+> +	struct cgroup_cls_state *cs = css_cls_state(css);
+> +	void *v = (void *)(unsigned long)cs->classid;
+>  
+>  	cgroup_taskset_for_each(p, css, tset) {
+>  		task_lock(p);
+> -		v = (void *)(unsigned long)task_cls_classid(p);
+>  		iterate_fd(p->files, 0, update_classid, v);
+>  		task_unlock(p);
+>  	}
+> -- 
+> 1.8.3.1
+> 
+> 
 
-The result of crypto_aead_reqsize() has nothing to do with the input
-or output data, it is a property of the particular implementation of
-ccm(aes) that is being used. In the generic case (ccm.c),
-it always returns the size of this struct
-
-struct crypto_ccm_req_priv_ctx {
-        u8 odata[16];
-        u8 idata[16];
-        u8 auth_tag[16];
-        u32 ilen;
-        u32 flags;
-        struct scatterlist src[2];
-        struct scatterlist dst[2];
-        struct ablkcipher_request abreq;
-};
-
-while the particular implementation that I am working on for ARM64
-always has size 0. Note that this is data that would otherwise be
-allocated on the stack, but in the case of aead, which supports an
-asynchronous interface (which this code does not use btw), the data is
-attached to the end of the aead_request struct instead.
-
-The alternative is to allocate it dynamically using GFP_ATOMIC and
-free it at the end of the function, but in this particular case I
-don't think that makes much sense tbh
-
--- 
-Ard.
+Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
