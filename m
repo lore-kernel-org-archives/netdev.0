@@ -1,60 +1,80 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net RFC 1/2] netdevice: add might_sleep() call to napi_disable
-Date: Tue, 8 Oct 2013 15:39:18 +0300
-Message-ID: <5253FCF6.1040808@mellanox.com>
-References: <20130918201541.8697.3548.stgit@jekeller-desk1.amr.corp.intel.com> <20130918201949.8697.50700.stgit@jekeller-desk1.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets
+ following an UFO enqueued packet need also be handled by UFO]
+Date: Tue, 08 Oct 2013 06:00:11 -0700
+Message-ID: <1381237211.12191.35.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131001105837.GA1424@minipsycho.brq.redhat.com>
+	 <20131001120907.GH10771@order.stressinduktion.org>
+	 <20131001123214.GI10771@order.stressinduktion.org>
+	 <20131001214721.GJ10771@order.stressinduktion.org>
+	 <20131001232534.GM10771@order.stressinduktion.org>
+	 <20131002085842.GA1528@minipsycho.brq.redhat.com>
+	 <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002121207.GO10771@order.stressinduktion.org>
+	 <20131002130329.GP10771@order.stressinduktion.org>
+	 <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131002162730.GA3991@order.stressinduktion.org>
+	 <CAPoiz9wxxvHfmmMOCvPstzT51BafGfU1u5umxBQ8kqqCE=OzbQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Alex Duyck <alexander.h.duyck@intel.com>,
-	Hyong-Youb Kim <hykim@myri.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>
-To: Jacob Keller <jacob.e.keller@intel.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	herbert@gondor.apana.org.au
+To: Jon Mason <jdmason@kudzu.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:39115 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751635Ab3JHMjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 08:39:33 -0400
-In-Reply-To: <20130918201949.8697.50700.stgit@jekeller-desk1.amr.corp.intel.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:53648 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538Ab3JHNAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 09:00:14 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so8629378pdj.18
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 06:00:13 -0700 (PDT)
+In-Reply-To: <CAPoiz9wxxvHfmmMOCvPstzT51BafGfU1u5umxBQ8kqqCE=OzbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/09/2013 23:20, Jacob Keller wrote:
-> napi_disable potentially calls msleep(1) if the NAPI_STATE_SCHED bit is
-> previously set by something else. Because it does not always call msleep, it
-> was difficult to track down a bug related to calling napi_disable within
-> local_bh_disable()d context. This patch adds a might_sleep() call to the
-> napi_disable routine in order to aid in the future debugging of similar issues.
-> This will cause a BUG in drivers which have implemented busy polling in a
-> similar fashion to ixgbe, and which call napi_disable inside the
-> local_bh_disable()d section where the vector napi lock is taken.
+On Tue, 2013-10-08 at 01:07 -0700, Jon Mason wrote:
+> On Wed, Oct 2, 2013 at 9:27 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi!
+> >
+> > I have a question regarding UFO and the neterion driver, which as the only one
+> > advertises hardware UFO support:
+> >
+> > The patch discusses in this thread
+> > http://thread.gmane.org/gmane.linux.network/284348/focus=285405 could change
+> > some semantics how packets are constructed before submitted to the driver.
+> >
+> > We currently guarantee that we have the MAC/IP/UDP header in skb->data and the
+> > payload is attached in the skb's frags. With the changes discussed in this
+> > thread it is possible that we also append to skb->data some amount of data
+> > which is not targeted for the header. From reading the driver sources it seems
+> > the hardware interprets the skb->data to skb_headlen as the header, so we
+> > could include some data in the fragments more than once.
 > 
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Cc: Alex Duyck <alexander.h.duyck@intel.com>
-> Cc: Hyong-Youb Kim <hykim@myri.com>
-> Cc: Amir Vadai <amirv@mellanox.com>
-> Cc: Dmitry Kravkov <dmitry@broadcom.com>
-> ---
->  include/linux/netdevice.h |    2 ++
->  1 file changed, 2 insertions(+)
+> From my reading of the HW Spec and a quick look at the driver, it
+> appears that the driver is using one entry in the TX ring for the
+> header and another for the body of the packet to be fragmented (which
+> is what the hardware wants).  I don't understand what you are saying,
+> but if you are asking if simply appending a new header & data to the
+> end of skb->data will get it out on the wire correct, I don't believe
+> it will.
 > 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 3de49ac..81dab00 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -483,6 +483,8 @@ extern void napi_hash_del(struct napi_struct *napi);
->   */
->  static inline void napi_disable(struct napi_struct *n)
->  {
-> +	might_sleep();
-> +
->  	set_bit(NAPI_STATE_DISABLE, &n->state);
->  	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
->  		msleep(1);
-> 
+> I do have hardware that I can try the patch on, if you can walk me
+> through the use case (unless it is as easy as setup an IPv6 connection
+> and ping).
 
-Works ok with mlx4_en driver.
+I think this behavior is quite common. Driver should certainly already
+do the right thing, as TCP frames can have the same property.
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+bnx2x for example splits skb->head if it contains payload after headers.
+
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+
+                if (unlikely(skb_headlen(skb) > hlen)) {
+                        nbd++;
+                        bd_prod = bnx2x_tx_split(bp, txdata, tx_buf,
+                                                 &tx_start_bd, hlen,
+                                                 bd_prod);
+                }
