@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
- side)
-Date: Tue, 08 Oct 2013 15:23:49 -0400 (EDT)
-Message-ID: <20131008.152349.729447337097758010.davem@davemloft.net>
-References: <1380854061-30091-1-git-send-email-yamato@redhat.com>
+Subject: Re: [PATCH v2 0/2] 6lowpan default hardware address
+Date: Tue, 08 Oct 2013 15:29:11 -0400 (EDT)
+Message-ID: <20131008.152911.2206663013355897986.davem@davemloft.net>
+References: <1381029319-6835-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yamato@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53910 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948Ab3JHTXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 15:23:50 -0400
-In-Reply-To: <1380854061-30091-1-git-send-email-yamato@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	alex.aring@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381029319-6835-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Masatake YAMATO <yamato@redhat.com>
-Date: Fri,  4 Oct 2013 11:34:21 +0900
+From: Alan Ott <alan@signal11.us>
+Date: Sat,  5 Oct 2013 23:15:17 -0400
 
-> ip link has ability to show extra information of net work device if
-> kernel provides sunh information. With this patch veth driver can
-> provide its peer ifindex information to ip command via netlink
-> interface.
+> Alexander Aring suggested that devices desired to be linked to 6lowpan
+> be checked for actually being of type IEEE802154, since IEEE802154 devices
+> are all that are supported by 6lowpan at present.
 > 
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> Alan Ott (2):
+>   6lowpan: Only make 6lowpan links to IEEE802154 devices
+>   6lowpan: Sync default hardware address of lowpan links to their wpan
 
-Applied to net-next, thank you.
+Series applied, thanks Alan.
