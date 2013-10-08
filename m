@@ -1,60 +1,24 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
- pattern
-Date: Tue, 8 Oct 2013 11:07:16 +0200
-Message-ID: <20131008090716.GA10561@dhcp-26-207.brq.redhat.com>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <20131007182117.GC27396@htj.dyndns.org>
+From: Mr_Badmons <mr_1970@voila.fr>
+Subject: I NEED YOUR TRUST,
+Date: Tue, 8 Oct 2013 02:27:25 -0700 (PDT)
+Message-ID: <1381224445.89050.YahooMailBasic@web163005.mail.bf1.yahoo.com>
+Reply-To: mr_1970@voila.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-driver@qlogic.com,
-        So
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20131007182117.GC27396@htj.dyndns.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm11-vm6.bullet.mail.ne1.yahoo.com ([98.138.91.104]:47776 "EHLO
+	nm11-vm6.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753923Ab3JHJd6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Oct 2013 05:33:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 07, 2013 at 02:21:17PM -0400, Tejun Heo wrote:
-> Whee.... that's a lot more than I expected.  I was just scanning
-> multiple msi users.  Maybe we can stage the work in more manageable
-> steps so that you don't have to go through massive conversion only to
-> do it all over again afterwards and likewise people don't get
-> bombarded on each iteration?  Maybe we can first update pci / msi code
-> proper, msi and then msix?
+I NEED YOUR TRUST,
 
-Multipe MSIs is just a handful of drivers, really. MSI-X impact still
-will be huge. But if we opt a different name for the new pci_enable_msix()
-then we could first update pci/msi, then drivers (in few stages possibly)
-and finally remove the old implementation.
-
-> tejun
-
--- 
+I am Mr,Badmons Dukaz,The Head of file Department in Bank Of Africa.I seek your assistance and i assured of your capability to champion this business opportunity to remit $18.2 million U.S.A dollars. Into your account if you are interested let me know so that i can send you the details of this transaction.
+I agree that 30% of this money will be for you 10% will be set aside for expenses incurred during the business and 60% would be for me.
 Regards,
-Alexander Gordeev
-agordeev@redhat.com
+Badmons Dukaz. 
