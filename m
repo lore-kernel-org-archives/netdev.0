@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net 5/6] sfc: Add PM and RXDP drop counters to ethtool stats
-Date: Tue, 8 Oct 2013 18:44:58 +0100
-Message-ID: <1381254298.1530.15.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net 6/6] sfc: Only bind to EF10 functions with the LinkCtrl
+ and Trusted flags
+Date: Tue, 8 Oct 2013 18:45:21 +0100
+Message-ID: <1381254321.1530.16.camel@bwh-desktop.uk.level5networks.com>
 References: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,131 +10,64 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56467 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56483 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755607Ab3JHRpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:45:02 -0400
+	with ESMTP id S1755639Ab3JHRpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:45:24 -0400
 In-Reply-To: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
+Although we do not yet enable multiple PFs per port, it is possible
+that a board will be reconfigured to enable them while the driver has
+not yet been updated to fully support this.
 
-Recognise the new Packet Memory and RX Data Path counters.
-
-The following counters are added:
-rx_pm_{trunc,discard}_bb_overflow - burst buffer overflowed.  This should not
- occur if BB correctly configured.
-rx_pm_{trunc,discard}_vfifo_full - not enough space in packet memory.  May
- indicate RX performance problems.
-rx_pm_{trunc,discard}_qbb - dropped by 802.1Qbb early discard mechanism.
- Since Qbb is not supported at present, this should not occur.
-rx_pm_discard_mapping - 802.1p priority configured to be dropped.  This should
- not occur in normal operation.
-rx_dp_q_disabled_packets - packet was to be delivered to a queue but queue is
- disabled.  May indicate misconfiguration by the driver.
-rx_dp_di_dropped_packets - parser-dispatcher indicated that a packet should be
- dropped.
-rx_dp_streaming_packets - packet was sent to the RXDP streaming bus, ie. a
- filter directed the packet to the MCPU.
-rx_dp_emerg_{fetch,wait} - RX datapath had to wait for descriptors to be
- loaded.  Indicates performance problems but not drops.
-
-These are only provided if the MC firmware has the
-PM_AND_RXDP_COUNTERS capability.  Otherwise, mask them out.
+The most obvious problem is that multiple functions may try to set
+conflicting link settings.  But we will also run into trouble if the
+firmware doesn't consider us fully trusted.  So, abort probing unless
+both the LinkCtrl and Trusted flags are set for this function.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 35 +++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/nic.h  | 12 ++++++++++++
- 2 files changed, 47 insertions(+)
+ drivers/net/ethernet/sfc/mcdi.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index c00a5d6..21f9ad6 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -444,6 +444,18 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- 	EF10_DMA_STAT(rx_align_error, RX_ALIGN_ERROR_PKTS),
- 	EF10_DMA_STAT(rx_length_error, RX_LENGTH_ERROR_PKTS),
- 	EF10_DMA_STAT(rx_nodesc_drops, RX_NODESC_DROPS),
-+	EF10_DMA_STAT(rx_pm_trunc_bb_overflow, PM_TRUNC_BB_OVERFLOW),
-+	EF10_DMA_STAT(rx_pm_discard_bb_overflow, PM_DISCARD_BB_OVERFLOW),
-+	EF10_DMA_STAT(rx_pm_trunc_vfifo_full, PM_TRUNC_VFIFO_FULL),
-+	EF10_DMA_STAT(rx_pm_discard_vfifo_full, PM_DISCARD_VFIFO_FULL),
-+	EF10_DMA_STAT(rx_pm_trunc_qbb, PM_TRUNC_QBB),
-+	EF10_DMA_STAT(rx_pm_discard_qbb, PM_DISCARD_QBB),
-+	EF10_DMA_STAT(rx_pm_discard_mapping, PM_DISCARD_MAPPING),
-+	EF10_DMA_STAT(rx_dp_q_disabled_packets, RXDP_Q_DISABLED_PKTS),
-+	EF10_DMA_STAT(rx_dp_di_dropped_packets, RXDP_DI_DROPPED_PKTS),
-+	EF10_DMA_STAT(rx_dp_streaming_packets, RXDP_STREAMING_PKTS),
-+	EF10_DMA_STAT(rx_dp_emerg_fetch, RXDP_EMERGENCY_FETCH_CONDITIONS),
-+	EF10_DMA_STAT(rx_dp_emerg_wait, RXDP_EMERGENCY_WAIT_CONDITIONS),
- };
- 
- #define HUNT_COMMON_STAT_MASK ((1ULL << EF10_STAT_tx_bytes) |		\
-@@ -498,15 +510,38 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- #define HUNT_40G_EXTRA_STAT_MASK ((1ULL << EF10_STAT_rx_align_error) |	\
- 				  (1ULL << EF10_STAT_rx_length_error))
- 
-+/* These statistics are only provided if the firmware supports the
-+ * capability PM_AND_RXDP_COUNTERS.
-+ */
-+#define HUNT_PM_AND_RXDP_STAT_MASK (					\
-+	(1ULL << EF10_STAT_rx_pm_trunc_bb_overflow) |			\
-+	(1ULL << EF10_STAT_rx_pm_discard_bb_overflow) |			\
-+	(1ULL << EF10_STAT_rx_pm_trunc_vfifo_full) |			\
-+	(1ULL << EF10_STAT_rx_pm_discard_vfifo_full) |			\
-+	(1ULL << EF10_STAT_rx_pm_trunc_qbb) |				\
-+	(1ULL << EF10_STAT_rx_pm_discard_qbb) |				\
-+	(1ULL << EF10_STAT_rx_pm_discard_mapping) |			\
-+	(1ULL << EF10_STAT_rx_dp_q_disabled_packets) |			\
-+	(1ULL << EF10_STAT_rx_dp_di_dropped_packets) |			\
-+	(1ULL << EF10_STAT_rx_dp_streaming_packets) |			\
-+	(1ULL << EF10_STAT_rx_dp_emerg_fetch) |				\
-+	(1ULL << EF10_STAT_rx_dp_emerg_wait))
-+
- static u64 efx_ef10_raw_stat_mask(struct efx_nic *efx)
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index c082562..366c8e3 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -963,7 +963,7 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 			       bool *was_attached)
  {
- 	u64 raw_mask = HUNT_COMMON_STAT_MASK;
- 	u32 port_caps = efx_mcdi_phy_get_caps(efx);
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_DRV_ATTACH_IN_LEN);
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_OUT_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_EXT_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
  
- 	if (port_caps & (1 << MC_CMD_PHY_CAP_40000FDX_LBN))
- 		raw_mask |= HUNT_40G_EXTRA_STAT_MASK;
- 	else
- 		raw_mask |= HUNT_10G_ONLY_STAT_MASK;
+@@ -981,6 +981,22 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 		goto fail;
+ 	}
+ 
++	/* We currently assume we have control of the external link
++	 * and are completely trusted by firmware.  Abort probing
++	 * if that's not true for this function.
++	 */
++	if (driver_operating &&
++	    outlen >= MC_CMD_DRV_ATTACH_EXT_OUT_LEN &&
++	    (MCDI_DWORD(outbuf, DRV_ATTACH_EXT_OUT_FUNC_FLAGS) &
++	     (1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL |
++	      1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_TRUSTED)) !=
++	    (1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL |
++	     1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_TRUSTED)) {
++		netif_err(efx, probe, efx->net_dev,
++			  "This driver version only supports one function per port\n");
++		return -ENODEV;
++	}
 +
-+	if (nic_data->datapath_caps &
-+	    (1 << MC_CMD_GET_CAPABILITIES_OUT_PM_AND_RXDP_COUNTERS_LBN))
-+		raw_mask |= HUNT_PM_AND_RXDP_STAT_MASK;
-+
- 	return raw_mask;
- }
- 
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index fda29d3..890bbbe 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -386,6 +386,18 @@ enum {
- 	EF10_STAT_rx_align_error,
- 	EF10_STAT_rx_length_error,
- 	EF10_STAT_rx_nodesc_drops,
-+	EF10_STAT_rx_pm_trunc_bb_overflow,
-+	EF10_STAT_rx_pm_discard_bb_overflow,
-+	EF10_STAT_rx_pm_trunc_vfifo_full,
-+	EF10_STAT_rx_pm_discard_vfifo_full,
-+	EF10_STAT_rx_pm_trunc_qbb,
-+	EF10_STAT_rx_pm_discard_qbb,
-+	EF10_STAT_rx_pm_discard_mapping,
-+	EF10_STAT_rx_dp_q_disabled_packets,
-+	EF10_STAT_rx_dp_di_dropped_packets,
-+	EF10_STAT_rx_dp_streaming_packets,
-+	EF10_STAT_rx_dp_emerg_fetch,
-+	EF10_STAT_rx_dp_emerg_wait,
- 	EF10_STAT_COUNT
- };
- 
-
+ 	if (was_attached != NULL)
+ 		*was_attached = MCDI_DWORD(outbuf, DRV_ATTACH_OUT_OLD_STATE);
+ 	return 0;
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
