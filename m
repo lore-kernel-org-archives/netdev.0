@@ -1,75 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net 6/6] sfc: Only bind to EF10 functions with the LinkCtrl
- and Trusted flags
-Date: Tue, 8 Oct 2013 18:45:21 +0100
-Message-ID: <1381254321.1530.16.camel@bwh-desktop.uk.level5networks.com>
-References: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Vladimir Murzin <murzin.v@gmail.com>
+Subject: [PATCH 1/3] net: bpf jit: ppc: optimize choose_load_func error path
+Date: Tue,  8 Oct 2013 20:31:48 +0400
+Message-ID: <1381249910-17338-1-git-send-email-murzin.v@gmail.com>
+Cc: av1474@comtv.ru, Vladimir Murzin <murzin.v@gmail.com>,
+	Jan Seiffert <kaffeemonster@googlemail.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Matt Evans <matt@ozlabs.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56483 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755639Ab3JHRpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:45:24 -0400
-In-Reply-To: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:44114 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753013Ab3JHR5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:57:15 -0400
+Received: by mail-la0-f46.google.com with SMTP id eh20so7249041lab.33
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 10:57:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although we do not yet enable multiple PFs per port, it is possible
-that a board will be reconfigured to enable them while the driver has
-not yet been updated to fully support this.
+Macro CHOOSE_LOAD_FUNC returns handler for "any offset" if checks for K
+were not passed. At the same time handlers for "any offset" cases make
+the same checks against r_addr at run-time, that will always lead to
+bpf_error.
 
-The most obvious problem is that multiple functions may try to set
-conflicting link settings.  But we will also run into trouble if the
-firmware doesn't consider us fully trusted.  So, abort probing unless
-both the LinkCtrl and Trusted flags are set for this function.
+Run-time checks are still necessary for indirect load operations, but
+error path for absolute and mesh loads are worth to optimize during bpf
+compile time.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Vladimir Murzin <murzin.v@gmail.com>
+
+Cc: Jan Seiffert <kaffeemonster@googlemail.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Cc: Matt Evans <matt@ozlabs.org>
+
 ---
- drivers/net/ethernet/sfc/mcdi.c | 18 +++++++++++++++++-
- 1 file changed, 17 insertions(+), 1 deletion(-)
+ arch/powerpc/net/bpf_jit_comp.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index c082562..366c8e3 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -963,7 +963,7 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
- 			       bool *was_attached)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_DRV_ATTACH_IN_LEN);
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_OUT_LEN);
-+	MCDI_DECLARE_BUF(outbuf, MC_CMD_DRV_ATTACH_EXT_OUT_LEN);
- 	size_t outlen;
- 	int rc;
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index bf56e33..754320a 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -132,7 +132,7 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
+ }
  
-@@ -981,6 +981,22 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
- 		goto fail;
- 	}
+ #define CHOOSE_LOAD_FUNC(K, func) \
+-	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
++	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : NULL) : func##_positive_offset)
  
-+	/* We currently assume we have control of the external link
-+	 * and are completely trusted by firmware.  Abort probing
-+	 * if that's not true for this function.
-+	 */
-+	if (driver_operating &&
-+	    outlen >= MC_CMD_DRV_ATTACH_EXT_OUT_LEN &&
-+	    (MCDI_DWORD(outbuf, DRV_ATTACH_EXT_OUT_FUNC_FLAGS) &
-+	     (1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL |
-+	      1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_TRUSTED)) !=
-+	    (1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_LINKCTRL |
-+	     1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_TRUSTED)) {
-+		netif_err(efx, probe, efx->net_dev,
-+			  "This driver version only supports one function per port\n");
-+		return -ENODEV;
-+	}
-+
- 	if (was_attached != NULL)
- 		*was_attached = MCDI_DWORD(outbuf, DRV_ATTACH_OUT_OLD_STATE);
- 	return 0;
-
+ /* Assemble the body code between the prologue & epilogue. */
+ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+@@ -427,6 +427,11 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 		case BPF_S_LD_B_ABS:
+ 			func = CHOOSE_LOAD_FUNC(K, sk_load_byte);
+ 		common_load:
++			if (!func) {
++				PPC_LI(r_ret, 0);
++				PPC_JMP(exit_addr);
++				break;
++			}
+ 			/* Load from [K]. */
+ 			ctx->seen |= SEEN_DATAREF;
+ 			PPC_LI64(r_scratch1, func);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
