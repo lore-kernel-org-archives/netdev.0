@@ -1,55 +1,143 @@
-From: Romain Baeriswyl <Romain.Baeriswyl@abilis.com>
-Subject: [RFC] net: stmmac: keep RXC running in LPI mode to avoid system overload
-Date: Tue,  8 Oct 2013 17:06:35 +0200
-Message-ID: <1381244795-3922-1-git-send-email-romainba@abilis.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Romain Baeriswyl <romainba@abilis.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [PATCH net] vti: get rid of nf mark rule in prerouting
+Date: Tue,  8 Oct 2013 17:21:22 +0200
+Message-ID: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>,
+	Saurabh Mohan <saurabh@vyatta.com>,
+	Christophe Gouault <christophe.gouault@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53141 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754328Ab3JHPVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 11:21:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to avoid system overload, the clock RXC from the Phy should not be 
-stopped when in LPI mode.
+This patch fixes and improves the use of vti interfaces (while
+lightly changing the way of configuring them).
 
-With the RTL8211E PHY which support EEE mode and with Apple Airport Extreme that 
-supports it also, the kernel get frozen as soon as some Ethernet transfers are 
-on-going. System seems to be overloaded with too many interrupts. The 'top' 
-command reports often around ~80% irq.
+Currently:
 
-By letting the RXC clock running even in LPI mode as proposed below, the issue 
-seems solved. Is it the right way to proceed?  
+- it is necessary to identify and mark inbound IPsec
+  packets destined to each vti interface, via netfilter rules in
+  the mangle table at prerouting hook.
 
-What is the power impact to not stop RXC in LPI mode?
+- the vti module cannot retrieve the right tunnel in input since
+  commit b9959fd3: vti tunnels all have an i_key, but the tunnel lookup
+  is done with flag TUNNEL_NO_KEY, so there no chance to retrieve them.
 
+- the i_key is used by the outbound processing as a mark to lookup
+  for the right SP and SA bundle.
+
+This patch uses the o_key to store the vti mark (instead of i_key) and
+enables:
+
+- to avoid the need for previously marking the inbound skbuffs via a
+  netfilter rule.
+- to properly retrieve the right tunnel in input, only based on the IPsec
+  packet outer addresses.
+- to properly perform an inbound policy check (using the tunnel o_key
+  as a mark).
+- to properly perform an outbound SPD and SAD lookup (using the tunnel
+  o_key as a mark).
+- to keep the current mark of the skbuff. The skbuff mark is neither
+  used nor changed by the vti interface. Only the vti interface o_key
+  is used.
+
+SAs have a wildcard mark.
+SPs have a mark equal to the vti interface o_key.
+
+The vti interface must be created as follows (i_key = 0, o_key = mark):
+
+   ip link add vti1 mode vti local 1.1.1.1 remote 2.2.2.2 okey 1
+
+The SPs attached to vti1 must be created as follows (mark = vti1 o_key):
+
+   ip xfrm policy add dir out mark 1 tmpl src 1.1.1.1 dst 2.2.2.2 \
+      proto esp mode tunnel
+   ip xfrm policy add dir in  mark 1 tmpl src 2.2.2.2 dst 1.1.1.1 \
+      proto esp mode tunnel
+
+The SAs are created with the default wildcard mark. There is no
+distinction between global vs. vti SAs. Just their addresses will
+possibly link them to a vti interface:
+
+   ip xfrm state add src 1.1.1.1 dst 2.2.2.2 proto esp spi 1000 mode tunnel \
+                 enc "cbc(aes)" "azertyuiopqsdfgh"
+
+   ip xfrm state add src 2.2.2.2 dst 1.1.1.1 proto esp spi 2000 mode tunnel \
+                 enc "cbc(aes)" "sqbdhgqsdjqjsdfh"
+
+To avoid matching "global" (not vti) SPs in vti interfaces, global SPs
+should no use the default wildcard mark, but explicitly match mark 0.
+
+To avoid a double SPD lookup in input and output (in global and vti SPDs),
+the NOPOLICY and NOXFRM options should be set on the vti interfaces:
+
+   echo 1 > /proc/sys/net/ipv4/conf/vti1/disable_policy
+   echo 1 > /proc/sys/net/ipv4/conf/vti1/disable_xfrm
+
+The outgoing traffic is steered to vti1 by a route via the vti interface:
+
+   ip route add 192.168.0.0/16 dev vti1
+
+The incoming IPsec traffic is steered to vti1 because its outer addresses
+match the vti1 tunnel configuration.
+
+Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+This is is both a fix and enhancement patch. However, there are 2 ways
+of fixing the inbound processing bug:
+- either keep the current configuration model (ikey + netfilter rule)
+  and change the tunnel lookup method. This patch would then be reverted
+  by the enhancement (this sounds counterproductive).
+- or directly change the configuration model (okey, no netfilter rule) and keep
+  the current tunnel lookup method.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index e9eab29..d40d26b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -314,7 +314,8 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 	/* MAC core supports the EEE feature. */
- 	if (priv->dma_cap.eee) {
- 		/* Check if the PHY supports EEE */
--		if (phy_init_eee(priv->phydev, 1))
-+		/* Keeps RXC running in LPI mode to avoid stability issue */
-+		if (phy_init_eee(priv->phydev, 0))
- 			goto out;
+ net/ipv4/ip_vti.c |   14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index e805e7b..6e87f85 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -125,8 +125,17 @@ static int vti_rcv(struct sk_buff *skb)
+ 				  iph->saddr, iph->daddr, 0);
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
++		u32 oldmark = skb->mark;
++		int ret;
  
- 		if (!priv->eee_active) {
-@@ -770,7 +771,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	/* At this stage, it could be needed to setup the EEE or adjust some
- 	 * MAC related HW registers.
- 	 */
--	priv->eee_enabled = stmmac_eee_init(priv);
-+	if (new_state)
-+		priv->eee_enabled = stmmac_eee_init(priv);
+-		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
++
++		/* temporarily mark the skb with the tunnel o_key, to
++		 * only match policies with this mark.
++		 */
++		skb->mark = be32_to_cpu(tunnel->parms.o_key);
++		ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
++		skb->mark = oldmark;
++		if (!ret)
+ 			return -1;
  
- 	spin_unlock_irqrestore(&priv->lock, flags);
- }
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+@@ -135,7 +144,6 @@ static int vti_rcv(struct sk_buff *skb)
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
+-		skb->mark = 0;
+ 		secpath_reset(skb);
+ 		skb->dev = tunnel->dev;
+ 		return 1;
+@@ -167,7 +175,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	flowi4_init_output(&fl4, tunnel->parms.link,
+-			   be32_to_cpu(tunnel->parms.i_key), RT_TOS(tos),
++			   be32_to_cpu(tunnel->parms.o_key), RT_TOS(tos),
+ 			   RT_SCOPE_UNIVERSE,
+ 			   IPPROTO_IPIP, 0,
+ 			   dst, tiph->saddr, 0, 0);
 -- 
-1.7.1
+1.7.10.4
