@@ -1,54 +1,44 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] qlcnic: add missing destroy_workqueue() on error path in qlcnic_probe()
-Date: Tue, 8 Oct 2013 11:32:17 +0800
-Message-ID: <CAPgLHd9oA08=1o_DWE0SGeg_7nokr3-WPEAOrG71bYg2C1676A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-driver@qlogic.com,
-	netdev@vger.kernel.org
-To: himanshu.madhani@qlogic.com, rajesh.borundia@qlogic.com,
-	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
-	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:41202 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806Ab3JHDcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Oct 2013 23:32:19 -0400
-Received: by mail-bk0-f53.google.com with SMTP id d7so2935603bkh.40
-        for <netdev@vger.kernel.org>; Mon, 07 Oct 2013 20:32:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: baker.kernel@gmail.com
+Subject: [PATCH net-next] fib_trie: only calc for the un-first node
+Date: Tue,  8 Oct 2013 11:36:51 +0800
+Message-ID: <1381203411-12047-1-git-send-email-baker.kernel@gmail.com>
+Cc: "baker.zhang" <baker.kernel@gmail.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: "baker.zhang" <baker.kernel@gmail.com>
 
-Add the missing destroy_workqueue() before return from
-qlcnic_probe() in the error handling case.
+This is a enhancement.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+for the first node in fib_trie, newpos is 0, bit is 1.
+Only for the leaf or node with unmatched key need calc pos.
+
+Signed-off-by: baker.zhang <baker.kernel@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/ipv4/fib_trie.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 21d00a0..f07f2b0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2257,7 +2257,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 45c74ba..ec9a9ef 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1117,12 +1117,8 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
+ 		 *  first tnode need some special handling
+ 		 */
  
- 	err = qlcnic_alloc_adapter_resources(adapter);
- 	if (err)
--		goto err_out_free_netdev;
-+		goto err_out_free_wq;
- 
- 	adapter->dev_rst_time = jiffies;
- 	adapter->ahw->revision_id = pdev->revision;
-@@ -2396,6 +2396,9 @@ err_out_disable_msi:
- err_out_free_hw:
- 	qlcnic_free_adapter_resources(adapter);
- 
-+err_out_free_wq:
-+	destroy_workqueue(adapter->qlcnic_wq);
-+
- err_out_free_netdev:
- 	free_netdev(netdev);
- 
+-		if (tp)
+-			pos = tp->pos+tp->bits;
+-		else
+-			pos = 0;
+-
+ 		if (n) {
++			pos = tp ? tp->pos+tp->bits : 0;
+ 			newpos = tkey_mismatch(key, pos, n->key);
+ 			tn = tnode_new(n->key, newpos, 1);
+ 		} else {
+-- 
+1.7.9.5
