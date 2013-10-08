@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 1/6] sfc: Add rmb() between reading stats and
- generation count to ensure consistency
-Date: Tue, 8 Oct 2013 18:42:43 +0100
-Message-ID: <1381254163.1530.10.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net 1/6] sfc: Add rmb() between reading stats and generation
+ count to ensure consistency
+Date: Tue, 8 Oct 2013 18:43:20 +0100
+Message-ID: <1381254200.1530.11.camel@bwh-desktop.uk.level5networks.com>
 References: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56405 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56418 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368Ab3JHRmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:42:47 -0400
+	with ESMTP id S1756141Ab3JHRnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 13:43:23 -0400
 In-Reply-To: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
