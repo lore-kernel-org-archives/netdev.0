@@ -1,8 +1,8 @@
 From: Paul Durrant <Paul.Durrant@citrix.com>
 Subject: RE: [PATCH] xen-netback: Don't destroy the netdev until the vif is
  shut
-Date: Tue, 8 Oct 2013 14:41:17 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD012F463@AMSPEX01CL01.citrite.net>
+Date: Tue, 8 Oct 2013 14:39:57 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD012F451@AMSPEX01CL01.citrite.net>
 References: <20131004.002248.789391156050342547.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -11,10 +11,10 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Wei Liu <wei.liu2@citrix.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:30050 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752969Ab3JHOly convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 10:41:54 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:29962 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754509Ab3JHOmL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 10:42:11 -0400
 In-Reply-To: <20131004.002248.789391156050342547.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
@@ -36,12 +36,14 @@ List-ID: <netdev.vger.kernel.org>
 > 
 > Thanks!
 
-Here is a patch for 3.10.
+Ok. Here's a backport to 3.11.
+
+  Paul
 
 --8<--
->From e626fc73f445f05d976756d022614f06461cab74 Mon Sep 17 00:00:00 2001
+>From 158011889a79ad7cebdd30d551adcfeae80b8989 Mon Sep 17 00:00:00 2001
 From: Paul Durrant <paul.durrant@citrix.com>
-Date: Tue, 8 Oct 2013 14:22:56 +0100
+Date: Tue, 8 Oct 2013 14:56:44 +0100
 Subject: [PATCH] xen-netback: Don't destroy the netdev until the vif is shut
  down
 
@@ -65,27 +67,27 @@ Cc: Wei Liu <wei.liu2@citrix.com>
 Cc: Ian Campbell <ian.campbell@citrix.com>
 ---
  drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |   12 ++++++++++--
+ drivers/net/xen-netback/interface.c |   23 +++++++++--------------
  drivers/net/xen-netback/xenbus.c    |   17 ++++++++++++-----
- 3 files changed, 23 insertions(+), 7 deletions(-)
+ 3 files changed, 22 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 9d7f172..1a28508 100644
+index 8a4d77e..4d9a5e7 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -115,6 +115,7 @@ struct xenvif *xenvif_alloc(struct device *parent,
- int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		   unsigned long rx_ring_ref, unsigned int evtchn);
+@@ -120,6 +120,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+ 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
+ 		   unsigned int rx_evtchn);
  void xenvif_disconnect(struct xenvif *vif);
 +void xenvif_free(struct xenvif *vif);
  
  void xenvif_get(struct xenvif *vif);
  void xenvif_put(struct xenvif *vif);
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index d984141..3a294c2 100644
+index 087d2db..73336c1 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -304,6 +304,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+@@ -326,6 +326,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
  	}
  
  	netdev_dbg(dev, "Successfully created xenvif\n");
@@ -95,9 +97,28 @@ index d984141..3a294c2 100644
  	return vif;
  }
  
-@@ -369,9 +372,14 @@ void xenvif_disconnect(struct xenvif *vif)
- 	if (vif->irq)
- 		unbind_from_irqhandler(vif->irq, vif);
+@@ -413,12 +416,6 @@ void xenvif_carrier_off(struct xenvif *vif)
+ 
+ void xenvif_disconnect(struct xenvif *vif)
+ {
+-	/* Disconnect funtion might get called by generic framework
+-	 * even before vif connects, so we need to check if we really
+-	 * need to do a module_put.
+-	 */
+-	int need_module_put = 0;
+-
+ 	if (netif_carrier_ok(vif->dev))
+ 		xenvif_carrier_off(vif);
+ 
+@@ -432,18 +429,16 @@ void xenvif_disconnect(struct xenvif *vif)
+ 			unbind_from_irqhandler(vif->tx_irq, vif);
+ 			unbind_from_irqhandler(vif->rx_irq, vif);
+ 		}
+-		/* vif->irq is valid, we had a module_get in
+-		 * xenvif_connect.
+-		 */
+-		need_module_put = 1;
+ 	}
  
 -	unregister_netdev(vif->dev);
 -
@@ -109,11 +130,13 @@ index d984141..3a294c2 100644
 +	unregister_netdev(vif->dev);
  
  	free_netdev(vif->dev);
-+
+ 
+-	if (need_module_put)
+-		module_put(THIS_MODULE);
 +	module_put(THIS_MODULE);
  }
 diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 410018c..abe24ff 100644
+index 1fe48fe3..a53782e 100644
 --- a/drivers/net/xen-netback/xenbus.c
 +++ b/drivers/net/xen-netback/xenbus.c
 @@ -42,7 +42,7 @@ static int netback_remove(struct xenbus_device *dev)
@@ -125,7 +148,7 @@ index 410018c..abe24ff 100644
  		be->vif = NULL;
  	}
  	kfree(be);
-@@ -203,9 +203,18 @@ static void disconnect_backend(struct xenbus_device *dev)
+@@ -213,9 +213,18 @@ static void disconnect_backend(struct xenbus_device *dev)
  {
  	struct backend_info *be = dev_get_drvdata(&dev->dev);
  
@@ -145,7 +168,7 @@ index 410018c..abe24ff 100644
  		be->vif = NULL;
  	}
  }
-@@ -237,14 +246,11 @@ static void frontend_changed(struct xenbus_device *dev,
+@@ -246,14 +255,11 @@ static void frontend_changed(struct xenbus_device *dev,
  	case XenbusStateConnected:
  		if (dev->state == XenbusStateConnected)
  			break;
@@ -160,7 +183,7 @@ index 410018c..abe24ff 100644
  		disconnect_backend(dev);
  		xenbus_switch_state(dev, XenbusStateClosing);
  		break;
-@@ -253,6 +259,7 @@ static void frontend_changed(struct xenbus_device *dev,
+@@ -262,6 +268,7 @@ static void frontend_changed(struct xenbus_device *dev,
  		xenbus_switch_state(dev, XenbusStateClosed);
  		if (xenbus_dev_is_online(dev))
  			break;
