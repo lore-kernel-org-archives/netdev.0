@@ -1,65 +1,71 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [raw v1 2/4] [NET] Use raw_cpu ops for SNMP stats
-Date: Tue, 8 Oct 2013 09:21:14 +0200
-Message-ID: <20131008072114.GA4455@gmail.com>
-References: <20131007183226.334180014@linux.com>
- <0000014194309205-d0af4d2d-a046-4189-b4f0-ffea37374988-000000@email.amazonses.com>
+From: Alexander Gordeev <agordeev@redhat.com>
+Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
+ pattern
+Date: Tue, 8 Oct 2013 09:33:02 +0200
+Message-ID: <20131008073301.GC10669@dhcp-26-207.brq.redhat.com>
+References: <cover.1380703262.git.agordeev@redhat.com>
+ <20131008043330.GF31666@concordia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, akpm@linuxfoundation.org,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Steven Rostedt <srostedt@redhat.com>,
-	linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+        linux-driver@qlogic.com,
+        Solarflare linux maintaine
+To: Michael Ellerman <michael@ellerman.id.au>
+Return-path: <linux-mips-bounce@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <0000014194309205-d0af4d2d-a046-4189-b4f0-ffea37374988-000000@email.amazonses.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20131008043330.GF31666@concordia>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
+On Tue, Oct 08, 2013 at 03:33:30PM +1100, Michael Ellerman wrote:
+> On Wed, Oct 02, 2013 at 12:29:04PM +0200, Alexander Gordeev wrote:
+> > This technique proved to be confusing and error-prone. Vast share
+> > of device drivers simply fail to follow the described guidelines.
+> 
+> To clarify "Vast share of device drivers":
+> 
+>  - 58 drivers call pci_enable_msix()
+>  - 24 try a single allocation and then fallback to MSI/LSI
+>  - 19 use the loop style allocation as above
+>  - 14 try an allocation, and if it fails retry once
+>  - 1  incorrectly continues when pci_enable_msix() returns > 0
+> 
+> So 33 drivers (> 50%) successfully make use of the "confusing and
+> error-prone" return value.
 
-* Christoph Lameter <cl@linux.com> wrote:
+Ok, you caught me - 'vast share' is incorrect and is a subject to
+rewording. But out of 19/58 how many drivers tested fallbacks on the
+real hardware? IOW, which drivers are affected by the pSeries quota?
 
-> SNMP stats are not protected by preemption but by bh handling.
+> And yes, one is buggy, so obviously the interface is too complex. Thanks
+> drivers/ntb/ntb_hw.c
 
-Most forms of bh exclusion work via the preemption count though, and 
-softirq contexts themselves are generally not preemptible [to other CPUs] 
-either.
+vmxnet3 would be the best example.
 
-So the warnings should, in most cases, not trigger.
+> cheers
 
-> Since protection is provided outside of preemption raw_cpu_ops
-> need to be used to avoid false positives.
-
-Could you quote the warning that pops up? It might be better to annotate 
-the specific safe usages than to potentially hide bugs:
-
-> --- linux.orig/include/net/snmp.h	2013-10-07 09:16:07.595206864 -0500
-> +++ linux/include/net/snmp.h	2013-10-07 09:16:07.591206909 -0500
-> @@ -126,7 +126,7 @@ struct linux_xfrm_mib {
->  	extern __typeof__(type) __percpu *name[SNMP_ARRAY_SZ]
->  
->  #define SNMP_INC_STATS_BH(mib, field)	\
-> -			__this_cpu_inc(mib[0]->mibs[field])
-> +			raw_cpu_inc(mib[0]->mibs[field])
->  
->  #define SNMP_INC_STATS_USER(mib, field)	\
->  			this_cpu_inc(mib[0]->mibs[field])
-> @@ -141,7 +141,7 @@ struct linux_xfrm_mib {
->  			this_cpu_dec(mib[0]->mibs[field])
->  
->  #define SNMP_ADD_STATS_BH(mib, field, addend)	\
-> -			__this_cpu_add(mib[0]->mibs[field], addend)
-> +			raw_cpu_add(mib[0]->mibs[field], addend)
->  
->  #define SNMP_ADD_STATS_USER(mib, field, addend)	\
->  			this_cpu_add(mib[0]->mibs[field], addend)
-
-Doing this will hide any true bugs if any of these primitives is used in 
-an unsafe context.
-
-Thanks,
-
-	Ingo
+-- 
+Regards,
+Alexander Gordeev
+agordeev@redhat.com
