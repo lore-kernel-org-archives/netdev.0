@@ -1,208 +1,302 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 06/16] batman-adv: tvlv - add network coding container
-Date: Wed,  9 Oct 2013 21:32:44 +0200
-Message-ID: <1381347174-3629-7-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 09/16] batman-adv: tvlv - convert roaming adv packet to use tvlv unicast packets
+Date: Wed,  9 Oct 2013 21:32:47 +0200
+Message-ID: <1381347174-3629-10-git-send-email-antonio@meshcoding.com>
 References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:37582 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:14875 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755204Ab3JITdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:33:47 -0400
+	with ESMTP id S1755130Ab3JITdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:33:49 -0400
 In-Reply-To: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marek Lindner <lindner_marek@yahoo.de>
 
-Create network coding container to announce network coding
-capabilities (if enabled).
+Instead of generating roaming specific packets the TVLV unicast API is
+used to send roaming information.
 
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/network-coding.c | 63 +++++++++++++++++++++++++++++++++++++++++
- net/batman-adv/network-coding.h |  5 ++++
- net/batman-adv/packet.h         |  2 ++
- net/batman-adv/sysfs.c          |  4 ++-
- net/batman-adv/types.h          |  2 ++
- 5 files changed, 75 insertions(+), 1 deletion(-)
+ net/batman-adv/main.c              |   2 -
+ net/batman-adv/packet.h            |  21 ++++----
+ net/batman-adv/routing.c           |  42 ---------------
+ net/batman-adv/translation-table.c | 104 ++++++++++++++++++++++++++-----------
+ 4 files changed, 86 insertions(+), 83 deletions(-)
 
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 4ecc0b6..23f611b 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -59,6 +59,59 @@ static void batadv_nc_start_timer(struct batadv_priv *bat_priv)
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 39d9b44..fc55acb 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -414,8 +414,6 @@ static void batadv_recv_handler_init(void)
+ 	batadv_rx_handler[BATADV_BCAST] = batadv_recv_bcast_packet;
+ 	/* vis packet */
+ 	batadv_rx_handler[BATADV_VIS] = batadv_recv_vis_packet;
+-	/* Roaming advertisement */
+-	batadv_rx_handler[BATADV_ROAM_ADV] = batadv_recv_roam_adv;
+ 	/* unicast tvlv packet */
+ 	batadv_rx_handler[BATADV_UNICAST_TVLV] = batadv_recv_unicast_tvlv;
  }
- 
- /**
-+ * batadv_nc_tvlv_container_update - update the network coding tvlv container
-+ *  after network coding setting change
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static void batadv_nc_tvlv_container_update(struct batadv_priv *bat_priv)
-+{
-+	char nc_mode;
-+
-+	nc_mode = atomic_read(&bat_priv->network_coding);
-+
-+	switch (nc_mode) {
-+	case 0:
-+		batadv_tvlv_container_unregister(bat_priv, BATADV_TVLV_NC, 1);
-+		break;
-+	case 1:
-+		batadv_tvlv_container_register(bat_priv, BATADV_TVLV_NC, 1,
-+					       NULL, 0);
-+		break;
-+	}
-+}
-+
-+/**
-+ * batadv_nc_status_update - update the network coding tvlv container after
-+ *  network coding setting change
-+ * @net_dev: the soft interface net device
-+ */
-+void batadv_nc_status_update(struct net_device *net_dev)
-+{
-+	struct batadv_priv *bat_priv = netdev_priv(net_dev);
-+	batadv_nc_tvlv_container_update(bat_priv);
-+}
-+
-+/**
-+ * batadv_nc_tvlv_ogm_handler_v1 - process incoming nc tvlv container
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @orig: the orig_node of the ogm
-+ * @flags: flags indicating the tvlv state (see batadv_tvlv_handler_flags)
-+ * @tvlv_value: tvlv buffer containing the gateway data
-+ * @tvlv_value_len: tvlv buffer length
-+ */
-+static void batadv_nc_tvlv_ogm_handler_v1(struct batadv_priv *bat_priv,
-+					  struct batadv_orig_node *orig,
-+					  uint8_t flags,
-+					  void *tvlv_value,
-+					  uint16_t tvlv_value_len)
-+{
-+	if (flags & BATADV_TVLV_HANDLER_OGM_CIFNOTFND)
-+		orig->capabilities &= ~BATADV_ORIG_CAPA_HAS_NC;
-+	else
-+		orig->capabilities |= BATADV_ORIG_CAPA_HAS_NC;
-+}
-+
-+/**
-  * batadv_nc_mesh_init - initialise coding hash table and start house keeping
-  * @bat_priv: the bat priv with all the soft interface information
-  */
-@@ -87,6 +140,10 @@ int batadv_nc_mesh_init(struct batadv_priv *bat_priv)
- 	INIT_DELAYED_WORK(&bat_priv->nc.work, batadv_nc_worker);
- 	batadv_nc_start_timer(bat_priv);
- 
-+	batadv_tvlv_handler_register(bat_priv, batadv_nc_tvlv_ogm_handler_v1,
-+				     NULL, BATADV_TVLV_NC, 1,
-+				     BATADV_TVLV_HANDLER_OGM_CIFNOTFND);
-+	batadv_nc_tvlv_container_update(bat_priv);
- 	return 0;
- 
- err:
-@@ -802,6 +859,10 @@ void batadv_nc_update_nc_node(struct batadv_priv *bat_priv,
- 	if (!atomic_read(&bat_priv->network_coding))
- 		goto out;
- 
-+	/* check if orig node is network coding enabled */
-+	if (!(orig_node->capabilities & BATADV_ORIG_CAPA_HAS_NC))
-+		goto out;
-+
- 	/* accept ogms from 'good' neighbors and single hop neighbors */
- 	if (!batadv_can_nc_with_orig(bat_priv, orig_node, ogm_packet) &&
- 	    !is_single_hop_neigh)
-@@ -1735,6 +1796,8 @@ free_nc_packet:
-  */
- void batadv_nc_mesh_free(struct batadv_priv *bat_priv)
- {
-+	batadv_tvlv_container_unregister(bat_priv, BATADV_TVLV_NC, 1);
-+	batadv_tvlv_handler_unregister(bat_priv, BATADV_TVLV_NC, 1);
- 	cancel_delayed_work_sync(&bat_priv->nc.work);
- 
- 	batadv_nc_purge_paths(bat_priv, bat_priv->nc.coding_hash, NULL);
-diff --git a/net/batman-adv/network-coding.h b/net/batman-adv/network-coding.h
-index ddfa618..d4fd315 100644
---- a/net/batman-adv/network-coding.h
-+++ b/net/batman-adv/network-coding.h
-@@ -22,6 +22,7 @@
- 
- #ifdef CONFIG_BATMAN_ADV_NC
- 
-+void batadv_nc_status_update(struct net_device *net_dev);
- int batadv_nc_init(void);
- int batadv_nc_mesh_init(struct batadv_priv *bat_priv);
- void batadv_nc_mesh_free(struct batadv_priv *bat_priv);
-@@ -47,6 +48,10 @@ int batadv_nc_init_debugfs(struct batadv_priv *bat_priv);
- 
- #else /* ifdef CONFIG_BATMAN_ADV_NC */
- 
-+static inline void batadv_nc_status_update(struct net_device *net_dev)
-+{
-+}
-+
- static inline int batadv_nc_init(void)
- {
- 	return 0;
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 8d470b2..55deb4d 100644
+index a602efc..5c08d26 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -122,10 +122,12 @@ enum batadv_bla_claimframe {
-  * enum batadv_tvlv_type - tvlv type definitions
-  * @BATADV_TVLV_GW: gateway tvlv
+@@ -31,7 +31,6 @@ enum batadv_packettype {
+ 	BATADV_BCAST		= 0x04,
+ 	BATADV_VIS		= 0x05,
+ 	BATADV_UNICAST_FRAG	= 0x06,
+-	BATADV_ROAM_ADV		= 0x08,
+ 	BATADV_UNICAST_4ADDR	= 0x09,
+ 	BATADV_CODED		= 0x0a,
+ 	BATADV_UNICAST_TVLV	= 0x0b,
+@@ -127,12 +126,14 @@ enum batadv_bla_claimframe {
   * @BATADV_TVLV_DAT: distributed arp table tvlv
-+ * @BATADV_TVLV_NC: network coding tvlv
+  * @BATADV_TVLV_NC: network coding tvlv
+  * @BATADV_TVLV_TT: translation table tvlv
++ * @BATADV_TVLV_ROAM: roaming advertisement tvlv
   */
  enum batadv_tvlv_type {
  	BATADV_TVLV_GW		= 0x01,
  	BATADV_TVLV_DAT		= 0x02,
-+	BATADV_TVLV_NC		= 0x03,
+ 	BATADV_TVLV_NC		= 0x03,
+ 	BATADV_TVLV_TT		= 0x04,
++	BATADV_TVLV_ROAM	= 0x05,
  };
  
  /* the destination hardware field in the ARP frame is used to
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index e1a826e..fbc1c25 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -21,6 +21,7 @@
- #include "sysfs.h"
- #include "translation-table.h"
- #include "distributed-arp-table.h"
-+#include "network-coding.h"
- #include "originator.h"
- #include "hard-interface.h"
- #include "gateway_common.h"
-@@ -447,7 +448,8 @@ static BATADV_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, batadv_show_gw_bwidth,
- BATADV_ATTR_SIF_UINT(log_level, S_IRUGO | S_IWUSR, 0, BATADV_DBG_ALL, NULL);
- #endif
- #ifdef CONFIG_BATMAN_ADV_NC
--BATADV_ATTR_SIF_BOOL(network_coding, S_IRUGO | S_IWUSR, NULL);
-+BATADV_ATTR_SIF_BOOL(network_coding, S_IRUGO | S_IWUSR,
-+		     batadv_nc_status_update);
- #endif
- 
- static struct batadv_attribute *batadv_mesh_attrs[] = {
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 35ce834..fa5cb0d 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -188,9 +188,11 @@ struct batadv_orig_node {
- /**
-  * enum batadv_orig_capabilities - orig node capabilities
-  * @BATADV_ORIG_CAPA_HAS_DAT: orig node has distributed arp table enabled
-+ * @BATADV_ORIG_CAPA_HAS_NC: orig node has network coding enabled
-  */
- enum batadv_orig_capabilities {
- 	BATADV_ORIG_CAPA_HAS_DAT = BIT(0),
-+	BATADV_ORIG_CAPA_HAS_NC = BIT(1),
+@@ -267,14 +268,6 @@ struct batadv_vis_packet {
+ 	uint8_t  sender_orig[ETH_ALEN]; /* who sent or forwarded this packet */
  };
  
+-struct batadv_roam_adv_packet {
+-	struct batadv_header header;
+-	uint8_t  reserved;
+-	uint8_t  dst[ETH_ALEN];
+-	uint8_t  src[ETH_ALEN];
+-	uint8_t  client[ETH_ALEN];
+-} __packed;
+-
  /**
+  * struct batadv_coded_packet - network coded packet
+  * @header: common batman packet header and ttl of first included packet
+@@ -373,4 +366,14 @@ struct batadv_tvlv_tt_change {
+ 	uint8_t addr[ETH_ALEN];
+ };
+ 
++/**
++ * struct batadv_tvlv_roam_adv - roaming advertisement
++ * @client: mac address of roaming client
++ * @reserved: field reserved for future use
++ */
++struct batadv_tvlv_roam_adv {
++	uint8_t  client[ETH_ALEN];
++	uint16_t reserved;
++};
++
+ #endif /* _NET_BATMAN_ADV_PACKET_H_ */
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index d128581..a5bf8ff 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -557,48 +557,6 @@ static int batadv_check_unicast_packet(struct batadv_priv *bat_priv,
+ 	return 0;
+ }
+ 
+-int batadv_recv_roam_adv(struct sk_buff *skb, struct batadv_hard_iface *recv_if)
+-{
+-	struct batadv_priv *bat_priv = netdev_priv(recv_if->soft_iface);
+-	struct batadv_roam_adv_packet *roam_adv_packet;
+-	struct batadv_orig_node *orig_node;
+-
+-	if (batadv_check_unicast_packet(bat_priv, skb,
+-					sizeof(*roam_adv_packet)) < 0)
+-		goto out;
+-
+-	batadv_inc_counter(bat_priv, BATADV_CNT_TT_ROAM_ADV_RX);
+-
+-	roam_adv_packet = (struct batadv_roam_adv_packet *)skb->data;
+-
+-	if (!batadv_is_my_mac(bat_priv, roam_adv_packet->dst))
+-		return batadv_route_unicast_packet(skb, recv_if);
+-
+-	/* check if it is a backbone gateway. we don't accept
+-	 * roaming advertisement from it, as it has the same
+-	 * entries as we have.
+-	 */
+-	if (batadv_bla_is_backbone_gw_orig(bat_priv, roam_adv_packet->src))
+-		goto out;
+-
+-	orig_node = batadv_orig_hash_find(bat_priv, roam_adv_packet->src);
+-	if (!orig_node)
+-		goto out;
+-
+-	batadv_dbg(BATADV_DBG_TT, bat_priv,
+-		   "Received ROAMING_ADV from %pM (client %pM)\n",
+-		   roam_adv_packet->src, roam_adv_packet->client);
+-
+-	batadv_tt_global_add(bat_priv, orig_node, roam_adv_packet->client,
+-			     BATADV_TT_CLIENT_ROAM,
+-			     atomic_read(&orig_node->last_ttvn) + 1);
+-
+-	batadv_orig_node_free_ref(orig_node);
+-out:
+-	/* returning NET_RX_DROP will make the caller function kfree the skb */
+-	return NET_RX_DROP;
+-}
+-
+ /* find a suitable router for this originator, and use
+  * bonding if possible. increases the found neighbors
+  * refcount.
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 22fce8a..1149f86 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -2189,11 +2189,12 @@ unlock:
+ static void batadv_send_roam_adv(struct batadv_priv *bat_priv, uint8_t *client,
+ 				 struct batadv_orig_node *orig_node)
+ {
+-	struct sk_buff *skb = NULL;
+-	struct batadv_roam_adv_packet *roam_adv_packet;
+-	int ret = 1;
+ 	struct batadv_hard_iface *primary_if;
+-	size_t len = sizeof(*roam_adv_packet);
++	struct batadv_tvlv_roam_adv tvlv_roam;
++
++	primary_if = batadv_primary_if_get_selected(bat_priv);
++	if (!primary_if)
++		goto out;
+ 
+ 	/* before going on we have to check whether the client has
+ 	 * already roamed to us too many times
+@@ -2201,40 +2202,22 @@ static void batadv_send_roam_adv(struct batadv_priv *bat_priv, uint8_t *client,
+ 	if (!batadv_tt_check_roam_count(bat_priv, client))
+ 		goto out;
+ 
+-	skb = netdev_alloc_skb_ip_align(NULL, len + ETH_HLEN);
+-	if (!skb)
+-		goto out;
+-
+-	skb->priority = TC_PRIO_CONTROL;
+-	skb_reserve(skb, ETH_HLEN);
+-
+-	roam_adv_packet = (struct batadv_roam_adv_packet *)skb_put(skb, len);
+-
+-	roam_adv_packet->header.packet_type = BATADV_ROAM_ADV;
+-	roam_adv_packet->header.version = BATADV_COMPAT_VERSION;
+-	roam_adv_packet->header.ttl = BATADV_TTL;
+-	roam_adv_packet->reserved = 0;
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if)
+-		goto out;
+-	memcpy(roam_adv_packet->src, primary_if->net_dev->dev_addr, ETH_ALEN);
+-	batadv_hardif_free_ref(primary_if);
+-	memcpy(roam_adv_packet->dst, orig_node->orig, ETH_ALEN);
+-	memcpy(roam_adv_packet->client, client, ETH_ALEN);
+-
+ 	batadv_dbg(BATADV_DBG_TT, bat_priv,
+ 		   "Sending ROAMING_ADV to %pM (client %pM)\n",
+ 		   orig_node->orig, client);
+ 
+ 	batadv_inc_counter(bat_priv, BATADV_CNT_TT_ROAM_ADV_TX);
+ 
+-	if (batadv_send_skb_to_orig(skb, orig_node, NULL) != NET_XMIT_DROP)
+-		ret = 0;
++	memcpy(tvlv_roam.client, client, sizeof(tvlv_roam.client));
++	tvlv_roam.reserved = 0;
++
++	batadv_tvlv_unicast_send(bat_priv, primary_if->net_dev->dev_addr,
++				 orig_node->orig, BATADV_TVLV_ROAM, 1,
++				 &tvlv_roam, sizeof(tvlv_roam));
+ 
+ out:
+-	if (ret && skb)
+-		kfree_skb(skb);
+-	return;
++	if (primary_if)
++		batadv_hardif_free_ref(primary_if);
+ }
+ 
+ static void batadv_tt_purge(struct work_struct *work)
+@@ -2668,6 +2651,63 @@ static int batadv_tt_tvlv_unicast_handler_v1(struct batadv_priv *bat_priv,
+ }
+ 
+ /**
++ * batadv_roam_tvlv_unicast_handler_v1 - process incoming tt roam tvlv container
++ * @bat_priv: the bat priv with all the soft interface information
++ * @src: mac address of tt tvlv sender
++ * @dst: mac address of tt tvlv recipient
++ * @tvlv_value: tvlv buffer containing the tt data
++ * @tvlv_value_len: tvlv buffer length
++ *
++ * Returns NET_RX_DROP if the tt roam tvlv is to be re-routed, NET_RX_SUCCESS
++ * otherwise.
++ */
++static int batadv_roam_tvlv_unicast_handler_v1(struct batadv_priv *bat_priv,
++					       uint8_t *src, uint8_t *dst,
++					       void *tvlv_value,
++					       uint16_t tvlv_value_len)
++{
++	struct batadv_tvlv_roam_adv *roaming_adv;
++	struct batadv_orig_node *orig_node = NULL;
++
++	/* If this node is not the intended recipient of the
++	 * roaming advertisement the packet is forwarded
++	 * (the tvlv API will re-route the packet).
++	 */
++	if (!batadv_is_my_mac(bat_priv, dst))
++		return NET_RX_DROP;
++
++	/* check if it is a backbone gateway. we don't accept
++	 * roaming advertisement from it, as it has the same
++	 * entries as we have.
++	 */
++	if (batadv_bla_is_backbone_gw_orig(bat_priv, src))
++		goto out;
++
++	if (tvlv_value_len < sizeof(*roaming_adv))
++		goto out;
++
++	orig_node = batadv_orig_hash_find(bat_priv, src);
++	if (!orig_node)
++		goto out;
++
++	batadv_inc_counter(bat_priv, BATADV_CNT_TT_ROAM_ADV_RX);
++	roaming_adv = (struct batadv_tvlv_roam_adv *)tvlv_value;
++
++	batadv_dbg(BATADV_DBG_TT, bat_priv,
++		   "Received ROAMING_ADV from %pM (client %pM)\n",
++		   src, roaming_adv->client);
++
++	batadv_tt_global_add(bat_priv, orig_node, roaming_adv->client,
++			     BATADV_TT_CLIENT_ROAM,
++			     atomic_read(&orig_node->last_ttvn) + 1);
++
++out:
++	if (orig_node)
++		batadv_orig_node_free_ref(orig_node);
++	return NET_RX_SUCCESS;
++}
++
++/**
+  * batadv_tt_init - initialise the translation table internals
+  * @bat_priv: the bat priv with all the soft interface information
+  *
+@@ -2689,6 +2729,10 @@ int batadv_tt_init(struct batadv_priv *bat_priv)
+ 				     batadv_tt_tvlv_unicast_handler_v1,
+ 				     BATADV_TVLV_TT, 1, BATADV_NO_FLAGS);
+ 
++	batadv_tvlv_handler_register(bat_priv, NULL,
++				     batadv_roam_tvlv_unicast_handler_v1,
++				     BATADV_TVLV_ROAM, 1, BATADV_NO_FLAGS);
++
+ 	INIT_DELAYED_WORK(&bat_priv->tt.work, batadv_tt_purge);
+ 	queue_delayed_work(batadv_event_workqueue, &bat_priv->tt.work,
+ 			   msecs_to_jiffies(BATADV_TT_WORK_PERIOD));
 -- 
 1.8.3.2
