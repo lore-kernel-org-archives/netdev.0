@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2013-10-09
-Date: Wed, 09 Oct 2013 14:53:06 -0400 (EDT)
-Message-ID: <20131009.145306.1949528592789606941.davem@davemloft.net>
-References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
-	<20131009.135652.2086284751199593695.davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: Add ndo_get_phys_port_id support
+Date: Wed, 09 Oct 2013 14:55:29 -0400 (EDT)
+Message-ID: <20131009.145529.724396251094914384.davem@davemloft.net>
+References: <1381327588-11137-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50794 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50832 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751854Ab3JISxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 14:53:10 -0400
-In-Reply-To: <20131009.135652.2086284751199593695.davem@davemloft.net>
+	with ESMTP id S1755618Ab3JISzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 14:55:31 -0400
+In-Reply-To: <1381327588-11137-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwOSBP
-Y3QgMjAxMyAxMzo1Njo1MiAtMDQwMCAoRURUKQ0KDQo+IFB1bGxlZCwgdGhhbmtzLg0KDQpQbGVh
-c2UgZG9uJ3Qgc2VuZCBtZSBzdHVmZiB0aGF0IGRvZXNuJ3QgYnVpbGQ6DQoNCm5ldC9iYXRtYW4t
-YWR2L3RyYW5zbGF0aW9uLXRhYmxlLmM6IEluIGZ1bmN0aW9uIKFiYXRhZHZfc2VuZF9yb2FtX2Fk
-dqI6DQpuZXQvYmF0bWFuLWFkdi90cmFuc2xhdGlvbi10YWJsZS5jOjIyMTA6NDk6IHdhcm5pbmc6
-IGxlZnQtaGFuZCBvcGVyYW5kIG9mIGNvbW1hIGV4cHJlc3Npb24gaGFzIG5vIGVmZmVjdCBbLVd1
-bnVzZWQtdmFsdWVdDQpuZXQvYmF0bWFuLWFkdi90cmFuc2xhdGlvbi10YWJsZS5jOjIyMTE6MjE6
-IHdhcm5pbmc6IGxlZnQtaGFuZCBvcGVyYW5kIG9mIGNvbW1hIGV4cHJlc3Npb24gaGFzIG5vIGVm
-ZmVjdCBbLVd1bnVzZWQtdmFsdWVdDQpuZXQvYmF0bWFuLWFkdi90cmFuc2xhdGlvbi10YWJsZS5j
-OjIyMTA6Njogd2FybmluZzogc3RhdGVtZW50IHdpdGggbm8gZWZmZWN0IFstV3VudXNlZC12YWx1
-ZV0NCm5ldC9iYXRtYW4tYWR2L3RyYW5zbGF0aW9uLXRhYmxlLmM6MjIxMToyOTogZXJyb3I6IGV4
-cGVjdGVkIKE7oiBiZWZvcmUgoSmiIHRva2VuDQpuZXQvYmF0bWFuLWFkdi90cmFuc2xhdGlvbi10
-YWJsZS5jOjIyMTE6Mjk6IGVycm9yOiBleHBlY3RlZCBzdGF0ZW1lbnQgYmVmb3JlIKEpoiB0b2tl
-DQoNClRoYXQgbG9va3MgbGlrZToNCg0KCS8qIGJlZm9yZSBnb2luZyBvbiB3ZSBoYXZlIHRvIGNo
-ZWNrIHdoZXRoZXIgdGhlIGNsaWVudCBoYXMNCgkgKiBhbHJlYWR5IHJvYW1lZCB0byB1cyB0b28g
-bWFueSB0aW1lcw0KCSAqLw0KCWlmICghYmF0YWR2X3R0X2NoZWNrX3JvYW1fY291bnQoYmF0X3By
-aXYsIGNsaWVudCkpDQoJCWdvdG8gb3V0Ow0KDQoJCSAgICJTZW5kaW5nIFJPQU1JTkdfQURWIHRv
-ICVwTSAoY2xpZW50ICVwTSlcbiIsDQoJCSAgIG9yaWdfbm9kZS0+b3JpZywgY2xpZW50KTsNCg0K
-TG9va3MgbGlrZSBhIG1lcmdlIHByb2JsZW0gdG8gbWUuDQo=
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Wed, 9 Oct 2013 16:06:28 +0200
+
+> Each network interface (either PF or VF) is identified by its port's MAC id.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+> Hi Dave,
+> 
+> Please consider applying this patch to 'net-next'.
+
+Applied, thanks Yuval.
