@@ -1,34 +1,249 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: fix build errors if ipv6 is disabled
-Date: Wed, 09 Oct 2013 03:05:31 -0700
-Message-ID: <1381313131.4971.12.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381295165.4971.7.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131009.025231.608686215035548132.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Fran=E7ois_Cachereul?= <f.cachereul@alphalink.fr>
+Subject: BUG in net/l2tp/l2tp_core.c
+Date: Wed, 09 Oct 2013 12:11:43 +0200
+Message-ID: <52552BDF.8070800@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: James Chapman <jchapman@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:38955 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757054Ab3JIKFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 06:05:35 -0400
-Received: by mail-pb0-f45.google.com with SMTP id mc17so679961pbc.18
-        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 03:05:35 -0700 (PDT)
-In-Reply-To: <20131009.025231.608686215035548132.davem@davemloft.net>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:56474 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753111Ab3JIKLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 06:11:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-10-09 at 02:52 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 08 Oct 2013 22:06:05 -0700
-> 
-> > +#if IS_ENABLED(CONFIG_IPV6)
-> > +	if (sk->sk_family == AF_INET6 && !ipv6_addr_any(&sk->sk_v6_rcv_saddr)
-> > +		sk->sk_userlocks |= SOCK_BINDADDR_LOCK;
-> > +#endif
-> 
-> Would you mind testing this with ipv6 enabled again? :-/
+Hi,
 
-Humpf :(
+I got the following BUG when using l2tp modules with smp kernel.
+I noticed that l2tp_xmit_skb uses bh_lock_sock/bh_unlok_sock which does=
+n't seem to be correct because it does a lot of stuff and probably slee=
+p before releasing the lock. I try replacing bh_lock_sock/bh_unlock_soc=
+k with lock_sock/release_sock and the BUG doesn't happened anymore. Is =
+it correct ?
+
+Regards
+=46ran=E7ois
+
+
+
+[  452.060011] BUG: soft lockup - CPU#1 stuck for 23s! [accel-pppd:6662=
+]
+[  452.061757] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core pppoe=
+ pppox ppp_generic slhc ipv6 ext3 mbcache jbd virtio_balloon xfs export=
+fs dm_mod virtio_blk ata_generic virtio_net floppy ata_piix libata virt=
+io_pci virtio_ring virtio [last unloaded: scsi_wait_scan]
+[  452.064012] CPU 1
+[  452.064012] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core pppoe=
+ pppox ppp_generic slhc ipv6 ext3 mbcache jbd virtio_balloon xfs export=
+fs dm_mod virtio_blk ata_generic virtio_net floppy ata_piix libata virt=
+io_pci
+[  452.080015] BUG: soft lockup - CPU#2 stuck for 23s! [accel-pppd:6643=
+]
+[  452.080015] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core pppoe=
+ pppox ppp_generic slhc ipv6 ext3 mbcache jbd virtio_balloon xfs export=
+fs dm_mod virtio_blk ata_generic virtio_net floppy ata_piix libata virt=
+io_pci virtio_ring virtio [last unloaded: scsi_wait_scan]
+[  452.080015] CPU 2
+[  452.080015] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core pppoe=
+ pppox ppp_generic slhc ipv6 ext3 mbcache jbd virtio_balloon xfs export=
+fs dm_mod virtio_blk ata_generic virtio_net floppy ata_piix libata virt=
+io_pci virtio_ring virtio [last unloaded: scsi_wait_scan]
+[  452.080015]
+[  452.080015] Pid: 6643, comm: accel-pppd Not tainted 3.2.46.mini #1 B=
+ochs Bochs
+[  452.080015] RIP: 0010:[<ffffffff81059f6c>]  [<ffffffff81059f6c>] do_=
+raw_spin_lock+0x17/0x1f
+[  452.080015] RSP: 0018:ffff88007125fc18  EFLAGS: 00000293
+[  452.080015] RAX: 000000000000aba9 RBX: ffffffff811d0703 RCX: 0000000=
+000000000
+[  452.080015] RDX: 00000000000000ab RSI: ffff8800711f6896 RDI: ffff880=
+0745c8110
+[  452.080015] RBP: ffff88007125fc18 R08: 0000000000000020 R09: 0000000=
+000000000
+[  452.080015] R10: 0000000000000000 R11: 0000000000000280 R12: 0000000=
+000000286
+[  452.080015] R13: 0000000000000020 R14: 0000000000000240 R15: 0000000=
+000000000
+[  452.080015] FS:  00007fdc0cc24700(0000) GS:ffff8800b6f00000(0000) kn=
+lGS:0000000000000000
+[  452.080015] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  452.080015] CR2: 00007fdb054899b8 CR3: 0000000074404000 CR4: 0000000=
+0000006a0
+[  452.080015] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000=
+000000000
+[  452.080015] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000=
+000000400
+[  452.080015] Process accel-pppd (pid: 6643, threadinfo ffff88007125e0=
+00, task ffff8800b27e6dd0)
+[  452.080015] Stack:
+[  452.080015]  ffff88007125fc28 ffffffff81256559 ffff88007125fc98 ffff=
+ffffa01b2bd1
+[  452.080015]  ffff88007125fc58 000000000000000c 00000000029490d0 0000=
+009c71dbe25e
+[  452.080015]  000000000000005c 000000080000000e 0000000000000000 ffff=
+880071170600
+[  452.080015] Call Trace:
+[  452.080015]  [<ffffffff81256559>] _raw_spin_lock+0xe/0x10
+[  452.080015]  [<ffffffffa01b2bd1>] l2tp_xmit_skb+0x189/0x4ac [l2tp_co=
+re]
+[  452.080015]  [<ffffffffa01c2d36>] pppol2tp_sendmsg+0x15e/0x19c [l2tp=
+_ppp]
+[  452.080015]  [<ffffffff811c7872>] __sock_sendmsg_nosec+0x22/0x24
+[  452.080015]  [<ffffffff811c83bd>] sock_sendmsg+0xa1/0xb6
+[  452.080015]  [<ffffffff81254e88>] ? __schedule+0x5c1/0x616
+[  452.080015]  [<ffffffff8103c7c6>] ? __dequeue_signal+0xb7/0x10c
+[  452.080015]  [<ffffffff810bbd21>] ? fget_light+0x75/0x89
+[  452.080015]  [<ffffffff811c8444>] ? sockfd_lookup_light+0x20/0x56
+[  452.080015]  [<ffffffff811c9b34>] sys_sendto+0x10c/0x13b
+[  452.080015]  [<ffffffff8125cac2>] system_call_fastpath+0x16/0x1b
+[  452.080015] Code: 81 48 89 e5 72 0c 31 c0 48 81 ff 45 66 25 81 0f 92=
+ c0 5d c3 55 b8 00 01 00 00 48 89 e5 f0 66 0f c1 07 0f b6 d4 38 d0 74 0=
+6 f3 90 <8a> 07 eb f6 5d c3 90 90 55 48 89 e5 9c 58 0f 1f 44 00 00 5d c=
+3
+[  452.080015] Call Trace:
+[  452.080015]  [<ffffffff81256559>] _raw_spin_lock+0xe/0x10
+[  452.080015]  [<ffffffffa01b2bd1>] l2tp_xmit_skb+0x189/0x4ac [l2tp_co=
+re]
+[  452.080015]  [<ffffffffa01c2d36>] pppol2tp_sendmsg+0x15e/0x19c [l2tp=
+_ppp]
+[  452.080015]  [<ffffffff811c7872>] __sock_sendmsg_nosec+0x22/0x24
+[  452.080015]  [<ffffffff811c83bd>] sock_sendmsg+0xa1/0xb6
+[  452.080015]  [<ffffffff81254e88>] ? __schedule+0x5c1/0x616
+[  452.080015]  [<ffffffff8103c7c6>] ? __dequeue_signal+0xb7/0x10c
+[  452.080015]  [<ffffffff810bbd21>] ? fget_light+0x75/0x89
+[  452.080015]  [<ffffffff811c8444>] ? sockfd_lookup_light+0x20/0x56
+[  452.080015]  [<ffffffff811c9b34>] sys_sendto+0x10c/0x13b
+[  452.080015]  [<ffffffff8125cac2>] system_call_fastpath+0x16/0x1b
+[  452.064012]  virtio_ring virtio [last unloaded: scsi_wait_scan]
+[  452.064012]
+[  452.064012] Pid: 6662, comm: accel-pppd Not tainted 3.2.46.mini #1 B=
+ochs Bochs
+[  452.064012] RIP: 0010:[<ffffffff81059f6e>]  [<ffffffff81059f6e>] do_=
+raw_spin_lock+0x19/0x1f
+[  452.064012] RSP: 0018:ffff8800b6e83ba0  EFLAGS: 00000297
+[  452.064012] RAX: 000000000000aaa9 RBX: ffff8800b6e83b40 RCX: 0000000=
+000000002
+[  452.064012] RDX: 00000000000000aa RSI: 000000000000000a RDI: ffff880=
+0745c8110
+[  452.064012] RBP: ffff8800b6e83ba0 R08: 000000000000c802 R09: 0000000=
+00000001c
+[  452.064012] R10: ffff880071096c4e R11: 0000000000000006 R12: ffff880=
+0b6e83b18
+[  452.064012] R13: ffffffff8125d51e R14: ffff8800b6e83ba0 R15: ffff880=
+072a589c0
+[  452.064012] FS:  00007fdc0b81e700(0000) GS:ffff8800b6e80000(0000) kn=
+lGS:0000000000000000
+[  452.064012] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  452.064012] CR2: 0000000000625208 CR3: 0000000074404000 CR4: 0000000=
+0000006a0
+[  452.064012] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000=
+000000000
+[  452.064012] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000=
+000000400
+[  452.064012] Process accel-pppd (pid: 6662, threadinfo ffff88007129a0=
+00, task ffff8800744f7410)
+[  452.064012] Stack:
+[  452.064012]  ffff8800b6e83bb0 ffffffff81256559 ffff8800b6e83bc0 ffff=
+ffff8121c64a
+[  452.064012]  ffff8800b6e83bf0 ffffffff8121ec7a ffff880072a589c0 ffff=
+880071096c62
+[  452.064012]  0000000000000011 ffffffff81430024 ffff8800b6e83c80 ffff=
+ffff8121f276
+[  452.064012] Call Trace:
+[  452.064012]  <IRQ>
+[  452.064012]  [<ffffffff81256559>] _raw_spin_lock+0xe/0x10
+[  452.064012]  [<ffffffff8121c64a>] spin_lock+0x9/0xb
+[  452.064012]  [<ffffffff8121ec7a>] udp_queue_rcv_skb+0x186/0x269
+[  452.064012]  [<ffffffff8121f276>] __udp4_lib_rcv+0x297/0x4ae
+[  452.064012]  [<ffffffff8121c178>] ? raw_rcv+0xe9/0xf0
+[  452.064012]  [<ffffffff8121f4a7>] udp_rcv+0x1a/0x1c
+[  452.064012]  [<ffffffff811fe385>] ip_local_deliver_finish+0x12b/0x1a=
+5
+[  452.064012]  [<ffffffff811fe54e>] ip_local_deliver+0x53/0x84
+[  452.064012]  [<ffffffff811fe1d0>] ip_rcv_finish+0x2bc/0x2f3
+[  452.064012]  [<ffffffff811fe78f>] ip_rcv+0x210/0x269
+[  452.064012]  [<ffffffff8101911e>] ? kvm_clock_get_cycles+0x9/0xb
+[  452.064012]  [<ffffffff811d88cd>] __netif_receive_skb+0x3a5/0x3f7
+[  452.064012]  [<ffffffff811d8eba>] netif_receive_skb+0x57/0x5e
+[  452.064012]  [<ffffffff811cf30f>] ? __netdev_alloc_skb+0x1f/0x3b
+[  452.064012]  [<ffffffffa0049126>] virtnet_poll+0x4ba/0x5a4 [virtio_n=
+et]
+[  452.064012]  [<ffffffff811d9417>] net_rx_action+0x73/0x184
+[  452.064012]  [<ffffffffa01b2cc2>] ? l2tp_xmit_skb+0x27a/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffff810343b9>] __do_softirq+0xc3/0x1a8
+[  452.064012]  [<ffffffff81013b56>] ? ack_APIC_irq+0x10/0x12
+[  452.064012]  [<ffffffff81256559>] ? _raw_spin_lock+0xe/0x10
+[  452.064012]  [<ffffffff8125e0ac>] call_softirq+0x1c/0x26
+[  452.064012]  [<ffffffff81003587>] do_softirq+0x45/0x82
+[  452.064012]  [<ffffffff81034667>] irq_exit+0x42/0x9c
+[  452.064012]  [<ffffffff8125e146>] do_IRQ+0x8e/0xa5
+[  452.064012]  [<ffffffff8125676e>] common_interrupt+0x6e/0x6e
+[  452.064012]  <EOI>
+[  452.064012]  [<ffffffff810b82a1>] ? kfree+0x8a/0xa3
+[  452.064012]  [<ffffffffa01b2cc2>] ? l2tp_xmit_skb+0x27a/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffffa01b2c25>] ? l2tp_xmit_skb+0x1dd/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffffa01c2d36>] pppol2tp_sendmsg+0x15e/0x19c [l2tp=
+_ppp]
+[  452.064012]  [<ffffffff811c7872>] __sock_sendmsg_nosec+0x22/0x24
+[  452.064012]  [<ffffffff811c83bd>] sock_sendmsg+0xa1/0xb6
+[  452.064012]  [<ffffffff81254e88>] ? __schedule+0x5c1/0x616
+[  452.064012]  [<ffffffff8103c7c6>] ? __dequeue_signal+0xb7/0x10c
+[  452.064012]  [<ffffffff810bbd21>] ? fget_light+0x75/0x89
+[  452.064012]  [<ffffffff811c8444>] ? sockfd_lookup_light+0x20/0x56
+[  452.064012]  [<ffffffff811c9b34>] sys_sendto+0x10c/0x13b
+[  452.064012]  [<ffffffff8125cac2>] system_call_fastpath+0x16/0x1b
+[  452.064012] Code: 89 e5 72 0c 31 c0 48 81 ff 45 66 25 81 0f 92 c0 5d=
+ c3 55 b8 00 01 00 00 48 89 e5 f0 66 0f c1 07 0f b6 d4 38 d0 74 06 f3 9=
+0 8a 07 <eb> f6 5d c3 90 90 55 48 89 e5 9c 58 0f 1f 44 00 00 5d c3 55 4=
+8
+[  452.064012] Call Trace:
+[  452.064012]  <IRQ>  [<ffffffff81256559>] _raw_spin_lock+0xe/0x10
+[  452.064012]  [<ffffffff8121c64a>] spin_lock+0x9/0xb
+[  452.064012]  [<ffffffff8121ec7a>] udp_queue_rcv_skb+0x186/0x269
+[  452.064012]  [<ffffffff8121f276>] __udp4_lib_rcv+0x297/0x4ae
+[  452.064012]  [<ffffffff8121c178>] ? raw_rcv+0xe9/0xf0
+[  452.064012]  [<ffffffff8121f4a7>] udp_rcv+0x1a/0x1c
+[  452.064012]  [<ffffffff811fe385>] ip_local_deliver_finish+0x12b/0x1a=
+5
+[  452.064012]  [<ffffffff811fe54e>] ip_local_deliver+0x53/0x84
+[  452.064012]  [<ffffffff811fe1d0>] ip_rcv_finish+0x2bc/0x2f3
+[  452.064012]  [<ffffffff811fe78f>] ip_rcv+0x210/0x269
+[  452.064012]  [<ffffffff8101911e>] ? kvm_clock_get_cycles+0x9/0xb
+[  452.064012]  [<ffffffff811d88cd>] __netif_receive_skb+0x3a5/0x3f7
+[  452.064012]  [<ffffffff811d8eba>] netif_receive_skb+0x57/0x5e
+[  452.064012]  [<ffffffff811cf30f>] ? __netdev_alloc_skb+0x1f/0x3b
+[  452.064012]  [<ffffffffa0049126>] virtnet_poll+0x4ba/0x5a4 [virtio_n=
+et]
+[  452.064012]  [<ffffffff811d9417>] net_rx_action+0x73/0x184
+[  452.064012]  [<ffffffffa01b2cc2>] ? l2tp_xmit_skb+0x27a/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffff810343b9>] __do_softirq+0xc3/0x1a8
+[  452.064012]  [<ffffffff81013b56>] ? ack_APIC_irq+0x10/0x12
+[  452.064012]  [<ffffffff81256559>] ? _raw_spin_lock+0xe/0x10
+[  452.064012]  [<ffffffff8125e0ac>] call_softirq+0x1c/0x26
+[  452.064012]  [<ffffffff81003587>] do_softirq+0x45/0x82
+[  452.064012]  [<ffffffff81034667>] irq_exit+0x42/0x9c
+[  452.064012]  [<ffffffff8125e146>] do_IRQ+0x8e/0xa5
+[  452.064012]  [<ffffffff8125676e>] common_interrupt+0x6e/0x6e
+[  452.064012]  <EOI>  [<ffffffff810b82a1>] ? kfree+0x8a/0xa3
+[  452.064012]  [<ffffffffa01b2cc2>] ? l2tp_xmit_skb+0x27a/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffffa01b2c25>] ? l2tp_xmit_skb+0x1dd/0x4ac [l2tp_=
+core]
+[  452.064012]  [<ffffffffa01c2d36>] pppol2tp_sendmsg+0x15e/0x19c [l2tp=
+_ppp]
+[  452.064012]  [<ffffffff811c7872>] __sock_sendmsg_nosec+0x22/0x24
+[  452.064012]  [<ffffffff811c83bd>] sock_sendmsg+0xa1/0xb6
+[  452.064012]  [<ffffffff81254e88>] ? __schedule+0x5c1/0x616
+[  452.064012]  [<ffffffff8103c7c6>] ? __dequeue_signal+0xb7/0x10c
+[  452.064012]  [<ffffffff810bbd21>] ? fget_light+0x75/0x89
+[  452.064012]  [<ffffffff811c8444>] ? sockfd_lookup_light+0x20/0x56
+[  452.064012]  [<ffffffff811c9b34>] sys_sendto+0x10c/0x13b
+[  452.064012]  [<ffffffff8125cac2>] system_call_fastpath+0x16/0x1b
