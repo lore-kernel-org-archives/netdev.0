@@ -1,60 +1,94 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Wed, 9 Oct 2013 15:36:52 -0700
-Message-ID: <20131009223652.GC5790@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 tip/core/rcu 05/13] decnet: Apply rcu_access_pointer()
+ to avoid sparse false positive
+Date: Wed, 9 Oct 2013 15:46:04 -0700
+Message-ID: <20131009224604.GF5790@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
  <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
- <1381354186-16285-7-git-send-email-paulmck@linux.vnet.ibm.com>
- <1381354949.4971.20.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009215747.GA5790@linux.vnet.ibm.com>
- <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
+ <1381354186-16285-5-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20131009222842.GD11709@jtriplet-mobl1>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
 	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Gao feng <gaofeng@cn.fujitsu.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
+To: Josh Triplett <josh@joshtriplett.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
+In-Reply-To: <20131009222842.GD11709@jtriplet-mobl1>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 09, 2013 at 03:10:24PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-10-09 at 14:57 -0700, Paul E. McKenney wrote:
-> 
-> > Hmmm...  I could use RCU_INIT_POINTER().  Something like the following?
+On Wed, Oct 09, 2013 at 03:28:42PM -0700, Josh Triplett wrote:
+> On Wed, Oct 09, 2013 at 02:29:38PM -0700, Paul E. McKenney wrote:
+> > From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 > > 
-> > 	RCU_INIT_POINTER(ACCESS_ONCE(*tp), t->next);
-> > 
-> > The ACCESS_ONCE() to prevent the compiler from doing anything stupid.
-> > Presumably the value of t->next cannot change, so a normal load suffices.
-> > 
-> > Or did you have something else in mind?
+> > The sparse checking for rcu_assign_pointer() was recently upgraded
+> > to reject non-__kernel address spaces.  This also rejects __rcu,
+> > which is almost always the right thing to do.  However, the use in
+> > dn_insert_route() is legitimate: It is assigning a pointer to an element
 > 
-> Well, *tp and t->next are both of the same type, with __rcu attribute.
-> 
-> struct ip6_tnl __rcu **tp;
-> 
-> So I meant :
-> 
-> ACCESS_ONCE(*tp) = t->next;
-> 
-> If really we can have a really stupid compiler.
+> Nit: "uses ... are", not "use ... is". :)
 
-That would work, though it would probably give sparse complaints.
-
-Of course, it is not the stupid compilers that worry me, but rather the
-smart ones...
+Don't I already have "use ... is"?
 
 							Thanx, Paul
+
+> > from an RCU-protected list, and all elements of this list are already
+> > visible to caller.
+> > 
+> > This commit therefore silences this false positive by laundering the
+> > pointer using rcu_access_pointer() as suggested by Josh Triplett.
+> > 
+> > Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Thomas Graf <tgraf@suug.ch>
+> > Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> > Cc: Stephen Hemminger <shemminger@vyatta.com>
+> > Cc: linux-decnet-user@lists.sourceforge.net
+> > Cc: netdev@vger.kernel.org
+> 
+> With or without the above typo fix:
+> 
+> Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+> 
+> > ---
+> >  net/decnet/dn_route.c | 5 +++--
+> >  1 file changed, 3 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+> > index fe32388ea24f..3b1357bcfc92 100644
+> > --- a/net/decnet/dn_route.c
+> > +++ b/net/decnet/dn_route.c
+> > @@ -345,7 +345,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
+> >  			/* Put it first */
+> >  			*rthp = rth->dst.dn_next;
+> >  			rcu_assign_pointer(rth->dst.dn_next,
+> > -					   dn_rt_hash_table[hash].chain);
+> > +					   rcu_access_pointer(dn_rt_hash_table[hash].chain));
+> >  			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
+> >  
+> >  			dst_use(&rth->dst, now);
+> > @@ -358,7 +358,8 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
+> >  		rthp = &rth->dst.dn_next;
+> >  	}
+> >  
+> > -	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
+> > +	rcu_assign_pointer(rt->dst.dn_next,
+> > +			   rcu_access_pointer(dn_rt_hash_table[hash].chain));
+> >  	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
+> >  
+> >  	dst_use(&rt->dst, now);
+> > -- 
+> > 1.8.1.5
+> > 
+> 
