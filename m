@@ -1,53 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2013-10-09
-Date: Wed, 09 Oct 2013 13:44:01 -0400 (EDT)
-Message-ID: <20131009.134401.2108436834464148316.davem@davemloft.net>
-References: <1381316351-14418-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: pull request: batman-adv 2013-10-09
+Date: Wed, 09 Oct 2013 13:56:52 -0400 (EDT)
+Message-ID: <20131009.135652.2086284751199593695.davem@davemloft.net>
+References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49906 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50107 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756968Ab3JIRoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 13:44:04 -0400
-In-Reply-To: <1381316351-14418-1-git-send-email-steffen.klassert@secunet.com>
+	with ESMTP id S1754669Ab3JIR4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 13:56:55 -0400
+In-Reply-To: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed,  9 Oct 2013 12:59:04 +0200
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Wed,  9 Oct 2013 14:40:02 +0200
 
-> 1) We used the wrong netlink attribute to verify the
->    lenght of the replay window on async events. Fix this by
->    using the right netlink attribute.
+> Hello David,
 > 
-> 2) Policy lookups can not match the output interface on forwarding.
->    Add the needed informations to the flow informations.
+> this is a set of changes intended for net-next/linux-3.13.
 > 
-> 3) We update the pmtu when we receive a ICMPV6_DEST_UNREACH message
->    on IPsec with ipv6. This is wrong and leads to strange fragmented
->    packets, only ICMPV6_PKT_TOOBIG messages should update the pmtu.
->    Fix this by removing the ICMPV6_DEST_UNREACH check from the IPsec
->    protocol error handlers.
+> As introduced one year ago (http://article.gmane.org/gmane.org.freifunk.batman/8484)
+> in the last period we have been busy working on giving our batman-adv
+> protocol/packet-format all those means to get stable and avoid incompatibilities
+> in the near future (this is also why we did not send many changes for
+> linux-3.12..).
 > 
-> 4) The legacy IPsec anti replay mechanism supports anti replay
->    windows up to 32 packets. If a user requests for a bigger
->    anti replay window, we use 32 packets but pretend that we use
->    the requested window size. Fix from Fan Du.
+> With this patchset we are finally switching to a new compatibility version and
+> within this development cycle I will send you all those changes aimed to
+> introduce all the needed mechanism to avoid any further compatibility breakage.
 > 
-> 5) If asynchronous events are enabled and replay_maxdiff is set to
->    zero, we generate an async event for every received packet instead
->    of checking whether a timeout occurred. Fix from Thomas Egerer.
+> First of all, in this batch you have the new TVLV code (Type Version Value
+> Length) which is the first very important milestone towards our goal[1].
+> With this mechanism we will be able to improve/change the packet contents layout
+> (used by the various features) without breaking compatibility with older
+> protocol versions anymore.
+> The development of this new component has been started by Spyros Gasteratos
+> during his Google Summer of Code 2012 and then adjusted, finished and submitted
+> by Marek Lindner.
 > 
-> 6) Policies need a refcount when the state resolution timer is armed.
->    Otherwise the timer can fire after the policy is deleted.
+> Together with it, you have a set of improvements that we are allowed to apply
+> thanks to the switching to the new compat version.
+> These changes are:
+> - adapt the existing features to make them use the new TVLV mechanism
+> - move from CRC16 to CRC32c for table correctness check in the TT component
+> - reorder some of the flags sent over the wire
+> - remove the __packed attribute from the OGM packet struct.
 > 
-> 7) We might dreference a NULL pointer if the hold_queue is empty,
->    add a check to avoid this.
+> Moreover, with this patchset we are totally removing our VISualisation component
+> that is now implemented in userspace.
 > 
-> Please pull or let me know if there are problems.
+> Please pull let me know of any problem.
 
-Pulled, thanks a lot Steffen.
+Pulled, thanks.
