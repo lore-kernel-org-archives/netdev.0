@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v2 tip/core/rcu 06/13] ipv4/ip_socketglue: Apply rcu_access_pointer() to avoid sparse false positive
-Date: Wed,  9 Oct 2013 14:29:39 -0700
-Message-ID: <1381354186-16285-6-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v2 tip/core/rcu 13/13] bonding/bond_alb.c: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Wed,  9 Oct 2013 14:29:46 -0700
+Message-ID: <1381354186-16285-13-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
  <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -26,9 +26,9 @@ From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the use in
-ip_ra_control() is legitimate: It is assigning a pointer to an element
-from an RCU-protected list, and all elements of this list are already
-visible to caller.
+bond_alb_handle_active_change() is legitimate: It is assigning a pointer
+to an element from an RCU-protected list, and all elements of this list
+are already visible to caller.
 
 This commit therefore silences this false positive by laundering the
 pointer using rcu_access_pointer() as suggested by Josh Triplett.
@@ -42,21 +42,22 @@ Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 ---
- net/ipv4/ip_sockglue.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_alb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index d9c4f113d709..d328f158f0e5 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -269,7 +269,7 @@ int ip_ra_control(struct sock *sk, unsigned char on,
- 			}
- 			/* dont let ip_call_ra_chain() use sk again */
- 			ra->sk = NULL;
--			rcu_assign_pointer(*rap, ra->next);
-+			rcu_assign_pointer(*rap, rcu_access_pointer(ra->next));
- 			spin_unlock_bh(&ip_ra_lock);
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 91f179d5135c..cdd697cca6b5 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1667,7 +1667,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	}
  
- 			if (ra->destructor)
+ 	swap_slave = bond->curr_active_slave;
+-	rcu_assign_pointer(bond->curr_active_slave, new_slave);
++	rcu_assign_pointer(bond->curr_active_slave,
++			   rcu_access_pointer(new_slave));
+ 
+ 	if (!new_slave || list_empty(&bond->slave_list))
+ 		return;
 -- 
 1.8.1.5
