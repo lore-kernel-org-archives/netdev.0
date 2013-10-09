@@ -1,52 +1,60 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH v2 tip/core/rcu 0/13] Sparse-related updates for 3.13
-Date: Wed, 9 Oct 2013 15:30:37 -0700
-Message-ID: <20131009223036.GE11709@jtriplet-mobl1>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
+ rcu_access_pointer() to avoid sparse false positive
+Date: Wed, 9 Oct 2013 15:36:52 -0700
+Message-ID: <20131009223652.GC5790@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
+ <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
+ <1381354186-16285-7-git-send-email-paulmck@linux.vnet.ibm.com>
+ <1381354949.4971.20.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131009215747.GA5790@linux.vnet.ibm.com>
+ <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
 	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
-	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
-	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
-	fengguang.wu@intel.com, stephen@networkplumber.org,
-	davem@davemloft.net, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, gaofeng@cn.fujitsu.com,
-	linux-decnet-user@lists.sourceforge.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linville@tuxdriver.com, johannes@sipsolutions.net
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
+	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
+	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
+	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131009212920.GA15413@linux.vnet.ibm.com>
+In-Reply-To: <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 09, 2013 at 02:29:20PM -0700, Paul E. McKenney wrote:
-> Hello!
+On Wed, Oct 09, 2013 at 03:10:24PM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-09 at 14:57 -0700, Paul E. McKenney wrote:
 > 
-> This series features updates to allow sparse to do a better job of
-> statically analyzing RCU usage:
+> > Hmmm...  I could use RCU_INIT_POINTER().  Something like the following?
+> > 
+> > 	RCU_INIT_POINTER(ACCESS_ONCE(*tp), t->next);
+> > 
+> > The ACCESS_ONCE() to prevent the compiler from doing anything stupid.
+> > Presumably the value of t->next cannot change, so a normal load suffices.
+> > 
+> > Or did you have something else in mind?
 > 
-> 1.	Apply ACCESS_ONCE() to rcu_assign_pointer()'s target to prevent
-> 	comiler mischief.  Also require that the source pointer be from
-> 	the kernel address space.  Sometimes it can be from the RCU address
-> 	space, which necessitates the remaining patches in this series.
-> 	Which, it must be admitted, apply to a very small fraction of
-> 	the rcu_assign_pointer() invocations in the kernel.  This commit
-> 	courtesy of Josh Triplett.
+> Well, *tp and t->next are both of the same type, with __rcu attribute.
 > 
-> 2-13.	Apply rcu_access_pointer() to avoid a number of false positives.
+> struct ip6_tnl __rcu **tp;
+> 
+> So I meant :
+> 
+> ACCESS_ONCE(*tp) = t->next;
+> 
+> If really we can have a really stupid compiler.
 
-I posted one minor nit in response to one of these patches, but in any
-case, for 2-13:
+That would work, though it would probably give sparse complaints.
 
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+Of course, it is not the stupid compilers that worry me, but rather the
+smart ones...
 
-I'm obviously OK with patch 1 as well, but it should move to the end of
-the series, and you need a new patch 1 that adds a comment constraining
-rcu_assign_pointer to evaluate its argument exactly once.
-
-- Josh Triplett
+							Thanx, Paul
