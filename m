@@ -1,375 +1,56 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Add ndo_get_phys_port_id support
-Date: Wed, 9 Oct 2013 16:06:28 +0200
-Message-ID: <1381327588-11137-1-git-send-email-yuvalmin@broadcom.com>
+From: Steve Rago <sar@nec-labs.com>
+Subject: Re: bug in passing file descriptors
+Date: Wed, 9 Oct 2013 10:07:25 -0400
+Message-ID: <5255631D.9010001@nec-labs.com>
+References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net> <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net> <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com> <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com> <52543065.7000209@nec-labs.com> <20131008164108.GO6882@two.firstfloor.org> <525437FF.5020905@nec-labs.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4505 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936Ab3JIOGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Oct 2013 10:06:37 -0400
+Received: from mail.nec-labs.com ([138.15.200.209]:42657 "EHLO
+	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752515Ab3JIOHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 10:07:46 -0400
+In-Reply-To: <525437FF.5020905@nec-labs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each network interface (either PF or VF) is identified by its port's MAC id.
+On 10/08/2013 12:51 PM, Steve Rago wrote:
+> On 10/08/2013 12:41 PM, Andi Kleen wrote:
+>>> I just want the semantics to be consistent.  If you want Linux to
+>>> always require applications that call recvmsg to provide a buffer
+>>> size of CMSG_SPACE bytes long to retrieve control information, then
+>>> fail the system call when the buffer is smaller.  But if you do
+>>> this, you risk breaking applications that work with FreeBSD, Mac OS
+>>> X, Solaris, and probably a few others.
+>>
+>> The primary concern is to be binary compatible with Linux.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Hi Dave,
+Not to application developers, by the way.
 
-Please consider applying this patch to 'net-next'.
+>>
+>> But not being compatible between 32bit and 64bit Linux processes on the same
+>> host would seem like a serious problem to me.
+>>
+>>> Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
+>>
+>> The question is could it break existing Linux applications to change it?
+>> And would it help with the 32/64bit compatibility?
+>>
+>> If not some other way to fix the compat layer would need to be found.
+>>
+>> -Andi
+>>
+>
+> I'm not sure if a 64-bit process and a 32-bit process exchange file descriptors on the same system has a problem.  It
+> certainly looks like the compat code does the right thing.  I can test this tonight if you want.
 
-Thanks,
-Yuval Mintz
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   3 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  23 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 149 +++++++++++++++++++----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |   7 ++
- 4 files changed, 155 insertions(+), 27 deletions(-)
+I tested all combinations and they work fine as far as Linux binary compatibility is concerned.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 8fe4bcb..5fb18cd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1546,6 +1546,7 @@ struct bnx2x {
- #define IS_VF_FLAG			(1 << 22)
- #define INTERRUPTS_ENABLED_FLAG		(1 << 23)
- #define BC_SUPPORTS_RMMOD_CMD		(1 << 24)
-+#define HAS_PHYS_PORT_ID		(1 << 25)
- 
- #define BP_NOMCP(bp)			((bp)->flags & NO_MCP_FLAG)
- 
-@@ -1876,6 +1877,8 @@ struct bnx2x {
- 	u32 dump_preset_idx;
- 	bool					stats_started;
- 	struct semaphore			stats_sema;
-+
-+	u8					phys_port_id[ETH_ALEN];
- };
- 
- /* Tx queues may be less or equal to Rx queues */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 13a5694..e53ff1e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11149,6 +11149,14 @@ static void bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 			bnx2x_get_cnic_mac_hwinfo(bp);
- 	}
- 
-+	if (!BP_NOMCP(bp)) {
-+		/* Read physical port identifier from shmem */
-+		val2 = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_upper);
-+		val = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_lower);
-+		bnx2x_set_mac_buf(bp->phys_port_id, val, val2);
-+		bp->flags |= HAS_PHYS_PORT_ID;
-+	}
-+
- 	memcpy(bp->link_params.mac_addr, bp->dev->dev_addr, ETH_ALEN);
- 
- 	if (!bnx2x_is_valid_ether_addr(bp, bp->dev->dev_addr))
-@@ -12044,6 +12052,20 @@ static int bnx2x_validate_addr(struct net_device *dev)
- 	return 0;
- }
- 
-+static int bnx2x_get_phys_port_id(struct net_device *netdev,
-+				  struct netdev_phys_port_id *ppid)
-+{
-+	struct bnx2x *bp = netdev_priv(netdev);
-+
-+	if (!(bp->flags & HAS_PHYS_PORT_ID))
-+		return -EOPNOTSUPP;
-+
-+	ppid->id_len = sizeof(bp->phys_port_id);
-+	memcpy(ppid->id, bp->phys_port_id, ppid->id_len);
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_open		= bnx2x_open,
- 	.ndo_stop		= bnx2x_close,
-@@ -12073,6 +12095,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	.ndo_busy_poll		= bnx2x_low_latency_recv,
- #endif
-+	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
- };
- 
- static int bnx2x_set_coherency_mask(struct bnx2x *bp)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index da16953..e4b90aa 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -60,6 +60,30 @@ void bnx2x_vfpf_finalize(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv)
- 	mutex_unlock(&bp->vf2pf_mutex);
- }
- 
-+/* Finds a TLV by type in a TLV buffer; If found, returns pointer to the TLV */
-+static void *bnx2x_search_tlv_list(struct bnx2x *bp, void *tlvs_list,
-+				   enum channel_tlvs req_tlv)
-+{
-+	struct channel_tlv *tlv = (struct channel_tlv *)tlvs_list;
-+
-+	do {
-+		if (tlv->type == req_tlv)
-+			return tlv;
-+
-+		if (!tlv->length) {
-+			BNX2X_ERR("Found TLV with length 0\n");
-+			return NULL;
-+		}
-+
-+		tlvs_list += tlv->length;
-+		tlv = (struct channel_tlv *)tlvs_list;
-+	} while (tlv->type != CHANNEL_TLV_LIST_END);
-+
-+	DP(BNX2X_MSG_IOV, "TLV list does not contain %d TLV\n", req_tlv);
-+
-+	return NULL;
-+}
-+
- /* list the types and lengths of the tlvs on the buffer */
- void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list)
- {
-@@ -196,6 +220,7 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
- 	int rc = 0, attempts = 0;
- 	struct vfpf_acquire_tlv *req = &bp->vf2pf_mbox->req.acquire;
- 	struct pfvf_acquire_resp_tlv *resp = &bp->vf2pf_mbox->resp.acquire_resp;
-+	struct vfpf_port_phys_id_resp_tlv *phys_port_resp;
- 	u32 vf_id;
- 	bool resources_acquired = false;
- 
-@@ -219,8 +244,14 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
- 	/* pf 2 vf bulletin board address */
- 	req->bulletin_addr = bp->pf2vf_bulletin_mapping;
- 
-+	/* Request physical port identifier */
-+	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length,
-+		      CHANNEL_TLV_PHYS_PORT_ID, sizeof(struct channel_tlv));
-+
- 	/* add list termination tlv */
--	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
-+	bnx2x_add_tlv(bp, req,
-+		      req->first_tlv.tl.length + sizeof(struct channel_tlv),
-+		      CHANNEL_TLV_LIST_END,
- 		      sizeof(struct channel_list_end_tlv));
- 
- 	/* output tlvs list */
-@@ -287,6 +318,15 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
- 		}
- 	}
- 
-+	/* Retrieve physical port id (if possible) */
-+	phys_port_resp = (struct vfpf_port_phys_id_resp_tlv *)
-+			 bnx2x_search_tlv_list(bp, resp,
-+					       CHANNEL_TLV_PHYS_PORT_ID);
-+	if (phys_port_resp) {
-+		memcpy(bp->phys_port_id, phys_port_resp->id, ETH_ALEN);
-+		bp->flags |= HAS_PHYS_PORT_ID;
-+	}
-+
- 	/* get HW info */
- 	bp->common.chip_id |= (bp->acquire_resp.pfdev_info.chip_num & 0xffff);
- 	bp->link_params.chip_id = bp->common.chip_id;
-@@ -983,53 +1023,59 @@ static int bnx2x_copy32_vf_dmae(struct bnx2x *bp, u8 from_vf,
- 	return bnx2x_issue_dmae_with_comp(bp, &dmae);
- }
- 
--static void bnx2x_vf_mbx_resp(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+static void bnx2x_vf_mbx_resp_single_tlv(struct bnx2x *bp,
-+					 struct bnx2x_virtf *vf)
- {
- 	struct bnx2x_vf_mbx *mbx = BP_VF_MBX(bp, vf->index);
--	u64 vf_addr;
--	dma_addr_t pf_addr;
- 	u16 length, type;
--	int rc;
--	struct pfvf_general_resp_tlv *resp = &mbx->msg->resp.general_resp;
- 
- 	/* prepare response */
- 	type = mbx->first_tlv.tl.type;
- 	length = type == CHANNEL_TLV_ACQUIRE ?
- 		sizeof(struct pfvf_acquire_resp_tlv) :
- 		sizeof(struct pfvf_general_resp_tlv);
--	bnx2x_add_tlv(bp, resp, 0, type, length);
--	resp->hdr.status = bnx2x_pfvf_status_codes(vf->op_rc);
--	bnx2x_add_tlv(bp, resp, length, CHANNEL_TLV_LIST_END,
-+	bnx2x_add_tlv(bp, &mbx->msg->resp, 0, type, length);
-+	bnx2x_add_tlv(bp, &mbx->msg->resp, length, CHANNEL_TLV_LIST_END,
- 		      sizeof(struct channel_list_end_tlv));
-+}
-+
-+static void bnx2x_vf_mbx_resp_send_msg(struct bnx2x *bp,
-+				       struct bnx2x_virtf *vf)
-+{
-+	struct bnx2x_vf_mbx *mbx = BP_VF_MBX(bp, vf->index);
-+	struct pfvf_general_resp_tlv *resp = &mbx->msg->resp.general_resp;
-+	dma_addr_t pf_addr;
-+	u64 vf_addr;
-+	int rc;
-+
- 	bnx2x_dp_tlv_list(bp, resp);
- 	DP(BNX2X_MSG_IOV, "mailbox vf address hi 0x%x, lo 0x%x, offset 0x%x\n",
- 	   mbx->vf_addr_hi, mbx->vf_addr_lo, mbx->first_tlv.resp_msg_offset);
- 
-+	resp->hdr.status = bnx2x_pfvf_status_codes(vf->op_rc);
-+
- 	/* send response */
- 	vf_addr = HILO_U64(mbx->vf_addr_hi, mbx->vf_addr_lo) +
- 		  mbx->first_tlv.resp_msg_offset;
- 	pf_addr = mbx->msg_mapping +
- 		  offsetof(struct bnx2x_vf_mbx_msg, resp);
- 
--	/* copy the response body, if there is one, before the header, as the vf
--	 * is sensitive to the header being written
-+	/* Copy the response buffer. The first u64 is written afterwards, as
-+	 * the vf is sensitive to the header being written
- 	 */
--	if (resp->hdr.tl.length > sizeof(u64)) {
--		length = resp->hdr.tl.length - sizeof(u64);
--		vf_addr += sizeof(u64);
--		pf_addr += sizeof(u64);
--		rc = bnx2x_copy32_vf_dmae(bp, false, pf_addr, vf->abs_vfid,
--					  U64_HI(vf_addr),
--					  U64_LO(vf_addr),
--					  length/4);
--		if (rc) {
--			BNX2X_ERR("Failed to copy response body to VF %d\n",
--				  vf->abs_vfid);
--			goto mbx_error;
--		}
--		vf_addr -= sizeof(u64);
--		pf_addr -= sizeof(u64);
-+	vf_addr += sizeof(u64);
-+	pf_addr += sizeof(u64);
-+	rc = bnx2x_copy32_vf_dmae(bp, false, pf_addr, vf->abs_vfid,
-+				  U64_HI(vf_addr),
-+				  U64_LO(vf_addr),
-+				  (sizeof(union pfvf_tlvs) - sizeof(u64))/4);
-+	if (rc) {
-+		BNX2X_ERR("Failed to copy response body to VF %d\n",
-+			  vf->abs_vfid);
-+		goto mbx_error;
- 	}
-+	vf_addr -= sizeof(u64);
-+	pf_addr -= sizeof(u64);
- 
- 	/* ack the FW */
- 	storm_memset_vf_mbx_ack(bp, vf->abs_vfid);
-@@ -1060,6 +1106,36 @@ mbx_error:
- 	bnx2x_vf_release(bp, vf, false); /* non blocking */
- }
- 
-+static void bnx2x_vf_mbx_resp(struct bnx2x *bp,
-+				       struct bnx2x_virtf *vf)
-+{
-+	bnx2x_vf_mbx_resp_single_tlv(bp, vf);
-+	bnx2x_vf_mbx_resp_send_msg(bp, vf);
-+}
-+
-+static void bnx2x_vf_mbx_resp_phys_port(struct bnx2x *bp,
-+					struct bnx2x_virtf *vf,
-+					void *buffer,
-+					u16 *offset)
-+{
-+	struct vfpf_port_phys_id_resp_tlv *port_id;
-+
-+	if (!(bp->flags & HAS_PHYS_PORT_ID))
-+		return;
-+
-+	bnx2x_add_tlv(bp, buffer, *offset, CHANNEL_TLV_PHYS_PORT_ID,
-+		      sizeof(struct vfpf_port_phys_id_resp_tlv));
-+
-+	port_id = (struct vfpf_port_phys_id_resp_tlv *)
-+		  (((u8 *)buffer) + *offset);
-+	memcpy(port_id->id, bp->phys_port_id, ETH_ALEN);
-+
-+	/* Offset should continue representing the offset to the tail
-+	 * of TLV data (outside this function scope)
-+	 */
-+	*offset += sizeof(struct vfpf_port_phys_id_resp_tlv);
-+}
-+
- static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				      struct bnx2x_vf_mbx *mbx, int vfop_status)
- {
-@@ -1067,6 +1143,7 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 	struct pfvf_acquire_resp_tlv *resp = &mbx->msg->resp.acquire_resp;
- 	struct pf_vf_resc *resc = &resp->resc;
- 	u8 status = bnx2x_pfvf_status_codes(vfop_status);
-+	u16 length;
- 
- 	memset(resp, 0, sizeof(*resp));
- 
-@@ -1140,9 +1217,24 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 			resc->hw_sbs[i].sb_qid);
- 	DP_CONT(BNX2X_MSG_IOV, "]\n");
- 
-+	/* prepare response */
-+	length = sizeof(struct pfvf_acquire_resp_tlv);
-+	bnx2x_add_tlv(bp, &mbx->msg->resp, 0, CHANNEL_TLV_ACQUIRE, length);
-+
-+	/* Handle possible VF requests for physical port identifiers.
-+	 * 'length' should continue to indicate the offset of the first empty
-+	 * place in the buffer (i.e., where next TLV should be inserted)
-+	 */
-+	if (bnx2x_search_tlv_list(bp, &mbx->msg->req,
-+				  CHANNEL_TLV_PHYS_PORT_ID))
-+		bnx2x_vf_mbx_resp_phys_port(bp, vf, &mbx->msg->resp, &length);
-+
-+	bnx2x_add_tlv(bp, &mbx->msg->resp, length, CHANNEL_TLV_LIST_END,
-+		      sizeof(struct channel_list_end_tlv));
-+
- 	/* send the response */
- 	vf->op_rc = vfop_status;
--	bnx2x_vf_mbx_resp(bp, vf);
-+	bnx2x_vf_mbx_resp_send_msg(bp, vf);
- }
- 
- static void bnx2x_vf_mbx_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
-@@ -1874,6 +1966,9 @@ void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event)
- 	/* process the VF message header */
- 	mbx->first_tlv = mbx->msg->req.first_tlv;
- 
-+	/* Clean response buffer to refrain from falsely seeing chains */
-+	memset(&mbx->msg->resp, 0, sizeof(union pfvf_tlvs));
-+
- 	/* dispatch the request (will prepare the response) */
- 	bnx2x_vf_mbx_request(bp, vf, mbx);
- 	goto mbx_done;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index 1179fe0..208568b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -188,6 +188,12 @@ struct pfvf_acquire_resp_tlv {
- 	} resc;
- };
- 
-+struct vfpf_port_phys_id_resp_tlv {
-+	struct channel_tlv tl;
-+	u8 id[ETH_ALEN];
-+	u8 padding[2];
-+};
-+
- #define VFPF_INIT_FLG_STATS_COALESCE	(1 << 0) /* when set the VFs queues
- 						  * stats will be coalesced on
- 						  * the leading RSS queue
-@@ -398,6 +404,7 @@ enum channel_tlvs {
- 	CHANNEL_TLV_PF_SET_MAC,
- 	CHANNEL_TLV_PF_SET_VLAN,
- 	CHANNEL_TLV_UPDATE_RSS,
-+	CHANNEL_TLV_PHYS_PORT_ID,
- 	CHANNEL_TLV_MAX
- };
- 
--- 
-1.8.1.227.g44fe835
+Steve
