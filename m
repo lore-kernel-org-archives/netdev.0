@@ -1,70 +1,31 @@
-From: "Mark Williams" <mrkin_fo@hotmail.com>
-Subject: I am sourcing for services of an Oversea Investment Manager (OIM) to manage the sum of US$32Million
-Date: Wed, 9 Oct 2013 07:06:02 +0100
-Message-ID: <375658.46283.bm@smtp115.mail.bf1.yahoo.com>
-Reply-To: <markwilliams1@globomail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] tun: don't look at current when non-blocking
+Date: Wed, 09 Oct 2013 14:25:19 +0800
+Message-ID: <5254F6CF.8080606@redhat.com>
+References: <20131006182512.GA16504@redhat.com> <20131008.154614.1435858706789904414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_00E4_01C2A9A6.3A297EF0"
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm19-vm0.bullet.mail.bf1.yahoo.com ([98.139.213.162]:37760 "EHLO
-	nm19-vm0.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751867Ab3JIGGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 02:06:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
-
-------=_NextPart_000_00E4_01C2A9A6.3A297EF0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com, xemul@parallels.com
+To: David Miller <davem@davemloft.net>, mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131008.154614.1435858706789904414.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-READ MESSAGE ATTACHED
+On 10/09/2013 03:46 AM, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Sun, 6 Oct 2013 21:25:12 +0300
+>
+>> We play with a wait queue even if socket is
+>> non blocking. This is an obvious waste.
+>> Besides, it will prevent calling the non blocking
+>> variant when current is not valid.
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Applied and queued up for -stable, thanks.
+> --
 
-------=_NextPart_000_00E4_01C2A9A6.3A297EF0
-Content-Type: application/octet-stream;
-	name="Investment Manager.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="Investment Manager.txt"
-
-T1ZFUlNFQSBJTlZFU1RNRU5UIE1BTkFHRVINCg0KDQpEZWFyIFNpciwNCg0K
-DQpJIGFtIHNvdXJjaW5nIGZvciBzZXJ2aWNlcyBvZiBhbiBPdmVyc2VhIElu
-dmVzdG1lbnQgTWFuYWdlciAoT0lNKSB0byBtYW5hZ2UgdGhlIHN1bSBvZiBV
-UyQzMk1pbGxpb24sIHRoaXMgYW1vdW50IHJlcHJlc2VudCBhbiBvdmVyIGlu
-dm9pY2VkIGFtb3VudCBvZiBtb25leSBmcm9tIGEgY29udHJhY3QgdGhhdCB3
-YXMgYXdhcmRlZCB0byBhbiBBbWVyaWNhbiBPaWwgZXhwbG9yYXRpb24gY29t
-cGFueSBpbiAyMDA3LCBvbmUgeWVhciBsYXRlciBpbiAyMDA4LCB0aGUgQW1l
-cmljYW4gY29tcGFueSBjb21wbGV0ZWQgdGhlIGNvbnRyYWN0IGFuZCB3YXMg
-ZnVsbHkgcGFpZCBieSBkaXJlY3QgV2lyZSB0cmFuc2ZlciBmb3IgdGhlIGV4
-ZWN1dGlvbiBvZiB0aGUgY29udHJhY3QsIGxlYXZpbmcgdGhlIG92ZXIgaW52
-b2ljZWQgc3VtIHNhZmVseSBkZXBvc2l0ZWQgaW4gYSBzcGVjaWFsIHNlY3Vy
-aXR5IGFjY291bnQgbWFuYWdlZCBhbmQgbW9uaXRvcmVkIGJ5IHRoZSB0b3Ag
-b2ZmaWNlcnMgb2YgdGhlIGNvcnBvcmF0aW9uIHRoYXQgSSByZXByZXNlbnQs
-IHRoaXMgdG9wIG9mZmljZXIgYXJlIGluIGNoYXJnZSBvZiB0aGUgZGF5IHRv
-IGRheSBydW5uaW5nIG9mIGFjY291bnRzIGFuZCBmaW5hbmNlIHNlY3Rpb24g
-aW5jbHVkaW5nIHRoZSBhdWRpdGluZyBkZXBhcnRtZW50IG9mIHRoZSBjb3Jw
-b3JhdGlvbiBhbmQgaGF2ZSBwZXJmZWN0ZWQgYWxsIGRvY3VtZW50cyB0byBi
-YWNrIHVwIHRoZSBwYXltZW50IGFzIHRvIGF2b2lkIGFueSB0cmFjZSB3aGF0
-c29ldmVyLCB3aGljaCBtYWtlcyB0aGUgdHJhbnNhY3Rpb24gMTAwJSByaXNr
-IGZyZWUuDQoNCg0KTXkgcmVxdWVzdCBpcyB5b3VyIGFzc2lzdGFuY2UgaW4g
-cmVjZWl2aW5nIHRoaXMgbW9uZXkgdXNpbmcgYSBzZWN1cmVkIGFjY291bnQg
-dGhhdCBpcyBhYmxlIHRvIHRha2UgdGhpcyBtb25leSBhbmQgdGhlcmVhZnRl
-ciB5b3UgaW52ZXN0IGl0IGZvciBhIHBlcmlvZCBvZiAyIHllYXJzIG9uIHRo
-ZWlyIGJlaGFsZi4gWW91IHdvdWxkIGJlIGVudGl0bGVkIHRvIDI1JSBvZiB0
-aGUgdG90YWwgZnVuZCBpbiBxdWVzdGlvbiwgd2hpbGUgNSUgd2lsbCBiZSBz
-ZXQgYXNpZGUgZm9yIGFueSBzdW5kcnkgZXhwZW5zZXMgaW5jdXJyZWQgYnkg
-Ym90aCBwYXJ0aWVzIGluIHRoZSBjb3Vyc2Ugb2YgdGhpcyB0cmFuc2FjdGlv
-bi4gDQoNCg0KQXMgYW4gYWRtaW5pc3RyYXRpdmUgb2ZmaWNlciBJIHdhcyBt
-YW5kYXRlZCB0byBzZWVrIHlvdXIgaW5kdWxnZW5jZSBvbiB0aGlzIG1hdHRl
-ciwgaWYgdGhpcyBpcyBhY2NlcHRhYmxlIHRvIHlvdSwgY29udGFjdCBtZSBz
-dHJpY3RseSBieSBtYXJrd2lsbGlhbXMxQGdsb2JvbWFpbC5jb20gc3RhdGlu
-ZyB5b3VyIGZ1bGwgbmFtZSwgYWRkcmVzcyBhbmQgcHJpdmF0ZSBwaG9uZSBu
-dW1iZXIgUGxlYXNlIERPIE5PVCBib3RoZXJzIHRvIHJlc3BvbmQgaWYgeW91
-IGFyZSBub3QgaW50ZXJlc3RlZC4NCg0KDQpZb3VycyBTaW5jZXJlbHksDQoN
-Cg0KTXIuIE1hcmsgV2lsbGlhbXM=
-
-------=_NextPart_000_00E4_01C2A9A6.3A297EF0--
+Michael, I believe this is just an optimization or a required patch of
+your following patches. So no need go for stable?
