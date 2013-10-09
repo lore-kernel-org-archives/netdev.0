@@ -1,133 +1,113 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [PATCH 10/16] batman-adv: use CRC32C instead of CRC16 in TT code
-Date: Wed, 9 Oct 2013 16:35:00 +0200
-Message-ID: <20131009143500.GH3544@neomailbox.net>
-References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
- <1381322418-1349-11-git-send-email-antonio@meshcoding.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7384@saturn3.aculab.com>
+From: "Eric Verdonck" <E.Verdonck@option.com>
+Subject: Re: Fwd: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
+Date: Wed, 9 Oct 2013 16:38:34 +0200
+Message-ID: <7685369CB6CCA443BA30E328A476A8CB2BDD6E@SRV-SATURNUS.OPTION.local>
+References: <91D2D2F662ED984BACEF03B3F4B10BB803C47097@SRV-SATURNUS.OPTION.local> <91D2D2F662ED984BACEF03B3F4B10BB803C4709C@SRV-SATURNUS.OPTION.local> <7685369CB6CCA443BA30E328A476A8CB2BDD6D@SRV-SATURNUS.OPTION.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="w3uUfsyyY1Pqa/ej"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Jan Dumon" <j.dumon@option.com>, <linux-kernel@vger.kernel.org>
+To: <marek.belisko@gmail.com>, <linux-usb@vger.kernel.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:18991 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752770Ab3JIOf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 10:35:26 -0400
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7384@saturn3.aculab.com>
+Received: from mailer1.option.com ([81.246.70.162]:47134 "EHLO
+	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754624Ab3JIOiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 10:38:52 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <7685369CB6CCA443BA30E328A476A8CB2BDD6D@SRV-SATURNUS.OPTION.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---w3uUfsyyY1Pqa/ej
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Oct 09, 2013 at 03:11:08PM +0100, David Laight wrote:
-> > CRC32C has to be preferred to CRC16 because of its possible
-> > HW native support and because of the reduced collision
-> > probability. With this change the Translation Table
-> > component now uses CRC32C to compute the local and global
-> > table checksum.
-> ...
-> > -/* Calculates the checksum of the local table of a given orig_node */
-> > -static uint16_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
-> > +/**
-> > + * batadv_tt_global_crc - calculates the checksum of the local table b=
-elonging
-> > + *  to the given orig_node
-> > + * @bat_priv: the bat priv with all the soft interface information
-> > + */
-> > +static uint32_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
-> >  				     struct batadv_orig_node *orig_node)
-> ...
-> >  	for (i =3D 0; i < hash->size; i++) {
-> >  		head =3D &hash->table[i];
-> > @@ -1435,27 +1437,24 @@ static uint16_t batadv_tt_global_crc(struct bat=
-adv_priv *bat_priv,
-> >  							     orig_node))
-> >  				continue;
-> >=20
-> ...
-> > +			crc ^=3D crc32c(0, tt_common->addr, ETH_ALEN);
-> >  		}
->=20
-> Are you really generating CRC32 of a pile of ethernet MAC addresses
-> and the XORing the CRC together?
-> That gives the same answer as XORing together the MAC addresses and
-> then doing a CRC of the final value.
-
-I was not sure about this since the CRC32 is not a linear operation. However
-this routine is not on the fast path, so we can also live with this order.
-
-> So it gives you almost no protection against corruption at all.
-
-The corruption check is for the entire global table.
-The global table is the union of the local tables of all the other nodes (e=
-ach
-node has a local and a global table).
-
-The resulting value (the xor of the CRCs) is then compared to the value
-sent by whom originated this piece of global table.
-
-In this way each batman-adv node is sure to have the entries that the node
-really generated in its local table.
-
-(sorry for using the word table several times..)
-
-Does this clarify? or have I misunderstood your objection?
-
->=20
-> ...
-> > -/* Calculates the checksum of the local table */
-> > -static uint16_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
-> > +/**
-> > + * batadv_tt_local_crc - calculates the checksum of the local table
-> > + * @bat_priv: the bat priv with all the soft interface information
-> > + */
-> > +static uint32_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
-> >  {
-> ...
->=20
-> This looks like a clone of the previous routine.
-> Surely you can avoid the code duplication.
-
-Some parts are the same, true. But this was already like this.
-We can surely try to improve it later on with another patch.
-
-
-Regards,
-
-
---=20
-Antonio Quartulli
-
---w3uUfsyyY1Pqa/ej
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSVWmUAAoJEADl0hg6qKeO2sEQAMYqnChCAJF3HCo84TRPOIJ9
-WunrxIZtf3TDKHG22mwsD1KTAR7UpsmCSFYwttBQI+DbCeLjTs/BS0KkQgkDq20v
-mo+3lrydUT7tLmJrFDJL/7MMFqtqgMyVnAwpkud4vWPoOCpcIw8O1WAiMUauoP2x
-jrwFiq4GGbDdprlSmNzfV1dLrfRZY/g2sv+d6aEX1MrLOjwXbH7eKI82qe5yydOF
-AGPNY7xyPl8EqqLMoDdYecQ4MtNgOucMy5D5QUDjFN061VMuvwlQ+S3TxqhAVd+V
-QvSFjY+Yt1aPfC1ZIGdea9EvK07r3N3z/GBSeaUktgRMiWrRNgxTA+G48N/1hiEJ
-2JZkXHE6ZxgI7Mu1WFbKkjcjW1wlvmCr+2D2Ctp/VJiC+3V8vtv+UO9ROeLzS8jg
-9t1AMy+8ehs+RCIEuGp97LhjXpG9wq2WGm2GJJuihHjNugdUZq9Kd8udwt7qFr34
-KTGp0BSlLi4oSrXr7dgp4IZqPR/2qU/1hxbMk02/ducvf6zqxXSTI3fLy1PFXM6k
-o1vPTou+LJnO4698iCwMwxd4LXmZaChJMyGOqwKSUhFX68EmAXBJB6woH4N+mIY1
-I0jbS3Ob4nr5tfMA0jCml8BVkcehKUdNwZkLXzQAkatRwiHd078l6mPc3L0JCnet
-UGsmO8W6RbLTE0ih+JXh
-=qRwy
------END PGP SIGNATURE-----
-
---w3uUfsyyY1Pqa/ej--
+DQpNZXQgdnJpZW5kZWxpamtlIGdyb2V0ZW4sDQpFcmljIFZlcmRvbmNrDQpEcml2ZXIgRGV2ZWxv
+cG1lbnQNCk9wdGlvbiBudiwgR2FzdG9uIEdlZW5zbGFhbiAxNCwgQi0zMDAxIExldXZlbg0KDQpU
+OiArMzIgMTYgMzExIDU5Nw0KRjogKzMyIDE2IDIwNyAxNjQNCkUtbWFpbDogZS52ZXJkb25ja0Bv
+cHRpb24uY29tDQpXZWJzaXRlOiB3d3cub3B0aW9uLmNvbQ0KRGlzY2xhaW1lcjpodHRwOi8vd3d3
+Lm9wdGlvbi5jb20vY29tcGFueS9kaXNjbGFpbWVyLnNodG1sDQoNClJQUiBMZXV2ZW4gMDQyOS4z
+NzUuNDQ4DQoNCk9uIDEwLzA5LzIwMTMgMDM6NTggUE0sIEVyaWMgVmVyZG9uY2sgd3JvdGU6DQo+
+IEhpIGFsbCwNCj4NCj4gVGhhbmsgeW91IHZlcnkgbXVjaCBmb3IgeW91ciBwcm9ibGVtIHJlcG9y
+dC4gVGhlIGxpbmUgDQo+IGxlMTZfdG9fY3B1KHNlcmlhbF9zdGF0ZV9ub3RpZmljYXRpb24tPndJ
+bmRleCkgIT0gV19JTkRFWCkgaW4gdGhlIA0KPiBmdW5jdGlvbiAidGlvY21nZXRfaW50cl9jYWxs
+YmFjayIgb2YgdGhlIGhzbyBkcml2ZXIgaW50ZW50cyB0byBkaXNjYXJkIA0KPiB0aGUgbm90aWZp
+Y2F0aW9uIGlmIHRoZSBub3RpZmljYXRpb24gdXJiIGlzIG5vdCBjb21pbmcgZnJvbSB0aGUgbW9k
+ZW0gDQo+IGludGVyZmFjZS4gQWN0dWFsbHkgdGhlIGxpbmUgZGlzY2FyZHMgdGhlIHVyYiBpZiB0
+aGUgaW50ZXJmYWNlIG51bWJlciANCj4gZGlmZmVycyBmcm9tIHRoZSBoYXJkIGNvZGVkIHZhbHVl
+IFdfSU5ERVggKCBzZWUgVGFibGUgNjc6IA0KPiBDbGFzcy1TcGVjaWZpYyBOb3RpZmljYXRpb25z
+IG9mIA0KPiB3d3cudXNiLm9yZy9kZXZlbG9wZXJzL2RldmNsYXNzX2RvY3MvdXNiY2RjMTEucGRm
+4oCOIGZvciB0aGUgbWVhbmluZyBvZiANCj4gd0luZGV4KS4gRGVwZW5kaW5nIG9mIHRoZSB0eW9l
+IG9mIGRldmljZSB1c2VkIGFuZC9vciBkZXBlbmRpbmcgb2YgdGhlIA0KPiBhY3R1YWwgY29uZmln
+dXJhdGlvbiBvZiB0aGUgZGV2aWNlIHRoZSBpbnRlcmZhY2UgbnVtYmVyIG9mIHRoZSBtb2RlbSAN
+Cj4gcG9ydCB3aWxsIHZhcnkuIFRoZXJlZm9yZSBJIHdvdWxkIGxpa2UgdG8gc3VnZ2VzdCB0byBy
+ZW1vdmUgdGhpcyBjaGVjayANCj4gYW5kIHJlcGxhY2UgaXQgYnkgYSBkaXNjYXJkIGlmIHRoZSB1
+cmIgZG9lc24ndCBiZWxvbmcgdG8gYW4gaW50ZXJmYWNlIA0KPiB3aXRoIGl0cyBwb3J0X3NwZWMg
+c2V0IHRvIEhTT19QT1JUX01PREVNLiBUaGlzIHRlc3QgaGFzIHRoZSBhZHZhbnRhZ2UgDQo+IHRo
+YXQgaXQncyBpbmRlcGVuZGVuZCBvZiB0aGUgYWN0dWFsIGNvbmZpZ3VyYXRpb24gb3IgdHlwZSBv
+ZiB0aGUgbW9kZW0gDQo+IGRldmljZSAoIHNlZSBwYXRjaCBiZWxvdykNCj4NCj4gZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvbmV0L3VzYi9oc28uYyBiL2RyaXZlcnMvbmV0L3VzYi9oc28uYw0KPiBpbmRl
+eCBlMmRkMzI0Li4yODhlYzQ2IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC91c2IvaHNvLmMN
+Cj4gKysrIGIvZHJpdmVycy9uZXQvdXNiL2hzby5jDQo+IEBAIC0xNTAzLDcgKzE1MDMsNyBAQCBz
+dGF0aWMgdm9pZCB0aW9jbWdldF9pbnRyX2NhbGxiYWNrKHN0cnVjdCB1cmIgKnVyYikNCj4gaWYg
+KHNlcmlhbF9zdGF0ZV9ub3RpZmljYXRpb24tPmJtUmVxdWVzdFR5cGUgIT0gQk1fUkVRVUVTVF9U
+WVBFIHx8DQo+IHNlcmlhbF9zdGF0ZV9ub3RpZmljYXRpb24tPmJOb3RpZmljYXRpb24gIT0gQl9O
+T1RJRklDQVRJT04gfHwNCj4gbGUxNl90b19jcHUoc2VyaWFsX3N0YXRlX25vdGlmaWNhdGlvbi0+
+d1ZhbHVlKSAhPSBXX1ZBTFVFIHx8DQo+IC0gbGUxNl90b19jcHUoc2VyaWFsX3N0YXRlX25vdGlm
+aWNhdGlvbi0+d0luZGV4KSAhPSBXX0lOREVYIHx8DQo+ICsgKHNlcmlhbC0+cGFyZW50LT5wb3J0
+X3NwZWMgJiBIU09fUE9SVF9NQVNLKSAhPSBIU09fUE9SVF9NT0RFTSB8fA0KPiBsZTE2X3RvX2Nw
+dShzZXJpYWxfc3RhdGVfbm90aWZpY2F0aW9uLT53TGVuZ3RoKSAhPSBXX0xFTkdUSCkgew0KPiBk
+ZXZfd2FybigmdXNiLT5kZXYsDQo+ICJoc28gcmVjZWl2ZWQgaW52YWxpZCBzZXJpYWwgc3RhdGUg
+bm90aWZpY2F0aW9uXG4iKTsNCj4gQmVzdCByZWdhcmRzLA0KPiBFcmljIFZlcmRvbmNrDQo+IEZp
+cm13YXJlIGRldmVsb3BtZW50IGVuZ2luZWVyDQo+IE9wdGlvbiBudiwgR2FzdG9uIEdlZW5zbGFh
+biAxNCwgQi0zMDAxIExldXZlbg0KPg0KPiBUOiArMzIgMTYgMzExIDU5Nw0KPiBGOiArMzIgMTYg
+MjA3IDE2NA0KPiBFLW1haWw6ZS52ZXJkb25ja0BvcHRpb24uY29tDQo+IFdlYnNpdGU6d3d3Lm9w
+dGlvbi5jb20gIA0KPiBEaXNjbGFpbWVyOmh0dHA6Ly93d3cub3B0aW9uLmNvbS9jb21wYW55L2Rp
+c2NsYWltZXIuc2h0bWwNCj4NCj4gUlBSIExldXZlbiAwNDI5LjM3NS40NDgNCj4NCj4gT24gMTAv
+MDkvMjAxMyAwMTozNyBQTSwgSmFuIER1bW9uIHdyb3RlOg0KPj4NCj4+DQo+Pg0KPj4gLS0tLS0t
+LS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tLQ0KPj4gU3ViamVjdDogCUZ3ZDogW1BBVENIIDEv
+MV0gaHNvOiBmaXggcHJvYmxlbSB3aXRoIHdyb25nIHN0YXR1cyBjb2RlIA0KPj4gc2VudCBieSBP
+UFRJT04gR1RNNjAxIGR1cmluZyBSSU5HIGluZGljYXRpb24NCj4+IERhdGU6IAlGcmksIDQgT2N0
+IDIwMTMgMDg6NDk6NDYgKzAyMDANCj4+IEZyb206IAlKYW4gRHVtb24gPEouRHVtb25Ab3B0aW9u
+LmNvbT4NCj4+IFRvOiAJQXhlbCBTY2hvbGxhZXJ0IDxhLnNjaG9sbGFlcnRAb3B0aW9uLmNvbT4N
+Cj4+DQo+Pg0KPj4NCj4+DQo+Pg0KPj4NCj4+IC0tLS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0t
+LS0tLS0NCj4+IFN1YmplY3Q6IAlbUEFUQ0ggMS8xXSBoc286IGZpeCBwcm9ibGVtIHdpdGggd3Jv
+bmcgc3RhdHVzIGNvZGUgc2VudCBieSANCj4+IE9QVElPTiBHVE02MDEgZHVyaW5nIFJJTkcgaW5k
+aWNhdGlvbg0KPj4gRGF0ZTogCVdlZCwgMiBPY3QgMjAxMyAwOTowMDoxOCArMDIwMA0KPj4gRnJv
+bTogCURyLiBILiBOaWtvbGF1cyBTY2hhbGxlciA8aG5zQGdvbGRlbGljby5jb20+DQo+PiBUbzog
+CUphbiBEdW1vbiA8ai5kdW1vbkBvcHRpb24uY29tPg0KPj4gQ0M6IAlCZWxpc2tvIE1hcmVrIDxt
+YXJlay5iZWxpc2tvQGdtYWlsLmNvbT4sIA0KPj4gbGludXgtdXNiQHZnZXIua2VybmVsLm9yZywg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZywgDQo+PiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
+DQo+Pg0KPj4NCj4+DQo+PiBIaSBKYW4sDQo+Pg0KPj4gd2UgYXJlIHVzaW5nIGEgR1RNNjAxIG1v
+ZGVtIChGaXJtd2FyZSAxLjcpIGZvciBhIHdoaWxlIGFuZCBoYXZlIHNwb3R0ZWQgYW4NCj4+IGlz
+c3VlIHRoYXQgdW5kZXIgc29tZSBjb25kaXRpb25zIHRoZSBtb2RlbSBzZW5kcyBhIHBhY2tlZCB3
+SW5kZXggb3ZlciBVU0INCj4+IHRoYXQgaXMgcmVqZWN0ZWQgYnkgdGhlIGhzbyBkcml2ZXIgbWFr
+aW5nIHRyb3VibGVzIGFmdGVyd2FyZHMuIE5vdCByZWplY3RpbmcgbWFrZXMNCj4+IGl0IHdvcmsg
+ZmluZS4NCj4+DQo+PiBCUiwNCj4+IE5pa29sYXVzIFNjaGFsbGVyDQo+Pg0KPj4gLS0tDQo+Pg0K
+Pj4gIEZyb20gZjVjN2UxNWI2MWYyY2U0ZmUzMTA1ZmY5MTRmNmJmYWY1ZDc0YWYwZCBNb24gU2Vw
+IDE3IDAwOjAwOjAwIDIwMDENCj4+IEZyb206ICJILiBOaWtvbGF1cyBTY2hhbGxlciI8aG5zQGdv
+bGRlbGljby5jb20+DQo+PiBEYXRlOiBUaHUsIDE1IE5vdiAyMDEyIDE0OjQwOjU3ICswMTAwDQo+
+PiBTdWJqZWN0OiBbUEFUQ0ggMS8xXSBoc286IGZpeCBwcm9ibGVtIHdpdGggd3Jvbmcgc3RhdHVz
+IGNvZGUgc2VudCBieSBPUFRJT04NCj4+ICAgR1RNNjAxIGR1cmluZyBSSU5HIGluZGljYXRpb24N
+Cj4+DQo+PiAgIEl0IGhhcyBiZWVuIG9ic2VydmVkIHRoYXQgdGhlIEdUTTYwMSB3aXRoIDEuNyBm
+aXJtd2FyZSBzb21ldGltZXMgc2VuZHMgYSB2YWx1ZQ0KPj4gICB3SW5kZXggdGhhdCBoYXMgYml0
+IDB4MDQgc2V0IGluc3RlYWQgb2YgYmVpbmcgcmVzZXQgYXMgdGhlIGNvZGUgZXhwZWN0cy4gU28g
+d2UNCj4+ICAgbWFzayBpdCBmb3IgdGhlIGVycm9yIGNoZWNrLg0KPj4gICANCj4+ICAgU2VlaHR0
+cDovL2xpc3RzLmdvbGRlbGljby5jb20vcGlwZXJtYWlsL2d0YTA0LW93bmVyLzIwMTItRmVicnVh
+cnkvMDAxNjQzLmh0bWwNCj4+DQo+PiBTaWduZWQtb2ZmLWJ5OiBOZWlsQnJvd248bmVpbGJAc3Vz
+ZS5kZT4NCj4+IFNpZ25lZC1vZmYtYnk6IEguIE5pa29sYXVzIFNjaGFsbGVyPGhuc0Bnb2xkZWxp
+Y28uZGU+DQo+PiAtLS0NCj4+ICAgZHJpdmVycy9uZXQvdXNiL2hzby5jIHwgICAgMyArKy0NCj4+
+ICAgMSBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQo+Pg0K
+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9oc28uYyBiL2RyaXZlcnMvbmV0L3VzYi9o
+c28uYw0KPj4gaW5kZXggY2JhMWQ0Ni4uZDE0NmUyNiAxMDA2NDQNCj4+IC0tLSBhL2RyaXZlcnMv
+bmV0L3VzYi9oc28uYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvdXNiL2hzby5jDQo+PiBAQCAtMTUw
+Myw3ICsxNTAzLDggQEAgc3RhdGljIHZvaWQgdGlvY21nZXRfaW50cl9jYWxsYmFjayhzdHJ1Y3Qg
+dXJiICp1cmIpDQo+PiAgIAlpZiAoc2VyaWFsX3N0YXRlX25vdGlmaWNhdGlvbi0+Ym1SZXF1ZXN0
+VHlwZSAhPSBCTV9SRVFVRVNUX1RZUEUgfHwNCj4+ICAgCSAgICBzZXJpYWxfc3RhdGVfbm90aWZp
+Y2F0aW9uLT5iTm90aWZpY2F0aW9uICE9IEJfTk9USUZJQ0FUSU9OIHx8DQo+PiAgIAkgICAgbGUx
+Nl90b19jcHUoc2VyaWFsX3N0YXRlX25vdGlmaWNhdGlvbi0+d1ZhbHVlKSAhPSBXX1ZBTFVFIHx8
+DQo+PiAtCSAgICBsZTE2X3RvX2NwdShzZXJpYWxfc3RhdGVfbm90aWZpY2F0aW9uLT53SW5kZXgp
+ICE9IFdfSU5ERVggfHwNCj4+ICsJICAgIChsZTE2X3RvX2NwdShzZXJpYWxfc3RhdGVfbm90aWZp
+Y2F0aW9uLT53SW5kZXgpICYgfjB4NCkgIT0NCj4+ICsJCVdfSU5ERVggfHwNCj4+ICAgCSAgICBs
+ZTE2X3RvX2NwdShzZXJpYWxfc3RhdGVfbm90aWZpY2F0aW9uLT53TGVuZ3RoKSAhPSBXX0xFTkdU
+SCkgew0KPj4gICAJCWRldl93YXJuKCZ1c2ItPmRldiwNCj4+ICAgCQkJICJoc28gcmVjZWl2ZWQg
+aW52YWxpZCBzZXJpYWwgc3RhdGUgbm90aWZpY2F0aW9uXG4iKTsNCj4+IC0tIA0KPj4gMS43Ljcu
+NA0KPj4NCj4+DQo+Pg0KPj4NCj4+DQo+Pg0KPg0K
