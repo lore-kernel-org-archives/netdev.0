@@ -1,50 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Wed, 09 Oct 2013 15:10:24 -0700
-Message-ID: <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH v2 tip/core/rcu 0/13] Sparse-related updates for 3.13
+Date: Wed, 9 Oct 2013 15:18:05 -0700
+Message-ID: <20131009221805.GA11709@jtriplet-mobl1>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
-	 <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
-	 <1381354186-16285-7-git-send-email-paulmck@linux.vnet.ibm.com>
-	 <1381354949.4971.20.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131009215747.GA5790@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
 	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	fengguang.wu@intel.com, stephen@networkplumber.org,
+	davem@davemloft.net, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, gaofeng@cn.fujitsu.com,
+	linux-decnet-user@lists.sourceforge.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linville@tuxdriver.com, johannes@sipsolutions.net
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131009215747.GA5790@linux.vnet.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20131009212920.GA15413@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-09 at 14:57 -0700, Paul E. McKenney wrote:
-
-> Hmmm...  I could use RCU_INIT_POINTER().  Something like the following?
+On Wed, Oct 09, 2013 at 02:29:20PM -0700, Paul E. McKenney wrote:
+> Hello!
 > 
-> 	RCU_INIT_POINTER(ACCESS_ONCE(*tp), t->next);
+> This series features updates to allow sparse to do a better job of
+> statically analyzing RCU usage:
 > 
-> The ACCESS_ONCE() to prevent the compiler from doing anything stupid.
-> Presumably the value of t->next cannot change, so a normal load suffices.
+> 1.	Apply ACCESS_ONCE() to rcu_assign_pointer()'s target to prevent
+> 	comiler mischief.  Also require that the source pointer be from
+> 	the kernel address space.  Sometimes it can be from the RCU address
+> 	space, which necessitates the remaining patches in this series.
+> 	Which, it must be admitted, apply to a very small fraction of
+> 	the rcu_assign_pointer() invocations in the kernel.  This commit
+> 	courtesy of Josh Triplett.
 > 
-> Or did you have something else in mind?
+> 2-13.	Apply rcu_access_pointer() to avoid a number of false positives.
 
-Well, *tp and t->next are both of the same type, with __rcu attribute.
+I would suggest moving patch 1 to the end of the series, to avoid
+introducing and subsequently fixing warnings.
 
-struct ip6_tnl __rcu **tp;
-
-So I meant :
-
-ACCESS_ONCE(*tp) = t->next;
-
-If really we can have a really stupid compiler.
+- Josh Triplett
