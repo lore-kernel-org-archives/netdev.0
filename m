@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] gianfar: Enable eTSEC-20 erratum w/a for P2020 Rev1
-Date: Wed, 09 Oct 2013 14:02:56 -0400 (EDT)
-Message-ID: <20131009.140256.1615997457968740448.davem@davemloft.net>
-References: <1381339242-32030-1-git-send-email-claudiu.manoil@freescale.com>
-	<1381339242-32030-3-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: pull request: wireless 2013-10-09
+Date: Wed, 09 Oct 2013 14:04:21 -0400 (EDT)
+Message-ID: <20131009.140421.1066887211157494658.davem@davemloft.net>
+References: <20131009152841.GD14381@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: claudiu.manoil@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50187 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755283Ab3JISC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 14:02:58 -0400
-In-Reply-To: <1381339242-32030-3-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131009152841.GD14381@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Wed, 9 Oct 2013 20:20:42 +0300
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 9 Oct 2013 11:28:41 -0400
 
-> Enable workaround for P2020/P2010 erratum eTSEC 20,
-> "Excess delays when transmitting TOE=1 large frames".
-> The impact is that frames lager than 2500-bytes for which
-> TOE (i.e. TCP/IP hw accelerations like Tx csum) is enabled
-> may see excess delay before start of transmission.
-> This erratum was fixed in Rev 2.0.
+> Please pull this batch of fixes intended for 3.12...
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Most of the bits are for iwlwifi -- Johannes says:
+> 
+> "I have a fix for WoWLAN/D3, a PCIe device fix, we're removing a
+> warning, there's a fix for RF-kill while scanning (which goes together
+> with a mac80211 fix) and last but not least we have many new PCI IDs."
+> 
+> Also for iwlwifi is a patch from Johannes to correct some merge damage
+> that crept into the tree before the last merge window.
+> 
+> On top of that, Felix Fietkau sends an ath9k patch to avoid a Tx
+> scheduling hang when changing channels to do a scan.
+> 
+> Please let me know if there are problems!
 
-Applied.
+Pulled, thanks a lot John.
