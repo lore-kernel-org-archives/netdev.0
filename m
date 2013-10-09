@@ -1,56 +1,74 @@
-From: Steve Rago <sar@nec-labs.com>
-Subject: Re: bug in passing file descriptors
-Date: Wed, 9 Oct 2013 10:07:25 -0400
-Message-ID: <5255631D.9010001@nec-labs.com>
-References: <525308C4.1030007@nec-labs.com> <20131007.154226.533738557474978526.davem@davemloft.net> <5253199B.3000109@nec-labs.com> <20131007.173237.1669132001431607341.davem@davemloft.net> <87li24zo6x.fsf@tassilo.jf.intel.com> <52541769.1000306@nec-labs.com> <CALCETrVoUrcuzEx_TURoGE8_MJtZLOz-UDz6m69Vo6MCWG0zjg@mail.gmail.com> <52543065.7000209@nec-labs.com> <20131008164108.GO6882@two.firstfloor.org> <525437FF.5020905@nec-labs.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 10/16] batman-adv: use CRC32C instead of CRC16 in TT code
+Date: Wed, 9 Oct 2013 15:11:08 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7384@saturn3.aculab.com>
+References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com> <1381322418-1349-11-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Michael Kerrisk-manpages <mtk.manpages@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <b.a.t.m.a.n@lists.open-mesh.org>,
+	"Antonio Quartulli" <ordex@autistici.org>,
+	"Marek Lindner" <lindner_marek@yahoo.de>
+To: "Antonio Quartulli" <antonio@meshcoding.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nec-labs.com ([138.15.200.209]:42657 "EHLO
-	mail.nec-labs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515Ab3JIOHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 10:07:46 -0400
-In-Reply-To: <525437FF.5020905@nec-labs.com>
+Received: from mx0.aculab.com ([213.249.233.131]:48273 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753792Ab3JIONC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 10:13:02 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12891-04 for <netdev@vger.kernel.org>;
+ Wed,  9 Oct 2013 15:12:59 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1381322418-1349-11-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2013 12:51 PM, Steve Rago wrote:
-> On 10/08/2013 12:41 PM, Andi Kleen wrote:
->>> I just want the semantics to be consistent.  If you want Linux to
->>> always require applications that call recvmsg to provide a buffer
->>> size of CMSG_SPACE bytes long to retrieve control information, then
->>> fail the system call when the buffer is smaller.  But if you do
->>> this, you risk breaking applications that work with FreeBSD, Mac OS
->>> X, Solaris, and probably a few others.
->>
->> The primary concern is to be binary compatible with Linux.
+> CRC32C has to be preferred to CRC16 because of its possible
+> HW native support and because of the reduced collision
+> probability. With this change the Translation Table
+> component now uses CRC32C to compute the local and global
+> table checksum.
+...
+> -/* Calculates the checksum of the local table of a given orig_node */
+> -static uint16_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
+> +/**
+> + * batadv_tt_global_crc - calculates the checksum of the local table belonging
+> + *  to the given orig_node
+> + * @bat_priv: the bat priv with all the soft interface information
+> + */
+> +static uint32_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
+>  				     struct batadv_orig_node *orig_node)
+...
+>  	for (i = 0; i < hash->size; i++) {
+>  		head = &hash->table[i];
+> @@ -1435,27 +1437,24 @@ static uint16_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
+>  							     orig_node))
+>  				continue;
+> 
+...
+> +			crc ^= crc32c(0, tt_common->addr, ETH_ALEN);
+>  		}
 
-Not to application developers, by the way.
+Are you really generating CRC32 of a pile of ethernet MAC addresses
+and the XORing the CRC together?
+That gives the same answer as XORing together the MAC addresses and
+then doing a CRC of the final value.
+So it gives you almost no protection against corruption at all.
 
->>
->> But not being compatible between 32bit and 64bit Linux processes on the same
->> host would seem like a serious problem to me.
->>
->>> Regardless, copying 20 bytes and telling me you copied 24 is misleading and wrong.
->>
->> The question is could it break existing Linux applications to change it?
->> And would it help with the 32/64bit compatibility?
->>
->> If not some other way to fix the compat layer would need to be found.
->>
->> -Andi
->>
->
-> I'm not sure if a 64-bit process and a 32-bit process exchange file descriptors on the same system has a problem.  It
-> certainly looks like the compat code does the right thing.  I can test this tonight if you want.
+...
+> -/* Calculates the checksum of the local table */
+> -static uint16_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
+> +/**
+> + * batadv_tt_local_crc - calculates the checksum of the local table
+> + * @bat_priv: the bat priv with all the soft interface information
+> + */
+> +static uint32_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
+>  {
+...
 
-I tested all combinations and they work fine as far as Linux binary compatibility is concerned.
+This looks like a clone of the previous routine.
+Surely you can avoid the code duplication.
 
-Steve
+	David
