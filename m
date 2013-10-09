@@ -1,75 +1,43 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH RFC 07/77] PCI/MSI: Re-design MSI/MSI-X interrupts
- enablement pattern
-Date: Wed, 9 Oct 2013 11:54:13 -0400
-Message-ID: <20131009155413.GD22495@htj.dyndns.org>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <d8c36203ada6efbfa9f7ce92c2f713ee3b6d6b8d.1380703262.git.agordeev@redhat.com>
- <20131007181749.GB27396@htj.dyndns.org>
- <20131008074826.GD10669@dhcp-26-207.brq.redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 10/16] batman-adv: use CRC32C instead of CRC16 in TT code
+Date: Wed, 9 Oct 2013 16:49:53 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7385@saturn3.aculab.com>
+References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com> <1381322418-1349-11-git-send-email-antonio@meshcoding.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7384@saturn3.aculab.com> <20131009143500.GH3544@neomailbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	linux-pci@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org,
-	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-driver@qlogic.com,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	"VMware, Inc." <pv-dr
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131008074826.GD10669@dhcp-26-207.brq.redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<b.a.t.m.a.n@lists.open-mesh.org>,
+	"Antonio Quartulli" <ordex@autistici.org>,
+	"Marek Lindner" <lindner_marek@yahoo.de>
+To: "Antonio Quartulli" <antonio@meshcoding.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:50102 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756015Ab3JIPz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Oct 2013 11:55:27 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 29746-08 for <netdev@vger.kernel.org>;
+ Wed,  9 Oct 2013 16:55:24 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20131009143500.GH3544@neomailbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Alexander.
-
-On Tue, Oct 08, 2013 at 09:48:26AM +0200, Alexander Gordeev wrote:
-> > If there are many which duplicate the above pattern, it'd probably be
-> > worthwhile to provide a helper?  It's usually a good idea to reduce
-> > the amount of boilerplate code in drivers.
-> 
-> I wanted to limit discussion in v1 to as little changes as possible.
-> I 'planned' those helper(s) for a separate effort if/when the most
-> important change is accepted and soaked a bit.
-
-The thing is doing it this way generates more churns and noises.  Once
-the simpler ones live behind a wrapper which can be built on the
-existing interface, we can have both reduced cost and more latitude on
-the complex cases.
-
-> > If we do things this way, it breaks all drivers using this interface
-> > until they're converted, right?
-> 
-> Right. And the rest of the series does it.
-
-Which breaks bisection which we shouldn't do.
-
-> > Also, it probably isn't the best idea
-> > to flip the behavior like this as this can go completely unnoticed (no
-> > compiler warning or anything, the same function just behaves
-> > differently).  Maybe it'd be a better idea to introduce a simpler
-> > interface that most can be converted to?
-> 
-> Well, an *other* interface is a good idea. What do you mean with the
-> simpler here?
-
-I'm still talking about a simpler wrapper for common cases, which is
-the important part anyway.
-
-Thanks.
-
--- 
-tejun
+PiA+IEFyZSB5b3UgcmVhbGx5IGdlbmVyYXRpbmcgQ1JDMzIgb2YgYSBwaWxlIG9mIGV0aGVybmV0
+IE1BQyBhZGRyZXNzZXMNCj4gPiBhbmQgdGhlIFhPUmluZyB0aGUgQ1JDIHRvZ2V0aGVyPw0KPiA+
+IFRoYXQgZ2l2ZXMgdGhlIHNhbWUgYW5zd2VyIGFzIFhPUmluZyB0b2dldGhlciB0aGUgTUFDIGFk
+ZHJlc3NlcyBhbmQNCj4gPiB0aGVuIGRvaW5nIGEgQ1JDIG9mIHRoZSBmaW5hbCB2YWx1ZS4NCj4g
+DQo+IEkgd2FzIG5vdCBzdXJlIGFib3V0IHRoaXMgc2luY2UgdGhlIENSQzMyIGlzIG5vdCBhIGxp
+bmVhciBvcGVyYXRpb24uIEhvd2V2ZXINCj4gdGhpcyByb3V0aW5lIGlzIG5vdCBvbiB0aGUgZmFz
+dCBwYXRoLCBzbyB3ZSBjYW4gYWxzbyBsaXZlIHdpdGggdGhpcyBvcmRlci4NCg0KQWxsIENSQyBh
+cmUgbGluZWFyLg0KQmVjYXVzZSAnKGEgKyBiKSBtb2QgYycgaXMgdGhlIHNhbWUgYXMgJygoYSBt
+b2QgYykgKyAoYiBtb2QgYykpIG1vZCBjJy4NCg0KVGhlIENSQyBvZiBhIGJ1ZmZlciBpcyB0aGUg
+WE9SIG9mIHRoZSBDUkNzIGdlbmVyYXRlZCBmb3IgZWFjaCAnMScgYml0Lg0KVGhlIENSQyBmb3Ig
+ZWFjaCBiaXQgZGVwZW5kcyBvbiBob3cgZmFyIGl0IGlzIGZyb20gdGhlIGVuZCBvZiB0aGUgYnVm
+ZmVyLg0KUHJlc2V0dGluZyB0aGUgQ1JDIHRvIGFsbC1vbmVzIGdlbmVyYXRlcyBhIHZhbHVlIHRo
+YXQgaXMgZGVwZW5kZW50IG9uDQp0aGUgbGVuZ3RoIG9mIHRoZSBidWZmZXIgLSBvdGhlcndpc2Ug
+bWlzc2luZy9leHRyYSBsZWFkaW5nIHplcm9zIGFyZQ0Kbm90IGRldGVjdGVkLg0KDQoJRGF2aWQN
+Cg==
