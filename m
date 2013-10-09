@@ -1,8 +1,8 @@
 From: Tejun Heo <tj@kernel.org>
 Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
  pattern
-Date: Wed, 9 Oct 2013 11:41:17 -0400
-Message-ID: <20131009154117.GA22495@htj.dyndns.org>
+Date: Wed, 9 Oct 2013 11:43:23 -0400
+Message-ID: <20131009154323.GB22495@htj.dyndns.org>
 References: <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
  <20131004082920.GA4536@dhcp-26-207.brq.redhat.com>
  <1380922156.3214.49.camel@bwh-desktop.uk.level5networks.com>
@@ -12,7 +12,7 @@ References: <1380840585.3419.50.camel@bwh-desktop.uk.level5networks.com>
  <1381040386.645.143.camel@pasglop>
  <20131006071027.GA29143@dhcp-26-207.brq.redhat.com>
  <20131007180111.GC2481@htj.dyndns.org>
- <20131008122215.GA14389@dhcp-26-207.brq.redhat.com>
+ <20131009125715.GC32733@dhcp-26-207.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
@@ -35,44 +35,30 @@ Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
 	"VMw
 To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131008122215.GA14389@dhcp-26-207.brq.redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <20131009125715.GC32733@dhcp-26-207.brq.redhat.com>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello,
 
-On Tue, Oct 08, 2013 at 02:22:16PM +0200, Alexander Gordeev wrote:
-> If we talk about pSeries quota, then the current pSeries pci_enable_msix()
-> implementation is racy internally and could fail if the quota went down
-> *while* pci_enable_msix() is executing. In this case the loop will have to
-> exit rather than retry with a lower number (what number?).
-
-Ah, okay, so that one is already broken.
-
-> In this regard the new scheme does not bring anything new and relies on
-> the fact this race does not hit and therefore does not worry.
+On Wed, Oct 09, 2013 at 02:57:16PM +0200, Alexander Gordeev wrote:
+> On Mon, Oct 07, 2013 at 02:01:11PM -0400, Tejun Heo wrote:
+> > Hmmm... yean, the race condition could be an issue as multiple msi
+> > allocation might fail even if the driver can and explicitly handle
+> > multiple allocation if the quota gets reduced inbetween.
 > 
-> If we talk about quota as it has to be, then yes - the loop scheme seems
-> more preferable.
-> 
-> Overall, looks like we just need to fix the pSeries implementation,
-> if the guys want it, he-he :)
+> BTW, should we care about the quota getting increased inbetween?
+> That would entail.. kind of pci_get_msi_limit() :), but IMHO it is
+> not worth it.
 
-If we can't figure out a better interface for the retry case, I think
-what can really help is having a simple interface for the simpler
-cases.
-
-> > The problem case is where multiple msi(x) allocation fails completely
-> > because the global limit went down before inquiry and allocation.  In
-> > the loop based interface, it'd retry with the lower number.
-> 
-> I am probably missing something here. If the global limit went down before
-> inquiry then the inquiry will get what is available and try to allocate with
-> than number.
-
-Oh, I should have written between inquiry and allocation.  Sorry.
+I think we shouldn't.  If the resource was low during a point in time
+during allocation, it's fine to base the result on that - the resource
+was actually low and which answer we return is just a question of
+timing and both are correct.  The only reason the existing race
+condition is problematic is because it may fail even if the resource
+never falls below the failure point.
 
 Thanks.
 
