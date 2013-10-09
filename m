@@ -1,37 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] tun: don't look at current when non-blocking
-Date: Wed, 9 Oct 2013 11:13:54 +0300
-Message-ID: <20131009081354.GA30882@redhat.com>
-References: <20131006182512.GA16504@redhat.com>
- <20131008.154614.1435858706789904414.davem@davemloft.net>
- <5254F6CF.8080606@redhat.com>
+From: <office4@Offer575.onmicrosoft.com>
+Subject: Congratulations !!!
+Date: Wed, 9 Oct 2013 13:44:43 +0530
+Message-ID: <42dcf8df-5cc1-4949-afd3-33c8cfb4fae5@AMSPR04MB225.eurprd04.prod.outlook.com>
+Reply-To: <colaclaims13@msn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, edumazet@google.com,
-	xemul@parallels.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5254F6CF.8080606@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <office4@Offer575.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emea01-db3-ndr.ptr.protection.outlook.com ([157.56.120.102]:43975
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751952Ab3JIIPK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 04:15:10 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 09, 2013 at 02:25:19PM +0800, Jason Wang wrote:
-> On 10/09/2013 03:46 AM, David Miller wrote:
-> > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > Date: Sun, 6 Oct 2013 21:25:12 +0300
-> >
-> >> We play with a wait queue even if socket is
-> >> non blocking. This is an obvious waste.
-> >> Besides, it will prevent calling the non blocking
-> >> variant when current is not valid.
-> >>
-> >> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > Applied and queued up for -stable, thanks.
-> > --
-> 
-> Michael, I believe this is just an optimization or a required patch of
-> your following patches. So no need go for stable?
+Ticket Number: 7PWYZ2008
+Ballot Number: BT:12052008/20
+Draw:#1471
 
-I don't think it's required for stable.
+Special Notification to you,You are receiving this email because you have just been picked for a total grand prize of One Million Dollars in the top 10 winners of the Coca-Cola Consumer`s Award for the year 2013: kindly send your:
+
+Name:
+Address:
+Country:
+Phone Number:
+
+To Mr. Bruce Morgan
+via Email: colaclaims13@msn.com
+Telephone Number:+447010069098
