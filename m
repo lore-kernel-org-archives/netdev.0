@@ -1,33 +1,36 @@
-From: <office4@Offer575.onmicrosoft.com>
-Subject: Congratulations !!!
-Date: Wed, 9 Oct 2013 13:44:43 +0530
-Message-ID: <42dcf8df-5cc1-4949-afd3-33c8cfb4fae5@AMSPR04MB225.eurprd04.prod.outlook.com>
-Reply-To: <colaclaims13@msn.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] veth: allow to setup multicast address for veth device
+Date: Wed, 09 Oct 2013 16:58:37 +0800
+Message-ID: <52551ABD.40603@cn.fujitsu.com>
+References: <1380876744-606-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <office4@Offer575.onmicrosoft.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org,
+	pablo@netfilter.org, edumazet@google.com, kaber@trash.net,
+	hannes@stressinduktion.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-db3-ndr.ptr.protection.outlook.com ([157.56.120.102]:43975
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751952Ab3JIIPK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 04:15:10 -0400
-Content-Description: Mail message body
+Received: from cn.fujitsu.com ([222.73.24.84]:30336 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752793Ab3JII5b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Oct 2013 04:57:31 -0400
+In-Reply-To: <1380876744-606-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ticket Number: 7PWYZ2008
-Ballot Number: BT:12052008/20
-Draw:#1471
+Hi David,
 
-Special Notification to you,You are receiving this email because you have just been picked for a total grand prize of One Million Dollars in the top 10 winners of the Coca-Cola Consumer`s Award for the year 2013: kindly send your:
+On 10/04/2013 04:52 PM, Gao feng wrote:
+> We can only setup multicast address for network device when
+> net_device_ops->ndo_set_rx_mode is not null.
+> 
+> Some configurations need to add multicast address for net
+> device, such as netfilter cluster match module.
+> 
+> Add a fake ndo_set_rx_mode function to allow this operation.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-Name:
-Address:
-Country:
-Phone Number:
-
-To Mr. Bruce Morgan
-via Email: colaclaims13@msn.com
-Telephone Number:+447010069098
+I see this patch being marked as "Changes Requested" on patchwork.
+Is there something I missed?
