@@ -1,23 +1,31 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v2 tip/core/rcu 05/13] decnet: Apply rcu_access_pointer() to avoid sparse false positive
-Date: Wed,  9 Oct 2013 14:29:38 -0700
-Message-ID: <1381354186-16285-5-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v2 tip/core/rcu 11/13] bridge/br_mdb: Apply
+	rcu_access_pointer() to avoid sparse false positive
+Date: Wed,  9 Oct 2013 14:29:44 -0700
+Message-ID: <1381354186-16285-11-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
- <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Gao feng <gaofeng@cn.fujitsu.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
+	<1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, edumazet@google.com, peterz@infradead.org,
+	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
+	josh@joshtriplett.org, rostedt@goodmis.org,
+	"David S. Miller" <davem@davemloft.net>, dhowells@redhat.com,
+	sbw@mit.edu, niv@us.ibm.com, netdev@vger.kernel.org,
+	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
+	darren@dvhart.com, akpm@linux-foundation.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, mingo@kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
@@ -25,47 +33,35 @@ From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the use in
-dn_insert_route() is legitimate: It is assigning a pointer to an element
+__br_mdb_del() is legitimate: They are assigning a pointer to an element
 from an RCU-protected list, and all elements of this list are already
 visible to caller.
 
-This commit therefore silences this false positive by laundering the
-pointer using rcu_access_pointer() as suggested by Josh Triplett.
+This commit therefore silences these false positives by laundering the
+pointers using rcu_access_pointer() as suggested by Josh Triplett.
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: linux-decnet-user@lists.sourceforge.net
+Cc: bridge@lists.linux-foundation.org
 Cc: netdev@vger.kernel.org
 ---
- net/decnet/dn_route.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/bridge/br_mdb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index fe32388ea24f..3b1357bcfc92 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -345,7 +345,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 			/* Put it first */
- 			*rthp = rth->dst.dn_next;
- 			rcu_assign_pointer(rth->dst.dn_next,
--					   dn_rt_hash_table[hash].chain);
-+					   rcu_access_pointer(dn_rt_hash_table[hash].chain));
- 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 85a09bb5ca51..3184c8812b49 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -447,7 +447,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 		if (p->port->state == BR_STATE_DISABLED)
+ 			goto unlock;
  
- 			dst_use(&rth->dst, now);
-@@ -358,7 +358,8 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 		rthp = &rth->dst.dn_next;
- 	}
- 
--	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
-+	rcu_assign_pointer(rt->dst.dn_next,
-+			   rcu_access_pointer(dn_rt_hash_table[hash].chain));
- 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
- 
- 	dst_use(&rt->dst, now);
+-		rcu_assign_pointer(*pp, p->next);
++		rcu_assign_pointer(*pp, rcu_access_pointer(p->next));
+ 		hlist_del_init(&p->mglist);
+ 		del_timer(&p->timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
 -- 
 1.8.1.5
