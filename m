@@ -1,67 +1,33 @@
-From: Nguyen Hong Ky <nh-ky@jinso.co.jp>
-Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
-Date: Wed, 9 Oct 2013 14:38:17 +0900
-Message-ID: <CAK9_=nCdBjCgkwX1QHjNvLdXZ+5jxPDV_+XHqhG8dAo1fK=tVw@mail.gmail.com>
-References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
-	<1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp>
-	<20131009042826.GB16885@verge.net.au>
-	<20131009052617.GC16885@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] udp: fix a typo in
+ __udp4_lib_mcast_demux_lookup
+Date: Wed, 09 Oct 2013 02:01:19 -0400 (EDT)
+Message-ID: <20131009.020119.1302933717342377227.davem@davemloft.net>
+References: <1381161700-14453-1-git-send-email-shawn.bohrer@gmail.com>
+	<20131008.165147.1204109363656237950.davem@davemloft.net>
+	<1381294049.4971.3.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shawn.bohrer@gmail.com, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, sbohrer@rgmadvisors.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:57537 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462Ab3JIFiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 01:38:19 -0400
-Received: by mail-ee0-f42.google.com with SMTP id b45so123007eek.15
-        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 22:38:17 -0700 (PDT)
-In-Reply-To: <20131009052617.GC16885@verge.net.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38483 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752586Ab3JIGBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 02:01:23 -0400
+In-Reply-To: <1381294049.4971.3.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 9, 2013 at 2:26 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Wed, Oct 09, 2013 at 01:28:26PM +0900, Simon Horman wrote:
->> On Mon, Oct 07, 2013 at 03:29:25PM +0900, Nguyen Hong Ky wrote:
->> > This patch will fix RX packets errors when receiving big size
->> > of data by set bit RNC = 1.
->> >
->> > RNC - Receive Enable Control
->> >
->> > 0: Upon completion of reception of one frame, the E-DMAC writes
->> > the receive status to the descriptor and clears the RR bit in
->> > EDRRR to 0.
->> >
->> > 1: Upon completion of reception of one frame, the E-DMAC writes
->> > (writes back) the receive status to the descriptor. In addition,
->> > the E-DMAC reads the next descriptor and prepares for reception
->> > of the next frame.
->> >
->> > In addition, for get more stable when receiving packets, I set
->> > maximum size for the transmit/receive FIFO and inserts padding
->> > in receive data.
->> >
->> > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
->>
->> I realise that this patch has been applied but regardless
->> I would like to acknowledge that it resolve a problem that
->> I observed this afternoon.
->>
->> Without this patch I see the following on the console, many times:
->>
->> net eth0: Receive FIFO Overflow
->>
->> With this patch I do not see the warning message at all.
->
-> Scratch that, I am still seeing the messages with this patch applied.
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 08 Oct 2013 21:47:29 -0700
 
-Would you please confirm that it was patched in below function:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> At this point sk might contain garbage.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-static struct sh_eth_cpu_data r8a7740_data = {...}
-
-Thanks for your help,
-Nguyen Hong Ky
+Applied.
