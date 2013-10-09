@@ -1,249 +1,42 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2 5/5] xen-netback: enable IPv6
- TCP GSO to the guest
-Date: Wed, 09 Oct 2013 12:41:44 +0800
-Message-ID: <5254DE88.90808@oracle.com>
-References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com> <1381229896-18657-6-git-send-email-paul.durrant@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] udp: fix a typo in __udp4_lib_mcast_demux_lookup
+Date: Tue, 08 Oct 2013 21:47:29 -0700
+Message-ID: <1381294049.4971.3.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1381161700-14453-1-git-send-email-shawn.bohrer@gmail.com>
+	 <20131008.165147.1204109363656237950.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Cc: shawn.bohrer@gmail.com, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, sbohrer@rgmadvisors.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18547 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab3JIEmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 00:42:03 -0400
-In-Reply-To: <1381229896-18657-6-git-send-email-paul.durrant@citrix.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:48037 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042Ab3JIErc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 00:47:32 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so458257pab.40
+        for <netdev@vger.kernel.org>; Tue, 08 Oct 2013 21:47:32 -0700 (PDT)
+In-Reply-To: <20131008.165147.1204109363656237950.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-On 2013-10-8 18:58, Paul Durrant wrote:
-> This patch adds code to handle SKB_GSO_TCPV6 skbs and construct appropriate
-> extra or prefix segments to pass the large packet to the frontend. New
-> xenstore flags, feature-gso-tcpv6 and feature-gso-tcpv6-prefix, are sampled
-> to determine if the frontend is capable of handling such packets.
->
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> ---
->   drivers/net/xen-netback/common.h    |    6 +++--
->   drivers/net/xen-netback/interface.c |    8 ++++--
->   drivers/net/xen-netback/netback.c   |   47 +++++++++++++++++++++++++++--------
->   drivers/net/xen-netback/xenbus.c    |   29 +++++++++++++++++++--
->   4 files changed, 74 insertions(+), 16 deletions(-)
->
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index b4a9a3c..720b1ca 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -87,6 +87,7 @@ struct pending_tx_info {
->   struct xenvif_rx_meta {
->   	int id;
->   	int size;
-> +	int gso_type;
->   	int gso_size;
->   };
->   
-> @@ -150,9 +151,10 @@ struct xenvif {
->   	u8               fe_dev_addr[6];
->   
->   	/* Frontend feature information. */
-> +	int gso_mask;
-> +	int gso_prefix_mask;
-I assume it is a flag instead of mask here, right? If it is mask, then 1 
-means disabling the gso.
-> +
->   	u8 can_sg:1;
-> -	u8 gso:1;
-> -	u8 gso_prefix:1;
->   	u8 ip_csum:1;
->   	u8 ipv6_csum:1;
->   
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index cb0d8ea..3d11387 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -214,8 +214,12 @@ static netdev_features_t xenvif_fix_features(struct net_device *dev,
->   
->   	if (!vif->can_sg)
->   		features &= ~NETIF_F_SG;
-> -	if (!vif->gso && !vif->gso_prefix)
-> +	if (~(vif->gso_mask | vif->gso_prefix_mask) &
-> +	    (1 << XEN_NETIF_GSO_TYPE_TCPV4))
+At this point sk might contain garbage.
 
-Is it better to use XEN_NETIF_GSO_TYPE_TCPV4 directly and setting 
-gso_mask(gso_prefix_mask) with "|= XEN_NETIF_GSO_TYPE_TCPV4" or "|= 
-XEN_NETIF_GSO_TYPE_TCPV6" instead of "1 <<"?
-
->   		features &= ~NETIF_F_TSO;
-> +	if (~(vif->gso_mask | vif->gso_prefix_mask) &
-> +	    (1 << XEN_NETIF_GSO_TYPE_TCPV6))
-Same as above.
-> +		features &= ~NETIF_F_TSO6;
->   	if (!vif->ip_csum)
->   		features &= ~NETIF_F_IP_CSUM;
->   	if (!vif->ipv6_csum)
-> @@ -320,7 +324,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->   	dev->netdev_ops	= &xenvif_netdev_ops;
->   	dev->hw_features = NETIF_F_SG |
->   		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> -		NETIF_F_TSO;
-> +		NETIF_F_TSO | NETIF_F_TSO6;
->   	dev->features = dev->hw_features | NETIF_F_RXCSUM;
->   	SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
->   
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index ac42f73..ee0d55c 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -140,7 +140,7 @@ static int max_required_rx_slots(struct xenvif *vif)
->   	int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
->   
->   	/* XXX FIXME: RX path dependent on MAX_SKB_FRAGS */
-> -	if (vif->can_sg || vif->gso || vif->gso_prefix)
-> +	if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
->   		max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
->   
->   	return max;
-> @@ -334,6 +334,7 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
->   	struct gnttab_copy *copy_gop;
->   	struct xenvif_rx_meta *meta;
->   	unsigned long bytes;
-> +	int gso_type;
->   
->   	/* Data must not cross a page boundary. */
->   	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
-> @@ -392,7 +393,14 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
->   		}
->   
->   		/* Leave a gap for the GSO descriptor. */
-> -		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
-> +		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-> +		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-> +		else
-> +			gso_type = 0;
-> +
-> +		if (*head && ((1 << gso_type) & vif->gso_prefix_mask))
-Same
->   			vif->rx.req_cons++;
->   
->   		*head = 0; /* There must be something in this buffer now. */
-> @@ -423,14 +431,28 @@ static int xenvif_gop_skb(struct sk_buff *skb,
->   	unsigned char *data;
->   	int head = 1;
->   	int old_meta_prod;
-> +	int gso_type;
-> +	int gso_size;
->   
->   	old_meta_prod = npo->meta_prod;
->   
-> +	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
-> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-> +		gso_size = skb_shinfo(skb)->gso_size;
-> +	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-> +		gso_size = skb_shinfo(skb)->gso_size;
-> +	} else {
-> +		gso_type = 0;
-> +		gso_size = 0;
-> +	}
-> +
->   	/* Set up a GSO prefix descriptor, if necessary */
-> -	if (skb_shinfo(skb)->gso_size && vif->gso_prefix) {
-> +	if ((1 << gso_type) & vif->gso_prefix_mask) {
-Same
->   		req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
->   		meta = npo->meta + npo->meta_prod++;
-> -		meta->gso_size = skb_shinfo(skb)->gso_size;
-> +		meta->gso_type = gso_type;
-> +		meta->gso_size = gso_size;
->   		meta->size = 0;
->   		meta->id = req->id;
->   	}
-> @@ -438,10 +460,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
->   	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
->   	meta = npo->meta + npo->meta_prod++;
->   
-> -	if (!vif->gso_prefix)
-> -		meta->gso_size = skb_shinfo(skb)->gso_size;
-> -	else
-> +	if ((1 << gso_type) & vif->gso_mask) {
-Same
-> +		meta->gso_type = gso_type;
-> +		meta->gso_size = gso_size;
-> +	} else {
-> +		meta->gso_type = 0;
->   		meta->gso_size = 0;
-> +	}
->   
->   	meta->size = 0;
->   	meta->id = req->id;
-> @@ -587,7 +612,8 @@ void xenvif_rx_action(struct xenvif *vif)
->   
->   		vif = netdev_priv(skb->dev);
->   
-> -		if (vif->meta[npo.meta_cons].gso_size && vif->gso_prefix) {
-> +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-> +		    vif->gso_prefix_mask) {
->   			resp = RING_GET_RESPONSE(&vif->rx,
->   						 vif->rx.rsp_prod_pvt++);
->   
-> @@ -624,7 +650,8 @@ void xenvif_rx_action(struct xenvif *vif)
->   					vif->meta[npo.meta_cons].size,
->   					flags);
->   
-> -		if (vif->meta[npo.meta_cons].gso_size && !vif->gso_prefix) {
-> +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-Same
-> +		    vif->gso_mask) {
->   			struct xen_netif_extra_info *gso =
->   				(struct xen_netif_extra_info *)
->   				RING_GET_RESPONSE(&vif->rx,
-> @@ -632,8 +659,8 @@ void xenvif_rx_action(struct xenvif *vif)
->   
->   			resp->flags |= XEN_NETRXF_extra_info;
->   
-> +			gso->u.gso.type = vif->meta[npo.meta_cons].gso_type;
->   			gso->u.gso.size = vif->meta[npo.meta_cons].gso_size;
-> -			gso->u.gso.type = XEN_NETIF_GSO_TYPE_TCPV4;
->   			gso->u.gso.pad = 0;
->   			gso->u.gso.features = 0;
->   
-> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> index 389fa72..4894256 100644
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -573,15 +573,40 @@ static int connect_rings(struct backend_info *be)
->   		val = 0;
->   	vif->can_sg = !!val;
->   
-> +	vif->gso_mask = 0;
-> +	vif->gso_prefix_mask = 0;
-> +
->   	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv4",
->   			 "%d", &val) < 0)
->   		val = 0;
-> -	vif->gso = !!val;
-> +	if (val)
-> +		vif->gso_mask = 1 << XEN_NETIF_GSO_TYPE_TCPV4;
-Same: |= XEN_NETIF_GSO_TYPE_TCPV4;
->   
->   	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv4-prefix",
->   			 "%d", &val) < 0)
->   		val = 0;
-> -	vif->gso_prefix = !!val;
-> +	if (val)
-> +		vif->gso_prefix_mask = 1 << XEN_NETIF_GSO_TYPE_TCPV4;
-Same as above.
-
-Thanks
-Annie
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4226c53..9f27bb8 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1847,7 +1847,7 @@ begin:
+ 		if (count != 1 ||
+ 		    unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+ 			result = NULL;
+-		else if (unlikely(!__udp_is_mcast_sock(net, sk,
++		else if (unlikely(!__udp_is_mcast_sock(net, result,
+ 						       loc_port, loc_addr,
+ 						       rmt_port, rmt_addr,
+ 						       dif, hnum))) {
