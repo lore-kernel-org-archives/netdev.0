@@ -1,42 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] netem: update backlog after drop
-Date: Sun, 6 Oct 2013 15:15:33 -0700
-Message-ID: <20131006151533.52988624@nehalam.linuxnetplumber.net>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v2 tip/core/rcu 0/13] Sparse-related updates for
+	3.13
+Date: Wed, 9 Oct 2013 14:29:20 -0700
+Message-ID: <20131009212920.GA15413@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:38271 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754834Ab3JIVT5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 17:19:57 -0400
-Received: by mail-pb0-f44.google.com with SMTP id xa7so1515340pbc.17
-        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 14:19:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: peterz@infradead.org, fweisbec@gmail.com, dhowells@redhat.com,
+	edumazet@google.com, gaofeng@cn.fujitsu.com, mingo@kernel.org,
+	bridge@lists.linux-foundation.org, jmorris@namei.org,
+	dipankar@in.ibm.com, darren@dvhart.com, josh@joshtriplett.org,
+	rostedt@goodmis.org, niv@us.ibm.com,
+	mathieu.desnoyers@efficios.com, kuznet@ms2.inr.ac.ru,
+	tglx@linutronix.de, johannes@sipsolutions.net,
+	laijs@cn.fujitsu.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-decnet-user@lists.sourceforge.net,
+	kaber@trash.net, stephen@networkplumber.org, sbw@mit.edu,
+	tgraf@suug.ch, akpm@linux-foundation.org, fengguang.wu@intel.com,
+	davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-When packet is dropped from rb-tree netem the backlog statistic should
-also be updated.
+Hello!
 
-Reported-by: =D0=A1=D0=B5=D1=80=D0=B3=D0=B5=D0=B5=D0=B2 =D0=A1=D0=B5=D1=
-=80=D0=B3=D0=B5=D0=B9 <adron@yapic.net>
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+This series features updates to allow sparse to do a better job of
+statically analyzing RCU usage:
 
----
-Should be reviewed by Eric (he added the rb-tree stuff), and added to s=
-table
-as well.
+1.	Apply ACCESS_ONCE() to rcu_assign_pointer()'s target to prevent
+	comiler mischief.  Also require that the source pointer be from
+	the kernel address space.  Sometimes it can be from the RCU address
+	space, which necessitates the remaining patches in this series.
+	Which, it must be admitted, apply to a very small fraction of
+	the rcu_assign_pointer() invocations in the kernel.  This commit
+	courtesy of Josh Triplett.
 
---- a/net/sched/sch_netem.c	2013-10-06 15:06:50.675250833 -0700
-+++ b/net/sched/sch_netem.c	2013-10-06 15:10:03.957219532 -0700
-@@ -520,6 +520,7 @@ static unsigned int netem_drop(struct Qd
- 			skb->next =3D NULL;
- 			skb->prev =3D NULL;
- 			len =3D qdisc_pkt_len(skb);
-+			sch->qstats.backlog -=3D len;
- 			kfree_skb(skb);
- 		}
- 	}
+2-13.	Apply rcu_access_pointer() to avoid a number of false positives.
+
+Changes from v1:
+
+o	Fix grammar nit in commit logs.
+
+							Thanx, Paul
+
+
+ b/drivers/net/bonding/bond_alb.c  |    3 ++-
+ b/drivers/net/bonding/bond_main.c |    8 +++++---
+ b/include/linux/rcupdate.h        |   12 +++++++++++-
+ b/kernel/notifier.c               |    2 +-
+ b/net/bridge/br_mdb.c             |    2 +-
+ b/net/bridge/br_multicast.c       |    4 ++--
+ b/net/decnet/dn_route.c           |    5 +++--
+ b/net/ipv4/ip_sockglue.c          |    2 +-
+ b/net/ipv6/ip6_gre.c              |    2 +-
+ b/net/ipv6/ip6_tunnel.c           |    2 +-
+ b/net/ipv6/sit.c                  |    2 +-
+ b/net/mac80211/sta_info.c         |    4 ++--
+ b/net/wireless/scan.c             |   14 +++++++-------
+ 13 files changed, 38 insertions(+), 24 deletions(-)
