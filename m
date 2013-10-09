@@ -1,31 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: sfc 2013-10-08
-Date: Tue, 08 Oct 2013 21:56:26 -0400 (EDT)
-Message-ID: <20131008.215626.333377123257954825.davem@davemloft.net>
-References: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
+From: Mark Lord <kernel@start.ca>
+Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement pattern
+Date: Tue, 08 Oct 2013 21:55:26 -0400
+Message-ID: <5254B78E.3020009@start.ca>
+References: <cover.1380703262.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58795 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378Ab3JIB41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 21:56:27 -0400
-In-Reply-To: <1381254091.1530.9.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+	linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, x86@kernel.org,
+	linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+	linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-driver@qlogic.com,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	VMware@dhcp-26-207.brq.redhat.com, "Inc." <pv-drive
+To: Alexander Gordeev <agordeev@redhat.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <cover.1380703262.git.agordeev@redhat.com>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 8 Oct 2013 18:41:31 +0100
+On 13-10-02 06:29 AM, Alexander Gordeev wrote:
+..
+> This update converts pci_enable_msix() and pci_enable_msi_block()
+> interfaces to canonical kernel functions and makes them return a
+> error code in case of failure or 0 in case of success.
 
-> Some more fixes for EF10 support; hopefully the last lot:
-> 
-> 1. Fixes for reading statistics, from Edward Cree and Jon Cooper.
-> 2. Addition of ethtool statistics for packets dropped by the hardware
-> before they were associated with a specific function, from Edward Cree.
-> 3. Only bind to functions that are in control of their associated port,
-> as the driver currently assumes this is the case.
+Rather than silently break dozens of drivers in mysterious ways,
+please invent new function names for the replacements to the
+existing pci_enable_msix() and pci_enable_msi_block() functions.
 
-Pulled, thanks Ben.
+That way, both in-tree and out-of-tree drivers will notice the API change,
+rather than having it go unseen and just failing for unknown reasons.
+
+Thanks.
