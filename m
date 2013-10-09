@@ -1,75 +1,30 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 16/16] batman-adv: reorder batadv_iv_flags
-Date: Wed,  9 Oct 2013 21:32:54 +0200
-Message-ID: <1381347174-3629-17-git-send-email-antonio@meshcoding.com>
-References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next 0/3] be2net: Patch Series
+Date: Wed, 09 Oct 2013 15:53:25 -0400 (EDT)
+Message-ID: <20131009.155325.1186540198661352482.davem@davemloft.net>
+References: <20131003211623.GA3426@emulex.com>
+	<e68ff416-041d-4dbf-9b66-a60a476733a7@CMEXHTCAS2.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ajit.Khaparde@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:24055 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755023Ab3JITvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:51:41 -0400
-In-Reply-To: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755196Ab3JITx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:53:29 -0400
+In-Reply-To: <e68ff416-041d-4dbf-9b66-a60a476733a7@CMEXHTCAS2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+From: Ajit Khaparde <Ajit.Khaparde@Emulex.Com>
+Date: Wed, 9 Oct 2013 19:41:00 +0000
 
-The vis flag is not needed anymore, and since we do a compat bump we
-can start with the first bit again
+> Patchwork shows that these patches are accepted.
+> But I don't see these changes in the net-next tree yet.
+> Am I missing something? Or they are in pipeline?
 
-Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/packet.h | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+Sorry, it got lost somewhere.
 
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 4e5fe7d..4361bae 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -67,10 +67,19 @@ enum batadv_subtype {
- /* this file is included by batctl which needs these defines */
- #define BATADV_COMPAT_VERSION 15
- 
-+/**
-+ * enum batadv_iv_flags - flags used in B.A.T.M.A.N. IV OGM packets
-+ * @BATADV_NOT_BEST_NEXT_HOP: flag is set when ogm packet is forwarded and was
-+ *     previously received from someone else than the best neighbor.
-+ * @BATADV_PRIMARIES_FIRST_HOP: flag is set when the primary interface address
-+ *     is used, and the packet travels its first hop.
-+ * @BATADV_DIRECTLINK: flag is for the first hop or if rebroadcasted from a
-+ *     one hop neighbor on the interface where it was originally received.
-+ */
- enum batadv_iv_flags {
--	BATADV_NOT_BEST_NEXT_HOP   = BIT(3),
--	BATADV_PRIMARIES_FIRST_HOP = BIT(4),
--	BATADV_DIRECTLINK	   = BIT(6),
-+	BATADV_NOT_BEST_NEXT_HOP   = BIT(0),
-+	BATADV_PRIMARIES_FIRST_HOP = BIT(1),
-+	BATADV_DIRECTLINK          = BIT(2),
- };
- 
- /* ICMP message types */
-@@ -164,11 +173,12 @@ struct batadv_header {
- /**
-  * struct batadv_ogm_packet - ogm (routing protocol) packet
-  * @header: common batman packet header
-+ * @flags: contains routing relevant flags - see enum batadv_iv_flags
-  * @tvlv_len: length of tvlv data following the ogm header
-  */
- struct batadv_ogm_packet {
- 	struct batadv_header header;
--	uint8_t  flags;    /* 0x40: DIRECTLINK flag ... */
-+	uint8_t  flags;
- 	__be32   seqno;
- 	uint8_t  orig[ETH_ALEN];
- 	uint8_t  prev_sender[ETH_ALEN];
--- 
-1.8.3.2
+I'm applying them and pushing it out now, thanks.
