@@ -1,39 +1,53 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
-Date: Wed, 9 Oct 2013 13:24:54 +0900
-Message-ID: <20131009042454.GA16885@verge.net.au>
-References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
- <20131008.160446.1960731810404939922.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement
+ pattern
+Date: Wed, 09 Oct 2013 15:24:08 +1100
+Message-ID: <1381292648.645.259.camel@pasglop>
+References: <cover.1380703262.git.agordeev@redhat.com>
+         <5254D397.9030307@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nh-ky@jinso.co.jp, netdev@vger.kernel.org,
-	ryusuke.sakato.bx@renesas.com, sergei.shtylyov@cogentembedded.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36757 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042Ab3JIEY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 00:24:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20131008.160446.1960731810404939922.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Gordeev <agordeev@redhat.com>,
+        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+        linux-driver@qlogi
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <5254D397.9030307@zytor.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 08, 2013 at 04:04:46PM -0400, David Miller wrote:
-> From: Nguyen Hong Ky <nh-ky@jinso.co.jp>
-> Date: Mon,  7 Oct 2013 15:29:24 +0900
+On Tue, 2013-10-08 at 20:55 -0700, H. Peter Anvin wrote:
+> Why not add a minimum number to pci_enable_msix(), i.e.:
 > 
-> > This patch will fix RX packets errors when receiving big size of data.
-> > Moreover, I set suitable parameters for get more stable when receiving
-> > packets.
-> > 
-> > It was created on the top of mainline kernel v3.11.
-> > 
-> > I tested this patch on Armadillo800eva, it appears to be working well.
-> > 
-> > Would you please review and apply it for me.
+> pci_enable_msix(pdev, msix_entries, nvec, minvec)
 > 
-> Applied, but at some point someone has to add definitions for the
-> RMCR register fields so that this driver is not full of magic constants.
+> ... which means "nvec" is the number of interrupts *requested*, and
+> "minvec" is the minimum acceptable number (otherwise fail).
 
-Sergei, would it be possible for you to address this?
+Which is exactly what Ben (the other Ben :-) suggested and that I
+supports...
+
+Cheers,
+Ben.
