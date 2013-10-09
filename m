@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v2 tip/core/rcu 13/13] bonding/bond_alb.c: Apply rcu_access_pointer() to avoid sparse false positive
-Date: Wed,  9 Oct 2013 14:29:46 -0700
-Message-ID: <1381354186-16285-13-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v2 tip/core/rcu 09/13] ipv6/sit: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Wed,  9 Oct 2013 14:29:42 -0700
+Message-ID: <1381354186-16285-9-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
  <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -26,9 +26,9 @@ From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the use in
-bond_alb_handle_active_change() is legitimate: It is assigning a pointer
-to an element from an RCU-protected list, and all elements of this list
-are already visible to caller.
+ipip6_tunnel_unlink() is legitimate: It is assigning a pointer to an
+element from an RCU-protected list, and all elements of this list are
+already visible to caller.
 
 This commit therefore silences this false positive by laundering the
 pointer using rcu_access_pointer() as suggested by Josh Triplett.
@@ -42,22 +42,21 @@ Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/bonding/bond_alb.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv6/sit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 91f179d5135c..cdd697cca6b5 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1667,7 +1667,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 7ee5cb96db34..fcb050ab5134 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -157,7 +157,7 @@ static void ipip6_tunnel_unlink(struct sit_net *sitn, struct ip_tunnel *t)
+ 	     (iter = rtnl_dereference(*tp)) != NULL;
+ 	     tp = &iter->next) {
+ 		if (t == iter) {
+-			rcu_assign_pointer(*tp, t->next);
++			rcu_assign_pointer(*tp, rcu_access_pointer(t->next));
+ 			break;
+ 		}
  	}
- 
- 	swap_slave = bond->curr_active_slave;
--	rcu_assign_pointer(bond->curr_active_slave, new_slave);
-+	rcu_assign_pointer(bond->curr_active_slave,
-+			   rcu_access_pointer(new_slave));
- 
- 	if (!new_slave || list_empty(&bond->slave_list))
- 		return;
 -- 
 1.8.1.5
