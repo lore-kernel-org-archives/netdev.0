@@ -1,83 +1,84 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: MBIM device refusing to be enabled
-Date: Wed, 09 Oct 2013 12:29:43 +0200
-Message-ID: <87hacqzqi0.fsf@nemi.mork.no>
-References: <1381309180.3464.2.camel@linux-fkkt.site>
-	<871u3u21zz.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2013-10-09
+Date: Wed,  9 Oct 2013 12:59:04 +0200
+Message-ID: <1381316351-14418-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53399 "EHLO canardo.mork.no"
+Received: from a.mx.secunet.com ([195.81.216.161]:51327 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752735Ab3JIK3w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 06:29:52 -0400
-In-Reply-To: <871u3u21zz.fsf@nemi.mork.no> (=?utf-8?Q?=22Bj=C3=B8rn?=
- Mork"'s message of "Wed, 09
-	Oct 2013 12:05:20 +0200")
+	id S1751819Ab3JIK71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Oct 2013 06:59:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bj=C3=B8rn Mork <bjorn@mork.no> writes:
+1) We used the wrong netlink attribute to verify the
+   lenght of the replay window on async events. Fix this by
+   using the right netlink attribute.
 
-> Oliver Neukum <oliver@neukum.org> writes:
->
->> I have a device which the kernel and MM (1.0) identify as MBIM.
->> I can transfer the PIN, but the device refuses to be enabled.
->> Any idea?
->
-> [..]
->
->> 2013-10-09T10:49:49.930237+02:00 linux-3m4i ModemManager[566]:
->> [/dev/cdc-wdm0] Received message...#012>>>>>> RAW:#012>>>>>>   lengt=
-h =3D
->> 56#012>>>>>>   data   =3D
->> 03:00:00:80:38:00:00:00:13:00:00:00:01:00:00:00:00:00:00:00:A2:89:CC=
-:33:BC:BB:8B:4F:B6:B0:13:3E:C2:AA:E6:DF:03:00:00:00:00:00:00:00:08:00:0=
-0:00:01:00:00:00:00:00:00:00
->> 2013-10-09T10:49:49.930545+02:00 linux-3m4i ModemManager[566]:
->> [/dev/cdc-wdm0] Received message (translated)...#012>>>>>>
->> Header:#012>>>>>>   length      =3D 56#012>>>>>>   type        =3D
->> command-done (0x80000003)#012>>>>>>   transaction =3D 19#012>>>>>>
->> Fragment header:#012>>>>>>   total   =3D 1#012>>>>>>   current =3D
->> 0#012>>>>>> Contents:#012>>>>>>   status error =3D
->> 'None' (0x00000000)#012>>>>>>   service      =3D
->> 'basic-connect' (a289cc33-bcbb-8b4f-b6b0-133ec2aae6df)#012>>>>>>   c=
-id
->> =3D 'radio-state' (0x00000003)
->
-> It's a bit difficult to read these logs, but decoding the raw data
-> results in:
->
-> MBIM_MESSAGE_HEADER
->   MessageType:  0x80000003 (MBIM_COMMAND_DONE)
->   MessageLength:        56
->   TransactionId:        19
-> MBIM_FRAGMENT_HEADER
->   TotalFragments:       0x00000001
->   CurrentFragment:      0x00000000
-> BASIC_CONNECT (a289cc33-bcbb-8b4f-b6b0-133ec2aae6df)
-> MBIM_CID_RADIO_STATE (3)
-> MBIM_STATUS_SUCCESS (0)
-> InformationBuffer [8]:
->   HwRadioState: on
->   SwRadioState: off
->
-> Which either means that the radio is disabled using rfkill, or that
-> there is a problem with the platform rfkill driver for your laptop.
-> In any case, this is the reason you cannot enable the modem.
->
-> Does "rfkill list" confirm that the radio is disabled?  Can you chang=
-e
-> it?
+2) Policy lookups can not match the output interface on forwarding.
+   Add the needed informations to the flow informations.
 
-Sorry, that was nonsense.  rfkill would only affect the HwRadioState.
+3) We update the pmtu when we receive a ICMPV6_DEST_UNREACH message
+   on IPsec with ipv6. This is wrong and leads to strange fragmented
+   packets, only ICMPV6_PKT_TOOBIG messages should update the pmtu.
+   Fix this by removing the ICMPV6_DEST_UNREACH check from the IPsec
+   protocol error handlers.
 
-Looking at the commands following this message, it appears that MM
-correctly attempts to enable the SwRadioState but fails.  I don't know
-why.
+4) The legacy IPsec anti replay mechanism supports anti replay
+   windows up to 32 packets. If a user requests for a bigger
+   anti replay window, we use 32 packets but pretend that we use
+   the requested window size. Fix from Fan Du.
 
+5) If asynchronous events are enabled and replay_maxdiff is set to
+   zero, we generate an async event for every received packet instead
+   of checking whether a timeout occurred. Fix from Thomas Egerer.
 
-Bj=C3=B8rn
+6) Policies need a refcount when the state resolution timer is armed.
+   Otherwise the timer can fire after the policy is deleted.
+
+7) We might dreference a NULL pointer if the hold_queue is empty,
+   add a check to avoid this.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit 73a695f8572e4c46a2aecdbb63f26f36a43e6873:
+
+  cxgb4: remove workqueue when driver registration fails (2013-09-15 22:28:58 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
+
+for you to fetch changes up to 2bb53e2557964c2c5368a0392cf3b3b63a288cd0:
+
+  xfrm: check for a vaild skb in xfrm_policy_queue_process (2013-10-08 10:49:51 +0200)
+
+----------------------------------------------------------------
+Fan Du (1):
+      xfrm: Guard IPsec anti replay window against replay bitmap
+
+Steffen Klassert (5):
+      xfrm: Fix replay size checking on async events
+      xfrm: Decode sessions with output interface.
+      ipsec: Don't update the pmtu on ICMPV6_DEST_UNREACH
+      xfrm: Add refcount handling to queued policies
+      xfrm: check for a vaild skb in xfrm_policy_queue_process
+
+Thomas Egerer (1):
+      xfrm: Fix aevent generation for each received packet
+
+ net/ipv4/xfrm4_policy.c |    1 +
+ net/ipv6/ah6.c          |    3 +--
+ net/ipv6/esp6.c         |    3 +--
+ net/ipv6/ipcomp6.c      |    3 +--
+ net/ipv6/xfrm6_policy.c |    1 +
+ net/key/af_key.c        |    3 ++-
+ net/xfrm/xfrm_policy.c  |   28 ++++++++++++++++++------
+ net/xfrm/xfrm_replay.c  |   54 ++++++++++++++++++++++++-----------------------
+ net/xfrm/xfrm_user.c    |    5 +++--
+ 9 files changed, 59 insertions(+), 42 deletions(-)
