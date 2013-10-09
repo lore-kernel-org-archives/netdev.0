@@ -1,63 +1,58 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Wed, 9 Oct 2013 16:40:40 -0700
-Message-ID: <20131009234040.GB14055@jtriplet-mobl1>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 tip/core/rcu 05/13] decnet: Apply rcu_access_pointer()
+ to avoid sparse false positive
+Date: Wed, 9 Oct 2013 16:54:11 -0700
+Message-ID: <20131009235411.GH5790@linux.vnet.ibm.com>
 References: <20131009212920.GA15413@linux.vnet.ibm.com>
  <1381354186-16285-1-git-send-email-paulmck@linux.vnet.ibm.com>
- <1381354186-16285-7-git-send-email-paulmck@linux.vnet.ibm.com>
- <1381354949.4971.20.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009215747.GA5790@linux.vnet.ibm.com>
- <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009223652.GC5790@linux.vnet.ibm.com>
- <1381359077.4971.37.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009225617.GH11709@jtriplet-mobl1>
- <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com>
+ <1381354186-16285-5-git-send-email-paulmck@linux.vnet.ibm.com>
+ <CAPhKKr8kLDNd7CdksHriyMzsqcj0oSf7mAfLceviMjobYGy7oA@mail.gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
-	mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
-	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
-	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+Cc: LKML <linux-kernel@vger.kernel.org>, mingo@kernel.org,
+	laijs@cn.fujitsu.com, Dipankar <dipankar@in.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	josh@joshtriplett.org, Nivedita Singhvi <niv@us.ibm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	David Howells <dhowells@redhat.com>, edumazet@google.com,
+	Darren Hart <darren@dvhart.com>,
+	Frederic Weisbecker <fweisbec@gmail.com>, sbw@mit.edu,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Thomas Graf <tgraf@suug.ch>, Gao feng <gaofeng@cn.fujitsu.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
+To: Dhaval Giani <dhaval.giani@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com>
+In-Reply-To: <CAPhKKr8kLDNd7CdksHriyMzsqcj0oSf7mAfLceviMjobYGy7oA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 09, 2013 at 04:17:55PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-10-09 at 15:56 -0700, Josh Triplett wrote:
+On Wed, Oct 09, 2013 at 06:58:47PM -0400, Dhaval Giani wrote:
+> On Wed, Oct 9, 2013 at 5:29 PM, Paul E. McKenney
+> <paulmck@linux.vnet.ibm.com> wrote:
+> >
+> > From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> >
+> > The sparse checking for rcu_assign_pointer() was recently upgraded
+> > to reject non-__kernel address spaces.  This also rejects __rcu,
+> > which is almost always the right thing to do.  However, the use in
+> > dn_insert_route() is legitimate: It is assigning a pointer to an element
+> > from an RCU-protected list, and all elements of this list are already
+> > visible to caller.
+> >
+> > This commit therefore silences this false positive by laundering the
+> > pointer using rcu_access_pointer() as suggested by Josh Triplett.
+> >
+> > Reported-by: kbuild test robot <fengguang.wu@intel.com>
 > 
-> > I'd be really hesitant to introduce that type of direct assignment to an
-> > __rcu pointer without wrapping it in some appropriately named macro, or
-> > at the very least adding a comment.
-> 
-> Well, there is no special magic here, in this specific case :
-> 
-> - deleting an item in an rcu list
-> 
-> Check list_del_rcu(), and you'll notice there is no _barrier_
-> 
-> Adding correct barriers is good, but please do not add them when not
-> needed.
-> 
-> It makes code hard to understand.
+> I did not realize that we were allowed to rename people :-)
 
-I'm not arguing for the inclusion of an unnecessary barrier.  I'm
-arguing for something more self-documenting than:
+Copied and pasted directly from the email I received.  Perhaps strange,
+but true!  ;-)
 
-> ACCESS(*ptr) = value;
-
-that.  Constructs like list_del_rcu are much clearer, and not
-open-coded.  Open-coding synchronization code is almost always a Bad
-Idea.
-
-- Josh Triplett
+							Thanx, Paul
