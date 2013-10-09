@@ -1,46 +1,28 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 6/6] ipv6: Do route updating for redirect in ndisc layer
-Date: Wed, 9 Oct 2013 03:43:24 +0200
-Message-ID: <20131009014324.GA24368@order.stressinduktion.org>
-References: <52327F00.4040802@cn.fujitsu.com> <5232806B.6050601@cn.fujitsu.com> <20130917.202936.2080212548361553334.davem@davemloft.net> <20130918013903.GC8947@order.stressinduktion.org> <5239076A.4080406@cn.fujitsu.com> <20130918041337.GD8947@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
+ side)
+Date: Tue, 08 Oct 2013 21:52:31 -0400 (EDT)
+Message-ID: <20131008.215231.729407085286969525.davem@davemloft.net>
+References: <1380854061-30091-1-git-send-email-yamato@redhat.com>
+	<20131008.152349.729447337097758010.davem@davemloft.net>
+	<20131008141337.1a8a556c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yamato@redhat.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49380 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754857Ab3JIBn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 21:43:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20130918041337.GD8947@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58714 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494Ab3JIBwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Oct 2013 21:52:32 -0400
+In-Reply-To: <20131008141337.1a8a556c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Duan!
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 8 Oct 2013 14:13:37 -0700
 
-On Wed, Sep 18, 2013 at 06:13:37AM +0200, Hannes Frederic Sowa wrote:
-> Especially because redirects also help in the on-link determination (same
-> RFC, section 8), I changed my mind and am still in favour of updating it
-> in the ndisc layer. In my opinion we just have to consider all routing
-> tables and apply the update to every one which carries a valid next hop
-> to the source of the redirect (under consideration of the destination).
-> 
-> This will be important if we actually try to get linux to correctly
-> implement the ipv6 subnet model (RFC 5942, Section 4 Rule 1). In that
-> case we are not allowed to assume nodes on-link even if they would match
-> the same prefix as a locally configured address.
+> Please revert this. It is incorrect.
 
-I am playing around with a simple patch which does suppress adding routing
-information for the on-link assumption we currently do in linux.
-
-Are you intereseted in following up on this? I still do think we should update
-not only the routing table the socket uses but all routing tables which have a
-valid route towards the router which emitted the redirect.
-
-I try to check if we actually handle redirect messages when ECMP routes are in
-use correctly.
-
-Greetings,
-
-  Hannes
+Ok, done.
