@@ -1,7 +1,7 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 15/16] batman-adv: remove packed from batadv_ogm_packet
-Date: Wed,  9 Oct 2013 21:32:53 +0200
-Message-ID: <1381347174-3629-16-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 16/16] batman-adv: reorder batadv_iv_flags
+Date: Wed,  9 Oct 2013 21:32:54 +0200
+Message-ID: <1381347174-3629-17-git-send-email-antonio@meshcoding.com>
 References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
@@ -10,41 +10,66 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:15994 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:24055 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567Ab3JITvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:51:37 -0400
+	with ESMTP id S1755023Ab3JITvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:51:41 -0400
 In-Reply-To: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 
-As we decreased the struct size from 26 to 24 byte, we can remove
-__packed as the compiler will not add any more padding.
+The vis flag is not needed anymore, and since we do a compat bump we
+can start with the first bit again
 
 Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/packet.h | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/batman-adv/packet.h | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index f02dbb1..4e5fe7d 100644
+index 4e5fe7d..4361bae 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -175,7 +175,10 @@ struct batadv_ogm_packet {
- 	uint8_t  reserved;
- 	uint8_t  tq;
- 	__be16   tvlv_len;
--} __packed;
-+	/* __packed is not needed as the struct size is divisible by 4,
-+	 * and the largest data type in this struct has a size of 4.
-+	 */
-+};
+@@ -67,10 +67,19 @@ enum batadv_subtype {
+ /* this file is included by batctl which needs these defines */
+ #define BATADV_COMPAT_VERSION 15
  
- #define BATADV_OGM_HLEN sizeof(struct batadv_ogm_packet)
++/**
++ * enum batadv_iv_flags - flags used in B.A.T.M.A.N. IV OGM packets
++ * @BATADV_NOT_BEST_NEXT_HOP: flag is set when ogm packet is forwarded and was
++ *     previously received from someone else than the best neighbor.
++ * @BATADV_PRIMARIES_FIRST_HOP: flag is set when the primary interface address
++ *     is used, and the packet travels its first hop.
++ * @BATADV_DIRECTLINK: flag is for the first hop or if rebroadcasted from a
++ *     one hop neighbor on the interface where it was originally received.
++ */
+ enum batadv_iv_flags {
+-	BATADV_NOT_BEST_NEXT_HOP   = BIT(3),
+-	BATADV_PRIMARIES_FIRST_HOP = BIT(4),
+-	BATADV_DIRECTLINK	   = BIT(6),
++	BATADV_NOT_BEST_NEXT_HOP   = BIT(0),
++	BATADV_PRIMARIES_FIRST_HOP = BIT(1),
++	BATADV_DIRECTLINK          = BIT(2),
+ };
  
+ /* ICMP message types */
+@@ -164,11 +173,12 @@ struct batadv_header {
+ /**
+  * struct batadv_ogm_packet - ogm (routing protocol) packet
+  * @header: common batman packet header
++ * @flags: contains routing relevant flags - see enum batadv_iv_flags
+  * @tvlv_len: length of tvlv data following the ogm header
+  */
+ struct batadv_ogm_packet {
+ 	struct batadv_header header;
+-	uint8_t  flags;    /* 0x40: DIRECTLINK flag ... */
++	uint8_t  flags;
+ 	__be32   seqno;
+ 	uint8_t  orig[ETH_ALEN];
+ 	uint8_t  prev_sender[ETH_ALEN];
 -- 
 1.8.3.2
