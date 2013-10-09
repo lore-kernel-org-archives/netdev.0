@@ -1,281 +1,375 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/16] batman-adv: use CRC32C instead of CRC16 in TT code
-Date: Wed,  9 Oct 2013 14:40:12 +0200
-Message-ID: <1381322418-1349-11-git-send-email-antonio@meshcoding.com>
-References: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Add ndo_get_phys_port_id support
+Date: Wed, 9 Oct 2013 16:06:28 +0200
+Message-ID: <1381327588-11137-1-git-send-email-yuvalmin@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:1663 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754281Ab3JIN24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 09:28:56 -0400
-In-Reply-To: <1381322418-1349-1-git-send-email-antonio@meshcoding.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4505 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751936Ab3JIOGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Oct 2013 10:06:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
+Each network interface (either PF or VF) is identified by its port's MAC id.
 
-CRC32C has to be preferred to CRC16 because of its possible
-HW native support and because of the reduced collision
-probability. With this change the Translation Table
-component now uses CRC32C to compute the local and global
-table checksum.
-
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- net/batman-adv/packet.h            |  6 ++--
- net/batman-adv/translation-table.c | 73 ++++++++++++++++++++------------------
- net/batman-adv/types.h             |  4 +--
- 3 files changed, 45 insertions(+), 38 deletions(-)
+Hi Dave,
 
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 5c08d26..7a337d7 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -345,12 +345,14 @@ struct batadv_tvlv_gateway_data {
-  * struct batadv_tvlv_tt_data - tt data propagated through the tt tvlv container
-  * @flags: translation table flags (see batadv_tt_data_flags)
-  * @ttvn: translation table version number
-- * @crc: crc16 checksum of the local translation table
-+ * @reserved: field reserved for future use
-+ * @crc: crc32 checksum of the local translation table
-  */
- struct batadv_tvlv_tt_data {
- 	uint8_t flags;
- 	uint8_t ttvn;
--	__be16  crc;
-+	uint16_t reserved;
-+	__be32  crc;
+Please consider applying this patch to 'net-next'.
+
+Thanks,
+Yuval Mintz
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   3 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  23 ++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 149 +++++++++++++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |   7 ++
+ 4 files changed, 155 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 8fe4bcb..5fb18cd 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1546,6 +1546,7 @@ struct bnx2x {
+ #define IS_VF_FLAG			(1 << 22)
+ #define INTERRUPTS_ENABLED_FLAG		(1 << 23)
+ #define BC_SUPPORTS_RMMOD_CMD		(1 << 24)
++#define HAS_PHYS_PORT_ID		(1 << 25)
+ 
+ #define BP_NOMCP(bp)			((bp)->flags & NO_MCP_FLAG)
+ 
+@@ -1876,6 +1877,8 @@ struct bnx2x {
+ 	u32 dump_preset_idx;
+ 	bool					stats_started;
+ 	struct semaphore			stats_sema;
++
++	u8					phys_port_id[ETH_ALEN];
  };
  
- /**
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index cb3c58e..4cdd743 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -27,7 +27,7 @@
- #include "routing.h"
- #include "bridge_loop_avoidance.h"
- 
--#include <linux/crc16.h>
-+#include <linux/crc32c.h>
- 
- /* hash class keys */
- static struct lock_class_key batadv_tt_local_hash_lock_class_key;
-@@ -409,7 +409,7 @@ static void batadv_tt_tvlv_container_update(struct batadv_priv *bat_priv)
- 
- 	tt_data->flags = BATADV_TT_OGM_DIFF;
- 	tt_data->ttvn = atomic_read(&bat_priv->tt.vn);
--	tt_data->crc = htons(bat_priv->tt.local_crc);
-+	tt_data->crc = htonl(bat_priv->tt.local_crc);
- 
- 	if (tt_diff_len == 0)
- 		goto container_register;
-@@ -481,7 +481,7 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
- 		goto out;
- 
- 	seq_printf(seq,
--		   "Locally retrieved addresses (from %s) announced via TT (TTVN: %u CRC: %#.4x):\n",
-+		   "Locally retrieved addresses (from %s) announced via TT (TTVN: %u CRC: %#.8x):\n",
- 		   net_dev->name, (uint8_t)atomic_read(&bat_priv->tt.vn),
- 		   bat_priv->tt.local_crc);
- 	seq_printf(seq, "       %-13s %-7s %-10s\n", "Client", "Flags",
-@@ -993,7 +993,7 @@ batadv_tt_global_print_entry(struct batadv_tt_global_entry *tt_global_entry,
- 	if (best_entry) {
- 		last_ttvn = atomic_read(&best_entry->orig_node->last_ttvn);
- 		seq_printf(seq,
--			   " %c %pM  (%3u) via %pM     (%3u)   (%#.4x) [%c%c%c]\n",
-+			   " %c %pM  (%3u) via %pM     (%3u)   (%#.8x) [%c%c%c]\n",
- 			   '*', tt_global_entry->common.addr,
- 			   best_entry->ttvn, best_entry->orig_node->orig,
- 			   last_ttvn, best_entry->orig_node->tt_crc,
-@@ -1037,7 +1037,7 @@ int batadv_tt_global_seq_print_text(struct seq_file *seq, void *offset)
- 	seq_printf(seq,
- 		   "Globally announced TT entries received via the mesh %s\n",
- 		   net_dev->name);
--	seq_printf(seq, "       %-13s %s       %-15s %s (%-6s) %s\n",
-+	seq_printf(seq, "       %-13s %s       %-15s %s (%-10s) %s\n",
- 		   "Client", "(TTVN)", "Originator", "(Curr TTVN)", "CRC",
- 		   "Flags");
- 
-@@ -1394,17 +1394,19 @@ out:
- 	return orig_node;
- }
- 
--/* Calculates the checksum of the local table of a given orig_node */
--static uint16_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
-+/**
-+ * batadv_tt_global_crc - calculates the checksum of the local table belonging
-+ *  to the given orig_node
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static uint32_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
- 				     struct batadv_orig_node *orig_node)
- {
--	uint16_t total = 0, total_one;
- 	struct batadv_hashtable *hash = bat_priv->tt.global_hash;
- 	struct batadv_tt_common_entry *tt_common;
- 	struct batadv_tt_global_entry *tt_global;
- 	struct hlist_head *head;
--	uint32_t i;
--	int j;
-+	uint32_t i, crc = 0;
- 
- 	for (i = 0; i < hash->size; i++) {
- 		head = &hash->table[i];
-@@ -1435,27 +1437,24 @@ static uint16_t batadv_tt_global_crc(struct batadv_priv *bat_priv,
- 							     orig_node))
- 				continue;
- 
--			total_one = 0;
--			for (j = 0; j < ETH_ALEN; j++)
--				total_one = crc16_byte(total_one,
--						       tt_common->addr[j]);
--			total ^= total_one;
-+			crc ^= crc32c(0, tt_common->addr, ETH_ALEN);
- 		}
- 		rcu_read_unlock();
+ /* Tx queues may be less or equal to Rx queues */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 13a5694..e53ff1e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11149,6 +11149,14 @@ static void bnx2x_get_mac_hwinfo(struct bnx2x *bp)
+ 			bnx2x_get_cnic_mac_hwinfo(bp);
  	}
  
--	return total;
-+	return crc;
- }
- 
--/* Calculates the checksum of the local table */
--static uint16_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
-+/**
-+ * batadv_tt_local_crc - calculates the checksum of the local table
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static uint32_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
- {
--	uint16_t total = 0, total_one;
- 	struct batadv_hashtable *hash = bat_priv->tt.local_hash;
- 	struct batadv_tt_common_entry *tt_common;
- 	struct hlist_head *head;
--	uint32_t i;
--	int j;
-+	uint32_t i, crc = 0;
- 
- 	for (i = 0; i < hash->size; i++) {
- 		head = &hash->table[i];
-@@ -1467,16 +1466,13 @@ static uint16_t batadv_tt_local_crc(struct batadv_priv *bat_priv)
- 			 */
- 			if (tt_common->flags & BATADV_TT_CLIENT_NEW)
- 				continue;
--			total_one = 0;
--			for (j = 0; j < ETH_ALEN; j++)
--				total_one = crc16_byte(total_one,
--						       tt_common->addr[j]);
--			total ^= total_one;
++	if (!BP_NOMCP(bp)) {
++		/* Read physical port identifier from shmem */
++		val2 = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_upper);
++		val = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_lower);
++		bnx2x_set_mac_buf(bp->phys_port_id, val, val2);
++		bp->flags |= HAS_PHYS_PORT_ID;
++	}
 +
-+			crc ^= crc32c(0, tt_common->addr, ETH_ALEN);
+ 	memcpy(bp->link_params.mac_addr, bp->dev->dev_addr, ETH_ALEN);
+ 
+ 	if (!bnx2x_is_valid_ether_addr(bp, bp->dev->dev_addr))
+@@ -12044,6 +12052,20 @@ static int bnx2x_validate_addr(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int bnx2x_get_phys_port_id(struct net_device *netdev,
++				  struct netdev_phys_port_id *ppid)
++{
++	struct bnx2x *bp = netdev_priv(netdev);
++
++	if (!(bp->flags & HAS_PHYS_PORT_ID))
++		return -EOPNOTSUPP;
++
++	ppid->id_len = sizeof(bp->phys_port_id);
++	memcpy(ppid->id, bp->phys_port_id, ppid->id_len);
++
++	return 0;
++}
++
+ static const struct net_device_ops bnx2x_netdev_ops = {
+ 	.ndo_open		= bnx2x_open,
+ 	.ndo_stop		= bnx2x_close,
+@@ -12073,6 +12095,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	.ndo_busy_poll		= bnx2x_low_latency_recv,
+ #endif
++	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
+ };
+ 
+ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index da16953..e4b90aa 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -60,6 +60,30 @@ void bnx2x_vfpf_finalize(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv)
+ 	mutex_unlock(&bp->vf2pf_mutex);
+ }
+ 
++/* Finds a TLV by type in a TLV buffer; If found, returns pointer to the TLV */
++static void *bnx2x_search_tlv_list(struct bnx2x *bp, void *tlvs_list,
++				   enum channel_tlvs req_tlv)
++{
++	struct channel_tlv *tlv = (struct channel_tlv *)tlvs_list;
++
++	do {
++		if (tlv->type == req_tlv)
++			return tlv;
++
++		if (!tlv->length) {
++			BNX2X_ERR("Found TLV with length 0\n");
++			return NULL;
++		}
++
++		tlvs_list += tlv->length;
++		tlv = (struct channel_tlv *)tlvs_list;
++	} while (tlv->type != CHANNEL_TLV_LIST_END);
++
++	DP(BNX2X_MSG_IOV, "TLV list does not contain %d TLV\n", req_tlv);
++
++	return NULL;
++}
++
+ /* list the types and lengths of the tlvs on the buffer */
+ void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list)
+ {
+@@ -196,6 +220,7 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
+ 	int rc = 0, attempts = 0;
+ 	struct vfpf_acquire_tlv *req = &bp->vf2pf_mbox->req.acquire;
+ 	struct pfvf_acquire_resp_tlv *resp = &bp->vf2pf_mbox->resp.acquire_resp;
++	struct vfpf_port_phys_id_resp_tlv *phys_port_resp;
+ 	u32 vf_id;
+ 	bool resources_acquired = false;
+ 
+@@ -219,8 +244,14 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
+ 	/* pf 2 vf bulletin board address */
+ 	req->bulletin_addr = bp->pf2vf_bulletin_mapping;
+ 
++	/* Request physical port identifier */
++	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length,
++		      CHANNEL_TLV_PHYS_PORT_ID, sizeof(struct channel_tlv));
++
+ 	/* add list termination tlv */
+-	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
++	bnx2x_add_tlv(bp, req,
++		      req->first_tlv.tl.length + sizeof(struct channel_tlv),
++		      CHANNEL_TLV_LIST_END,
+ 		      sizeof(struct channel_list_end_tlv));
+ 
+ 	/* output tlvs list */
+@@ -287,6 +318,15 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
  		}
- 		rcu_read_unlock();
  	}
  
--	return total;
-+	return crc;
++	/* Retrieve physical port id (if possible) */
++	phys_port_resp = (struct vfpf_port_phys_id_resp_tlv *)
++			 bnx2x_search_tlv_list(bp, resp,
++					       CHANNEL_TLV_PHYS_PORT_ID);
++	if (phys_port_resp) {
++		memcpy(bp->phys_port_id, phys_port_resp->id, ETH_ALEN);
++		bp->flags |= HAS_PHYS_PORT_ID;
++	}
++
+ 	/* get HW info */
+ 	bp->common.chip_id |= (bp->acquire_resp.pfdev_info.chip_num & 0xffff);
+ 	bp->link_params.chip_id = bp->common.chip_id;
+@@ -983,53 +1023,59 @@ static int bnx2x_copy32_vf_dmae(struct bnx2x *bp, u8 from_vf,
+ 	return bnx2x_issue_dmae_with_comp(bp, &dmae);
  }
  
- static void batadv_tt_req_list_free(struct batadv_priv *bat_priv)
-@@ -1662,9 +1658,18 @@ out:
- 	return tvlv_tt_data;
- }
- 
-+/**
-+ * batadv_send_tt_request - send a TT Request message to a given node
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @dst_orig_node: the destination of the message
-+ * @ttvn: the version number that the source of the message is looking for
-+ * @tt_crc: the CRC associated with the version number
-+ * @full_table: ask for the entire translation table if true, while only for the
-+ *  last TT diff otherwise
-+ */
- static int batadv_send_tt_request(struct batadv_priv *bat_priv,
- 				  struct batadv_orig_node *dst_orig_node,
--				  uint8_t ttvn, uint16_t tt_crc,
-+				  uint8_t ttvn, uint32_t tt_crc,
- 				  bool full_table)
+-static void bnx2x_vf_mbx_resp(struct bnx2x *bp, struct bnx2x_virtf *vf)
++static void bnx2x_vf_mbx_resp_single_tlv(struct bnx2x *bp,
++					 struct bnx2x_virtf *vf)
  {
- 	struct batadv_tvlv_tt_data *tvlv_tt_data = NULL;
-@@ -1689,7 +1694,7 @@ static int batadv_send_tt_request(struct batadv_priv *bat_priv,
+ 	struct bnx2x_vf_mbx *mbx = BP_VF_MBX(bp, vf->index);
+-	u64 vf_addr;
+-	dma_addr_t pf_addr;
+ 	u16 length, type;
+-	int rc;
+-	struct pfvf_general_resp_tlv *resp = &mbx->msg->resp.general_resp;
  
- 	tvlv_tt_data->flags = BATADV_TT_REQUEST;
- 	tvlv_tt_data->ttvn = ttvn;
--	tvlv_tt_data->crc = htons(tt_crc);
-+	tvlv_tt_data->crc = htonl(tt_crc);
+ 	/* prepare response */
+ 	type = mbx->first_tlv.tl.type;
+ 	length = type == CHANNEL_TLV_ACQUIRE ?
+ 		sizeof(struct pfvf_acquire_resp_tlv) :
+ 		sizeof(struct pfvf_general_resp_tlv);
+-	bnx2x_add_tlv(bp, resp, 0, type, length);
+-	resp->hdr.status = bnx2x_pfvf_status_codes(vf->op_rc);
+-	bnx2x_add_tlv(bp, resp, length, CHANNEL_TLV_LIST_END,
++	bnx2x_add_tlv(bp, &mbx->msg->resp, 0, type, length);
++	bnx2x_add_tlv(bp, &mbx->msg->resp, length, CHANNEL_TLV_LIST_END,
+ 		      sizeof(struct channel_list_end_tlv));
++}
++
++static void bnx2x_vf_mbx_resp_send_msg(struct bnx2x *bp,
++				       struct bnx2x_virtf *vf)
++{
++	struct bnx2x_vf_mbx *mbx = BP_VF_MBX(bp, vf->index);
++	struct pfvf_general_resp_tlv *resp = &mbx->msg->resp.general_resp;
++	dma_addr_t pf_addr;
++	u64 vf_addr;
++	int rc;
++
+ 	bnx2x_dp_tlv_list(bp, resp);
+ 	DP(BNX2X_MSG_IOV, "mailbox vf address hi 0x%x, lo 0x%x, offset 0x%x\n",
+ 	   mbx->vf_addr_hi, mbx->vf_addr_lo, mbx->first_tlv.resp_msg_offset);
  
- 	if (full_table)
- 		tvlv_tt_data->flags |= BATADV_TT_FULL_TABLE;
-@@ -1756,7 +1761,7 @@ static bool batadv_send_other_tt_response(struct batadv_priv *bat_priv,
++	resp->hdr.status = bnx2x_pfvf_status_codes(vf->op_rc);
++
+ 	/* send response */
+ 	vf_addr = HILO_U64(mbx->vf_addr_hi, mbx->vf_addr_lo) +
+ 		  mbx->first_tlv.resp_msg_offset;
+ 	pf_addr = mbx->msg_mapping +
+ 		  offsetof(struct bnx2x_vf_mbx_msg, resp);
  
- 	/* this node doesn't have the requested data */
- 	if (orig_ttvn != req_ttvn ||
--	    tt_data->crc != htons(req_dst_orig_node->tt_crc))
-+	    tt_data->crc != htonl(req_dst_orig_node->tt_crc))
- 		goto out;
+-	/* copy the response body, if there is one, before the header, as the vf
+-	 * is sensitive to the header being written
++	/* Copy the response buffer. The first u64 is written afterwards, as
++	 * the vf is sensitive to the header being written
+ 	 */
+-	if (resp->hdr.tl.length > sizeof(u64)) {
+-		length = resp->hdr.tl.length - sizeof(u64);
+-		vf_addr += sizeof(u64);
+-		pf_addr += sizeof(u64);
+-		rc = bnx2x_copy32_vf_dmae(bp, false, pf_addr, vf->abs_vfid,
+-					  U64_HI(vf_addr),
+-					  U64_LO(vf_addr),
+-					  length/4);
+-		if (rc) {
+-			BNX2X_ERR("Failed to copy response body to VF %d\n",
+-				  vf->abs_vfid);
+-			goto mbx_error;
+-		}
+-		vf_addr -= sizeof(u64);
+-		pf_addr -= sizeof(u64);
++	vf_addr += sizeof(u64);
++	pf_addr += sizeof(u64);
++	rc = bnx2x_copy32_vf_dmae(bp, false, pf_addr, vf->abs_vfid,
++				  U64_HI(vf_addr),
++				  U64_LO(vf_addr),
++				  (sizeof(union pfvf_tlvs) - sizeof(u64))/4);
++	if (rc) {
++		BNX2X_ERR("Failed to copy response body to VF %d\n",
++			  vf->abs_vfid);
++		goto mbx_error;
+ 	}
++	vf_addr -= sizeof(u64);
++	pf_addr -= sizeof(u64);
  
- 	/* If the full table has been explicitly requested */
-@@ -2403,13 +2408,13 @@ out:
-  * @tt_buff: buffer holding the tt information
-  * @tt_num_changes: number of tt changes inside the tt buffer
-  * @ttvn: translation table version number of this changeset
-- * @tt_crc: crc16 checksum of orig node's translation table
-+ * @tt_crc: crc32 checksum of orig node's translation table
-  */
- static void batadv_tt_update_orig(struct batadv_priv *bat_priv,
- 				  struct batadv_orig_node *orig_node,
- 				  const unsigned char *tt_buff,
- 				  uint16_t tt_num_changes, uint8_t ttvn,
--				  uint16_t tt_crc)
-+				  uint32_t tt_crc)
- {
- 	uint8_t orig_ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
- 	bool full_table = true;
-@@ -2463,7 +2468,7 @@ static void batadv_tt_update_orig(struct batadv_priv *bat_priv,
- 		    orig_node->tt_crc != tt_crc) {
- request_table:
- 			batadv_dbg(BATADV_DBG_TT, bat_priv,
--				   "TT inconsistency for %pM. Need to retrieve the correct information (ttvn: %u last_ttvn: %u crc: %#.4x last_crc: %#.4x num_changes: %u)\n",
-+				   "TT inconsistency for %pM. Need to retrieve the correct information (ttvn: %u last_ttvn: %u crc: %#.8x last_crc: %#.8x num_changes: %u)\n",
- 				   orig_node->orig, ttvn, orig_ttvn, tt_crc,
- 				   orig_node->tt_crc, tt_num_changes);
- 			batadv_send_tt_request(bat_priv, orig_node, ttvn,
-@@ -2571,7 +2576,7 @@ static void batadv_tt_tvlv_ogm_handler_v1(struct batadv_priv *bat_priv,
- 
- 	batadv_tt_update_orig(bat_priv, orig,
- 			      (unsigned char *)(tt_data + 1),
--			      num_entries, tt_data->ttvn, ntohs(tt_data->crc));
-+			      num_entries, tt_data->ttvn, ntohl(tt_data->crc));
+ 	/* ack the FW */
+ 	storm_memset_vf_mbx_ack(bp, vf->abs_vfid);
+@@ -1060,6 +1106,36 @@ mbx_error:
+ 	bnx2x_vf_release(bp, vf, false); /* non blocking */
  }
  
- /**
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index bdabbc2..e98915a 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -150,7 +150,7 @@ struct batadv_orig_node {
- 	uint8_t flags;
- 	uint8_t capabilities;
- 	atomic_t last_ttvn;
--	uint16_t tt_crc;
-+	uint32_t tt_crc;
- 	unsigned char *tt_buff;
- 	int16_t tt_buff_len;
- 	spinlock_t tt_buff_lock; /* protects tt_buff & tt_buff_len */
-@@ -377,7 +377,7 @@ struct batadv_priv_tt {
- 	spinlock_t req_list_lock; /* protects req_list */
- 	spinlock_t roam_list_lock; /* protects roam_list */
- 	atomic_t local_entry_num;
--	uint16_t local_crc;
-+	uint32_t local_crc;
- 	unsigned char *last_changeset;
- 	int16_t last_changeset_len;
- 	/* protects last_changeset & last_changeset_len */
++static void bnx2x_vf_mbx_resp(struct bnx2x *bp,
++				       struct bnx2x_virtf *vf)
++{
++	bnx2x_vf_mbx_resp_single_tlv(bp, vf);
++	bnx2x_vf_mbx_resp_send_msg(bp, vf);
++}
++
++static void bnx2x_vf_mbx_resp_phys_port(struct bnx2x *bp,
++					struct bnx2x_virtf *vf,
++					void *buffer,
++					u16 *offset)
++{
++	struct vfpf_port_phys_id_resp_tlv *port_id;
++
++	if (!(bp->flags & HAS_PHYS_PORT_ID))
++		return;
++
++	bnx2x_add_tlv(bp, buffer, *offset, CHANNEL_TLV_PHYS_PORT_ID,
++		      sizeof(struct vfpf_port_phys_id_resp_tlv));
++
++	port_id = (struct vfpf_port_phys_id_resp_tlv *)
++		  (((u8 *)buffer) + *offset);
++	memcpy(port_id->id, bp->phys_port_id, ETH_ALEN);
++
++	/* Offset should continue representing the offset to the tail
++	 * of TLV data (outside this function scope)
++	 */
++	*offset += sizeof(struct vfpf_port_phys_id_resp_tlv);
++}
++
+ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 				      struct bnx2x_vf_mbx *mbx, int vfop_status)
+ {
+@@ -1067,6 +1143,7 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	struct pfvf_acquire_resp_tlv *resp = &mbx->msg->resp.acquire_resp;
+ 	struct pf_vf_resc *resc = &resp->resc;
+ 	u8 status = bnx2x_pfvf_status_codes(vfop_status);
++	u16 length;
+ 
+ 	memset(resp, 0, sizeof(*resp));
+ 
+@@ -1140,9 +1217,24 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 			resc->hw_sbs[i].sb_qid);
+ 	DP_CONT(BNX2X_MSG_IOV, "]\n");
+ 
++	/* prepare response */
++	length = sizeof(struct pfvf_acquire_resp_tlv);
++	bnx2x_add_tlv(bp, &mbx->msg->resp, 0, CHANNEL_TLV_ACQUIRE, length);
++
++	/* Handle possible VF requests for physical port identifiers.
++	 * 'length' should continue to indicate the offset of the first empty
++	 * place in the buffer (i.e., where next TLV should be inserted)
++	 */
++	if (bnx2x_search_tlv_list(bp, &mbx->msg->req,
++				  CHANNEL_TLV_PHYS_PORT_ID))
++		bnx2x_vf_mbx_resp_phys_port(bp, vf, &mbx->msg->resp, &length);
++
++	bnx2x_add_tlv(bp, &mbx->msg->resp, length, CHANNEL_TLV_LIST_END,
++		      sizeof(struct channel_list_end_tlv));
++
+ 	/* send the response */
+ 	vf->op_rc = vfop_status;
+-	bnx2x_vf_mbx_resp(bp, vf);
++	bnx2x_vf_mbx_resp_send_msg(bp, vf);
+ }
+ 
+ static void bnx2x_vf_mbx_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
+@@ -1874,6 +1966,9 @@ void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event)
+ 	/* process the VF message header */
+ 	mbx->first_tlv = mbx->msg->req.first_tlv;
+ 
++	/* Clean response buffer to refrain from falsely seeing chains */
++	memset(&mbx->msg->resp, 0, sizeof(union pfvf_tlvs));
++
+ 	/* dispatch the request (will prepare the response) */
+ 	bnx2x_vf_mbx_request(bp, vf, mbx);
+ 	goto mbx_done;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+index 1179fe0..208568b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+@@ -188,6 +188,12 @@ struct pfvf_acquire_resp_tlv {
+ 	} resc;
+ };
+ 
++struct vfpf_port_phys_id_resp_tlv {
++	struct channel_tlv tl;
++	u8 id[ETH_ALEN];
++	u8 padding[2];
++};
++
+ #define VFPF_INIT_FLG_STATS_COALESCE	(1 << 0) /* when set the VFs queues
+ 						  * stats will be coalesced on
+ 						  * the leading RSS queue
+@@ -398,6 +404,7 @@ enum channel_tlvs {
+ 	CHANNEL_TLV_PF_SET_MAC,
+ 	CHANNEL_TLV_PF_SET_VLAN,
+ 	CHANNEL_TLV_UPDATE_RSS,
++	CHANNEL_TLV_PHYS_PORT_ID,
+ 	CHANNEL_TLV_MAX
+ };
+ 
 -- 
-1.8.3.2
+1.8.1.227.g44fe835
