@@ -1,42 +1,51 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 01/16] MAINTAINERS: batman-adv - update emails
-Date: Wed,  9 Oct 2013 21:32:39 +0200
-Message-ID: <1381347174-3629-2-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 02/16] batman-adv: switch to a new packet compatibility version
+Date: Wed,  9 Oct 2013 21:32:40 +0200
+Message-ID: <1381347174-3629-3-git-send-email-antonio@meshcoding.com>
 References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <ordex@autistici.org>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:36699 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:39655 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567Ab3JITda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:33:30 -0400
+	with ESMTP id S1752471Ab3JITdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 15:33:31 -0400
 In-Reply-To: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update my and Marek Lindner's email in the MAINTAINERS file
+=46rom: Antonio Quartulli <ordex@autistici.org>
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+With this change batman-adv is breaking compatibility with
+older versions and it is moving to compat-version 15.
+
+Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- MAINTAINERS | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/packet.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 43dfc82..7a86b44 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1652,9 +1652,9 @@ F:	drivers/video/backlight/
- F:	include/linux/backlight.h
- 
- BATMAN ADVANCED
--M:	Marek Lindner <lindner_marek@yahoo.de>
-+M:	Marek Lindner <mareklindner@neomailbox.ch>
- M:	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
--M:	Antonio Quartulli <ordex@autistici.org>
-+M:	Antonio Quartulli <antonio@meshcoding.com>
- L:	b.a.t.m.a.n@lists.open-mesh.org
- W:	http://www.open-mesh.org/
- S:	Maintained
--- 
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index a51ccfc..11a22c8 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -48,7 +48,7 @@ enum batadv_subtype {
+ };
+=20
+ /* this file is included by batctl which needs these defines */
+-#define BATADV_COMPAT_VERSION 14
++#define BATADV_COMPAT_VERSION 15
+=20
+ enum batadv_iv_flags {
+ 	BATADV_NOT_BEST_NEXT_HOP   =3D BIT(3),
+--=20
 1.8.3.2
