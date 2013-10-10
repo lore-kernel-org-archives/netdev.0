@@ -1,196 +1,93 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 2/3] bonding: use RCU protection for alb xmit
- path
-Date: Thu, 10 Oct 2013 19:51:01 +0800
-Message-ID: <525694A5.6000607@huawei.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v2] Stmmac: fix a bug when the clk_csr is euqal to 0x0
+Date: Thu, 10 Oct 2013 14:05:41 +0200
+Message-ID: <52569815.8020708@st.com>
+References: <CAKT61h8=HGL8TvX2LZamXntR4QhM_s8UVdHRhs--kVT2RQ-wDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Wan ZongShun <mcuos.com@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:28350 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754032Ab3JJL5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 07:57:53 -0400
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:56267 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752080Ab3JJMFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 08:05:52 -0400
+In-Reply-To: <CAKT61h8=HGL8TvX2LZamXntR4QhM_s8UVdHRhs--kVT2RQ-wDA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
-(bonding: initial RCU conversion) has convert the roundrobin,
-active-backup, broadcast and xor xmit path to rcu protection,
-the performance will be better for these mode, so this time,
-convert xmit path for alb mode.
+On 10/10/2013 6:40 AM, Wan ZongShun wrote:
+> Hi Giuseppe,
+>
+> According to your advice, I add this new field comments in stmmac.txt.
+> And I only make one patch for fix this issue and field comments.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c | 58 +++++++++++++++++++++++++++++++-----------
- drivers/net/bonding/bonding.h  | 14 ++++++++++
- 2 files changed, 57 insertions(+), 15 deletions(-)
+thanks Wan but pls re-send the patch where the comment only reports
+what the patch actually does and the fix you are providing.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 576ccea..0287240 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -230,7 +230,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
- 	max_gap = LLONG_MIN;
- 
- 	/* Find the slave with the largest gap */
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (SLAVE_IS_OK(slave)) {
- 			long long gap = compute_gap(slave);
- 
-@@ -412,6 +412,39 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
- 	return rx_slave;
- }
- 
-+/* Caller must hold rcu_read_lock() for read */
-+static struct slave *__rlb_next_rx_slave(struct bonding *bond)
-+{
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+	struct slave *before = NULL, *rx_slave = NULL, *slave;
-+	struct list_head *iter;
-+	bool found = false;
-+
-+	bond_for_each_slave_rcu(bond, slave, iter) {
-+		if (!SLAVE_IS_OK(slave))
-+			continue;
-+		if (!found) {
-+			if (!before || before->speed < slave->speed)
-+				before = slave;
-+		} else {
-+			if (!rx_slave || rx_slave->speed < slave->speed)
-+				rx_slave = slave;
-+		}
-+		if (slave == bond_info->rx_slave)
-+			found = true;
-+	}
-+	/* we didn't find anything after the current or we have something
-+	 * better before and up to the current slave
-+	 */
-+	if (!rx_slave || (before && rx_slave->speed < before->speed))
-+		rx_slave = before;
-+
-+	if (rx_slave)
-+		bond_info->rx_slave = rx_slave;
-+
-+	return rx_slave;
-+}
-+
- /* teach the switch the mac of a disabled slave
-  * on the primary for fault tolerance
-  *
-@@ -628,12 +661,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct arp_pkt *arp = arp_pkt(skb);
--	struct slave *assigned_slave;
-+	struct slave *assigned_slave, *curr_active_slave;
- 	struct rlb_client_info *client_info;
- 	u32 hash_index = 0;
- 
- 	_lock_rx_hashtbl(bond);
- 
-+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-+
- 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
- 	client_info = &(bond_info->rx_hashtbl[hash_index]);
- 
-@@ -658,14 +693,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- 			 * that the new client can be assigned to this entry.
- 			 */
- 			if (bond->curr_active_slave &&
--			    client_info->slave != bond->curr_active_slave) {
--				client_info->slave = bond->curr_active_slave;
-+			    client_info->slave != curr_active_slave) {
-+				client_info->slave = curr_active_slave;
- 				rlb_update_client(client_info);
- 			}
- 		}
- 	}
- 	/* assign a new slave */
--	assigned_slave = rlb_next_rx_slave(bond);
-+	assigned_slave = __rlb_next_rx_slave(bond);
- 
- 	if (assigned_slave) {
- 		if (!(client_info->assigned &&
-@@ -728,7 +763,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 	/* Don't modify or load balance ARPs that do not originate locally
- 	 * (e.g.,arrive via a bridge).
- 	 */
--	if (!bond_slave_has_mac(bond, arp->mac_src))
-+	if (!bond_slave_has_mac_rcu(bond, arp->mac_src))
- 		return NULL;
- 
- 	if (arp->op_code == htons(ARPOP_REPLY)) {
-@@ -1343,11 +1378,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 	skb_reset_mac_header(skb);
- 	eth_data = eth_hdr(skb);
- 
--	/* make sure that the curr_active_slave do not change during tx
--	 */
--	read_lock(&bond->lock);
--	read_lock(&bond->curr_slave_lock);
--
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP: {
- 		const struct iphdr *iph = ip_hdr(skb);
-@@ -1429,12 +1459,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 
- 	if (!tx_slave) {
- 		/* unbalanced or unassigned, send through primary */
--		tx_slave = bond->curr_active_slave;
-+		tx_slave = rcu_dereference(bond->curr_active_slave);
- 		bond_info->unbalanced_load += skb->len;
- 	}
- 
- 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
--		if (tx_slave != bond->curr_active_slave) {
-+		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
- 			memcpy(eth_data->h_source,
- 			       tx_slave->dev->dev_addr,
- 			       ETH_ALEN);
-@@ -1449,8 +1479,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		}
- 	}
- 
--	read_unlock(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	if (res) {
- 		/* no suitable interface, frame not sent */
- 		kfree_skb(skb);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 0bd04fb..3c3076e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -464,6 +464,20 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
- 	return NULL;
- }
- 
-+/* Caller must hold rcu_read_lock() for read */
-+static inline struct slave *bond_slave_has_mac_rcu(struct bonding *bond,
-+					       const u8 *mac)
-+{
-+	struct list_head *iter;
-+	struct slave *tmp;
-+
-+	bond_for_each_slave_rcu(bond, tmp, iter)
-+		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
-+			return tmp;
-+
-+	return NULL;
-+}
-+
- /* Check if the ip is present in arp ip list, or first free slot if ip == 0
-  * Returns -1 if not found, index if found
-  */
--- 
-1.8.2.1
+Put me on CC and remove "Hi Giuseppe"
+
+many thanks
+Peppe
+
+>
+> Signed-off-by: Wan Zongshun <mcuos.com@gmail.com>
+>
+> ---
+>   Documentation/networking/stmmac.txt               | 3 +++
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>   include/linux/stmmac.h                            | 1 +
+>   3 files changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/Documentation/networking/stmmac.txt
+> b/Documentation/networking/stmmac.txt
+> index 457b8bb..3ed0ea9 100644
+> --- a/Documentation/networking/stmmac.txt
+> +++ b/Documentation/networking/stmmac.txt
+> @@ -116,6 +116,7 @@ struct plat_stmmacenet_data {
+>       struct stmmac_mdio_bus_data *mdio_bus_data;
+>       struct stmmac_dma_cfg *dma_cfg;
+>       int clk_csr;
+> +    unsigned int dynamic_mdc_clk_en;
+>       int has_gmac;
+>       int enh_desc;
+>       int tx_coe;
+> @@ -148,6 +149,8 @@ Where:
+>          GMAC also enables the 4xPBL by default.
+>      o fixed_burst/mixed_burst/burst_len
+>    o clk_csr: fixed CSR Clock range selection.
+> + o dynamic_mdc_clk_en: If it is set to >=1 MDC clk will be selected
+> dynamically,
+> +               or else you must set a fixed CSR Clock range to clk_src.
+>    o has_gmac: uses the GMAC core.
+>    o enh_desc: if sets the MAC will use the enhanced descriptor structure.
+>    o tx_coe: core is able to perform the tx csum in HW.
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 8d4ccd3..93fc6bc 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2741,7 +2741,7 @@ struct stmmac_priv *stmmac_dvr_probe(struct
+> device *device,
+>        * set the MDC clock dynamically according to the csr actual
+>        * clock input.
+>        */
+> -    if (!priv->plat->clk_csr)
+> +    if (!!priv->plat->dynamic_mdc_clk_en)
+>           stmmac_clk_csr_set(priv);
+>       else
+>           priv->clk_csr = priv->plat->clk_csr;
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index bb5deb0..1b9f0b5 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -101,6 +101,7 @@ struct plat_stmmacenet_data {
+>       struct stmmac_mdio_bus_data *mdio_bus_data;
+>       struct stmmac_dma_cfg *dma_cfg;
+>       int clk_csr;
+> +    unsigned int dynamic_mdc_clk_en;
+>       int has_gmac;
+>       int enh_desc;
+>       int tx_coe;
+>
