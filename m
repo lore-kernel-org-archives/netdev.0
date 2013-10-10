@@ -1,46 +1,232 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] i40e: Bump version
-Date: Wed,  9 Oct 2013 23:41:11 -0700
-Message-ID: <1381387271-29605-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] i40e: Add support for 64 bit netstats
+Date: Wed,  9 Oct 2013 23:41:10 -0700
+Message-ID: <1381387271-29605-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:14054 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:17669 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754059Ab3JJGlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Oct 2013 02:41:25 -0400
+	id S1753273Ab3JJGlY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Oct 2013 02:41:24 -0400
 In-Reply-To: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Update the version number of the driver.
+This change brings support for 64 bit netstats to the driver. Previously
+the stats were 64 bit but highly racy due to the fact that 64 bit
+transactions are not atomic on 32 bit systems.  This change makes is so
+that the 64 bit byte and packet stats are reliable on all architectures.
 
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 27 +++++++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 78 ++++++++++++++++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  4 ++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |  1 +
+ 4 files changed, 95 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 50153ea..1b86138 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -579,6 +579,7 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
+ 	char *p;
+ 	int j;
+ 	struct rtnl_link_stats64 *net_stats = i40e_get_vsi_stats_struct(vsi);
++	unsigned int start;
+ 
+ 	i40e_update_stats(vsi);
+ 
+@@ -587,12 +588,30 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
+ 		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
+ 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
++	rcu_read_lock();
+ 	for (j = 0; j < vsi->num_queue_pairs; j++, i += 4) {
+-		data[i] = vsi->tx_rings[j]->stats.packets;
+-		data[i + 1] = vsi->tx_rings[j]->stats.bytes;
+-		data[i + 2] = vsi->rx_rings[j]->stats.packets;
+-		data[i + 3] = vsi->rx_rings[j]->stats.bytes;
++		struct i40e_ring *tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
++		struct i40e_ring *rx_ring;
++
++		if (!tx_ring)
++			continue;
++
++		/* process Tx ring statistics */
++		do {
++			start = u64_stats_fetch_begin_bh(&tx_ring->syncp);
++			data[i] = tx_ring->stats.packets;
++			data[i + 1] = tx_ring->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&tx_ring->syncp, start));
++
++		/* Rx ring is the 2nd half of the queue pair */
++		rx_ring = &tx_ring[1];
++		do {
++			start = u64_stats_fetch_begin_bh(&rx_ring->syncp);
++			data[i + 2] = rx_ring->stats.packets;
++			data[i + 3] = rx_ring->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&rx_ring->syncp, start));
+ 	}
++	rcu_read_unlock();
+ 	if (vsi == pf->vsi[pf->lan_vsi]) {
+ 		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
+ 			p = (char *)pf + i40e_gstrings_stats[j].stat_offset;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 24ee5d4..fbe7fe2 100644
+index 3cf23f5..24ee5d4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -36,7 +36,7 @@ static const char i40e_driver_string[] =
+@@ -347,14 +347,53 @@ struct rtnl_link_stats64 *i40e_get_vsi_stats_struct(struct i40e_vsi *vsi)
+  **/
+ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+ 					     struct net_device *netdev,
+-					     struct rtnl_link_stats64 *storage)
++					     struct rtnl_link_stats64 *stats)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
++	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
++	int i;
++
++	rcu_read_lock();
++	for (i = 0; i < vsi->num_queue_pairs; i++) {
++		struct i40e_ring *tx_ring, *rx_ring;
++		u64 bytes, packets;
++		unsigned int start;
++
++		tx_ring = ACCESS_ONCE(vsi->tx_rings[i]);
++		if (!tx_ring)
++			continue;
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 9
-+#define DRV_VERSION_BUILD 10
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+-	*storage = *i40e_get_vsi_stats_struct(vsi);
++		do {
++			start = u64_stats_fetch_begin_bh(&tx_ring->syncp);
++			packets = tx_ring->stats.packets;
++			bytes   = tx_ring->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&tx_ring->syncp, start));
++
++		stats->tx_packets += packets;
++		stats->tx_bytes   += bytes;
++		rx_ring = &tx_ring[1];
++
++		do {
++			start = u64_stats_fetch_begin_bh(&rx_ring->syncp);
++			packets = rx_ring->stats.packets;
++			bytes   = rx_ring->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&rx_ring->syncp, start));
+ 
+-	return storage;
++		stats->rx_packets += packets;
++		stats->rx_bytes   += bytes;
++	}
++	rcu_read_unlock();
++
++	/* following stats updated by ixgbe_watchdog_task() */
++	stats->multicast	= vsi_stats->multicast;
++	stats->tx_errors	= vsi_stats->tx_errors;
++	stats->tx_dropped	= vsi_stats->tx_dropped;
++	stats->rx_errors	= vsi_stats->rx_errors;
++	stats->rx_crc_errors	= vsi_stats->rx_crc_errors;
++	stats->rx_length_errors	= vsi_stats->rx_length_errors;
++
++	return stats;
+ }
+ 
+ /**
+@@ -708,21 +747,38 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	tx_restart = tx_busy = 0;
+ 	rx_page = 0;
+ 	rx_buf = 0;
++	rcu_read_lock();
+ 	for (q = 0; q < vsi->num_queue_pairs; q++) {
+ 		struct i40e_ring *p;
++		u64 bytes, packets;
++		unsigned int start;
+ 
+-		p = vsi->rx_rings[q];
+-		rx_b += p->stats.bytes;
+-		rx_p += p->stats.packets;
+-		rx_buf += p->rx_stats.alloc_rx_buff_failed;
+-		rx_page += p->rx_stats.alloc_rx_page_failed;
++		/* locate Tx ring */
++		p = ACCESS_ONCE(vsi->tx_rings[q]);
+ 
+-		p = vsi->tx_rings[q];
+-		tx_b += p->stats.bytes;
+-		tx_p += p->stats.packets;
++		do {
++			start = u64_stats_fetch_begin_bh(&p->syncp);
++			packets = p->stats.packets;
++			bytes = p->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&p->syncp, start));
++		tx_b += bytes;
++		tx_p += packets;
+ 		tx_restart += p->tx_stats.restart_queue;
+ 		tx_busy += p->tx_stats.tx_busy;
++
++		/* Rx queue is part of the same block as Tx queue */
++		p = &p[1];
++		do {
++			start = u64_stats_fetch_begin_bh(&p->syncp);
++			packets = p->stats.packets;
++			bytes = p->stats.bytes;
++		} while (u64_stats_fetch_retry_bh(&p->syncp, start));
++		rx_b += bytes;
++		rx_p += packets;
++		rx_buf += p->rx_stats.alloc_rx_buff_failed;
++		rx_page += p->rx_stats.alloc_rx_page_failed;
+ 	}
++	rcu_read_unlock();
+ 	vsi->tx_restart = tx_restart;
+ 	vsi->tx_busy = tx_busy;
+ 	vsi->rx_page_failed = rx_page;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 9eee551..dc89e72 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -411,8 +411,10 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 
+ 	i += tx_ring->count;
+ 	tx_ring->next_to_clean = i;
++	u64_stats_update_begin(&tx_ring->syncp);
+ 	tx_ring->stats.bytes += total_bytes;
+ 	tx_ring->stats.packets += total_packets;
++	u64_stats_update_end(&tx_ring->syncp);
+ 	tx_ring->q_vector->tx.total_bytes += total_bytes;
+ 	tx_ring->q_vector->tx.total_packets += total_packets;
+ 
+@@ -1075,8 +1077,10 @@ next_desc:
+ 	}
+ 
+ 	rx_ring->next_to_clean = i;
++	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
++	u64_stats_update_end(&rx_ring->syncp);
+ 	rx_ring->q_vector->rx.total_packets += total_rx_packets;
+ 	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 5db36c3..db55d99 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -218,6 +218,7 @@ struct i40e_ring {
+ 
+ 	/* stats structs */
+ 	struct i40e_queue_stats	stats;
++	struct u64_stats_sync syncp;
+ 	union {
+ 		struct i40e_tx_queue_stats tx_stats;
+ 		struct i40e_rx_queue_stats rx_stats;
 -- 
 1.8.3.1
