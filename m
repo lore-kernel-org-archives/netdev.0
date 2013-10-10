@@ -1,52 +1,48 @@
-From: Oussama Ghorbel <ou.ghorbel@gmail.com>
-Subject: [PATCH] ipv6: Initialize ip6_tnl.hlen in gre tunnel even if no route is found
-Date: Thu, 10 Oct 2013 18:50:27 +0100
-Message-ID: <1381427427-14880-1-git-send-email-ou.ghorbel@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Oussama Ghorbel <ou.ghorbel@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] carl9170: fix leaks at failure path in
+ carl9170_usb_probe()
+Date: Thu, 10 Oct 2013 13:59:52 -0400
+Message-ID: <20131010175952.GG2691@tuxdriver.com>
+References: <1380340311-4630-1-git-send-email-khoroshilov@ispras.ru>
+ <CAOMZO5DE0OdXhWNEr2HAswvgryBqP8VNk3+vanwsi38L6pL9OA@mail.gmail.com>
+ <52466624.4040106@ispras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Fabio Estevam <festevam@gmail.com>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	linux-wireless@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52466624.4040106@ispras.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ip6_tnl.hlen (gre and ipv6 headers length) is independent from the
-outgoing interface, so it would be better to initialize it even when no
-route is found, otherwise its value will be zero.
-While I'm not sure if this could happen in real life, but doing that
-will avoid to call the skb_push function with a zero in ip6gre_header
-function.
+On Sat, Sep 28, 2013 at 01:16:20AM -0400, Alexey Khoroshilov wrote:
+> On 28.09.2013 00:17, Fabio Estevam wrote:
+> >On Sat, Sep 28, 2013 at 12:51 AM, Alexey Khoroshilov
+> ><khoroshilov@ispras.ru> wrote:
+> >
+> >>-       return request_firmware_nowait(THIS_MODULE, 1, CARL9170FW_NAME,
+> >>+       err = request_firmware_nowait(THIS_MODULE, 1, CARL9170FW_NAME,
+> >>                 &ar->udev->dev, GFP_KERNEL, ar, carl9170_usb_firmware_step2);
+> >>+       if (err) {
+> >>+               usb_put_dev(udev);
+> >>+               usb_put_dev(udev);
+> >You are doing the same free twice.
+> Yes, because it was get twice.
+> >I guess you meant to also free: usb_put_dev(ar->udev)
+> udev and ar->udev are equal, so technically the patch is correct.
+> 
+> I agree that there is some inconsistency, but I would prefer to fix
+> it at usb_get_dev() side with a comment about reasons for the double
+> get.
 
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Oussama Ghorbel <ou.ghorbel@gmail.com>
----
- net/ipv6/ip6_gre.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+What is the reason for the double get?
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 90747f1..8e4d42e 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -978,6 +978,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
- 		if (t->parms.o_flags&GRE_SEQ)
- 			addend += 4;
- 	}
-+	t->hlen = addend;
- 
- 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
- 		int strict = (ipv6_addr_type(&p->raddr) &
-@@ -1004,8 +1005,6 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
- 		}
- 		ip6_rt_put(rt);
- 	}
--
--	t->hlen = addend;
- }
- 
- static int ip6gre_tnl_change(struct ip6_tnl *t,
 -- 
-1.7.9.5
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
