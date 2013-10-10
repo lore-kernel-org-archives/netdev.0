@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/13] i40e: Split bytes and packets from Rx/Tx stats
-Date: Wed,  9 Oct 2013 23:41:06 -0700
-Message-ID: <1381387271-29605-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] i40e: Do not directly increment Tx next_to_use
+Date: Wed,  9 Oct 2013 23:41:02 -0700
+Message-ID: <1381387271-29605-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -11,207 +11,134 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:14054 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753311Ab3JJGlW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Oct 2013 02:41:22 -0400
+	id S1753016Ab3JJGlT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Oct 2013 02:41:19 -0400
 In-Reply-To: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This makes it so that the Tx and Rx byte and packet counts are
-separated from the rest of the statistics.  This allows for better
-isolation of these stats when we move them into the 64 bit statistics.
+Avoid directly incrementing next_to_use for multiple reasons.  The main
+reason being that if we directly increment it then it can attain a state
+where it is equal to the ring count.  Technically this is a state it
+should not be able to reach but the way this is written it now can.
 
-Simplify things by re-ordering how the stats display in ethtool.
-Instead of displaying all of the Tx queues as a block, followed by all
-the Rx queues, the new order is Tx[0], Rx[0], Tx[1], Rx[1], ..., Tx[n],
-Rx[n].  This reduces the loops and cleans up the display for testing
-purposes since it is very easy to verify if flow director is doing the
-right thing as the Tx and Rx queue pair are shown in pairs.
+This patch pulls the value off into a register and then increments it
+and writes back either the value or 0 depending on if the value is equal
+to the ring count.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  8 ++++----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 +++++---------
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 12 ++++++++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 12 ++++++------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    |  8 +++++---
- 5 files changed, 28 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 46 ++++++++++++++++-------------
+ 1 file changed, 25 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 0b01c61..2b6655b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -512,8 +512,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 				 vsi->rx_rings[i].ring_active);
- 			dev_info(&pf->pdev->dev,
- 				 "    rx_rings[%i]: rx_stats: packets = %lld, bytes = %lld, non_eop_descs = %lld\n",
--				 i, vsi->rx_rings[i].rx_stats.packets,
--				 vsi->rx_rings[i].rx_stats.bytes,
-+				 i, vsi->rx_rings[i].stats.packets,
-+				 vsi->rx_rings[i].stats.bytes,
- 				 vsi->rx_rings[i].rx_stats.non_eop_descs);
- 			dev_info(&pf->pdev->dev,
- 				 "    rx_rings[%i]: rx_stats: alloc_rx_page_failed = %lld, alloc_rx_buff_failed = %lld\n",
-@@ -556,8 +556,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 				 vsi->tx_rings[i].ring_active);
- 			dev_info(&pf->pdev->dev,
- 				 "    tx_rings[%i]: tx_stats: packets = %lld, bytes = %lld, restart_queue = %lld\n",
--				 i, vsi->tx_rings[i].tx_stats.packets,
--				 vsi->tx_rings[i].tx_stats.bytes,
-+				 i, vsi->tx_rings[i].stats.packets,
-+				 vsi->tx_rings[i].stats.bytes,
- 				 vsi->tx_rings[i].tx_stats.restart_queue);
- 			dev_info(&pf->pdev->dev,
- 				 "    tx_rings[%i]: tx_stats: tx_busy = %lld, tx_done_old = %lld\n",
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9a76b8c..8754c6fa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -587,13 +587,11 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
--	for (j = 0; j < vsi->num_queue_pairs; j++) {
--		data[i++] = vsi->tx_rings[j].tx_stats.packets;
--		data[i++] = vsi->tx_rings[j].tx_stats.bytes;
--	}
--	for (j = 0; j < vsi->num_queue_pairs; j++) {
--		data[i++] = vsi->rx_rings[j].rx_stats.packets;
--		data[i++] = vsi->rx_rings[j].rx_stats.bytes;
-+	for (j = 0; j < vsi->num_queue_pairs; j++, i += 4) {
-+		data[i] = vsi->tx_rings[j].stats.packets;
-+		data[i + 1] = vsi->tx_rings[j].stats.bytes;
-+		data[i + 2] = vsi->rx_rings[j].stats.packets;
-+		data[i + 3] = vsi->rx_rings[j].stats.bytes;
- 	}
- 	if (vsi == pf->vsi[pf->lan_vsi]) {
- 		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
-@@ -641,8 +639,6 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_bytes", i);
- 			p += ETH_GSTRING_LEN;
--		}
--		for (i = 0; i < vsi->num_queue_pairs; i++) {
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 657babe..d1b5bae 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -376,8 +376,12 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
- 	memset(&vsi->eth_stats_offsets, 0, sizeof(vsi->eth_stats_offsets));
- 	if (vsi->rx_rings)
- 		for (i = 0; i < vsi->num_queue_pairs; i++) {
-+			memset(&vsi->rx_rings[i].stats, 0 ,
-+			       sizeof(vsi->rx_rings[i].stats));
- 			memset(&vsi->rx_rings[i].rx_stats, 0 ,
- 			       sizeof(vsi->rx_rings[i].rx_stats));
-+			memset(&vsi->tx_rings[i].stats, 0 ,
-+			       sizeof(vsi->tx_rings[i].stats));
- 			memset(&vsi->tx_rings[i].tx_stats, 0,
- 			       sizeof(vsi->tx_rings[i].tx_stats));
- 		}
-@@ -708,14 +712,14 @@ void i40e_update_stats(struct i40e_vsi *vsi)
- 		struct i40e_ring *p;
- 
- 		p = &vsi->rx_rings[q];
--		rx_b += p->rx_stats.bytes;
--		rx_p += p->rx_stats.packets;
-+		rx_b += p->stats.bytes;
-+		rx_p += p->stats.packets;
- 		rx_buf += p->rx_stats.alloc_rx_buff_failed;
- 		rx_page += p->rx_stats.alloc_rx_page_failed;
- 
- 		p = &vsi->tx_rings[q];
--		tx_b += p->tx_stats.bytes;
--		tx_p += p->tx_stats.packets;
-+		tx_b += p->stats.bytes;
-+		tx_p += p->stats.packets;
- 		tx_restart += p->tx_stats.restart_queue;
- 		tx_busy += p->tx_stats.tx_busy;
- 	}
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index ad2818f..3e73bc0 100644
+index 3bc3efa..e8db4dc 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -305,14 +305,14 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
- 	 * run the check_tx_hang logic with a transmit completion
- 	 * pending but without time to complete it yet.
- 	 */
--	if ((tx_ring->tx_stats.tx_done_old == tx_ring->tx_stats.packets) &&
-+	if ((tx_ring->tx_stats.tx_done_old == tx_ring->stats.packets) &&
- 	    tx_pending) {
- 		/* make sure it is true for two checks in a row */
- 		ret = test_and_set_bit(__I40E_HANG_CHECK_ARMED,
- 				       &tx_ring->state);
- 	} else {
- 		/* update completed stats and disarm the hang check */
--		tx_ring->tx_stats.tx_done_old = tx_ring->tx_stats.packets;
-+		tx_ring->tx_stats.tx_done_old = tx_ring->stats.packets;
- 		clear_bit(__I40E_HANG_CHECK_ARMED, &tx_ring->state);
- 	}
+@@ -73,11 +73,12 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
+ 		goto dma_fail;
  
-@@ -411,8 +411,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 
- 	i += tx_ring->count;
- 	tx_ring->next_to_clean = i;
--	tx_ring->tx_stats.bytes += total_bytes;
--	tx_ring->tx_stats.packets += total_packets;
-+	tx_ring->stats.bytes += total_bytes;
-+	tx_ring->stats.packets += total_packets;
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
- 
-@@ -1075,8 +1075,8 @@ next_desc:
- 	}
- 
- 	rx_ring->next_to_clean = i;
--	rx_ring->rx_stats.packets += total_rx_packets;
--	rx_ring->rx_stats.bytes += total_rx_bytes;
-+	rx_ring->stats.packets += total_rx_packets;
-+	rx_ring->stats.bytes += total_rx_bytes;
- 	rx_ring->q_vector->rx.total_packets += total_rx_packets;
- 	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index e514247..7f3f7e3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -126,17 +126,18 @@ struct i40e_rx_buffer {
- 	unsigned int page_offset;
- };
- 
--struct i40e_tx_queue_stats {
-+struct i40e_queue_stats {
- 	u64 packets;
- 	u64 bytes;
-+};
+ 	/* grab the next descriptor */
+-	fdir_desc = I40E_TX_FDIRDESC(tx_ring, tx_ring->next_to_use);
+-	tx_buf = &tx_ring->tx_bi[tx_ring->next_to_use];
+-	tx_ring->next_to_use++;
+-	if (tx_ring->next_to_use == tx_ring->count)
+-		tx_ring->next_to_use = 0;
++	i = tx_ring->next_to_use;
++	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
++	tx_buf = &tx_ring->tx_bi[i];
 +
-+struct i40e_tx_queue_stats {
- 	u64 restart_queue;
- 	u64 tx_busy;
- 	u64 tx_done_old;
- };
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
  
- struct i40e_rx_queue_stats {
--	u64 packets;
--	u64 bytes;
- 	u64 non_eop_descs;
- 	u64 alloc_rx_page_failed;
- 	u64 alloc_rx_buff_failed;
-@@ -215,6 +216,7 @@ struct i40e_ring {
- 	bool ring_active;		/* is ring online or not */
+ 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32((fdir_data->q_index
+ 					     << I40E_TXD_FLTR_QW0_QINDEX_SHIFT)
+@@ -134,11 +135,11 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
+ 	fdir_desc->fd_id = cpu_to_le32(fdir_data->fd_id);
  
- 	/* stats structs */
-+	struct i40e_queue_stats	stats;
- 	union {
- 		struct i40e_tx_queue_stats tx_stats;
- 		struct i40e_rx_queue_stats rx_stats;
+ 	/* Now program a dummy descriptor */
+-	tx_desc = I40E_TX_DESC(tx_ring, tx_ring->next_to_use);
+-	tx_buf = &tx_ring->tx_bi[tx_ring->next_to_use];
+-	tx_ring->next_to_use++;
+-	if (tx_ring->next_to_use == tx_ring->count)
+-		tx_ring->next_to_use = 0;
++	i = tx_ring->next_to_use;
++	tx_desc = I40E_TX_DESC(tx_ring, i);
++
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
+ 
+ 	tx_desc->buffer_addr = cpu_to_le64(dma);
+ 	td_cmd = I40E_TX_DESC_CMD_EOP |
+@@ -148,9 +149,6 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
+ 	tx_desc->cmd_type_offset_bsz =
+ 		build_ctob(td_cmd, 0, I40E_FDIR_MAX_RAW_PACKET_LOOKUP, 0);
+ 
+-	/* Mark the data descriptor to be watched */
+-	tx_buf->next_to_watch = tx_desc;
+-
+ 	/* Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.  (Only
+ 	 * applicable for weak-ordered memory model archs,
+@@ -158,6 +156,9 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
+ 	 */
+ 	wmb();
+ 
++	/* Mark the data descriptor to be watched */
++	tx_buf->next_to_watch = tx_desc;
++
+ 	writel(tx_ring->next_to_use, tx_ring->tail);
+ 	return 0;
+ 
+@@ -1143,6 +1144,7 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	struct tcphdr *th;
+ 	unsigned int hlen;
+ 	u32 flex_ptype, dtype_cmd;
++	u16 i;
+ 
+ 	/* make sure ATR is enabled */
+ 	if (!(pf->flags & I40E_FLAG_FDIR_ATR_ENABLED))
+@@ -1182,10 +1184,11 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	tx_ring->atr_count = 0;
+ 
+ 	/* grab the next descriptor */
+-	fdir_desc = I40E_TX_FDIRDESC(tx_ring, tx_ring->next_to_use);
+-	tx_ring->next_to_use++;
+-	if (tx_ring->next_to_use == tx_ring->count)
+-		tx_ring->next_to_use = 0;
++	i = tx_ring->next_to_use;
++	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
++
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
+ 
+ 	flex_ptype = (tx_ring->queue_index << I40E_TXD_FLTR_QW0_QINDEX_SHIFT) &
+ 		      I40E_TXD_FLTR_QW0_QINDEX_MASK;
+@@ -1481,15 +1484,16 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 			       const u32 cd_tunneling, const u32 cd_l2tag2)
+ {
+ 	struct i40e_tx_context_desc *context_desc;
++	int i = tx_ring->next_to_use;
+ 
+ 	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
+ 		return;
+ 
+ 	/* grab the next descriptor */
+-	context_desc = I40E_TX_CTXTDESC(tx_ring, tx_ring->next_to_use);
+-	tx_ring->next_to_use++;
+-	if (tx_ring->next_to_use == tx_ring->count)
+-		tx_ring->next_to_use = 0;
++	context_desc = I40E_TX_CTXTDESC(tx_ring, i);
++
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
+ 
+ 	/* cpu_to_le32 and assign to struct fields */
+ 	context_desc->tunneling_params = cpu_to_le32(cd_tunneling);
 -- 
 1.8.3.1
