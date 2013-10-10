@@ -1,90 +1,79 @@
-From: Wan ZongShun <mcuos.com@gmail.com>
-Subject: [PATCH v2] Stmmac: fix a bug when the clk_csr is euqal to 0x0
-Date: Thu, 10 Oct 2013 12:40:42 +0800
-Message-ID: <CAKT61h8=HGL8TvX2LZamXntR4QhM_s8UVdHRhs--kVT2RQ-wDA@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
+Date: Thu, 10 Oct 2013 14:29:33 +0900
+Message-ID: <20131010052933.GE16885@verge.net.au>
+References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
+ <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp>
+ <20131009042826.GB16885@verge.net.au>
+ <20131009052617.GC16885@verge.net.au>
+ <CAK9_=nCdBjCgkwX1QHjNvLdXZ+5jxPDV_+XHqhG8dAo1fK=tVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>,
-	Wan ZongShun <mcuos.com@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Nguyen Hong Ky <nh-ky@jinso.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:48256 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746Ab3JJElE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 00:41:04 -0400
-Received: by mail-pb0-f53.google.com with SMTP id up15so1955766pbc.26
-        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 21:41:03 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:57111 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026Ab3JJF3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 01:29:37 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK9_=nCdBjCgkwX1QHjNvLdXZ+5jxPDV_+XHqhG8dAo1fK=tVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Giuseppe,
+On Wed, Oct 09, 2013 at 02:38:17PM +0900, Nguyen Hong Ky wrote:
+> On Wed, Oct 9, 2013 at 2:26 PM, Simon Horman <horms@verge.net.au> wrote:
+> > On Wed, Oct 09, 2013 at 01:28:26PM +0900, Simon Horman wrote:
+> >> On Mon, Oct 07, 2013 at 03:29:25PM +0900, Nguyen Hong Ky wrote:
+> >> > This patch will fix RX packets errors when receiving big size
+> >> > of data by set bit RNC = 1.
+> >> >
+> >> > RNC - Receive Enable Control
+> >> >
+> >> > 0: Upon completion of reception of one frame, the E-DMAC writes
+> >> > the receive status to the descriptor and clears the RR bit in
+> >> > EDRRR to 0.
+> >> >
+> >> > 1: Upon completion of reception of one frame, the E-DMAC writes
+> >> > (writes back) the receive status to the descriptor. In addition,
+> >> > the E-DMAC reads the next descriptor and prepares for reception
+> >> > of the next frame.
+> >> >
+> >> > In addition, for get more stable when receiving packets, I set
+> >> > maximum size for the transmit/receive FIFO and inserts padding
+> >> > in receive data.
+> >> >
+> >> > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
+> >>
+> >> I realise that this patch has been applied but regardless
+> >> I would like to acknowledge that it resolve a problem that
+> >> I observed this afternoon.
+> >>
+> >> Without this patch I see the following on the console, many times:
+> >>
+> >> net eth0: Receive FIFO Overflow
+> >>
+> >> With this patch I do not see the warning message at all.
+> >
+> > Scratch that, I am still seeing the messages with this patch applied.
+> >
+> 
+> Would you please confirm that it was patched in below function:
+> 
+> static struct sh_eth_cpu_data r8a7740_data = {...}
 
-According to your advice, I add this new field comments in stmmac.txt.
-And I only make one patch for fix this issue and field comments.
+Thanks Ky-san.
 
-Signed-off-by: Wan Zongshun <mcuos.com@gmail.com>
+I am seeing the problem on next-next
+ba53742 ("tcp: use ACCESS_ONCE() in tcp_update_pacing_rate()")
+which includes this patch.
 
----
- Documentation/networking/stmmac.txt               | 3 +++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- include/linux/stmmac.h                            | 1 +
- 3 files changed, 5 insertions(+), 1 deletion(-)
+However, it seems that the patch was applied to
+sh7734_data instead of r8a7740_data.
 
-diff --git a/Documentation/networking/stmmac.txt
-b/Documentation/networking/stmmac.txt
-index 457b8bb..3ed0ea9 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -116,6 +116,7 @@ struct plat_stmmacenet_data {
-     struct stmmac_mdio_bus_data *mdio_bus_data;
-     struct stmmac_dma_cfg *dma_cfg;
-     int clk_csr;
-+    unsigned int dynamic_mdc_clk_en;
-     int has_gmac;
-     int enh_desc;
-     int tx_coe;
-@@ -148,6 +149,8 @@ Where:
-        GMAC also enables the 4xPBL by default.
-    o fixed_burst/mixed_burst/burst_len
-  o clk_csr: fixed CSR Clock range selection.
-+ o dynamic_mdc_clk_en: If it is set to >=1 MDC clk will be selected
-dynamically,
-+               or else you must set a fixed CSR Clock range to clk_src.
-  o has_gmac: uses the GMAC core.
-  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
-  o tx_coe: core is able to perform the tx csum in HW.
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 8d4ccd3..93fc6bc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2741,7 +2741,7 @@ struct stmmac_priv *stmmac_dvr_probe(struct
-device *device,
-      * set the MDC clock dynamically according to the csr actual
-      * clock input.
-      */
--    if (!priv->plat->clk_csr)
-+    if (!!priv->plat->dynamic_mdc_clk_en)
-         stmmac_clk_csr_set(priv);
-     else
-         priv->clk_csr = priv->plat->clk_csr;
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index bb5deb0..1b9f0b5 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -101,6 +101,7 @@ struct plat_stmmacenet_data {
-     struct stmmac_mdio_bus_data *mdio_bus_data;
-     struct stmmac_dma_cfg *dma_cfg;
-     int clk_csr;
-+    unsigned int dynamic_mdc_clk_en;
-     int has_gmac;
-     int enh_desc;
-     int tx_coe;
--- 
-1.8.1.2
+I moved the changes from sh7734_data to r8a7740_data
+and the FIFO Overflow messages seem to have disappeared.
 
-
--- 
-Wan ZongShun.
-www.mcuos.com
+I will post a patch to move things around accordingly.
