@@ -1,84 +1,43 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: RE: [PATCH net-next 01/10] qlcnic: Print informational messages
- only once during driver load.
-Date: Thu, 10 Oct 2013 12:41:37 +0000
-Message-ID: <290BEC245535C3449143D5D84900EEF78CDBD1AE@avmb3.qlogic.org>
-References: <cover.1380937706.git.himanshu.madhani@qlogic.com>
-	<5fea5316a6664e19c516bbd26428a5034657b130.1380937706.git.himanshu.madhani@qlogic.com>
- <20131004142938.4ab6c6aa@nehalam.linuxnetplumber.net>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
+Date: Thu, 10 Oct 2013 07:47:26 -0500
+Message-ID: <5256A1DE.8010709@ti.com>
+References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>	<CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>	<52519E7A.40804@ti.com>	<CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ@mail.gmail.com>	<525698CC.3060406@ti.com> <CACVXFVP-KgqcNTnk+JZsLc188pYk6iUXvW6=kPXNaurSuevGeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:52304 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751821Ab3JJMll convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Oct 2013 08:41:41 -0400
-In-Reply-To: <20131004142938.4ab6c6aa@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>, <mugunthanvnm@ti.com>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVP-KgqcNTnk+JZsLc188pYk6iUXvW6=kPXNaurSuevGeA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Saturday, October 05, 2013 3:00 AM
-> To: Himanshu Madhani
-> Cc: David Miller; netdev; Dept-NX Linux NIC Driver; Sucheta Chakraborty
-> Subject: Re: [PATCH net-next 01/10] qlcnic: Print informational
-> messages only once during driver load.
-> 
-> On Fri, 4 Oct 2013 14:30:48 -0400
-> Himanshu Madhani <himanshu.madhani@qlogic.com> wrote:
-> 
-> > From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> >
-> > Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> > Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> > ---
-> >  drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
-> >  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 12 -----------
-> >  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  | 25
-> ++++++++++++++++++----
-> >  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  1 +
-> >  4 files changed, 23 insertions(+), 16 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> > b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> > index 81bf836..a3c4379 100644
-> > --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> > +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> > @@ -1199,6 +1199,7 @@ struct qlcnic_npar_info {
-> >  	u8	promisc_mode;
-> >  	u8	offload_flags;
-> >  	u8      pci_func;
-> > +	u8      mac[ETH_ALEN];
-> >  };
-> >
-> 
-> >
-> 
-> There is a field in netdevice which should probably be used for this
-> perm_addr.
-> 
+On 10/10/2013 07:39 AM, Ming Lei wrote:
+> On Thu, Oct 10, 2013 at 8:08 PM, Dan Murphy <dmurphy@ti.com> wrote:
+>> You are correct I don't expect a match for PnP devices only devices that are hard wired.
+>>
+>> After thinking of it I should move the OF code below the EEPROM code as the EEPROM should take preference over the DT code.
+>>
+>> I will need to post V2 for that.
+> Your patch still doesn't deal with two smsc95xx devices built in
+> one board.
 
-This information is logged from the management function in Virtual NIC mode.
-Management function do not a have access to the netdev info structure of other functions.
-So we cannot make the changes as suggested.
+Is there a board that has 2 built in smsc devices?
 
-> And then this could be corrected:
-> 
-> static void qlcnic_dcb_get_perm_hw_addr(struct net_device *netdev, u8
-> *addr) {
-> 	memcpy(addr, netdev->dev_addr, netdev->addr_len); }
+This is all dependent on what the dev.id is of udev.
 
-Will incorporate this change in "dcb cleanup patch".
+>
+> The problem is a generic one, looks it is better to do it when OF supports
+> discoverable bus.
+>
+>
+> Thanks,
 
-Thanks,
-Sucheta.
+
+-- 
+------------------
+Dan Murphy
