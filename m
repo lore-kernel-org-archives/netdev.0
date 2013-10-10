@@ -1,53 +1,66 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: fix vport-netdev unregister
-Date: Wed, 9 Oct 2013 18:24:08 -0700
-Message-ID: <CAEP_g=8sNfsXTiJHcRoG1Nz9OpqjQEbffaKcytZv0oZc=ig-Aw@mail.gmail.com>
-References: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Thu, 10 Oct 2013 04:04:22 +0200
+Message-ID: <20131010020422.GB24368@order.stressinduktion.org>
+References: <1381354949.4971.20.camel@edumazet-glaptop.roam.corp.google.com> <20131009215747.GA5790@linux.vnet.ibm.com> <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com> <20131009223652.GC5790@linux.vnet.ibm.com> <1381359077.4971.37.camel@edumazet-glaptop.roam.corp.google.com> <20131009225617.GH11709@jtriplet-mobl1> <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com> <20131009234040.GB14055@jtriplet-mobl1> <1381363960.4971.55.camel@edumazet-glaptop.roam.corp.google.com> <20131010002833.GJ5790@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:44854 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751881Ab3JJBYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 21:24:31 -0400
-Received: by mail-la0-f47.google.com with SMTP id eo20so1423318lab.20
-        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 18:24:28 -0700 (PDT)
-In-Reply-To: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131010002833.GJ5790@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 8, 2013 at 8:07 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> The combination of two commits
->
-> commit 8e4e1713e4
-> ("openvswitch: Simplify datapath locking.")
->
-> and
->
-> commit 2537b4dd0a
-> ("openvswitch:: link upper device for port devices")
->
-> introduced a bug where upper_dev wasn't unlinked upon
-> netdev_unregister notification
->
-> The following steps:
->
->   modprobe openvswitch
->   ovs-dpctl add-dp test
->   ip tuntap add dev tap1 mode tap
->   ovs-dpctl add-if test tap1
->   ip tuntap del dev tap1 mode tap
->
-> are causing multiple warnings:
+On Wed, Oct 09, 2013 at 05:28:33PM -0700, Paul E. McKenney wrote:
+> On Wed, Oct 09, 2013 at 05:12:40PM -0700, Eric Dumazet wrote:
+> > On Wed, 2013-10-09 at 16:40 -0700, Josh Triplett wrote:
+> > 
+> > > that.  Constructs like list_del_rcu are much clearer, and not
+> > > open-coded.  Open-coding synchronization code is almost always a Bad
+> > > Idea.
+> > 
+> > OK, so you think there is synchronization code.
+> > 
+> > I will shut up then, no need to waste time.
+> 
+> As you said earlier, we should at least get rid of the memory barrier
+> as long as we are changing the code.
 
-[...]
+Interesting thread!
 
-Hmm, you are right. Pravin mentioned some concerns about layering with
-this patch so I believe he's trying to think of a way to minimize
-that.
+Sorry to chime in and asking a question:
+
+Why do we need an ACCESS_ONCE here if rcu_assign_pointer can do without one?
+In other words I wonder why rcu_assign_pointer is not a static inline function
+to use the sequence point in argument evaluation (if I remember correctly this
+also holds for inline functions) to not allow something like this:
+
+E.g. we want to publish which lock to take first to prevent an ABBA problem
+(extreme example):
+
+rcu_assign_pointer(lockptr, min(lptr1, lptr2));
+
+Couldn't a compiler spill the lockptr memory location as a temporary buffer
+if the compiler is under register pressure? (yes, this seems unlikely if we
+flushed out most registers to memory because of the barrier, but still... ;) )
+
+This seems to be also the case if we publish a multi-dereferencing pointers
+e.g. ptr->ptr->ptr.
+
+Thanks,
+
+  Hannes
