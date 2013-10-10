@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] veth: allow to setup multicast address for veth device
-Date: Thu, 10 Oct 2013 00:16:00 -0400 (EDT)
-Message-ID: <20131010.001600.2134679085429611353.davem@davemloft.net>
-References: <1380876744-606-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] fib_trie: only calc for the un-first node
+Date: Thu, 10 Oct 2013 00:17:22 -0400 (EDT)
+Message-ID: <20131010.001722.880038875298978753.davem@davemloft.net>
+References: <1381203411-12047-1-git-send-email-baker.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pablo@netfilter.org, edumazet@google.com,
-	kaber@trash.net, hannes@stressinduktion.org
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56134 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125Ab3JJEQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 00:16:02 -0400
-In-Reply-To: <1380876744-606-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: baker.kernel@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381203411-12047-1-git-send-email-baker.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Fri, 4 Oct 2013 16:52:24 +0800
+From: baker.kernel@gmail.com
+Date: Tue,  8 Oct 2013 11:36:51 +0800
 
-> We can only setup multicast address for network device when
-> net_device_ops->ndo_set_rx_mode is not null.
+> From: "baker.zhang" <baker.kernel@gmail.com>
 > 
-> Some configurations need to add multicast address for net
-> device, such as netfilter cluster match module.
+> This is a enhancement.
 > 
-> Add a fake ndo_set_rx_mode function to allow this operation.
+> for the first node in fib_trie, newpos is 0, bit is 1.
+> Only for the leaf or node with unmatched key need calc pos.
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Signed-off-by: baker.zhang <baker.kernel@gmail.com>
 
-Applied, thanks.
+The compiler is probably doing this transformation all by itself,
+but applied anyways, thanks.
