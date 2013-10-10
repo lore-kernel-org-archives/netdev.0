@@ -1,53 +1,64 @@
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH RFC 50/77] mlx5: Update MSI/MSI-X interrupts enablement
- code
-Date: Thu, 10 Oct 2013 18:29:45 +0300
-Message-ID: <20131010152945.GC7299@mtldesk30>
-References: <cover.1380703262.git.agordeev@redhat.com>
- <9650a7dfbcfd5f1da21f7b093665abf4b1041071.1380703263.git.agordeev@redhat.com>
- <20131003071433.GA7299@mtldesk30>
- <20131003194837.GA27636@dhcp-26-207.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: tcp_transmit_skb() optimizations
+Date: Thu, 10 Oct 2013 08:43:00 -0700
+Message-ID: <1381419780.4971.84.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-	Michael Ellerman <michael-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andy King <acking-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, Jon Mason <jon.mason-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Matt Porter <mporter-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iss_storagedev-VXdhtT5mjnY@public.gmane.org,
-	linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	"VMware, Inc." <pv-dr
-To: Alexander Gordeev <agordeev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131003194837.GA27636-hdGaXg0bp3uRXgp2RCiI5R/sF2h8X+2i0E9HWUfgJXw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, MF Nowlan <fitz@cs.yale.edu>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:60103 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755779Ab3JJPnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 11:43:03 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so2746573pbc.21
+        for <netdev@vger.kernel.org>; Thu, 10 Oct 2013 08:43:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 03, 2013 at 09:48:39PM +0200, Alexander Gordeev wrote:
-> 
-> pci_enable_msix() may fail, but it can not return a positive number.
->
+From: Eric Dumazet <edumazet@google.com>
 
-That is true according to the current logic but the comment on top of
-pci_enable_msix() still says:
-"A return of < 0 indicates a failure.  Or a return of > 0 indicates
-that driver request is exceeding the number of irqs or MSI-X vectors
-available"
+1) We need to take a timestamp only for skb that should be cloned.
 
-So you're counting on an implementation that may change in the future.
-I think leaving the code as it is now is safer.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Other skbs are not in write queue and no rtt estimation is done on them.
+
+2) the unlikely() hint is wrong for receivers (they send pure ACK)
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: MF Nowlan <fitz@cs.yale.edu>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_output.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index faec813..c40f608 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -850,15 +850,15 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
+ 
+-	/* If congestion control is doing timestamping, we must
+-	 * take such a timestamp before we potentially clone/copy.
+-	 */
+-	if (icsk->icsk_ca_ops->flags & TCP_CONG_RTT_STAMP)
+-		__net_timestamp(skb);
+-
+-	if (likely(clone_it)) {
++	if (clone_it) {
+ 		const struct sk_buff *fclone = skb + 1;
+ 
++		/* If congestion control is doing timestamping, we must
++		 * take such a timestamp before we potentially clone/copy.
++		 */
++		if (icsk->icsk_ca_ops->flags & TCP_CONG_RTT_STAMP)
++			__net_timestamp(skb);
++
+ 		if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
+ 			     fclone->fclone == SKB_FCLONE_CLONE))
+ 			NET_INC_STATS_BH(sock_net(sk),
