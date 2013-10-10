@@ -1,91 +1,34 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Thu, 10 Oct 2013 12:05:32 -0700
-Message-ID: <20131010190532.GQ5790@linux.vnet.ibm.com>
-References: <20131009215747.GA5790@linux.vnet.ibm.com>
- <1381356624.4971.26.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009223652.GC5790@linux.vnet.ibm.com>
- <1381359077.4971.37.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009225617.GH11709@jtriplet-mobl1>
- <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com>
- <20131009234040.GB14055@jtriplet-mobl1>
- <1381363960.4971.55.camel@edumazet-glaptop.roam.corp.google.com>
- <20131010002833.GJ5790@linux.vnet.ibm.com>
- <20131010020422.GB24368@order.stressinduktion.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 10 Oct 2013 15:30:40 -0400 (EDT)
+Message-ID: <20131010.153040.260194679714445308.davem@davemloft.net>
+References: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-kernel@vger.kernel.org, mingo@kernel.org,
-	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
-	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
-	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131010020422.GB24368@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39711 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755772Ab3JJTam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 15:30:42 -0400
+In-Reply-To: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 10, 2013 at 04:04:22AM +0200, Hannes Frederic Sowa wrote:
-> On Wed, Oct 09, 2013 at 05:28:33PM -0700, Paul E. McKenney wrote:
-> > On Wed, Oct 09, 2013 at 05:12:40PM -0700, Eric Dumazet wrote:
-> > > On Wed, 2013-10-09 at 16:40 -0700, Josh Triplett wrote:
-> > > 
-> > > > that.  Constructs like list_del_rcu are much clearer, and not
-> > > > open-coded.  Open-coding synchronization code is almost always a Bad
-> > > > Idea.
-> > > 
-> > > OK, so you think there is synchronization code.
-> > > 
-> > > I will shut up then, no need to waste time.
-> > 
-> > As you said earlier, we should at least get rid of the memory barrier
-> > as long as we are changing the code.
-> 
-> Interesting thread!
-> 
-> Sorry to chime in and asking a question:
-> 
-> Why do we need an ACCESS_ONCE here if rcu_assign_pointer can do without one?
-> In other words I wonder why rcu_assign_pointer is not a static inline function
-> to use the sequence point in argument evaluation (if I remember correctly this
-> also holds for inline functions) to not allow something like this:
-> 
-> E.g. we want to publish which lock to take first to prevent an ABBA problem
-> (extreme example):
-> 
-> rcu_assign_pointer(lockptr, min(lptr1, lptr2));
-> 
-> Couldn't a compiler spill the lockptr memory location as a temporary buffer
-> if the compiler is under register pressure? (yes, this seems unlikely if we
-> flushed out most registers to memory because of the barrier, but still... ;) )
-> 
-> This seems to be also the case if we publish a multi-dereferencing pointers
-> e.g. ptr->ptr->ptr.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  9 Oct 2013 23:40:58 -0700
 
-IIRC, sequence points only confine volatile accesses.  For non-volatile
-accesses, the so-called "as-if rule" allows compiler writers to do some
-surprisingly global reordering.
+> This series contains updates to i40e only.
+> 
+> Alex provides the majority of the patches against i40e, where he does
+> cleanup of the Tx and RX queues and to align the code with the known
+> good Tx/Rx queue code in the ixgbe driver.
+> 
+> Anjali provides an i40e patch to update link events to not print to
+> the log until the device is administratively up.
+> 
+> Catherine provides a patch to update the driver version.
 
-The reason that rcu_assign_pointer() isn't an inline function is because
-it needs to be type-generic, in other words, it needs to be OK to use
-it on any type of pointers as long as the C types of the two pointers
-match (the sparse types can vary a bit).
-
-One of the reasons for wanting a volatile cast in rcu_assign_pointer() is
-to prevent compiler mischief such as you described in your last two
-paragraphs.  That said, it would take a very brave compiler to pull
-a pointer-referenced memory location into a register and keep it there.
-Unfortunately, increasing compiler bravery seems to be a solid long-term
-trend.
-
-							Thanx, Paul
+Pulled, thanks a lot Jeff.
