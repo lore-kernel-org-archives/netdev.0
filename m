@@ -1,58 +1,121 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 0/2] xfrm: Remove ancient sleeping code
-Date: Thu, 10 Oct 2013 10:57:03 +0200
-Message-ID: <20131010085703.GR7660@secunet.com>
-References: <20131010063301.GO7660@secunet.com>
- <525650F6.305@windriver.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6
+ checksum offload from guest
+Date: Thu, 10 Oct 2013 09:37:09 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01313D7@AMSPEX01CL01.citrite.net>
+References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
+ <1381229896-18657-3-git-send-email-paul.durrant@citrix.com>
+ <20131008133045.GI28411@zion.uk.xensource.com>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD012F345@AMSPEX01CL01.citrite.net>
+ <20131008161925.GL28411@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:42243 "EHLO a.mx.secunet.com"
+Received: from smtp.citrix.com ([66.165.176.89]:57554 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751635Ab3JJI5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Oct 2013 04:57:06 -0400
-Content-Disposition: inline
-In-Reply-To: <525650F6.305@windriver.com>
+	id S1751598Ab3JJJhO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 05:37:14 -0400
+In-Reply-To: <20131008161925.GL28411@zion.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 10, 2013 at 03:02:14PM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B410=E6=9C=8810=E6=97=A5 14:33, Steffen Klassert wrote:
-> >Does anyone still rely on the ancient sleeping when the SA is in
-> >acquire state? It is disabled by default since more that five years,
-> >but can cause indefinite task hangs if enabled and the needed state
-> >does not get resolved.
->=20
-> I saw that "can_sleep" is set true in ip_route_connect which upper la=
-yer
-> protocol relies on it, which ensure not dropping *any* skb.
+> -----Original Message-----
+> From: Wei Liu [mailto:wei.liu2@citrix.com]
+> Sent: 08 October 2013 17:19
+> To: Paul Durrant
+> Cc: Wei Liu; xen-devel@lists.xen.org; netdev@vger.kernel.org; David Vrabel;
+> Ian Campbell
+> Subject: Re: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6
+> checksum offload from guest
+> 
+> On Tue, Oct 08, 2013 at 02:50:27PM +0100, Paul Durrant wrote:
+> [...]
+> > > > -#define PKT_PROT_LEN    (ETH_HLEN + \
+> > > > -			 VLAN_HLEN + \
+> > > > -			 sizeof(struct iphdr) + MAX_IPOPTLEN + \
+> > > > -			 sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE)
+> > > > +#define PKT_PROT_LEN 128
+> > > >
+> > >
+> > > Where does 128 come from?
+> > >
+> >
+> > It's just an arbitrary power of 2 that was chosen because it seems to
+> > cover most likely v6 headers and all v4 headers.
+> >
+> 
+> Hmm... How about using the value of MAX_TCP_HEADER? I guess that can
+> cover all V4 / V6 headers.
+> 
+> MAX_TCP_HEADER varies, depending on configuration. To make sure we can
+> accommodate all guests packet we might need to use its maximum value
+> which can be as big as 128 + 128 + 48.
+> 
 
-'Any' means one per task in this context. Also, we can't ensure that
-this packet reaches it's destination. So where is the difference
-between dropping the packet locally or on the network?
+Because we always double-copy (as the grant copy doesn't copy direct to the linear area) I was concerned about making the pullup too big. I'd rather optimize around a smaller header so how about we stick with 128 but if maybe_pull_tail() finds it needs to pullup then it just pulls up to MAX_TCP_HEADER, so we limit to pullups to maximum of 2?
 
-> And acquire timer will make sure the task will not hangs indefinitely=
-=2E
->=20
+> > > >  		if (recalculate_partial_csum) {
+> > > >  			struct tcphdr *tcph = tcp_hdr(skb);
+> > > > +
+> > > > +			header_size = skb->network_header +
+> > > > +				off +
+> > > > +				sizeof(struct tcphdr) +
+> > > > +				MAX_TCP_OPTION_SPACE;
+> > > > +			maybe_pull_tail(skb, header_size);
+> > > > +
+> > >
+> > > I presume this function is checksum_setup stripped down to handle IPv4
+> > > packet. What's the purpose of changing its behaviour? Why the pull_tail
+> > > here?
+> > >
+> >
+> > We have to make sure that the TCP header is in the linear area as we
+> > are about to write to the checksum field. In practice, the 128 byte
+> > pull should guarantee this but in case that is varied later I wanted
+> > to make sure things did not start to fail in an add way.
+> >
+> 
+> If you already set the pull size to maximum possible value then this
+> will not be necessary anymore, right?
+> 
+> > > > +	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len))
+> > > &&
+> > > > +	       !done) {
+> > > > +		/* We only access at most the first 2 bytes of any option
+> > > header
+> > > > +		 * to determine the next one.
+> > > > +		 */
+> > > > +		header_size = skb->network_header + off + 2;
+> > > > +		maybe_pull_tail(skb, header_size);
+> > > > +
+> > >
+> > > Will this cause performance problem? Is it possible that you pull too
+> > > many times?
+> > >
+> >
+> > I guess it means we may get two pulls for the TCP/UDP headers rather
+> > than one so could push the pulls into the individual cases if you
+> > think it will affect performance that badly.
+> 
+> Hmm... Not sure I get what you mean here. The main problem I'm seeing is
+> that maybe_pull_tail is called in every loop.
+> 
+> I would like to see as few pulls as possible because __pskb_pull_tail
+> can be expensive and only expected to use in "exceptional cases" (quoted
+> from the comment above that function).
+> 
+> Is it possible to pull TCP_MAX_HEADER bytes once to eliminate all other
+> pulls in checksum_setup{,_ipv4,_ipv6}?
+> 
 
-Did you try that? It makes sure that the task wakes up from time to tim=
-e,
-but it goes immediately back to sleep if the needed state is not resolv=
-ed.
-The only terminating contition is when the task gets a signal to exit.
+Note that the function is called *maybe*_pull_tail(). It only pulls if it needs to :-)
 
-> In xfrm policy queue, XFRM_MAX_QUEUE_LEN is 100, which means 101th sk=
-b
-> will be dropped, how about make it configurable?
-
-IMO we would have yet another useless knob then. Currently we send all
-packets by default to a blackhole as long as the state is not resolved
-and most people are fine with it. The queueing is mostly to speed up
-tcp handshakes, so 100 packets should be enough. If it really turnes
-out that we need more that 100 packets in some cases, we can add a
-sysctl then.
+  Paul
