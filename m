@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 1/3] bonding: use RCU protection for 3ad xmit
+Subject: [PATCH net-next v2 2/3] bonding: use RCU protection for alb xmit
  path
-Date: Thu, 10 Oct 2013 19:50:57 +0800
-Message-ID: <525694A1.3050108@huawei.com>
+Date: Thu, 10 Oct 2013 19:51:01 +0800
+Message-ID: <525694A5.6000607@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,10 +13,10 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:25620 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:28350 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753748Ab3JJLvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 07:51:25 -0400
+	with ESMTP id S1754032Ab3JJL5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 07:57:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,67 +24,173 @@ The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
 (bonding: initial RCU conversion) has convert the roundrobin,
 active-backup, broadcast and xor xmit path to rcu protection,
 the performance will be better for these mode, so this time,
-convert xmit path for 3ad mode.
+convert xmit path for alb mode.
 
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Cc: Nikolay Aleksandrov <nikolay@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_alb.c | 58 +++++++++++++++++++++++++++++++-----------
+ drivers/net/bonding/bonding.h  | 14 ++++++++++
+ 2 files changed, 57 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ea3e64e..187b1b7 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2344,7 +2344,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
- 	struct slave *slave;
- 	struct port *port;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 576ccea..0287240 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -230,7 +230,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	max_gap = LLONG_MIN;
  
+ 	/* Find the slave with the largest gap */
 -	bond_for_each_slave(bond, slave, iter) {
 +	bond_for_each_slave_rcu(bond, slave, iter) {
- 		port = &(SLAVE_AD_INFO(slave).port);
- 		if (port->aggregator && port->aggregator->is_active) {
- 			aggregator = port->aggregator;
-@@ -2369,9 +2369,9 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- {
- 	int ret;
+ 		if (SLAVE_IS_OK(slave)) {
+ 			long long gap = compute_gap(slave);
  
--	read_lock(&bond->lock);
-+	rcu_read_lock();
- 	ret = __bond_3ad_get_active_agg_info(bond, ad_info);
--	read_unlock(&bond->lock);
-+	rcu_read_unlock();
- 
- 	return ret;
+@@ -412,6 +412,39 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
+ 	return rx_slave;
  }
-@@ -2388,7 +2388,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 	int res = 1;
- 	int agg_id;
  
--	read_lock(&bond->lock);
- 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
- 		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
- 			 dev->name);
-@@ -2406,7 +2405,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
- 	first_ok_slave = NULL;
- 
--	bond_for_each_slave(bond, slave, iter) {
++/* Caller must hold rcu_read_lock() for read */
++static struct slave *__rlb_next_rx_slave(struct bonding *bond)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct slave *before = NULL, *rx_slave = NULL, *slave;
++	struct list_head *iter;
++	bool found = false;
++
 +	bond_for_each_slave_rcu(bond, slave, iter) {
- 		agg = SLAVE_AD_INFO(slave).port.aggregator;
- 		if (!agg || agg->aggregator_identifier != agg_id)
- 			continue;
-@@ -2436,7 +2435,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
++		if (!SLAVE_IS_OK(slave))
++			continue;
++		if (!found) {
++			if (!before || before->speed < slave->speed)
++				before = slave;
++		} else {
++			if (!rx_slave || rx_slave->speed < slave->speed)
++				rx_slave = slave;
++		}
++		if (slave == bond_info->rx_slave)
++			found = true;
++	}
++	/* we didn't find anything after the current or we have something
++	 * better before and up to the current slave
++	 */
++	if (!rx_slave || (before && rx_slave->speed < before->speed))
++		rx_slave = before;
++
++	if (rx_slave)
++		bond_info->rx_slave = rx_slave;
++
++	return rx_slave;
++}
++
+ /* teach the switch the mac of a disabled slave
+  * on the primary for fault tolerance
+  *
+@@ -628,12 +661,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct arp_pkt *arp = arp_pkt(skb);
+-	struct slave *assigned_slave;
++	struct slave *assigned_slave, *curr_active_slave;
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index = 0;
  
- out:
+ 	_lock_rx_hashtbl(bond);
+ 
++	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 
+@@ -658,14 +693,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			 * that the new client can be assigned to this entry.
+ 			 */
+ 			if (bond->curr_active_slave &&
+-			    client_info->slave != bond->curr_active_slave) {
+-				client_info->slave = bond->curr_active_slave;
++			    client_info->slave != curr_active_slave) {
++				client_info->slave = curr_active_slave;
+ 				rlb_update_client(client_info);
+ 			}
+ 		}
+ 	}
+ 	/* assign a new slave */
+-	assigned_slave = rlb_next_rx_slave(bond);
++	assigned_slave = __rlb_next_rx_slave(bond);
+ 
+ 	if (assigned_slave) {
+ 		if (!(client_info->assigned &&
+@@ -728,7 +763,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 	/* Don't modify or load balance ARPs that do not originate locally
+ 	 * (e.g.,arrive via a bridge).
+ 	 */
+-	if (!bond_slave_has_mac(bond, arp->mac_src))
++	if (!bond_slave_has_mac_rcu(bond, arp->mac_src))
+ 		return NULL;
+ 
+ 	if (arp->op_code == htons(ARPOP_REPLY)) {
+@@ -1343,11 +1378,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	skb_reset_mac_header(skb);
+ 	eth_data = eth_hdr(skb);
+ 
+-	/* make sure that the curr_active_slave do not change during tx
+-	 */
+-	read_lock(&bond->lock);
+-	read_lock(&bond->curr_slave_lock);
+-
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP: {
+ 		const struct iphdr *iph = ip_hdr(skb);
+@@ -1429,12 +1459,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 
+ 	if (!tx_slave) {
+ 		/* unbalanced or unassigned, send through primary */
+-		tx_slave = bond->curr_active_slave;
++		tx_slave = rcu_dereference(bond->curr_active_slave);
+ 		bond_info->unbalanced_load += skb->len;
+ 	}
+ 
+ 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+-		if (tx_slave != bond->curr_active_slave) {
++		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+ 			memcpy(eth_data->h_source,
+ 			       tx_slave->dev->dev_addr,
+ 			       ETH_ALEN);
+@@ -1449,8 +1479,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		}
+ 	}
+ 
+-	read_unlock(&bond->curr_slave_lock);
 -	read_unlock(&bond->lock);
  	if (res) {
  		/* no suitable interface, frame not sent */
  		kfree_skb(skb);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 0bd04fb..3c3076e 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -464,6 +464,20 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
+ 	return NULL;
+ }
+ 
++/* Caller must hold rcu_read_lock() for read */
++static inline struct slave *bond_slave_has_mac_rcu(struct bonding *bond,
++					       const u8 *mac)
++{
++	struct list_head *iter;
++	struct slave *tmp;
++
++	bond_for_each_slave_rcu(bond, tmp, iter)
++		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
++			return tmp;
++
++	return NULL;
++}
++
+ /* Check if the ip is present in arp ip list, or first free slot if ip == 0
+  * Returns -1 if not found, index if found
+  */
 -- 
 1.8.2.1
