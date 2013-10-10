@@ -1,112 +1,222 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2 5/5] xen-netback: enable IPv6
- TCP GSO to the guest
-Date: Thu, 10 Oct 2013 10:19:32 +0800
-Message-ID: <52560EB4.3090702@oracle.com>
-References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com> <1381229896-18657-6-git-send-email-paul.durrant@citrix.com> <5254DE88.90808@oracle.com> <9AAE0902D5BC7E449B7C8E4E778ABCD012FE96@AMSPEX01CL01.citrite.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: fix vport-netdev unregister
+Date: Wed, 9 Oct 2013 20:02:33 -0700
+Message-ID: <CALnjE+p3MC7D9oYZ4VhH=fdOWSYcV6h9twnaZBocYnRdAEcpBg@mail.gmail.com>
+References: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Jiri Pirko <jiri@resnulli.us>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46095 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318Ab3JJCTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Oct 2013 22:19:51 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD012FE96@AMSPEX01CL01.citrite.net>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:36376 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752590Ab3JJDCg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Oct 2013 23:02:36 -0400
+Received: by mail-qc0-f172.google.com with SMTP id k18so1276813qcv.31
+        for <netdev@vger.kernel.org>; Wed, 09 Oct 2013 20:02:35 -0700 (PDT)
+In-Reply-To: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2013-10-9 18:26, Paul Durrant wrote:
->> -----Original Message-----
->> From: annie li [mailto:annie.li@oracle.com]
->> Sent: 09 October 2013 05:42
->> To: Paul Durrant
->> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
->> Ian Campbell
->> Subject: Re: [Xen-devel] [PATCH net-next v2 5/5] xen-netback: enable IPv6
->> TCP GSO to the guest
->>
->>
->> On 2013-10-8 18:58, Paul Durrant wrote:
->>> This patch adds code to handle SKB_GSO_TCPV6 skbs and construct
->> appropriate
->>> extra or prefix segments to pass the large packet to the frontend. New
->>> xenstore flags, feature-gso-tcpv6 and feature-gso-tcpv6-prefix, are
->> sampled
->>> to determine if the frontend is capable of handling such packets.
->>>
->>> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
->>> Cc: Wei Liu <wei.liu2@citrix.com>
->>> Cc: David Vrabel <david.vrabel@citrix.com>
->>> Cc: Ian Campbell <ian.campbell@citrix.com>
->>> ---
->>>    drivers/net/xen-netback/common.h    |    6 +++--
->>>    drivers/net/xen-netback/interface.c |    8 ++++--
->>>    drivers/net/xen-netback/netback.c   |   47
->> +++++++++++++++++++++++++++--------
->>>    drivers/net/xen-netback/xenbus.c    |   29 +++++++++++++++++++--
->>>    4 files changed, 74 insertions(+), 16 deletions(-)
->>>
->>> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-
->> netback/common.h
->>> index b4a9a3c..720b1ca 100644
->>> --- a/drivers/net/xen-netback/common.h
->>> +++ b/drivers/net/xen-netback/common.h
->>> @@ -87,6 +87,7 @@ struct pending_tx_info {
->>>    struct xenvif_rx_meta {
->>>    	int id;
->>>    	int size;
->>> +	int gso_type;
->>>    	int gso_size;
->>>    };
->>>
->>> @@ -150,9 +151,10 @@ struct xenvif {
->>>    	u8               fe_dev_addr[6];
->>>
->>>    	/* Frontend feature information. */
->>> +	int gso_mask;
->>> +	int gso_prefix_mask;
->> I assume it is a flag instead of mask here, right? If it is mask, then 1
->> means disabling the gso.
-> I don't understand what you're saying here. I'm just swapping from bit flags to a couple of masks. Masks without either of the requisite bits for v4 or v6 gso mean it is disabled.
-
-It is just about semantics,  my understanding is masks WITH bits for v4 
-or v6 means disabling.
-
+On Tue, Oct 8, 2013 at 8:07 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> The combination of two commits
 >
->>> +
->>>    	u8 can_sg:1;
->>> -	u8 gso:1;
->>> -	u8 gso_prefix:1;
->>>    	u8 ip_csum:1;
->>>    	u8 ipv6_csum:1;
->>>
->>> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
->> netback/interface.c
->>> index cb0d8ea..3d11387 100644
->>> --- a/drivers/net/xen-netback/interface.c
->>> +++ b/drivers/net/xen-netback/interface.c
->>> @@ -214,8 +214,12 @@ static netdev_features_t
->> xenvif_fix_features(struct net_device *dev,
->>>    	if (!vif->can_sg)
->>>    		features &= ~NETIF_F_SG;
->>> -	if (!vif->gso && !vif->gso_prefix)
->>> +	if (~(vif->gso_mask | vif->gso_prefix_mask) &
->>> +	    (1 << XEN_NETIF_GSO_TYPE_TCPV4))
->> Is it better to use XEN_NETIF_GSO_TYPE_TCPV4 directly and setting
->> gso_mask(gso_prefix_mask) with "|= XEN_NETIF_GSO_TYPE_TCPV4" or "|=
->> XEN_NETIF_GSO_TYPE_TCPV6" instead of "1 <<"?
->>
-> I thought about it but decided it was best to leave XEN_NETIF_GSO_TYPE_xxx as a list of types rather than bits in a mask as there's no intrinsic reason why you'd ever want to OR them together (unlike the tx or rx flags). That fact I use them as bit shifts in netback is purely for convenience of coding - I guess I could define macros to make it a little tidier though.
+> commit 8e4e1713e4
+> ("openvswitch: Simplify datapath locking.")
+>
+> and
+>
+> commit 2537b4dd0a
+> ("openvswitch:: link upper device for port devices")
+>
+> introduced a bug where upper_dev wasn't unlinked upon
+> netdev_unregister notification
+>
+> The following steps:
+>
+>   modprobe openvswitch
+>   ovs-dpctl add-dp test
+>   ip tuntap add dev tap1 mode tap
+>   ovs-dpctl add-if test tap1
+>   ip tuntap del dev tap1 mode tap
+>
+> are causing multiple warnings:
+>
+> [   62.747557] gre: GRE over IPv4 demultiplexor driver
+> [   62.749579] openvswitch: Open vSwitch switching datapath
+> [   62.755087] device test entered promiscuous mode
+> [   62.765911] device tap1 entered promiscuous mode
+> [   62.766033] IPv6: ADDRCONF(NETDEV_UP): tap1: link is not ready
+> [   62.769017] ------------[ cut here ]------------
+> [   62.769022] WARNING: CPU: 1 PID: 3267 at net/core/dev.c:5501 rollback_registered_many+0x20f/0x240()
+> [   62.769023] Modules linked in: openvswitch gre vxlan ip_tunnel libcrc32c ip6table_filter ip6_tables ebtable_nat ebtables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xt_CHECKSUM iptable_mangle ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables bridge stp llc vhost_net macvtap macvlan vhost kvm_intel kvm dm_crypt iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi hid_generic mxm_wmi eeepc_wmi asus_wmi sparse_keymap dm_multipath psmouse serio_raw usbhid hid parport_pc ppdev firewire_ohci lpc_ich firewire_core e1000e crc_itu_t binfmt_misc igb dca ptp pps_core mac_hid wmi lp parport i2o_config i2o_block video
+> [   62.769051] CPU: 1 PID: 3267 Comm: ip Not tainted 3.12.0-rc3+ #60
+> [   62.769052] Hardware name: System manufacturer System Product Name/P8Z77 WS, BIOS 3007 07/26/2012
+> [   62.769053]  0000000000000009 ffff8807f25cbd28 ffffffff8175e575 0000000000000006
+> [   62.769055]  0000000000000000 ffff8807f25cbd68 ffffffff8105314c ffff8807f25cbd58
+> [   62.769057]  ffff8807f2634000 ffff8807f25cbdc8 ffff8807f25cbd88 ffff8807f25cbdc8
+> [   62.769059] Call Trace:
+> [   62.769062]  [<ffffffff8175e575>] dump_stack+0x55/0x76
+> [   62.769065]  [<ffffffff8105314c>] warn_slowpath_common+0x8c/0xc0
+> [   62.769067]  [<ffffffff8105319a>] warn_slowpath_null+0x1a/0x20
+> [   62.769069]  [<ffffffff8162a04f>] rollback_registered_many+0x20f/0x240
+> [   62.769071]  [<ffffffff8162a101>] rollback_registered+0x31/0x40
+> [   62.769073]  [<ffffffff8162a488>] unregister_netdevice_queue+0x58/0x90
+> [   62.769075]  [<ffffffff8154f900>] __tun_detach+0x140/0x340
+> [   62.769077]  [<ffffffff8154fb36>] tun_chr_close+0x36/0x60
+> [   62.769080]  [<ffffffff811bddaf>] __fput+0xff/0x260
+> [   62.769082]  [<ffffffff811bdf5e>] ____fput+0xe/0x10
+> [   62.769084]  [<ffffffff8107b515>] task_work_run+0xb5/0xe0
+> [   62.769087]  [<ffffffff810029b9>] do_notify_resume+0x59/0x80
+> [   62.769089]  [<ffffffff813a41fe>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+> [   62.769091]  [<ffffffff81770f5a>] int_signal+0x12/0x17
+> [   62.769093] ---[ end trace 838756c62e156ffb ]---
+> [   62.769481] ------------[ cut here ]------------
+> [   62.769485] WARNING: CPU: 1 PID: 92 at fs/sysfs/inode.c:325 sysfs_hash_and_remove+0xa9/0xb0()
+> [   62.769486] sysfs: can not remove 'master', no directory
+> [   62.769486] Modules linked in: openvswitch gre vxlan ip_tunnel libcrc32c ip6table_filter ip6_tables ebtable_nat ebtables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xt_CHECKSUM iptable_mangle ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables bridge stp llc vhost_net macvtap macvlan vhost kvm_intel kvm dm_crypt iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi hid_generic mxm_wmi eeepc_wmi asus_wmi sparse_keymap dm_multipath psmouse serio_raw usbhid hid parport_pc ppdev firewire_ohci lpc_ich firewire_core e1000e crc_itu_t binfmt_misc igb dca ptp pps_core mac_hid wmi lp parport i2o_config i2o_block video
+> [   62.769514] CPU: 1 PID: 92 Comm: kworker/1:2 Tainted: G        W    3.12.0-rc3+ #60
+> [   62.769515] Hardware name: System manufacturer System Product Name/P8Z77 WS, BIOS 3007 07/26/2012
+> [   62.769518] Workqueue: events ovs_dp_notify_wq [openvswitch]
+> [   62.769519]  0000000000000009 ffff880807ad3ac8 ffffffff8175e575 0000000000000006
+> [   62.769521]  ffff880807ad3b18 ffff880807ad3b08 ffffffff8105314c ffff880807ad3b28
+> [   62.769523]  0000000000000000 ffffffff81a87a1f ffff8807f2634000 ffff880037038500
+> [   62.769525] Call Trace:
+> [   62.769528]  [<ffffffff8175e575>] dump_stack+0x55/0x76
+> [   62.769529]  [<ffffffff8105314c>] warn_slowpath_common+0x8c/0xc0
+> [   62.769531]  [<ffffffff81053236>] warn_slowpath_fmt+0x46/0x50
+> [   62.769533]  [<ffffffff8123e7e9>] sysfs_hash_and_remove+0xa9/0xb0
+> [   62.769535]  [<ffffffff81240e96>] sysfs_remove_link+0x26/0x30
+> [   62.769538]  [<ffffffff81631ef7>] __netdev_adjacent_dev_remove+0xf7/0x150
+> [   62.769540]  [<ffffffff81632037>] __netdev_adjacent_dev_unlink_lists+0x27/0x50
+> [   62.769542]  [<ffffffff8163213a>] __netdev_adjacent_dev_unlink_neighbour+0x3a/0x50
+> [   62.769544]  [<ffffffff8163218d>] netdev_upper_dev_unlink+0x3d/0x140
+> [   62.769548]  [<ffffffffa033c2db>] netdev_destroy+0x4b/0x80 [openvswitch]
+> [   62.769550]  [<ffffffffa033b696>] ovs_vport_del+0x46/0x60 [openvswitch]
+> [   62.769552]  [<ffffffffa0335314>] ovs_dp_detach_port+0x44/0x60 [openvswitch]
+> [   62.769555]  [<ffffffffa0336574>] ovs_dp_notify_wq+0xb4/0x150 [openvswitch]
+> [   62.769557]  [<ffffffff81075c28>] process_one_work+0x1d8/0x6a0
+> [   62.769559]  [<ffffffff81075bc8>] ? process_one_work+0x178/0x6a0
+> [   62.769562]  [<ffffffff8107659b>] worker_thread+0x11b/0x370
+> [   62.769564]  [<ffffffff81076480>] ? rescuer_thread+0x350/0x350
+> [   62.769566]  [<ffffffff8107f44a>] kthread+0xea/0xf0
+> [   62.769568]  [<ffffffff8107f360>] ? flush_kthread_worker+0x150/0x150
+> [   62.769570]  [<ffffffff81770bac>] ret_from_fork+0x7c/0xb0
+> [   62.769572]  [<ffffffff8107f360>] ? flush_kthread_worker+0x150/0x150
+> [   62.769573] ---[ end trace 838756c62e156ffc ]---
+> [   62.769574] ------------[ cut here ]------------
+> [   62.769576] WARNING: CPU: 1 PID: 92 at fs/sysfs/inode.c:325 sysfs_hash_and_remove+0xa9/0xb0()
+> [   62.769577] sysfs: can not remove 'upper_test', no directory
+> [   62.769577] Modules linked in: openvswitch gre vxlan ip_tunnel libcrc32c ip6table_filter ip6_tables ebtable_nat ebtables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xt_CHECKSUM iptable_mangle ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables bridge stp llc vhost_net macvtap macvlan vhost kvm_intel kvm dm_crypt iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi hid_generic mxm_wmi eeepc_wmi asus_wmi sparse_keymap dm_multipath psmouse serio_raw usbhid hid parport_pc ppdev firewire_ohci lpc_ich firewire_core e1000e crc_itu_t binfmt_misc igb dca ptp pps_core mac_hid wmi lp parport i2o_config i2o_block video
+> [   62.769603] CPU: 1 PID: 92 Comm: kworker/1:2 Tainted: G        W    3.12.0-rc3+ #60
+> [   62.769604] Hardware name: System manufacturer System Product Name/P8Z77 WS, BIOS 3007 07/26/2012
+> [   62.769606] Workqueue: events ovs_dp_notify_wq [openvswitch]
+> [   62.769607]  0000000000000009 ffff880807ad3ac8 ffffffff8175e575 0000000000000006
+> [   62.769609]  ffff880807ad3b18 ffff880807ad3b08 ffffffff8105314c ffff880807ad3b58
+> [   62.769611]  0000000000000000 ffff880807ad3bd9 ffff8807f2634000 ffff880037038500
+> [   62.769613] Call Trace:
+> [   62.769615]  [<ffffffff8175e575>] dump_stack+0x55/0x76
+> [   62.769617]  [<ffffffff8105314c>] warn_slowpath_common+0x8c/0xc0
+> [   62.769619]  [<ffffffff81053236>] warn_slowpath_fmt+0x46/0x50
+> [   62.769621]  [<ffffffff8123e7e9>] sysfs_hash_and_remove+0xa9/0xb0
+> [   62.769622]  [<ffffffff81240e96>] sysfs_remove_link+0x26/0x30
+> [   62.769624]  [<ffffffff81631f22>] __netdev_adjacent_dev_remove+0x122/0x150
+> [   62.769627]  [<ffffffff81632037>] __netdev_adjacent_dev_unlink_lists+0x27/0x50
+> [   62.769629]  [<ffffffff8163213a>] __netdev_adjacent_dev_unlink_neighbour+0x3a/0x50
+> [   62.769631]  [<ffffffff8163218d>] netdev_upper_dev_unlink+0x3d/0x140
+> [   62.769633]  [<ffffffffa033c2db>] netdev_destroy+0x4b/0x80 [openvswitch]
+> [   62.769636]  [<ffffffffa033b696>] ovs_vport_del+0x46/0x60 [openvswitch]
+> [   62.769638]  [<ffffffffa0335314>] ovs_dp_detach_port+0x44/0x60 [openvswitch]
+> [   62.769640]  [<ffffffffa0336574>] ovs_dp_notify_wq+0xb4/0x150 [openvswitch]
+> [   62.769642]  [<ffffffff81075c28>] process_one_work+0x1d8/0x6a0
+> [   62.769644]  [<ffffffff81075bc8>] ? process_one_work+0x178/0x6a0
+> [   62.769646]  [<ffffffff8107659b>] worker_thread+0x11b/0x370
+> [   62.769648]  [<ffffffff81076480>] ? rescuer_thread+0x350/0x350
+> [   62.769650]  [<ffffffff8107f44a>] kthread+0xea/0xf0
+> [   62.769652]  [<ffffffff8107f360>] ? flush_kthread_worker+0x150/0x150
+> [   62.769654]  [<ffffffff81770bac>] ret_from_fork+0x7c/0xb0
+> [   62.769656]  [<ffffffff8107f360>] ? flush_kthread_worker+0x150/0x150
+> [   62.769657] ---[ end trace 838756c62e156ffd ]---
+> [   62.769724] device tap1 left promiscuous mode
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>  net/openvswitch/dp_notify.c    |    5 +++++
+>  net/openvswitch/vport-netdev.c |   16 +++++++++++++---
+>  net/openvswitch/vport-netdev.h |    1 +
+>  3 files changed, 19 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
+> index c323567..e9380bd 100644
+> --- a/net/openvswitch/dp_notify.c
+> +++ b/net/openvswitch/dp_notify.c
+> @@ -88,6 +88,11 @@ static int dp_device_event(struct notifier_block *unused, unsigned long event,
+>                 return NOTIFY_DONE;
+>
+>         if (event == NETDEV_UNREGISTER) {
+> +               /* rx_handler_unregister and upper_dev_unlink immediately */
+> +               if (dev->reg_state == NETREG_UNREGISTERING)
+> +                       ovs_netdev_unlink_dev(vport);
+> +
 
-Macros would be fine.
+Rather than doing vport destroy here, we can just unlink upper device
+and let workq do rest of work.
 
-Thanks
-Annie
+Thanks.
+
+> +               /* schedule vport destroy, dev_put and genl notification */
+>                 ovs_net = net_generic(dev_net(dev), ovs_net_id);
+>                 queue_work(system_wq, &ovs_net->dp_notify_work);
+>         }
+> diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+> index 09d93c1..cce933a 100644
+> --- a/net/openvswitch/vport-netdev.c
+> +++ b/net/openvswitch/vport-netdev.c
+> @@ -150,15 +150,25 @@ static void free_port_rcu(struct rcu_head *rcu)
+>         ovs_vport_free(vport_from_priv(netdev_vport));
+>  }
+>
+> -static void netdev_destroy(struct vport *vport)
+> +void ovs_netdev_unlink_dev(struct vport *vport)
+>  {
+>         struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
+>
+> -       rtnl_lock();
+> +       ASSERT_RTNL();
+>         netdev_vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
+>         netdev_rx_handler_unregister(netdev_vport->dev);
+> -       netdev_upper_dev_unlink(netdev_vport->dev, get_dpdev(vport->dp));
+> +       netdev_upper_dev_unlink(netdev_vport->dev,
+> +                               netdev_master_upper_dev_get(netdev_vport->dev));
+>         dev_set_promiscuity(netdev_vport->dev, -1);
+> +}
+> +
+> +static void netdev_destroy(struct vport *vport)
+> +{
+> +       struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
+> +
+> +       rtnl_lock();
+> +       if (netdev_vport->dev->reg_state != NETREG_UNREGISTERING)
+> +               ovs_netdev_unlink_dev(vport);
+>         rtnl_unlock();
+>
+>         call_rcu(&netdev_vport->rcu, free_port_rcu);
+> diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+> index dd298b5..21e3770 100644
+> --- a/net/openvswitch/vport-netdev.h
+> +++ b/net/openvswitch/vport-netdev.h
+> @@ -39,5 +39,6 @@ netdev_vport_priv(const struct vport *vport)
+>  }
+>
+>  const char *ovs_netdev_get_name(const struct vport *);
+> +void ovs_netdev_unlink_dev(struct vport *);
+>
+>  #endif /* vport_netdev.h */
+> --
+> 1.7.9.5
+>
