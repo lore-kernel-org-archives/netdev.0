@@ -1,121 +1,44 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6
- checksum offload from guest
-Date: Thu, 10 Oct 2013 09:37:09 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01313D7@AMSPEX01CL01.citrite.net>
-References: <1381229896-18657-1-git-send-email-paul.durrant@citrix.com>
- <1381229896-18657-3-git-send-email-paul.durrant@citrix.com>
- <20131008133045.GI28411@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD012F345@AMSPEX01CL01.citrite.net>
- <20131008161925.GL28411@zion.uk.xensource.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net-next v4 RFC] ixgbe: Get and display the notifications from
+ changes of the Rx vxlan UDP port
+Date: Thu, 10 Oct 2013 13:07:58 +0300
+Message-ID: <CAJZOPZJbfUjEbz_a+27tP8EieVJ+006VbVApQ+HrzkqmZRv1sw@mail.gmail.com>
+References: <1378286019-8719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1378286019-8719-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:57554 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751598Ab3JJJhO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 05:37:14 -0400
-In-Reply-To: <20131008161925.GL28411@zion.uk.xensource.com>
-Content-Language: en-US
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:33201 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab3JJKH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 06:07:59 -0400
+Received: by mail-pd0-f170.google.com with SMTP id x10so2385155pdj.29
+        for <netdev@vger.kernel.org>; Thu, 10 Oct 2013 03:07:59 -0700 (PDT)
+In-Reply-To: <1378286019-8719-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 08 October 2013 17:19
-> To: Paul Durrant
-> Cc: Wei Liu; xen-devel@lists.xen.org; netdev@vger.kernel.org; David Vrabel;
-> Ian Campbell
-> Subject: Re: [PATCH net-next v2 2/5] xen-netback: Add support for IPv6
-> checksum offload from guest
-> 
-> On Tue, Oct 08, 2013 at 02:50:27PM +0100, Paul Durrant wrote:
-> [...]
-> > > > -#define PKT_PROT_LEN    (ETH_HLEN + \
-> > > > -			 VLAN_HLEN + \
-> > > > -			 sizeof(struct iphdr) + MAX_IPOPTLEN + \
-> > > > -			 sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE)
-> > > > +#define PKT_PROT_LEN 128
-> > > >
-> > >
-> > > Where does 128 come from?
-> > >
-> >
-> > It's just an arbitrary power of 2 that was chosen because it seems to
-> > cover most likely v6 headers and all v4 headers.
-> >
-> 
-> Hmm... How about using the value of MAX_TCP_HEADER? I guess that can
-> cover all V4 / V6 headers.
-> 
-> MAX_TCP_HEADER varies, depending on configuration. To make sure we can
-> accommodate all guests packet we might need to use its maximum value
-> which can be as big as 128 + 128 + 48.
-> 
+On Wed, Sep 4, 2013 at 12:13 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 
-Because we always double-copy (as the grant copy doesn't copy direct to the linear area) I was concerned about making the pullup too big. I'd rather optimize around a smaller header so how about we stick with 128 but if maybe_pull_tail() finds it needs to pullup then it just pulls up to MAX_TCP_HEADER, so we limit to pullups to maximum of 2?
+> +#ifdef CONFIG_VXLAN_MODULE
+> +static void ixgbe_add_vxlan_port(struct net_device *netdev,
+> +                                sa_family_t sa_family, __u16 port)
+> +{
+> +       netdev_info(netdev, ">>>>> Adding VXLAN port %d / protocol IPv%d\n",
+> +                            port, sa_family == AF_INET ? 4 : 6);
+> +}
+> +
 
-> > > >  		if (recalculate_partial_csum) {
-> > > >  			struct tcphdr *tcph = tcp_hdr(skb);
-> > > > +
-> > > > +			header_size = skb->network_header +
-> > > > +				off +
-> > > > +				sizeof(struct tcphdr) +
-> > > > +				MAX_TCP_OPTION_SPACE;
-> > > > +			maybe_pull_tail(skb, header_size);
-> > > > +
-> > >
-> > > I presume this function is checksum_setup stripped down to handle IPv4
-> > > packet. What's the purpose of changing its behaviour? Why the pull_tail
-> > > here?
-> > >
-> >
-> > We have to make sure that the TCP header is in the linear area as we
-> > are about to write to the checksum field. In practice, the 128 byte
-> > pull should guarantee this but in case that is varied later I wanted
-> > to make sure things did not start to fail in an add way.
-> >
-> 
-> If you already set the pull size to maximum possible value then this
-> will not be necessary anymore, right?
-> 
-> > > > +	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len))
-> > > &&
-> > > > +	       !done) {
-> > > > +		/* We only access at most the first 2 bytes of any option
-> > > header
-> > > > +		 * to determine the next one.
-> > > > +		 */
-> > > > +		header_size = skb->network_header + off + 2;
-> > > > +		maybe_pull_tail(skb, header_size);
-> > > > +
-> > >
-> > > Will this cause performance problem? Is it possible that you pull too
-> > > many times?
-> > >
-> >
-> > I guess it means we may get two pulls for the TCP/UDP headers rather
-> > than one so could push the pulls into the individual cases if you
-> > think it will affect performance that badly.
-> 
-> Hmm... Not sure I get what you mean here. The main problem I'm seeing is
-> that maybe_pull_tail is called in every loop.
-> 
-> I would like to see as few pulls as possible because __pskb_pull_tail
-> can be expensive and only expected to use in "exceptional cases" (quoted
-> from the comment above that function).
-> 
-> Is it possible to pull TCP_MAX_HEADER bytes once to eliminate all other
-> pulls in checksum_setup{,_ipv4,_ipv6}?
-> 
 
-Note that the function is called *maybe*_pull_tail(). It only pulls if it needs to :-)
+any deep reason under which the low level driver needs to define these
+ndo's under special config directive?
 
-  Paul
+Or.
