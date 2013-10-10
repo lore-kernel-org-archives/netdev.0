@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e: Add support for 64 bit netstats
-Date: Wed,  9 Oct 2013 23:41:10 -0700
-Message-ID: <1381387271-29605-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/13] i40e: Move rings from pointer to array to array of pointers
+Date: Wed,  9 Oct 2013 23:41:09 -0700
+Message-ID: <1381387271-29605-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:17669 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:16402 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753273Ab3JJGlY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753926Ab3JJGlY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 10 Oct 2013 02:41:24 -0400
 In-Reply-To: <1381387271-29605-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,214 +19,744 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change brings support for 64 bit netstats to the driver. Previously
-the stats were 64 bit but highly racy due to the fact that 64 bit
-transactions are not atomic on 32 bit systems.  This change makes is so
-that the 64 bit byte and packet stats are reliable on all architectures.
+Allocate the queue pairs individually instead of as a group.  This
+allows for much easier queue management as it is possible to dynamically
+resize the queues without having to free and allocate the entire block.
+
+Ease statistic collection by treating Tx/Rx queue pairs as a single
+unit.  Each pair is allocated together and starts with a Tx queue and
+ends with an Rx queue.  By ordering them this way it is possible to know
+the Rx offset based on a pointer to the Tx queue.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 27 +++++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 78 ++++++++++++++++++++++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  4 ++
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    |  1 +
- 4 files changed, 95 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 195 +++++++++++++------------
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  40 ++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 142 +++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   2 +
+ 6 files changed, 204 insertions(+), 185 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 50153ea..1b86138 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -579,6 +579,7 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 	char *p;
- 	int j;
- 	struct rtnl_link_stats64 *net_stats = i40e_get_vsi_stats_struct(vsi);
-+	unsigned int start;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 789304e..c06a76c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -347,9 +347,9 @@ struct i40e_vsi {
+ 	u32 rx_buf_failed;
+ 	u32 rx_page_failed;
  
- 	i40e_update_stats(vsi);
+-	/* These are arrays of rings, allocated at run-time */
+-	struct i40e_ring *rx_rings;
+-	struct i40e_ring *tx_rings;
++	/* These are containers of ring pointers, allocated at run-time */
++	struct i40e_ring **rx_rings;
++	struct i40e_ring **tx_rings;
  
-@@ -587,12 +588,30 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
-+	rcu_read_lock();
- 	for (j = 0; j < vsi->num_queue_pairs; j++, i += 4) {
--		data[i] = vsi->tx_rings[j]->stats.packets;
--		data[i + 1] = vsi->tx_rings[j]->stats.bytes;
--		data[i + 2] = vsi->rx_rings[j]->stats.packets;
--		data[i + 3] = vsi->rx_rings[j]->stats.bytes;
-+		struct i40e_ring *tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
-+		struct i40e_ring *rx_ring;
-+
-+		if (!tx_ring)
-+			continue;
-+
-+		/* process Tx ring statistics */
-+		do {
-+			start = u64_stats_fetch_begin_bh(&tx_ring->syncp);
-+			data[i] = tx_ring->stats.packets;
-+			data[i + 1] = tx_ring->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&tx_ring->syncp, start));
-+
-+		/* Rx ring is the 2nd half of the queue pair */
-+		rx_ring = &tx_ring[1];
-+		do {
-+			start = u64_stats_fetch_begin_bh(&rx_ring->syncp);
-+			data[i + 2] = rx_ring->stats.packets;
-+			data[i + 3] = rx_ring->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&rx_ring->syncp, start));
- 	}
-+	rcu_read_unlock();
- 	if (vsi == pf->vsi[pf->lan_vsi]) {
- 		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
- 			p = (char *)pf + i40e_gstrings_stats[j].stat_offset;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3cf23f5..24ee5d4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -347,14 +347,53 @@ struct rtnl_link_stats64 *i40e_get_vsi_stats_struct(struct i40e_vsi *vsi)
-  **/
- static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
- 					     struct net_device *netdev,
--					     struct rtnl_link_stats64 *storage)
-+					     struct rtnl_link_stats64 *stats)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-+	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
-+	int i;
-+
+ 	u16 work_limit;
+ 	/* high bit set means dynamic, use accessor routines to read/write.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 44e3fa4..19e248f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -258,12 +258,12 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
+ 
+ 			for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 				len = sizeof(struct i40e_tx_buffer);
+-				memcpy(p, vsi->tx_rings[i].tx_bi, len);
++				memcpy(p, vsi->tx_rings[i]->tx_bi, len);
+ 				p += len;
+ 			}
+ 			for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 				len = sizeof(struct i40e_rx_buffer);
+-				memcpy(p, vsi->rx_rings[i].rx_bi, len);
++				memcpy(p, vsi->rx_rings[i]->rx_bi, len);
+ 				p += len;
+ 			}
+ 
+@@ -484,99 +484,104 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
+ 		 "    tx_restart = %d, tx_busy = %d, rx_buf_failed = %d, rx_page_failed = %d\n",
+ 		 vsi->tx_restart, vsi->tx_busy,
+ 		 vsi->rx_buf_failed, vsi->rx_page_failed);
+-	if (vsi->rx_rings) {
+-		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: desc = %p\n",
+-				 i, vsi->rx_rings[i].desc);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: dev = %p, netdev = %p, rx_bi = %p\n",
+-				 i, vsi->rx_rings[i].dev,
+-				 vsi->rx_rings[i].netdev,
+-				 vsi->rx_rings[i].rx_bi);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
+-				 i, vsi->rx_rings[i].state,
+-				 vsi->rx_rings[i].queue_index,
+-				 vsi->rx_rings[i].reg_idx);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: rx_hdr_len = %d, rx_buf_len = %d, dtype = %d\n",
+-				 i, vsi->rx_rings[i].rx_hdr_len,
+-				 vsi->rx_rings[i].rx_buf_len,
+-				 vsi->rx_rings[i].dtype);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: hsplit = %d, next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
+-				 i, vsi->rx_rings[i].hsplit,
+-				 vsi->rx_rings[i].next_to_use,
+-				 vsi->rx_rings[i].next_to_clean,
+-				 vsi->rx_rings[i].ring_active);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: rx_stats: packets = %lld, bytes = %lld, non_eop_descs = %lld\n",
+-				 i, vsi->rx_rings[i].stats.packets,
+-				 vsi->rx_rings[i].stats.bytes,
+-				 vsi->rx_rings[i].rx_stats.non_eop_descs);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: rx_stats: alloc_rx_page_failed = %lld, alloc_rx_buff_failed = %lld\n",
+-				 i,
+-				 vsi->rx_rings[i].rx_stats.alloc_rx_page_failed,
+-				vsi->rx_rings[i].rx_stats.alloc_rx_buff_failed);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: size = %i, dma = 0x%08lx\n",
+-				 i, vsi->rx_rings[i].size,
+-				 (long unsigned int)vsi->rx_rings[i].dma);
+-			dev_info(&pf->pdev->dev,
+-				 "    rx_rings[%i]: vsi = %p, q_vector = %p\n",
+-				 i, vsi->rx_rings[i].vsi,
+-				 vsi->rx_rings[i].q_vector);
+-		}
 +	rcu_read_lock();
 +	for (i = 0; i < vsi->num_queue_pairs; i++) {
-+		struct i40e_ring *tx_ring, *rx_ring;
-+		u64 bytes, packets;
-+		unsigned int start;
++		struct i40e_ring *rx_ring = ACCESS_ONCE(vsi->rx_rings[i]);
++		if (!rx_ring)
++			continue;
 +
-+		tx_ring = ACCESS_ONCE(vsi->tx_rings[i]);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: desc = %p\n",
++			 i, rx_ring->desc);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: dev = %p, netdev = %p, rx_bi = %p\n",
++			 i, rx_ring->dev,
++			 rx_ring->netdev,
++			 rx_ring->rx_bi);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
++			 i, rx_ring->state,
++			 rx_ring->queue_index,
++			 rx_ring->reg_idx);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: rx_hdr_len = %d, rx_buf_len = %d, dtype = %d\n",
++			 i, rx_ring->rx_hdr_len,
++			 rx_ring->rx_buf_len,
++			 rx_ring->dtype);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: hsplit = %d, next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
++			 i, rx_ring->hsplit,
++			 rx_ring->next_to_use,
++			 rx_ring->next_to_clean,
++			 rx_ring->ring_active);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: rx_stats: packets = %lld, bytes = %lld, non_eop_descs = %lld\n",
++			 i, rx_ring->stats.packets,
++			 rx_ring->stats.bytes,
++			 rx_ring->rx_stats.non_eop_descs);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: rx_stats: alloc_rx_page_failed = %lld, alloc_rx_buff_failed = %lld\n",
++			 i,
++			 rx_ring->rx_stats.alloc_rx_page_failed,
++			rx_ring->rx_stats.alloc_rx_buff_failed);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: size = %i, dma = 0x%08lx\n",
++			 i, rx_ring->size,
++			 (long unsigned int)rx_ring->dma);
++		dev_info(&pf->pdev->dev,
++			 "    rx_rings[%i]: vsi = %p, q_vector = %p\n",
++			 i, rx_ring->vsi,
++			 rx_ring->q_vector);
+ 	}
+-	if (vsi->tx_rings) {
+-		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: desc = %p\n",
+-				 i, vsi->tx_rings[i].desc);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: dev = %p, netdev = %p, tx_bi = %p\n",
+-				 i, vsi->tx_rings[i].dev,
+-				 vsi->tx_rings[i].netdev,
+-				 vsi->tx_rings[i].tx_bi);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
+-				 i, vsi->tx_rings[i].state,
+-				 vsi->tx_rings[i].queue_index,
+-				 vsi->tx_rings[i].reg_idx);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: dtype = %d\n",
+-				 i, vsi->tx_rings[i].dtype);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: hsplit = %d, next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
+-				 i, vsi->tx_rings[i].hsplit,
+-				 vsi->tx_rings[i].next_to_use,
+-				 vsi->tx_rings[i].next_to_clean,
+-				 vsi->tx_rings[i].ring_active);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: tx_stats: packets = %lld, bytes = %lld, restart_queue = %lld\n",
+-				 i, vsi->tx_rings[i].stats.packets,
+-				 vsi->tx_rings[i].stats.bytes,
+-				 vsi->tx_rings[i].tx_stats.restart_queue);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: tx_stats: tx_busy = %lld, tx_done_old = %lld\n",
+-				 i,
+-				 vsi->tx_rings[i].tx_stats.tx_busy,
+-				 vsi->tx_rings[i].tx_stats.tx_done_old);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: size = %i, dma = 0x%08lx\n",
+-				 i, vsi->tx_rings[i].size,
+-				 (long unsigned int)vsi->tx_rings[i].dma);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: vsi = %p, q_vector = %p\n",
+-				 i, vsi->tx_rings[i].vsi,
+-				 vsi->tx_rings[i].q_vector);
+-			dev_info(&pf->pdev->dev,
+-				 "    tx_rings[%i]: DCB tc = %d\n",
+-				 i, vsi->tx_rings[i].dcb_tc);
+-		}
++	for (i = 0; i < vsi->num_queue_pairs; i++) {
++		struct i40e_ring *tx_ring = ACCESS_ONCE(vsi->tx_rings[i]);
 +		if (!tx_ring)
 +			continue;
- 
--	*storage = *i40e_get_vsi_stats_struct(vsi);
-+		do {
-+			start = u64_stats_fetch_begin_bh(&tx_ring->syncp);
-+			packets = tx_ring->stats.packets;
-+			bytes   = tx_ring->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&tx_ring->syncp, start));
-+
-+		stats->tx_packets += packets;
-+		stats->tx_bytes   += bytes;
-+		rx_ring = &tx_ring[1];
-+
-+		do {
-+			start = u64_stats_fetch_begin_bh(&rx_ring->syncp);
-+			packets = rx_ring->stats.packets;
-+			bytes   = rx_ring->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&rx_ring->syncp, start));
- 
--	return storage;
-+		stats->rx_packets += packets;
-+		stats->rx_bytes   += bytes;
-+	}
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: desc = %p\n",
++			 i, tx_ring->desc);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: dev = %p, netdev = %p, tx_bi = %p\n",
++			 i, tx_ring->dev,
++			 tx_ring->netdev,
++			 tx_ring->tx_bi);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
++			 i, tx_ring->state,
++			 tx_ring->queue_index,
++			 tx_ring->reg_idx);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: dtype = %d\n",
++			 i, tx_ring->dtype);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: hsplit = %d, next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
++			 i, tx_ring->hsplit,
++			 tx_ring->next_to_use,
++			 tx_ring->next_to_clean,
++			 tx_ring->ring_active);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: tx_stats: packets = %lld, bytes = %lld, restart_queue = %lld\n",
++			 i, tx_ring->stats.packets,
++			 tx_ring->stats.bytes,
++			 tx_ring->tx_stats.restart_queue);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: tx_stats: tx_busy = %lld, tx_done_old = %lld\n",
++			 i,
++			 tx_ring->tx_stats.tx_busy,
++			 tx_ring->tx_stats.tx_done_old);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: size = %i, dma = 0x%08lx\n",
++			 i, tx_ring->size,
++			 (long unsigned int)tx_ring->dma);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: vsi = %p, q_vector = %p\n",
++			 i, tx_ring->vsi,
++			 tx_ring->q_vector);
++		dev_info(&pf->pdev->dev,
++			 "    tx_rings[%i]: DCB tc = %d\n",
++			 i, tx_ring->dcb_tc);
+ 	}
 +	rcu_read_unlock();
-+
-+	/* following stats updated by ixgbe_watchdog_task() */
-+	stats->multicast	= vsi_stats->multicast;
-+	stats->tx_errors	= vsi_stats->tx_errors;
-+	stats->tx_dropped	= vsi_stats->tx_dropped;
-+	stats->rx_errors	= vsi_stats->rx_errors;
-+	stats->rx_crc_errors	= vsi_stats->rx_crc_errors;
-+	stats->rx_length_errors	= vsi_stats->rx_length_errors;
-+
-+	return stats;
+ 	dev_info(&pf->pdev->dev,
+ 		 "    work_limit = %d, rx_itr_setting = %d (%s), tx_itr_setting = %d (%s)\n",
+ 		 vsi->work_limit, vsi->rx_itr_setting,
+@@ -782,9 +787,9 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
+ 		return;
+ 	}
+ 	if (is_rx_ring)
+-		ring = vsi->rx_rings[ring_id];
++		ring = *vsi->rx_rings[ring_id];
+ 	else
+-		ring = vsi->tx_rings[ring_id];
++		ring = *vsi->tx_rings[ring_id];
+ 	if (cnt == 2) {
+ 		dev_info(&pf->pdev->dev, "vsi = %02i %s ring = %02i\n",
+ 			 vsi_seid, is_rx_ring ? "rx" : "tx", ring_id);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index bf607da..50153ea 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -399,8 +399,8 @@ static void i40e_get_ringparam(struct net_device *netdev,
+ 	ring->tx_max_pending = I40E_MAX_NUM_DESCRIPTORS;
+ 	ring->rx_mini_max_pending = 0;
+ 	ring->rx_jumbo_max_pending = 0;
+-	ring->rx_pending = vsi->rx_rings[0].count;
+-	ring->tx_pending = vsi->tx_rings[0].count;
++	ring->rx_pending = vsi->rx_rings[0]->count;
++	ring->tx_pending = vsi->tx_rings[0]->count;
+ 	ring->rx_mini_pending = 0;
+ 	ring->rx_jumbo_pending = 0;
+ }
+@@ -429,8 +429,8 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 	new_rx_count = ALIGN(new_rx_count, I40E_REQ_DESCRIPTOR_MULTIPLE);
+ 
+ 	/* if nothing to do return success */
+-	if ((new_tx_count == vsi->tx_rings[0].count) &&
+-	    (new_rx_count == vsi->rx_rings[0].count))
++	if ((new_tx_count == vsi->tx_rings[0]->count) &&
++	    (new_rx_count == vsi->rx_rings[0]->count))
+ 		return 0;
+ 
+ 	while (test_and_set_bit(__I40E_CONFIG_BUSY, &pf->state))
+@@ -439,8 +439,8 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 	if (!netif_running(vsi->netdev)) {
+ 		/* simple case - set for the next time the netdev is started */
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			vsi->tx_rings[i].count = new_tx_count;
+-			vsi->rx_rings[i].count = new_rx_count;
++			vsi->tx_rings[i]->count = new_tx_count;
++			vsi->rx_rings[i]->count = new_rx_count;
+ 		}
+ 		goto done;
+ 	}
+@@ -451,10 +451,10 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 	 */
+ 
+ 	/* alloc updated Tx resources */
+-	if (new_tx_count != vsi->tx_rings[0].count) {
++	if (new_tx_count != vsi->tx_rings[0]->count) {
+ 		netdev_info(netdev,
+ 			    "Changing Tx descriptor count from %d to %d.\n",
+-			    vsi->tx_rings[0].count, new_tx_count);
++			    vsi->tx_rings[0]->count, new_tx_count);
+ 		tx_rings = kcalloc(vsi->alloc_queue_pairs,
+ 				   sizeof(struct i40e_ring), GFP_KERNEL);
+ 		if (!tx_rings) {
+@@ -464,7 +464,7 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 			/* clone ring and setup updated count */
+-			tx_rings[i] = vsi->tx_rings[i];
++			tx_rings[i] = *vsi->tx_rings[i];
+ 			tx_rings[i].count = new_tx_count;
+ 			err = i40e_setup_tx_descriptors(&tx_rings[i]);
+ 			if (err) {
+@@ -481,10 +481,10 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 	}
+ 
+ 	/* alloc updated Rx resources */
+-	if (new_rx_count != vsi->rx_rings[0].count) {
++	if (new_rx_count != vsi->rx_rings[0]->count) {
+ 		netdev_info(netdev,
+ 			    "Changing Rx descriptor count from %d to %d\n",
+-			    vsi->rx_rings[0].count, new_rx_count);
++			    vsi->rx_rings[0]->count, new_rx_count);
+ 		rx_rings = kcalloc(vsi->alloc_queue_pairs,
+ 				   sizeof(struct i40e_ring), GFP_KERNEL);
+ 		if (!rx_rings) {
+@@ -494,7 +494,7 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 			/* clone ring and setup updated count */
+-			rx_rings[i] = vsi->rx_rings[i];
++			rx_rings[i] = *vsi->rx_rings[i];
+ 			rx_rings[i].count = new_rx_count;
+ 			err = i40e_setup_rx_descriptors(&rx_rings[i]);
+ 			if (err) {
+@@ -517,8 +517,8 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 
+ 	if (tx_rings) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			i40e_free_tx_resources(&vsi->tx_rings[i]);
+-			vsi->tx_rings[i] = tx_rings[i];
++			i40e_free_tx_resources(vsi->tx_rings[i]);
++			*vsi->tx_rings[i] = tx_rings[i];
+ 		}
+ 		kfree(tx_rings);
+ 		tx_rings = NULL;
+@@ -526,8 +526,8 @@ static int i40e_set_ringparam(struct net_device *netdev,
+ 
+ 	if (rx_rings) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			i40e_free_rx_resources(&vsi->rx_rings[i]);
+-			vsi->rx_rings[i] = rx_rings[i];
++			i40e_free_rx_resources(vsi->rx_rings[i]);
++			*vsi->rx_rings[i] = rx_rings[i];
+ 		}
+ 		kfree(rx_rings);
+ 		rx_rings = NULL;
+@@ -588,10 +588,10 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
+ 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
+ 	for (j = 0; j < vsi->num_queue_pairs; j++, i += 4) {
+-		data[i] = vsi->tx_rings[j].stats.packets;
+-		data[i + 1] = vsi->tx_rings[j].stats.bytes;
+-		data[i + 2] = vsi->rx_rings[j].stats.packets;
+-		data[i + 3] = vsi->rx_rings[j].stats.bytes;
++		data[i] = vsi->tx_rings[j]->stats.packets;
++		data[i + 1] = vsi->tx_rings[j]->stats.bytes;
++		data[i + 2] = vsi->rx_rings[j]->stats.packets;
++		data[i + 3] = vsi->rx_rings[j]->stats.bytes;
+ 	}
+ 	if (vsi == pf->vsi[pf->lan_vsi]) {
+ 		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c74ac58..3cf23f5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -376,14 +376,14 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
+ 	memset(&vsi->eth_stats_offsets, 0, sizeof(vsi->eth_stats_offsets));
+ 	if (vsi->rx_rings)
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			memset(&vsi->rx_rings[i].stats, 0 ,
+-			       sizeof(vsi->rx_rings[i].stats));
+-			memset(&vsi->rx_rings[i].rx_stats, 0 ,
+-			       sizeof(vsi->rx_rings[i].rx_stats));
+-			memset(&vsi->tx_rings[i].stats, 0 ,
+-			       sizeof(vsi->tx_rings[i].stats));
+-			memset(&vsi->tx_rings[i].tx_stats, 0,
+-			       sizeof(vsi->tx_rings[i].tx_stats));
++			memset(&vsi->rx_rings[i]->stats, 0 ,
++			       sizeof(vsi->rx_rings[i]->stats));
++			memset(&vsi->rx_rings[i]->rx_stats, 0 ,
++			       sizeof(vsi->rx_rings[i]->rx_stats));
++			memset(&vsi->tx_rings[i]->stats, 0 ,
++			       sizeof(vsi->tx_rings[i]->stats));
++			memset(&vsi->tx_rings[i]->tx_stats, 0,
++			       sizeof(vsi->tx_rings[i]->tx_stats));
+ 		}
+ 	vsi->stat_offsets_loaded = false;
+ }
+@@ -602,7 +602,7 @@ static void i40e_update_link_xoff_rx(struct i40e_pf *pf)
+ 			continue;
+ 
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			struct i40e_ring *ring = &vsi->tx_rings[i];
++			struct i40e_ring *ring = vsi->tx_rings[i];
+ 			clear_bit(__I40E_HANG_CHECK_ARMED, &ring->state);
+ 		}
+ 	}
+@@ -656,7 +656,7 @@ static void i40e_update_prio_xoff_rx(struct i40e_pf *pf)
+ 			continue;
+ 
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			struct i40e_ring *ring = &vsi->tx_rings[i];
++			struct i40e_ring *ring = vsi->tx_rings[i];
+ 
+ 			tc = ring->dcb_tc;
+ 			if (xoff[tc])
+@@ -711,13 +711,13 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	for (q = 0; q < vsi->num_queue_pairs; q++) {
+ 		struct i40e_ring *p;
+ 
+-		p = &vsi->rx_rings[q];
++		p = vsi->rx_rings[q];
+ 		rx_b += p->stats.bytes;
+ 		rx_p += p->stats.packets;
+ 		rx_buf += p->rx_stats.alloc_rx_buff_failed;
+ 		rx_page += p->rx_stats.alloc_rx_page_failed;
+ 
+-		p = &vsi->tx_rings[q];
++		p = vsi->tx_rings[q];
+ 		tx_b += p->stats.bytes;
+ 		tx_p += p->stats.packets;
+ 		tx_restart += p->tx_stats.restart_queue;
+@@ -1992,7 +1992,7 @@ static int i40e_vsi_setup_tx_resources(struct i40e_vsi *vsi)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < vsi->num_queue_pairs && !err; i++)
+-		err = i40e_setup_tx_descriptors(&vsi->tx_rings[i]);
++		err = i40e_setup_tx_descriptors(vsi->tx_rings[i]);
+ 
+ 	return err;
+ }
+@@ -2008,8 +2008,8 @@ static void i40e_vsi_free_tx_resources(struct i40e_vsi *vsi)
+ 	int i;
+ 
+ 	for (i = 0; i < vsi->num_queue_pairs; i++)
+-		if (vsi->tx_rings[i].desc)
+-			i40e_free_tx_resources(&vsi->tx_rings[i]);
++		if (vsi->tx_rings[i]->desc)
++			i40e_free_tx_resources(vsi->tx_rings[i]);
  }
  
  /**
-@@ -708,21 +747,38 @@ void i40e_update_stats(struct i40e_vsi *vsi)
- 	tx_restart = tx_busy = 0;
- 	rx_page = 0;
- 	rx_buf = 0;
-+	rcu_read_lock();
- 	for (q = 0; q < vsi->num_queue_pairs; q++) {
- 		struct i40e_ring *p;
-+		u64 bytes, packets;
-+		unsigned int start;
+@@ -2027,7 +2027,7 @@ static int i40e_vsi_setup_rx_resources(struct i40e_vsi *vsi)
+ 	int i, err = 0;
  
--		p = vsi->rx_rings[q];
--		rx_b += p->stats.bytes;
--		rx_p += p->stats.packets;
--		rx_buf += p->rx_stats.alloc_rx_buff_failed;
--		rx_page += p->rx_stats.alloc_rx_page_failed;
-+		/* locate Tx ring */
-+		p = ACCESS_ONCE(vsi->tx_rings[q]);
+ 	for (i = 0; i < vsi->num_queue_pairs && !err; i++)
+-		err = i40e_setup_rx_descriptors(&vsi->rx_rings[i]);
++		err = i40e_setup_rx_descriptors(vsi->rx_rings[i]);
+ 	return err;
+ }
  
--		p = vsi->tx_rings[q];
--		tx_b += p->stats.bytes;
--		tx_p += p->stats.packets;
-+		do {
-+			start = u64_stats_fetch_begin_bh(&p->syncp);
-+			packets = p->stats.packets;
-+			bytes = p->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&p->syncp, start));
-+		tx_b += bytes;
-+		tx_p += packets;
- 		tx_restart += p->tx_stats.restart_queue;
- 		tx_busy += p->tx_stats.tx_busy;
-+
-+		/* Rx queue is part of the same block as Tx queue */
-+		p = &p[1];
-+		do {
-+			start = u64_stats_fetch_begin_bh(&p->syncp);
-+			packets = p->stats.packets;
-+			bytes = p->stats.bytes;
-+		} while (u64_stats_fetch_retry_bh(&p->syncp, start));
-+		rx_b += bytes;
-+		rx_p += packets;
-+		rx_buf += p->rx_stats.alloc_rx_buff_failed;
-+		rx_page += p->rx_stats.alloc_rx_page_failed;
+@@ -2042,8 +2042,8 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
+ 	int i;
+ 
+ 	for (i = 0; i < vsi->num_queue_pairs; i++)
+-		if (vsi->rx_rings[i].desc)
+-			i40e_free_rx_resources(&vsi->rx_rings[i]);
++		if (vsi->rx_rings[i]->desc)
++			i40e_free_rx_resources(vsi->rx_rings[i]);
+ }
+ 
+ /**
+@@ -2227,8 +2227,8 @@ static int i40e_vsi_configure_tx(struct i40e_vsi *vsi)
+ 	int err = 0;
+ 	u16 i;
+ 
+-	for (i = 0; (i < vsi->num_queue_pairs) && (!err); i++)
+-		err = i40e_configure_tx_ring(&vsi->tx_rings[i]);
++	for (i = 0; (i < vsi->num_queue_pairs) && !err; i++)
++		err = i40e_configure_tx_ring(vsi->tx_rings[i]);
+ 
+ 	return err;
+ }
+@@ -2278,7 +2278,7 @@ static int i40e_vsi_configure_rx(struct i40e_vsi *vsi)
+ 
+ 	/* set up individual rings */
+ 	for (i = 0; i < vsi->num_queue_pairs && !err; i++)
+-		err = i40e_configure_rx_ring(&vsi->rx_rings[i]);
++		err = i40e_configure_rx_ring(vsi->rx_rings[i]);
+ 
+ 	return err;
+ }
+@@ -2302,8 +2302,8 @@ static void i40e_vsi_config_dcb_rings(struct i40e_vsi *vsi)
+ 		qoffset = vsi->tc_config.tc_info[n].qoffset;
+ 		qcount = vsi->tc_config.tc_info[n].qcount;
+ 		for (i = qoffset; i < (qoffset + qcount); i++) {
+-			struct i40e_ring *rx_ring = &vsi->rx_rings[i];
+-			struct i40e_ring *tx_ring = &vsi->tx_rings[i];
++			struct i40e_ring *rx_ring = vsi->rx_rings[i];
++			struct i40e_ring *tx_ring = vsi->tx_rings[i];
+ 			rx_ring->dcb_tc = n;
+ 			tx_ring->dcb_tc = n;
+ 		}
+@@ -2615,8 +2615,8 @@ static void i40e_vsi_disable_irq(struct i40e_vsi *vsi)
+ 	int i;
+ 
+ 	for (i = 0; i < vsi->num_queue_pairs; i++) {
+-		wr32(hw, I40E_QINT_TQCTL(vsi->tx_rings[i].reg_idx), 0);
+-		wr32(hw, I40E_QINT_RQCTL(vsi->rx_rings[i].reg_idx), 0);
++		wr32(hw, I40E_QINT_TQCTL(vsi->tx_rings[i]->reg_idx), 0);
++		wr32(hw, I40E_QINT_RQCTL(vsi->rx_rings[i]->reg_idx), 0);
  	}
-+	rcu_read_unlock();
- 	vsi->tx_restart = tx_restart;
- 	vsi->tx_busy = tx_busy;
- 	vsi->rx_page_failed = rx_page;
+ 
+ 	if (pf->flags & I40E_FLAG_MSIX_ENABLED) {
+@@ -2786,8 +2786,8 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ static void map_vector_to_qp(struct i40e_vsi *vsi, int v_idx, int qp_idx)
+ {
+ 	struct i40e_q_vector *q_vector = vsi->q_vectors[v_idx];
+-	struct i40e_ring *tx_ring = &(vsi->tx_rings[qp_idx]);
+-	struct i40e_ring *rx_ring = &(vsi->rx_rings[qp_idx]);
++	struct i40e_ring *tx_ring = vsi->tx_rings[qp_idx];
++	struct i40e_ring *rx_ring = vsi->rx_rings[qp_idx];
+ 
+ 	tx_ring->q_vector = q_vector;
+ 	tx_ring->next = q_vector->tx.ring;
+@@ -3792,8 +3792,8 @@ void i40e_down(struct i40e_vsi *vsi)
+ 	i40e_napi_disable_all(vsi);
+ 
+ 	for (i = 0; i < vsi->num_queue_pairs; i++) {
+-		i40e_clean_tx_ring(&vsi->tx_rings[i]);
+-		i40e_clean_rx_ring(&vsi->rx_rings[i]);
++		i40e_clean_tx_ring(vsi->tx_rings[i]);
++		i40e_clean_rx_ring(vsi->rx_rings[i]);
+ 	}
+ }
+ 
+@@ -4220,9 +4220,9 @@ static void i40e_check_hang_subtask(struct i40e_pf *pf)
+ 			continue;
+ 
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			set_check_for_tx_hang(&vsi->tx_rings[i]);
++			set_check_for_tx_hang(vsi->tx_rings[i]);
+ 			if (test_bit(__I40E_HANG_CHECK_ARMED,
+-				     &vsi->tx_rings[i].state))
++				     &vsi->tx_rings[i]->state))
+ 				armed++;
+ 		}
+ 
+@@ -4959,6 +4959,7 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	int ret = -ENODEV;
+ 	struct i40e_vsi *vsi;
+ 	int sz_vectors;
++	int sz_rings;
+ 	int vsi_idx;
+ 	int i;
+ 
+@@ -5004,7 +5005,18 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	vsi->work_limit = I40E_DEFAULT_IRQ_WORK;
+ 	INIT_LIST_HEAD(&vsi->mac_filter_list);
+ 
+-	i40e_set_num_rings_in_vsi(vsi);
++	ret = i40e_set_num_rings_in_vsi(vsi);
++	if (ret)
++		goto err_rings;
++
++	/* allocate memory for ring pointers */
++	sz_rings = sizeof(struct i40e_ring *) * vsi->alloc_queue_pairs * 2;
++	vsi->tx_rings = kzalloc(sz_rings, GFP_KERNEL);
++	if (!vsi->tx_rings) {
++		ret = -ENOMEM;
++		goto err_rings;
++	}
++	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
+ 
+ 	/* allocate memory for q_vector pointers */
+ 	sz_vectors = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
+@@ -5022,6 +5034,8 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	goto unlock_pf;
+ 
+ err_vectors:
++ 	kfree(vsi->tx_rings);
++err_rings:
+ 	pf->next_vsi = i - 1;
+ 	kfree(vsi);
+ unlock_pf:
+@@ -5067,6 +5081,7 @@ static int i40e_vsi_clear(struct i40e_vsi *vsi)
+ 
+ 	/* free the ring and vector containers */
+ 	kfree(vsi->q_vectors);
++	kfree(vsi->tx_rings);
+ 
+ 	pf->vsi[vsi->idx] = NULL;
+ 	if (vsi->idx < pf->next_vsi)
+@@ -5081,34 +5096,39 @@ free_vsi:
+ }
+ 
+ /**
++ * i40e_vsi_clear_rings - Deallocates the Rx and Tx rings for the provided VSI
++ * @vsi: the VSI being cleaned
++ **/
++static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
++{
++	int i;
++
++	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
++		kfree_rcu(vsi->tx_rings[i], rcu);
++		vsi->tx_rings[i] = NULL;
++		vsi->rx_rings[i] = NULL;
++	}
++
++	return 0;
++}
++
++/**
+  * i40e_alloc_rings - Allocates the Rx and Tx rings for the provided VSI
+  * @vsi: the VSI being configured
+  **/
+ static int i40e_alloc_rings(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+-	int ret = 0;
+ 	int i;
+ 
+-	vsi->rx_rings = kcalloc(vsi->alloc_queue_pairs,
+-				sizeof(struct i40e_ring), GFP_KERNEL);
+-	if (!vsi->rx_rings) {
+-		ret = -ENOMEM;
+-		goto err_alloc_rings;
+-	}
+-
+-	vsi->tx_rings = kcalloc(vsi->alloc_queue_pairs,
+-				sizeof(struct i40e_ring), GFP_KERNEL);
+-	if (!vsi->tx_rings) {
+-		ret = -ENOMEM;
+-		kfree(vsi->rx_rings);
+-		goto err_alloc_rings;
+-	}
+-
+ 	/* Set basic values in the rings to be used later during open() */
+ 	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
+-		struct i40e_ring *rx_ring = &vsi->rx_rings[i];
+-		struct i40e_ring *tx_ring = &vsi->tx_rings[i];
++		struct i40e_ring *tx_ring;
++		struct i40e_ring *rx_ring;
++
++		tx_ring = kzalloc(sizeof(struct i40e_ring) * 2, GFP_KERNEL);
++		if (!tx_ring)
++			goto err_out;
+ 
+ 		tx_ring->queue_index = i;
+ 		tx_ring->reg_idx = vsi->base_queue + i;
+@@ -5119,7 +5139,9 @@ static int i40e_alloc_rings(struct i40e_vsi *vsi)
+ 		tx_ring->count = vsi->num_desc;
+ 		tx_ring->size = 0;
+ 		tx_ring->dcb_tc = 0;
++		vsi->tx_rings[i] = tx_ring;
+ 
++		rx_ring = &tx_ring[1];
+ 		rx_ring->queue_index = i;
+ 		rx_ring->reg_idx = vsi->base_queue + i;
+ 		rx_ring->ring_active = false;
+@@ -5133,24 +5155,14 @@ static int i40e_alloc_rings(struct i40e_vsi *vsi)
+ 			set_ring_16byte_desc_enabled(rx_ring);
+ 		else
+ 			clear_ring_16byte_desc_enabled(rx_ring);
+-	}
+-
+-err_alloc_rings:
+-	return ret;
+-}
+-
+-/**
+- * i40e_vsi_clear_rings - Deallocates the Rx and Tx rings for the provided VSI
+- * @vsi: the VSI being cleaned
+- **/
+-static int i40e_vsi_clear_rings(struct i40e_vsi *vsi)
+-{
+-	if (vsi) {
+-		kfree(vsi->rx_rings);
+-		kfree(vsi->tx_rings);
++		vsi->rx_rings[i] = rx_ring;
+ 	}
+ 
+ 	return 0;
++
++err_out:
++	i40e_vsi_clear_rings(vsi);
++	return -ENOMEM;
+ }
+ 
+ /**
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9eee551..dc89e72 100644
+index f153f37..9eee551 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -411,8 +411,10 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+@@ -64,7 +64,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
+ 	if (!vsi)
+ 		return -ENOENT;
  
- 	i += tx_ring->count;
- 	tx_ring->next_to_clean = i;
-+	u64_stats_update_begin(&tx_ring->syncp);
- 	tx_ring->stats.bytes += total_bytes;
- 	tx_ring->stats.packets += total_packets;
-+	u64_stats_update_end(&tx_ring->syncp);
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
+-	tx_ring = &vsi->tx_rings[0];
++	tx_ring = vsi->tx_rings[0];
+ 	dev = tx_ring->dev;
  
-@@ -1075,8 +1077,10 @@ next_desc:
- 	}
+ 	dma = dma_map_single(dev, fdir_data->raw_packet,
+@@ -1823,7 +1823,7 @@ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+-	struct i40e_ring *tx_ring = &vsi->tx_rings[skb->queue_mapping];
++	struct i40e_ring *tx_ring = vsi->tx_rings[skb->queue_mapping];
  
- 	rx_ring->next_to_clean = i;
-+	u64_stats_update_begin(&rx_ring->syncp);
- 	rx_ring->stats.packets += total_rx_packets;
- 	rx_ring->stats.bytes += total_rx_bytes;
-+	u64_stats_update_end(&rx_ring->syncp);
- 	rx_ring->q_vector->rx.total_packets += total_rx_packets;
- 	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
- 
+ 	/* hardware can't handle really short frames, hardware padding works
+ 	 * beyond this point
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 5db36c3..db55d99 100644
+index c2a6746..5db36c3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -218,6 +218,7 @@ struct i40e_ring {
+@@ -228,6 +228,8 @@ struct i40e_ring {
  
- 	/* stats structs */
- 	struct i40e_queue_stats	stats;
-+	struct u64_stats_sync syncp;
- 	union {
- 		struct i40e_tx_queue_stats tx_stats;
- 		struct i40e_rx_queue_stats rx_stats;
+ 	struct i40e_vsi *vsi;		/* Backreference to associated VSI */
+ 	struct i40e_q_vector *q_vector;	/* Backreference to associated vector */
++
++	struct rcu_head rcu;		/* to avoid race on free */
+ } ____cacheline_internodealigned_in_smp;
+ 
+ enum i40e_latency_range {
 -- 
 1.8.3.1
