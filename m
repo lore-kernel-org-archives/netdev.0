@@ -1,19 +1,30 @@
-From: <tenger@gmail.com>
-Subject: LOAN OFFER.
-Date: Thu, 10 Oct 2013 18:23:02 +0530
-Message-ID: <SRV-VTMaZRhQdOgl4rh000026d0__4790.33807428113$1381418615$gmane$org@SRV-VTM.veolia-transport.ma>
-Reply-To: tenger.g@mail.com
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v3 0/5] xen-netback: IPv6 offload support
+Date: Thu, 10 Oct 2013 16:25:28 +0100
+Message-ID: <1381418733-20470-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <tenger@gmail.com>
+Content-Type: text/plain
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.meditl3g.ma ([41.87.134.105]:20247 "EHLO
-	smtp2.meditel3G.ma" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753647Ab3JJPXI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 11:23:08 -0400
-Content-Description: Mail message body
+Received: from smtp.citrix.com ([66.165.176.89]:38671 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753311Ab3JJPZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Oct 2013 11:25:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apply for loan at 3% interest rate. Contact us with your requirement via Email; tenger.g@mail.com, for more information. Try us and be convinced.
+This patch series adds support for checksum and large packet offloads into
+xen-netback.
+Testing has mainly been done using the Microsoft network hardware
+certification suite running in Server 2008R2 VMs with Citrix PV frontends.
+
+v2:
+- Fixed Wei's email address in Cc lines
+
+v3:
+- Responded to Wei's comments:
+ - netif.h now updated with comments and a definition of
+   XEN_NETIF_GSO_TYPE_NONE.
+ - limited number of pullups
+- Responded to Annie's comments:
+ - New GSO_BIT macro
