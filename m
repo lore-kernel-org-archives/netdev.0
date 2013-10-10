@@ -1,72 +1,54 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH] net: sh_eth: Correct fix for RX packet errors on R8A7740
-Date: Thu, 10 Oct 2013 14:51:16 +0900
-Message-ID: <1381384276-8077-2-git-send-email-horms+renesas@verge.net.au>
-References: <1381384276-8077-1-git-send-email-horms+renesas@verge.net.au>
+Subject: [GIT PULL] Renesas SH ethernet fix for v3.12
+Date: Thu, 10 Oct 2013 14:51:15 +0900
+Message-ID: <1381384276-8077-1-git-send-email-horms+renesas@verge.net.au>
 Cc: Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Nguyen Hong Ky <nh-ky@jinso.co.jp>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1381384276-8077-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:46878 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754244Ab3JJFvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 01:51:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nguyen Hong Ky posted a patch to correct RX packet errors on R8A7740 which
-was applied as 2c6221e4a5aab417 ("net: sh_eth: Fix RX packets errors on
-R8A7740"). Unfortunately sh_eth.c contains many similar instances
-of struct sh_eth_cpu_data and the patch was miss-applied, updating
-sh7734_data instead of r8a7740_data.
+Hi Dave,
 
-This patch corrects this problem by.
-1. Reverting the change to sh7734_data and;
-2. Applying the change to r8a7740_data.
+please consider this fix for SH ethernet fix for v3.12.
+I am sending it as a pull-request rather than a stand-alone
+patch as it resolves the miss-application of a patch and I wanted
+to eliminate the chance of further miss-application.
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
----
+That said, I am happy for you to just apply the patch rather
+than do a git pull. But you may want to check that the result
+is the same as what is present in my tag.
+
+
+The following changes since commit 5abbeea553c8260ed4e2ac4aae962aff800b6c6d:
+
+  can: at91-can: fix device to driver data mapping for platform devices (2013-10-09 23:04:31 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas.git tags/renesas-sh_eth-fixes-for-v3.12
+
+for you to fetch changes up to 31c827b594a0eb7c996510a93338b6096e8565e6:
+
+  net: sh_eth: Correct fix for RX packet errors on R8A7740 (2013-10-10 14:42:15 +0900)
+
+----------------------------------------------------------------
+Renesas SH ethernet fix for v3.12
+
+* Revised fix from Nguyen Hong Ky for
+  RX packet errors on the R8A7740 SoC
+
+----------------------------------------------------------------
+Simon Horman (1):
+      net: sh_eth: Correct fix for RX packet errors on R8A7740
+
  drivers/net/ethernet/renesas/sh_eth.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index c7e1b8f..b57c278 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -620,16 +620,12 @@ static struct sh_eth_cpu_data sh7734_data = {
- 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
- 			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
- 			  EESR_TDE | EESR_ECI,
--	.fdr_value	= 0x0000070f,
--	.rmcr_value	= 0x00000001,
- 
- 	.apr		= 1,
- 	.mpr		= 1,
- 	.tpauser	= 1,
- 	.bculr		= 1,
- 	.hw_swap	= 1,
--	.rpadir		= 1,
--	.rpadir_value   = 2 << 16,
- 	.no_trimd	= 1,
- 	.no_ade		= 1,
- 	.tsu		= 1,
-@@ -692,12 +688,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
- 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
- 			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
- 			  EESR_TDE | EESR_ECI,
-+	.fdr_value	= 0x0000070f,
-+	.rmcr_value	= 0x00000001,
- 
- 	.apr		= 1,
- 	.mpr		= 1,
- 	.tpauser	= 1,
- 	.bculr		= 1,
- 	.hw_swap	= 1,
-+	.rpadir		= 1,
-+	.rpadir_value   = 2 << 16,
- 	.no_trimd	= 1,
- 	.no_ade		= 1,
- 	.tsu		= 1,
--- 
-1.8.4
-
