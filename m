@@ -1,70 +1,50 @@
-From: Mark Lord <kernel@start.ca>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement pattern
-Date: Thu, 10 Oct 2013 19:17:18 -0400
-Message-ID: <5257357E.8080506@start.ca>
-References: <cover.1380703262.git.agordeev@redhat.com> <5254D397.9030307@zytor.com> <1381292648.645.259.camel@pasglop> <20131010101704.GC11874@dhcp-26-207.brq.redhat.com> <5256D5AB.4050105@zytor.com> <20131010180704.GA15719@dhcp-26-207.brq.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: update mdb expiration timer upon reports.
+Date: Fri, 11 Oct 2013 07:48:56 +0800
+Message-ID: <20131010234856.GA31951@gondor.apana.org.au>
+References: <1381435079-15387-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-        linux-dr
-To: Alexander Gordeev <agordeev@redhat.com>,
-        "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20131010180704.GA15719@dhcp-26-207.brq.redhat.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:42363 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752083Ab3JJXtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 19:49:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1381435079-15387-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just to help us all understand "the loop" issue..
+On Thu, Oct 10, 2013 at 03:57:59PM -0400, Vlad Yasevich wrote:
+> commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b
+> 	bridge: only expire the mdb entry when query is received
+> changed the mdb expiration timer to be armed only when QUERY is
+> received.  Howerver, this causes issues in an environment where
+> the multicast server socket comes and goes very fast while a client
+> is trying to send traffic to it.
+> 
+> The root cause is a race where a sequence of LEAVE followed by REPORT
+> messages can race against QUERY messages generated in response to LEAVE.
+> The QUERY ends up starting the expiration timer, and that timer can
+> potentially expire after the new REPORT message has been received signaling
+> the new join operation.  This leads to a significant drop in multicast
+> traffic and possible complete stall. 
+> 
+> The solution is to have REPORT messages update the expiration timer
+> on entries that already exist.
+> 
+> CC: Cong Wang <xiyou.wangcong@gmail.com>
+> CC: Herbert Xu <herbert@gondor.apana.org.au>
+> CC: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Here's an example of driver code which uses the existing MSI-X interfaces,
-for a device which can work with either 16, 8, 4, 2, or 1 MSI-X interrupt.
-This is from a new driver I'm working on right now:
+Good catch.  Thanks!
 
-
-static int xx_alloc_msix_irqs (struct xx_dev *dev, int nvec)
-{
-        xx_disable_all_irqs(dev);
-        do {
-                if (nvec < 2)
-                        xx_prep_for_1_msix_vector(dev);
-                else if (nvec < 4)
-                        xx_prep_for_2_msix_vectors(dev);
-                else if (nvec < 8)
-                        xx_prep_for_4_msix_vectors(dev);
-                else if (nvec < 16)
-                        xx_prep_for_8_msix_vectors(dev);
-                else
-                        xx_prep_for_16_msix_vectors(dev);
-                nvec = pci_enable_msix(dev->pdev, dev->irqs, dev->num_vectors);
-        } while (nvec > 0);
-
-        if (nvec) {
-                kerr(dev->name, "pci_enable_msix() failed, err=%d", nvec);
-                dev->num_vectors = 0;
-                return nvec;
-        }
-        return 0;       /* success */
-}
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
