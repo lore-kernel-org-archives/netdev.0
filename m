@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 3/3] bonding: add rtnl lock and remove read lock
- for bond sysfs
-Date: Thu, 10 Oct 2013 19:51:04 +0800
-Message-ID: <525694A8.50805@huawei.com>
+Subject: [PATCH net-next v2 1/3] bonding: use RCU protection for 3ad xmit
+ path
+Date: Thu, 10 Oct 2013 19:50:57 +0800
+Message-ID: <525694A1.3050108@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,147 +13,78 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:25677 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:25620 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953Ab3JJLva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 07:51:30 -0400
+	with ESMTP id S1753748Ab3JJLvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 07:51:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_for_each_slave() will not be protected by read_lock(),
-only protected by rtnl_lock(), so need to replace read_lock()
-with rtnl_lock().
+The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+(bonding: initial RCU conversion) has convert the roundrobin,
+active-backup, broadcast and xor xmit path to rcu protection,
+the performance will be better for these mode, so this time,
+convert xmit path for 3ad mode.
 
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 30 +++++++++++++++++-------------
- 1 file changed, 17 insertions(+), 13 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index e06c644..2ba1114 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -179,7 +179,9 @@ static ssize_t bonding_show_slaves(struct device *d,
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ea3e64e..187b1b7 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2344,7 +2344,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
  	struct slave *slave;
- 	int res = 0;
+ 	struct port *port;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (port->aggregator && port->aggregator->is_active) {
+ 			aggregator = port->aggregator;
+@@ -2369,9 +2369,9 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+ {
+ 	int ret;
  
 -	read_lock(&bond->lock);
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (res > (PAGE_SIZE - IFNAMSIZ)) {
- 			/* not enough space for another interface name */
-@@ -190,7 +192,9 @@ static ssize_t bonding_show_slaves(struct device *d,
- 		}
- 		res += sprintf(buf + res, "%s ", slave->dev->name);
- 	}
++	rcu_read_lock();
+ 	ret = __bond_3ad_get_active_agg_info(bond, ad_info);
 -	read_unlock(&bond->lock);
-+
-+	rtnl_unlock();
-+
- 	if (res)
- 		buf[res-1] = '\n'; /* eat the leftover space */
++	rcu_read_unlock();
  
-@@ -628,6 +632,9 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 	unsigned long *targets_rx;
- 	int ind, i, j, ret = -EINVAL;
- 
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
- 	targets = bond->params.arp_targets;
- 	newtarget = in_aton(buf + 1);
- 	/* look for adds */
-@@ -701,6 +708,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 
- 	ret = count;
- out:
-+	rtnl_unlock();
  	return ret;
  }
- static DEVICE_ATTR(arp_ip_target, S_IRUGO | S_IWUSR , bonding_show_arp_targets, bonding_store_arp_targets);
-@@ -1469,7 +1477,6 @@ static ssize_t bonding_show_queue_id(struct device *d,
- 	if (!rtnl_trylock())
- 		return restart_syscall();
+@@ -2388,7 +2388,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	int res = 1;
+ 	int agg_id;
  
 -	read_lock(&bond->lock);
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (res > (PAGE_SIZE - IFNAMSIZ - 6)) {
- 			/* not enough space for another interface_name:queue_id pair */
-@@ -1481,9 +1488,9 @@ static ssize_t bonding_show_queue_id(struct device *d,
- 		res += sprintf(buf + res, "%s:%d ",
- 			       slave->dev->name, slave->queue_id);
- 	}
--	read_unlock(&bond->lock);
- 	if (res)
- 		buf[res-1] = '\n'; /* eat the leftover space */
-+
- 	rtnl_unlock();
+ 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
+ 			 dev->name);
+@@ -2406,7 +2405,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
+ 	first_ok_slave = NULL;
  
- 	return res;
-@@ -1532,8 +1539,6 @@ static ssize_t bonding_store_queue_id(struct device *d,
- 	if (!sdev)
- 		goto err_no_cmd;
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		agg = SLAVE_AD_INFO(slave).port.aggregator;
+ 		if (!agg || agg->aggregator_identifier != agg_id)
+ 			continue;
+@@ -2436,7 +2435,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
  
--	read_lock(&bond->lock);
--
- 	/* Search for thes slave and check for duplicate qids */
- 	update_slave = NULL;
- 	bond_for_each_slave(bond, slave, iter) {
-@@ -1544,23 +1549,20 @@ static ssize_t bonding_store_queue_id(struct device *d,
- 			 */
- 			update_slave = slave;
- 		else if (qid && qid == slave->queue_id) {
--			goto err_no_cmd_unlock;
-+			goto err_no_cmd;
- 		}
- 	}
- 
- 	if (!update_slave)
--		goto err_no_cmd_unlock;
-+		goto err_no_cmd;
- 
- 	/* Actually set the qids for the slave */
- 	update_slave->queue_id = qid;
- 
--	read_unlock(&bond->lock);
  out:
- 	rtnl_unlock();
- 	return ret;
- 
--err_no_cmd_unlock:
 -	read_unlock(&bond->lock);
- err_no_cmd:
- 	pr_info("invalid input for queue_id set for %s.\n",
- 		bond->dev->name);
-@@ -1593,6 +1595,9 @@ static ssize_t bonding_store_slaves_active(struct device *d,
- 	struct list_head *iter;
- 	struct slave *slave;
- 
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
- 	if (sscanf(buf, "%d", &new_value) != 1) {
- 		pr_err("%s: no all_slaves_active value specified.\n",
- 		       bond->dev->name);
-@@ -1612,7 +1617,6 @@ static ssize_t bonding_store_slaves_active(struct device *d,
- 		goto out;
- 	}
- 
--	read_lock(&bond->lock);
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (!bond_is_active_slave(slave)) {
- 			if (new_value)
-@@ -1621,8 +1625,8 @@ static ssize_t bonding_store_slaves_active(struct device *d,
- 				slave->inactive = 1;
- 		}
- 	}
--	read_unlock(&bond->lock);
- out:
-+	rtnl_unlock();
- 	return ret;
- }
- static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+ 		kfree_skb(skb);
 -- 
 1.8.2.1
