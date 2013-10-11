@@ -1,43 +1,38 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
-Date: Fri, 11 Oct 2013 09:51:38 +0800
-Message-ID: <CACVXFVM2V6k6r4D5BPj7FyrBcGzopT5QVfww5fEUz6CfHMQTBQ@mail.gmail.com>
-References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
-	<CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>
-	<52519E7A.40804@ti.com>
-	<CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ@mail.gmail.com>
-	<525698CC.3060406@ti.com>
-	<CACVXFVP-KgqcNTnk+JZsLc188pYk6iUXvW6=kPXNaurSuevGeA@mail.gmail.com>
-	<5256A1DE.8010709@ti.com>
+From: Kyle Hubert <khubert@gmail.com>
+Subject: Peak TCP performance
+Date: Thu, 10 Oct 2013 22:34:22 -0400
+Message-ID: <CAJoZ4U2eVUd4JiGQ6UFYMdoEwyN=MO8+9S3jGcsaYGN2vqt=3g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>, mugunthanvnm@ti.com
-To: Dan Murphy <dmurphy@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5256A1DE.8010709@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:48297 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752194Ab3JKCeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 22:34:23 -0400
+Received: by mail-qc0-f182.google.com with SMTP id n4so2505072qcx.41
+        for <netdev@vger.kernel.org>; Thu, 10 Oct 2013 19:34:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 10, 2013 at 8:47 PM, Dan Murphy <dmurphy@ti.com> wrote:
->
-> Is there a board that has 2 built in smsc devices?
+I'm working on a device, I consistently get 27gbps via netperf-2.6.
+UDP reports 54gbps.
 
-I don't know, maybe there isn't, but driver should be generic enough, and
-as I said it is a generic problem, and people are discussing it, so suggest
-to read previous discussions first before post your V2.
+TCP is maxed out at 100% CPU on the transmit side. On the receive
+side, 40% of the CPU. Thus, I didn't believe I could eek anymore
+performance out of it.
 
-Below link is one I remembered, but I think you can find more:
+However, very oddly, if I enabled bridged mode to forward some
+packets, TCP performance goes up to 32gbps. The thing that bothers me
+is that transmit CPU utilization drops to 65%, and receive CPU
+utilization increases to 60%.
 
-https://lkml.org/lkml/2013/8/11/100
+What happens when the device becomes bridged to gain so much
+performance? Also, can I now take advantage of the extra CPU time
+available to drive more traffic? No tunable seems to have any effect..
+(except down)
 
-> This is all dependent on what the dev.id is of udev.
+Any ideas?
 
-I am not sure why it depends on udev, and udev can't
-see the device util it is added to system.
-
-Thanks,
--- 
-Ming Lei
+Cheers,
+-Kyle
