@@ -1,41 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 0/2] xfrm: Remove ancient sleeping code
-Date: Fri, 11 Oct 2013 11:21:45 +0200
-Message-ID: <20131011092145.GT7660@secunet.com>
-References: <20131010063301.GO7660@secunet.com>
- <525650F6.305@windriver.com>
- <20131010085703.GR7660@secunet.com>
- <5257A650.4090408@windriver.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] farsync: fix info leak in ioctl
+Date: Fri, 11 Oct 2013 12:50:03 +0300
+Message-ID: <20131011095003.GD6247@mwanda>
+References: <5257BFBA.7030405@ai2.upv.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Salva =?iso-8859-1?Q?Peir=F3?= <speiro@ai2.upv.es>,
+	security@kernel.org, netdev@vger.kernel.org
+To: Kevin Curtis <kevin.curtis@farsite.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36250 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751044Ab3JKJVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Oct 2013 05:21:48 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:42400 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757327Ab3JKJuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 05:50:19 -0400
 Content-Disposition: inline
-In-Reply-To: <5257A650.4090408@windriver.com>
+In-Reply-To: <5257BFBA.7030405@ai2.upv.es>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 11, 2013 at 03:18:40PM +0800, Fan Du wrote:
-> >>In xfrm policy queue, XFRM_MAX_QUEUE_LEN is 100, which means 101th skb
-> >>will be dropped, how about make it configurable?
-> >
-> >IMO we would have yet another useless knob then. Currently we send all
-> >packets by default to a blackhole as long as the state is not resolved
-> >and most people are fine with it. The queueing is mostly to speed up
-> >tcp handshakes,
-> 
-> I cannot follow on this part. Would you please mind to explain how making a
-> policy queue will speed up TCP handshakes than orignal CAN_SLEEP mechanism?
-> 
+=46rom: Salva Peir=F3 <speiro@ai2.upv.es>
 
-I have not said that queueing is any faster than the sleeping mechanism.
-But it is faster than the current default that simply sends the first
-packets to a blackhole and can be used regardless if we can sleep.
+The fst_get_iface() code fails to initialize the two padding bytes of
+struct sync_serial_settings after the ->loopback member. Add an explici=
+t
+memset(0) before filling the structure to avoid the info leak.
 
-All I wanted to say is that there are not many packets needed to establish
-tcp connections, so I think a 100 packets queue is sufficient.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+---
+ linux-3.4-xm/drivers/net/wan/farsync.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/linux-3.4-xm/drivers/net/wan/farsync.c b/linux-3.4-xm/driv=
+ers/net/wan/farsync.c
+index 1a62318..3710427 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -1972,6 +1972,7 @@ fst_get_iface(struct fst_card_info *card, struct =
+fst_port_info *port,
+ 	}
+=20
+ 	i =3D port->index;
++	memset(&sync, 0, sizeof(sync));
+ 	sync.clock_rate =3D FST_RDL(card, portConfig[i].lineSpeed);
+ 	/* Lucky card and linux use same encoding here */
+ 	sync.clock_type =3D FST_RDB(card, portConfig[i].internalClock) =3D=3D
+--=20
+1.7.10.4
