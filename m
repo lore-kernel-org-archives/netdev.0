@@ -1,65 +1,139 @@
-From: Matthew Leach <matthew.leach@arm.com>
-Subject: [PATCH 14/14] net: smc91x: dont't use SMC_outw for fixing up halfword-aligned data
-Date: Fri, 11 Oct 2013 14:52:20 +0100
-Message-ID: <1381499540-28794-15-git-send-email-matthew.leach@arm.com>
-References: <1381499540-28794-1-git-send-email-matthew.leach@arm.com>
-Cc: ankit.jindal@linaro.org, steve.mcintyre@linaro.org,
-	tushar.jagad@linaro.org, will.deacon@arm.com,
-	catalin.marinas@arm.com, <netdev@vger.kernel.org>,
-	Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v3 5/5] xen-netback: enable IPv6 TCP GSO to the
+ guest
+Date: Fri, 11 Oct 2013 14:03:46 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0133943@AMSPEX01CL01.citrite.net>
+References: <1381418733-20470-1-git-send-email-paul.durrant@citrix.com>
+ <1381418733-20470-6-git-send-email-paul.durrant@citrix.com>
+ <20131011100950.GF15556@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:52444 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751751Ab3JKNxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 09:53:39 -0400
-In-Reply-To: <1381499540-28794-1-git-send-email-matthew.leach@arm.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:1250 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751921Ab3JKODu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 10:03:50 -0400
+In-Reply-To: <20131011100950.GF15556@zion.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Will Deacon <will.deacon@arm.com>
+> -----Original Message-----
+> From: Wei Liu [mailto:wei.liu2@citrix.com]
+> Sent: 11 October 2013 11:10
+> To: Paul Durrant
+> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
+> Ian Campbell
+> Subject: Re: [PATCH net-next v3 5/5] xen-netback: enable IPv6 TCP GSO to
+> the guest
+> 
+> On Thu, Oct 10, 2013 at 04:25:33PM +0100, Paul Durrant wrote:
+> [...]
+> >  	return max;
+> > @@ -312,6 +312,7 @@ static struct xenvif_rx_meta
+> *get_next_rx_buffer(struct xenvif *vif,
+> >  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
+> >
+> >  	meta = npo->meta + npo->meta_prod++;
+> > +	meta->gso_type = 0;
+> 
+> Should use XEN_NETIF_GSO_TYPE_NONE here.
+> 
+> >  	meta->gso_size = 0;
+> >  	meta->size = 0;
+> [...]
+> > +	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
+> > +		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+> > +		gso_size = skb_shinfo(skb)->gso_size;
+> > +	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+> > +		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+> > +		gso_size = skb_shinfo(skb)->gso_size;
+> > +	} else {
+> > +		gso_type = 0;
+> 
+> Ditto.
+> 
+> > +		gso_size = 0;
+> > +	}
+> > +
+> [...]
+> > @@ -438,10 +461,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+> >  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
+> >  	meta = npo->meta + npo->meta_prod++;
+> >
+> > -	if (!vif->gso_prefix)
+> > -		meta->gso_size = skb_shinfo(skb)->gso_size;
+> > -	else
+> > +	if ((1 << gso_type) & vif->gso_mask) {
+> > +		meta->gso_type = gso_type;
+> > +		meta->gso_size = gso_size;
+> > +	} else {
+> > +		meta->gso_type = 0;
+> 
+> Ditto.
+> 
+> >  		meta->gso_size = 0;
+> > +	}
+> >
+> >  	meta->size = 0;
+> >  	meta->id = req->id;
+> > @@ -587,7 +613,8 @@ void xenvif_rx_action(struct xenvif *vif)
+> >
+> >  		vif = netdev_priv(skb->dev);
+> >
+> > -		if (vif->meta[npo.meta_cons].gso_size && vif->gso_prefix) {
+> > +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
+> > +		    vif->gso_prefix_mask) {
+> 
+> The logic is changed here. Why do you remove the test on gso_size?
+> 
 
-SMC_outw invokes an endian-aware I/O accessor, which may change the data
-endianness before writing to the device. This is not suitable for data
-transfers where the memory buffer is simply a string of bytes that does
-not require any byte-swapping.
+Sorry, I missed this one before so never responded...
 
-This patches fixes the smc91x SMC_PUSH_DATA macro so that it uses the
-string I/O accessor for outputting the leading or trailing halfwords on
-halfword-aligned buffers.
+The test on gso_size is no longer necessary, because if gso_size is 0 then gso_type will be XEN_NETIF_GSO_TYPE_NONE and that will never appear in the masks.
 
-Cc: <netdev@vger.kernel.org>
-Cc: Nicolas Pitre <nico@fluxnic.net>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Will Deacon <will.deacon@arm.com>
----
- drivers/net/ethernet/smsc/smc91x.h |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+  Paul
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 5730fe2..98eedb9 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -1124,8 +1124,7 @@ static const char * chip_ids[ 16 ] =  {
- 			void __iomem *__ioaddr = ioaddr;		\
- 			if (__len >= 2 && (unsigned long)__ptr & 2) {	\
- 				__len -= 2;				\
--				SMC_outw(*(u16 *)__ptr, ioaddr,		\
--					DATA_REG(lp));		\
-+				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
- 				__ptr += 2;				\
- 			}						\
- 			if (SMC_CAN_USE_DATACS && lp->datacs)		\
-@@ -1133,8 +1132,7 @@ static const char * chip_ids[ 16 ] =  {
- 			SMC_outsl(__ioaddr, DATA_REG(lp), __ptr, __len>>2); \
- 			if (__len & 2) {				\
- 				__ptr += (__len & ~3);			\
--				SMC_outw(*((u16 *)__ptr), ioaddr,	\
--					 DATA_REG(lp));		\
-+				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
- 			}						\
- 		} else if (SMC_16BIT(lp))				\
- 			SMC_outsw(ioaddr, DATA_REG(lp), p, (l) >> 1);	\
--- 
-1.7.9.5
+> >  			resp = RING_GET_RESPONSE(&vif->rx,
+> >  						 vif->rx.rsp_prod_pvt++);
+> >
+> > @@ -624,7 +651,8 @@ void xenvif_rx_action(struct xenvif *vif)
+> >  					vif->meta[npo.meta_cons].size,
+> >  					flags);
+> >
+> > -		if (vif->meta[npo.meta_cons].gso_size && !vif->gso_prefix)
+> {
+> > +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
+> > +		    vif->gso_mask) {
+> 
+> Ditto.
+> 
+> >  			struct xen_netif_extra_info *gso =
+> >  				(struct xen_netif_extra_info *)
+> >  				RING_GET_RESPONSE(&vif->rx,
+> > @@ -632,8 +660,8 @@ void xenvif_rx_action(struct xenvif *vif)
+> >
+> [...]
+> >  	 * was turned on by a zero value in (or lack of)
+> > diff --git a/include/xen/interface/io/netif.h
+> b/include/xen/interface/io/netif.h
+> > index d7dd8d7..41674bc 100644
+> > --- a/include/xen/interface/io/netif.h
+> > +++ b/include/xen/interface/io/netif.h
+> > @@ -113,6 +113,7 @@ struct xen_netif_tx_request {
+> >  #define  XEN_NETIF_EXTRA_FLAG_MORE
+> 	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
+> >
+> >  /* GSO types */
+> > +#define XEN_NETIF_GSO_TYPE_NONE         (0)
+> 
+> Indentation.
+> 
+> Wei.
