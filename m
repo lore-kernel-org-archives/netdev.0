@@ -1,116 +1,39 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v3 5/5] xen-netback: enable IPv6 TCP GSO to the
- guest
-Date: Fri, 11 Oct 2013 11:09:50 +0100
-Message-ID: <20131011100950.GF15556@zion.uk.xensource.com>
-References: <1381418733-20470-1-git-send-email-paul.durrant@citrix.com>
- <1381418733-20470-6-git-send-email-paul.durrant@citrix.com>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: [PATCH net] bridge: allow receiption on disabled port
+Date: Fri, 11 Oct 2013 12:18:15 +0200
+Message-ID: <5257D067.2050607@openwrt.org>
+References: <1381409570-1892-1-git-send-email-nbd@openwrt.org> <20131010133646.1bdd42c1@nehalam.linuxnetplumber.net> <52571481.5010907@openwrt.org> <20131010193551.462fc1f8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:13928 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288Ab3JKKJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 06:09:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1381418733-20470-6-git-send-email-paul.durrant@citrix.com>
+Received: from nbd.name ([46.4.11.11]:60890 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751246Ab3JKKSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Oct 2013 06:18:20 -0400
+In-Reply-To: <20131010193551.462fc1f8@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 10, 2013 at 04:25:33PM +0100, Paul Durrant wrote:
+On 2013-10-11 4:35 AM, Stephen Hemminger wrote:
+> This is what I was thinking would be better.
+> 
+> Don't want these packets leaking into PRE_ROUTEING chain or have
+> any chance to get flooded out other ports.
+> 
+> Compile tested only...
+> 
+> I could use another goto instead but that becomes spaghetti and
+> never like to jump back into a block.
 [...]
->  	return max;
-> @@ -312,6 +312,7 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
->  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
->  
->  	meta = npo->meta + npo->meta_prod++;
-> +	meta->gso_type = 0;
+>  forward:
+>  	switch (p->state) {
+> +	case BR_STATE_DISABLED:
+> +		if (!ether_addr_equal(p->br->dev->dev_addr, dest))
+> +			goto drop;
+Checking against the bridge device address isn't enough, WPA EAPOL
+packets are addressed to the wifi device MAC address.
 
-Should use XEN_NETIF_GSO_TYPE_NONE here.
-
->  	meta->gso_size = 0;
->  	meta->size = 0;
-[...]
-> +	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
-> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-> +		gso_size = skb_shinfo(skb)->gso_size;
-> +	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-> +		gso_size = skb_shinfo(skb)->gso_size;
-> +	} else {
-> +		gso_type = 0;
-
-Ditto.
-
-> +		gso_size = 0;
-> +	}
-> +
-[...]
-> @@ -438,10 +461,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
->  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
->  	meta = npo->meta + npo->meta_prod++;
->  
-> -	if (!vif->gso_prefix)
-> -		meta->gso_size = skb_shinfo(skb)->gso_size;
-> -	else
-> +	if ((1 << gso_type) & vif->gso_mask) {
-> +		meta->gso_type = gso_type;
-> +		meta->gso_size = gso_size;
-> +	} else {
-> +		meta->gso_type = 0;
-
-Ditto.
-
->  		meta->gso_size = 0;
-> +	}
->  
->  	meta->size = 0;
->  	meta->id = req->id;
-> @@ -587,7 +613,8 @@ void xenvif_rx_action(struct xenvif *vif)
->  
->  		vif = netdev_priv(skb->dev);
->  
-> -		if (vif->meta[npo.meta_cons].gso_size && vif->gso_prefix) {
-> +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-> +		    vif->gso_prefix_mask) {
-
-The logic is changed here. Why do you remove the test on gso_size?
-
->  			resp = RING_GET_RESPONSE(&vif->rx,
->  						 vif->rx.rsp_prod_pvt++);
->  
-> @@ -624,7 +651,8 @@ void xenvif_rx_action(struct xenvif *vif)
->  					vif->meta[npo.meta_cons].size,
->  					flags);
->  
-> -		if (vif->meta[npo.meta_cons].gso_size && !vif->gso_prefix) {
-> +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-> +		    vif->gso_mask) {
-
-Ditto.
-
->  			struct xen_netif_extra_info *gso =
->  				(struct xen_netif_extra_info *)
->  				RING_GET_RESPONSE(&vif->rx,
-> @@ -632,8 +660,8 @@ void xenvif_rx_action(struct xenvif *vif)
->  
-[...]
->  	 * was turned on by a zero value in (or lack of)
-> diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-> index d7dd8d7..41674bc 100644
-> --- a/include/xen/interface/io/netif.h
-> +++ b/include/xen/interface/io/netif.h
-> @@ -113,6 +113,7 @@ struct xen_netif_tx_request {
->  #define  XEN_NETIF_EXTRA_FLAG_MORE	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
->  
->  /* GSO types */
-> +#define XEN_NETIF_GSO_TYPE_NONE         (0)
-
-Indentation.
-
-Wei.
+- Felix
