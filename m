@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: must disable bh before calling l2tp_xmit_skb()
-Date: Fri, 11 Oct 2013 17:20:21 -0400 (EDT)
-Message-ID: <20131011.172021.827876891266213757.davem@davemloft.net>
-References: <1381316730.4971.16.camel@edumazet-glaptop.roam.corp.google.com>
-	<5256592E.3080600@alphalink.fr>
-	<1381411809.4971.77.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH net] netem: update backlog after drop
+Date: Fri, 11 Oct 2013 17:31:15 -0400 (EDT)
+Message-ID: <20131011.173115.1644624462534349954.davem@davemloft.net>
+References: <20131006151533.52988624@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=koi8-r
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: f.cachereul@alphalink.fr, jchapman@katalix.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55942 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56118 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753372Ab3JKVUZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 17:20:25 -0400
-In-Reply-To: <1381411809.4971.77.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1754967Ab3JKVbQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 17:31:16 -0400
+In-Reply-To: <20131006151533.52988624@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 Oct 2013 06:30:09 -0700
+=46rom: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sun, 6 Oct 2013 15:15:33 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> When packet is dropped from rb-tree netem the backlog statistic shoul=
+d
+> also be updated.
 >=20
-> Fran=E7ois Cachereul made a very nice bug report and suspected
-> the bh_lock_sock() / bh_unlok_sock() pair used in l2tp_xmit_skb() fro=
-m
-> process context was not good.
->=20
-> This problem was added by commit
-> ("l2tp: Fix locking in l2tp_core.c").
+> Reported-by: =F3=C5=D2=C7=C5=C5=D7 =F3=C5=D2=C7=C5=CA <adron@yapic.ne=
+t>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I added the commit SHA ID for you, please take care of this next time.
-
-> l2tp_eth_dev_xmit() runs from BH context, so we must disable BH
-> from other l2tp_xmit_skb() users.
- ...
-> Reported-by: Fran=E7ois Cachereul <f.cachereul@alphalink.fr>
-> Tested-by: Fran=E7ois Cachereul <f.cachereul@alphalink.fr>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied and queued up for -stable, thanks everyone.
+Applied.
