@@ -1,139 +1,128 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v3 5/5] xen-netback: enable IPv6 TCP GSO to the
- guest
-Date: Fri, 11 Oct 2013 14:03:46 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0133943@AMSPEX01CL01.citrite.net>
-References: <1381418733-20470-1-git-send-email-paul.durrant@citrix.com>
- <1381418733-20470-6-git-send-email-paul.durrant@citrix.com>
- <20131011100950.GF15556@zion.uk.xensource.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCHv2 1/2 ] {xfrm, sctp} Stick to software crc32 even if hardware
+ is capable of that
+Date: Fri, 11 Oct 2013 10:04:15 -0400
+Message-ID: <5258055F.5060703@gmail.com>
+References: <1381384296-1821-1-git-send-email-fan.du@windriver.com> <20131010131116.GA16147@hmsreliant.think-freely.org> <5257A349.3010605@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>, Neil Horman <nhorman@tuxdriver.com>,
+	steffen.klassert@secunet.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:1250 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751921Ab3JKODu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 10:03:50 -0400
-In-Reply-To: <20131011100950.GF15556@zion.uk.xensource.com>
-Content-Language: en-US
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:38036 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753438Ab3JKOES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 10:04:18 -0400
+Received: by mail-qc0-f175.google.com with SMTP id v2so2935439qcr.34
+        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 07:04:18 -0700 (PDT)
+In-Reply-To: <5257A349.3010605@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 11 October 2013 11:10
-> To: Paul Durrant
-> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
-> Ian Campbell
-> Subject: Re: [PATCH net-next v3 5/5] xen-netback: enable IPv6 TCP GSO to
-> the guest
-> 
-> On Thu, Oct 10, 2013 at 04:25:33PM +0100, Paul Durrant wrote:
-> [...]
-> >  	return max;
-> > @@ -312,6 +312,7 @@ static struct xenvif_rx_meta
-> *get_next_rx_buffer(struct xenvif *vif,
-> >  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
-> >
-> >  	meta = npo->meta + npo->meta_prod++;
-> > +	meta->gso_type = 0;
-> 
-> Should use XEN_NETIF_GSO_TYPE_NONE here.
-> 
-> >  	meta->gso_size = 0;
-> >  	meta->size = 0;
-> [...]
-> > +	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
-> > +		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-> > +		gso_size = skb_shinfo(skb)->gso_size;
-> > +	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-> > +		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-> > +		gso_size = skb_shinfo(skb)->gso_size;
-> > +	} else {
-> > +		gso_type = 0;
-> 
-> Ditto.
-> 
-> > +		gso_size = 0;
-> > +	}
-> > +
-> [...]
-> > @@ -438,10 +461,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
-> >  	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
-> >  	meta = npo->meta + npo->meta_prod++;
-> >
-> > -	if (!vif->gso_prefix)
-> > -		meta->gso_size = skb_shinfo(skb)->gso_size;
-> > -	else
-> > +	if ((1 << gso_type) & vif->gso_mask) {
-> > +		meta->gso_type = gso_type;
-> > +		meta->gso_size = gso_size;
-> > +	} else {
-> > +		meta->gso_type = 0;
-> 
-> Ditto.
-> 
-> >  		meta->gso_size = 0;
-> > +	}
-> >
-> >  	meta->size = 0;
-> >  	meta->id = req->id;
-> > @@ -587,7 +613,8 @@ void xenvif_rx_action(struct xenvif *vif)
-> >
-> >  		vif = netdev_priv(skb->dev);
-> >
-> > -		if (vif->meta[npo.meta_cons].gso_size && vif->gso_prefix) {
-> > +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-> > +		    vif->gso_prefix_mask) {
-> 
-> The logic is changed here. Why do you remove the test on gso_size?
-> 
+On 10/11/2013 03:05 AM, Fan Du wrote:
+>
+>
+> On 2013=E5=B9=B410=E6=9C=8810=E6=97=A5 21:11, Neil Horman wrote:
+>> On Thu, Oct 10, 2013 at 01:51:36PM +0800, Fan Du wrote:
+>>> igb/ixgbe have hardware sctp checksum support, when this feature is
+>>> enabled
+>>> and also IPsec is armed to protect sctp traffic, ugly things happen=
+ed as
+>>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum
+>>> every thing
+>>> up and pack the 16bits result in the checksum field). The result is=
+ fail
+>>> establishment of sctp communication.
+>>>
+>> Shouldn't this be fixed in the xfrm code then?  E.g. check the devic=
+e
+>> features
+>> for SCTP checksum offloading and and skip the checksum during xfrm
+>> output if its
+>> available?
+>>
+>> Or am I missing something?
+>> Neil
+>>
+>>
+>
+>
+>  From 014276de0877f11d46e1704114a7d91f19221a63 Mon Sep 17 00:00:00 20=
+01
+> From: Fan Du <fan.du@windriver.com>
+> Date: Fri, 11 Oct 2013 14:24:33 +0800
+> Subject: [PATCH 1/2] {xfrm, sctp} Stick to software crc32 even if
+> hardware is
+>   capable of that
+>
+> igb/ixgbe have hardware sctp checksum support, when this feature is e=
+nabled
+> and also IPsec is armed to protect sctp traffic, ugly things happened=
+ as
+> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum eve=
+ry
+> thing
+> up and pack the 16bits result in the checksum field). The result is f=
+ail
+> establishment of sctp communication.
+>
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+> v2:
+>    Leave ip_summed as CHECKSUM_PARTIAL as before, the second patch wi=
+ll
+> fix this.
+>
+> ---
+>   net/sctp/output.c |   14 +++++++++++++-
+>   1 file changed, 13 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 0ac3a65..6de6402 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct sk_bu=
+ff
+> *skb, struct sock *sk)
+>       atomic_inc(&sk->sk_wmem_alloc);
+>   }
+>
+> +static int is_xfrm_armed(struct dst_entry *dst)
+> +{
+> +#ifdef CONFIG_XFRM
+> +    /* If dst->xfrm is valid, this skb needs to be transformed */
+> +    return dst->xfrm !=3D NULL;
+> +#else
+> +    return 0;
+> +#endif
+> +}
+> +
 
-Sorry, I missed this one before so never responded...
+I would really prefer to have an accessor function to dst->xfrm, but
+I see that everyone codes it inside the #ifdef.  Gack.
 
-The test on gso_size is no longer necessary, because if gso_size is 0 then gso_type will be XEN_NETIF_GSO_TYPE_NONE and that will never appear in the masks.
+>   /* All packets are sent to the network through this function from
+>    * sctp_outq_tail().
+>    *
+> @@ -536,7 +546,9 @@ int sctp_packet_transmit(struct sctp_packet *pack=
+et)
+>        * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt=
+>.
+>        */
+>       if (!sctp_checksum_disable) {
+> -        if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
+> +        if ((!(dst->dev->features & NETIF_F_SCTP_CSUM)) ||
+> +            is_xfrm_armed(dst)) {
+> +
+>               __u32 crc32 =3D sctp_start_cksum((__u8 *)sh, cksum_buf_=
+len);
+>
+>               /* 3) Put the resultant value into the checksum field i=
+n the
 
-  Paul
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-> >  			resp = RING_GET_RESPONSE(&vif->rx,
-> >  						 vif->rx.rsp_prod_pvt++);
-> >
-> > @@ -624,7 +651,8 @@ void xenvif_rx_action(struct xenvif *vif)
-> >  					vif->meta[npo.meta_cons].size,
-> >  					flags);
-> >
-> > -		if (vif->meta[npo.meta_cons].gso_size && !vif->gso_prefix)
-> {
-> > +		if ((1 << vif->meta[npo.meta_cons].gso_type) &
-> > +		    vif->gso_mask) {
-> 
-> Ditto.
-> 
-> >  			struct xen_netif_extra_info *gso =
-> >  				(struct xen_netif_extra_info *)
-> >  				RING_GET_RESPONSE(&vif->rx,
-> > @@ -632,8 +660,8 @@ void xenvif_rx_action(struct xenvif *vif)
-> >
-> [...]
-> >  	 * was turned on by a zero value in (or lack of)
-> > diff --git a/include/xen/interface/io/netif.h
-> b/include/xen/interface/io/netif.h
-> > index d7dd8d7..41674bc 100644
-> > --- a/include/xen/interface/io/netif.h
-> > +++ b/include/xen/interface/io/netif.h
-> > @@ -113,6 +113,7 @@ struct xen_netif_tx_request {
-> >  #define  XEN_NETIF_EXTRA_FLAG_MORE
-> 	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
-> >
-> >  /* GSO types */
-> > +#define XEN_NETIF_GSO_TYPE_NONE         (0)
-> 
-> Indentation.
-> 
-> Wei.
+-vlad
