@@ -1,146 +1,43 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] openvswitch: fix vport-netdev unregister
-Date: Thu, 10 Oct 2013 17:47:26 -0700
-Message-ID: <CAMEtUuyEw81g8+68HUMpR1RERAA9rjL=WHRE58se83cdur67eg@mail.gmail.com>
-References: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
-	<CALnjE+p3MC7D9oYZ4VhH=fdOWSYcV6h9twnaZBocYnRdAEcpBg@mail.gmail.com>
-	<CAMEtUuzVP0LQ_L2CrpoJgehP_bXwYhicW_HM2m-YOY6SN7RDxQ@mail.gmail.com>
-	<CALnjE+pLon2DGc=MfrG7Tsu=p_uF9chK=TREJwK_TM2Um89p6Q@mail.gmail.com>
-	<CAMEtUuzP1b_VNqP1texkrQ7kvCRxEukUoRz=Dj-pMX9gsO9AWw@mail.gmail.com>
-	<CALnjE+oXJQoPG4io2JOn1zBbf7XtPKaBE+vHPNKXm2TBygvB5Q@mail.gmail.com>
-	<CAMEtUuxH24G6pQtSFznrK7w5mdP3za4uQfKKEEaEngW4SJajbA@mail.gmail.com>
-	<CALnjE+rgasL+XShQN20b9PkFNGq38+UoXX4uLogrZ2igAwfDew@mail.gmail.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH] usbnet: smsc95xx: Add device tree input for MAC address
+Date: Fri, 11 Oct 2013 09:51:38 +0800
+Message-ID: <CACVXFVM2V6k6r4D5BPj7FyrBcGzopT5QVfww5fEUz6CfHMQTBQ@mail.gmail.com>
+References: <1380911156-14112-1-git-send-email-dmurphy@ti.com>
+	<CACVXFVOVMvP=3y9h2Jrqn2sBQdKOZtrhQDAFYkdHKXFgQj=d0Q@mail.gmail.com>
+	<52519E7A.40804@ti.com>
+	<CACVXFVNAB3VnmdoP_LGJsBjQ17j1aoqKMsBE7LRt65OqROeRUQ@mail.gmail.com>
+	<525698CC.3060406@ti.com>
+	<CACVXFVP-KgqcNTnk+JZsLc188pYk6iUXvW6=kPXNaurSuevGeA@mail.gmail.com>
+	<5256A1DE.8010709@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>, Jiri Pirko <jiri@resnulli.us>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:49896 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752194Ab3JKAr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Oct 2013 20:47:28 -0400
-Received: by mail-we0-f179.google.com with SMTP id w61so3404072wes.38
-        for <netdev@vger.kernel.org>; Thu, 10 Oct 2013 17:47:27 -0700 (PDT)
-In-Reply-To: <CALnjE+rgasL+XShQN20b9PkFNGq38+UoXX4uLogrZ2igAwfDew@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>, mugunthanvnm@ti.com
+To: Dan Murphy <dmurphy@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5256A1DE.8010709@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 10, 2013 at 3:38 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Thu, Oct 10, 2013 at 1:48 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On Thu, Oct 10, 2013 at 11:21 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Wed, Oct 9, 2013 at 11:26 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>>> On Wed, Oct 9, 2013 at 11:07 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>> On Wed, Oct 9, 2013 at 9:11 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>>>>> On Wed, Oct 9, 2013 at 8:02 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>>>> On Tue, Oct 8, 2013 at 8:07 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>>>>>>> The combination of two commits
->>>>>>>>
->>>>>>>> commit 8e4e1713e4
->>>>>>>> ("openvswitch: Simplify datapath locking.")
->>>>>>>>
->>>>>>>> and
->>>>>>>>
->>>>>>>> commit 2537b4dd0a
->>>>>>>> ("openvswitch:: link upper device for port devices")
->>>>>>>>
->>>>>>>> introduced a bug where upper_dev wasn't unlinked upon
->>>>>>>> netdev_unregister notification
->>>>>>>>
->>>>>>>> The following steps:
->>>>>>>>
->>>>>>>>   modprobe openvswitch
->>>>>>>>   ovs-dpctl add-dp test
->>>>>>>>   ip tuntap add dev tap1 mode tap
->>>>>>>>   ovs-dpctl add-if test tap1
->>>>>>>>   ip tuntap del dev tap1 mode tap
->>>>>>>>
->>>>>>>> are causing multiple warnings:
->>>>>>>> diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
->>>>>>>> index c323567..e9380bd 100644
->>>>>>>> --- a/net/openvswitch/dp_notify.c
->>>>>>>> +++ b/net/openvswitch/dp_notify.c
->>>>>>>> @@ -88,6 +88,11 @@ static int dp_device_event(struct notifier_block *unused, unsigned long event,
->>>>>>>>                 return NOTIFY_DONE;
->>>>>>>>
->>>>>>>>         if (event == NETDEV_UNREGISTER) {
->>>>>>>> +               /* rx_handler_unregister and upper_dev_unlink immediately */
->>>>>>>> +               if (dev->reg_state == NETREG_UNREGISTERING)
->>>>>>>> +                       ovs_netdev_unlink_dev(vport);
->>>>>>>> +
->>>>>>>
->>>>>>> Rather than doing vport destroy here, we can just unlink upper device
->>>>>>> and let workq do rest of work.
->>>>>>
->>>>>> isn't it what it's doing?
->>>>>
->>>>> I meant just call netdev_upper_dev_unlink() here in event handler and
->>>>> rest of vport destroy can be done in workq.
->>>>
->>>> netdev_upper_dev_unlink() without netdev_rx_handler_unregister() ?!
->>>> that's dangerous.
->>> why is it dangerous? ovs already had ref to net-device.
->>
->> comment from dev.c:
->>                 /* Notify protocols, that we are about to destroy
->>                    this device. They should clean all the things.
->>                 */
->>                 call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->>
->> so here you're suggesting to just netdev_upper_dev_unlink() to silence
->> the warning,
->> but then do dev_set_promisc(-1) in workqueue?
->>
-> promiscuity setting is different issue. If you want to have discussion
-> then you can post separate patch for same. Lets fix the warning here.
+On Thu, Oct 10, 2013 at 8:47 PM, Dan Murphy <dmurphy@ti.com> wrote:
 >
->> well, as a minimum audit of promiscuity will be wrong.
->> ndo_change_rx_flags will be called after ndo_uninit,
->> all sorts of other cleanups are done.
->
-> change_rx_flags() checks for UP flag for given device.
->
->> I cannot track all possible scenarios, but it seems much safer to
->> cleanup everything possible
->> as soon as ovs received NETDEV_UNREGISTER event.
->>
->> May be all these risks are worth taking, then please explain what is
->> the problem with the proposed patch?
->>
-> Problem is that this is causing layering issues in OVS. dp_notify is
-> suppose to work at dp layer. your patch directly calls vport-netdev
-> implementation function from dp_notify.
-> I could not think of a simple approach that will do this in completely
-> clean manner. Therefore I am trying to minimize layering issues. So
-> just calling netdev_upper_dev_unlink() looks better than doing
-> anything extra.
+> Is there a board that has 2 built in smsc devices?
 
-dp_notify is per net, not per dp.
-notifier can only be called for net_device and the first thing it does:
-        if (!ovs_is_internal_dev(dev))
-                vport = ovs_netdev_get_vport(dev);
-where ovs_netdev_get_vport() is defined in vport-netdev.c
+I don't know, maybe there isn't, but driver should be generic enough, and
+as I said it is a generic problem, and people are discussing it, so suggest
+to read previous discussions first before post your V2.
 
-once it gets into workq, it checks for:
-       if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
-             continue;
-and
-        netdev_vport = netdev_vport_priv(vport);
-where netdev_vport_priv() is defined in netdev-vport.h
+Below link is one I remembered, but I think you can find more:
 
-only then it proceeds with generic ovs_dp_detach_port().
+https://lkml.org/lkml/2013/8/11/100
 
-Is that the layering you talking about?
+> This is all dependent on what the dev.id is of udev.
 
-So to minimize layering issues you want to call 'upper_dev_link' from
-netdev_create() in vport-netdev.c
-and 'upper_dev_unlink' directly from dp_device_event() in dp_notify.c?
+I am not sure why it depends on udev, and udev can't
+see the device util it is added to system.
 
-That will look better than calling ovs_netdev_unlink_dev() ?
-
-Having both register+link and unregister+unlink in the same
-vport-netdev.c, is not an advantage?
-
-I'm still missing something here.
+Thanks,
+-- 
+Ming Lei
