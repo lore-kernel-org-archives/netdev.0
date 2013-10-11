@@ -1,50 +1,111 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] farsync: fix info leak in ioctl
-Date: Fri, 11 Oct 2013 12:50:03 +0300
-Message-ID: <20131011095003.GD6247@mwanda>
-References: <5257BFBA.7030405@ai2.upv.es>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v3 2/5] xen-netback: add support for IPv6
+ checksum offload from guest
+Date: Fri, 11 Oct 2013 11:09:43 +0100
+Message-ID: <20131011100943.GE15556@zion.uk.xensource.com>
+References: <1381418733-20470-1-git-send-email-paul.durrant@citrix.com>
+ <1381418733-20470-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Salva =?iso-8859-1?Q?Peir=F3?= <speiro@ai2.upv.es>,
-	security@kernel.org, netdev@vger.kernel.org
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:42400 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757327Ab3JKJuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 05:50:19 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:13889 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757040Ab3JKKJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 06:09:44 -0400
 Content-Disposition: inline
-In-Reply-To: <5257BFBA.7030405@ai2.upv.es>
+In-Reply-To: <1381418733-20470-3-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Salva Peir=F3 <speiro@ai2.upv.es>
+On Thu, Oct 10, 2013 at 04:25:30PM +0100, Paul Durrant wrote:
+[...]
+> -#define PKT_PROT_LEN    (ETH_HLEN + \
+> -			 VLAN_HLEN + \
+> -			 sizeof(struct iphdr) + MAX_IPOPTLEN + \
+> -			 sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE)
+> +#define PKT_PROT_LEN 128
 
-The fst_get_iface() code fails to initialize the two padding bytes of
-struct sync_serial_settings after the ->loopback member. Add an explici=
-t
-memset(0) before filling the structure to avoid the info leak.
+I'm not against changing this, but could you please add comment on why
+128 is chosen.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>  
+[...]
+> +	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len)) &&
+> +	       !done) {
+> +		switch (nexthdr) {
+> +		case IPPROTO_FRAGMENT: {
+> +			struct frag_hdr *hp = (void *)(skb->data + off);
+> +
+> +			header_size = skb->network_header +
+> +				off +
+> +				sizeof(struct frag_hdr);
+> +			maybe_pull_tail(skb, header_size);
+> +
+> +			nexthdr = hp->nexthdr;
+> +			off += 8;
 
----
- linux-3.4-xm/drivers/net/wan/farsync.c |    1 +
- 1 file changed, 1 insertion(+)
+Can you use sizeof(frag_hdr) instead of 8?
 
-diff --git a/linux-3.4-xm/drivers/net/wan/farsync.c b/linux-3.4-xm/driv=
-ers/net/wan/farsync.c
-index 1a62318..3710427 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -1972,6 +1972,7 @@ fst_get_iface(struct fst_card_info *card, struct =
-fst_port_info *port,
- 	}
-=20
- 	i =3D port->index;
-+	memset(&sync, 0, sizeof(sync));
- 	sync.clock_rate =3D FST_RDL(card, portConfig[i].lineSpeed);
- 	/* Lucky card and linux use same encoding here */
- 	sync.clock_type =3D FST_RDB(card, portConfig[i].internalClock) =3D=3D
---=20
-1.7.10.4
+> +			break;
+> +		}
+> +		case IPPROTO_DSTOPTS:
+> +		case IPPROTO_HOPOPTS:
+> +		case IPPROTO_ROUTING: {
+> +			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
+> +
+> +			header_size = skb->network_header +
+> +				off +
+> +				sizeof(struct ipv6_opt_hdr);
+> +			maybe_pull_tail(skb, header_size);
+> +
+> +			nexthdr = hp->nexthdr;
+> +			off += ipv6_optlen(hp);
+> +			break;
+> +		}
+> +		case IPPROTO_AH: {
+> +			struct ip_auth_hdr *hp = (void *)(skb->data + off);
+> +
+> +			header_size = skb->network_header +
+> +				off +
+> +				sizeof(struct ip_auth_hdr);
+> +			maybe_pull_tail(skb, header_size);
+> +
+> +			nexthdr = hp->nexthdr;
+> +			off += (hp->hdrlen+2)<<2;
+> +			break;
+> +		}
+> +		case IPPROTO_TCP:
+> +		case IPPROTO_UDP:
+> +			found = true;
+> +			/* Fall through */
+> +		default:
+> +			done = true;
+> +			break;
+
+The above 'switch' doesn't seem to cover all IPPROTO_*. Will it cause
+the loop to exit too early? In other words, does any IPPROTO_* not
+listed above marks the end of parsing?
+
+[...]
+>  	unsigned long now = jiffies;
+> @@ -1428,12 +1598,7 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
+>  
+>  		xenvif_fill_frags(vif, skb);
+>  
+> -		/*
+> -		 * If the initial fragment was < PKT_PROT_LEN then
+> -		 * pull through some bytes from the other fragments to
+> -		 * increase the linear region to PKT_PROT_LEN bytes.
+> -		 */
+> -		if (skb_headlen(skb) < PKT_PROT_LEN && skb_is_nonlinear(skb)) {
+> +		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
+
+This change is not necessary: the comment is useful, and swapping two
+operands of && doesn't have any effect.
+
+Wei.
