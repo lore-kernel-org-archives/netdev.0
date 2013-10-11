@@ -1,75 +1,89 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 tip/core/rcu 05/14] decnet: Apply ACCESS_ONCE() to avoid sparse false positive
-Date: Fri, 11 Oct 2013 16:17:22 -0700
-Message-ID: <1381533451-29018-5-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v3 tip/core/rcu 12/14] bonding/bond_main: Apply
+	ACCESS_ONCE() to avoid sparse false positive
+Date: Fri, 11 Oct 2013 16:17:29 -0700
+Message-ID: <1381533451-29018-12-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131011231659.GA28062@linux.vnet.ibm.com>
- <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
-	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Gao feng <gaofeng@cn.fujitsu.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
+	<1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, edumazet@google.com, peterz@infradead.org,
+	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
+	josh@joshtriplett.org, rostedt@goodmis.org,
+	"David S. Miller" <davem@davemloft.net>, dhowells@redhat.com,
+	sbw@mit.edu, niv@us.ibm.com, netdev@vger.kernel.org,
+	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
+	darren@dvhart.com, akpm@linux-foundation.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, mingo@kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
-which is almost always the right thing to do.  However, the use in
-dn_insert_route() is legitimate: It is assigning a pointer to an element
-from an RCU-protected list, and all elements of this list are already
-visible to caller.
+which is almost always the right thing to do.  However, the uses in
+bond_change_active_slave(), bond_enslave(), and __bond_release_one()
+are legitimate: They are assigning a pointer to an element from an
+RCU-protected list (or a NULL pointer), and all elements of this list
+are already visible to caller.
 
-This commit therefore silences this false positive by laundering the
-pointer using ACCESS_ONCE() as suggested by Eric Dumazet and Josh
-Triplett.
+This commit therefore silences these false positives either by laundering
+the pointers using ACCESS_ONCE() as suggested by Eric Dumazet and Josh
+Triplett, or by using RCU_INIT_POINTER() for NULL pointer assignments.
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: linux-decnet-user@lists.sourceforge.net
+Cc: bridge@lists.linux-foundation.org
 Cc: netdev@vger.kernel.org
 ---
- net/decnet/dn_route.c | 8 +++++---
+ drivers/net/bonding/bond_main.c | 8 +++++---
  1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index fe32388ea24f..a6ef8b025035 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -344,8 +344,9 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 		if (compare_keys(&rth->fld, &rt->fld)) {
- 			/* Put it first */
- 			*rthp = rth->dst.dn_next;
--			rcu_assign_pointer(rth->dst.dn_next,
--					   dn_rt_hash_table[hash].chain);
-+			/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+			ACCESS_ONCE(rth->dst.dn_next) =
-+					   dn_rt_hash_table[hash].chain;
- 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
- 
- 			dst_use(&rth->dst, now);
-@@ -358,7 +359,8 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 		rthp = &rth->dst.dn_next;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 72df399c4ab3..e4270ae1c0a8 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -890,7 +890,8 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 		if (new_active)
+ 			bond_set_slave_active_flags(new_active);
+ 	} else {
+-		rcu_assign_pointer(bond->curr_active_slave, new_active);
++		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
++		ACCESS_ONCE(bond->curr_active_slave) = new_active;
  	}
  
--	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
-+	/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+	ACCESS_ONCE(rt->dst.dn_next) = dn_rt_hash_table[hash].chain;
- 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
+ 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
+@@ -1601,7 +1602,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 * so we can change it without calling change_active_interface()
+ 		 */
+ 		if (!bond->curr_active_slave && new_slave->link == BOND_LINK_UP)
+-			rcu_assign_pointer(bond->curr_active_slave, new_slave);
++			/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
++			ACCESS_ONCE(bond->curr_active_slave) = new_slave;
  
- 	dst_use(&rt->dst, now);
+ 		break;
+ 	} /* switch(bond_mode) */
+@@ -1801,7 +1803,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	if (all) {
+-		rcu_assign_pointer(bond->curr_active_slave, NULL);
++		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
+ 	} else if (oldcurrent == slave) {
+ 		/*
+ 		 * Note that we hold RTNL over this sequence, so there
 -- 
 1.8.1.5
