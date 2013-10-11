@@ -1,57 +1,58 @@
-From: Seif Mazareeb <seif@marvell.com>
-Subject: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
-Date: Fri, 11 Oct 2013 10:58:31 -0700
-Message-ID: <0DB595A2CB707F458400BE9663B6A72269C0047793@SC-VEXCH2.marvell.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: fix vport-netdev unregister
+Date: Fri, 11 Oct 2013 11:11:39 -0700
+Message-ID: <CAEP_g=86Evh+U5NCOjtqPs-1kuwmkukPT9tmVNqbNxLPq7wZ4g@mail.gmail.com>
+References: <1381288051-3607-1-git-send-email-ast@plumgrid.com>
+ <CALnjE+p3MC7D9oYZ4VhH=fdOWSYcV6h9twnaZBocYnRdAEcpBg@mail.gmail.com>
+ <CAMEtUuzVP0LQ_L2CrpoJgehP_bXwYhicW_HM2m-YOY6SN7RDxQ@mail.gmail.com>
+ <CALnjE+pLon2DGc=MfrG7Tsu=p_uF9chK=TREJwK_TM2Um89p6Q@mail.gmail.com>
+ <CAMEtUuzP1b_VNqP1texkrQ7kvCRxEukUoRz=Dj-pMX9gsO9AWw@mail.gmail.com>
+ <CALnjE+oXJQoPG4io2JOn1zBbf7XtPKaBE+vHPNKXm2TBygvB5Q@mail.gmail.com>
+ <CAMEtUuxH24G6pQtSFznrK7w5mdP3za4uQfKKEEaEngW4SJajbA@mail.gmail.com>
+ <CALnjE+rgasL+XShQN20b9PkFNGq38+UoXX4uLogrZ2igAwfDew@mail.gmail.com>
+ <CAMEtUuyEw81g8+68HUMpR1RERAA9rjL=WHRE58se83cdur67eg@mail.gmail.com>
+ <CAEP_g=_meOUPrYc7S8rM4NwT_7qG1JZrHJkOg6CmbjDc-rFjAQ@mail.gmail.com> <CAMEtUuzf5UbZ_87DU+vSMbKzxLQgmuEfrf3NXQSz7vSF8LQTzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	Dmitri Epshtein <dima@marvell.com>
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"paul@paul-moore.com" <paul@paul-moore.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:51346 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752772Ab3JKR6i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Oct 2013 13:58:38 -0400
-Content-Language: en-US
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:44831 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752628Ab3JKSMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 14:12:00 -0400
+Received: by mail-ie0-f178.google.com with SMTP id to1so8850822ieb.23
+        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 11:12:00 -0700 (PDT)
+In-Reply-To: <CAMEtUuzf5UbZ_87DU+vSMbKzxLQgmuEfrf3NXQSz7vSF8LQTzw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function could loop
-forever in the main loop if opt[opt_iter +1] == 0, this will causing a kernel
-crash in an SMP system, since the CPU executing this function will
-stall /not respond to IPIs.
+On Thu, Oct 10, 2013 at 9:48 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Thu, Oct 10, 2013 at 8:56 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> However, the check dev->reg_state in netdev_destroy() looks racy to
+>> me, as it could already be in NETREG_UNREGISTERED even if we already
+>> processed this device.
+>
+> you mean that netdev_destroy() will see reg_state == netreg_unregistered,
+> while dp_device_event() didn't see reg_state == netreg_unregistering yet?
+> or dp_device_event() saw it, proceeded to do unlink and
+> netdev_destroy() ran in parallel?
+> well, that's why reg_state == netreg_unregistering check in netdev_destroy()
+> is done with rtnl_lock() held.
+> reg_state cannot go into netreg_unregistered state skipping
+> netreg_unregistering and notifier.
+> therefore I don't think it's racy.
+>
+> In ovs_dp_notify_wq() you're checking for both unregistering and
+> unregistered and that makes
+> sense, since workq can run after unregistering notifier called and
+> netdev_run_todo()
+> already changed the state to unregistered.
+> But here it's not the case.
 
-This problem can be reproduced by running the IP Stack Integrity Checker
-(http://isic.sourceforge.net) using the following command on a Linux machine
-connected to DUT:
-
-"icmpsic -s rand -d <DUT IP address> -r 123456"
-wait (1-2 min)
-
-Signed-off-by: Seif Mazareeb <seif@marvell.com>
----
- include/net/cipso_ipv4.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index a7a683e..047f1f6 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -306,6 +306,10 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
-                        err_offset = opt_iter + 1;
-                        goto out;
-                }
-+
-+               if (opt[opt_iter + 1] == 0)
-+                       break;
-+
-                opt_iter += opt[opt_iter + 1];
-        }
-
---
-1.8.1.2
+ovs_dp_notify_wq() calls ovs_dp_detach_port(), which indirectly calls
+netdev_destroy() so it seems like it actually is the same case to me.
