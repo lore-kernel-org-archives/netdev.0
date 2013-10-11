@@ -1,102 +1,130 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v2 3/9] qlcnic: Firmware dump collection when auto recovery is disabled.
-Date: Fri, 11 Oct 2013 14:42:29 -0400
-Message-ID: <acf4cedd07652549581dd0bb5c84ceaf2d463de5.1381538863.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 5/9] qlcnic: Remove redundant eSwitch enable commands
+Date: Fri, 11 Oct 2013 14:42:31 -0400
+Message-ID: <23078ea925901e7fa4aa42a88f3947b676865d20.1381538863.git.himanshu.madhani@qlogic.com>
 References: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Pratik Pujar <pratik.pujar@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
 	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37602 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37593 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755475Ab3JKTNF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:05 -0400
+	by vger.kernel.org with ESMTP id S1752684Ab3JKTND (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:03 -0400
 In-Reply-To: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pratik Pujar <pratik.pujar@qlogic.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-o Allow collecting the firmware dump of halted firmware when auto
-  recovery is disabled.
+When more than one NIC physical functions are enabled on a port,
+eSwitch on that port gets enabled automatically. Driver
+need not explicitly enable the eSwitch.
 
-Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 11 +++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  7 ++++++-
- 2 files changed, 17 insertions(+), 1 deletion(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  | 23 ++++------------------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 13 ++++++------
+ 3 files changed, 12 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index f09e787..d303fab 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -818,6 +818,7 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	struct qlcnic_mailbox *mbx = ahw->mailbox;
- 	int ret = 0;
-+	u32 owner;
- 	u32 val;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 2883b57..9f4e4c4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -629,7 +629,7 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *);
+ int qlcnic_83xx_get_vnic_vport_info(struct qlcnic_adapter *,
+ 				    struct qlcnic_info *, u8);
+ int qlcnic_83xx_get_vnic_pf_info(struct qlcnic_adapter *, struct qlcnic_info *);
+-int qlcnic_83xx_enable_port_eswitch(struct qlcnic_adapter *, int);
++int qlcnic_83xx_set_port_eswitch_status(struct qlcnic_adapter *, int, int *);
  
- 	/* Perform NIC configuration based ready state entry actions */
-@@ -846,6 +847,10 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
- 			clear_bit(QLC_83XX_MBX_READY, &mbx->status);
- 			set_bit(__QLCNIC_RESETTING, &adapter->state);
- 			qlcnic_83xx_idc_enter_need_reset_state(adapter, 1);
-+		}  else {
-+			owner = qlcnic_83xx_idc_find_reset_owner_id(adapter);
-+			if (ahw->pci_func == owner)
-+				qlcnic_dump_fw(adapter);
- 		}
- 		return -EIO;
- 	}
-@@ -1058,6 +1063,12 @@ void qlcnic_83xx_idc_poll_dev_state(struct work_struct *work)
- 	adapter->ahw->idc.prev_state = adapter->ahw->idc.curr_state;
- 	qlcnic_83xx_periodic_tasks(adapter);
+ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *);
+ void qlcnic_83xx_get_stats(struct qlcnic_adapter *adapter, u64 *data);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+index 63cdddf..97caf10 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+@@ -257,8 +257,8 @@ int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter *adapter)
+ 	return 0;
+ }
  
-+	/* Do not reschedule if firmaware is in hanged state and auto
-+	 * recovery is disabled
-+	 */
-+	if ((adapter->flags & QLCNIC_FW_HANG) && !qlcnic_auto_fw_reset)
-+		return;
-+
- 	/* Re-schedule the function */
- 	if (test_bit(QLC_83XX_MODULE_LOADED, &adapter->ahw->idc.status))
- 		qlcnic_schedule_work(adapter, qlcnic_83xx_idc_poll_dev_state,
+-static int qlcnic_83xx_get_eswitch_port_info(struct qlcnic_adapter *adapter,
+-					     int func, int *port_id)
++int qlcnic_83xx_set_port_eswitch_status(struct qlcnic_adapter *adapter,
++					int func, int *port_id)
+ {
+ 	struct qlcnic_info nic_info;
+ 	int err = 0;
+@@ -274,23 +274,8 @@ static int qlcnic_83xx_get_eswitch_port_info(struct qlcnic_adapter *adapter,
+ 	else
+ 		err = -EIO;
+ 
+-	return err;
+-}
+-
+-int qlcnic_83xx_enable_port_eswitch(struct qlcnic_adapter *adapter, int func)
+-{
+-	int id, err = 0;
+-
+-	err = qlcnic_83xx_get_eswitch_port_info(adapter, func, &id);
+-	if (err)
+-		return err;
+-
+-	if (!(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE)) {
+-		if (!qlcnic_enable_eswitch(adapter, id, 1))
+-			adapter->eswitch[id].flags |= QLCNIC_SWITCH_ENABLE;
+-		else
+-			err = -EIO;
+-	}
++	if (!err)
++		adapter->eswitch[*port_id].flags |= QLCNIC_SWITCH_ENABLE;
+ 
+ 	return err;
+ }
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 55e8b23..5195972 100644
+index 5195972..725d76f 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3353,6 +3353,8 @@ done:
- static int
- qlcnic_check_health(struct qlcnic_adapter *adapter)
+@@ -819,7 +819,7 @@ static bool qlcnic_port_eswitch_cfg_capability(struct qlcnic_adapter *adapter)
+ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
  {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
- 	u32 state = 0, heartbeat;
- 	u32 peg_status;
- 	int err = 0;
-@@ -3377,7 +3379,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		if (adapter->need_fw_reset)
- 			goto detach;
+ 	struct qlcnic_pci_info *pci_info;
+-	int i, ret = 0, j = 0;
++	int i, id = 0, ret = 0, j = 0;
+ 	u16 act_pci_func;
+ 	u8 pfn;
  
--		if (adapter->ahw->reset_context && qlcnic_auto_fw_reset)
-+		if (ahw->reset_context && qlcnic_auto_fw_reset)
- 			qlcnic_reset_hw_context(adapter);
+@@ -860,7 +860,8 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 			continue;
  
- 		return 0;
-@@ -3420,6 +3422,9 @@ detach:
- 
- 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
- 		QLCDB(adapter, DRV, "fw recovery scheduled.\n");
-+	} else if (!qlcnic_auto_fw_reset && fw_dump->enable &&
-+		   adapter->flags & QLCNIC_FW_RESET_OWNER) {
-+		qlcnic_dump_fw(adapter);
+ 		if (qlcnic_port_eswitch_cfg_capability(adapter)) {
+-			if (!qlcnic_83xx_enable_port_eswitch(adapter, pfn))
++			if (!qlcnic_83xx_set_port_eswitch_status(adapter, pfn,
++								 &id))
+ 				adapter->npars[j].eswitch_status = true;
+ 			else
+ 				continue;
+@@ -879,12 +880,12 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 		j++;
  	}
  
- 	return 1;
+-	if (qlcnic_82xx_check(adapter)) {
++	/* Update eSwitch status for adapters without per port eSwitch
++	 * configuration capability
++	 */
++	if (!qlcnic_port_eswitch_cfg_capability(adapter)) {
+ 		for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
+ 			adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
+-	} else if (!qlcnic_port_eswitch_cfg_capability(adapter)) {
+-		for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
+-			qlcnic_enable_eswitch(adapter, i, 1);
+ 	}
+ 
+ 	kfree(pci_info);
 -- 
 1.8.1.4
