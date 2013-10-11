@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 tip/core/rcu 08/14] ipv6/ip6_gre: Apply ACCESS_ONCE() to avoid sparse false positive
-Date: Fri, 11 Oct 2013 16:17:25 -0700
-Message-ID: <1381533451-29018-8-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v3 tip/core/rcu 09/14] ipv6/sit: Apply ACCESS_ONCE() to avoid sparse false positive
+Date: Fri, 11 Oct 2013 16:17:26 -0700
+Message-ID: <1381533451-29018-9-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131011231659.GA28062@linux.vnet.ibm.com>
  <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -16,25 +16,17 @@ Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:44100 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754454Ab3JKXRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Oct 2013 19:17:44 -0400
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 11 Oct 2013 19:17:43 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the use in
-ip6gre_tunnel_unlink() is legitimate: It is assigning a pointer to an
+ipip6_tunnel_unlink() is legitimate: It is assigning a pointer to an
 element from an RCU-protected list, and all elements of this list are
 already visible to caller.
 
@@ -51,14 +43,14 @@ Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 ---
- net/ipv6/ip6_gre.c | 3 ++-
+ net/ipv6/sit.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 6b26e9feafb9..7bc9e1b3283e 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -276,7 +276,8 @@ static void ip6gre_tunnel_unlink(struct ip6gre_net *ign, struct ip6_tnl *t)
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 7ee5cb96db34..9b976a4b463d 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -157,7 +157,8 @@ static void ipip6_tunnel_unlink(struct sit_net *sitn, struct ip_tunnel *t)
  	     (iter = rtnl_dereference(*tp)) != NULL;
  	     tp = &iter->next) {
  		if (t == iter) {
