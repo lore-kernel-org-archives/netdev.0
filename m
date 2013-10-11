@@ -1,8 +1,8 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 tip/core/rcu 12/14] bonding/bond_main: Apply
+Subject: [PATCH v3 tip/core/rcu 11/14] bridge/br_mdb: Apply
 	ACCESS_ONCE() to avoid sparse false positive
-Date: Fri, 11 Oct 2013 16:17:29 -0700
-Message-ID: <1381533451-29018-12-git-send-email-paulmck@linux.vnet.ibm.com>
+Date: Fri, 11 Oct 2013 16:17:28 -0700
+Message-ID: <1381533451-29018-11-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131011231659.GA28062@linux.vnet.ibm.com>
 	<1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
@@ -32,15 +32,14 @@ From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
-which is almost always the right thing to do.  However, the uses in
-bond_change_active_slave(), bond_enslave(), and __bond_release_one()
-are legitimate: They are assigning a pointer to an element from an
-RCU-protected list (or a NULL pointer), and all elements of this list
-are already visible to caller.
+which is almost always the right thing to do.  However, the use in
+__br_mdb_del() is legitimate: They are assigning a pointer to an element
+from an RCU-protected list, and all elements of this list are already
+visible to caller.
 
-This commit therefore silences these false positives either by laundering
+This commit therefore silences these false positives by laundering
 the pointers using ACCESS_ONCE() as suggested by Eric Dumazet and Josh
-Triplett, or by using RCU_INIT_POINTER() for NULL pointer assignments.
+Triplett.
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
@@ -49,41 +48,21 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: bridge@lists.linux-foundation.org
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/bonding/bond_main.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/bridge/br_mdb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 72df399c4ab3..e4270ae1c0a8 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -890,7 +890,8 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
- 		if (new_active)
- 			bond_set_slave_active_flags(new_active);
- 	} else {
--		rcu_assign_pointer(bond->curr_active_slave, new_active);
-+		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+		ACCESS_ONCE(bond->curr_active_slave) = new_active;
- 	}
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 85a09bb5ca51..de7197ba8695 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -447,7 +447,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 		if (p->port->state == BR_STATE_DISABLED)
+ 			goto unlock;
  
- 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
-@@ -1601,7 +1602,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		 * so we can change it without calling change_active_interface()
- 		 */
- 		if (!bond->curr_active_slave && new_slave->link == BOND_LINK_UP)
--			rcu_assign_pointer(bond->curr_active_slave, new_slave);
-+			/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+			ACCESS_ONCE(bond->curr_active_slave) = new_slave;
- 
- 		break;
- 	} /* switch(bond_mode) */
-@@ -1801,7 +1803,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	}
- 
- 	if (all) {
--		rcu_assign_pointer(bond->curr_active_slave, NULL);
-+		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
- 	} else if (oldcurrent == slave) {
- 		/*
- 		 * Note that we hold RTNL over this sequence, so there
+-		rcu_assign_pointer(*pp, p->next);
++		ACCESS_ONCE(*pp) = p->next; /* OK: Both --rcu and visible. */
+ 		hlist_del_init(&p->mglist);
+ 		del_timer(&p->timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
 -- 
 1.8.1.5
