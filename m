@@ -1,49 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: allow receiption on disabled port
-Date: Fri, 11 Oct 2013 08:10:36 -0700
-Message-ID: <20131011081036.63eb8f28@nehalam.linuxnetplumber.net>
-References: <1381409570-1892-1-git-send-email-nbd@openwrt.org>
-	<20131010133646.1bdd42c1@nehalam.linuxnetplumber.net>
-	<52571481.5010907@openwrt.org>
-	<20131010193551.462fc1f8@nehalam.linuxnetplumber.net>
-	<5257D067.2050607@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inet_diag: use sock_gen_put()
+Date: Fri, 11 Oct 2013 08:54:49 -0700
+Message-ID: <1381506889.4971.104.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Felix Fietkau <nbd@openwrt.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:56763 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752060Ab3JKPKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 11:10:40 -0400
-Received: by mail-pb0-f51.google.com with SMTP id jt11so4377319pbb.10
-        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 08:10:39 -0700 (PDT)
-In-Reply-To: <5257D067.2050607@openwrt.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:35738 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758363Ab3JKPy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 11:54:57 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp2so4408459pbb.0
+        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 08:54:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Oct 2013 12:18:15 +0200
-Felix Fietkau <nbd@openwrt.org> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> On 2013-10-11 4:35 AM, Stephen Hemminger wrote:
-> > This is what I was thinking would be better.
-> > 
-> > Don't want these packets leaking into PRE_ROUTEING chain or have
-> > any chance to get flooded out other ports.
-> > 
-> > Compile tested only...
-> > 
-> > I could use another goto instead but that becomes spaghetti and
-> > never like to jump back into a block.
-> [...]
-> >  forward:
-> >  	switch (p->state) {
-> > +	case BR_STATE_DISABLED:
-> > +		if (!ether_addr_equal(p->br->dev->dev_addr, dest))
-> > +			goto drop;
-> Checking against the bridge device address isn't enough, WPA EAPOL
-> packets are addressed to the wifi device MAC address.
+TCP listener refactoring, part 6 :
 
-Correct, this should be skb->dev->dev_addr which matchs against
-the MAC address that frame arrived on.
+Use sock_gen_put() from inet_diag_dump_one_icsk() for future
+SYN_RECV support.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_diag.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 41e1c3e..56a964a 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -336,12 +336,9 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *in_s
+ 		err = 0;
+ 
+ out:
+-	if (sk) {
+-		if (sk->sk_state == TCP_TIME_WAIT)
+-			inet_twsk_put((struct inet_timewait_sock *)sk);
+-		else
+-			sock_put(sk);
+-	}
++	if (sk)
++		sock_gen_put(sk);
++
+ out_nosk:
+ 	return err;
+ }
