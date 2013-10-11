@@ -1,101 +1,102 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v2 8/9] qlcnic: Skip unknown entry type while collecting firmware dump
-Date: Fri, 11 Oct 2013 14:42:34 -0400
-Message-ID: <8e0953d6a8212972b90ec8bcc274db223f637325.1381538863.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 3/9] qlcnic: Firmware dump collection when auto recovery is disabled.
+Date: Fri, 11 Oct 2013 14:42:29 -0400
+Message-ID: <acf4cedd07652549581dd0bb5c84ceaf2d463de5.1381538863.git.himanshu.madhani@qlogic.com>
 References: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Pratik Pujar <pratik.pujar@qlogic.com>,
 	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37596 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37602 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755194Ab3JKTNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:04 -0400
+	by vger.kernel.org with ESMTP id S1755475Ab3JKTNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:05 -0400
 In-Reply-To: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-o Driver aborts the minidump collection operation when it finds
-  an unknown entry opcode. This patch skips unknown entry type
-  and resumes the minidump collection operation.
-o Removed a comparision of collected dump size with expected dump size.
-  Size may differ when driver decides to skip an entry.
+o Allow collecting the firmware dump of halted firmware when auto
+  recovery is disabled.
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   | 41 ++++++++++------------
- 1 file changed, 19 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 11 +++++++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  7 ++++++-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index 1551360..7763962 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -1187,41 +1187,38 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
- 		}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index f09e787..d303fab 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -818,6 +818,7 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct qlcnic_mailbox *mbx = ahw->mailbox;
+ 	int ret = 0;
++	u32 owner;
+ 	u32 val;
  
- 		if (ops_index == ops_cnt) {
--			dev_info(&adapter->pdev->dev,
--				 "Invalid entry type %d, exiting dump\n",
-+			dev_info(dev, "Skipping unknown entry opcode %d\n",
- 				 entry->hdr.type);
--			goto error;
-+			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
-+			entry_offset += entry->hdr.offset;
-+			continue;
+ 	/* Perform NIC configuration based ready state entry actions */
+@@ -846,6 +847,10 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
+ 			clear_bit(QLC_83XX_MBX_READY, &mbx->status);
+ 			set_bit(__QLCNIC_RESETTING, &adapter->state);
+ 			qlcnic_83xx_idc_enter_need_reset_state(adapter, 1);
++		}  else {
++			owner = qlcnic_83xx_idc_find_reset_owner_id(adapter);
++			if (ahw->pci_func == owner)
++				qlcnic_dump_fw(adapter);
  		}
- 
- 		/* Collect dump for this entry */
- 		dump = fw_dump_ops[ops_index].handler(adapter, entry, buffer);
--		if (!qlcnic_valid_dump_entry(&adapter->pdev->dev, entry, dump))
-+		if (!qlcnic_valid_dump_entry(dev, entry, dump)) {
- 			entry->hdr.flags |= QLCNIC_DUMP_SKIP;
-+			entry_offset += entry->hdr.offset;
-+			continue;
-+		}
-+
- 		buf_offset += entry->hdr.cap_size;
- 		entry_offset += entry->hdr.offset;
- 		buffer = fw_dump->data + buf_offset;
+ 		return -EIO;
  	}
--	if (dump_size != buf_offset) {
--		dev_info(&adapter->pdev->dev,
--			 "Captured(%d) and expected size(%d) do not match\n",
--			 buf_offset, dump_size);
--		goto error;
--	} else {
--		fw_dump->clr = 1;
--		snprintf(mesg, sizeof(mesg), "FW_DUMP=%s",
--			 adapter->netdev->name);
--		dev_info(&adapter->pdev->dev, "%s: Dump data, %d bytes captured\n",
--			 adapter->netdev->name, fw_dump->size);
--		/* Send a udev event to notify availability of FW dump */
--		kobject_uevent_env(&adapter->pdev->dev.kobj, KOBJ_CHANGE, msg);
--		return 0;
--	}
--error:
-+
-+	fw_dump->clr = 1;
-+	snprintf(mesg, sizeof(mesg), "FW_DUMP=%s", adapter->netdev->name);
-+	dev_info(dev, "%s: Dump data %d bytes captured, template header size %d bytes\n",
-+		 adapter->netdev->name, fw_dump->size, tmpl_hdr->size);
-+	/* Send a udev event to notify availability of FW dump */
-+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, msg);
-+
- 	if (fw_dump->use_pex_dma)
- 		dma_free_coherent(dev, QLC_PEX_DMA_READ_SIZE,
- 				  fw_dump->dma_buffer, fw_dump->phys_addr);
--	vfree(fw_dump->data);
--	return -EINVAL;
-+
-+	return 0;
- }
+@@ -1058,6 +1063,12 @@ void qlcnic_83xx_idc_poll_dev_state(struct work_struct *work)
+ 	adapter->ahw->idc.prev_state = adapter->ahw->idc.curr_state;
+ 	qlcnic_83xx_periodic_tasks(adapter);
  
- void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
++	/* Do not reschedule if firmaware is in hanged state and auto
++	 * recovery is disabled
++	 */
++	if ((adapter->flags & QLCNIC_FW_HANG) && !qlcnic_auto_fw_reset)
++		return;
++
+ 	/* Re-schedule the function */
+ 	if (test_bit(QLC_83XX_MODULE_LOADED, &adapter->ahw->idc.status))
+ 		qlcnic_schedule_work(adapter, qlcnic_83xx_idc_poll_dev_state,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 55e8b23..5195972 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3353,6 +3353,8 @@ done:
+ static int
+ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ {
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
+ 	u32 state = 0, heartbeat;
+ 	u32 peg_status;
+ 	int err = 0;
+@@ -3377,7 +3379,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ 		if (adapter->need_fw_reset)
+ 			goto detach;
+ 
+-		if (adapter->ahw->reset_context && qlcnic_auto_fw_reset)
++		if (ahw->reset_context && qlcnic_auto_fw_reset)
+ 			qlcnic_reset_hw_context(adapter);
+ 
+ 		return 0;
+@@ -3420,6 +3422,9 @@ detach:
+ 
+ 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
+ 		QLCDB(adapter, DRV, "fw recovery scheduled.\n");
++	} else if (!qlcnic_auto_fw_reset && fw_dump->enable &&
++		   adapter->flags & QLCNIC_FW_RESET_OWNER) {
++		qlcnic_dump_fw(adapter);
+ 	}
+ 
+ 	return 1;
 -- 
 1.8.1.4
