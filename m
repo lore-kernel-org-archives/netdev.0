@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 tip/core/rcu 13/14] bonding/bond_alb.c: Apply ACCESS_ONCE() to avoid sparse false positive
-Date: Fri, 11 Oct 2013 16:17:30 -0700
-Message-ID: <1381533451-29018-13-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v3 tip/core/rcu 06/14] ipv4/ip_socketglue: Apply ACCESS_ONCE() to avoid sparse false positive
+Date: Fri, 11 Oct 2013 16:17:23 -0700
+Message-ID: <1381533451-29018-6-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131011231659.GA28062@linux.vnet.ibm.com>
  <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -16,27 +16,19 @@ Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:44101 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754443Ab3JKXRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Oct 2013 19:17:44 -0400
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 11 Oct 2013 19:17:43 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1381533451-29018-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
 which is almost always the right thing to do.  However, the use in
-bond_alb_handle_active_change() is legitimate: It is assigning a pointer
-to an element from an RCU-protected list, and all elements of this list
-are already visible to caller.
+ip_ra_control() is legitimate: It is assigning a pointer to an element
+from an RCU-protected list, and all elements of this list are already
+visible to caller.
 
 This commit therefore silences this false positive by laundering the
 pointer using ACCESS_ONCE() as suggested by Eric Dumazet and Josh
@@ -51,22 +43,22 @@ Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/bonding/bond_alb.c | 3 ++-
+ net/ipv4/ip_sockglue.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 91f179d5135c..67d3b2893aa3 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1667,7 +1667,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 	}
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index d9c4f113d709..a0e7f176e9c8 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -269,7 +269,8 @@ int ip_ra_control(struct sock *sk, unsigned char on,
+ 			}
+ 			/* dont let ip_call_ra_chain() use sk again */
+ 			ra->sk = NULL;
+-			rcu_assign_pointer(*rap, ra->next);
++			/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
++			ACCESS_ONCE(*rap) = ra->next;
+ 			spin_unlock_bh(&ip_ra_lock);
  
- 	swap_slave = bond->curr_active_slave;
--	rcu_assign_pointer(bond->curr_active_slave, new_slave);
-+	/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+	ACCESS_ONCE(bond->curr_active_slave) = new_slave;
- 
- 	if (!new_slave || list_empty(&bond->slave_list))
- 		return;
+ 			if (ra->destructor)
 -- 
 1.8.1.5
