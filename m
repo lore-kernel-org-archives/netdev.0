@@ -1,75 +1,47 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH 14/14] net: smc91x: dont't use SMC_outw for fixing up
- halfword-aligned data
-Date: Fri, 11 Oct 2013 16:41:57 -0400 (EDT)
-Message-ID: <alpine.LFD.2.03.1310111634010.3023@syhkavp.arg>
-References: <1381499540-28794-1-git-send-email-matthew.leach@arm.com> <1381499540-28794-15-git-send-email-matthew.leach@arm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2013-10-09b
+Date: Fri, 11 Oct 2013 16:45:47 -0400 (EDT)
+Message-ID: <20131011.164547.1567827514531486369.davem@davemloft.net>
+References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
+ <20131009.155658.131342560291162660.davem@davemloft.net>
+ <20131011061053.GF576@neomailbox.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-arm-kernel@lists.infradead.org, ankit.jindal@linaro.org,
-	steve.mcintyre@linaro.org, tushar.jagad@linaro.org,
-	will.deacon@arm.com, catalin.marinas@arm.com,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Matthew Leach <matthew.leach@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:35983 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758842Ab3JKUmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 16:42:00 -0400
-Received: by mail-qa0-f44.google.com with SMTP id cm18so1043404qab.17
-        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 13:41:59 -0700 (PDT)
-In-Reply-To: <1381499540-28794-15-git-send-email-matthew.leach@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20131011061053.GF576-rVWd3aGhH2zPj3vggD0kEA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Oct 2013, Matthew Leach wrote:
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Date: Fri, 11 Oct 2013 08:10:53 +0200
 
-> From: Will Deacon <will.deacon@arm.com>
+> On Wed, Oct 09, 2013 at 03:56:58PM -0400, David Miller wrote:
+>> From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+>> Date: Wed,  9 Oct 2013 21:32:38 +0200
+>> 
+>> > here you have my fixed pull request intended for net-next.
+>> > 
+>> > The previous build error was due to an accidental remotion of the beginning of a
+>> > batadv_dbg() statement during a merge conflict resolution.
+>> > Sorry for that.
+>> 
+>> This looks better, pulled, thanks a lot.
 > 
-> SMC_outw invokes an endian-aware I/O accessor, which may change the data
-> endianness before writing to the device. This is not suitable for data
-> transfers where the memory buffer is simply a string of bytes that does
-> not require any byte-swapping.
+> Hello David,
 > 
-> This patches fixes the smc91x SMC_PUSH_DATA macro so that it uses the
-> string I/O accessor for outputting the leading or trailing halfwords on
-> halfword-aligned buffers.
+> I can't find my patchset in net-next, hasn't it been pushed yet?
 
-Acked-by: Nicolas Pitre <nico@linaro.org>
-
-> 
-> Cc: <netdev@vger.kernel.org>
-> Cc: Nicolas Pitre <nico@fluxnic.net>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Will Deacon <will.deacon@arm.com>
-> ---
->  drivers/net/ethernet/smsc/smc91x.h |    6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-> index 5730fe2..98eedb9 100644
-> --- a/drivers/net/ethernet/smsc/smc91x.h
-> +++ b/drivers/net/ethernet/smsc/smc91x.h
-> @@ -1124,8 +1124,7 @@ static const char * chip_ids[ 16 ] =  {
->  			void __iomem *__ioaddr = ioaddr;		\
->  			if (__len >= 2 && (unsigned long)__ptr & 2) {	\
->  				__len -= 2;				\
-> -				SMC_outw(*(u16 *)__ptr, ioaddr,		\
-> -					DATA_REG(lp));		\
-> +				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
->  				__ptr += 2;				\
->  			}						\
->  			if (SMC_CAN_USE_DATACS && lp->datacs)		\
-> @@ -1133,8 +1132,7 @@ static const char * chip_ids[ 16 ] =  {
->  			SMC_outsl(__ioaddr, DATA_REG(lp), __ptr, __len>>2); \
->  			if (__len & 2) {				\
->  				__ptr += (__len & ~3);			\
-> -				SMC_outw(*((u16 *)__ptr), ioaddr,	\
-> -					 DATA_REG(lp));		\
-> +				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
->  			}						\
->  		} else if (SMC_16BIT(lp))				\
->  			SMC_outsw(ioaddr, DATA_REG(lp), p, (l) >> 1);	\
-> -- 
-> 1.7.9.5
-> 
+Sorry, it should be there now.
