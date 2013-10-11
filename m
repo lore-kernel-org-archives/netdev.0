@@ -1,34 +1,113 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v4 0/5] xen-netback: IPv6 offload support
-Date: Fri, 11 Oct 2013 16:06:17 +0100
-Message-ID: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next v4 4/5] xen-netback: handle IPv6 TCP GSO packets from the guest
+Date: Fri, 11 Oct 2013 16:06:21 +0100
+Message-ID: <1381503982-1418-5-git-send-email-paul.durrant@citrix.com>
+References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:58257 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754771Ab3JKPGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 11:06:42 -0400
+	with ESMTP id S1753214Ab3JKPGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 11:06:41 -0400
+In-Reply-To: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds support for checksum and large packet offloads into
-xen-netback.
-Testing has mainly been done using the Microsoft network hardware
-certification suite running in Server 2008R2 VMs with Citrix PV frontends.
+This patch adds a xenstore feature flag, festure-gso-tcpv6, to advertise
+that netback can handle IPv6 TCP GSO packets. It creates SKB_GSO_TCPV6 skbs
+if the frontend passes an extra segment with the new type
+XEN_NETIF_GSO_TYPE_TCPV6 added to netif.h.
 
-v2:
-- Fixed Wei's email address in Cc lines
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   11 ++++++++---
+ drivers/net/xen-netback/xenbus.c  |    7 +++++++
+ include/xen/interface/io/netif.h  |   10 +++++++++-
+ 3 files changed, 24 insertions(+), 4 deletions(-)
 
-v3:
-- Responded to Wei's comments:
- - netif.h now updated with comments and a definition of
-   XEN_NETIF_GSO_TYPE_NONE.
- - limited number of pullups
-- Responded to Annie's comments:
- - New GSO_BIT macro
-
-v4:
-- Responded to more of Wei's comments
-- Remove parsing of IPv6 fragment header and added warning
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 74c13b9..65f04e7 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1096,15 +1096,20 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Currently only TCPv4 S.O. is supported. */
+-	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
++	switch (gso->u.gso.type) {
++	case XEN_NETIF_GSO_TYPE_TCPV4:
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++		break;
++	case XEN_NETIF_GSO_TYPE_TCPV6:
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++		break;
++	default:
+ 		netdev_err(vif->dev, "Bad GSO type %d.\n", gso->u.gso.type);
+ 		xenvif_fatal_tx_err(vif);
+ 		return -EINVAL;
+ 	}
+ 
+ 	skb_shinfo(skb)->gso_size = gso->u.gso.size;
+-	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ 
+ 	/* Header must be checked, and gso_segs computed. */
+ 	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 9c9b37d..7e4dcc9 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -105,6 +105,13 @@ static int netback_probe(struct xenbus_device *dev,
+ 			goto abort_transaction;
+ 		}
+ 
++		err = xenbus_printf(xbt, dev->nodename, "feature-gso-tcpv6",
++				    "%d", sg);
++		if (err) {
++			message = "writing feature-gso-tcpv6";
++			goto abort_transaction;
++		}
++
+ 		/* We support partial checksum setup for IPv6 packets */
+ 		err = xenbus_printf(xbt, dev->nodename,
+ 				    "feature-ipv6-csum-offload",
+diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
+index d9fb44739..d7dd8d7 100644
+--- a/include/xen/interface/io/netif.h
++++ b/include/xen/interface/io/netif.h
+@@ -61,6 +61,13 @@
+  */
+ 
+ /*
++ * "feature-gso-tcpv4" and "feature-gso-tcpv6" advertise the capability to
++ * handle large TCP packets (in IPv4 or IPv6 form respectively). Neither
++ * frontends nor backends are assumed to be capable unless the flags are
++ * present.
++ */
++
++/*
+  * This is the 'wire' format for packets:
+  *  Request 1: xen_netif_tx_request  -- XEN_NETTXF_* (any flags)
+  * [Request 2: xen_netif_extra_info]    (only if request 1 has XEN_NETTXF_extra_info)
+@@ -105,8 +112,9 @@ struct xen_netif_tx_request {
+ #define _XEN_NETIF_EXTRA_FLAG_MORE	(0)
+ #define  XEN_NETIF_EXTRA_FLAG_MORE	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
+ 
+-/* GSO types - only TCPv4 currently supported. */
++/* GSO types */
+ #define XEN_NETIF_GSO_TYPE_TCPV4	(1)
++#define XEN_NETIF_GSO_TYPE_TCPV6	(2)
+ 
+ /*
+  * This structure needs to fit within both netif_tx_request and
+-- 
+1.7.10.4
