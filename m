@@ -1,47 +1,154 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2013-10-09b
-Date: Fri, 11 Oct 2013 16:45:47 -0400 (EDT)
-Message-ID: <20131011.164547.1567827514531486369.davem@davemloft.net>
-References: <1381347174-3629-1-git-send-email-antonio@meshcoding.com>
- <20131009.155658.131342560291162660.davem@davemloft.net>
- <20131011061053.GF576@neomailbox.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Seif Mazareeb <seif@marvell.com>
+Subject: RE: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
+Date: Fri, 11 Oct 2013 14:04:10 -0700
+Message-ID: <0DB595A2CB707F458400BE9663B6A72269C0047841@SC-VEXCH2.marvell.com>
+References: <0DB595A2CB707F458400BE9663B6A72269C0047793@SC-VEXCH2.marvell.com>
+ <11516872.z0JUlZSHlI@sifl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20131011061053.GF576-rVWd3aGhH2zPj3vggD0kEA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:59588 "EHLO
+	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756647Ab3JKVEU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Oct 2013 17:04:20 -0400
+In-Reply-To: <11516872.z0JUlZSHlI@sifl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Date: Fri, 11 Oct 2013 08:10:53 +0200
+When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function could loop
+forever in the main loop if opt[opt_iter +1] == 0, this will causing a kernel
+crash in an SMP system, since the CPU executing this function will
+stall /not respond to IPIs.
 
-> On Wed, Oct 09, 2013 at 03:56:58PM -0400, David Miller wrote:
->> From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
->> Date: Wed,  9 Oct 2013 21:32:38 +0200
->> 
->> > here you have my fixed pull request intended for net-next.
->> > 
->> > The previous build error was due to an accidental remotion of the beginning of a
->> > batadv_dbg() statement during a merge conflict resolution.
->> > Sorry for that.
->> 
->> This looks better, pulled, thanks a lot.
+This problem can be reproduced by running the IP Stack Integrity Checker
+(http://isic.sourceforge.net) using the following command on a Linux machine
+connected to DUT:
+
+"icmpsic -s rand -d <DUT IP address> -r 123456"
+wait (1-2 min)
+
+Signed-off-by: Seif Mazareeb <seif@marvell.com>
+---
+ include/net/cipso_ipv4.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
+index a7a683e..286b7da 100644
+--- a/include/net/cipso_ipv4.h
++++ b/include/net/cipso_ipv4.h
+@@ -290,6 +290,7 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
+        unsigned char err_offset = 0;
+        u8 opt_len = opt[1];
+        u8 opt_iter;
++       u8 tag_len;
+
+        if (opt_len < 8) {
+                err_offset = 1;
+@@ -302,7 +303,8 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
+        }
+
+        for (opt_iter = 6; opt_iter < opt_len;) {
+-               if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
++               tag_len = opt[opt_iter + 1];
++               if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))) {
+                        err_offset = opt_iter + 1;
+                        goto out;
+                }
+--
+1.8.1.2
+
+-----Original Message-----
+From: Paul Moore [mailto:paul@paul-moore.com] 
+Sent: Friday, October 11, 2013 12:02 PM
+To: Seif Mazareeb
+Cc: davem@davemloft.net; netdev@vger.kernel.org; thomas.petazzoni@free-electrons.com; Dmitri Epshtein
+Subject: Re: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
+
+On Friday, October 11, 2013 10:58:31 AM Seif Mazareeb wrote:
+> When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function 
+> could loop forever in the main loop if opt[opt_iter +1] == 0, this 
+> will causing a kernel crash in an SMP system, since the CPU executing 
+> this function will stall /not respond to IPIs.
 > 
-> Hello David,
+> This problem can be reproduced by running the IP Stack Integrity 
+> Checker
+> (http://isic.sourceforge.net) using the following command on a Linux 
+> machine connected to DUT:
 > 
-> I can't find my patchset in net-next, hasn't it been pushed yet?
+> "icmpsic -s rand -d <DUT IP address> -r 123456"
+> wait (1-2 min)
+> 
+> Signed-off-by: Seif Mazareeb <seif@marvell.com>
+> ---
+>  include/net/cipso_ipv4.h | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h index 
+> a7a683e..047f1f6 100644
+> --- a/include/net/cipso_ipv4.h
+> +++ b/include/net/cipso_ipv4.h
+> @@ -306,6 +306,10 @@ static inline int cipso_v4_validate(const struct 
+> sk_buff *skb, err_offset = opt_iter + 1;
+>                         goto out;
+>                 }
+> +
+> +               if (opt[opt_iter + 1] == 0)
+> +                       break;
+> +
+>                 opt_iter += opt[opt_iter + 1];
+>         }
 
-Sorry, it should be there now.
+Thanks for finding and reporting this bug.  Unfortunately, I don't think the supplied patch is the best way to solve this.  Since a length of zero is not valid for any known CIPSO tag types (at least that I am aware of), we should treat a zero length tag as an error, similar to how we treat tags with length values that stretch beyond the option itself.
+
+I'm thinking something like this:
+
+static inline int cipso_v4_validate(const struct sk_buff *skb,
+                                    unsigned char **option) {
+        unsigned char *opt = *option;
+        unsigned char err_offset = 0;
+        u8 opt_len = opt[1];
+        u8 opt_iter;
+        u8 tag_len;
+
+        if (opt_len < 8) {
+                err_offset = 1;
+                goto out;
+        }
+
+        if (get_unaligned_be32(&opt[2]) == 0) {
+                err_offset = 2;
+                goto out;
+        }
+
+        for (opt_iter = 6; opt_iter < opt_len;) {
+                tag_len = opt[opt_iter + 1];
+                if ((tag_len == 0) || (tag_len > (opt_len - opt_iter))) {
+                        err_offset = opt_iter + 1;
+                        goto out;
+                }
+                opt_iter += tag_len;
+        }
+
+out:
+        *option = opt + err_offset;
+        return err_offset;
+
+}
+
+If you want to fixup your patch that would be appreciated, if not, please let me know so I can submit the fix.
+
+Thanks,
+-Paul
+
+--
+paul moore
+www.paul-moore.com
