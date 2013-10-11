@@ -1,36 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wimax: Use WARN(1,...) rather than printk followed by
- WARN_ON(1)
-Date: Fri, 11 Oct 2013 14:38:23 -0400 (EDT)
-Message-ID: <20131011.143823.1482605672848878474.davem@davemloft.net>
-References: <1381192238-6486-1-git-send-email-duanj.fnst@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	wimax@linuxwimax.org, netdev@vger.kernel.org,
-	duanj.fnst@cn.fujitsu.com
-To: djduanjiong@gmail.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [RFC PATCH 0/2 v3] net: alternate proposal for using macvlans with forwarding acceleration
+Date: Fri, 11 Oct 2013 14:43:55 -0400
+Message-ID: <1381517037-26007-1-git-send-email-nhorman@tuxdriver.com>
+References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
+Cc: john.fastabend@gmail.com, Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53770 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755295Ab3JKSiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 14:38:25 -0400
-In-Reply-To: <1381192238-6486-1-git-send-email-duanj.fnst@cn.fujitsu.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57801 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752077Ab3JKSoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 14:44:15 -0400
+In-Reply-To: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: djduanjiong@gmail.com
-Date: Mon,  7 Oct 2013 17:30:38 -0700
+Hey all-
+     heres the next, updated version of the vsi/macvlan integration that we've
+been discussing.
 
-> -	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
-> -		printk(KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
-> +	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node)
-> +		WARN(1, KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
->  		       __func__, wimax_dev, wimax_dev->net_dev->ifindex);
+Change notes:
 
+* Moved the feature flag to netdev_features.h.  No ethtool option for disabling
+it yet, but its there now, and seems to fit fairly well.  I was actually
+thinking about your comment John, regarding the clumsiness in allowing sw and hw
+accel vlans on the same lowerdev, and it just occured to me that we could use
+the same flag on the macvlan device directly - i.e. if we found that a lowerdev
+supported acceleration, then call ndo_dfwd_station_add, and, if successfull, set
+the same feature flag in the macvlan device.  Then we could use ethtool to
+control the enabling/disabling of acceleration at the macvlan device directly.
+Thoughts?
 
-You are changing the column where the openning parenthesis appears by
-changing the printk() into a WARN(), therefore you have to adjust the
-indentation of the next line such that the arguments start at the first
-column after the openning parenthesis.
+* Moved the acceleration net device methods back into net_device_ops.  Looks
+pretty good to me there.
+
+* Restored the use of a separate xmit routine so we weren't subject to the
+lowerdevs queue disciplines.  I integrated its use with dev_hard_start_xmit, so
+we could share the use of the linearization code, etc.  Let me know what you
+think.
+
+Best
+Neil
