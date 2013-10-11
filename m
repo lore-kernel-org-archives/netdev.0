@@ -1,75 +1,85 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v2 7/9] qlcnic: Validate Tx queue only for 82xx adapters.
-Date: Fri, 11 Oct 2013 14:42:33 -0400
-Message-ID: <0685136adf5585d49399c95a45d769d9fbd43b48.1381538863.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 4/9] qlcnic: Update ethtool standard pause settings.
+Date: Fri, 11 Oct 2013 14:42:30 -0400
+Message-ID: <9b60f4149911bb7b48db7f28bfa9ce646cd407d1.1381538863.git.himanshu.madhani@qlogic.com>
 References: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37594 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754968Ab3JKTND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:03 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:16959 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752509Ab3JKTNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 15:13:00 -0400
 In-Reply-To: <cover.1381538863.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-o validate Tx queue only in case of adapters which supports
-  multi Tx queue.
+Update ethtool standard pause parameter settings and display
 
-  This patch is to fix regression introduced in commit
-  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
-  "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
-
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 8 +-------
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 18 +++++++++++++++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h |  3 +++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 66355b7..b2a8805 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -691,7 +691,7 @@ static int qlcnic_set_channels(struct net_device *dev,
- 			return err;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index c2df4ce..268fda6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -3369,10 +3369,21 @@ void qlcnic_83xx_get_pauseparam(struct qlcnic_adapter *adapter,
+ 	}
+ 	config = ahw->port_config;
+ 	if (config & QLC_83XX_CFG_STD_PAUSE) {
+-		if (config & QLC_83XX_CFG_STD_TX_PAUSE)
++		switch (MSW(config)) {
++		case QLC_83XX_TX_PAUSE:
++			pause->tx_pause = 1;
++			break;
++		case QLC_83XX_RX_PAUSE:
++			pause->rx_pause = 1;
++			break;
++		case QLC_83XX_TX_RX_PAUSE:
++		default:
++			/* Backward compatibility for existing
++			 * flash definitions
++			 */
+ 			pause->tx_pause = 1;
+-		if (config & QLC_83XX_CFG_STD_RX_PAUSE)
+ 			pause->rx_pause = 1;
++		}
  	}
  
--	if (channel->tx_count) {
-+	if (qlcnic_82xx_check(adapter) && channel->tx_count) {
- 		err = qlcnic_validate_max_tx_rings(adapter, channel->tx_count);
- 		if (err)
- 			return err;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 0274832..830c15f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3650,11 +3650,6 @@ int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, u32 txq)
- 	u8 max_hw = QLCNIC_MAX_TX_RINGS;
- 	u32 max_allowed;
- 
--	if (!qlcnic_82xx_check(adapter)) {
--		netdev_err(netdev, "No Multi TX-Q support\n");
--		return -EINVAL;
--	}
--
- 	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No Multi TX-Q support in INT-x mode\n");
- 		return -EINVAL;
-@@ -3694,8 +3689,7 @@ int qlcnic_validate_max_rss(struct qlcnic_adapter *adapter,
- 	u8 max_hw = adapter->ahw->max_rx_ques;
- 	u32 max_allowed;
- 
--	if (qlcnic_82xx_check(adapter) && !qlcnic_use_msi_x &&
--	    !qlcnic_use_msi) {
-+	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No RSS support in INT-x mode\n");
- 		return -EINVAL;
+ 	if (QLC_83XX_AUTONEG(config))
+@@ -3415,7 +3426,8 @@ int qlcnic_83xx_set_pauseparam(struct qlcnic_adapter *adapter,
+ 		ahw->port_config &= ~QLC_83XX_CFG_STD_RX_PAUSE;
+ 		ahw->port_config |= QLC_83XX_CFG_STD_TX_PAUSE;
+ 	} else if (!pause->rx_pause && !pause->tx_pause) {
+-		ahw->port_config &= ~QLC_83XX_CFG_STD_TX_RX_PAUSE;
++		ahw->port_config &= ~(QLC_83XX_CFG_STD_TX_RX_PAUSE |
++				      QLC_83XX_CFG_STD_PAUSE);
  	}
+ 	status = qlcnic_83xx_set_port_config(adapter);
+ 	if (status) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 533e150..2883b57 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -363,6 +363,9 @@ enum qlcnic_83xx_states {
+ #define QLC_83XX_LINK_EEE(data)		((data) & BIT_13)
+ #define QLC_83XX_DCBX(data)			(((data) >> 28) & 7)
+ #define QLC_83XX_AUTONEG(data)			((data) & BIT_15)
++#define QLC_83XX_TX_PAUSE			0x10
++#define QLC_83XX_RX_PAUSE			0x20
++#define QLC_83XX_TX_RX_PAUSE			0x30
+ #define QLC_83XX_CFG_STD_PAUSE			(1 << 5)
+ #define QLC_83XX_CFG_STD_TX_PAUSE		(1 << 20)
+ #define QLC_83XX_CFG_STD_RX_PAUSE		(2 << 20)
 -- 
 1.8.1.4
