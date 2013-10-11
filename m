@@ -1,47 +1,36 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: 3.10 stable request: iwlwifi: add new 7260 and 3160 series device IDs
-Date: Sat, 12 Oct 2013 00:26:30 +0200
-Message-ID: <87mwmftpex.fsf@nemi.mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: tcp_transmit_skb() optimizations
+Date: Fri, 11 Oct 2013 15:43:56 -0700
+Message-ID: <1381531436.4971.114.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1381419780.4971.84.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131011.174858.1461090000704613432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oren Givon <oren.givon@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fitz@cs.yale.edu, ycheng@google.com,
+	ncardwell@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:54669 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807Ab3JKW0h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 18:26:37 -0400
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:50095 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264Ab3JKWoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 18:44:01 -0400
+Received: by mail-pa0-f52.google.com with SMTP id kl14so5042726pab.11
+        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 15:44:00 -0700 (PDT)
+In-Reply-To: <20131011.174858.1461090000704613432.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, 2013-10-11 at 17:48 -0400, David Miller wrote:
 
-could you please add this commit to your 3.10 stable queue?
+> This patch is correct, so I've applied it, but it points out a bug.
+> 
+> The __tcp_retransmit_skb() code that does a __pskb_copy() to handle
+> NET_IP_ALIGN violations and skb_headroom() overflows is buggy because
+> it needs to store a congestion control timestamp in the original 'skb'
+> since that's what we'll look at in the retransmit queue.
 
-commit 93fc64114b994f9ef6901697f9b0de00762680e9
-Author: Oren Givon <oren.givon@intel.com>
-Date:   Tue Apr 23 18:19:11 2013 +0300
+Yes, I saw that, indeed.
 
-    iwlwifi: add new 7260 and 3160 series device IDs
-   =20
-    Add new device IDs and configurations to support
-    all the devices.
-   =20
-    Signed-off-by: Oren Givon <oren.givon@intel.com>
-    Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-
-
-
-I just installed Debian testing on a Sony Vaio Pro and that was a bit
-more hassle than necessary due to this patch missing in their 3.10.11
-based kernel...
-
-The patch applies cleanly on top of v3.10.15, and only add new device
-IDs, so it should be a clear stable candidate.
-
-
-
-Thanks,
-Bj=C3=B8rn
+I added it as low priority bug for the moment, as the default congestion
+module do not really care, and this case is really unlikely ;)
