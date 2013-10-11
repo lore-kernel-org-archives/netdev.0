@@ -1,85 +1,75 @@
-From: Mark Lord <kernel@start.ca>
-Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement pattern
-Date: Fri, 11 Oct 2013 16:29:39 -0400
-Message-ID: <52585FB3.7080508@start.ca>
-References: <cover.1380703262.git.agordeev@redhat.com> <5254D397.9030307@zytor.com> <1381292648.645.259.camel@pasglop> <20131010101704.GC11874@dhcp-26-207.brq.redhat.com> <5256D5AB.4050105@zytor.com> <20131010180704.GA15719@dhcp-26-207.brq.redhat.com> <5257357E.8080506@start.ca> <20131011084108.GA25702@dhcp-26-207.brq.redhat.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH 14/14] net: smc91x: dont't use SMC_outw for fixing up
+ halfword-aligned data
+Date: Fri, 11 Oct 2013 16:41:57 -0400 (EDT)
+Message-ID: <alpine.LFD.2.03.1310111634010.3023@syhkavp.arg>
+References: <1381499540-28794-1-git-send-email-matthew.leach@arm.com> <1381499540-28794-15-git-send-email-matthew.leach@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "H. Peter Anvin" <hpa@zytor.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
-        Dan Williams <dan.j.williams@intel.com>,
-        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
-        Matt Porter <mporter@kernel.crashing.org>,
-        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
-        linux-s390@vger.kernel.org, x86@kernel.org,
-        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
-        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, e1000-dev
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20131011084108.GA25702@dhcp-26-207.brq.redhat.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-arm-kernel@lists.infradead.org, ankit.jindal@linaro.org,
+	steve.mcintyre@linaro.org, tushar.jagad@linaro.org,
+	will.deacon@arm.com, catalin.marinas@arm.com,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Matthew Leach <matthew.leach@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:35983 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758842Ab3JKUmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Oct 2013 16:42:00 -0400
+Received: by mail-qa0-f44.google.com with SMTP id cm18so1043404qab.17
+        for <netdev@vger.kernel.org>; Fri, 11 Oct 2013 13:41:59 -0700 (PDT)
+In-Reply-To: <1381499540-28794-15-git-send-email-matthew.leach@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13-10-11 04:41 AM, Alexander Gordeev wrote:
-> On Thu, Oct 10, 2013 at 07:17:18PM -0400, Mark Lord wrote:
->> Just to help us all understand "the loop" issue..
->>
->> Here's an example of driver code which uses the existing MSI-X interfaces,
->> for a device which can work with either 16, 8, 4, 2, or 1 MSI-X interrupt.
->> This is from a new driver I'm working on right now:
-..
-> Now, this is a loop-free alternative:
-> 
-> static int xx_alloc_msix_irqs(struct xx_dev *dev, int nvec)
-> {
-> 	nvec = roundup_pow_of_two(nvec);	/* assume 0 > nvec <= 16 */
-> 
-> 	xx_disable_all_irqs(dev);
-> 
-> 	pci_lock_msi(dev->pdev);
-> 
-> 	rc = pci_get_msix_limit(dev->pdev, nvec);
-> 	if (rc < 0)
-> 		goto err;
-> 
-> 	nvec = min(nvec, rc);		/* if limit is more than requested */
-> 	nvec = rounddown_pow_of_two(nvec);	/* (a) */
-> 
-> 	xx_prep_for_msix_vectors(dev, nvec);
-> 
-> 	rc = pci_enable_msix(dev->pdev, dev->irqs, nvec);	/* (b)	*/
-> 	if (rc < 0)
-> 		goto err;
-> 
-> 	pci_unlock_msi(dev->pdev);
-> 
-> 	dev->num_vectors = nvec;		/* (b) */
-> 	return 0;
-> 
-> err:
-> 	pci_unlock_msi(dev->pdev);
-> 
->         kerr(dev->name, "pci_enable_msix() failed, err=%d", rc);
->         dev->num_vectors = 0;
->         return rc;
-> }
+On Fri, 11 Oct 2013, Matthew Leach wrote:
 
-That would still need a loop, to handle the natural race between
-the calls to pci_get_msix_limit() and pci_enable_msix() -- the driver and device
-can and should fall back to a smaller number of vectors when pci_enable_msix() fails.
+> From: Will Deacon <will.deacon@arm.com>
+> 
+> SMC_outw invokes an endian-aware I/O accessor, which may change the data
+> endianness before writing to the device. This is not suitable for data
+> transfers where the memory buffer is simply a string of bytes that does
+> not require any byte-swapping.
+> 
+> This patches fixes the smc91x SMC_PUSH_DATA macro so that it uses the
+> string I/O accessor for outputting the leading or trailing halfwords on
+> halfword-aligned buffers.
+
+Acked-by: Nicolas Pitre <nico@linaro.org>
+
+> 
+> Cc: <netdev@vger.kernel.org>
+> Cc: Nicolas Pitre <nico@fluxnic.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Will Deacon <will.deacon@arm.com>
+> ---
+>  drivers/net/ethernet/smsc/smc91x.h |    6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+> index 5730fe2..98eedb9 100644
+> --- a/drivers/net/ethernet/smsc/smc91x.h
+> +++ b/drivers/net/ethernet/smsc/smc91x.h
+> @@ -1124,8 +1124,7 @@ static const char * chip_ids[ 16 ] =  {
+>  			void __iomem *__ioaddr = ioaddr;		\
+>  			if (__len >= 2 && (unsigned long)__ptr & 2) {	\
+>  				__len -= 2;				\
+> -				SMC_outw(*(u16 *)__ptr, ioaddr,		\
+> -					DATA_REG(lp));		\
+> +				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
+>  				__ptr += 2;				\
+>  			}						\
+>  			if (SMC_CAN_USE_DATACS && lp->datacs)		\
+> @@ -1133,8 +1132,7 @@ static const char * chip_ids[ 16 ] =  {
+>  			SMC_outsl(__ioaddr, DATA_REG(lp), __ptr, __len>>2); \
+>  			if (__len & 2) {				\
+>  				__ptr += (__len & ~3);			\
+> -				SMC_outw(*((u16 *)__ptr), ioaddr,	\
+> -					 DATA_REG(lp));		\
+> +				SMC_outsw(ioaddr, DATA_REG(lp), __ptr, 1); \
+>  			}						\
+>  		} else if (SMC_16BIT(lp))				\
+>  			SMC_outsw(ioaddr, DATA_REG(lp), p, (l) >> 1);	\
+> -- 
+> 1.7.9.5
+> 
