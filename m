@@ -1,82 +1,85 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 028/135] ethernet/arc/arc_emac: Fix huge delays in large file copies
-Date: Fri, 11 Oct 2013 12:38:29 -0700
-Message-ID: <20131011193948.290109551@linuxfoundation.org>
-References: <20131011193945.181603934@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Vineet Gupta <vgupta@synopsys.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Brodkin <abrodkin@synopsys.com>, netdev@vger.kernel.org,
-	arc-linux-dev@synopsys.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131011193945.181603934@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Mark Lord <kernel@start.ca>
+Subject: Re: [PATCH RFC 00/77] Re-design MSI/MSI-X interrupts enablement pattern
+Date: Fri, 11 Oct 2013 16:29:39 -0400
+Message-ID: <52585FB3.7080508@start.ca>
+References: <cover.1380703262.git.agordeev@redhat.com> <5254D397.9030307@zytor.com> <1381292648.645.259.camel@pasglop> <20131010101704.GC11874@dhcp-26-207.brq.redhat.com> <5256D5AB.4050105@zytor.com> <20131010180704.GA15719@dhcp-26-207.brq.redhat.com> <5257357E.8080506@start.ca> <20131011084108.GA25702@dhcp-26-207.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Michael Ellerman <michael@ellerman.id.au>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Ingo Molnar <mingo@redhat.com>, Tejun Heo <tj@kernel.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Andy King <acking@vmware.com>, Jon Mason <jon.mason@intel.com>,
+        Matt Porter <mporter@kernel.crashing.org>,
+        linux-pci@vger.kernel.org, linux-mips@linux-mips.org,
+        linuxppc-dev@lists.ozlabs.org, linux390@de.ibm.com,
+        linux-s390@vger.kernel.org, x86@kernel.org,
+        linux-ide@vger.kernel.org, iss_storagedev@hp.com,
+        linux-nvme@lists.infradead.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, e1000-dev
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20131011084108.GA25702@dhcp-26-207.brq.redhat.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-3.11-stable review patch.  If anyone has any objections, please let me know.
+On 13-10-11 04:41 AM, Alexander Gordeev wrote:
+> On Thu, Oct 10, 2013 at 07:17:18PM -0400, Mark Lord wrote:
+>> Just to help us all understand "the loop" issue..
+>>
+>> Here's an example of driver code which uses the existing MSI-X interfaces,
+>> for a device which can work with either 16, 8, 4, 2, or 1 MSI-X interrupt.
+>> This is from a new driver I'm working on right now:
+..
+> Now, this is a loop-free alternative:
+> 
+> static int xx_alloc_msix_irqs(struct xx_dev *dev, int nvec)
+> {
+> 	nvec = roundup_pow_of_two(nvec);	/* assume 0 > nvec <= 16 */
+> 
+> 	xx_disable_all_irqs(dev);
+> 
+> 	pci_lock_msi(dev->pdev);
+> 
+> 	rc = pci_get_msix_limit(dev->pdev, nvec);
+> 	if (rc < 0)
+> 		goto err;
+> 
+> 	nvec = min(nvec, rc);		/* if limit is more than requested */
+> 	nvec = rounddown_pow_of_two(nvec);	/* (a) */
+> 
+> 	xx_prep_for_msix_vectors(dev, nvec);
+> 
+> 	rc = pci_enable_msix(dev->pdev, dev->irqs, nvec);	/* (b)	*/
+> 	if (rc < 0)
+> 		goto err;
+> 
+> 	pci_unlock_msi(dev->pdev);
+> 
+> 	dev->num_vectors = nvec;		/* (b) */
+> 	return 0;
+> 
+> err:
+> 	pci_unlock_msi(dev->pdev);
+> 
+>         kerr(dev->name, "pci_enable_msix() failed, err=%d", rc);
+>         dev->num_vectors = 0;
+>         return rc;
+> }
 
-------------------
-
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-
-[ Upstream commit 27082ee1b92f4d41e78b85fe40f6ab39673fba00 ]
-
-copying large files to a NFS mounted host was taking absurdly large
-time.
-
-Turns out that TX BD reclaim had a sublte bug.
-
-Loop starts off from @txbd_dirty cursor and stops when it hits a BD
-still in use by controller. However when it stops it needs to keep the
-cursor at that very BD to resume scanning in next iteration. However it
-was erroneously incrementing the cursor, causing the next scan(s) to
-fail too, unless the BD chain was completely drained out.
-
-[ARCLinux]$ ls -l -sh /disk/log.txt
- 17976 -rw-r--r--    1 root     root       17.5M Sep  /disk/log.txt
-
-========== Before =====================
-[ARCLinux]$ time cp /disk/log.txt /mnt/.
-real    31m 7.95s
-user    0m 0.00s
-sys     0m 0.10s
-
-========== After =====================
-[ARCLinux]$ time cp /disk/log.txt /mnt/.
-real    0m 24.33s
-user    0m 0.00s
-sys     0m 0.19s
-
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
-Cc: Alexey Brodkin <abrodkin@synopsys.com> (commit_signer:3/4=75%)
-Cc: "David S. Miller" <davem@davemloft.net> (commit_signer:3/4=75%)
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: arc-linux-dev@synopsys.com
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/ethernet/arc/emac_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -149,8 +149,6 @@ static void arc_emac_tx_clean(struct net
- 		struct sk_buff *skb = tx_buff->skb;
- 		unsigned int info = le32_to_cpu(txbd->info);
- 
--		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
--
- 		if ((info & FOR_EMAC) || !txbd->data)
- 			break;
- 
-@@ -180,6 +178,8 @@ static void arc_emac_tx_clean(struct net
- 		txbd->data = 0;
- 		txbd->info = 0;
- 
-+		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
-+
- 		if (netif_queue_stopped(ndev))
- 			netif_wake_queue(ndev);
- 	}
+That would still need a loop, to handle the natural race between
+the calls to pci_get_msix_limit() and pci_enable_msix() -- the driver and device
+can and should fall back to a smaller number of vectors when pci_enable_msix() fails.
