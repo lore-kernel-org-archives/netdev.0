@@ -1,82 +1,274 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply
- rcu_access_pointer() to avoid sparse false positive
-Date: Sat, 12 Oct 2013 19:42:18 +0000 (UTC)
-Message-ID: <1882655271.38519.1381606938076.JavaMail.zimbra@efficios.com>
-References: <20131009225617.GH11709@jtriplet-mobl1> <20131010002833.GJ5790@linux.vnet.ibm.com> <20131010020422.GB24368@order.stressinduktion.org> <20131010190532.GQ5790@linux.vnet.ibm.com> <20131012022508.GA20321@order.stressinduktion.org> <20131012075336.GA5790@linux.vnet.ibm.com> <20131012164345.GB20321@order.stressinduktion.org> <20131012173734.GC20321@order.stressinduktion.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [Patch 1/1]: libertas/sdio: fix releasing memory twice.
+Date: Sat, 12 Oct 2013 14:58:31 -0500
+Message-ID: <1381607911.21655.7.camel@dcbw.foobar.com>
+References: <D5BD8103-A6A6-4070-878B-99FC5883725F@goldelico.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-kernel@vger.kernel.org, mingo@kernel.org,
-	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Bing Zhao <bzhao@marvell.com>, Harro Haan <hrhaan@gmail.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Belisko Marek <marek@goldelico.com>,
+	NeilBrown Brown <neilb@suse.de>
+To: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131012173734.GC20321@order.stressinduktion.org>
+In-Reply-To: <D5BD8103-A6A6-4070-878B-99FC5883725F@goldelico.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------ Original Message -----
-> From: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
-> To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "Eric Dumazet" <eric.dumazet@gmail.com>, "Josh Triplett"
-> <josh@joshtriplett.org>, linux-kernel@vger.kernel.org, mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-> akpm@linux-foundation.org, "mathieu desnoyers" <mathieu.desnoyers@efficios.com>, niv@us.ibm.com, tglx@linutronix.de,
-> peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com, darren@dvhart.com,
-> fweisbec@gmail.com, sbw@mit.edu, "David S. Miller" <davem@davemloft.net>, "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
-> "James Morris" <jmorris@namei.org>, "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>, "Patrick McHardy"
-> <kaber@trash.net>, netdev@vger.kernel.org
-> Sent: Saturday, October 12, 2013 1:37:34 PM
-> Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
+On Sat, 2013-10-12 at 18:02 +0200, Dr. H. Nikolaus Schaller wrote:
+> While upgrading the GTA04 kernel to 3.12-rc4 we came across
+> an issue with libertas/sdio referencing stale memory on ifconfig up
+> when trying to load the firmware (for a second time).
 > 
-> On Sat, Oct 12, 2013 at 06:43:45PM +0200, Hannes Frederic Sowa wrote:
-> > Regarding the volatile access, I hope that the C11 memory model
-> > and enhancements to the compiler will some day provide a better
-> > way to express the semantics of what is tried to express here
-> > (__atomic_store_n/__atomic_load_n with the accompanied memory model,
-> > which could be even weaker to what a volatile access would enfore
-> > now and could guarantee atomic stores/loads).
-> 
-> I just played around a bit more. Perhaps we could try to warn of silly
-> usages of ACCESS_ONCE():
-> 
-> --- a/include/linux/compiler.h
-> +++ b/include/linux/compiler.h
-> @@ -349,7 +349,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f,
-> int val, int expect);
->   * use is to mediate communication between process-level code and irq/NMI
->   * handlers, all running on the same CPU.
->   */
-> -#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
-> +#define ACCESS_ONCE(x) (*({						\
-> +		compiletime_assert(sizeof(typeof(x)) <= sizeof(typeof(&x)), \
-> +				   "ACCESS_ONCE likely not atomic");	\
+> I am not at all sure if the patch is how it should be done and the right
+> location, but it appears to work for us with resetting priv->helper_fw to NULL
+> before asynchronously loading the firmware again.
 
-AFAIU, ACCESS_ONCE() is not meant to ensure atomicity of load/store, but rather merely ensures that the compiler will not merge nor refetch accesses. I don't think the assert check you propose is appropriate with respect to the ACCESS_ONCE() semantic.
+How about we go even simpler?  helper_fw is *only* used inside
+firmware.c anyway, and that's probably where its lifetime should be
+handled.  Same for the main firmware.  I have no idea why the bus code
+is responsible for releasing the firmware anyway, when it originates
+from firmware.c and control returns back there after the firmware loaded
+callback is done.  Does the following patch fix your problem too?
 
-Thanks,
+Dan
 
-Mathieu
-
-> +		(volatile typeof(x) *)&(x);				\
-> +}))
->  
->  /* Ignore/forbid kprobes attach on very low level functions marked by this
->  attribute: */
->  #ifdef CONFIG_KPROBES
-> 
-> 
-
--- 
-Mathieu Desnoyers
-EfficiOS Inc.
-http://www.efficios.com
+---
+diff --git a/drivers/net/wireless/libertas/firmware.c b/drivers/net/wireless/libertas/firmware.c
+index c0f9e7e..51b92b5 100644
+--- a/drivers/net/wireless/libertas/firmware.c
++++ b/drivers/net/wireless/libertas/firmware.c
+@@ -49,14 +49,19 @@ static void main_firmware_cb(const struct firmware *firmware, void *context)
+ 		/* Failed to find firmware: try next table entry */
+ 		load_next_firmware_from_table(priv);
+ 		return;
+ 	}
+ 
+ 	/* Firmware found! */
+ 	lbs_fw_loaded(priv, 0, priv->helper_fw, firmware);
++	if (priv->helper_fw) {
++		release_firmware (priv->helper_fw);
++		priv->helper_fw = NULL;
++	}
++	release_firmware (firmware);
+ }
+ 
+ static void helper_firmware_cb(const struct firmware *firmware, void *context)
+ {
+ 	struct lbs_private *priv = context;
+ 
+ 	if (!firmware) {
+diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wireless/libertas/if_cs.c
+index c94dd68..ef8c98e 100644
+--- a/drivers/net/wireless/libertas/if_cs.c
++++ b/drivers/net/wireless/libertas/if_cs.c
+@@ -750,22 +750,22 @@ static void if_cs_prog_firmware(struct lbs_private *priv, int ret,
+ 	}
+ 
+ 	/* Load the firmware */
+ 	ret = if_cs_prog_helper(card, helper);
+ 	if (ret == 0 && (card->model != MODEL_8305))
+ 		ret = if_cs_prog_real(card, mainfw);
+ 	if (ret)
+-		goto out;
++		return;
+ 
+ 	/* Now actually get the IRQ */
+ 	ret = request_irq(card->p_dev->irq, if_cs_interrupt,
+ 		IRQF_SHARED, DRV_NAME, card);
+ 	if (ret) {
+ 		pr_err("error in request_irq\n");
+-		goto out;
++		return;
+ 	}
+ 
+ 	/*
+ 	 * Clear any interrupt cause that happened while sending
+ 	 * firmware/initializing card
+ 	 */
+ 	if_cs_write16(card, IF_CS_CARD_INT_CAUSE, IF_CS_BIT_MASK);
+@@ -773,18 +773,14 @@ static void if_cs_prog_firmware(struct lbs_private *priv, int ret,
+ 
+ 	/* And finally bring the card up */
+ 	priv->fw_ready = 1;
+ 	if (lbs_start_card(priv) != 0) {
+ 		pr_err("could not activate card\n");
+ 		free_irq(card->p_dev->irq, card);
+ 	}
+-
+-out:
+-	release_firmware(helper);
+-	release_firmware(mainfw);
+ }
+ 
+ 
+ /********************************************************************/
+ /* Callback functions for libertas.ko                               */
+ /********************************************************************/
+ 
+diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
+index 4557833..991238a 100644
+--- a/drivers/net/wireless/libertas/if_sdio.c
++++ b/drivers/net/wireless/libertas/if_sdio.c
+@@ -704,28 +704,24 @@ static void if_sdio_do_prog_firmware(struct lbs_private *priv, int ret,
+ 	if (ret) {
+ 		pr_err("failed to find firmware (%d)\n", ret);
+ 		return;
+ 	}
+ 
+ 	ret = if_sdio_prog_helper(card, helper);
+ 	if (ret)
+-		goto out;
++		return;
+ 
+ 	lbs_deb_sdio("Helper firmware loaded\n");
+ 
+ 	ret = if_sdio_prog_real(card, mainfw);
+ 	if (ret)
+-		goto out;
++		return;
+ 
+ 	lbs_deb_sdio("Firmware loaded\n");
+ 	if_sdio_finish_power_on(card);
+-
+-out:
+-	release_firmware(helper);
+-	release_firmware(mainfw);
+ }
+ 
+ static int if_sdio_prog_firmware(struct if_sdio_card *card)
+ {
+ 	int ret;
+ 	u16 scratch;
+ 
+diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
+index 4bb6574..87ff0ca 100644
+--- a/drivers/net/wireless/libertas/if_spi.c
++++ b/drivers/net/wireless/libertas/if_spi.c
+@@ -1090,19 +1090,15 @@ static int if_spi_init_card(struct if_spi_card *card)
+ 	}
+ 
+ 	err = spu_set_interrupt_mode(card, 0, 1);
+ 	if (err)
+ 		goto out;
+ 
+ out:
+-	release_firmware(helper);
+-	release_firmware(mainfw);
+-
+ 	lbs_deb_leave_args(LBS_DEB_SPI, "err %d\n", err);
+-
+ 	return err;
+ }
+ 
+ static void if_spi_resume_worker(struct work_struct *work)
+ {
+ 	struct if_spi_card *card;
+ 
+diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
+index 2798077..dff08a2 100644
+--- a/drivers/net/wireless/libertas/if_usb.c
++++ b/drivers/net/wireless/libertas/if_usb.c
+@@ -840,15 +840,15 @@ static void if_usb_prog_firmware(struct lbs_private *priv, int ret,
+ 		pr_err("failed to find firmware (%d)\n", ret);
+ 		goto done;
+ 	}
+ 
+ 	cardp->fw = fw;
+ 	if (check_fwfile_format(cardp->fw->data, cardp->fw->size)) {
+ 		ret = -EINVAL;
+-		goto release_fw;
++		goto done;
+ 	}
+ 
+ 	/* Cancel any pending usb business */
+ 	usb_kill_urb(cardp->rx_urb);
+ 	usb_kill_urb(cardp->tx_urb);
+ 
+ 	cardp->fwlastblksent = 0;
+@@ -857,15 +857,15 @@ static void if_usb_prog_firmware(struct lbs_private *priv, int ret,
+ 	cardp->fwfinalblk = 0;
+ 	cardp->bootcmdresp = 0;
+ 
+ restart:
+ 	if (if_usb_submit_rx_urb_fwload(cardp) < 0) {
+ 		lbs_deb_usbd(&cardp->udev->dev, "URB submission is failed\n");
+ 		ret = -EIO;
+-		goto release_fw;
++		goto done;
+ 	}
+ 
+ 	cardp->bootcmdresp = 0;
+ 	do {
+ 		int j = 0;
+ 		i++;
+ 		if_usb_issue_boot_command(cardp, BOOT_CMD_FW_BY_USB);
+@@ -879,22 +879,22 @@ restart:
+ 	if (cardp->bootcmdresp == BOOT_CMD_RESP_NOT_SUPPORTED) {
+ 		/* Return to normal operation */
+ 		ret = -EOPNOTSUPP;
+ 		usb_kill_urb(cardp->rx_urb);
+ 		usb_kill_urb(cardp->tx_urb);
+ 		if (if_usb_submit_rx_urb(cardp) < 0)
+ 			ret = -EIO;
+-		goto release_fw;
++		goto done;
+ 	} else if (cardp->bootcmdresp <= 0) {
+ 		if (--reset_count >= 0) {
+ 			if_usb_reset_device(cardp);
+ 			goto restart;
+ 		}
+ 		ret = -EIO;
+-		goto release_fw;
++		goto done;
+ 	}
+ 
+ 	i = 0;
+ 
+ 	cardp->totalbytes = 0;
+ 	cardp->fwlastblksent = 0;
+ 	cardp->CRC_OK = 1;
+@@ -917,37 +917,34 @@ restart:
+ 		if (--reset_count >= 0) {
+ 			if_usb_reset_device(cardp);
+ 			goto restart;
+ 		}
+ 
+ 		pr_info("FW download failure, time = %d ms\n", i * 100);
+ 		ret = -EIO;
+-		goto release_fw;
++		goto done;
+ 	}
+ 
+ 	cardp->priv->fw_ready = 1;
+ 	if_usb_submit_rx_urb(cardp);
+ 
+ 	if (lbs_start_card(priv))
+-		goto release_fw;
++		goto done;
+ 
+ 	if_usb_setup_firmware(priv);
+ 
+ 	/*
+ 	 * EHS_REMOVE_WAKEUP is not supported on all versions of the firmware.
+ 	 */
+ 	priv->wol_criteria = EHS_REMOVE_WAKEUP;
+ 	if (lbs_host_sleep_cfg(priv, priv->wol_criteria, NULL))
+ 		priv->ehs_remove_supported = false;
+ 
+- release_fw:
+-	release_firmware(cardp->fw);
+-	cardp->fw = NULL;
+-
+  done:
++	cardp->fw = NULL;
+ 	lbs_deb_leave(LBS_DEB_USB);
+ }
+ 
+ 
+ #ifdef CONFIG_PM
+ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
+ {
