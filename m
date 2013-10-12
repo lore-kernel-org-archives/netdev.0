@@ -1,44 +1,36 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] usbnet: fix error return code in usbnet_probe()
-Date: Sat, 12 Oct 2013 14:24:08 +0800
-Message-ID: <CAPgLHd9jQfT2Kzi5o+3KPy0hFrkHL135K2aYp7OXcbLX4Cmkcg@mail.gmail.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH v3 tip/core/rcu 0/14] Sparse-related updates for 3.13
+Date: Fri, 11 Oct 2013 23:53:27 -0700
+Message-ID: <20131012065326.GG15339@leaf>
+References: <20131011231659.GA28062@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oneukum-l3A5Bk7waGM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	fengguang.wu@intel.com, stephen@networkplumber.org,
+	davem@davemloft.net, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, gaofeng@cn.fujitsu.com,
+	linux-decnet-user@lists.sourceforge.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linville@tuxdriver.com, johannes@sipsolutions.net
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131011231659.GA28062@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+On Fri, Oct 11, 2013 at 04:16:59PM -0700, Paul E. McKenney wrote:
+> Changes from v2:
+> 
+> o	Switch from rcu_assign_pointer() to ACCESS_ONCE() given that
+> 	the pointers are all --rcu and already visible to readers,
+> 	as suggested by Eric Dumazet and Josh Triplett.
 
-Fix to return -ENOMEM in the padding pkt alloc fail error handling
-case instead of 0, as done elsewhere in this function.
+Hang on a moment.  Do *none* of these cases need write memory barriers?
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
----
- drivers/net/usb/usbnet.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index bf94e10..90a429b 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1688,8 +1688,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	if (dev->can_dma_sg && !(info->flags & FLAG_SEND_ZLP) &&
- 		!(info->flags & FLAG_MULTI_PACKET)) {
- 		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
--		if (!dev->padding_pkt)
-+		if (!dev->padding_pkt) {
-+			status = -ENOMEM;
- 			goto out4;
-+		}
- 	}
- 
- 	status = register_netdev (net);
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Josh Triplet
