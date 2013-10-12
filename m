@@ -1,51 +1,53 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net] tcp: fix incorrect ca_state in tail loss probe
-Date: Sat, 12 Oct 2013 10:16:27 -0700
-Message-ID: <1381598187-9681-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, michael@sterretts.net,
-	jwboyer@fedoraproject.org, sesse@google.com, dormando@rydia.net,
-	Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net, ncardwell@google.com, nanditad@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f74.google.com ([209.85.160.74]:35839 "EHLO
-	mail-pb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752493Ab3JLRRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Oct 2013 13:17:18 -0400
-Received: by mail-pb0-f74.google.com with SMTP id rq2so543459pbb.1
-        for <netdev@vger.kernel.org>; Sat, 12 Oct 2013 10:17:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Sat, 12 Oct 2013 19:37:34 +0200
+Message-ID: <20131012173734.GC20321@order.stressinduktion.org>
+References: <20131009225617.GH11709@jtriplet-mobl1> <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com> <20131009234040.GB14055@jtriplet-mobl1> <1381363960.4971.55.camel@edumazet-glaptop.roam.corp.google.com> <20131010002833.GJ5790@linux.vnet.ibm.com> <20131010020422.GB24368@order.stressinduktion.org> <20131010190532.GQ5790@linux.vnet.ibm.com> <20131012022508.GA20321@order.stressinduktion.org> <20131012075336.GA5790@linux.vnet.ibm.com> <20131012164345.GB20321@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131012164345.GB20321@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On receiving an ACK that covers the loss probe sequence, TLP
-immediately sets the congestion state to Open, even though some packets
-are not recovered and retransmisssion are on the way.  The later ACks
-may trigger a WARN_ON check in step D of tcp_fastretrans_alert(), e.g.,
-https://bugzilla.redhat.com/show_bug.cgi?id=989251
+On Sat, Oct 12, 2013 at 06:43:45PM +0200, Hannes Frederic Sowa wrote:
+> Regarding the volatile access, I hope that the C11 memory model
+> and enhancements to the compiler will some day provide a better
+> way to express the semantics of what is tried to express here
+> (__atomic_store_n/__atomic_load_n with the accompanied memory model,
+> which could be even weaker to what a volatile access would enfore
+> now and could guarantee atomic stores/loads).
 
-The fix is to follow the similar procedure in recovery by calling
-tcp_try_keep_open(). The sender switches to Open state if no packets
-are retransmissted. Otherwise it goes to Disorder and let subsequent
-ACKs move the state to Recovery or Open.
+I just played around a bit more. Perhaps we could try to warn of silly
+usages of ACCESS_ONCE():
 
-Reported-By: Michael Sterrett <michael@sterretts.net>
-Tested-By: Dormando <dormando@rydia.net>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 113dc5f..53974c7 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3291,7 +3291,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
- 			tcp_init_cwnd_reduction(sk, true);
- 			tcp_set_ca_state(sk, TCP_CA_CWR);
- 			tcp_end_cwnd_reduction(sk);
--			tcp_set_ca_state(sk, TCP_CA_Open);
-+			tcp_try_keep_open(sk);
- 			NET_INC_STATS_BH(sock_net(sk),
- 					 LINUX_MIB_TCPLOSSPROBERECOVERY);
- 		}
--- 
-1.8.4
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -349,7 +349,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
+  * use is to mediate communication between process-level code and irq/NMI
+  * handlers, all running on the same CPU.
+  */
+-#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
++#define ACCESS_ONCE(x) (*({						\
++		compiletime_assert(sizeof(typeof(x)) <= sizeof(typeof(&x)), \
++				   "ACCESS_ONCE likely not atomic");	\
++		(volatile typeof(x) *)&(x);				\
++}))
+ 
+ /* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
+ #ifdef CONFIG_KPROBES
