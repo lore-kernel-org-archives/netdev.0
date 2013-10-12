@@ -1,80 +1,132 @@
-From: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
-Subject: [Patch 1/1]: libertas/sdio: fix releasing memory twice.
-Date: Sat, 12 Oct 2013 18:02:09 +0200
-Message-ID: <D5BD8103-A6A6-4070-878B-99FC5883725F@goldelico.com>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: multipart/mixed; boundary=Apple-Mail-219--440396343
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Bing Zhao <bzhao@marvell.com>,
-	"H. Nikolaus Schaller" <hns@goldelico.com>,
-	Dan Williams <dcbw@redhat.com>, Harro Haan <hrhaan@gmail.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Belisko Marek <marek@goldelico.com>,
-	NeilBrown Brown <neilb@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Sat, 12 Oct 2013 18:43:45 +0200
+Message-ID: <20131012164345.GB20321@order.stressinduktion.org>
+References: <1381359077.4971.37.camel@edumazet-glaptop.roam.corp.google.com> <20131009225617.GH11709@jtriplet-mobl1> <1381360675.4971.45.camel@edumazet-glaptop.roam.corp.google.com> <20131009234040.GB14055@jtriplet-mobl1> <1381363960.4971.55.camel@edumazet-glaptop.roam.corp.google.com> <20131010002833.GJ5790@linux.vnet.ibm.com> <20131010020422.GB24368@order.stressinduktion.org> <20131010190532.GQ5790@linux.vnet.ibm.com> <20131012022508.GA20321@order.stressinduktion.org> <20131012075336.GA5790@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
+	niv@us.ibm.com, tglx@linutronix.de, peterz@infradead.org,
+	rostedt@goodmis.org, dhowells@redhat.com, edumazet@google.com,
+	darren@dvhart.com, fweisbec@gmail.com, sbw@mit.edu,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:58080 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027Ab3JLQnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Oct 2013 12:43:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20131012075336.GA5790@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Oct 12, 2013 at 12:53:36AM -0700, Paul E. McKenney wrote:
+> On Sat, Oct 12, 2013 at 04:25:08AM +0200, Hannes Frederic Sowa wrote:
+> > I saw your patch regarding making rcu_assign_pointer volatile and wonder if we
+> > can still make it a bit more safe to use if we force the evaluation of the
+> > to-be-assigned pointer before the write barrier. This is what I have in mind:
+> > 
+> > diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+> > index f1f1bc3..79eccc3 100644
+> > --- a/include/linux/rcupdate.h
+> > +++ b/include/linux/rcupdate.h
+> > @@ -550,8 +550,9 @@ static inline void rcu_preempt_sleep_check(void)
+> >  	})
+> >  #define __rcu_assign_pointer(p, v, space) \
+> >  	do { \
+> > +		typeof(v) ___v = (v); \
+> >  		smp_wmb(); \
+> > -		(p) = (typeof(*v) __force space *)(v); \
+> > +		(p) = (typeof(*___v) __force space *)(___v); \
+> >  	} while (0)
+> > 
+> > 
+> > I don't think ___v must be volatile for this case because the memory barrier
+> > will force the evaluation of v first.
+> > 
+> > This would guard against cases where rcu_assign_pointer is used like:
+> > 
+> > rcu_assign_pointer(ptr, compute_ptr_with_side_effects());
+> 
+> I am sorry, but I am not seeing how this would be particularly useful.
 
---Apple-Mail-219--440396343
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+Oh, I do not think it is useful. It should help enforcing the right memory
+orderings if someone uses rcu_assign_pointer in such a nasty way.
 
-While upgrading the GTA04 kernel to 3.12-rc4 we came across
-an issue with libertas/sdio referencing stale memory on ifconfig up
-when trying to load the firmware (for a second time).
+It was meant by me as a "defensive rearragement" to guard rcu_assign_pointer
+to accidentaly slip memory mutations across the barrier without hurting
+compiler optimizations too bad (or at all).
 
-I am not at all sure if the patch is how it should be done and the right
-location, but it appears to work for us with resetting priv->helper_fw =
-to NULL
-before asynchronously loading the firmware again.
+> The point of rcu_assign_pointer() is to order the initialization of
+> a data structure against publishing a pointer to that data structure.
+> An example may be found in cgroup_create():
+> 
+> 	name = cgroup_alloc_name(dentry);
+> 	if (!name)
+> 		goto err_free_cgrp;
+> 	rcu_assign_pointer(cgrp->name, name);
+> 
+> Here, cgroup_alloc_name() allocates memory for the name and fills in
+> the name:
+> 
+> static struct cgroup_name *cgroup_alloc_name(struct dentry *dentry)
+> {
+> 	struct cgroup_name *name;
+> 
+> 	name = kmalloc(sizeof(*name) + dentry->d_name.len + 1, GFP_KERNEL);
+> 	if (!name)
+> 		return NULL;
+> 	strcpy(name->name, dentry->d_name.name);
+> 	return name;
+> }
+> 
+> So the point of the smp_wmb() in __rcu_assign_pointer() is to order the
+> strcpy() in cgroup_alloc_name() to happen before the assignment of the
+> name pointer to cgrp->name.
+> 
+> To make this example fit your pattern, we could change the code in
+> cgroup_create() to look as follows (and to be buggy):
+> 
+> 	/* BAD CODE!  Do not do this! */
+> 	rcu_assign_pointer(cgrp->name, cgroup_alloc_name(dentry));
+> 	if (!cgrp->name)
+> 		goto err_free_cgrp;
+> 
+> The reason that this is bad practice is that it is hiding the fact that
+> the allocation and initialization in cgroup_alloc_name() needs to be
+> ordered before the assignment to cgrp->name.
+> 
+> Make sense?
 
+Absolutely! But e.g. the pointer could be preallocated and no length
+checks are needed so there is no need for an error path, I guess someone
+could think it is safe to put the get_ptr_with_side_effects (and if the
+side effect is only a bit flip in the strucutre pointed to by the value)
+in the v argument of rcu_assign_pointer.
 
+I also tought about adding a (*(&(v))) statement to enfore that only
+lvalues where allowed as the value in rcu_assign_pointer, but that would
+already cause compilation errors (e.g. rcu_assign_pointer(ptr, ptr|MARK)).
 
+The nice thing with ACCESS_ONCE(p) is, that there is now no way to put
+a non-lvalue expression into the first argument of rcu_assign_pointer. :)
 
---Apple-Mail-219--440396343
-Content-Disposition: attachment;
-	filename=0001-libertas-sdio-fix-releasing-memory-twice.patch
-Content-Type: application/octet-stream;
-	name="0001-libertas-sdio-fix-releasing-memory-twice.patch"
-Content-Transfer-Encoding: quoted-printable
+Regarding the volatile access, I hope that the C11 memory model
+and enhancements to the compiler will some day provide a better
+way to express the semantics of what is tried to express here
+(__atomic_store_n/__atomic_load_n with the accompanied memory model,
+which could be even weaker to what a volatile access would enfore
+now and could guarantee atomic stores/loads).
 
-=46rom=20f6864491ea45d2bd877a37fbb4a618e42fe03fbe=20Mon=20Sep=2017=20=
-00:00:00=202001=0AFrom:=20"H.=20Nikolaus=20Schaller"=20=
-<hns@goldelico.com>=0ADate:=20Sat,=2012=20Oct=202013=2017:49:31=20+0200=0A=
-Subject:=20[PATCH]=20libertas/sdio:=20fix=20releasing=20memory=20twice.=20=
-We=20have=20connected=0A=20a=20Wi2Wi=20W2CBW003=20to=20an=20OMAP3=20=
-using=20SDIO.=20We=20have=20seen=20an=0A=20issue=20(not=20related=20with=20=
-this=20patch)=20that=20sometimes=20power=20is=0A=20not=20turned=20off.=20=
-This=20did=20lead=20to=20a=20kernel=20Oops=20if=20an=0A=20ifconfig=20up=20=
-/=20down=20/=20up=20when=20the=20chip=20was=20not=20powered=20down.=0A=20=
-This=20leads=20to=20a=20second=20call=20to=20lbs_get_firmware_async()=0A=20=
-with=20the=20same=20priv=20data=20-=20and=20that=20tries=20to=0A=20=
-release_firmware(priv->helper_fw);=20This=20appears=20to=20be=0A=20=
-wrong,=20since=20it=20was=20alredy=20released=20in=20the=0A=20=
-if_sdio_do_prog_firmware.=0A=0ASigned-off-by:=20H.=20Nikolaus=20Schaller=20=
-<hns@goldelico.com>=0A---=0A=20drivers/net/wireless/libertas/if_sdio.c=20=
-|=20=20=2013=20+++++++++++++=0A=201=20files=20changed,=2013=20=
-insertions(+),=200=20deletions(-)=0A=0Adiff=20--git=20=
-a/drivers/net/wireless/libertas/if_sdio.c=20=
-b/drivers/net/wireless/libertas/if_sdio.c=0Aindex=204557833..a04eb41=20=
-100644=0A---=20a/drivers/net/wireless/libertas/if_sdio.c=0A+++=20=
-b/drivers/net/wireless/libertas/if_sdio.c=0A@@=20-769,6=20+769,19=20@@=20=
-static=20int=20if_sdio_prog_firmware(struct=20if_sdio_card=20*card)=0A=20=
-=09=09return=200;=0A=20=09}=0A=20=0A+=09/*=20This=20is=20missing=20in=20=
-lbs_get_firmware_async()=0A+=09=20*=20and=20therefore=20a=20second=20=
-call=20using=20the=20same=20priv=20structure=0A+=09=20*=20may=20find=20a=20=
-stale=20helper_fw=20entry=20that=20has=20already=20been=0A+=09=20*=20=
-released=20by=20release_firmware(helper)=20in=0A+=09=20*=20=
-if_sdio_do_prog_firmware().=0A+=09=20*=20Or=20doing=20that=20release=20=
-in=20if_sdio_do_prog_firmware()=0A+=09=20*=20is=20a=20duplicate=20and=20=
-should=20not=20be=20there.=0A+=09=20*=20Anyways,=20this=20can=20happen=20=
-if=20a=20ifconfig=20up=20/=20down=20/=20up=0A+=09=20*=20sequence=20is=20=
-issued.=0A+=09=20*/=0A+=0A+=09card->priv->helper_fw=20=3D=20NULL;=0A+=0A=20=
-=09ret=20=3D=20lbs_get_firmware_async(card->priv,=20&card->func->dev,=20=
-card->model,=0A=20=09=09=09=09=20=20=20=20=20fw_table,=20=
-if_sdio_do_prog_firmware);=0A=20=0A--=20=0A1.7.7.4=0A=0A=
+Greeting,
 
---Apple-Mail-219--440396343--
+  Hannes
