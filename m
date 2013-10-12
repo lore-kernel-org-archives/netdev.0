@@ -1,24 +1,63 @@
-From: Innocent Eleazu <ieleazv@rcc.mass.edu>
-Subject: (unknown)
-Date: Sat, 12 Oct 2013 20:46:10 +0000
-Message-ID: <EE26B29BF6A26D4BB714A67644CB9D8C63950770@RCC-EX-MB1.rcc.mass.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bnx2x: record rx queue for LRO packets
+Date: Sat, 12 Oct 2013 14:08:34 -0700
+Message-ID: <1381612114.3392.14.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og125.obsmtp.com ([64.18.1.218]:59095 "EHLO
-	exprod6og125.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089Ab3JLUvk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Oct 2013 16:51:40 -0400
-Subject: 
-Content-Language: en-US
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34269 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753125Ab3JLVIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Oct 2013 17:08:36 -0400
+Received: by mail-pa0-f44.google.com with SMTP id lf10so5900169pab.31
+        for <netdev@vger.kernel.org>; Sat, 12 Oct 2013 14:08:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Loan offer at 3% interest rate,contact:  beverlyloanservices@outlook.com
-Note: Reply to this Email Only:  beverlyloanservices@outlook.com
-==========================================================================
+From: Eric Dumazet <edumazet@google.com>
 
-Darlehen Angebot bei 3% Zins, Kontakt: beverlyloanservices@outlook.com
-Hinweis: Antworten Sie auf diese E-Mail nur: beverlyloanservices@outlook.com
+RPS support is kind of broken on bnx2x, because only non LRO packets
+get proper rx queue information. This triggers reorders, as it seems
+bnx2x like to generate a non LRO packet for segment including TCP PUSH
+flag : (this might be pure coincidence, but all the reorders I've
+seen involve segments with a PUSH)
+
+11:13:34.335847 IP A > B: . 415808:447136(31328) ack 1 win 457 <nop,nop,timestamp 3789336 3985797>
+11:13:34.335992 IP A > B: . 447136:448560(1424) ack 1 win 457 <nop,nop,timestamp 3789336 3985797>
+11:13:34.336391 IP A > B: . 448560:479888(31328) ack 1 win 457 <nop,nop,timestamp 3789337 3985797>
+11:13:34.336425 IP A > B: P 511216:512640(1424) ack 1 win 457 <nop,nop,timestamp 3789337 3985798>
+11:13:34.336423 IP A > B: . 479888:511216(31328) ack 1 win 457 <nop,nop,timestamp 3789337 3985798>
+11:13:34.336924 IP A > B: . 512640:543968(31328) ack 1 win 457 <nop,nop,timestamp 3789337 3985798>
+11:13:34.336963 IP A > B: . 543968:575296(31328) ack 1 win 457 <nop,nop,timestamp 3789337 3985798>
+
+We must call skb_record_rx_queue() to properly give to RPS (and more
+generally for TX queue selection on forward path) the receive queue
+information.
+
+Similar fix is needed for skb_mark_napi_id(), but will be handled
+in a separate patch to ease stable backports.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 0c64122..6e46cff 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -681,6 +681,7 @@ static void bnx2x_gro_receive(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		}
+ 	}
+ #endif
++	skb_record_rx_queue(skb, fp->rx_queue);
+ 	napi_gro_receive(&fp->napi, skb);
+ }
+ 
