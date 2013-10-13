@@ -1,86 +1,91 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 13/16] batman-adv: remove useless find_router look up
-Date: Sun, 13 Oct 2013 13:22:58 +0200
-Message-ID: <1381663381-626-14-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 14/16] batman-adv: implement batadv_tt_entries
+Date: Sun, 13 Oct 2013 13:22:59 +0200
+Message-ID: <1381663381-626-15-git-send-email-antonio@meshcoding.com>
 References: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon@open-mesh.com>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:37982 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:13178 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797Ab3JMLwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 07:52:47 -0400
+	with ESMTP id S1753246Ab3JMLwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 07:52:50 -0400
 In-Reply-To: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon@open-mesh.com>
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-This is not used anymore with the new fragmentation, and it might
-actually mess up the bonding code because find_router() assumes it
-is only called once per packet.
+Implement batadv_tt_entries() to get the number of entries
+fitting in a given amount of bytes. This computation is done
+several times in the code and therefore it is useful to have
+an helper function.
 
-Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/send.c | 29 ++++++++---------------------
- 1 file changed, 8 insertions(+), 21 deletions(-)
+ net/batman-adv/translation-table.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 4bbcf51..82588e4 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -250,30 +250,19 @@ int batadv_send_skb_generic_unicast(struct batadv_priv *bat_priv,
- 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
- 	struct batadv_unicast_packet *unicast_packet;
- 	struct batadv_orig_node *orig_node;
--	struct batadv_neigh_node *neigh_node;
- 	int ret = NET_RX_DROP;
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 34fa6cc..58636a7 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -232,6 +232,17 @@ static int batadv_tt_len(int changes_num)
+ 	return changes_num * sizeof(struct batadv_tvlv_tt_change);
+ }
  
- 	/* get routing information */
--	if (is_multicast_ether_addr(ethhdr->h_dest)) {
-+	if (is_multicast_ether_addr(ethhdr->h_dest))
- 		orig_node = batadv_gw_get_selected_orig(bat_priv);
--		if (orig_node)
--			goto find_router;
--	}
-+	else
-+		/* check for tt host - increases orig_node refcount.
-+		 * returns NULL in case of AP isolation
-+		 */
-+		orig_node = batadv_transtable_search(bat_priv, ethhdr->h_source,
-+						     ethhdr->h_dest);
++/**
++ * batadv_tt_entries - compute the number of entries fitting in tt_len bytes
++ * @tt_len: available space
++ *
++ * Returns the number of entries.
++ */
++static uint16_t batadv_tt_entries(uint16_t tt_len)
++{
++	return tt_len / batadv_tt_len(1);
++}
++
+ static int batadv_tt_local_init(struct batadv_priv *bat_priv)
+ {
+ 	if (bat_priv->tt.local_hash)
+@@ -406,7 +417,7 @@ static void batadv_tt_tvlv_container_update(struct batadv_priv *bat_priv)
+ 	if (tt_diff_len == 0)
+ 		goto container_register;
  
--	/* check for tt host - increases orig_node refcount.
--	 * returns NULL in case of AP isolation
--	 */
--	orig_node = batadv_transtable_search(bat_priv, ethhdr->h_source,
--					     ethhdr->h_dest);
--
--find_router:
--	/* find_router():
--	 *  - if orig_node is NULL it returns NULL
--	 *  - increases neigh_nodes refcount if found.
--	 */
--	neigh_node = batadv_find_router(bat_priv, orig_node, NULL);
--
--	if (!neigh_node)
-+	if (!orig_node)
- 		goto out;
+-	tt_diff_entries_num = tt_diff_len / batadv_tt_len(1);
++	tt_diff_entries_num = batadv_tt_entries(tt_diff_len);
  
- 	switch (packet_type) {
-@@ -305,8 +294,6 @@ find_router:
- 		ret = 0;
+ 	spin_lock_bh(&bat_priv->tt.changes_list_lock);
+ 	atomic_set(&bat_priv->tt.local_changes, 0);
+@@ -1616,7 +1627,7 @@ batadv_tt_tvlv_generate(struct batadv_priv *bat_priv,
+ 		tt_len -= tt_len % sizeof(struct batadv_tvlv_tt_change);
+ 	}
  
- out:
--	if (neigh_node)
--		batadv_neigh_node_free_ref(neigh_node);
- 	if (orig_node)
- 		batadv_orig_node_free_ref(orig_node);
- 	if (ret == NET_RX_DROP)
+-	tt_tot = tt_len / sizeof(struct batadv_tvlv_tt_change);
++	tt_tot = batadv_tt_entries(tt_len);
+ 
+ 	tvlv_tt_data = kzalloc(sizeof(*tvlv_tt_data) + tt_len,
+ 			       GFP_ATOMIC);
+@@ -2567,7 +2578,7 @@ static void batadv_tt_tvlv_ogm_handler_v1(struct batadv_priv *bat_priv,
+ 	tt_data = (struct batadv_tvlv_tt_data *)tvlv_value;
+ 	tvlv_value_len -= sizeof(*tt_data);
+ 
+-	num_entries = tvlv_value_len / batadv_tt_len(1);
++	num_entries = batadv_tt_entries(tvlv_value_len);
+ 
+ 	batadv_tt_update_orig(bat_priv, orig,
+ 			      (unsigned char *)(tt_data + 1),
+@@ -2602,7 +2613,7 @@ static int batadv_tt_tvlv_unicast_handler_v1(struct batadv_priv *bat_priv,
+ 	tt_data = (struct batadv_tvlv_tt_data *)tvlv_value;
+ 	tvlv_value_len -= sizeof(*tt_data);
+ 
+-	num_entries = tvlv_value_len / batadv_tt_len(1);
++	num_entries = batadv_tt_entries(tvlv_value_len);
+ 
+ 	switch (tt_data->flags & BATADV_TT_DATA_TYPE_MASK) {
+ 	case BATADV_TT_REQUEST:
 -- 
 1.8.3.2
