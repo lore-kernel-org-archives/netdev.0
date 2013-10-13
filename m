@@ -1,70 +1,74 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] rtlwifi: Add new firmware files for rtl8188eu
-Date: Sun, 13 Oct 2013 21:07:14 +0100
-Message-ID: <1381694834.1301.95.camel@deadeye.wl.decadent.org.uk>
-References: <52549519.1010207@lwfinger.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
+Date: Sun, 13 Oct 2013 22:11:02 +0200
+Message-ID: <20131013201102.GD14021@order.stressinduktion.org>
+References: <20131009225617.GH11709@jtriplet-mobl1> <20131010002833.GJ5790@linux.vnet.ibm.com> <20131010020422.GB24368@order.stressinduktion.org> <20131010190532.GQ5790@linux.vnet.ibm.com> <20131012022508.GA20321@order.stressinduktion.org> <20131012075336.GA5790@linux.vnet.ibm.com> <20131012164345.GB20321@order.stressinduktion.org> <20131012173734.GC20321@order.stressinduktion.org> <1882655271.38519.1381606938076.JavaMail.zimbra@efficios.com> <20131013111439.GE5790@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xz047lhxtuhygGbQicoI"
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46063 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755096Ab3JMUHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 16:07:19 -0400
-In-Reply-To: <52549519.1010207@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, niv@us.ibm.com, tglx@linutronix.de,
+	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
+	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
+	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131013111439.GE5790@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, Oct 13, 2013 at 04:14:39AM -0700, Paul E. McKenney wrote:
+> On Sat, Oct 12, 2013 at 07:42:18PM +0000, Mathieu Desnoyers wrote:
+> > ----- Original Message -----
+> > > On Sat, Oct 12, 2013 at 06:43:45PM +0200, Hannes Frederic Sowa wrote:
+> > > > Regarding the volatile access, I hope that the C11 memory model
+> > > > and enhancements to the compiler will some day provide a better
+> > > > way to express the semantics of what is tried to express here
+> > > > (__atomic_store_n/__atomic_load_n with the accompanied memory model,
+> > > > which could be even weaker to what a volatile access would enfore
+> > > > now and could guarantee atomic stores/loads).
+> > > 
+> > > I just played around a bit more. Perhaps we could try to warn of silly
+> > > usages of ACCESS_ONCE():
+> > > 
+> > > --- a/include/linux/compiler.h
+> > > +++ b/include/linux/compiler.h
+> > > @@ -349,7 +349,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f,
+> > > int val, int expect);
+> > >   * use is to mediate communication between process-level code and irq/NMI
+> > >   * handlers, all running on the same CPU.
+> > >   */
+> > > -#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+> > > +#define ACCESS_ONCE(x) (*({						\
+> > > +		compiletime_assert(sizeof(typeof(x)) <= sizeof(typeof(&x)), \
+> > > +				   "ACCESS_ONCE likely not atomic");	\
+> > 
+> > AFAIU, ACCESS_ONCE() is not meant to ensure atomicity of load/store,
+> > but rather merely ensures that the compiler will not merge nor refetch
+> > accesses. I don't think the assert check you propose is appropriate with
+> > respect to the ACCESS_ONCE() semantic.
+> 
+> I am with Mathieu on this one, at least unless there is some set of actual
+> bugs already in the kernel that these length checks would find.
 
---=-xz047lhxtuhygGbQicoI
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I guess my wording of "ACCESS_ONCE likely not atomic" was misplaced. Something
+like volatile access to memory larger than the processor register size is
+probably not what you intended. Use atomics or proper locking. ;)
+And maybe that is not even correct.
 
-On Tue, 2013-10-08 at 18:28 -0500, Larry Finger wrote:
-> The vendor driver RTL8188EUS_linux_v4.1.4_6773.20130222 contains
-> firmware in the form of data statements. This info has been extracted
-> into a binary file.
->=20
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
->   WHENCE                  |   9 +++++++++
->   rtlwifi/rtl8188eufw.bin | Bin 0 -> 13904 bytes
->   2 files changed, 9 insertions(+)
->   create mode 100644 rtlwifi/rtl8188eufw.bin
-[...]
+> /me wonders about structs of size 3, 5, 6, and 7...
 
-Applied, thanks.
+Checked a x86_64 allyesconfig build with sizes above pointer size and odd
+parity and nothing broke.
 
-Ben.
+Greetings,
 
---=20
-Ben Hutchings
-Beware of bugs in the above code;
-I have only proved it correct, not tried it. - Donald Knuth
-
---=-xz047lhxtuhygGbQicoI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIVAwUAUlr9cue/yOyVhhEJAQo61w/8C9IyMM1CYZ5p4pL9fvEzHZANQw0pV4Uc
-GRGMDkhJLWtpHPhKA112FCzZMVPJq798vw0eNHbYtQNbzXVzTZ+fxgsbZY5Rltmb
-Q51fszJZvZgOe9apSH53NcfJBKEmbuzZYK5wzrm8nqy+T3NXed4aVMLSdIUwRTda
-1EahTkq/BMzcuvqeyTOlEX/QcEzF8ScCT7GBfMetRkiTWw5CN2CzPjy9C73ngYNH
-e3qK7lm3qx23p5fJPTB3+uNl4jFne+FoV9P4+A5NOduKGIkOUHok/jlGF4Or8qw/
-5NqxNQyHMdv+qQHFCOOxbSMla/VEkiCslwW5EA1JwNE/pRwzWDbGzZ/l3guyYdsj
-MMNwOgEVrJvYicXH3ELEvOQMgALieih8c8dpSTy2DIfxuUoc+FeE+345LCvEvTME
-+1i2cdYL9SKSmiRNO8LhxGvKBjeMevk4wZD4baGKMvBApaNnASR+EEHSQMpkXr0p
-B2/HkRyjgSuFLSBp3O87XWHSSks9Dfh9i0yWvIcVWanUMmdfentIZTBRr2YVeeON
-/3yjyif6/jMQV0D2TFqZy8gQt6eX3/xgWtpk9lsyjfWl/wGMeF4zgSy4VVO+gB/f
-l/4vTvBCumwNCb/sXU0QbWRKbK36PSMq5KrEBovSY5AhVE+hqsHR5N7dBMNeAN3U
-v7edFVeKNDs=
-=xzHg
------END PGP SIGNATURE-----
-
---=-xz047lhxtuhygGbQicoI--
+  Hannes
