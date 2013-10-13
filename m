@@ -1,176 +1,322 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 12/16] batman-adv: consider network coding overhead when calculating required mtu
-Date: Sun, 13 Oct 2013 13:22:57 +0200
-Message-ID: <1381663381-626-13-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 11/16] batman-adv: create common header for ICMP packets
+Date: Sun, 13 Oct 2013 13:22:56 +0200
+Message-ID: <1381663381-626-12-git-send-email-antonio@meshcoding.com>
 References: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:39468 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:3234 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754316Ab3JMLtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 07:49:43 -0400
+	with ESMTP id S1754541Ab3JMLtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 07:49:46 -0400
 In-Reply-To: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-The module prints a warning when the MTU on the hard interface is too
-small to transfer payload traffic without fragmentation. The required
-MTU is calculated based on the encapsulation header size. If network
-coding is compild into the module its header size is taken into
-account as well.
+the icmp and the icmp_rr packets share the same initial
+fields since they use the same code to be processed and
+forwarded.
 
+Extract the common fields and put them into a separate
+struct so that future ICMP packets can be easily added
+without bloating the packet definition.
+
+However, keep the seqno field outside of the newly created
+common header because future ICMP types may require a
+bigger sequence number space.
+
+This change breaks compatibility due to fields reordering
+in the ICMP headers.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/hard-interface.c | 19 ++++++++++---------
- net/batman-adv/main.c           | 25 +++++++++++++++++++++++++
- net/batman-adv/main.h           |  1 +
- net/batman-adv/soft-interface.c |  2 +-
- net/batman-adv/types.h          |  7 -------
- 5 files changed, 37 insertions(+), 17 deletions(-)
+ net/batman-adv/icmp_socket.c | 22 ++++++++++-----------
+ net/batman-adv/main.c        |  4 ++--
+ net/batman-adv/packet.h      | 46 ++++++++++++++++++++++++++++++--------------
+ net/batman-adv/routing.c     | 40 ++++++++++++++++++++------------------
+ 4 files changed, 66 insertions(+), 46 deletions(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 004017c..d564af2 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -269,9 +269,10 @@ int batadv_hardif_min_mtu(struct net_device *soft_iface)
- 	const struct batadv_priv *bat_priv = netdev_priv(soft_iface);
- 	const struct batadv_hard_iface *hard_iface;
- 	/* allow big frames if all devices are capable to do so
--	 * (have MTU > 1500 + BAT_HEADER_LEN)
-+	 * (have MTU > 1500 + batadv_max_header_len())
- 	 */
- 	int min_mtu = ETH_DATA_LEN;
-+	int max_header_len = batadv_max_header_len();
- 
- 	if (atomic_read(&bat_priv->fragmentation))
- 		goto out;
-@@ -285,8 +286,7 @@ int batadv_hardif_min_mtu(struct net_device *soft_iface)
- 		if (hard_iface->soft_iface != soft_iface)
- 			continue;
- 
--		min_mtu = min_t(int,
--				hard_iface->net_dev->mtu - BATADV_HEADER_LEN,
-+		min_mtu = min_t(int, hard_iface->net_dev->mtu - max_header_len,
- 				min_mtu);
+diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
+index 5a99bb4..82ac647 100644
+--- a/net/batman-adv/icmp_socket.c
++++ b/net/batman-adv/icmp_socket.c
+@@ -192,25 +192,25 @@ static ssize_t batadv_socket_write(struct file *file, const char __user *buff,
+ 		goto free_skb;
  	}
- 	rcu_read_unlock();
-@@ -380,6 +380,7 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- 	struct batadv_priv *bat_priv;
- 	struct net_device *soft_iface, *master;
- 	__be16 ethertype = htons(ETH_P_BATMAN);
-+	int max_header_len = batadv_max_header_len();
- 	int ret;
  
- 	if (hard_iface->if_status != BATADV_IF_NOT_IN_USE)
-@@ -448,18 +449,18 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- 		    hard_iface->net_dev->name);
+-	if (icmp_packet->header.packet_type != BATADV_ICMP) {
++	if (icmp_packet->icmph.header.packet_type != BATADV_ICMP) {
+ 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+ 			   "Error - can't send packet from char device: got bogus packet type (expected: BAT_ICMP)\n");
+ 		len = -EINVAL;
+ 		goto free_skb;
+ 	}
  
- 	if (atomic_read(&bat_priv->fragmentation) &&
--	    hard_iface->net_dev->mtu < ETH_DATA_LEN + BATADV_HEADER_LEN)
-+	    hard_iface->net_dev->mtu < ETH_DATA_LEN + max_header_len)
- 		batadv_info(hard_iface->soft_iface,
--			    "The MTU of interface %s is too small (%i) to handle the transport of batman-adv packets. Packets going over this interface will be fragmented on layer2 which could impact the performance. Setting the MTU to %zi would solve the problem.\n",
-+			    "The MTU of interface %s is too small (%i) to handle the transport of batman-adv packets. Packets going over this interface will be fragmented on layer2 which could impact the performance. Setting the MTU to %i would solve the problem.\n",
- 			    hard_iface->net_dev->name, hard_iface->net_dev->mtu,
--			    ETH_DATA_LEN + BATADV_HEADER_LEN);
-+			    ETH_DATA_LEN + max_header_len);
+-	if (icmp_packet->msg_type != BATADV_ECHO_REQUEST) {
++	if (icmp_packet->icmph.msg_type != BATADV_ECHO_REQUEST) {
+ 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+ 			   "Error - can't send packet from char device: got bogus message type (expected: ECHO_REQUEST)\n");
+ 		len = -EINVAL;
+ 		goto free_skb;
+ 	}
  
- 	if (!atomic_read(&bat_priv->fragmentation) &&
--	    hard_iface->net_dev->mtu < ETH_DATA_LEN + BATADV_HEADER_LEN)
-+	    hard_iface->net_dev->mtu < ETH_DATA_LEN + max_header_len)
- 		batadv_info(hard_iface->soft_iface,
--			    "The MTU of interface %s is too small (%i) to handle the transport of batman-adv packets. If you experience problems getting traffic through try increasing the MTU to %zi.\n",
-+			    "The MTU of interface %s is too small (%i) to handle the transport of batman-adv packets. If you experience problems getting traffic through try increasing the MTU to %i.\n",
- 			    hard_iface->net_dev->name, hard_iface->net_dev->mtu,
--			    ETH_DATA_LEN + BATADV_HEADER_LEN);
-+			    ETH_DATA_LEN + max_header_len);
+-	icmp_packet->uid = socket_client->index;
++	icmp_packet->icmph.uid = socket_client->index;
  
- 	if (batadv_hardif_is_iface_up(hard_iface))
- 		batadv_hardif_activate_interface(hard_iface);
+-	if (icmp_packet->header.version != BATADV_COMPAT_VERSION) {
+-		icmp_packet->msg_type = BATADV_PARAMETER_PROBLEM;
+-		icmp_packet->header.version = BATADV_COMPAT_VERSION;
++	if (icmp_packet->icmph.header.version != BATADV_COMPAT_VERSION) {
++		icmp_packet->icmph.msg_type = BATADV_PARAMETER_PROBLEM;
++		icmp_packet->icmph.header.version = BATADV_COMPAT_VERSION;
+ 		batadv_socket_add_packet(socket_client, icmp_packet,
+ 					 packet_len);
+ 		goto free_skb;
+@@ -219,7 +219,7 @@ static ssize_t batadv_socket_write(struct file *file, const char __user *buff,
+ 	if (atomic_read(&bat_priv->mesh_state) != BATADV_MESH_ACTIVE)
+ 		goto dst_unreach;
+ 
+-	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->dst);
++	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->icmph.dst);
+ 	if (!orig_node)
+ 		goto dst_unreach;
+ 
+@@ -233,7 +233,7 @@ static ssize_t batadv_socket_write(struct file *file, const char __user *buff,
+ 	if (neigh_node->if_incoming->if_status != BATADV_IF_ACTIVE)
+ 		goto dst_unreach;
+ 
+-	memcpy(icmp_packet->orig,
++	memcpy(icmp_packet->icmph.orig,
+ 	       primary_if->net_dev->dev_addr, ETH_ALEN);
+ 
+ 	if (packet_len == sizeof(struct batadv_icmp_packet_rr))
+@@ -244,7 +244,7 @@ static ssize_t batadv_socket_write(struct file *file, const char __user *buff,
+ 	goto out;
+ 
+ dst_unreach:
+-	icmp_packet->msg_type = BATADV_DESTINATION_UNREACHABLE;
++	icmp_packet->icmph.msg_type = BATADV_DESTINATION_UNREACHABLE;
+ 	batadv_socket_add_packet(socket_client, icmp_packet, packet_len);
+ free_skb:
+ 	kfree_skb(skb);
+@@ -318,7 +318,7 @@ static void batadv_socket_add_packet(struct batadv_socket_client *socket_client,
+ 	/* while waiting for the lock the socket_client could have been
+ 	 * deleted
+ 	 */
+-	if (!batadv_socket_client_hash[icmp_packet->uid]) {
++	if (!batadv_socket_client_hash[icmp_packet->icmph.uid]) {
+ 		spin_unlock_bh(&socket_client->lock);
+ 		kfree(socket_packet);
+ 		return;
+@@ -347,7 +347,7 @@ void batadv_socket_receive_packet(struct batadv_icmp_packet_rr *icmp_packet,
+ {
+ 	struct batadv_socket_client *hash;
+ 
+-	hash = batadv_socket_client_hash[icmp_packet->uid];
++	hash = batadv_socket_client_hash[icmp_packet->icmph.uid];
+ 	if (hash)
+ 		batadv_socket_add_packet(hash, icmp_packet, icmp_len);
+ }
 diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 519138e..7f3a5c4 100644
+index ca6f134..519138e 100644
 --- a/net/batman-adv/main.c
 +++ b/net/batman-adv/main.c
-@@ -256,6 +256,31 @@ out:
- }
+@@ -401,8 +401,8 @@ static void batadv_recv_handler_init(void)
+ 	BUILD_BUG_ON(offsetof(struct batadv_unicast_packet, dest) != 4);
+ 	BUILD_BUG_ON(offsetof(struct batadv_unicast_tvlv_packet, dst) != 4);
+ 	BUILD_BUG_ON(offsetof(struct batadv_frag_packet, dest) != 4);
+-	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet, dst) != 4);
+-	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet_rr, dst) != 4);
++	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet, icmph.dst) != 4);
++	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet_rr, icmph.dst) != 4);
  
- /**
-+ * batadv_max_header_len - calculate maximum encapsulation overhead for a
-+ *  payload packet
-+ *
-+ * Return the maximum encapsulation overhead in bytes.
+ 	/* broadcast packet */
+ 	batadv_rx_handler[BATADV_BCAST] = batadv_recv_bcast_packet;
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index aa46c27..65e723e 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -186,29 +186,47 @@ struct batadv_ogm_packet {
+ 
+ #define BATADV_OGM_HLEN sizeof(struct batadv_ogm_packet)
+ 
++/**
++ * batadv_icmp_header - common ICMP header
++ * @header: common batman header
++ * @msg_type: ICMP packet type
++ * @dst: address of the destination node
++ * @orig: address of the source node
++ * @uid: local ICMP socket identifier
 + */
-+int batadv_max_header_len(void)
-+{
-+	int header_len = 0;
-+
-+	header_len = max_t(int, header_len,
-+			   sizeof(struct batadv_unicast_packet));
-+	header_len = max_t(int, header_len,
-+			   sizeof(struct batadv_unicast_4addr_packet));
-+	header_len = max_t(int, header_len,
-+			   sizeof(struct batadv_bcast_packet));
-+
-+#ifdef CONFIG_BATMAN_ADV_NC
-+	header_len = max_t(int, header_len,
-+			   sizeof(struct batadv_coded_packet));
-+#endif
-+
-+	return header_len;
-+}
++struct batadv_icmp_header {
++	struct batadv_header header;
++	uint8_t  msg_type; /* see ICMP message types above */
++	uint8_t  dst[ETH_ALEN];
++	uint8_t  orig[ETH_ALEN];
++	uint8_t  uid;
++};
 +
 +/**
-  * batadv_skb_set_priority - sets skb priority according to packet content
-  * @skb: the packet to be sent
-  * @offset: offset to the packet content
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 6a74a42..54c13d5 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -191,6 +191,7 @@ void batadv_mesh_free(struct net_device *soft_iface);
- int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr);
- struct batadv_hard_iface *
- batadv_seq_print_text_primary_if_get(struct seq_file *seq);
-+int batadv_max_header_len(void);
- void batadv_skb_set_priority(struct sk_buff *skb, int offset);
- int batadv_batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 			   struct packet_type *ptype,
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 87e7e4e..15c7237 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -626,7 +626,7 @@ static void batadv_softif_init_early(struct net_device *dev)
- 	 */
- 	dev->mtu = ETH_DATA_LEN;
- 	/* reserve more space in the skbuff for our header */
--	dev->hard_header_len = BATADV_HEADER_LEN;
-+	dev->hard_header_len = batadv_max_header_len();
++ * batadv_icmp_packet - ICMP packet
++ * @icmph: common ICMP header
++ * @reserved: not used - useful for alignment
++ * @seqno: ICMP sequence number
++ */
+ struct batadv_icmp_packet {
+-	struct batadv_header header;
+-	uint8_t  msg_type; /* see ICMP message types above */
+-	uint8_t  dst[ETH_ALEN];
+-	uint8_t  orig[ETH_ALEN];
+-	__be16   seqno;
+-	uint8_t  uid;
++	struct batadv_icmp_header icmph;
+ 	uint8_t  reserved;
++	__be16   seqno;
+ };
  
- 	/* generate random address */
- 	eth_hw_addr_random(dev);
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index d517d5d..5cbb0d0 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -24,13 +24,6 @@
- #include "bitarray.h"
- #include <linux/kernel.h>
+ #define BATADV_RR_LEN 16
  
--/**
-- * Maximum overhead for the encapsulation for a payload packet
-- */
--#define BATADV_HEADER_LEN \
--	(ETH_HLEN + max(sizeof(struct batadv_unicast_packet), \
--			sizeof(struct batadv_bcast_packet)))
--
- #ifdef CONFIG_BATMAN_ADV_DAT
+-/* icmp_packet_rr must start with all fields from imcp_packet
+- * as this is assumed by code that handles ICMP packets
++/**
++ * batadv_icmp_packet_rr - ICMP RouteRecord packet
++ * @icmph: common ICMP header
++ * @rr_cur: number of entries the rr array
++ * @seqno: ICMP sequence number
++ * @rr: route record array
+  */
+ struct batadv_icmp_packet_rr {
+-	struct batadv_header header;
+-	uint8_t  msg_type; /* see ICMP message types above */
+-	uint8_t  dst[ETH_ALEN];
+-	uint8_t  orig[ETH_ALEN];
+-	__be16   seqno;
+-	uint8_t  uid;
++	struct batadv_icmp_header icmph;
+ 	uint8_t  rr_cur;
++	__be16   seqno;
+ 	uint8_t  rr[BATADV_RR_LEN][ETH_ALEN];
+ };
  
- /* batadv_dat_addr_t is the type used for all DHT addresses. If it is changed,
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index a080f63..3281a50 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -258,7 +258,7 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
+ 
+ 	/* add data to device queue */
+-	if (icmp_packet->msg_type != BATADV_ECHO_REQUEST) {
++	if (icmp_packet->icmph.msg_type != BATADV_ECHO_REQUEST) {
+ 		batadv_socket_receive_packet(icmp_packet, icmp_len);
+ 		goto out;
+ 	}
+@@ -269,7 +269,7 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 
+ 	/* answer echo request (ping) */
+ 	/* get routing information */
+-	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->orig);
++	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->icmph.orig);
+ 	if (!orig_node)
+ 		goto out;
+ 
+@@ -279,10 +279,11 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 
+ 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
+ 
+-	memcpy(icmp_packet->dst, icmp_packet->orig, ETH_ALEN);
+-	memcpy(icmp_packet->orig, primary_if->net_dev->dev_addr, ETH_ALEN);
+-	icmp_packet->msg_type = BATADV_ECHO_REPLY;
+-	icmp_packet->header.ttl = BATADV_TTL;
++	memcpy(icmp_packet->icmph.dst, icmp_packet->icmph.orig, ETH_ALEN);
++	memcpy(icmp_packet->icmph.orig, primary_if->net_dev->dev_addr,
++	       ETH_ALEN);
++	icmp_packet->icmph.msg_type = BATADV_ECHO_REPLY;
++	icmp_packet->icmph.header.ttl = BATADV_TTL;
+ 
+ 	if (batadv_send_skb_to_orig(skb, orig_node, NULL) != NET_XMIT_DROP)
+ 		ret = NET_RX_SUCCESS;
+@@ -306,9 +307,9 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 	icmp_packet = (struct batadv_icmp_packet *)skb->data;
+ 
+ 	/* send TTL exceeded if packet is an echo request (traceroute) */
+-	if (icmp_packet->msg_type != BATADV_ECHO_REQUEST) {
++	if (icmp_packet->icmph.msg_type != BATADV_ECHO_REQUEST) {
+ 		pr_debug("Warning - can't forward icmp packet from %pM to %pM: ttl exceeded\n",
+-			 icmp_packet->orig, icmp_packet->dst);
++			 icmp_packet->icmph.orig, icmp_packet->icmph.dst);
+ 		goto out;
+ 	}
+ 
+@@ -317,7 +318,7 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 		goto out;
+ 
+ 	/* get routing information */
+-	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->orig);
++	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->icmph.orig);
+ 	if (!orig_node)
+ 		goto out;
+ 
+@@ -327,10 +328,11 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 
+ 	icmp_packet = (struct batadv_icmp_packet *)skb->data;
+ 
+-	memcpy(icmp_packet->dst, icmp_packet->orig, ETH_ALEN);
+-	memcpy(icmp_packet->orig, primary_if->net_dev->dev_addr, ETH_ALEN);
+-	icmp_packet->msg_type = BATADV_TTL_EXCEEDED;
+-	icmp_packet->header.ttl = BATADV_TTL;
++	memcpy(icmp_packet->icmph.dst, icmp_packet->icmph.orig, ETH_ALEN);
++	memcpy(icmp_packet->icmph.orig, primary_if->net_dev->dev_addr,
++	       ETH_ALEN);
++	icmp_packet->icmph.msg_type = BATADV_TTL_EXCEEDED;
++	icmp_packet->icmph.header.ttl = BATADV_TTL;
+ 
+ 	if (batadv_send_skb_to_orig(skb, orig_node, NULL) != NET_XMIT_DROP)
+ 		ret = NET_RX_SUCCESS;
+@@ -379,8 +381,8 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
+ 
+ 	/* add record route information if not full */
+-	if ((icmp_packet->msg_type == BATADV_ECHO_REPLY ||
+-	     icmp_packet->msg_type == BATADV_ECHO_REQUEST) &&
++	if ((icmp_packet->icmph.msg_type == BATADV_ECHO_REPLY ||
++	     icmp_packet->icmph.msg_type == BATADV_ECHO_REQUEST) &&
+ 	    (hdr_size == sizeof(struct batadv_icmp_packet_rr)) &&
+ 	    (icmp_packet->rr_cur < BATADV_RR_LEN)) {
+ 		memcpy(&(icmp_packet->rr[icmp_packet->rr_cur]),
+@@ -389,15 +391,15 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 	}
+ 
+ 	/* packet for me */
+-	if (batadv_is_my_mac(bat_priv, icmp_packet->dst))
++	if (batadv_is_my_mac(bat_priv, icmp_packet->icmph.dst))
+ 		return batadv_recv_my_icmp_packet(bat_priv, skb, hdr_size);
+ 
+ 	/* TTL exceeded */
+-	if (icmp_packet->header.ttl < 2)
++	if (icmp_packet->icmph.header.ttl < 2)
+ 		return batadv_recv_icmp_ttl_exceeded(bat_priv, skb);
+ 
+ 	/* get routing information */
+-	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->dst);
++	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->icmph.dst);
+ 	if (!orig_node)
+ 		goto out;
+ 
+@@ -408,7 +410,7 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
+ 
+ 	/* decrement ttl */
+-	icmp_packet->header.ttl--;
++	icmp_packet->icmph.header.ttl--;
+ 
+ 	/* route it */
+ 	if (batadv_send_skb_to_orig(skb, orig_node, recv_if) != NET_XMIT_DROP)
 -- 
 1.8.3.2
