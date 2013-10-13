@@ -1,46 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 path MTU discovery broken
-Date: Sun, 13 Oct 2013 19:56:19 +0200
-Message-ID: <20131013175619.GC14021@order.stressinduktion.org>
-References: <20130927201420.GB12043@sesse.net> <20130928203318.GC23654@order.stressinduktion.org> <20131006120612.GA27852@sesse.net> <20131007015252.GE9295@order.stressinduktion.org> <20131007030910.GG9295@order.stressinduktion.org> <20131013104021.GB24967@sesse.net> <1381683063.3392.46.camel@edumazet-glaptop.roam.corp.google.com>
+From: Musa Mohamed Ali <musamohamed.ali01@gmail.com>
+Subject: CONTACT MY SECRETARY,
+Date: Sun, 13 Oct 2013 18:49:43 +0000
+Message-ID: <CAM2cnELPbgeAcgPMGV6-bSjC-8LetHQxq1G1yuxzLdcHDTHipw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>,
-	netdev@vger.kernel.org, edumazet@google.com, fan.du@windriver.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60045 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754917Ab3JMR4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 13:56:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1381683063.3392.46.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:50117 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754884Ab3JMStp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 14:49:45 -0400
+Received: by mail-lb0-f180.google.com with SMTP id q8so4843213lbi.25
+        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 11:49:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 13, 2013 at 09:51:03AM -0700, Eric Dumazet wrote:
-> On Sun, 2013-10-13 at 12:40 +0200, Steinar H. Gunderson wrote:
-> > [resending with proper quoting and cc]
-> > 
-> > On Mon, Oct 07, 2013 at 05:09:10AM +0200, Hannes Frederic Sowa wrote:
-> > > Could you try to check (with e.g. nstat) if any of the following counters
-> > > change if the icmp messages hit the host?
-> > > 
-> > > TcpExtOutOfWindowIcmps
-> > > Icmp6InErrors
-> > > TcpExtTCPMinTTLDrop
-> > > TcpExtListenDrops
-> > 
-> > Hi,
-> > 
-> > I am now seeing the same problem against a 3.9.0 machine (that I've never had
-> > problems with before). I looked through the four nstat counters, and none of
-> > them are increasing. Here's /proc/net/ipv6_route from the server while it's
-> > going on; the client is 2001:67c:a4:1:71f9:c84b:8b2a:c65b (second line) and
-> > the server is 2001:67c:29f4::2007.
-> 
-> I am not sure, but the skb_is_gso() checks seem too lazy.
-> 
-> Why don't we check that gso_size+headers is below mtu, I dont know.
+Dear Friend,
 
-Was this intended for the UFO gso thread? ;)
+I'm sorry but happy to inform you about my success in getting those
+funds transferred under the cooperation of a new partner from  London
+though i tried my best to involve you in the business but God decided
+the whole situations. Presently I=92m in London for investment projects
+with my own share of the total sum. Meanwhile, I didn't forget your
+past efforts and attempts to assist me in transferring those funds
+despite that it failed us some how.
+
+Now contact my secretary in  Burkina Faso  her name is Ms. Elizabeth
+Ibrahim on her e-mail address below  ( miss.elizabeth0001@gmail.com )
+Ask her to send you the total of $1, 000.000.00 which i kept for your
+compensation for all the past efforts and attempts to assist me in
+this matter. I appreciated all your efforts at that time very much. So
+feel free and get in touched with my secretary Ms. Elizabeth Ibrahim.
+And instruct her where to send the amount to you. Please do let me
+know immediately you receive it so that we can share the joy after all
+the suffer ness at that time.
+
+in the moment, I=92m very busy here because of the investment projects
+which I and the new partner are having at hand, finally, remember that
+I had forwarded instruction to the secretary on your behalf to receive
+that money, so feel free to get in touch with Ms. Elizabeth Ibrahim.
+She will send the amount to you without any delay.
+
+Regards,
+Musa.
