@@ -1,60 +1,34 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH] bnx2x: record rx queue for LRO packets
-Date: Sun, 13 Oct 2013 06:23:31 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20DD4605@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1381612114.3392.14.camel@edumazet-glaptop.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Willem de Bruijn" <willemb@google.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2538 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753243Ab3JMGXw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Oct 2013 02:23:52 -0400
-In-Reply-To: <1381612114.3392.14.camel@edumazet-glaptop.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] irda: update comment mentioning IRQF_DISABLED
+Date: Sun, 13 Oct 2013 08:26:31 +0200
+Message-ID: <1381645591-9565-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: samuel@sortiz.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogU3VuZGF5LCBPY3RvYmVyIDEzLCAyMDEzIDEy
-OjA5IEFNDQo+IFRvOiBEYXZpZCBNaWxsZXINCj4gQ2M6IG5ldGRldjsgRWlsb24gR3JlZW5zdGVp
-bjsgV2lsbGVtIGRlIEJydWlqbg0KPiBTdWJqZWN0OiBbUEFUQ0hdIGJueDJ4OiByZWNvcmQgcngg
-cXVldWUgZm9yIExSTyBwYWNrZXRzDQo+IA0KPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0
-QGdvb2dsZS5jb20+DQo+IA0KPiBSUFMgc3VwcG9ydCBpcyBraW5kIG9mIGJyb2tlbiBvbiBibngy
-eCwgYmVjYXVzZSBvbmx5IG5vbiBMUk8gcGFja2V0cyBnZXQNCj4gcHJvcGVyIHJ4IHF1ZXVlIGlu
-Zm9ybWF0aW9uLiBUaGlzIHRyaWdnZXJzIHJlb3JkZXJzLCBhcyBpdCBzZWVtcyBibngyeCBsaWtl
-IHRvDQo+IGdlbmVyYXRlIGEgbm9uIExSTyBwYWNrZXQgZm9yIHNlZ21lbnQgaW5jbHVkaW5nIFRD
-UCBQVVNIIGZsYWcgOiAodGhpcyBtaWdodA0KPiBiZSBwdXJlIGNvaW5jaWRlbmNlLCBidXQgYWxs
-IHRoZSByZW9yZGVycyBJJ3ZlIHNlZW4gaW52b2x2ZSBzZWdtZW50cyB3aXRoIGENCj4gUFVTSCkN
-Cj4gDQo+IDExOjEzOjM0LjMzNTg0NyBJUCBBID4gQjogLiA0MTU4MDg6NDQ3MTM2KDMxMzI4KSBh
-Y2sgMSB3aW4gNDU3DQo+IDxub3Asbm9wLHRpbWVzdGFtcCAzNzg5MzM2IDM5ODU3OTc+DQo+IDEx
-OjEzOjM0LjMzNTk5MiBJUCBBID4gQjogLiA0NDcxMzY6NDQ4NTYwKDE0MjQpIGFjayAxIHdpbiA0
-NTcNCj4gPG5vcCxub3AsdGltZXN0YW1wIDM3ODkzMzYgMzk4NTc5Nz4NCj4gMTE6MTM6MzQuMzM2
-MzkxIElQIEEgPiBCOiAuIDQ0ODU2MDo0Nzk4ODgoMzEzMjgpIGFjayAxIHdpbiA0NTcNCj4gPG5v
-cCxub3AsdGltZXN0YW1wIDM3ODkzMzcgMzk4NTc5Nz4NCj4gMTE6MTM6MzQuMzM2NDI1IElQIEEg
-PiBCOiBQIDUxMTIxNjo1MTI2NDAoMTQyNCkgYWNrIDEgd2luIDQ1Nw0KPiA8bm9wLG5vcCx0aW1l
-c3RhbXAgMzc4OTMzNyAzOTg1Nzk4Pg0KPiAxMToxMzozNC4zMzY0MjMgSVAgQSA+IEI6IC4gNDc5
-ODg4OjUxMTIxNigzMTMyOCkgYWNrIDEgd2luIDQ1Nw0KPiA8bm9wLG5vcCx0aW1lc3RhbXAgMzc4
-OTMzNyAzOTg1Nzk4Pg0KPiAxMToxMzozNC4zMzY5MjQgSVAgQSA+IEI6IC4gNTEyNjQwOjU0Mzk2
-OCgzMTMyOCkgYWNrIDEgd2luIDQ1Nw0KPiA8bm9wLG5vcCx0aW1lc3RhbXAgMzc4OTMzNyAzOTg1
-Nzk4Pg0KPiAxMToxMzozNC4zMzY5NjMgSVAgQSA+IEI6IC4gNTQzOTY4OjU3NTI5NigzMTMyOCkg
-YWNrIDEgd2luIDQ1Nw0KPiA8bm9wLG5vcCx0aW1lc3RhbXAgMzc4OTMzNyAzOTg1Nzk4Pg0KPiAN
-Cj4gV2UgbXVzdCBjYWxsIHNrYl9yZWNvcmRfcnhfcXVldWUoKSB0byBwcm9wZXJseSBnaXZlIHRv
-IFJQUyAoYW5kIG1vcmUNCj4gZ2VuZXJhbGx5IGZvciBUWCBxdWV1ZSBzZWxlY3Rpb24gb24gZm9y
-d2FyZCBwYXRoKSB0aGUgcmVjZWl2ZSBxdWV1ZQ0KPiBpbmZvcm1hdGlvbi4NCj4gDQo+IFNpbWls
-YXIgZml4IGlzIG5lZWRlZCBmb3Igc2tiX21hcmtfbmFwaV9pZCgpLCBidXQgd2lsbCBiZSBoYW5k
-bGVkIGluIGENCj4gc2VwYXJhdGUgcGF0Y2ggdG8gZWFzZSBzdGFibGUgYmFja3BvcnRzLg0KPiAN
-Cj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiBD
-YzogV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUuY29tPg0KPiBDYzogRWlsb24gR3Jl
-ZW5zdGVpbiA8ZWlsb25nQGJyb2FkY29tLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYyB8ICAgIDEgKw0KPiAgMSBmaWxlIGNoYW5n
-ZWQsIDEgaW5zZXJ0aW9uKCspDQoNCg0KVGhhbmtzIQ0KDQpBY2tlZC1ieTogRG1pdHJ5IEtyYXZr
-b3YgPGRtaXRyeUBicm9hZGNvbS5jb20+DQoNCg==
+This patch removes a comment mentioning IRQF_DISABLED,
+which is deprecated.
+
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ include/net/irda/irda_device.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_device.h
+index 94c852d..1141747 100644
+--- a/include/net/irda/irda_device.h
++++ b/include/net/irda/irda_device.h
+@@ -162,7 +162,7 @@ typedef struct {
+         int irq, irq2;        /* Interrupts used */
+         int dma, dma2;        /* DMA channel(s) used */
+         int fifo_size;        /* FIFO size */
+-        int irqflags;         /* interrupt flags (ie, IRQF_SHARED|IRQF_DISABLED) */
++        int irqflags;         /* interrupt flags (ie, IRQF_SHARED) */
+ 	int direction;        /* Link direction, used by some FIR drivers */
+ 	int enabled;          /* Powered on? */
+ 	int suspended;        /* Suspended by APM */
+-- 
+1.8.1.2
