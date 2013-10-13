@@ -1,124 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] net: refactor sk_page_frag_refill()
-Date: Sat, 12 Oct 2013 21:46:31 -0700
-Message-ID: <1381639591.3392.31.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1380787003-20488-1-git-send-email-dborkman@redhat.com>
-	 <1380805381.19002.206.camel@edumazet-glaptop.roam.corp.google.com>
-	 <CANJ5vPJpVfDjaC8JauGYu=Qe4ZshqmBMkCbB1cru-xAfa7K1+g@mail.gmail.com>
-	 <1381623952.3392.25.camel@edumazet-glaptop.roam.corp.google.com>
+From: Seif Mazareeb <seif@marvell.com>
+Subject: RE: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
+Date: Sat, 12 Oct 2013 22:21:50 -0700
+Message-ID: <0DB595A2CB707F458400BE9663B6A72269C00479DF@SC-VEXCH2.marvell.com>
+References: <0DB595A2CB707F458400BE9663B6A72269C0047793@SC-VEXCH2.marvell.com>
+ <11516872.z0JUlZSHlI@sifl>
+ <0DB595A2CB707F458400BE9663B6A72269C0047841@SC-VEXCH2.marvell.com>
+ <2291823.ee0I8c00DA@olly>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Francesco Fusco <ffusco@redhat.com>,
-	ycheng@google.com, Neal Cardwell <ncardwell@google.com>,
-	Eric Northup <digitaleric@google.com>
-To: Michael Dalton <mwdalton@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: Paul Moore <paul@paul-moore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:44727 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752253Ab3JMEqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 00:46:32 -0400
-Received: by mail-pd0-f180.google.com with SMTP id y10so5960128pdj.25
-        for <netdev@vger.kernel.org>; Sat, 12 Oct 2013 21:46:31 -0700 (PDT)
-In-Reply-To: <1381623952.3392.25.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:31507 "EHLO
+	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751278Ab3JMFV4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Oct 2013 01:21:56 -0400
+In-Reply-To: <2291823.ee0I8c00DA@olly>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function could loop
+forever in the main loop if opt[opt_iter +1] == 0, this will causing a kernel
+crash in an SMP system, since the CPU executing this function will
+stall /not respond to IPIs.
 
-While working on virtio_net new allocation strategy to increase
-payload/truesize ratio, we found that refactoring sk_page_frag_refill()
-was needed.
+This problem can be reproduced by running the IP Stack Integrity Checker
+(http://isic.sourceforge.net) using the following command on a Linux machine
+connected to DUT:
 
-This patch splits sk_page_frag_refill() into two parts, adding
-page_frag_refill() which can be used without a socket.
+"icmpsic -s rand -d <DUT IP address> -r 123456"
+wait (1-2 min)
 
-While we are at it, add a minimum frag size of 32 for
-sk_page_frag_refill()
-
-Michael will either use netdev_alloc_frag() from softirq context,
-or page_frag_refill() from process context in refill_work() (GFP_KERNEL
-allocations)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Michael Dalton <mwdalton@google.com>
+Signed-off-by: Seif Mazareeb <seif@marvell.com>
 ---
-v2: fix a off-by one error
+ include/net/cipso_ipv4.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
- include/linux/skbuff.h |    2 ++
- net/core/sock.c        |   27 +++++++++++++++++++++++----
- 2 files changed, 25 insertions(+), 4 deletions(-)
+diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
+index a7a683e..a8c2ef6 100644
+--- a/include/net/cipso_ipv4.h
++++ b/include/net/cipso_ipv4.h
+@@ -290,6 +290,7 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
+        unsigned char err_offset = 0;
+        u8 opt_len = opt[1];
+        u8 opt_iter;
++       u8 tag_len;
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1cd32f9..0c5d40f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2062,6 +2062,8 @@ static inline void skb_frag_set_page(struct sk_buff *skb, int f,
- 	__skb_frag_set_page(&skb_shinfo(skb)->frags[f], page);
- }
- 
-+bool page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio);
-+
- /**
-  * skb_frag_dma_map - maps a paged fragment via the DMA API
-  * @dev: the device to map the fragment to
-diff --git a/net/core/sock.c b/net/core/sock.c
-index fd6afa2..7824d60 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1847,7 +1847,17 @@ EXPORT_SYMBOL(sock_alloc_send_skb);
- /* On 32bit arches, an skb frag is limited to 2^15 */
- #define SKB_FRAG_PAGE_ORDER	get_order(32768)
- 
--bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
-+/**
-+ * page_frag_refill - check that a page_frag contains enough room
-+ * @sz: minimum size of the fragment we want to get
-+ * @pfrag: pointer to page_frag
-+ * @prio: priority for memory allocation
-+ *
-+ * Note: While this allocator tries to use high order pages, there is
-+ * no guarantee that allocations succeed. Therefore, @sz MUST be
-+ * less or equal than PAGE_SIZE.
-+ */
-+bool page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
- {
- 	int order;
- 
-@@ -1856,16 +1866,16 @@ bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
- 			pfrag->offset = 0;
- 			return true;
- 		}
--		if (pfrag->offset < pfrag->size)
-+		if (pfrag->offset + sz <= pfrag->size)
- 			return true;
- 		put_page(pfrag->page);
- 	}
- 
- 	/* We restrict high order allocations to users that can afford to wait */
--	order = (sk->sk_allocation & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
-+	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
- 
- 	do {
--		gfp_t gfp = sk->sk_allocation;
-+		gfp_t gfp = prio;
- 
- 		if (order)
- 			gfp |= __GFP_COMP | __GFP_NOWARN;
-@@ -1877,6 +1887,15 @@ bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
- 		}
- 	} while (--order >= 0);
- 
-+	return false;
-+}
-+EXPORT_SYMBOL(page_frag_refill);
-+
-+bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
-+{
-+	if (likely(page_frag_refill(32U, pfrag, sk->sk_allocation)))
-+		return true;
-+
- 	sk_enter_memory_pressure(sk);
- 	sk_stream_moderate_sndbuf(sk);
- 	return false;
+        if (opt_len < 8) {
+                err_offset = 1;
+@@ -302,11 +303,12 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
+        }
+
+        for (opt_iter = 6; opt_iter < opt_len;) {
+-               if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
++               tag_len = opt[opt_iter + 1];
++               if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))) {
+                        err_offset = opt_iter + 1;
+                        goto out;
+                }
+-               opt_iter += opt[opt_iter + 1];
++               opt_iter += tag_len;
+        }
+
+ out:
+--
+1.8.1.2
+
+-----Original Message-----
+From: Paul Moore [mailto:paul@paul-moore.com] 
+Sent: Saturday, October 12, 2013 4:57 AM
+To: Seif Mazareeb
+Cc: davem@davemloft.net; netdev@vger.kernel.org; thomas.petazzoni@free-electrons.com; Dmitri Epshtein
+Subject: Re: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
+
+On Friday, October 11, 2013 2:04:10 PM Seif Mazareeb wrote:
+> When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function 
+> could loop forever in the main loop if opt[opt_iter +1] == 0, this 
+> will causing a kernel crash in an SMP system, since the CPU executing 
+> this function will stall /not respond to IPIs.
+> 
+> This problem can be reproduced by running the IP Stack Integrity 
+> Checker
+> (http://isic.sourceforge.net) using the following command on a Linux 
+> machine connected to DUT:
+> 
+> "icmpsic -s rand -d <DUT IP address> -r 123456"
+> wait (1-2 min)
+> 
+> Signed-off-by: Seif Mazareeb <seif@marvell.com>
+> ---
+>  include/net/cipso_ipv4.h | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h index 
+> a7a683e..286b7da 100644
+> --- a/include/net/cipso_ipv4.h
+> +++ b/include/net/cipso_ipv4.h
+> @@ -290,6 +290,7 @@ static inline int cipso_v4_validate(const struct 
+> sk_buff *skb, unsigned char err_offset = 0;
+>         u8 opt_len = opt[1];
+>         u8 opt_iter;
+> +       u8 tag_len;
+> 
+>         if (opt_len < 8) {
+>                 err_offset = 1;
+> @@ -302,7 +303,8 @@ static inline int cipso_v4_validate(const struct 
+> sk_buff *skb, }
+> 
+>         for (opt_iter = 6; opt_iter < opt_len;) {
+> -               if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
+> +               tag_len = opt[opt_iter + 1];
+> +               if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len -
+> opt_iter))) { err_offset = opt_iter + 1;
+>                         goto out;
+>                 }
+
+You should also use 'tag_len' inside the for-loop, and after the if-block, where we increment 'opt_iter'.  See my original reply for an example.
+
+--
+paul moore
+www.paul-moore.com
