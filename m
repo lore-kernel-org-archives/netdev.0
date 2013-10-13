@@ -1,74 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 tip/core/rcu 07/13] ipv6/ip6_tunnel: Apply rcu_access_pointer() to avoid sparse false positive
-Date: Sun, 13 Oct 2013 22:11:02 +0200
-Message-ID: <20131013201102.GD14021@order.stressinduktion.org>
-References: <20131009225617.GH11709@jtriplet-mobl1> <20131010002833.GJ5790@linux.vnet.ibm.com> <20131010020422.GB24368@order.stressinduktion.org> <20131010190532.GQ5790@linux.vnet.ibm.com> <20131012022508.GA20321@order.stressinduktion.org> <20131012075336.GA5790@linux.vnet.ibm.com> <20131012164345.GB20321@order.stressinduktion.org> <20131012173734.GC20321@order.stressinduktion.org> <1882655271.38519.1381606938076.JavaMail.zimbra@efficios.com> <20131013111439.GE5790@linux.vnet.ibm.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 1/2] net: Add layer 2 hardware acceleration operations
+ for macvlan devices
+Date: Sun, 13 Oct 2013 13:46:01 -0700
+Message-ID: <525B0689.4070109@gmail.com>
+References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com> <1381517037-26007-1-git-send-email-nhorman@tuxdriver.com> <1381517037-26007-2-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-kernel@vger.kernel.org, mingo@kernel.org,
-	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
-	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
-	sbw@mit.edu, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131013111439.GE5790@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:49930 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755160Ab3JMUqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 16:46:22 -0400
+Received: by mail-oa0-f47.google.com with SMTP id i1so3945115oag.20
+        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 13:46:22 -0700 (PDT)
+In-Reply-To: <1381517037-26007-2-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 13, 2013 at 04:14:39AM -0700, Paul E. McKenney wrote:
-> On Sat, Oct 12, 2013 at 07:42:18PM +0000, Mathieu Desnoyers wrote:
-> > ----- Original Message -----
-> > > On Sat, Oct 12, 2013 at 06:43:45PM +0200, Hannes Frederic Sowa wrote:
-> > > > Regarding the volatile access, I hope that the C11 memory model
-> > > > and enhancements to the compiler will some day provide a better
-> > > > way to express the semantics of what is tried to express here
-> > > > (__atomic_store_n/__atomic_load_n with the accompanied memory model,
-> > > > which could be even weaker to what a volatile access would enfore
-> > > > now and could guarantee atomic stores/loads).
-> > > 
-> > > I just played around a bit more. Perhaps we could try to warn of silly
-> > > usages of ACCESS_ONCE():
-> > > 
-> > > --- a/include/linux/compiler.h
-> > > +++ b/include/linux/compiler.h
-> > > @@ -349,7 +349,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f,
-> > > int val, int expect);
-> > >   * use is to mediate communication between process-level code and irq/NMI
-> > >   * handlers, all running on the same CPU.
-> > >   */
-> > > -#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
-> > > +#define ACCESS_ONCE(x) (*({						\
-> > > +		compiletime_assert(sizeof(typeof(x)) <= sizeof(typeof(&x)), \
-> > > +				   "ACCESS_ONCE likely not atomic");	\
-> > 
-> > AFAIU, ACCESS_ONCE() is not meant to ensure atomicity of load/store,
-> > but rather merely ensures that the compiler will not merge nor refetch
-> > accesses. I don't think the assert check you propose is appropriate with
-> > respect to the ACCESS_ONCE() semantic.
-> 
-> I am with Mathieu on this one, at least unless there is some set of actual
-> bugs already in the kernel that these length checks would find.
+On 10/11/2013 11:43 AM, Neil Horman wrote:
+> Add a operations structure that allows a network interface to export the fact
+> that it supports package forwarding in hardware between physical interfaces and
+> other mac layer devices assigned to it (such as macvlans).  this operaions
+> structure can be used by virtual mac devices to bypass software switching so
+> that forwarding can be done in hardware more efficiently.
+>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: john.fastabend@gmail.com
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: "David S. Miller" <davem@davemloft.net>
+> ---
 
-I guess my wording of "ACCESS_ONCE likely not atomic" was misplaced. Something
-like volatile access to memory larger than the processor register size is
-probably not what you intended. Use atomics or proper locking. ;)
-And maybe that is not even correct.
+[...]
 
-> /me wonders about structs of size 3, 5, 6, and 7...
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 2ddb48d..1710fdb 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -426,9 +426,9 @@ struct sk_buff {
+>   	char			cb[48] __aligned(8);
+>
+>   	unsigned long		_skb_refdst;
+> -#ifdef CONFIG_XFRM
+> +
 
-Checked a x86_64 allyesconfig build with sizes above pointer size and odd
-parity and nothing broke.
+Is this a hold-over from the previous patches? 'sp' isn't touched
+anywhere else so put the ifdef/endif back.
 
-Greetings,
+>   	struct	sec_path	*sp;
+> -#endif
+> +
+>   	unsigned int		len,
+>   				data_len;
+>   	__u16			mac_len,
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 5c713f2..ecad8c2 100644
 
-  Hannes
+-- 
+John Fastabend         Intel Corporation
