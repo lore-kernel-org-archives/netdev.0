@@ -1,56 +1,100 @@
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Subject: [PATCH 01/16] batman-adv: only add recordroute
-	information to icmp request/reply
-Date: Sun, 13 Oct 2013 13:22:46 +0200
-Message-ID: <1381663381-626-2-git-send-email-antonio@meshcoding.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 05/16] batman-adv: h_vlan_encapsulated_proto access refactoring
+Date: Sun, 13 Oct 2013 13:22:50 +0200
+Message-ID: <1381663381-626-6-git-send-email-antonio@meshcoding.com>
 References: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
- Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>,
- Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1381663381-626-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <ordex@autistici.org>,
+	Marek Lindner <lindner_marek@yahoo.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.neomailbox.net ([178.209.62.157]:13242 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754380Ab3JMLYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 07:24:21 -0400
+In-Reply-To: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
+From: Antonio Quartulli <ordex@autistici.org>
 
-Adding host information for record route is only required for ICMP
-requests and replys, and should not be added to just any (future?)
-packet type.
+In case of a VLAN tagged frame the ethhdr pointer is
+moved forward by 4 bytes so that the offset of h_proto
+in struct ethhdr matches the real
+h_vlan_encapsulated_proto address in the skb. While this
+trickery is correct it makes the code harder to understand
+and may lead to bugs in case of re-use of ethhdr for other
+purposes.
 
-Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+This patch introduces a proto variable to make things
+cleaner and easier to understand.
+
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/routing.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/batman-adv/gateway_client.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 457dfef..0dc1c0e 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -379,7 +379,9 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 1bce63a..ac97ca7 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -655,24 +655,29 @@ bool batadv_gw_is_dhcp_target(struct sk_buff *skb, unsigned int *header_len)
+ 	struct iphdr *iphdr;
+ 	struct ipv6hdr *ipv6hdr;
+ 	struct udphdr *udphdr;
++	struct vlan_ethhdr *vhdr;
++	__be16 proto;
  
- 	/* add record route information if not full */
--	if ((hdr_size == sizeof(struct batadv_icmp_packet_rr)) &&
-+	if ((icmp_packet->msg_type == BATADV_ECHO_REPLY ||
-+	     icmp_packet->msg_type == BATADV_ECHO_REQUEST) &&
-+	    (hdr_size == sizeof(struct batadv_icmp_packet_rr)) &&
- 	    (icmp_packet->rr_cur < BATADV_RR_LEN)) {
- 		memcpy(&(icmp_packet->rr[icmp_packet->rr_cur]),
- 		       ethhdr->h_dest, ETH_ALEN);
+ 	/* check for ethernet header */
+ 	if (!pskb_may_pull(skb, *header_len + ETH_HLEN))
+ 		return false;
+ 	ethhdr = (struct ethhdr *)skb->data;
++	proto = ethhdr->h_proto;
+ 	*header_len += ETH_HLEN;
+ 
+ 	/* check for initial vlan header */
+-	if (ntohs(ethhdr->h_proto) == ETH_P_8021Q) {
++	if (proto == htons(ETH_P_8021Q)) {
+ 		if (!pskb_may_pull(skb, *header_len + VLAN_HLEN))
+ 			return false;
+-		ethhdr = (struct ethhdr *)(skb->data + VLAN_HLEN);
++
++		vhdr = (struct vlan_ethhdr *)skb->data;
++		proto = vhdr->h_vlan_encapsulated_proto;
+ 		*header_len += VLAN_HLEN;
+ 	}
+ 
+ 	/* check for ip header */
+-	switch (ntohs(ethhdr->h_proto)) {
+-	case ETH_P_IP:
++	switch (proto) {
++	case htons(ETH_P_IP):
+ 		if (!pskb_may_pull(skb, *header_len + sizeof(*iphdr)))
+ 			return false;
+ 		iphdr = (struct iphdr *)(skb->data + *header_len);
+@@ -683,7 +688,7 @@ bool batadv_gw_is_dhcp_target(struct sk_buff *skb, unsigned int *header_len)
+ 			return false;
+ 
+ 		break;
+-	case ETH_P_IPV6:
++	case htons(ETH_P_IPV6):
+ 		if (!pskb_may_pull(skb, *header_len + sizeof(*ipv6hdr)))
+ 			return false;
+ 		ipv6hdr = (struct ipv6hdr *)(skb->data + *header_len);
+@@ -710,11 +715,11 @@ bool batadv_gw_is_dhcp_target(struct sk_buff *skb, unsigned int *header_len)
+ 	*header_len += sizeof(*udphdr);
+ 
+ 	/* check for bootp port */
+-	if ((ntohs(ethhdr->h_proto) == ETH_P_IP) &&
++	if ((proto == htons(ETH_P_IP)) &&
+ 	    (ntohs(udphdr->dest) != 67))
+ 		return false;
+ 
+-	if ((ntohs(ethhdr->h_proto) == ETH_P_IPV6) &&
++	if ((proto == htons(ETH_P_IPV6)) &&
+ 	    (ntohs(udphdr->dest) != 547))
+ 		return false;
+ 
 -- 
 1.8.3.2
