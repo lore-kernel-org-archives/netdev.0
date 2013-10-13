@@ -1,32 +1,49 @@
-From: "Mrs. Maryann Jamila Hussein." <WEB86@HUSSEIN676.onmicrosoft.com>
-Subject: RE: INVESTMENT/ RELOCATION ASSISTANCE. 13th/10/2013
-Date: Mon, 14 Oct 2013 00:34:14 +0530
-Message-ID: <4bf4d7e7-1d95-4c93-b89e-51425ed7e2fb@HKXPR02MB149.apcprd02.prod.outlook.com>
-Reply-To: <mrs.induja.in@postribe.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <WEB86@HUSSEIN676.onmicrosoft.com>
+From: Markus Pargmann <mpa@pengutronix.de>
+Subject: [PATCH] net/ethernet: cpsw: Bugfix interrupts before enabling napi
+Date: Sun, 13 Oct 2013 21:17:01 +0200
+Message-ID: <1381691821-25498-1-git-send-email-mpa@pengutronix.de>
+Cc: Florian Fainelli <florian@openwrt.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Peter Korsgaard <peter@korsgaard.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Markus Pargmann <mpa@pengutronix.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [157.56.120.104] ([157.56.120.104]:50948 "EHLO
-	emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754884Ab3JMTFc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 15:05:32 -0400
-Content-Description: Mail message body
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36600 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754884Ab3JMTSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 15:18:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Beloved, 
+If interrupts happen before napi_enable was called, the driver will not
+work as expected. Network transmissions are impossible in this state.
+This bug can be reproduced easily by restarting the network interface in
+a loop. After some time any network transmissions on the network
+interface will fail.
 
-I am Mrs. Maryann Jamila Hussein a Teacher and a Muslim Convert here in Syria,i had sent a previous mail which i am not sure you got. I need your assistance to invest and help me relocate my 3 kids who are 17 years and below, so that they can get a better life there in your country due to the on going crises here in Syria.
+This patch fixes the bug by enabling napi before enabling the network
+interface interrupts.
 
-I need your trust, before the death of my husband we had a savings with an Indian Bank, so money is not the issue. 
+Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I got your reference in my search for someone who suits my 
-purpose.If you can help me reply, let me know.
-
-Regards,
-
-Mrs. Maryann Jamila Hussein.
-=====================================
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 804846e..fccd9d4 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1169,9 +1169,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		}
+ 	}
+ 
++	napi_enable(&priv->napi);
+ 	cpdma_ctlr_start(priv->dma);
+ 	cpsw_intr_enable(priv);
+-	napi_enable(&priv->napi);
+ 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+ 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+ 
+-- 
+1.8.4.rc3
