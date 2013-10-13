@@ -1,19 +1,20 @@
 From: Vladimir Murzin <murzin.v@gmail.com>
 Subject: [PATCH 2/3] net: bpf jit: x86: optimize choose_load_func error path
-Date: Sun, 13 Oct 2013 16:54:24 +0200
-Message-ID: <1381676065-2373-1-git-send-email-murzin.v@gmail.com>
+Date: Sun, 13 Oct 2013 16:54:25 +0200
+Message-ID: <1381676065-2373-2-git-send-email-murzin.v@gmail.com>
 References: <1381249910-17338-2-git-send-email-murzin.v@gmail.com>
+ <1381676065-2373-1-git-send-email-murzin.v@gmail.com>
 Cc: davem@davemloft.net, edumazet@google.com, av1474@comtv.ru,
 	Vladimir Murzin <murzin.v@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:64665 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754909Ab3JMOzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 10:55:18 -0400
-Received: by mail-lb0-f179.google.com with SMTP id x18so4988194lbi.10
-        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 07:55:16 -0700 (PDT)
-In-Reply-To: <1381249910-17338-2-git-send-email-murzin.v@gmail.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:41497 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754968Ab3JMOz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 10:55:57 -0400
+Received: by mail-lb0-f171.google.com with SMTP id u14so4859179lbd.2
+        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 07:55:55 -0700 (PDT)
+In-Reply-To: <1381676065-2373-1-git-send-email-murzin.v@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
