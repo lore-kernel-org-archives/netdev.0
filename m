@@ -1,42 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/3] net: bpf jit: x86: optimize choose_load_func error
- path
-Date: Sun, 13 Oct 2013 09:36:34 -0700
-Message-ID: <1381682194.3392.42.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381249910-17338-2-git-send-email-murzin.v@gmail.com>
-	 <1381676065-2373-1-git-send-email-murzin.v@gmail.com>
-	 <1381676065-2373-2-git-send-email-murzin.v@gmail.com>
+Subject: Re: IPv6 path MTU discovery broken
+Date: Sun, 13 Oct 2013 09:51:03 -0700
+Message-ID: <1381683063.3392.46.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20130927201420.GB12043@sesse.net>
+	 <20130928203318.GC23654@order.stressinduktion.org>
+	 <20131006120612.GA27852@sesse.net>
+	 <20131007015252.GE9295@order.stressinduktion.org>
+	 <20131007030910.GG9295@order.stressinduktion.org>
+	 <20131013104021.GB24967@sesse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	av1474@comtv.ru
-To: Vladimir Murzin <murzin.v@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, edumazet@google.com, fan.du@windriver.com
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:34064 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753275Ab3JMQgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 12:36:35 -0400
-Received: by mail-pb0-f50.google.com with SMTP id uo5so6355648pbc.37
-        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 09:36:35 -0700 (PDT)
-In-Reply-To: <1381676065-2373-2-git-send-email-murzin.v@gmail.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:56255 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753873Ab3JMQvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 12:51:04 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro12so6380075pbb.27
+        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 09:51:02 -0700 (PDT)
+In-Reply-To: <20131013104021.GB24967@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-10-13 at 16:54 +0200, Vladimir Murzin wrote:
-> Macro CHOOSE_LOAD_FUNC returns handler for "any offset" if checks for K
-> were not passed. At the same time handlers for "any offset" cases make
-> the same checks against r_addr at run-time, that will always lead to
-> bpf_error.
+On Sun, 2013-10-13 at 12:40 +0200, Steinar H. Gunderson wrote:
+> [resending with proper quoting and cc]
 > 
-> Run-time checks are still necessary for indirect load operations, but
-> error path for absolute and mesh loads are worth to optimize during bpf
-> compile time.
+> On Mon, Oct 07, 2013 at 05:09:10AM +0200, Hannes Frederic Sowa wrote:
+> > Could you try to check (with e.g. nstat) if any of the following counters
+> > change if the icmp messages hit the host?
+> > 
+> > TcpExtOutOfWindowIcmps
+> > Icmp6InErrors
+> > TcpExtTCPMinTTLDrop
+> > TcpExtListenDrops
+> 
+> Hi,
+> 
+> I am now seeing the same problem against a 3.9.0 machine (that I've never had
+> problems with before). I looked through the four nstat counters, and none of
+> them are increasing. Here's /proc/net/ipv6_route from the server while it's
+> going on; the client is 2001:67c:a4:1:71f9:c84b:8b2a:c65b (second line) and
+> the server is 2001:67c:29f4::2007.
 
-I don't get the point.
+I am not sure, but the skb_is_gso() checks seem too lazy.
 
-What real world use case or problem are you trying to handle ?
-
-bpf_error returns 0, so it seems your patch does the same.
-
-A buggy BPF program should not expect us to 'save' a few cycles.
+Why don't we check that gso_size+headers is below mtu, I dont know.
