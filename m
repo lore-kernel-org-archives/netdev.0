@@ -1,49 +1,79 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: [PATCH] net/ethernet: cpsw: Bugfix interrupts before enabling napi
-Date: Sun, 13 Oct 2013 21:17:01 +0200
-Message-ID: <1381691821-25498-1-git-send-email-mpa@pengutronix.de>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Peter Korsgaard <peter@korsgaard.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de, Markus Pargmann <mpa@pengutronix.de>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36600 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884Ab3JMTSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 15:18:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Baeriswyl <Romain.Baeriswyl@abilis.com>
+Subject: Re: [RFC] net: stmmac: keep RXC running in LPI mode to avoid system
+ overload
+Date: Sun, 13 Oct 2013 22:02:52 +0200 (CEST)
+Message-ID: <808496140.2212.1381694572197.JavaMail.root@abilis.com>
+References: <52557606.8030201@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Christian Ruppert <chrisr@abilis.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52557606.8030201@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If interrupts happen before napi_enable was called, the driver will not
-work as expected. Network transmissions are impossible in this state.
-This bug can be reproduced easily by restarting the network interface in
-a loop. After some time any network transmissions on the network
-interface will fail.
+Hello Guiseppe,
 
-This patch fixes the bug by enabling napi before enabling the network
-interface interrupts.
+Thanks for your answer. Please find below some details and answers.
 
-Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
----
- drivers/net/ethernet/ti/cpsw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 804846e..fccd9d4 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1169,9 +1169,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		}
- 	}
+> > In order to avoid system overload, the clock RXC from the Phy
+> > should not be
+> > stopped when in LPI mode.
+> >
+> > With the RTL8211E PHY which support EEE mode and with Apple Airport
+> > Extreme that
+> > supports it also, the kernel get frozen as soon as some Ethernet
+> > transfers are
+> 
+> 
+> hmm, I have a board with this transceiver so I could do some tests
+> this could take a while, unfortunately.
+> 
+> > on-going. System seems to be overloaded with too many interrupts.
+> > The 'top'
+> > command reports often around ~80% irq.
+> 
+> do you mean lpi mac interrupts?
  
-+	napi_enable(&priv->napi);
- 	cpdma_ctlr_start(priv->dma);
- 	cpsw_intr_enable(priv);
--	napi_enable(&priv->napi);
- 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
- 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
- 
--- 
-1.8.4.rc3
+By disabling the LPI mode with ethtool --set-eee eth0 eee off, the 
+interrupt overload remains. Both counters irq_rx_path_in_lpi_mode_n and 
+irq_rx_path_exit_lpi_mode_n continue to run meaning the PHY continue
+to put the RX path in LPI mode.
+
+Only way I found to get ride of the overload is to keep the RX_CLK running
+in LPI mode. In this configuration, the RX link still continue to go in
+LPI mode and the two above counters continue to run.
+
+> >
+> > By letting the RXC clock running even in LPI mode as proposed
+> > below, the issue
+> > seems solved. Is it the right way to proceed?
+> 
+> For EEE capability, RX_CLK may be halted for this reason i used it as
+> default in the stmmac and never seen your issue.
+> 
+> >
+> > What is the power impact to not stop RXC in LPI mode?
+> 
+> I can point you to "22.2.2.8a Receive direction LPI transition"
+> in IEEE802-3az... where is it reported that the PHY  halt the RX_CLK
+> in LPI mode.
+
+Actually the PHY "may" stop RX_CLK.
+
+> 
+> May I suspect some issues on your HW? or disable it with ethtool
+> 
+
+Yes, it could be HW issue. It would be very useful if you could reproduce 
+the setup using a SoC with "DesignWare Cores Ethernet MAC" core, 
+the RTL8211E PHY and an Apple Airport Extreme. The issue could well be between 
+the controller and the PHY.
+
+Which Ethernet switch or router did you use to test the EEE mode? 
+I may try these equipments as well.
+
+Romain
