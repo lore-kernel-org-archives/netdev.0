@@ -1,43 +1,32 @@
-From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.poehn@gmail.com>
-Subject: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev is
- not set
-Date: Sun, 13 Oct 2013 20:59:54 +0200
-Message-ID: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+From: "Mrs. Maryann Jamila Hussein." <WEB86@HUSSEIN676.onmicrosoft.com>
+Subject: RE: INVESTMENT/ RELOCATION ASSISTANCE. 13th/10/2013
+Date: Mon, 14 Oct 2013 00:34:14 +0530
+Message-ID: <4bf4d7e7-1d95-4c93-b89e-51425ed7e2fb@HKXPR02MB149.apcprd02.prod.outlook.com>
+Reply-To: <mrs.induja.in@postribe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: support@caviumnetworks.com, netdev@vger.kernel.org
-To: driverdev-devel@linuxdriverproject.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <WEB86@HUSSEIN676.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [157.56.120.104] ([157.56.120.104]:50948 "EHLO
+	emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754884Ab3JMTFc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 15:05:32 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A zero pointer deref on priv->phydev->link was causing oops on our systems.
-Might be related to improper configuration but we should fail gracefully here ;-)
+Dear Beloved, 
 
-Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
+I am Mrs. Maryann Jamila Hussein a Teacher and a Muslim Convert here in Syria,i had sent a previous mail which i am not sure you got. I need your assistance to invest and help me relocate my 3 kids who are 17 years and below, so that they can get a better life there in your country due to the on going crises here in Syria.
 
----
+I need your trust, before the death of my husband we had a savings with an Indian Bank, so money is not the issue. 
 
-diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
-index 83b1030..bc8c503 100644
---- a/drivers/staging/octeon/ethernet-mdio.c
-+++ b/drivers/staging/octeon/ethernet-mdio.c
-@@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device *dev)
-        struct octeon_ethernet *priv = netdev_priv(dev);
-        cvmx_helper_link_info_t link_info;
- 
-+       if(!priv->phydev)
-+               return ;
-+
-        if (priv->last_link != priv->phydev->link) {
-                priv->last_link = priv->phydev->link;
-                link_info.u64 = 0;
+I got your reference in my search for someone who suits my 
+purpose.If you can help me reply, let me know.
+
+Regards,
+
+Mrs. Maryann Jamila Hussein.
+=====================================
