@@ -1,46 +1,43 @@
-From: Musa Mohamed Ali <musamohamed.ali01@gmail.com>
-Subject: CONTACT MY SECRETARY,
-Date: Sun, 13 Oct 2013 18:49:43 +0000
-Message-ID: <CAM2cnELPbgeAcgPMGV6-bSjC-8LetHQxq1G1yuxzLdcHDTHipw@mail.gmail.com>
+From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.poehn@gmail.com>
+Subject: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev is
+ not set
+Date: Sun, 13 Oct 2013 20:59:54 +0200
+Message-ID: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:50117 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884Ab3JMStp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 14:49:45 -0400
-Received: by mail-lb0-f180.google.com with SMTP id q8so4843213lbi.25
-        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 11:49:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: support@caviumnetworks.com, netdev@vger.kernel.org
+To: driverdev-devel@linuxdriverproject.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+A zero pointer deref on priv->phydev->link was causing oops on our systems.
+Might be related to improper configuration but we should fail gracefully here ;-)
 
-I'm sorry but happy to inform you about my success in getting those
-funds transferred under the cooperation of a new partner from  London
-though i tried my best to involve you in the business but God decided
-the whole situations. Presently I=92m in London for investment projects
-with my own share of the total sum. Meanwhile, I didn't forget your
-past efforts and attempts to assist me in transferring those funds
-despite that it failed us some how.
+Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
 
-Now contact my secretary in  Burkina Faso  her name is Ms. Elizabeth
-Ibrahim on her e-mail address below  ( miss.elizabeth0001@gmail.com )
-Ask her to send you the total of $1, 000.000.00 which i kept for your
-compensation for all the past efforts and attempts to assist me in
-this matter. I appreciated all your efforts at that time very much. So
-feel free and get in touched with my secretary Ms. Elizabeth Ibrahim.
-And instruct her where to send the amount to you. Please do let me
-know immediately you receive it so that we can share the joy after all
-the suffer ness at that time.
+---
 
-in the moment, I=92m very busy here because of the investment projects
-which I and the new partner are having at hand, finally, remember that
-I had forwarded instruction to the secretary on your behalf to receive
-that money, so feel free to get in touch with Ms. Elizabeth Ibrahim.
-She will send the amount to you without any delay.
-
-Regards,
-Musa.
+diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
+index 83b1030..bc8c503 100644
+--- a/drivers/staging/octeon/ethernet-mdio.c
++++ b/drivers/staging/octeon/ethernet-mdio.c
+@@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device *dev)
+        struct octeon_ethernet *priv = netdev_priv(dev);
+        cvmx_helper_link_info_t link_info;
+ 
++       if(!priv->phydev)
++               return ;
++
+        if (priv->last_link != priv->phydev->link) {
+                priv->last_link = priv->phydev->link;
+                link_info.u64 = 0;
