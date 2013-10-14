@@ -1,41 +1,27 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH v2 1/1] Workqueue based vhost workers
-Date: Mon, 14 Oct 2013 11:27:25 -0700
-Message-ID: <20131014112725.34d211aa@nehalam.linuxnetplumber.net>
-References: <1381715743-13672-1-git-send-email-bsd@redhat.com>
-	<1381715743-13672-2-git-send-email-bsd@redhat.com>
+From: "Mr. Charles Kabore" <charles_kaboree@yahoo.fr>
+Subject: From Mr. Charles Kabore.
+Date: Mon, 14 Oct 2013 11:21:06 -0700 (PDT)
+Message-ID: <1381774866.11221.YahooMailBasic@web140304.mail.bf1.yahoo.com>
+Reply-To: ckabore94@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Michael Tsirkin <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>, Bandan Das <bsd@makefile.in>
-To: Bandan Das <bsd@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1381715743-13672-2-git-send-email-bsd@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm49.bullet.mail.ne1.yahoo.com ([98.138.120.56]:21510 "EHLO
+	nm49.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757086Ab3JNS1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 14:27:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Oct 2013 21:55:43 -0400
-Bandan Das <bsd@redhat.com> wrote:
+>From Mr. Charles Kabore.
+Ouagadougou,
+Burkina Faso.
 
-> +
-> +	if (cmwq_worker) {
-> +		ret = vhost_wq_init();
-> +		if (ret) {
-> +			pr_info("Enabling wq based vhost workers failed! "
-> +				 "Switching to device based worker instead\n");
-> +			cmwq_worker = 0;
-> +		} else
-> +		  pr_info("Enabled workqueues based vhost workers\n");
-> +	}
+Dear Friend,
+Good day to you. I am Mr. Charles Kabore. a lawyer and personal confidant to Abdullah Senussi who was the intelligence chief of Colonel Muammar Gaddafi. I need your urgent assistance in transferring the sum of ($39.5) million to your account within 14 banking days from a bank in Burkina Faso. This money belongs to my master Abdullah Senussi and was deposited in the bank on the name of his son. The urgent need for the transfer of this fund is to avoid confiscation by the Libyan government as they quest the seizure of every related assets belonging to Late Colonel Muammar Gaddafi and his aides. I am contacting you in a good faith so that the bank will release the money to you for safe keeping/investments till the release of my master who is now in custody.
 
-Why keep two mechanisms (and two potential code paths to maintain)
-when the only way vhost_wq_init() can fail is if out of memory.
-You may have needed the messages and this during development but for
-the final version just do it one way.
+So if you are capable of receiving this huge amount of money,let me have a positive response from you via return mail for more personal discussions on how we are going to go about it.Contact me in this my private email address for security purpose {ckabore94@yahoo.com.hk}.
 
-If alloc_workqueue fails, then the net_init function should propogate
-the error code and fail as well.
-
-
+Best.Regards,
+Mr. Charles Kabore.
