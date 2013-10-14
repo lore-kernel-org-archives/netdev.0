@@ -1,1105 +1,288 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/17] netfilter: pass hook ops to hookfn
-Date: Mon, 14 Oct 2013 18:38:42 +0200
-Message-ID: <1381768738-17739-2-git-send-email-pablo@netfilter.org>
-References: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/17] netfilter updates: nf_tables pull request
+Date: Mon, 14 Oct 2013 18:38:41 +0200
+Message-ID: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34728 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757232Ab3JNQjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 12:39:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Pablo Neira Ayuso <pablo@soleta.eu>
 
-Pass the hook ops to the hookfn to allow for generic hook
-functions. This change is required by nf_tables.
+Hi David,
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter.h                      |    3 +-
- net/bridge/br_netfilter.c                      |   22 ++++++++-----
- net/bridge/netfilter/ebtable_filter.c          |   16 +++++----
- net/bridge/netfilter/ebtable_nat.c             |   16 +++++----
- net/decnet/netfilter/dn_rtmsg.c                |    2 +-
- net/ipv4/netfilter/arptable_filter.c           |    5 +--
- net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 +-
- net/ipv4/netfilter/ipt_SYNPROXY.c              |    2 +-
- net/ipv4/netfilter/iptable_filter.c            |    7 ++--
- net/ipv4/netfilter/iptable_mangle.c            |   10 +++---
- net/ipv4/netfilter/iptable_nat.c               |   26 +++++++--------
- net/ipv4/netfilter/iptable_raw.c               |    6 ++--
- net/ipv4/netfilter/iptable_security.c          |    7 ++--
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   12 +++----
- net/ipv4/netfilter/nf_defrag_ipv4.c            |    6 ++--
- net/ipv6/netfilter/ip6t_SYNPROXY.c             |    2 +-
- net/ipv6/netfilter/ip6table_filter.c           |    5 +--
- net/ipv6/netfilter/ip6table_mangle.c           |   10 +++---
- net/ipv6/netfilter/ip6table_nat.c              |   27 +++++++--------
- net/ipv6/netfilter/ip6table_raw.c              |    5 +--
- net/ipv6/netfilter/ip6table_security.c         |    5 +--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   14 ++++----
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |    6 ++--
- net/netfilter/core.c                           |    2 +-
- net/netfilter/ipvs/ip_vs_core.c                |   42 ++++++++++++------------
- security/selinux/hooks.c                       |   10 +++---
- 26 files changed, 148 insertions(+), 122 deletions(-)
+The following patchset contains the current original nf_tables tree
+condensed in 17 patches. I have organized them by chronogical order
+since the original nf_tables code was released in 2009 and by
+dependencies between the different patches.
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 61223c5..fef7e67 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -42,7 +42,8 @@ int netfilter_init(void);
- 
- struct sk_buff;
- 
--typedef unsigned int nf_hookfn(unsigned int hooknum,
-+struct nf_hook_ops;
-+typedef unsigned int nf_hookfn(const struct nf_hook_ops *ops,
- 			       struct sk_buff *skb,
- 			       const struct net_device *in,
- 			       const struct net_device *out,
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index f877362..878f008 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -619,7 +619,7 @@ bad:
- 
- /* Replicate the checks that IPv6 does on packet reception and pass the packet
-  * to ip6tables, which doesn't support NAT, so things are fairly simple. */
--static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
-+static unsigned int br_nf_pre_routing_ipv6(const struct nf_hook_ops *ops,
- 					   struct sk_buff *skb,
- 					   const struct net_device *in,
- 					   const struct net_device *out,
-@@ -669,7 +669,8 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
-  * receiving device) to make netfilter happy, the REDIRECT
-  * target in particular.  Save the original destination IP
-  * address to be able to detect DNAT afterwards. */
--static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
-+static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
-+				      struct sk_buff *skb,
- 				      const struct net_device *in,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
-@@ -691,7 +692,7 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
- 			return NF_ACCEPT;
- 
- 		nf_bridge_pull_encap_header_rcsum(skb);
--		return br_nf_pre_routing_ipv6(hook, skb, in, out, okfn);
-+		return br_nf_pre_routing_ipv6(ops, skb, in, out, okfn);
- 	}
- 
- 	if (!brnf_call_iptables && !br->nf_call_iptables)
-@@ -727,7 +728,8 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
-  * took place when the packet entered the bridge), but we
-  * register an IPv4 PRE_ROUTING 'sabotage' hook that will
-  * prevent this from happening. */
--static unsigned int br_nf_local_in(unsigned int hook, struct sk_buff *skb,
-+static unsigned int br_nf_local_in(const struct nf_hook_ops *ops,
-+				   struct sk_buff *skb,
- 				   const struct net_device *in,
- 				   const struct net_device *out,
- 				   int (*okfn)(struct sk_buff *))
-@@ -765,7 +767,8 @@ static int br_nf_forward_finish(struct sk_buff *skb)
-  * but we are still able to filter on the 'real' indev/outdev
-  * because of the physdev module. For ARP, indev and outdev are the
-  * bridge ports. */
--static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
-+static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
-+				     struct sk_buff *skb,
- 				     const struct net_device *in,
- 				     const struct net_device *out,
- 				     int (*okfn)(struct sk_buff *))
-@@ -818,7 +821,8 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
- 	return NF_STOLEN;
- }
- 
--static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff *skb,
-+static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
-+				      struct sk_buff *skb,
- 				      const struct net_device *in,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
-@@ -878,7 +882,8 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- #endif
- 
- /* PF_BRIDGE/POST_ROUTING ********************************************/
--static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
-+static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
-+				       struct sk_buff *skb,
- 				       const struct net_device *in,
- 				       const struct net_device *out,
- 				       int (*okfn)(struct sk_buff *))
-@@ -923,7 +928,8 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
- /* IP/SABOTAGE *****************************************************/
- /* Don't hand locally destined packets to PF_INET(6)/PRE_ROUTING
-  * for the second time. */
--static unsigned int ip_sabotage_in(unsigned int hook, struct sk_buff *skb,
-+static unsigned int ip_sabotage_in(const struct nf_hook_ops *ops,
-+				   struct sk_buff *skb,
- 				   const struct net_device *in,
- 				   const struct net_device *out,
- 				   int (*okfn)(struct sk_buff *))
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index 94b2b70..bb2da7b 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -60,17 +60,21 @@ static const struct ebt_table frame_filter =
- };
- 
- static unsigned int
--ebt_in_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
--   const struct net_device *out, int (*okfn)(struct sk_buff *))
-+ebt_in_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+	    const struct net_device *in, const struct net_device *out,
-+	    int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, dev_net(in)->xt.frame_filter);
-+	return ebt_do_table(ops->hooknum, skb, in, out,
-+			    dev_net(in)->xt.frame_filter);
- }
- 
- static unsigned int
--ebt_out_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
--   const struct net_device *out, int (*okfn)(struct sk_buff *))
-+ebt_out_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+	     const struct net_device *in, const struct net_device *out,
-+	     int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, dev_net(out)->xt.frame_filter);
-+	return ebt_do_table(ops->hooknum, skb, in, out,
-+			    dev_net(out)->xt.frame_filter);
- }
- 
- static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 322555a..bd238f1 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -60,17 +60,21 @@ static struct ebt_table frame_nat =
- };
- 
- static unsigned int
--ebt_nat_in(unsigned int hook, struct sk_buff *skb, const struct net_device *in
--   , const struct net_device *out, int (*okfn)(struct sk_buff *))
-+ebt_nat_in(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+	   const struct net_device *in, const struct net_device *out,
-+	   int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, dev_net(in)->xt.frame_nat);
-+	return ebt_do_table(ops->hooknum, skb, in, out,
-+			    dev_net(in)->xt.frame_nat);
- }
- 
- static unsigned int
--ebt_nat_out(unsigned int hook, struct sk_buff *skb, const struct net_device *in
--   , const struct net_device *out, int (*okfn)(struct sk_buff *))
-+ebt_nat_out(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+	    const struct net_device *in, const struct net_device *out,
-+	    int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, dev_net(out)->xt.frame_nat);
-+	return ebt_do_table(ops->hooknum, skb, in, out,
-+			    dev_net(out)->xt.frame_nat);
- }
- 
- static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
-diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
-index 2a7efe3..e83015c 100644
---- a/net/decnet/netfilter/dn_rtmsg.c
-+++ b/net/decnet/netfilter/dn_rtmsg.c
-@@ -87,7 +87,7 @@ static void dnrmg_send_peer(struct sk_buff *skb)
- }
- 
- 
--static unsigned int dnrmg_hook(unsigned int hook,
-+static unsigned int dnrmg_hook(const struct nf_hook_ops *ops,
- 			struct sk_buff *skb,
- 			const struct net_device *in,
- 			const struct net_device *out,
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index a865f6f..802ddec 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -27,13 +27,14 @@ static const struct xt_table packet_filter = {
- 
- /* The work comes in here from netfilter.c */
- static unsigned int
--arptable_filter_hook(unsigned int hook, struct sk_buff *skb,
-+arptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in, const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net = dev_net((in != NULL) ? in : out);
- 
--	return arpt_do_table(skb, hook, in, out, net->ipv4.arptable_filter);
-+	return arpt_do_table(skb, ops->hooknum, in, out,
-+			     net->ipv4.arptable_filter);
- }
- 
- static struct nf_hook_ops *arpfilter_ops __read_mostly;
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 0b732ef..a2e2b61 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -483,7 +483,7 @@ static void arp_print(struct arp_payload *payload)
- #endif
- 
- static unsigned int
--arp_mangle(unsigned int hook,
-+arp_mangle(const struct nf_hook_ops *ops,
- 	   struct sk_buff *skb,
- 	   const struct net_device *in,
- 	   const struct net_device *out,
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index b6346bf..01cffea 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -297,7 +297,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 	return XT_CONTINUE;
- }
- 
--static unsigned int ipv4_synproxy_hook(unsigned int hooknum,
-+static unsigned int ipv4_synproxy_hook(const struct nf_hook_ops *ops,
- 				       struct sk_buff *skb,
- 				       const struct net_device *in,
- 				       const struct net_device *out,
-diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
-index 50af5b4..e08a74a 100644
---- a/net/ipv4/netfilter/iptable_filter.c
-+++ b/net/ipv4/netfilter/iptable_filter.c
-@@ -33,20 +33,21 @@ static const struct xt_table packet_filter = {
- };
- 
- static unsigned int
--iptable_filter_hook(unsigned int hook, struct sk_buff *skb,
-+iptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		    const struct net_device *in, const struct net_device *out,
- 		    int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net;
- 
--	if (hook == NF_INET_LOCAL_OUT &&
-+	if (ops->hooknum == NF_INET_LOCAL_OUT &&
- 	    (skb->len < sizeof(struct iphdr) ||
- 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
- 		/* root is playing with raw sockets. */
- 		return NF_ACCEPT;
- 
- 	net = dev_net((in != NULL) ? in : out);
--	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_filter);
-+	return ipt_do_table(skb, ops->hooknum, in, out,
-+			    net->ipv4.iptable_filter);
- }
- 
- static struct nf_hook_ops *filter_ops __read_mostly;
-diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
-index 0d8cd82..6a5079c 100644
---- a/net/ipv4/netfilter/iptable_mangle.c
-+++ b/net/ipv4/netfilter/iptable_mangle.c
-@@ -79,19 +79,19 @@ ipt_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--iptable_mangle_hook(unsigned int hook,
-+iptable_mangle_hook(const struct nf_hook_ops *ops,
- 		     struct sk_buff *skb,
- 		     const struct net_device *in,
- 		     const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
--	if (hook == NF_INET_LOCAL_OUT)
-+	if (ops->hooknum == NF_INET_LOCAL_OUT)
- 		return ipt_mangle_out(skb, out);
--	if (hook == NF_INET_POST_ROUTING)
--		return ipt_do_table(skb, hook, in, out,
-+	if (ops->hooknum == NF_INET_POST_ROUTING)
-+		return ipt_do_table(skb, ops->hooknum, in, out,
- 				    dev_net(out)->ipv4.iptable_mangle);
- 	/* PREROUTING/INPUT/FORWARD: */
--	return ipt_do_table(skb, hook, in, out,
-+	return ipt_do_table(skb, ops->hooknum, in, out,
- 			    dev_net(in)->ipv4.iptable_mangle);
- }
- 
-diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
-index 683bfaf..ee28861 100644
---- a/net/ipv4/netfilter/iptable_nat.c
-+++ b/net/ipv4/netfilter/iptable_nat.c
-@@ -61,7 +61,7 @@ static unsigned int nf_nat_rule_find(struct sk_buff *skb, unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv4_fn(unsigned int hooknum,
-+nf_nat_ipv4_fn(const struct nf_hook_ops *ops,
- 	       struct sk_buff *skb,
- 	       const struct net_device *in,
- 	       const struct net_device *out,
-@@ -71,7 +71,7 @@ nf_nat_ipv4_fn(unsigned int hooknum,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
- 	/* maniptype == SRC for postrouting. */
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
- 
- 	/* We never see fragments: conntrack defrags on pre-routing
- 	 * and local-out, and nf_nat_out protects post-routing.
-@@ -108,7 +108,7 @@ nf_nat_ipv4_fn(unsigned int hooknum,
- 	case IP_CT_RELATED_REPLY:
- 		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
- 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
--							   hooknum))
-+							   ops->hooknum))
- 				return NF_DROP;
- 			else
- 				return NF_ACCEPT;
-@@ -121,14 +121,14 @@ nf_nat_ipv4_fn(unsigned int hooknum,
- 		if (!nf_nat_initialized(ct, maniptype)) {
- 			unsigned int ret;
- 
--			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
-+			ret = nf_nat_rule_find(skb, ops->hooknum, in, out, ct);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
-+			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
- 				goto oif_changed;
- 		}
- 		break;
-@@ -137,11 +137,11 @@ nf_nat_ipv4_fn(unsigned int hooknum,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
-+		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
- 			goto oif_changed;
- 	}
- 
--	return nf_nat_packet(ct, ctinfo, hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
- 
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
-@@ -149,7 +149,7 @@ oif_changed:
- }
- 
- static unsigned int
--nf_nat_ipv4_in(unsigned int hooknum,
-+nf_nat_ipv4_in(const struct nf_hook_ops *ops,
- 	       struct sk_buff *skb,
- 	       const struct net_device *in,
- 	       const struct net_device *out,
-@@ -158,7 +158,7 @@ nf_nat_ipv4_in(unsigned int hooknum,
- 	unsigned int ret;
- 	__be32 daddr = ip_hdr(skb)->daddr;
- 
--	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    daddr != ip_hdr(skb)->daddr)
- 		skb_dst_drop(skb);
-@@ -167,7 +167,7 @@ nf_nat_ipv4_in(unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv4_out(unsigned int hooknum,
-+nf_nat_ipv4_out(const struct nf_hook_ops *ops,
- 		struct sk_buff *skb,
- 		const struct net_device *in,
- 		const struct net_device *out,
-@@ -185,7 +185,7 @@ nf_nat_ipv4_out(unsigned int hooknum,
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
- 
--	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
- #ifdef CONFIG_XFRM
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    !(IPCB(skb)->flags & IPSKB_XFRM_TRANSFORMED) &&
-@@ -207,7 +207,7 @@ nf_nat_ipv4_out(unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv4_local_fn(unsigned int hooknum,
-+nf_nat_ipv4_local_fn(const struct nf_hook_ops *ops,
- 		     struct sk_buff *skb,
- 		     const struct net_device *in,
- 		     const struct net_device *out,
-@@ -223,7 +223,7 @@ nf_nat_ipv4_local_fn(unsigned int hooknum,
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
- 
--	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
- 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-index 1f82aea..b2f7e8f 100644
---- a/net/ipv4/netfilter/iptable_raw.c
-+++ b/net/ipv4/netfilter/iptable_raw.c
-@@ -20,20 +20,20 @@ static const struct xt_table packet_raw = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--iptable_raw_hook(unsigned int hook, struct sk_buff *skb,
-+iptable_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		 const struct net_device *in, const struct net_device *out,
- 		 int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net;
- 
--	if (hook == NF_INET_LOCAL_OUT && 
-+	if (ops->hooknum == NF_INET_LOCAL_OUT &&
- 	    (skb->len < sizeof(struct iphdr) ||
- 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
- 		/* root is playing with raw sockets. */
- 		return NF_ACCEPT;
- 
- 	net = dev_net((in != NULL) ? in : out);
--	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_raw);
-+	return ipt_do_table(skb, ops->hooknum, in, out, net->ipv4.iptable_raw);
- }
- 
- static struct nf_hook_ops *rawtable_ops __read_mostly;
-diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
-index f867a8d..c86647e 100644
---- a/net/ipv4/netfilter/iptable_security.c
-+++ b/net/ipv4/netfilter/iptable_security.c
-@@ -37,21 +37,22 @@ static const struct xt_table security_table = {
- };
- 
- static unsigned int
--iptable_security_hook(unsigned int hook, struct sk_buff *skb,
-+iptable_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct net_device *in,
- 		      const struct net_device *out,
- 		      int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net;
- 
--	if (hook == NF_INET_LOCAL_OUT &&
-+	if (ops->hooknum == NF_INET_LOCAL_OUT &&
- 	    (skb->len < sizeof(struct iphdr) ||
- 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
- 		/* Somebody is playing with raw sockets. */
- 		return NF_ACCEPT;
- 
- 	net = dev_net((in != NULL) ? in : out);
--	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_security);
-+	return ipt_do_table(skb, ops->hooknum, in, out,
-+			    net->ipv4.iptable_security);
- }
- 
- static struct nf_hook_ops *sectbl_ops __read_mostly;
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 86f5b34..ecd8bec 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -92,7 +92,7 @@ static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
- 	return NF_ACCEPT;
- }
- 
--static unsigned int ipv4_helper(unsigned int hooknum,
-+static unsigned int ipv4_helper(const struct nf_hook_ops *ops,
- 				struct sk_buff *skb,
- 				const struct net_device *in,
- 				const struct net_device *out,
-@@ -121,7 +121,7 @@ static unsigned int ipv4_helper(unsigned int hooknum,
- 			    ct, ctinfo);
- }
- 
--static unsigned int ipv4_confirm(unsigned int hooknum,
-+static unsigned int ipv4_confirm(const struct nf_hook_ops *ops,
- 				 struct sk_buff *skb,
- 				 const struct net_device *in,
- 				 const struct net_device *out,
-@@ -147,16 +147,16 @@ out:
- 	return nf_conntrack_confirm(skb);
- }
- 
--static unsigned int ipv4_conntrack_in(unsigned int hooknum,
-+static unsigned int ipv4_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct net_device *in,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
--	return nf_conntrack_in(dev_net(in), PF_INET, hooknum, skb);
-+	return nf_conntrack_in(dev_net(in), PF_INET, ops->hooknum, skb);
- }
- 
--static unsigned int ipv4_conntrack_local(unsigned int hooknum,
-+static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
- 					 struct sk_buff *skb,
- 					 const struct net_device *in,
- 					 const struct net_device *out,
-@@ -166,7 +166,7 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
--	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
-+	return nf_conntrack_in(dev_net(out), PF_INET, ops->hooknum, skb);
- }
- 
- /* Connection tracking may drop packets, but never alters them, so
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index 7428155..12e13bd 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -60,7 +60,7 @@ static enum ip_defrag_users nf_ct_defrag_user(unsigned int hooknum,
- 		return IP_DEFRAG_CONNTRACK_OUT + zone;
- }
- 
--static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
-+static unsigned int ipv4_conntrack_defrag(const struct nf_hook_ops *ops,
- 					  struct sk_buff *skb,
- 					  const struct net_device *in,
- 					  const struct net_device *out,
-@@ -83,7 +83,9 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
- #endif
- 	/* Gather fragments. */
- 	if (ip_is_fragment(ip_hdr(skb))) {
--		enum ip_defrag_users user = nf_ct_defrag_user(hooknum, skb);
-+		enum ip_defrag_users user =
-+			nf_ct_defrag_user(ops->hooknum, skb);
-+
- 		if (nf_ct_ipv4_gather_frags(skb, user))
- 			return NF_STOLEN;
- 	}
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index 2748b04..bf9f612 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -312,7 +312,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 	return XT_CONTINUE;
- }
- 
--static unsigned int ipv6_synproxy_hook(unsigned int hooknum,
-+static unsigned int ipv6_synproxy_hook(const struct nf_hook_ops *ops,
- 				       struct sk_buff *skb,
- 				       const struct net_device *in,
- 				       const struct net_device *out,
-diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
-index 29b44b1..ca7f6c1 100644
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -32,13 +32,14 @@ static const struct xt_table packet_filter = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6table_filter_hook(unsigned int hook, struct sk_buff *skb,
-+ip6table_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in, const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net = dev_net((in != NULL) ? in : out);
- 
--	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_filter);
-+	return ip6t_do_table(skb, ops->hooknum, in, out,
-+			     net->ipv6.ip6table_filter);
- }
- 
- static struct nf_hook_ops *filter_ops __read_mostly;
-diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
-index c705907..307bbb7 100644
---- a/net/ipv6/netfilter/ip6table_mangle.c
-+++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -76,17 +76,17 @@ ip6t_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6table_mangle_hook(unsigned int hook, struct sk_buff *skb,
-+ip6table_mangle_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in, const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
--	if (hook == NF_INET_LOCAL_OUT)
-+	if (ops->hooknum == NF_INET_LOCAL_OUT)
- 		return ip6t_mangle_out(skb, out);
--	if (hook == NF_INET_POST_ROUTING)
--		return ip6t_do_table(skb, hook, in, out,
-+	if (ops->hooknum == NF_INET_POST_ROUTING)
-+		return ip6t_do_table(skb, ops->hooknum, in, out,
- 				     dev_net(out)->ipv6.ip6table_mangle);
- 	/* INPUT/FORWARD */
--	return ip6t_do_table(skb, hook, in, out,
-+	return ip6t_do_table(skb, ops->hooknum, in, out,
- 			     dev_net(in)->ipv6.ip6table_mangle);
- }
- 
-diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
-index 9b076d2..84c7f33 100644
---- a/net/ipv6/netfilter/ip6table_nat.c
-+++ b/net/ipv6/netfilter/ip6table_nat.c
-@@ -63,7 +63,7 @@ static unsigned int nf_nat_rule_find(struct sk_buff *skb, unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv6_fn(unsigned int hooknum,
-+nf_nat_ipv6_fn(const struct nf_hook_ops *ops,
- 	       struct sk_buff *skb,
- 	       const struct net_device *in,
- 	       const struct net_device *out,
-@@ -72,7 +72,7 @@ nf_nat_ipv6_fn(unsigned int hooknum,
- 	struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
- 	__be16 frag_off;
- 	int hdrlen;
- 	u8 nexthdr;
-@@ -111,7 +111,8 @@ nf_nat_ipv6_fn(unsigned int hooknum,
- 
- 		if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
- 			if (!nf_nat_icmpv6_reply_translation(skb, ct, ctinfo,
--							     hooknum, hdrlen))
-+							     ops->hooknum,
-+							     hdrlen))
- 				return NF_DROP;
- 			else
- 				return NF_ACCEPT;
-@@ -124,14 +125,14 @@ nf_nat_ipv6_fn(unsigned int hooknum,
- 		if (!nf_nat_initialized(ct, maniptype)) {
- 			unsigned int ret;
- 
--			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
-+			ret = nf_nat_rule_find(skb, ops->hooknum, in, out, ct);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
-+			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
- 				goto oif_changed;
- 		}
- 		break;
-@@ -140,11 +141,11 @@ nf_nat_ipv6_fn(unsigned int hooknum,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
-+		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
- 			goto oif_changed;
- 	}
- 
--	return nf_nat_packet(ct, ctinfo, hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
- 
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
-@@ -152,7 +153,7 @@ oif_changed:
- }
- 
- static unsigned int
--nf_nat_ipv6_in(unsigned int hooknum,
-+nf_nat_ipv6_in(const struct nf_hook_ops *ops,
- 	       struct sk_buff *skb,
- 	       const struct net_device *in,
- 	       const struct net_device *out,
-@@ -161,7 +162,7 @@ nf_nat_ipv6_in(unsigned int hooknum,
- 	unsigned int ret;
- 	struct in6_addr daddr = ipv6_hdr(skb)->daddr;
- 
--	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    ipv6_addr_cmp(&daddr, &ipv6_hdr(skb)->daddr))
- 		skb_dst_drop(skb);
-@@ -170,7 +171,7 @@ nf_nat_ipv6_in(unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv6_out(unsigned int hooknum,
-+nf_nat_ipv6_out(const struct nf_hook_ops *ops,
- 		struct sk_buff *skb,
- 		const struct net_device *in,
- 		const struct net_device *out,
-@@ -187,7 +188,7 @@ nf_nat_ipv6_out(unsigned int hooknum,
- 	if (skb->len < sizeof(struct ipv6hdr))
- 		return NF_ACCEPT;
- 
--	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
- #ifdef CONFIG_XFRM
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    !(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
-@@ -209,7 +210,7 @@ nf_nat_ipv6_out(unsigned int hooknum,
- }
- 
- static unsigned int
--nf_nat_ipv6_local_fn(unsigned int hooknum,
-+nf_nat_ipv6_local_fn(const struct nf_hook_ops *ops,
- 		     struct sk_buff *skb,
- 		     const struct net_device *in,
- 		     const struct net_device *out,
-@@ -224,7 +225,7 @@ nf_nat_ipv6_local_fn(unsigned int hooknum,
- 	if (skb->len < sizeof(struct ipv6hdr))
- 		return NF_ACCEPT;
- 
--	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
-+	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
- 	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
- 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
-index 9a626d8..5274740 100644
---- a/net/ipv6/netfilter/ip6table_raw.c
-+++ b/net/ipv6/netfilter/ip6table_raw.c
-@@ -19,13 +19,14 @@ static const struct xt_table packet_raw = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6table_raw_hook(unsigned int hook, struct sk_buff *skb,
-+ip6table_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		  const struct net_device *in, const struct net_device *out,
- 		  int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net = dev_net((in != NULL) ? in : out);
- 
--	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_raw);
-+	return ip6t_do_table(skb, ops->hooknum, in, out,
-+			     net->ipv6.ip6table_raw);
- }
- 
- static struct nf_hook_ops *rawtable_ops __read_mostly;
-diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
-index ce88d1d..ab3b021 100644
---- a/net/ipv6/netfilter/ip6table_security.c
-+++ b/net/ipv6/netfilter/ip6table_security.c
-@@ -36,14 +36,15 @@ static const struct xt_table security_table = {
- };
- 
- static unsigned int
--ip6table_security_hook(unsigned int hook, struct sk_buff *skb,
-+ip6table_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		       const struct net_device *in,
- 		       const struct net_device *out,
- 		       int (*okfn)(struct sk_buff *))
- {
- 	const struct net *net = dev_net((in != NULL) ? in : out);
- 
--	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_security);
-+	return ip6t_do_table(skb, ops->hooknum, in, out,
-+			     net->ipv6.ip6table_security);
- }
- 
- static struct nf_hook_ops *sectbl_ops __read_mostly;
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 54b75ea..486545e 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -95,7 +95,7 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
- 	return NF_ACCEPT;
- }
- 
--static unsigned int ipv6_helper(unsigned int hooknum,
-+static unsigned int ipv6_helper(const struct nf_hook_ops *ops,
- 				struct sk_buff *skb,
- 				const struct net_device *in,
- 				const struct net_device *out,
-@@ -133,7 +133,7 @@ static unsigned int ipv6_helper(unsigned int hooknum,
- 	return helper->help(skb, protoff, ct, ctinfo);
- }
- 
--static unsigned int ipv6_confirm(unsigned int hooknum,
-+static unsigned int ipv6_confirm(const struct nf_hook_ops *ops,
- 				 struct sk_buff *skb,
- 				 const struct net_device *in,
- 				 const struct net_device *out,
-@@ -219,16 +219,17 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
- 	return nf_conntrack_in(net, PF_INET6, hooknum, skb);
- }
- 
--static unsigned int ipv6_conntrack_in(unsigned int hooknum,
-+static unsigned int ipv6_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct net_device *in,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
--	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, in, out, okfn);
-+	return __ipv6_conntrack_in(dev_net(in), ops->hooknum, skb, in, out,
-+				   okfn);
- }
- 
--static unsigned int ipv6_conntrack_local(unsigned int hooknum,
-+static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
- 					 struct sk_buff *skb,
- 					 const struct net_device *in,
- 					 const struct net_device *out,
-@@ -239,7 +240,8 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
- 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
- 		return NF_ACCEPT;
- 	}
--	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, in, out, okfn);
-+	return __ipv6_conntrack_in(dev_net(out), ops->hooknum, skb, in, out,
-+				   okfn);
- }
- 
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index aacd121..ec483aa 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -52,7 +52,7 @@ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
- 
- }
- 
--static unsigned int ipv6_defrag(unsigned int hooknum,
-+static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
- 				struct sk_buff *skb,
- 				const struct net_device *in,
- 				const struct net_device *out,
-@@ -66,7 +66,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- 		return NF_ACCEPT;
- #endif
- 
--	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
-+	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(ops->hooknum, skb));
- 	/* queued */
- 	if (reasm == NULL)
- 		return NF_STOLEN;
-@@ -75,7 +75,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- 	if (reasm == skb)
- 		return NF_ACCEPT;
- 
--	nf_ct_frag6_output(hooknum, reasm, (struct net_device *)in,
-+	nf_ct_frag6_output(ops->hooknum, reasm, (struct net_device *)in,
- 			   (struct net_device *)out, okfn);
- 
- 	return NF_STOLEN;
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 593b16e..1fbab0c 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -146,7 +146,7 @@ unsigned int nf_iterate(struct list_head *head,
- 		/* Optimization: we don't need to hold module
- 		   reference here, since function can't sleep. --RR */
- repeat:
--		verdict = (*elemp)->hook(hook, skb, indev, outdev, okfn);
-+		verdict = (*elemp)->hook(*elemp, skb, indev, outdev, okfn);
- 		if (verdict != NF_ACCEPT) {
- #ifdef CONFIG_NETFILTER_DEBUG
- 			if (unlikely((verdict & NF_VERDICT_MASK)
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 74fd00c..34fda62 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1239,11 +1239,11 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
-  *	Check if packet is reply for established ip_vs_conn.
-  */
- static unsigned int
--ip_vs_reply4(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	     const struct net_device *in, const struct net_device *out,
- 	     int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_out(hooknum, skb, AF_INET);
-+	return ip_vs_out(ops->hooknum, skb, AF_INET);
- }
- 
- /*
-@@ -1251,11 +1251,11 @@ ip_vs_reply4(unsigned int hooknum, struct sk_buff *skb,
-  *	Check if packet is reply for established ip_vs_conn.
-  */
- static unsigned int
--ip_vs_local_reply4(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_local_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		   const struct net_device *in, const struct net_device *out,
- 		   int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_out(hooknum, skb, AF_INET);
-+	return ip_vs_out(ops->hooknum, skb, AF_INET);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -1266,11 +1266,11 @@ ip_vs_local_reply4(unsigned int hooknum, struct sk_buff *skb,
-  *	Check if packet is reply for established ip_vs_conn.
-  */
- static unsigned int
--ip_vs_reply6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	     const struct net_device *in, const struct net_device *out,
- 	     int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_out(hooknum, skb, AF_INET6);
-+	return ip_vs_out(ops->hooknum, skb, AF_INET6);
- }
- 
- /*
-@@ -1278,11 +1278,11 @@ ip_vs_reply6(unsigned int hooknum, struct sk_buff *skb,
-  *	Check if packet is reply for established ip_vs_conn.
-  */
- static unsigned int
--ip_vs_local_reply6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_local_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		   const struct net_device *in, const struct net_device *out,
- 		   int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_out(hooknum, skb, AF_INET6);
-+	return ip_vs_out(ops->hooknum, skb, AF_INET6);
- }
- 
- #endif
-@@ -1733,12 +1733,12 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
-  *	Schedule and forward packets from remote clients
-  */
- static unsigned int
--ip_vs_remote_request4(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_remote_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct net_device *in,
- 		      const struct net_device *out,
- 		      int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_in(hooknum, skb, AF_INET);
-+	return ip_vs_in(ops->hooknum, skb, AF_INET);
- }
- 
- /*
-@@ -1746,11 +1746,11 @@ ip_vs_remote_request4(unsigned int hooknum, struct sk_buff *skb,
-  *	Schedule and forward packets from local clients
-  */
- static unsigned int
--ip_vs_local_request4(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_local_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in, const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_in(hooknum, skb, AF_INET);
-+	return ip_vs_in(ops->hooknum, skb, AF_INET);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -1760,7 +1760,7 @@ ip_vs_local_request4(unsigned int hooknum, struct sk_buff *skb,
-  * Copy info from first fragment, to the rest of them.
-  */
- static unsigned int
--ip_vs_preroute_frag6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_preroute_frag6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in,
- 		     const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
-@@ -1792,12 +1792,12 @@ ip_vs_preroute_frag6(unsigned int hooknum, struct sk_buff *skb,
-  *	Schedule and forward packets from remote clients
-  */
- static unsigned int
--ip_vs_remote_request6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_remote_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct net_device *in,
- 		      const struct net_device *out,
- 		      int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_in(hooknum, skb, AF_INET6);
-+	return ip_vs_in(ops->hooknum, skb, AF_INET6);
- }
- 
- /*
-@@ -1805,11 +1805,11 @@ ip_vs_remote_request6(unsigned int hooknum, struct sk_buff *skb,
-  *	Schedule and forward packets from local clients
-  */
- static unsigned int
--ip_vs_local_request6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_local_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		     const struct net_device *in, const struct net_device *out,
- 		     int (*okfn)(struct sk_buff *))
- {
--	return ip_vs_in(hooknum, skb, AF_INET6);
-+	return ip_vs_in(ops->hooknum, skb, AF_INET6);
- }
- 
- #endif
-@@ -1825,7 +1825,7 @@ ip_vs_local_request6(unsigned int hooknum, struct sk_buff *skb,
-  *      and send them to ip_vs_in_icmp.
-  */
- static unsigned int
--ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_forward_icmp(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		   const struct net_device *in, const struct net_device *out,
- 		   int (*okfn)(struct sk_buff *))
- {
-@@ -1842,12 +1842,12 @@ ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
- 	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
- 		return NF_ACCEPT;
- 
--	return ip_vs_in_icmp(skb, &r, hooknum);
-+	return ip_vs_in_icmp(skb, &r, ops->hooknum);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
- static unsigned int
--ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
-+ip_vs_forward_icmp_v6(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		      const struct net_device *in, const struct net_device *out,
- 		      int (*okfn)(struct sk_buff *))
- {
-@@ -1866,7 +1866,7 @@ ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
- 	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
- 		return NF_ACCEPT;
- 
--	return ip_vs_in_icmp_v6(skb, &r, hooknum, &iphdr);
-+	return ip_vs_in_icmp_v6(skb, &r, ops->hooknum, &iphdr);
- }
- #endif
- 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 568c769..3f224d7 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4668,7 +4668,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
- 	return NF_ACCEPT;
- }
- 
--static unsigned int selinux_ipv4_forward(unsigned int hooknum,
-+static unsigned int selinux_ipv4_forward(const struct nf_hook_ops *ops,
- 					 struct sk_buff *skb,
- 					 const struct net_device *in,
- 					 const struct net_device *out,
-@@ -4678,7 +4678,7 @@ static unsigned int selinux_ipv4_forward(unsigned int hooknum,
- }
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--static unsigned int selinux_ipv6_forward(unsigned int hooknum,
-+static unsigned int selinux_ipv6_forward(const struct nf_hook_ops *ops,
- 					 struct sk_buff *skb,
- 					 const struct net_device *in,
- 					 const struct net_device *out,
-@@ -4710,7 +4710,7 @@ static unsigned int selinux_ip_output(struct sk_buff *skb,
- 	return NF_ACCEPT;
- }
- 
--static unsigned int selinux_ipv4_output(unsigned int hooknum,
-+static unsigned int selinux_ipv4_output(const struct nf_hook_ops *ops,
- 					struct sk_buff *skb,
- 					const struct net_device *in,
- 					const struct net_device *out,
-@@ -4837,7 +4837,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 	return NF_ACCEPT;
- }
- 
--static unsigned int selinux_ipv4_postroute(unsigned int hooknum,
-+static unsigned int selinux_ipv4_postroute(const struct nf_hook_ops *ops,
- 					   struct sk_buff *skb,
- 					   const struct net_device *in,
- 					   const struct net_device *out,
-@@ -4847,7 +4847,7 @@ static unsigned int selinux_ipv4_postroute(unsigned int hooknum,
- }
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--static unsigned int selinux_ipv6_postroute(unsigned int hooknum,
-+static unsigned int selinux_ipv6_postroute(const struct nf_hook_ops *ops,
- 					   struct sk_buff *skb,
- 					   const struct net_device *in,
- 					   const struct net_device *out,
--- 
-1.7.10.4
+The patches are:
 
+1) Adapt all existing hooks in the tree to pass hook ops to the
+   hook callback function, required by nf_tables, from Patrick McHardy.
+
+2) Move alloc_null_binding to nf_nat_core, as it is now also needed by
+   nf_tables and ip_tables, original patch from Patrick McHardy but
+   required major changes to adapt it to the current tree that I made.
+
+3) Add nf_tables core, including the netlink API, the packet filtering
+   engine, expressions and built-in tables, from Patrick McHardy. This
+   patch includes accumulated fixes since 2009 and minor enhancements.
+   The patch description contains a list of references to the original
+   patches for the record. For those that are not familiar to the
+   original work, see [1], [2] and [3].
+
+4) Add netlink set API, this replaces the original set infrastructure
+   to introduce a netlink API to add/delete sets and to add/delete
+   set elements. This includes two set types: the hash and the rb-tree
+   sets (used for interval based matching). The main difference with
+   ipset is that this infrastructure is data type agnostic. Patch from
+   Patrick McHardy.
+
+5) Allow expression operation overload, this API change allows us to
+   provide define expression subtypes depending on the configuration
+   that is received from user-space via Netlink. It is used by follow
+   up patches to provide optimized versions of the payload and cmp
+   expressions and the x_tables compatibility layer, from Patrick
+   McHardy.
+
+6) Add optimized data comparison operation, it requires the previous
+   patch, from Patrick McHardy.
+
+7) Add optimized payload implementation, it requires patch 5, from
+   Patrick McHardy.
+
+8) Convert built-in tables to chain types. Each chain type have special
+   semantics (filter, route and nat) that are used by userspace to
+   configure the chain behaviour. The main chain regarding iptables
+   is that tables become containers of chain, with no specific semantics.
+   However, you may still configure your tables and chains to retain
+   iptables like semantics, patch from me.
+
+9) Add compatibility layer for x_tables. This patch adds support to
+   use all existing x_tables extensions from nf_tables, this is used
+   to provide a userspace utility that accepts iptables syntax but
+   used internally the nf_tables kernel core. This patch includes
+   missing features in the nf_tables core such as the per-chain
+   stats, default chain policy and number of chain references, which
+   are required by the iptables compatibility userspace tool. Patch
+   from me.
+
+10) Fix transport protocol matching, this fix is a side effect of the
+    x_tables compatibility layer, which now provides a pointer to the
+    transport header, from me.
+
+11) Add support for dormant tables, this feature allows you to disable
+    all chains and rules that are contained in one table, from me.
+
+12) Add IPv6 NAT support. At the time nf_tables was made, there was no
+    NAT IPv6 support yet, from Tomasz Bursztyka.
+
+13) Complete net namespace support. This patch register the protocol
+    family per net namespace, so tables (thus, other objects contained
+    in tables such as sets, chains and rules) are only visible from the
+    corresponding net namespace, from me.
+
+14) Add the insert operation to the nf_tables netlink API, this requires
+    adding a new position attribute that allow us to locate where in the
+    ruleset a rule needs to be inserted, from Eric Leblond.
+
+15) Add rule batching support, including atomic rule-set updates by
+    using rule-set generations. This patch includes a change to nfnetlink
+    to include two new control messages to indicate the beginning and
+    the end of a batch. The end message is interpreted as the commit
+    message, if it's missing, then the rule-set updates contained in the
+    batch are aborted, from me.
+
+16) Add trace support to the nf_tables packet filtering core, from me.
+
+17) Add ARP filtering support, original patch from Patrick McHardy, but
+    adapted to fit into the chain type infrastructure. This was recovered
+    to be used by nft userspace tool and our compatibility arptables
+    userspace tool.
+
+There is still work to do to fully replace x_tables [4] [5] but that can
+be done incrementally by extending our netlink API. Moreover, looking at
+netfilter-devel and the amount of contributions to nf_tables we've been
+getting, I think it would be good to have it mainstream to avoid accumulating
+large patchsets skip continuous rebases.
+
+I tried to provide a reasonable patchset, we have more than 100 accumulated
+patches in the original nf_tables tree, so I collapsed many of the small
+fixes to the main patch we had since 2009 and provide a small batch for
+review to netdev, while trying to retain part of the history.
+
+For those who didn't give a try to nf_tables yet, there's a quick howto
+available from Eric Leblond that describes how to get things working [6].
+
+Comments/reviews welcome.
+
+Thanks!
+
+[1] http://lwn.net/Articles/324251/
+[2] http://workshop.netfilter.org/2013/wiki/images/e/ee/Nftables-osd-2013-developer.pdf
+[3] http://lwn.net/Articles/564095/
+[4] http://people.netfilter.org/pablo/map-pending-work.txt
+[4] http://people.netfilter.org/pablo/nftables-todo.txt
+[5] https://home.regit.org/netfilter-en/nftables-quick-howto/
+
+----------------------------------------------------------------
+
+The following changes since commit ccdbb6e96beca362db876d820ac1e560ff6d9579:
+
+  tcp: tcp_transmit_skb() optimizations (2013-10-11 17:48:18 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git net-next
+
+for you to fetch changes up to ed683f138b3dbc8a5e878e24a0bfa0bb61043a09:
+
+  netfilter: nf_tables: add ARP filtering support (2013-10-14 18:01:03 +0200)
+
+----------------------------------------------------------------
+Eric Leblond (1):
+      netfilter: nf_tables: add insert operation
+
+Pablo Neira Ayuso (9):
+      netfilter: nf_nat: move alloc_null_binding to nf_nat_core.c
+      netfilter: nf_tables: convert built-in tables/chains to chain types
+      netfilter: nf_tables: add compatibility layer for x_tables
+      netfilter: nf_tables: nft_payload: fix transport header base
+      netfilter: nf_tables: add support for dormant tables
+      netfilter: nf_tables: complete net namespace support
+      netfilter: nfnetlink: add batch support and use it from nf_tables
+      netfilter: nf_tables: add trace support
+      netfilter: nf_tables: add ARP filtering support
+
+Patrick McHardy (6):
+      netfilter: pass hook ops to hookfn
+      netfilter: add nftables
+      netfilter: nf_tables: add netlink set API
+      netfilter: nf_tables: expression ops overloading
+      netfilter: nf_tables: add optimized data comparison for small values
+      netfilter: nft_payload: add optimized payload implementation for small loads
+
+Tomasz Bursztyka (1):
+      netfilter: nf_tables: Add support for IPv6 NAT
+
+ include/linux/netfilter.h                          |   14 +-
+ include/linux/netfilter/nfnetlink.h                |    5 +
+ include/net/net_namespace.h                        |    4 +
+ include/net/netfilter/nf_nat.h                     |    3 +
+ include/net/netfilter/nf_tables.h                  |  522 ++++
+ include/net/netfilter/nf_tables_core.h             |   42 +
+ include/net/netfilter/nf_tables_ipv4.h             |   23 +
+ include/net/netfilter/nf_tables_ipv6.h             |   30 +
+ include/net/netns/nftables.h                       |   19 +
+ include/uapi/linux/netfilter/Kbuild                |    2 +
+ include/uapi/linux/netfilter/nf_conntrack_common.h |    4 +
+ include/uapi/linux/netfilter/nf_tables.h           |  718 +++++
+ include/uapi/linux/netfilter/nf_tables_compat.h    |   38 +
+ include/uapi/linux/netfilter/nfnetlink.h           |   10 +-
+ net/bridge/br_netfilter.c                          |   22 +-
+ net/bridge/netfilter/Kconfig                       |    3 +
+ net/bridge/netfilter/Makefile                      |    2 +
+ net/bridge/netfilter/ebtable_filter.c              |   16 +-
+ net/bridge/netfilter/ebtable_nat.c                 |   16 +-
+ net/bridge/netfilter/nf_tables_bridge.c            |   65 +
+ net/decnet/netfilter/dn_rtmsg.c                    |    2 +-
+ net/ipv4/netfilter/Kconfig                         |   21 +
+ net/ipv4/netfilter/Makefile                        |    6 +
+ net/ipv4/netfilter/arptable_filter.c               |    5 +-
+ net/ipv4/netfilter/ipt_CLUSTERIP.c                 |    2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c                  |    2 +-
+ net/ipv4/netfilter/iptable_filter.c                |    7 +-
+ net/ipv4/netfilter/iptable_mangle.c                |   10 +-
+ net/ipv4/netfilter/iptable_nat.c                   |   26 +-
+ net/ipv4/netfilter/iptable_raw.c                   |    6 +-
+ net/ipv4/netfilter/iptable_security.c              |    7 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |   12 +-
+ net/ipv4/netfilter/nf_defrag_ipv4.c                |    6 +-
+ net/ipv4/netfilter/nf_tables_arp.c                 |  102 +
+ net/ipv4/netfilter/nf_tables_ipv4.c                |  128 +
+ net/ipv4/netfilter/nft_chain_nat_ipv4.c            |  205 ++
+ net/ipv4/netfilter/nft_chain_route_ipv4.c          |   90 +
+ net/ipv4/netfilter/nft_reject_ipv4.c               |  123 +
+ net/ipv6/netfilter/Kconfig                         |   13 +
+ net/ipv6/netfilter/Makefile                        |    5 +
+ net/ipv6/netfilter/ip6t_SYNPROXY.c                 |    2 +-
+ net/ipv6/netfilter/ip6table_filter.c               |    5 +-
+ net/ipv6/netfilter/ip6table_mangle.c               |   10 +-
+ net/ipv6/netfilter/ip6table_nat.c                  |   27 +-
+ net/ipv6/netfilter/ip6table_raw.c                  |    5 +-
+ net/ipv6/netfilter/ip6table_security.c             |    5 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |   14 +-
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c          |    6 +-
+ net/ipv6/netfilter/nf_tables_ipv6.c                |  127 +
+ net/ipv6/netfilter/nft_chain_nat_ipv6.c            |  211 ++
+ net/ipv6/netfilter/nft_chain_route_ipv6.c          |   88 +
+ net/netfilter/Kconfig                              |   52 +
+ net/netfilter/Makefile                             |   18 +
+ net/netfilter/core.c                               |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c                    |   42 +-
+ net/netfilter/nf_nat_core.c                        |   20 +
+ net/netfilter/nf_tables_api.c                      | 3275 ++++++++++++++++++++
+ net/netfilter/nf_tables_core.c                     |  270 ++
+ net/netfilter/nfnetlink.c                          |  175 +-
+ net/netfilter/nft_bitwise.c                        |  146 +
+ net/netfilter/nft_byteorder.c                      |  173 ++
+ net/netfilter/nft_cmp.c                            |  223 ++
+ net/netfilter/nft_compat.c                         |  768 +++++
+ net/netfilter/nft_counter.c                        |  113 +
+ net/netfilter/nft_ct.c                             |  258 ++
+ net/netfilter/nft_expr_template.c                  |   94 +
+ net/netfilter/nft_exthdr.c                         |  133 +
+ net/netfilter/nft_hash.c                           |  231 ++
+ net/netfilter/nft_immediate.c                      |  132 +
+ net/netfilter/nft_limit.c                          |  119 +
+ net/netfilter/nft_log.c                            |  146 +
+ net/netfilter/nft_lookup.c                         |  141 +
+ net/netfilter/nft_meta.c                           |  228 ++
+ net/netfilter/nft_meta_target.c                    |  117 +
+ net/netfilter/nft_nat.c                            |  220 ++
+ net/netfilter/nft_payload.c                        |  160 +
+ net/netfilter/nft_rbtree.c                         |  247 ++
+ security/selinux/hooks.c                           |   10 +-
+ 78 files changed, 10217 insertions(+), 132 deletions(-)
+ create mode 100644 include/net/netfilter/nf_tables.h
+ create mode 100644 include/net/netfilter/nf_tables_core.h
+ create mode 100644 include/net/netfilter/nf_tables_ipv4.h
+ create mode 100644 include/net/netfilter/nf_tables_ipv6.h
+ create mode 100644 include/net/netns/nftables.h
+ create mode 100644 include/uapi/linux/netfilter/nf_tables.h
+ create mode 100644 include/uapi/linux/netfilter/nf_tables_compat.h
+ create mode 100644 net/bridge/netfilter/nf_tables_bridge.c
+ create mode 100644 net/ipv4/netfilter/nf_tables_arp.c
+ create mode 100644 net/ipv4/netfilter/nf_tables_ipv4.c
+ create mode 100644 net/ipv4/netfilter/nft_chain_nat_ipv4.c
+ create mode 100644 net/ipv4/netfilter/nft_chain_route_ipv4.c
+ create mode 100644 net/ipv4/netfilter/nft_reject_ipv4.c
+ create mode 100644 net/ipv6/netfilter/nf_tables_ipv6.c
+ create mode 100644 net/ipv6/netfilter/nft_chain_nat_ipv6.c
+ create mode 100644 net/ipv6/netfilter/nft_chain_route_ipv6.c
+ create mode 100644 net/netfilter/nf_tables_api.c
+ create mode 100644 net/netfilter/nf_tables_core.c
+ create mode 100644 net/netfilter/nft_bitwise.c
+ create mode 100644 net/netfilter/nft_byteorder.c
+ create mode 100644 net/netfilter/nft_cmp.c
+ create mode 100644 net/netfilter/nft_compat.c
+ create mode 100644 net/netfilter/nft_counter.c
+ create mode 100644 net/netfilter/nft_ct.c
+ create mode 100644 net/netfilter/nft_expr_template.c
+ create mode 100644 net/netfilter/nft_exthdr.c
+ create mode 100644 net/netfilter/nft_hash.c
+ create mode 100644 net/netfilter/nft_immediate.c
+ create mode 100644 net/netfilter/nft_limit.c
+ create mode 100644 net/netfilter/nft_log.c
+ create mode 100644 net/netfilter/nft_lookup.c
+ create mode 100644 net/netfilter/nft_meta.c
+ create mode 100644 net/netfilter/nft_meta_target.c
+ create mode 100644 net/netfilter/nft_nat.c
+ create mode 100644 net/netfilter/nft_payload.c
+ create mode 100644 net/netfilter/nft_rbtree.c
