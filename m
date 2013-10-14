@@ -1,72 +1,326 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC] ipv6: always join solicited-node address
-Date: Mon, 14 Oct 2013 09:09:59 +0200
-Message-ID: <87fvs4s4zc.fsf@nemi.mork.no>
-References: <1381685064-24805-1-git-send-email-bjorn@mork.no>
-	<20131014005508.GE14021@order.stressinduktion.org>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCHv2 2/2] Don't compute checksum value for SCTP skb with,
+ CHECKSUM_PARTIAL set
+Date: Mon, 14 Oct 2013 15:16:14 +0800
+Message-ID: <525B9A3E.2080508@windriver.com>
+References: <1381384296-1821-1-git-send-email-fan.du@windriver.com> <20131010131116.GA16147@hmsreliant.think-freely.org> <5257A3D6.3010002@windriver.com> <52580A68.9040502@gmail.com> <52591A1E.7010705@windriver.com> <b4c6105a-057c-4fd7-9b49-99df902447d8@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:54940 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259Ab3JNHKY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 03:10:24 -0400
-Received: from nemi.mork.no (ip6-localhost [IPv6:::1])
-	by canardo.mork.no (8.14.4/8.14.4) with ESMTP id r9E7AF6l009960
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 09:10:15 +0200
-Received: from bjorn by nemi.mork.no with local (Exim 4.80)
-	(envelope-from <bjorn@mork.no>)
-	id 1VVcHv-0004KU-8D
-	for netdev@vger.kernel.org; Mon, 14 Oct 2013 09:09:59 +0200
-In-Reply-To: <20131014005508.GE14021@order.stressinduktion.org> (Hannes
-	Frederic Sowa's message of "Mon, 14 Oct 2013 02:55:08 +0200")
+Received: from mail.windriver.com ([147.11.1.11]:43196 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395Ab3JNHSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 03:18:11 -0400
+In-Reply-To: <b4c6105a-057c-4fd7-9b49-99df902447d8@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
 
-> IFF_NOARP seems to be a bit messed up in ipv6. Your patch seems fine =
-to
-> me but I would add protection to the ndisc_rcv and sending routines t=
-o
-> do nothing if IFF_NOARP is set for that interface.
 
-That's what I thought.  So for my problem, this will not really change
-much.
-
-> So it would be possible that you could resolve this issue by just iss=
-uing
-> an "ip link set arp on dev <interface>" and won't have hassle with ra=
-cing
-> interface initialization.
-
-Yes, but that would also make the IP layer try to resolve IP to link
-layer addressess both for IPv4 and IPv6, which just won't work. At leas=
+On 2013=E5=B9=B410=E6=9C=8812=E6=97=A5 21:06, Vlad Yasevich wrote:
+>
+>
+> Fan Du<fan.du@windriver.com>  wrote:
+>
+>>
+>>
+>> On 2013=E5=B9=B410=E6=9C=8811=E6=97=A5 22:25, Vlad Yasevich wrote:
+>>> On 10/11/2013 03:08 AM, Fan Du wrote:
+>>>>
+>>>>
+>>>> On 2013=E5=B9=B410=E6=9C=8810=E6=97=A5 21:11, Neil Horman wrote:
+>>>>> On Thu, Oct 10, 2013 at 01:51:36PM +0800, Fan Du wrote:
+>>>>>> igb/ixgbe have hardware sctp checksum support, when this feature
+>> is
+>>>>>> enabled
+>>>>>> and also IPsec is armed to protect sctp traffic, ugly things
+>> happened as
+>>>>>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(su=
+m
+>>>>>> every thing
+>>>>>> up and pack the 16bits result in the checksum field). The result
+>> is fail
+>>>>>> establishment of sctp communication.
+>>>>>>
+>>>>> Shouldn't this be fixed in the xfrm code then? E.g. check the
+>> device
+>>>>> features
+>>>>> for SCTP checksum offloading and and skip the checksum during xfr=
+m
+>>>>> output if its
+>>>>> available?
+>>>>>
+>>>>> Or am I missing something?
+>>>>> Neil
+>>>>>
+>>>>>
+>>>>
+>>>>
+>>>>  From cff25810910603ff991f0c56441d6de8dc33a822 Mon Sep 17 00:00:00
+>> 2001
+>>>> From: Fan Du<fan.du@windriver.com>
+>>>> Date: Fri, 11 Oct 2013 14:31:57 +0800
+>>>> Subject: [PATCH 2/2] Don't compute checksum value for SCTP skb wit=
+h
+>>>> CHECKSUM_PARTIAL set
+>>>> MIME-Version: 1.0
+>>>> Content-Type: text/plain; charset=3DUTF-8
+>>>> Content-Transfer-Encoding: 8bit
+>>>>
+>>>> IPsec is not enabled in this scenario:
+>>>>
+>>>> SCTP skb set CHECKSUM_PARTIAL to indicate hardware is capable of
+>> doing
+>>>> SCTP checksum(crc32-c) scoping the whole SCTP packet range. Howeve=
+r
+>> when
+>>>> such kind of skb is delivered through IPv4/v6 output handler,
+>> IPv4/v6 stack
+>>>> interpret CHECKSUM_PARTIAL by calling skb_checksum_help to compute
+>> 16bits
+>>>> checksum value by summing everything up, the whole SCTP packet in
+>> software
+>>>> manner=EF=BC=81 After this skb reach NIC, after hardware doing its=
+ SCTP
+>> checking
+>>>> business, a crc32-c value will overwrite the value IPv4/v6 stack
+>> computed
+>>>> before.
+>>>>
+>>>> This patch solves this by introducing skb_is_sctpv4/6 to optimize
+>> such
+>>>> case.
+>>>>
+>>>> Signed-off-by: Fan Du<fan.du@windriver.com>
+>>>> ---
+>>>> v2:
+>>>> Rework this problem by introducing skb_is_scktv4/6
+>>>>
+>>>> ---
+>>>> include/linux/ip.h | 5 +++++
+>>>> include/linux/ipv6.h | 6 ++++++
+>>>> include/linux/skbuff.h | 1 -
+>>>> net/core/skbuff.c | 1 +
+>>>> net/ipv4/ip_output.c | 4 +++-
+>>>> net/ipv6/ip6_output.c | 1 +
+>>>> net/xfrm/xfrm_output.c | 20 +++++++++++++++-----
+>>>> 7 files changed, 31 insertions(+), 7 deletions(-)
+>>>>
+>>>> diff --git a/include/linux/ip.h b/include/linux/ip.h
+>>>> index 492bc65..f556292 100644
+>>>> --- a/include/linux/ip.h
+>>>> +++ b/include/linux/ip.h
+>>>> @@ -19,6 +19,7 @@
+>>>>
+>>>> #include<linux/skbuff.h>
+>>>> #include<uapi/linux/ip.h>
+>>>> +#include<uapi/linux/in.h>
+>>>>
+>>>> static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
+>>>> {
+>>>> @@ -34,4 +35,8 @@ static inline struct iphdr *ipip_hdr(const struc=
 t
-not for IPv4, where there just is no way to transport an ARP to the
-modem.  And I assume it may fail for IPv6 too on any sane device.
+>>>> sk_buff *skb)
+>>>> {
+>>>> return (struct iphdr *)skb_transport_header(skb);
+>>>> }
+>>>> +static inline int skb_is_sctpv4(const struct sk_buff *skb)
+>>>> +{
+>>>> + return ip_hdr(skb)->protocol =3D=3D IPPROTO_SCTP;
+>>>> +}
+>>>> #endif /* _LINUX_IP_H */
+>>>> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+>>>> index 28ea384..6e17c04 100644
+>>>> --- a/include/linux/ipv6.h
+>>>> +++ b/include/linux/ipv6.h
+>>>> @@ -2,6 +2,7 @@
+>>>> #define _IPV6_H
+>>>>
+>>>> #include<uapi/linux/ipv6.h>
+>>>> +#include<uapi/linux/in.h>
+>>>>
+>>>> #define ipv6_optlen(p) (((p)->hdrlen+1)<<  3)
+>>>> /*
+>>>> @@ -387,4 +388,9 @@ static inline struct raw6_sock *raw6_sk(const
+>> struct
+>>>> sock *sk)
+>>>> ((__sk)->sk_bound_dev_if =3D=3D (__dif)))&&  \
+>>>> net_eq(sock_net(__sk), (__net)))
+>>>>
+>>>> +static inline int skb_is_sctpv6(const struct sk_buff *skb)
+>>>> +{
+>>>> + return ipv6_hdr(skb)->nexthdr =3D=3D IPPROTO_SCTP;
+>>>> +}
+>>>> +
+>>>> #endif /* _IPV6_H */
+>>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>>>> index 2ddb48d..b36d0cc 100644
+>>>> --- a/include/linux/skbuff.h
+>>>> +++ b/include/linux/skbuff.h
+>>>> @@ -2393,7 +2393,6 @@ extern void skb_split(struct sk_buff *skb,
+>>>> extern int skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
+>>>> int shiftlen);
+>>>> extern void skb_scrub_packet(struct sk_buff *skb, bool xnet);
+>>>> -
+>>>> extern struct sk_buff *skb_segment(struct sk_buff *skb,
+>>>> netdev_features_t features);
+>>>>
+>>>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>>>> index d81cff1..54d6172 100644
+>>>> --- a/net/core/skbuff.c
+>>>> +++ b/net/core/skbuff.c
+>>>> @@ -3526,3 +3526,4 @@ void skb_scrub_packet(struct sk_buff *skb,
+>> bool xnet)
+>>>> nf_reset_trace(skb);
+>>>> }
+>>>> EXPORT_SYMBOL_GPL(skb_scrub_packet);
+>>>> +
+>>>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+>>>> index a04d872..8676b2c 100644
+>>>> --- a/net/ipv4/ip_output.c
+>>>> +++ b/net/ipv4/ip_output.c
+>>>> @@ -587,7 +587,9 @@ slow_path_clean:
+>>>>
+>>>> slow_path:
+>>>> /* for offloaded checksums cleanup checksum before fragmentation *=
+/
+>>>> - if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
+>> skb_checksum_help(skb))
+>>>> + if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
+>>>> + !skb_is_sctpv4(skb)&&
+>>>> + skb_checksum_help(skb))
+>>>> goto fail;
+>>>> iph =3D ip_hdr(skb);
+>>>>
+>>>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>>>> index 3a692d5..9b27d95 100644
+>>>> --- a/net/ipv6/ip6_output.c
+>>>> +++ b/net/ipv6/ip6_output.c
+>>>> @@ -671,6 +671,7 @@ slow_path_clean:
+>>>>
+>>>> slow_path:
+>>>> if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
+>>>> + !skb_is_sctpv6(skb)&&
+>>>> skb_checksum_help(skb))
+>>>> goto fail;
+>>>>
+>>>
+>>> No, this isn't right. This is a case where IP fragmentation is
+>>> required, and the above code will cause SCTP checksum to not be
+>>> computed.
+>>
+>> Ok, I got my ball, ten bucks bet this correct ;)
+>>
+>> IPv4:
+>> after skb reach fragmentation part, CHECKSUM_PARTIAL denotes
+>> L4 layer protocol need to be checksummed, then IPv4 checksum is
+>> recomputed for each fragmented IPv4 packet.
+>>
+>> IPv6:
+>> Here IPv6 doesn't need checksum for its header, again
+>> CHECKSUM_PARTIAL denotes L4 layer protocol need to be checksummed.
+>>
+>> So all in all, this is the right place to distinguish SCTP skb out,
+>> and skip checksum operation as hw does it thereafter.
+>>
+>
+>   How does HW compute SCTP checksum when the data is split between sk=
+b?
+> Each skb will be submitted separately to the HW.
+> I think we need to fall back to SW checksum when packer will be fragm=
+ented.
 
-> Is this a specific bug of the modem you are using or are all devices
-> powered by this driver like this?
+Hi, Vlad
 
-Unfortunately I have no IPv6 enabled SIM myself, so I have no
-information about other devices.  This report was based on user
-feedback.
+I understand your argument now, I finally applied a 82576 NIC with SCTP=
+ CHECKSUM
+supported to test this. It seems when sending this super-sized packet,
+sctp_datamsg_from_user fragments each packet to 1480 size already using=
+ pathmtu,
+this pathmtu is equal or less than the interface device mtu, which mean=
+s
+ip_fragment/ip6_fragment didn't fragments any SCTP skb.
 
-I assume the bug is specific to this firmware implementation, probably
-extending to all similar devices from the same vendor.  But it could be
-more common than that.  The fact that the bug is there indicates that
-this works just fine in Windows.
+Host A(with 82576):
+sctp_test -h 128.224.162.161 -p 5001 -H 128.224.162.220 -P 500 -x 1 -c =
+5 -s -T
+                                                                      ^=
+^^
+                                                 set each packet to 327=
+68 bytes
 
-Yes, I realize that I am in ugly-hack-to-workaround-firmware-issues lan=
-d
-again... But it sure would be nice to have some way for a driver to
-indicate that L2 neighbour tables are meaningless, but that any incomin=
-g
-requests should still be answered.
+I cannot picture any scenario where a SCTP skb with CHECK_PARTIAL set t=
+o reach
+ip_fragment/ip6_fragment. FWIW, the fix for xfrm_output part is definit=
+ely a
+valid one.
 
 
-Bj=C3=B8rn
+> -vlad
+>
+>> Q.E.D.
+>>
+>>
+>>> Looks like SCTP needs to compute the checksum in the case where
+>>> skb will be fragmented.
+>>>
+>>> An alternative, that will also allow us to get rid of patch 1
+>>> in the serices is to have a checksum handler offload function
+>>> that can be used to compute checksum in this case.
+>>>
+>>> -vlad
+>>>
+>>>> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+>>>> index 3bb2cdc..ddef94a 100644
+>>>> --- a/net/xfrm/xfrm_output.c
+>>>> +++ b/net/xfrm/xfrm_output.c
+>>>> @@ -180,6 +180,14 @@ static int xfrm_output_gso(struct sk_buff *sk=
+b)
+>>>> return 0;
+>>>> }
+>>>>
+>>>> +static int skb_is_sctp(const struct sk_buff *skb)
+>>>> +{
+>>>> + if (skb->protocol =3D=3D __constant_htons(ETH_P_IP))
+>>>> + return skb_is_sctpv4(skb);
+>>>> + else
+>>>> + return skb_is_sctpv6(skb);
+>>>> +}
+>>>> +
+>>>> int xfrm_output(struct sk_buff *skb)
+>>>> {
+>>>> struct net *net =3D dev_net(skb_dst(skb)->dev);
+>>>> @@ -189,11 +197,13 @@ int xfrm_output(struct sk_buff *skb)
+>>>> return xfrm_output_gso(skb);
+>>>>
+>>>> if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+>>>> - err =3D skb_checksum_help(skb);
+>>>> - if (err) {
+>>>> - XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTERROR);
+>>>> - kfree_skb(skb);
+>>>> - return err;
+>>>> + if (!skb_is_sctp(skb)) {
+>>>> + err =3D skb_checksum_help(skb);
+>>>> + if (err) {
+>>>> + XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTERROR);
+>>>> + kfree_skb(skb);
+>>>> + return err;
+>>>> + }
+>>>> }
+>>>> }
+>>>>
+>>>
+>>>
+>
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
