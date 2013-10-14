@@ -1,110 +1,84 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: [net-next REPOST] 8390 ei_debug : Reenable the use of debugging in 8390 based chips
-Date: Mon, 14 Oct 2013 22:46:01 -0400
-Message-ID: <1381805161-18833-1-git-send-email-tedheadster@gmail.com>
-Cc: Matthew Whitehead <tedheadster@gmail.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCHv2 RESEND] {xfrm, sctp} Stick to software crc32 even if hardware is capable of that
+Date: Mon, 14 Oct 2013 10:16:41 -0400
+Message-ID: <fed034cb-be28-488b-883f-627e8e7499b9@email.android.com>
+References: <1381735658-15478-1-git-send-email-fan.du@windriver.com> <525BA63A.7040708@redhat.com> <525BAC6A.8000004@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nhorman@tuxdriver.com, steffen.klassert@secunet.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:58942 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755154Ab3JOCqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 22:46:08 -0400
-Received: by mail-qa0-f42.google.com with SMTP id w8so2978454qac.8
-        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 19:46:07 -0700 (PDT)
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:34166 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755820Ab3JODBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 23:01:17 -0400
+Received: by mail-qa0-f51.google.com with SMTP id ii20so2916316qab.3
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 20:01:16 -0700 (PDT)
+In-Reply-To: <525BAC6A.8000004@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ethernet boards based on the 8390 chip had an '#ifdef notdef' disabling the
-use of the debug variable ei_debug. Reenable it for those of us who still
-occasionally use it.
 
-Also handle the case of the 'ne' driver which uses 8390p.o rather than
-8390.o. In that case ei_debug is aliased to eip_debug so it doesn't clash
-with the previously exported ei_debug.
 
-Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
----
- drivers/net/ethernet/8390/8390.h     |    5 ++++-
- drivers/net/ethernet/8390/8390p.c    |    1 +
- drivers/net/ethernet/8390/axnet_cs.c |    5 -----
- drivers/net/ethernet/8390/lib8390.c  |    8 ++++++--
- drivers/net/ethernet/8390/ne.c       |    1 +
- 5 files changed, 12 insertions(+), 8 deletions(-)
+=46an Du <fan.du@windriver.com> wrote:
 
-diff --git a/drivers/net/ethernet/8390/8390.h b/drivers/net/ethernet/8390/8390.h
-index 2923c51..e6c547d 100644
---- a/drivers/net/ethernet/8390/8390.h
-+++ b/drivers/net/ethernet/8390/8390.h
-@@ -21,7 +21,10 @@ struct e8390_pkt_hdr {
-   unsigned short count; /* header + packet length in bytes */
- };
- 
--#ifdef notdef
-+#if (defined EI_DEBUG && defined EIP_DEBUG)
-+#define ei_debug eip_debug
-+extern int eip_debug;
-+#elif (defined EI_DEBUG && ! defined EIP_DEBUG)
- extern int ei_debug;
- #else
- #define ei_debug 1
-diff --git a/drivers/net/ethernet/8390/8390p.c b/drivers/net/ethernet/8390/8390p.c
-index e8fc2e8..0a27dea 100644
---- a/drivers/net/ethernet/8390/8390p.c
-+++ b/drivers/net/ethernet/8390/8390p.c
-@@ -7,6 +7,7 @@ static const char version[] =
- #define ei_outb(_v, _p)	outb(_v, _p)
- #define ei_inb_p(_p)	inb_p(_p)
- #define ei_outb_p(_v, _p) outb_p(_v, _p)
-+#define EIP_DEBUG 1
- 
- #include "lib8390.c"
- 
-diff --git a/drivers/net/ethernet/8390/axnet_cs.c b/drivers/net/ethernet/8390/axnet_cs.c
-index d801c141..581560c 100644
---- a/drivers/net/ethernet/8390/axnet_cs.c
-+++ b/drivers/net/ethernet/8390/axnet_cs.c
-@@ -810,11 +810,6 @@ module_pcmcia_driver(axnet_cs_driver);
- #define ei_block_input (ei_local->block_input)
- #define ei_get_8390_hdr (ei_local->get_8390_hdr)
- 
--/* use 0 for production, 1 for verification, >2 for debug */
--#ifndef ei_debug
--int ei_debug = 1;
--#endif
--
- /* Index to functions. */
- static void ei_tx_intr(struct net_device *dev);
- static void ei_tx_err(struct net_device *dev);
-diff --git a/drivers/net/ethernet/8390/lib8390.c b/drivers/net/ethernet/8390/lib8390.c
-index b329f5c..889d1fd 100644
---- a/drivers/net/ethernet/8390/lib8390.c
-+++ b/drivers/net/ethernet/8390/lib8390.c
-@@ -100,8 +100,12 @@
- #define ei_get_8390_hdr (ei_local->get_8390_hdr)
- 
- /* use 0 for production, 1 for verification, >2 for debug */
--#ifndef ei_debug
--int ei_debug = 1;
-+#if (defined EI_DEBUG && defined EIP_DEBUG)
-+int eip_debug = EI_DEBUG;
-+EXPORT_SYMBOL(eip_debug);
-+#elif (defined EI_DEBUG && ! defined EIP_DEBUG)
-+int ei_debug = EI_DEBUG;
-+EXPORT_SYMBOL(ei_debug);
- #endif
- 
- /* Index to functions. */
-diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
-index b2e8405..4136b31 100644
---- a/drivers/net/ethernet/8390/ne.c
-+++ b/drivers/net/ethernet/8390/ne.c
-@@ -54,6 +54,7 @@ static const char version2[] =
- #include <linux/platform_device.h>
- 
- #include <asm/io.h>
-+#define EIP_DEBUG 1
- 
- #include "8390.h"
- 
--- 
-1.7.2.5
+>
+>
+>On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 16:07, Daniel Borkmann wrote:
+>> On 10/14/2013 09:27 AM, Fan Du wrote:
+>>> igb/ixgbe have hardware sctp checksum support, when this feature is
+>enabled
+>>> and also IPsec is armed to protect sctp traffic, ugly things
+>happened as
+>>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum
+>every thing
+>>> up and pack the 16bits result in the checksum field). The result is
+>fail
+>>> establishment of sctp communication.
+>>>
+>>> Signed-off-by: Fan Du <fan.du@windriver.com>
+>>> Cc: Vlad Yasevich <vyasevich@gmail.com>
+>>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>>> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+>>> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+>>> ---
+>>>   net/sctp/output.c |   14 +++++++++++++-
+>>>   1 file changed, 13 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/sctp/output.c b/net/sctp/output.c
+>>> index 0ac3a65..6de6402 100644
+>>> --- a/net/sctp/output.c
+>>> +++ b/net/sctp/output.c
+>>> @@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct
+>sk_buff *skb, struct sock *sk)
+>>>       atomic_inc(&sk->sk_wmem_alloc);
+>>>   }
+>>>
+>>> +static int is_xfrm_armed(struct dst_entry *dst)
+>>> +{
+>>> +#ifdef CONFIG_XFRM
+>>> +    /* If dst->xfrm is valid, this skb needs to be transformed */
+>>> +    return dst->xfrm !=3D NULL;
+>>> +#else
+>>> +    return 0;
+>>> +#endif
+>>> +}
+>>
+>> Instead of putting this into SCTP code, isn't the above rather a
+>candidate for
+>> include/net/xfrm.h, e.g. as ... bool xfrm_is_armed(...) ?
+>
+>Should be in such style in terms of its name, but this is truly SCTP
+>specific in this scenario.
+>No one elsewhere barely need this as far as I can tell...
+
+It almost begs for dst_xfrm() function that returns NULL or dst->xfrm.
+Thar can live in dst code.
+
+-vlad
+
+--=20
+Sent from my Android phone with K-9 Mail. Please excuse my brevity.
