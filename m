@@ -1,49 +1,48 @@
-From: Aaro Koskinen <aaro.koskinen@iki.fi>
-Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
- is not set
-Date: Mon, 14 Oct 2013 22:49:37 +0300
-Message-ID: <20131014194937.GD4260@blackmetal.musicnaut.iki.fi>
-References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
- <20131013212810.GA15167@kroah.com>
- <20131014101051.GH6192@mwanda>
- <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
- <20131014191541.GA11797@mwanda>
+From: Tino Reichardt <list-linux-netdev@mcmilk.de>
+Subject: Re: [PATCH 01/07] 8139too: Support for byte queue limits
+Date: Mon, 14 Oct 2013 21:52:01 +0200
+Message-ID: <20131014195201.GD23070@mcmilk.de>
+References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
+ <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
+ <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: support@caviumnetworks.com, David Daney <david.daney@cavium.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	driverdev-devel@linuxdriverproject.org,
-	Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>,
-	netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from filtteri5.pp.htv.fi ([213.243.153.188]:32951 "EHLO
-	filtteri5.pp.htv.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757151Ab3JNTtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 15:49:46 -0400
+Received: from lotte.svc-box.de ([80.252.109.10]:39547 "EHLO lotte.svc-box.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751070Ab3JNTwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 15:52:05 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by lotte.svc-box.de (Postfix) with ESMTP id 73993148018F
+	for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 21:52:03 +0200 (CEST)
+Received: from lotte.svc-box.de ([127.0.0.1])
+	by localhost (lotte.svc-box.de [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id gwAOlWdgcVjO for <netdev@vger.kernel.org>;
+	Mon, 14 Oct 2013 21:52:01 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <20131014191541.GA11797@mwanda>
+In-Reply-To: <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 10:16:49PM +0300, Dan Carpenter wrote:
-> On Mon, Oct 14, 2013 at 09:39:06PM +0300, Aaro Koskinen wrote:
-> > It's initialized in cvm_oct_phy_setup_device():
+* Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2013-10-14 at 20:26 +0200, Tino Reichardt wrote:
+> > Changes to 8139too to use byte queue limits.
 > > 
-> > 	priv->phydev = of_phy_connect(dev, phy_node, cvm_oct_adjust_link, 0,
->       ^^^^^^^^^^^^                                 ^^^^^^^^^^^^^^^^^^^
+> > @@ -1733,6 +1735,7 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
+> >  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
+> >  
+> >  	tp->cur_tx++;
+> > +	netdev_sent_queue(dev, len);
+> >  
 > 
-> Sorry I should have explained better.
-> 
-> We use cvm_oct_adjust_link() to initialize priv->phydev but
-> cvm_oct_adjust_link() depends on priv->phydev.  It seems like we would
-> hit the NULL dereference every time.  Weird huh?
+> This looks wrong if len < ETH_ZLEN
 
-It doesn't happen on my system (EdgeRouter Lite). I think you need to
-explain even more better. :-)
+Fixed this (really stupid) issue, updated patch is located here:
+ http://www.mcmilk.de/projects/linux-bql/dl/0001-8139too-Support-for-byte-queue-limits.patch
 
-What you mean by "We use cvm_oct_adjust_link() to initialize
-priv->phydev..."? Sorry, maybe I'm just missing something really
-obvious...
 
-A.
+The netif_dbg() statement will now also print the correct queued length.
+
+-- 
+Best regards, TR
