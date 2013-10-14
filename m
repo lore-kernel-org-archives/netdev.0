@@ -1,42 +1,65 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Subject: Re: [PATCH] net/ethernet: cpsw: Bugfix interrupts before enabling napi
-Date: Mon, 14 Oct 2013 13:48:29 +0200
-Message-ID: <8738o4rs36.fsf@dell.be.48ers.dk>
-References: <1381691821-25498-1-git-send-email-mpa@pengutronix.de>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v4 2/5] xen-netback: add support
+ for IPv6 checksum offload from guest
+Date: Mon, 14 Oct 2013 13:19:20 +0100
+Message-ID: <525BE148.1010508@citrix.com>
+References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>	<1381503982-1418-3-git-send-email-paul.durrant@citrix.com>	<20131014104235.GB11739@zion.uk.xensource.com>	<9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net> <20131014105527.GD11739@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: Markus Pargmann <mpa@pengutronix.de>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Durrant <Paul.Durrant@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37883 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab3JNLsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 07:48:32 -0400
-Received: by mail-wi0-f179.google.com with SMTP id hm4so1700756wib.6
-        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 04:48:31 -0700 (PDT)
-In-Reply-To: <1381691821-25498-1-git-send-email-mpa@pengutronix.de> (Markus
-	Pargmann's message of "Sun, 13 Oct 2013 21:17:01 +0200")
+Received: from smtp.citrix.com ([66.165.176.89]:45155 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756342Ab3JNMTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 08:19:23 -0400
+In-Reply-To: <20131014105527.GD11739@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Markus" == Markus Pargmann <mpa@pengutronix.de> writes:
+On 14/10/13 11:55, Wei Liu wrote:
+> On Mon, Oct 14, 2013 at 11:49:20AM +0100, Paul Durrant wrote:
+>>> -----Original Message-----
+>>> From: Wei Liu [mailto:wei.liu2@citrix.com]
+>>> Sent: 14 October 2013 11:43
+>>> To: Paul Durrant
+>>> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
+>>> Ian Campbell
+>>> Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
+>>> checksum offload from guest
+>>>
+>>> On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
+>>> [...]
+>>>> -/*
+>>>> - * This is the amount of packet we copy rather than map, so that the
+>>>> - * guest can't fiddle with the contents of the headers while we do
+>>>> - * packet processing on them (netfilter, routing, etc).
+>>>> +/* This is a miniumum size for the linear area to avoid lots of
+>>>> + * calls to __pskb_pull_tail() as we set up checksum offsets.
+>>>>   */
+>>>
+>>> You seem to forget to explain why 128 is chosen. :-)
+>>
+>> Is that not sufficient explanation? What sort of thing are you looking for?
+>>
+> 
+>>From the second version of this patch, we had a conversation.
+> 
+>> Where does 128 come from?
+>>
+> 
+> "It's just an arbitrary power of 2 that was chosen because it seems to
+> cover most likely v6 headers and all v4 headers."
+> 
+> So something like: "We choose 128 which is likely to cover most V6
+> headers and all V4 headers" would be sufficeint.
 
- Markus> If interrupts happen before napi_enable was called, the driver will not
- Markus> work as expected. Network transmissions are impossible in this state.
- Markus> This bug can be reproduced easily by restarting the network interface in
- Markus> a loop. After some time any network transmissions on the network
- Markus> interface will fail.
+Is "most IPv6 headers" actually good enough?  Don't we need to ensure
+netback copies all IP headers?
 
- Markus> This patch fixes the bug by enabling napi before enabling the network
- Markus> interface interrupts.
-
- Markus> Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
-
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-
--- 
-Bye, Peter Korsgaard
+David
