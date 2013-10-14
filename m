@@ -1,64 +1,75 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
- is not set
-Date: Sun, 13 Oct 2013 14:28:10 -0700
-Message-ID: <20131013212810.GA15167@kroah.com>
-References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] ipv6: always join solicited-node address
+Date: Mon, 14 Oct 2013 02:55:08 +0200
+Message-ID: <20131014005508.GE14021@order.stressinduktion.org>
+References: <1381685064-24805-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: support@caviumnetworks.com, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org
-To: Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?utf-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:60483 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755399Ab3JNAzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Oct 2013 20:55:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1381685064-24805-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
-> A zero pointer deref on priv->phydev->link was causing oops on our system=
-s.
-> Might be related to improper configuration but we should fail gracefully =
-here ;-)
-> =
-
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
-> =
-
+On Sun, Oct 13, 2013 at 07:24:24PM +0200, Bj=C3=B8rn Mork wrote:
+> RFC 4861 section 7.2.1 "Interface Initialization" says:
+>=20
+>    When a multicast-capable interface becomes enabled, the node MUST
+>    join the all-nodes multicast address on that interface, as well as
+>    the solicited-node multicast address corresponding to each of the =
+IP
+>    addresses assigned to the interface.
+>=20
+> The current dependency on IFF_NOARP seems unwarranted. We need to
+> listen on the solicited-node address whether or not we intend to
+> initiate Neigbour Discovery ourselves.
+>=20
+> This fixes a bug where Linux fails to respond to received Neigbour
+> Solicitations on multicast capable links when IFF_NOARP is set.
+>=20
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 > ---
-> =
+> I am not at all sure about this... Comments are appreciated.
+>=20
+> The observed problem is a MBIM mobile broadband modem sending NS
+> to the host.  MBIM is a point-to-point USB protocol which does not
+> have any L2 headers at all.  It can only transport IPv4 or IPv6
+> packets.  So for IPv4 there is no question at all:  ARP just
+> cannot be transported. The driver emulates an ethernet interface,
+> setting IFF_NOARP to make sure the upper layers doesn't attempt
+> to resolve the neighbours non-existing L2 addresses.
+>=20
+> But then there is this modem which sends IPv6 Neigbour
+> Solicitations to the host over the MBIM transport. The link
+> layer addresses are meaningless, but it seems the modem still
+> expects an answer.  Which we will not currently provide, because
+> the NS is addressed to a solicited-node address we don't listen
+> to.
+>=20
+> So this patch seems like a quick-fix to that problem.  But it does
+> change the semantics of IFF_NOARP, making us reply to NS even if
+> this flag is set.  Which probably is wrong?
 
-> diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/oct=
-eon/ethernet-mdio.c
-> index 83b1030..bc8c503 100644
-> --- a/drivers/staging/octeon/ethernet-mdio.c
-> +++ b/drivers/staging/octeon/ethernet-mdio.c
-> @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device *de=
-v)
->         struct octeon_ethernet *priv =3D netdev_priv(dev);
->         cvmx_helper_link_info_t link_info;
->  =
+IFF_NOARP seems to be a bit messed up in ipv6. Your patch seems fine to
+me but I would add protection to the ndisc_rcv and sending routines to
+do nothing if IFF_NOARP is set for that interface.
 
-> +       if(!priv->phydev)
-> +               return ;
+So it would be possible that you could resolve this issue by just issui=
+ng
+an "ip link set arp on dev <interface>" and won't have hassle with raci=
+ng
+interface initialization.
 
-Please always run your patches through the scripts/checkpatch.pl tool so
-that maintainers don't have to point out the obvious coding syle errors
-by hand each time :)
+Is this a specific bug of the modem you are using or are all devices
+powered by this driver like this?
 
-Care to try again?
+Greetings,
 
-Also, how was phydev NULL?  What was causing that?
-
-thanks,
-
-greg k-h
+  Hannes
