@@ -1,7 +1,7 @@
 From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH RFC 4/5] net: macb: Use devm_request_irq()
-Date: Mon, 14 Oct 2013 16:58:59 -0700
-Message-ID: <1381795140-10792-5-git-send-email-soren.brinkmann@xilinx.com>
+Subject: [PATCH RFC 2/5] net: macb: Migrate to devm clock interface
+Date: Mon, 14 Oct 2013 16:58:57 -0700
+Message-ID: <1381795140-10792-3-git-send-email-soren.brinkmann@xilinx.com>
 References: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Michal Simek <michal.simek@xilinx.com>,
@@ -12,53 +12,78 @@ In-Reply-To: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the device managed interface to request the IRQ, simplifying error
-paths.
+Migrate to using the device managed intreface for clocks and clean up
+the associated error paths.
 
 Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 436aecc31732..603844b1d483 100644
+index 389ccf1362d5..62aa136889a4 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1825,7 +1825,8 @@ static int __init macb_probe(struct platform_device *pdev)
+@@ -1790,19 +1790,31 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	spin_lock_init(&bp->lock);
+ 	INIT_WORK(&bp->tx_error_task, macb_tx_error_task);
+ 
+-	bp->pclk = clk_get(&pdev->dev, "pclk");
++	bp->pclk = devm_clk_get(&pdev->dev, "pclk");
+ 	if (IS_ERR(bp->pclk)) {
+-		dev_err(&pdev->dev, "failed to get macb_clk\n");
++		err = PTR_ERR(bp->pclk);
++		dev_err(&pdev->dev, "failed to get macb_clk (%u)\n", err);
+ 		goto err_out_free_dev;
  	}
+-	clk_prepare_enable(bp->pclk);
  
- 	dev->irq = platform_get_irq(pdev, 0);
--	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
-+	err = devm_request_irq(&pdev->dev, dev->irq, macb_interrupt, 0,
-+			dev->name, dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
- 			dev->irq, err);
-@@ -1892,7 +1893,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
--		goto err_out_free_irq;
-+		goto err_out_disable_clocks;
+-	bp->hclk = clk_get(&pdev->dev, "hclk");
++	bp->hclk = devm_clk_get(&pdev->dev, "hclk");
+ 	if (IS_ERR(bp->hclk)) {
+-		dev_err(&pdev->dev, "failed to get hclk\n");
+-		goto err_out_put_pclk;
++		err = PTR_ERR(bp->hclk);
++		dev_err(&pdev->dev, "failed to get hclk (%u)\n", err);
++		goto err_out_free_dev;
++	}
++
++	err = clk_prepare_enable(bp->pclk);
++	if (err) {
++		dev_err(&pdev->dev, "failed to enable pclk (%u)\n", err);
++		goto err_out_free_dev;
++	}
++
++	err = clk_prepare_enable(bp->hclk);
++	if (err) {
++		dev_err(&pdev->dev, "failed to enable hclk (%u)\n", err);
++		goto err_out_disable_pclk;
  	}
+-	clk_prepare_enable(bp->hclk);
  
- 	err = macb_mii_init(bp);
-@@ -1915,8 +1916,6 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- err_out_unregister_netdev:
- 	unregister_netdev(dev);
--err_out_free_irq:
--	free_irq(dev->irq, dev);
+ 	bp->regs = ioremap(regs->start, resource_size(regs));
+ 	if (!bp->regs) {
+@@ -1908,10 +1920,8 @@ err_out_iounmap:
+ 	iounmap(bp->regs);
  err_out_disable_clocks:
  	clk_disable_unprepare(bp->hclk);
- err_out_disable_pclk:
-@@ -1942,7 +1941,6 @@ static int __exit macb_remove(struct platform_device *pdev)
- 		kfree(bp->mii_bus->irq);
- 		mdiobus_free(bp->mii_bus);
- 		unregister_netdev(dev);
--		free_irq(dev->irq, dev);
+-	clk_put(bp->hclk);
++err_out_disable_pclk:
+ 	clk_disable_unprepare(bp->pclk);
+-err_out_put_pclk:
+-	clk_put(bp->pclk);
+ err_out_free_dev:
+ 	free_netdev(dev);
+ err_out:
+@@ -1936,9 +1946,7 @@ static int __exit macb_remove(struct platform_device *pdev)
+ 		free_irq(dev->irq, dev);
+ 		iounmap(bp->regs);
  		clk_disable_unprepare(bp->hclk);
+-		clk_put(bp->hclk);
  		clk_disable_unprepare(bp->pclk);
+-		clk_put(bp->pclk);
  		free_netdev(dev);
+ 	}
+ 
 -- 
 1.8.4
