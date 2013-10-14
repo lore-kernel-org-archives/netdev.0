@@ -1,78 +1,59 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 RESEND] {xfrm, sctp} Stick to software crc32 even if
- hardware is capable of that
-Date: Mon, 14 Oct 2013 16:33:46 +0800
-Message-ID: <525BAC6A.8000004@windriver.com>
-References: <1381735658-15478-1-git-send-email-fan.du@windriver.com> <525BA63A.7040708@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net 2/2] virtio-net: refill only when device is up during
+	setting queues
+Date: Mon, 14 Oct 2013 17:56:35 +0800
+Message-ID: <1381744595-26881-2-git-send-email-jasowang@redhat.com>
+References: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62828 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753874Ab3JNIfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 04:35:30 -0400
-In-Reply-To: <525BA63A.7040708@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+We used to schedule the refill work unconditionally after changing the
+number of queues. This may lead an issue if the device is not
+up. Since we only try to cancel the work in ndo_stop(), this may cause
+the refill work still work after removing the device. Fix this by only
+schedule the work when device is up.
 
+The bug were introduce by commit 9b9cd8024a2882e896c65222aa421d461354e3f2.
+(virtio-net: fix the race between channels setting and refill)
 
-On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 16:07, Daniel Borkmann wrote:
-> On 10/14/2013 09:27 AM, Fan Du wrote:
->> igb/ixgbe have hardware sctp checksum support, when this feature is =
-enabled
->> and also IPsec is armed to protect sctp traffic, ugly things happene=
-d as
->> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum ev=
-ery thing
->> up and pack the 16bits result in the checksum field). The result is =
-fail
->> establishment of sctp communication.
->>
->> Signed-off-by: Fan Du <fan.du@windriver.com>
->> Cc: Vlad Yasevich <vyasevich@gmail.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Steffen Klassert <steffen.klassert@secunet.com>
->> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
->> ---
->>   net/sctp/output.c |   14 +++++++++++++-
->>   1 file changed, 13 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/sctp/output.c b/net/sctp/output.c
->> index 0ac3a65..6de6402 100644
->> --- a/net/sctp/output.c
->> +++ b/net/sctp/output.c
->> @@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct sk_b=
-uff *skb, struct sock *sk)
->>       atomic_inc(&sk->sk_wmem_alloc);
->>   }
->>
->> +static int is_xfrm_armed(struct dst_entry *dst)
->> +{
->> +#ifdef CONFIG_XFRM
->> +    /* If dst->xfrm is valid, this skb needs to be transformed */
->> +    return dst->xfrm !=3D NULL;
->> +#else
->> +    return 0;
->> +#endif
->> +}
->
-> Instead of putting this into SCTP code, isn't the above rather a cand=
-idate for
-> include/net/xfrm.h, e.g. as ... bool xfrm_is_armed(...) ?
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+The patch were need for 3.10 and above.
+---
+ drivers/net/virtio_net.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Should be in such style in terms of its name, but this is truly SCTP sp=
-ecific in this scenario.
-No one elsewhere barely need this as far as I can tell...
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index c4bc1cc..92f0096 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -938,7 +938,9 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+ 		return -EINVAL;
+ 	} else {
+ 		vi->curr_queue_pairs = queue_pairs;
+-		schedule_delayed_work(&vi->refill, 0);
++		/* virtnet_open() will refill when device is going to up. */
++		if (dev->flags & IFF_UP)
++			schedule_delayed_work(&vi->refill, 0);
+ 	}
+ 
+ 	return 0;
+-- 
+1.8.1.2
