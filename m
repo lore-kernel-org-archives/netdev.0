@@ -1,68 +1,79 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] ipv6: always join solicited-node address
-Date: Mon, 14 Oct 2013 17:56:10 +0200
-Message-ID: <20131014155610.GA20327@order.stressinduktion.org>
-References: <1381685064-24805-1-git-send-email-bjorn@mork.no> <20131014005508.GE14021@order.stressinduktion.org> <87fvs4s4zc.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?utf-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
+Date: Mon, 14 Oct 2013 18:03:34 +0200 (CEST)
+Message-ID: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33539 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814Ab3JNP4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 11:56:11 -0400
-Content-Disposition: inline
-In-Reply-To: <87fvs4s4zc.fsf@nemi.mork.no>
+Received: from cantor2.suse.de ([195.135.220.15]:34638 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750906Ab3JNQDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 12:03:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 09:09:59AM +0200, Bj=C3=B8rn Mork wrote:
-> Yes, but that would also make the IP layer try to resolve IP to link
-> layer addressess both for IPv4 and IPv6, which just won't work. At le=
-ast
-> not for IPv4, where there just is no way to transport an ARP to the
-> modem.  And I assume it may fail for IPv6 too on any sane device.
+In ipcomp_compress(), sortirq is enabled too early, allowing the
+per-cpu scratch buffer to be rewritten by ipcomp_decompress()
+(called on the same CPU in softirq context) between populating
+the buffer and copying the compressed data to the skb.
 
-I don't think that clearing the IFF_NOARP flag would kill connectivity
-for either IPv4 or IPv6. It may compromise security for IPv6 though
-(no idea how the telco network behind the modem looks like).
+Add similar protection into ipcomp_decompress() as it can be
+called from process context as well (even if such scenario seems
+a bit artificial).
 
-> > Is this a specific bug of the modem you are using or are all device=
-s
-> > powered by this driver like this?
->=20
-> Unfortunately I have no IPv6 enabled SIM myself, so I have no
-> information about other devices.  This report was based on user
-> feedback.
->=20
-> I assume the bug is specific to this firmware implementation, probabl=
-y
-> extending to all similar devices from the same vendor.  But it could =
-be
-> more common than that.  The fact that the bug is there indicates that
-> this works just fine in Windows.
->=20
-> Yes, I realize that I am in ugly-hack-to-workaround-firmware-issues l=
-and
-> again... But it sure would be nice to have some way for a driver to
-> indicate that L2 neighbour tables are meaningless, but that any incom=
-ing
-> requests should still be answered.
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/xfrm/xfrm_ipcomp.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-L2 neighbour tables are resolved on demand and won't be queried for the
-link you are talking about (at least for IPv6, but I assume IPv4, too).
-
-A new flag should have clear semantics then:
-
-* split IFF_NOARP to IFF_NOARP and IFF_NONDISC
-* split IFF_NOARP to IFF_NOLLRESOLV_RESPONSE and IFF_NOLLRESOLV_MODIFY
-  (each one flag which is applicable for both IPv4 and IPv6)
-
-I tend to lean towards the last alternative but still wonder if this is
-just overhead for this one buggy device.
-
-Greetings,
-
-  Hannes
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index 2906d52..96946fb 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+ 	const int cpu = get_cpu();
+ 	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+ 	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+-	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
++	int err;
+ 	int len;
+ 
++	local_bh_disable();
++	err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+ 	if (err)
+ 		goto out;
+ 
+@@ -103,6 +105,7 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+ 	err = 0;
+ 
+ out:
++	local_bh_enable();
+ 	put_cpu();
+ 	return err;
+ }
+@@ -148,7 +151,6 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	local_bh_disable();
+ 	err = crypto_comp_compress(tfm, start, plen, scratch, &dlen);
+-	local_bh_enable();
+ 	if (err)
+ 		goto out;
+ 
+@@ -158,12 +160,14 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
+ 
+ 	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
++	local_bh_enable();
+ 	put_cpu();
+ 
+ 	pskb_trim(skb, dlen + sizeof(struct ip_comp_hdr));
+ 	return 0;
+ 
+ out:
++	local_bh_enable();
+ 	put_cpu();
+ 	return err;
+ }
+-- 
+1.8.1.4
