@@ -1,85 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 01/07] 8139too: Support for byte queue limits
-Date: Mon, 14 Oct 2013 12:11:31 -0700
-Message-ID: <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
-	 <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
+ is not set
+Date: Mon, 14 Oct 2013 22:16:49 +0300
+Message-ID: <20131014191541.GA11797@mwanda>
+References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+ <20131013212810.GA15167@kroah.com> <20131014101051.GH6192@mwanda>
+ <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Tino Reichardt <milky-kernel@mcmilk.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:60460 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884Ab3JNTLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 15:11:33 -0400
-Received: by mail-pd0-f175.google.com with SMTP id q10so7793758pdj.34
-        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 12:11:32 -0700 (PDT)
-In-Reply-To: <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: support@caviumnetworks.com, David Daney <david.daney@cavium.com>,
+ Greg KH <gregkh@linuxfoundation.org>, driverdev-devel@linuxdriverproject.org,
+ Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>,
+ netdev@vger.kernel.org
+To: Aaro Koskinen <aaro.koskinen@iki.fi>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-10-14 at 20:26 +0200, Tino Reichardt wrote:
-> Changes to 8139too to use byte queue limits.
-> 
-> This patch was not tested on real hardware currently, but compiles fine and
-> should work.
-> 
-> 
-> Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
-> 
-> ---
->  drivers/net/ethernet/realtek/8139too.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-> index 3ccedeb..992ac57 100644
-> --- a/drivers/net/ethernet/realtek/8139too.c
-> +++ b/drivers/net/ethernet/realtek/8139too.c
-> @@ -1409,6 +1409,7 @@ static void rtl8139_hw_start (struct net_device *dev)
->  	}
->  
->  	netdev_dbg(dev, "init buffer addresses\n");
-> +	netdev_reset_queue(dev);
->  
->  	/* Lock Config[01234] and BMCR register writes */
->  	RTL_W8 (Cfg9346, Cfg9346_Lock);
-> @@ -1638,6 +1639,7 @@ static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
->  {
->  	tp->cur_tx = 0;
->  	tp->dirty_tx = 0;
-> +	netdev_reset_queue(tp->dev);
->  
->  	/* XXX account for unsent Tx packets in tp->stats.tx_dropped */
->  }
-> @@ -1733,6 +1735,7 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
->  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
->  
->  	tp->cur_tx++;
-> +	netdev_sent_queue(dev, len);
->  
+On Mon, Oct 14, 2013 at 09:39:06PM +0300, Aaro Koskinen wrote:
+> Hi,
+> =
 
-This looks wrong if len < ETH_ZLEN
+> On Mon, Oct 14, 2013 at 01:10:51PM +0300, Dan Carpenter wrote:
+> > On Sun, Oct 13, 2013 at 02:28:10PM -0700, Greg KH wrote:
+> > > On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
+> > > > A zero pointer deref on priv->phydev->link was causing oops on our =
+systems.
+> > > > Might be related to improper configuration but we should fail grace=
+fully here ;-)
+> > > > =
 
->  	if ((tp->cur_tx - NUM_TX_DESC) == tp->dirty_tx)
->  		netif_stop_queue (dev);
-> @@ -1750,6 +1753,7 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
->  				  void __iomem *ioaddr)
->  {
->  	unsigned long dirty_tx, tx_left;
-> +	unsigned bytes_compl = 0, pkts_compl = 0;
->  
->  	assert (dev != NULL);
->  	assert (ioaddr != NULL);
-> @@ -1792,6 +1796,8 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
->  			u64_stats_update_begin(&tp->tx_stats.syncp);
->  			tp->tx_stats.packets++;
->  			tp->tx_stats.bytes += txstatus & 0x7ff;
-> +			pkts_compl++;
-> +			bytes_compl += txstatus & 0x7ff;
+> > > > Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
+> > > > =
 
-Because here len reported by NIC will be >= ETH_ZLEN
+> > > > ---
+> > > > =
+
+> > > > diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/stagi=
+ng/octeon/ethernet-mdio.c
+> > > > index 83b1030..bc8c503 100644
+> > > > --- a/drivers/staging/octeon/ethernet-mdio.c
+> > > > +++ b/drivers/staging/octeon/ethernet-mdio.c
+> > > > @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_devi=
+ce *dev)
+> > > >         struct octeon_ethernet *priv =3D netdev_priv(dev);
+> > > >         cvmx_helper_link_info_t link_info;
+> > > >  =
+
+> > > > +       if(!priv->phydev)
+> > > > +               return ;
+> > > =
+
+> > > Please always run your patches through the scripts/checkpatch.pl tool=
+ so
+> > > that maintainers don't have to point out the obvious coding syle erro=
+rs
+> > > by hand each time :)
+> > =
+
+> > Also it's whitespace damaged and doesn't apply.
+> > =
+
+> > > =
+
+> > > Care to try again?
+> > > =
+
+> > > Also, how was phydev NULL?  What was causing that?
+> > =
+
+> > To me it looks like phydev is always NULL.
+> =
+
+> It's initialized in cvm_oct_phy_setup_device():
+> =
+
+> 	priv->phydev =3D of_phy_connect(dev, phy_node, cvm_oct_adjust_link, 0,
+        ^^^^^^^^^^^^                                 ^^^^^^^^^^^^^^^^^^^
+
+Sorry I should have explained better.
+
+We use cvm_oct_adjust_link() to initialize priv->phydev but
+cvm_oct_adjust_link() depends on priv->phydev.  It seems like we would
+hit the NULL dereference every time.  Weird huh?
+
+regards,
+dan carpenter
