@@ -1,64 +1,53 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
- checksum offload from guest
-Date: Mon, 14 Oct 2013 11:55:27 +0100
-Message-ID: <20131014105527.GD11739@zion.uk.xensource.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next v4 3/5] xen-netback: Unconditionally set
+ NETIF_F_RXCSUM
+Date: Mon, 14 Oct 2013 11:56:16 +0100
+Message-ID: <1381748176.24708.103.camel@kazak.uk.xensource.com>
 References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
- <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
- <20131014104235.GB11739@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
+	 <1381503982-1418-4-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:42645 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756044Ab3JNKz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 06:55:28 -0400
-Content-Disposition: inline
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
+Received: from smtp.citrix.com ([66.165.176.89]:56872 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755867Ab3JNK4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 06:56:19 -0400
+In-Reply-To: <1381503982-1418-4-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 11:49:20AM +0100, Paul Durrant wrote:
-> > -----Original Message-----
-> > From: Wei Liu [mailto:wei.liu2@citrix.com]
-> > Sent: 14 October 2013 11:43
-> > To: Paul Durrant
-> > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
-> > Ian Campbell
-> > Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
-> > checksum offload from guest
-> > 
-> > On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
-> > [...]
-> > > -/*
-> > > - * This is the amount of packet we copy rather than map, so that the
-> > > - * guest can't fiddle with the contents of the headers while we do
-> > > - * packet processing on them (netfilter, routing, etc).
-> > > +/* This is a miniumum size for the linear area to avoid lots of
-> > > + * calls to __pskb_pull_tail() as we set up checksum offsets.
-> > >   */
-> > 
-> > You seem to forget to explain why 128 is chosen. :-)
+On Fri, 2013-10-11 at 16:06 +0100, Paul Durrant wrote:
+> There is no mechanism to insist that a guest always generates a packet
+> with good checksum (at least for IPv4)
+
+Isn't this what feature-no-csum-offload is?
+
+>  so we must handle checksum
+> offloading from the guest and hence should set NETIF_F_RXCSUM.
 > 
-> Is that not sufficient explanation? What sort of thing are you looking for?
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> ---
+>  drivers/net/xen-netback/interface.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-
->From the second version of this patch, we had a conversation.
-
-> Where does 128 come from?
->
-
-"It's just an arbitrary power of 2 that was chosen because it seems to
-cover most likely v6 headers and all v4 headers."
-
-So something like: "We choose 128 which is likely to cover most V6
-headers and all V4 headers" would be sufficeint.
-
-Wei.
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 8e92783..cb0d8ea 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -321,7 +321,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>  	dev->hw_features = NETIF_F_SG |
+>  		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>  		NETIF_F_TSO;
+> -	dev->features = dev->hw_features;
+> +	dev->features = dev->hw_features | NETIF_F_RXCSUM;
+>  	SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
+>  
+>  	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
