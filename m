@@ -1,74 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
- is not set
-Date: Mon, 14 Oct 2013 13:10:51 +0300
-Message-ID: <20131014101051.GH6192@mwanda>
-References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
- <20131013212810.GA15167@kroah.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
+ checksum offload from guest
+Date: Mon, 14 Oct 2013 11:42:35 +0100
+Message-ID: <20131014104235.GB11739@zion.uk.xensource.com>
+References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
+ <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: support@caviumnetworks.com, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org,
- Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:30153 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755951Ab3JNKq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 06:46:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20131013212810.GA15167@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 13, 2013 at 02:28:10PM -0700, Greg KH wrote:
-> On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
-> > A zero pointer deref on priv->phydev->link was causing oops on our syst=
-ems.
-> > Might be related to improper configuration but we should fail gracefull=
-y here ;-)
-> > =
+On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
+[...]
+> -/*
+> - * This is the amount of packet we copy rather than map, so that the
+> - * guest can't fiddle with the contents of the headers while we do
+> - * packet processing on them (netfilter, routing, etc).
+> +/* This is a miniumum size for the linear area to avoid lots of
+> + * calls to __pskb_pull_tail() as we set up checksum offsets.
+>   */
 
-> > Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
-> > =
+You seem to forget to explain why 128 is chosen. :-)
 
-> > ---
-> > =
-
-> > diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/o=
-cteon/ethernet-mdio.c
-> > index 83b1030..bc8c503 100644
-> > --- a/drivers/staging/octeon/ethernet-mdio.c
-> > +++ b/drivers/staging/octeon/ethernet-mdio.c
-> > @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device *=
-dev)
-> >         struct octeon_ethernet *priv =3D netdev_priv(dev);
-> >         cvmx_helper_link_info_t link_info;
-> >  =
-
-> > +       if(!priv->phydev)
-> > +               return ;
-> =
-
-> Please always run your patches through the scripts/checkpatch.pl tool so
-> that maintainers don't have to point out the obvious coding syle errors
-> by hand each time :)
-
-Also it's whitespace damaged and doesn't apply.
-
-> =
-
-> Care to try again?
-> =
-
-> Also, how was phydev NULL?  What was causing that?
-
-To me it looks like phydev is always NULL.
-
-regards,
-dan carpenter
+Wei.
