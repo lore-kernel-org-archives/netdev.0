@@ -1,95 +1,98 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH net] bridge: clean the nf_bridge status when forwarding the skb
-Date: Tue, 15 Oct 2013 00:51:36 +0200
-Message-ID: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, Antonio Quartulli <antonio@open-mesh.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:20647 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756676Ab3JNWwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 18:52:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Subject: [PATCH RFC 0/5] Ethernet support for Zynq
+Date: Mon, 14 Oct 2013 16:58:55 -0700
+Message-ID: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michal Simek <michal.simek@xilinx.com>,
+	Soren Brinkmann <soren.brinkmann@xilinx.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+Hi,
 
-Even if it is forbidden to enslave a bridge interface into
-another one, it is still possible to create a chain of
-virtual interfaces including two distinct bridges.
+I am trying to make Ethernet work on Zynq, whose Ethernet core is a
+cadence macb.
 
-In this case, the skb entering the second bridge could have
-the nf_bridge field already set due to a previous operation
-and consequently lead to wrong a processing of the packet
-itself.
+I came across two issues: The first is, that Ethernet does not work on
+the Zedboard platform, but on zc702 and zc706. In both cases the probin=
+g
+looks good as far as I can tell:
+zc706:
+	[    1.754502] libphy: MACB_mii_bus: probed
+	[    2.775957] macb e000b000.ethernet eth0: Cadence GEM at 0xe000b000 =
+irq 54 (00:0a:35:00:01:22)
+	[    2.784638] macb e000b000.ethernet eth0: attached PHY driver [Marve=
+ll 88E1116R] (mii_bus:phy_addr=3De000b000.etherne:07, irq=3D-1)
+zed:
+	[    1.755202] libphy: MACB_mii_bus: probed
+	[    1.771422] macb e000b000.ethernet eth0: Cadence GEM at 0xe000b000 =
+irq 54 (00:0a:35:00:01:22)
+	[    1.780141] macb e000b000.ethernet eth0: attached PHY driver [Marve=
+ll 88E1510] (mii_bus:phy_addr=3De000b000.etherne:00, irq=3D-1)
 
-To prevent this behaviour release and set to NULL the
-nf_bridge field of the skb when forwarding the packet.
+But on the Zed no actual connection can be established:
+zc706:
+	# udhcpc
+	udhcpc (v1.21.1) started
+	grep: /etc/resolv.conf: No such file or directory
+	Sending discover...
+	Sending discover...
+	[   50.769745] macb e000b000.ethernet eth0: link up (1000/Full)
+	Sending discover...
+	Sending select for 10.10.70.4...
+	Lease of 10.10.70.4 obtained, lease time 600
+	deleting routers
+	route: SIOCDELRT: No such process
+	adding dns 172.19.128.1
+	adding dns 172.19.129.1
+	# ping 10.10.70.101
+	PING 10.10.70.101 (10.10.70.101): 56 data bytes
+	64 bytes from 10.10.70.101: seq=3D0 ttl=3D64 time=3D0.848 ms
+	64 bytes from 10.10.70.101: seq=3D1 ttl=3D64 time=3D0.350 ms
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
----
-
-I know that not using "extern" when declaring the prototype is not consistent
-with the surrounding code, but checkpatch complaints about using "extern" in .h
-file and I prefer to not do something "wrong" even if stylistically ugly.
-
-Cheers,
+On Zed this just loops indefinitely printing "Sending discover...
+The main difference is the different phy used on the Zed. Does
+anybody have an idea what might go wrong here?
 
 
- net/bridge/br_forward.c   |  2 ++
- net/bridge/br_netfilter.c | 10 ++++++++++
- net/bridge/br_private.h   |  2 ++
- 3 files changed, 14 insertions(+)
+And my second issue is related to the macb clocks:
+Currently the macb driver expects two input clocks - pclk and hclk. At
+the same time the actual Ethernet clock - tx_clk - is not handled in th=
+e
+driver at all.
+On Zynq's implementation of the macb, pclk and hclk are the same clock
+and we provide a tx_clk separately and the driver needs to adjust it
+according to the negotiated link speed (at least in some/most use-cases=
+).
+Handling this is sketched out in 5/5. But it does not really look nice.
+ - How do other SOCs handle tx_clk adjustments?
+ - the bindings do not really fit Zynq's implementation. How can we
+   ensure that clocks are mandatory or optional as required by the SOC
+   this core is implemented in?
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 4b81b14..62955f3 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -49,6 +49,8 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
- 	} else {
- 		skb_push(skb, ETH_HLEN);
- 		br_drop_fake_rtable(skb);
-+		br_netfilter_skb_free(skb);
-+
- 		dev_queue_xmit(skb);
- 	}
- 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index f877362..7cad3e2 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -1086,3 +1086,13 @@ void br_netfilter_fini(void)
- #endif
- 	dst_entries_destroy(&fake_dst_ops);
- }
-+
-+/**
-+ * br_netfilter_skb_free - clean the NF bridge data in an skb
-+ * @skb: the skb which the data to free belongs to
-+ */
-+void br_netfilter_skb_free(struct sk_buff *skb)
-+{
-+	nf_bridge_put(skb->nf_bridge);
-+	skb->nf_bridge = NULL;
-+}
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index efb57d9..2a5f637 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -730,10 +730,12 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
- extern int br_netfilter_init(void);
- extern void br_netfilter_fini(void);
- extern void br_netfilter_rtable_init(struct net_bridge *);
-+void br_netfilter_skb_free(struct sk_buff *skb);
- #else
- #define br_netfilter_init()	(0)
- #define br_netfilter_fini()	do { } while(0)
- #define br_netfilter_rtable_init(x)
-+#define br_netfilter_skb_free(x)
- #endif
- 
- /* br_stp.c */
--- 
-1.8.3.2
+
+The first four patches in this series are probably good to go.
+
+   	Thanks,
+	S=C3=B6ren
+
+
+Soren Brinkmann (5):
+  net: macb: Migrate to dev_pm_ops
+  net: macb: Migrate to devm clock interface
+  net: macb: Use devm_ioremap()
+  net: macb: Use devm_request_irq()
+  net: macb: Adjust tx_clk when link speed changes
+
+ drivers/net/ethernet/cadence/macb.c | 128 ++++++++++++++++++++++++++++=
+--------
+ drivers/net/ethernet/cadence/macb.h |   1 +
+ 2 files changed, 100 insertions(+), 29 deletions(-)
+
+--=20
+1.8.4
