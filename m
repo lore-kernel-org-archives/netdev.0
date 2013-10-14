@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/17] netfilter: nf_tables: convert built-in tables/chains to chain types
-Date: Mon, 14 Oct 2013 18:38:49 +0200
-Message-ID: <1381768738-17739-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/17] netfilter: pass hook ops to hookfn
+Date: Mon, 14 Oct 2013 18:38:42 +0200
+Message-ID: <1381768738-17739-2-git-send-email-pablo@netfilter.org>
 References: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,981 +10,1096 @@ In-Reply-To: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch converts built-in tables/chains to chain types that
-allows you to deploy customized table and chain configurations from
-userspace.
+From: Patrick McHardy <kaber@trash.net>
 
-After this patch, you have to specify the chain type when
-creating a new chain:
+Pass the hook ops to the hookfn to allow for generic hook
+functions. This change is required by nf_tables.
 
- add chain ip filter output { type filter hook input priority 0; }
-                              ^^^^ ------
-
-The existing chain types after this patch are: filter, route and
-nat. Note that tables are just containers of chains with no specific
-semantics, which is a significant change with regards to iptables.
-
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h                  |   31 ++-
- include/uapi/linux/netfilter/nf_tables.h           |    2 +
- net/ipv4/netfilter/Kconfig                         |    8 +-
- net/ipv4/netfilter/Makefile                        |    4 +-
- net/ipv4/netfilter/nf_tables_ipv4.c                |   21 +++
- .../{nf_table_nat_ipv4.c => nft_chain_nat_ipv4.c}  |  116 +++---------
- ...f_table_route_ipv4.c => nft_chain_route_ipv4.c} |   43 ++---
- net/ipv6/netfilter/Kconfig                         |    4 +-
- net/ipv6/netfilter/Makefile                        |    2 +-
- net/ipv6/netfilter/nf_tables_ipv6.c                |   22 ++-
- ...f_table_route_ipv6.c => nft_chain_route_ipv6.c} |   45 ++---
- net/netfilter/nf_tables_api.c                      |  197 +++++++++-----------
- 12 files changed, 221 insertions(+), 274 deletions(-)
- rename net/ipv4/netfilter/{nf_table_nat_ipv4.c => nft_chain_nat_ipv4.c} (76%)
- rename net/ipv4/netfilter/{nf_table_route_ipv4.c => nft_chain_route_ipv4.c} (61%)
- rename net/ipv6/netfilter/{nf_table_route_ipv6.c => nft_chain_route_ipv6.c} (65%)
+ include/linux/netfilter.h                      |    3 +-
+ net/bridge/br_netfilter.c                      |   22 ++++++++-----
+ net/bridge/netfilter/ebtable_filter.c          |   16 +++++----
+ net/bridge/netfilter/ebtable_nat.c             |   16 +++++----
+ net/decnet/netfilter/dn_rtmsg.c                |    2 +-
+ net/ipv4/netfilter/arptable_filter.c           |    5 +--
+ net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c              |    2 +-
+ net/ipv4/netfilter/iptable_filter.c            |    7 ++--
+ net/ipv4/netfilter/iptable_mangle.c            |   10 +++---
+ net/ipv4/netfilter/iptable_nat.c               |   26 +++++++--------
+ net/ipv4/netfilter/iptable_raw.c               |    6 ++--
+ net/ipv4/netfilter/iptable_security.c          |    7 ++--
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   12 +++----
+ net/ipv4/netfilter/nf_defrag_ipv4.c            |    6 ++--
+ net/ipv6/netfilter/ip6t_SYNPROXY.c             |    2 +-
+ net/ipv6/netfilter/ip6table_filter.c           |    5 +--
+ net/ipv6/netfilter/ip6table_mangle.c           |   10 +++---
+ net/ipv6/netfilter/ip6table_nat.c              |   27 +++++++--------
+ net/ipv6/netfilter/ip6table_raw.c              |    5 +--
+ net/ipv6/netfilter/ip6table_security.c         |    5 +--
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   14 ++++----
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |    6 ++--
+ net/netfilter/core.c                           |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c                |   42 ++++++++++++------------
+ security/selinux/hooks.c                       |   10 +++---
+ 26 files changed, 148 insertions(+), 122 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 66d0359..8403f7f5 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -336,7 +336,6 @@ static inline struct nft_expr *nft_expr_last(const struct nft_rule *rule)
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 61223c5..fef7e67 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -42,7 +42,8 @@ int netfilter_init(void);
  
- enum nft_chain_flags {
- 	NFT_BASE_CHAIN			= 0x1,
--	NFT_CHAIN_BUILTIN		= 0x2,
+ struct sk_buff;
+ 
+-typedef unsigned int nf_hookfn(unsigned int hooknum,
++struct nf_hook_ops;
++typedef unsigned int nf_hookfn(const struct nf_hook_ops *ops,
+ 			       struct sk_buff *skb,
+ 			       const struct net_device *in,
+ 			       const struct net_device *out,
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index f877362..878f008 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -619,7 +619,7 @@ bad:
+ 
+ /* Replicate the checks that IPv6 does on packet reception and pass the packet
+  * to ip6tables, which doesn't support NAT, so things are fairly simple. */
+-static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
++static unsigned int br_nf_pre_routing_ipv6(const struct nf_hook_ops *ops,
+ 					   struct sk_buff *skb,
+ 					   const struct net_device *in,
+ 					   const struct net_device *out,
+@@ -669,7 +669,8 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
+  * receiving device) to make netfilter happy, the REDIRECT
+  * target in particular.  Save the original destination IP
+  * address to be able to detect DNAT afterwards. */
+-static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
++static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
++				      struct sk_buff *skb,
+ 				      const struct net_device *in,
+ 				      const struct net_device *out,
+ 				      int (*okfn)(struct sk_buff *))
+@@ -691,7 +692,7 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 			return NF_ACCEPT;
+ 
+ 		nf_bridge_pull_encap_header_rcsum(skb);
+-		return br_nf_pre_routing_ipv6(hook, skb, in, out, okfn);
++		return br_nf_pre_routing_ipv6(ops, skb, in, out, okfn);
+ 	}
+ 
+ 	if (!brnf_call_iptables && !br->nf_call_iptables)
+@@ -727,7 +728,8 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+  * took place when the packet entered the bridge), but we
+  * register an IPv4 PRE_ROUTING 'sabotage' hook that will
+  * prevent this from happening. */
+-static unsigned int br_nf_local_in(unsigned int hook, struct sk_buff *skb,
++static unsigned int br_nf_local_in(const struct nf_hook_ops *ops,
++				   struct sk_buff *skb,
+ 				   const struct net_device *in,
+ 				   const struct net_device *out,
+ 				   int (*okfn)(struct sk_buff *))
+@@ -765,7 +767,8 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+  * but we are still able to filter on the 'real' indev/outdev
+  * because of the physdev module. For ARP, indev and outdev are the
+  * bridge ports. */
+-static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
++static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
++				     struct sk_buff *skb,
+ 				     const struct net_device *in,
+ 				     const struct net_device *out,
+ 				     int (*okfn)(struct sk_buff *))
+@@ -818,7 +821,8 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
+ 	return NF_STOLEN;
+ }
+ 
+-static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff *skb,
++static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
++				      struct sk_buff *skb,
+ 				      const struct net_device *in,
+ 				      const struct net_device *out,
+ 				      int (*okfn)(struct sk_buff *))
+@@ -878,7 +882,8 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ #endif
+ 
+ /* PF_BRIDGE/POST_ROUTING ********************************************/
+-static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
++static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
++				       struct sk_buff *skb,
+ 				       const struct net_device *in,
+ 				       const struct net_device *out,
+ 				       int (*okfn)(struct sk_buff *))
+@@ -923,7 +928,8 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
+ /* IP/SABOTAGE *****************************************************/
+ /* Don't hand locally destined packets to PF_INET(6)/PRE_ROUTING
+  * for the second time. */
+-static unsigned int ip_sabotage_in(unsigned int hook, struct sk_buff *skb,
++static unsigned int ip_sabotage_in(const struct nf_hook_ops *ops,
++				   struct sk_buff *skb,
+ 				   const struct net_device *in,
+ 				   const struct net_device *out,
+ 				   int (*okfn)(struct sk_buff *))
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index 94b2b70..bb2da7b 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -60,17 +60,21 @@ static const struct ebt_table frame_filter =
  };
  
- /**
-@@ -362,14 +361,23 @@ struct nft_chain {
- 	char				name[NFT_CHAIN_MAXNAMELEN];
+ static unsigned int
+-ebt_in_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
+-   const struct net_device *out, int (*okfn)(struct sk_buff *))
++ebt_in_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
++	    const struct net_device *in, const struct net_device *out,
++	    int (*okfn)(struct sk_buff *))
+ {
+-	return ebt_do_table(hook, skb, in, out, dev_net(in)->xt.frame_filter);
++	return ebt_do_table(ops->hooknum, skb, in, out,
++			    dev_net(in)->xt.frame_filter);
+ }
+ 
+ static unsigned int
+-ebt_out_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
+-   const struct net_device *out, int (*okfn)(struct sk_buff *))
++ebt_out_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
++	     const struct net_device *in, const struct net_device *out,
++	     int (*okfn)(struct sk_buff *))
+ {
+-	return ebt_do_table(hook, skb, in, out, dev_net(out)->xt.frame_filter);
++	return ebt_do_table(ops->hooknum, skb, in, out,
++			    dev_net(out)->xt.frame_filter);
+ }
+ 
+ static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 322555a..bd238f1 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -60,17 +60,21 @@ static struct ebt_table frame_nat =
  };
  
-+enum nft_chain_type {
-+	NFT_CHAIN_T_DEFAULT = 0,
-+	NFT_CHAIN_T_ROUTE,
-+	NFT_CHAIN_T_NAT,
-+	NFT_CHAIN_T_MAX
-+};
-+
- /**
-  *	struct nft_base_chain - nf_tables base chain
-  *
-  *	@ops: netfilter hook ops
-+ *	@type: chain type
-  *	@chain: the chain
-  */
- struct nft_base_chain {
- 	struct nf_hook_ops		ops;
-+	enum nft_chain_type		type;
- 	struct nft_chain		chain;
+ static unsigned int
+-ebt_nat_in(unsigned int hook, struct sk_buff *skb, const struct net_device *in
+-   , const struct net_device *out, int (*okfn)(struct sk_buff *))
++ebt_nat_in(const struct nf_hook_ops *ops, struct sk_buff *skb,
++	   const struct net_device *in, const struct net_device *out,
++	   int (*okfn)(struct sk_buff *))
+ {
+-	return ebt_do_table(hook, skb, in, out, dev_net(in)->xt.frame_nat);
++	return ebt_do_table(ops->hooknum, skb, in, out,
++			    dev_net(in)->xt.frame_nat);
+ }
+ 
+ static unsigned int
+-ebt_nat_out(unsigned int hook, struct sk_buff *skb, const struct net_device *in
+-   , const struct net_device *out, int (*okfn)(struct sk_buff *))
++ebt_nat_out(const struct nf_hook_ops *ops, struct sk_buff *skb,
++	    const struct net_device *in, const struct net_device *out,
++	    int (*okfn)(struct sk_buff *))
+ {
+-	return ebt_do_table(hook, skb, in, out, dev_net(out)->xt.frame_nat);
++	return ebt_do_table(ops->hooknum, skb, in, out,
++			    dev_net(out)->xt.frame_nat);
+ }
+ 
+ static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+index 2a7efe3..e83015c 100644
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -87,7 +87,7 @@ static void dnrmg_send_peer(struct sk_buff *skb)
+ }
+ 
+ 
+-static unsigned int dnrmg_hook(unsigned int hook,
++static unsigned int dnrmg_hook(const struct nf_hook_ops *ops,
+ 			struct sk_buff *skb,
+ 			const struct net_device *in,
+ 			const struct net_device *out,
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+index a865f6f..802ddec 100644
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -27,13 +27,14 @@ static const struct xt_table packet_filter = {
+ 
+ /* The work comes in here from netfilter.c */
+ static unsigned int
+-arptable_filter_hook(unsigned int hook, struct sk_buff *skb,
++arptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in, const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net = dev_net((in != NULL) ? in : out);
+ 
+-	return arpt_do_table(skb, hook, in, out, net->ipv4.arptable_filter);
++	return arpt_do_table(skb, ops->hooknum, in, out,
++			     net->ipv4.arptable_filter);
+ }
+ 
+ static struct nf_hook_ops *arpfilter_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 0b732ef..a2e2b61 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -483,7 +483,7 @@ static void arp_print(struct arp_payload *payload)
+ #endif
+ 
+ static unsigned int
+-arp_mangle(unsigned int hook,
++arp_mangle(const struct nf_hook_ops *ops,
+ 	   struct sk_buff *skb,
+ 	   const struct net_device *in,
+ 	   const struct net_device *out,
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index b6346bf..01cffea 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -297,7 +297,7 @@ synproxy_tg4(struct sk_buff *skb, const struct xt_action_param *par)
+ 	return XT_CONTINUE;
+ }
+ 
+-static unsigned int ipv4_synproxy_hook(unsigned int hooknum,
++static unsigned int ipv4_synproxy_hook(const struct nf_hook_ops *ops,
+ 				       struct sk_buff *skb,
+ 				       const struct net_device *in,
+ 				       const struct net_device *out,
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+index 50af5b4..e08a74a 100644
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -33,20 +33,21 @@ static const struct xt_table packet_filter = {
  };
  
-@@ -384,10 +392,6 @@ extern unsigned int nft_do_chain(const struct nf_hook_ops *ops,
+ static unsigned int
+-iptable_filter_hook(unsigned int hook, struct sk_buff *skb,
++iptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		    const struct net_device *in, const struct net_device *out,
+ 		    int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net;
+ 
+-	if (hook == NF_INET_LOCAL_OUT &&
++	if (ops->hooknum == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* root is playing with raw sockets. */
+ 		return NF_ACCEPT;
+ 
+ 	net = dev_net((in != NULL) ? in : out);
+-	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_filter);
++	return ipt_do_table(skb, ops->hooknum, in, out,
++			    net->ipv4.iptable_filter);
+ }
+ 
+ static struct nf_hook_ops *filter_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+index 0d8cd82..6a5079c 100644
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -79,19 +79,19 @@ ipt_mangle_out(struct sk_buff *skb, const struct net_device *out)
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-iptable_mangle_hook(unsigned int hook,
++iptable_mangle_hook(const struct nf_hook_ops *ops,
+ 		     struct sk_buff *skb,
+ 		     const struct net_device *in,
+ 		     const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+-	if (hook == NF_INET_LOCAL_OUT)
++	if (ops->hooknum == NF_INET_LOCAL_OUT)
+ 		return ipt_mangle_out(skb, out);
+-	if (hook == NF_INET_POST_ROUTING)
+-		return ipt_do_table(skb, hook, in, out,
++	if (ops->hooknum == NF_INET_POST_ROUTING)
++		return ipt_do_table(skb, ops->hooknum, in, out,
+ 				    dev_net(out)->ipv4.iptable_mangle);
+ 	/* PREROUTING/INPUT/FORWARD: */
+-	return ipt_do_table(skb, hook, in, out,
++	return ipt_do_table(skb, ops->hooknum, in, out,
+ 			    dev_net(in)->ipv4.iptable_mangle);
+ }
+ 
+diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
+index 683bfaf..ee28861 100644
+--- a/net/ipv4/netfilter/iptable_nat.c
++++ b/net/ipv4/netfilter/iptable_nat.c
+@@ -61,7 +61,7 @@ static unsigned int nf_nat_rule_find(struct sk_buff *skb, unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv4_fn(unsigned int hooknum,
++nf_nat_ipv4_fn(const struct nf_hook_ops *ops,
+ 	       struct sk_buff *skb,
+ 	       const struct net_device *in,
+ 	       const struct net_device *out,
+@@ -71,7 +71,7 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn_nat *nat;
+ 	/* maniptype == SRC for postrouting. */
+-	enum nf_nat_manip_type maniptype = HOOK2MANIP(hooknum);
++	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
+ 
+ 	/* We never see fragments: conntrack defrags on pre-routing
+ 	 * and local-out, and nf_nat_out protects post-routing.
+@@ -108,7 +108,7 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 	case IP_CT_RELATED_REPLY:
+ 		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
+ 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
+-							   hooknum))
++							   ops->hooknum))
+ 				return NF_DROP;
+ 			else
+ 				return NF_ACCEPT;
+@@ -121,14 +121,14 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 		if (!nf_nat_initialized(ct, maniptype)) {
+ 			unsigned int ret;
+ 
+-			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
++			ret = nf_nat_rule_find(skb, ops->hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+ 		} else {
+ 			pr_debug("Already setup manip %s for ct %p\n",
+ 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+ 				 ct);
+-			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
+ 				goto oif_changed;
+ 		}
+ 		break;
+@@ -137,11 +137,11 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 		/* ESTABLISHED */
+ 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
+ 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
+-		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
+ 			goto oif_changed;
+ 	}
+ 
+-	return nf_nat_packet(ct, ctinfo, hooknum, skb);
++	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
+ 
+ oif_changed:
+ 	nf_ct_kill_acct(ct, ctinfo, skb);
+@@ -149,7 +149,7 @@ oif_changed:
+ }
+ 
+ static unsigned int
+-nf_nat_ipv4_in(unsigned int hooknum,
++nf_nat_ipv4_in(const struct nf_hook_ops *ops,
+ 	       struct sk_buff *skb,
+ 	       const struct net_device *in,
+ 	       const struct net_device *out,
+@@ -158,7 +158,7 @@ nf_nat_ipv4_in(unsigned int hooknum,
+ 	unsigned int ret;
+ 	__be32 daddr = ip_hdr(skb)->daddr;
+ 
+-	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    daddr != ip_hdr(skb)->daddr)
+ 		skb_dst_drop(skb);
+@@ -167,7 +167,7 @@ nf_nat_ipv4_in(unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv4_out(unsigned int hooknum,
++nf_nat_ipv4_out(const struct nf_hook_ops *ops,
+ 		struct sk_buff *skb,
+ 		const struct net_device *in,
+ 		const struct net_device *out,
+@@ -185,7 +185,7 @@ nf_nat_ipv4_out(unsigned int hooknum,
+ 	    ip_hdrlen(skb) < sizeof(struct iphdr))
+ 		return NF_ACCEPT;
+ 
+-	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
+ #ifdef CONFIG_XFRM
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    !(IPCB(skb)->flags & IPSKB_XFRM_TRANSFORMED) &&
+@@ -207,7 +207,7 @@ nf_nat_ipv4_out(unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv4_local_fn(unsigned int hooknum,
++nf_nat_ipv4_local_fn(const struct nf_hook_ops *ops,
+ 		     struct sk_buff *skb,
+ 		     const struct net_device *in,
+ 		     const struct net_device *out,
+@@ -223,7 +223,7 @@ nf_nat_ipv4_local_fn(unsigned int hooknum,
+ 	    ip_hdrlen(skb) < sizeof(struct iphdr))
+ 		return NF_ACCEPT;
+ 
+-	ret = nf_nat_ipv4_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv4_fn(ops, skb, in, out, okfn);
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+ 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+index 1f82aea..b2f7e8f 100644
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -20,20 +20,20 @@ static const struct xt_table packet_raw = {
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-iptable_raw_hook(unsigned int hook, struct sk_buff *skb,
++iptable_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		 const struct net_device *in, const struct net_device *out,
+ 		 int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net;
+ 
+-	if (hook == NF_INET_LOCAL_OUT && 
++	if (ops->hooknum == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* root is playing with raw sockets. */
+ 		return NF_ACCEPT;
+ 
+ 	net = dev_net((in != NULL) ? in : out);
+-	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_raw);
++	return ipt_do_table(skb, ops->hooknum, in, out, net->ipv4.iptable_raw);
+ }
+ 
+ static struct nf_hook_ops *rawtable_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
+index f867a8d..c86647e 100644
+--- a/net/ipv4/netfilter/iptable_security.c
++++ b/net/ipv4/netfilter/iptable_security.c
+@@ -37,21 +37,22 @@ static const struct xt_table security_table = {
+ };
+ 
+ static unsigned int
+-iptable_security_hook(unsigned int hook, struct sk_buff *skb,
++iptable_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		      const struct net_device *in,
+ 		      const struct net_device *out,
+ 		      int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net;
+ 
+-	if (hook == NF_INET_LOCAL_OUT &&
++	if (ops->hooknum == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* Somebody is playing with raw sockets. */
+ 		return NF_ACCEPT;
+ 
+ 	net = dev_net((in != NULL) ? in : out);
+-	return ipt_do_table(skb, hook, in, out, net->ipv4.iptable_security);
++	return ipt_do_table(skb, ops->hooknum, in, out,
++			    net->ipv4.iptable_security);
+ }
+ 
+ static struct nf_hook_ops *sectbl_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 86f5b34..ecd8bec 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -92,7 +92,7 @@ static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+ 	return NF_ACCEPT;
+ }
+ 
+-static unsigned int ipv4_helper(unsigned int hooknum,
++static unsigned int ipv4_helper(const struct nf_hook_ops *ops,
+ 				struct sk_buff *skb,
+ 				const struct net_device *in,
+ 				const struct net_device *out,
+@@ -121,7 +121,7 @@ static unsigned int ipv4_helper(unsigned int hooknum,
+ 			    ct, ctinfo);
+ }
+ 
+-static unsigned int ipv4_confirm(unsigned int hooknum,
++static unsigned int ipv4_confirm(const struct nf_hook_ops *ops,
+ 				 struct sk_buff *skb,
+ 				 const struct net_device *in,
  				 const struct net_device *out,
- 				 int (*okfn)(struct sk_buff *));
+@@ -147,16 +147,16 @@ out:
+ 	return nf_conntrack_confirm(skb);
+ }
  
--enum nft_table_flags {
--	NFT_TABLE_BUILTIN		= 0x1,
--};
--
- /**
-  *	struct nft_table - nf_tables table
-  *
-@@ -431,8 +435,17 @@ struct nft_af_info {
- extern int nft_register_afinfo(struct nft_af_info *);
- extern void nft_unregister_afinfo(struct nft_af_info *);
+-static unsigned int ipv4_conntrack_in(unsigned int hooknum,
++static unsigned int ipv4_conntrack_in(const struct nf_hook_ops *ops,
+ 				      struct sk_buff *skb,
+ 				      const struct net_device *in,
+ 				      const struct net_device *out,
+ 				      int (*okfn)(struct sk_buff *))
+ {
+-	return nf_conntrack_in(dev_net(in), PF_INET, hooknum, skb);
++	return nf_conntrack_in(dev_net(in), PF_INET, ops->hooknum, skb);
+ }
  
--extern int nft_register_table(struct nft_table *, int family);
--extern void nft_unregister_table(struct nft_table *, int family);
-+struct nf_chain_type {
-+	unsigned int		hook_mask;
-+	const char		*name;
-+	enum nft_chain_type	type;
-+	nf_hookfn		*fn[NF_MAX_HOOKS];
-+	struct module		*me;
-+	int			family;
-+};
+-static unsigned int ipv4_conntrack_local(unsigned int hooknum,
++static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
+ 					 struct sk_buff *skb,
+ 					 const struct net_device *in,
+ 					 const struct net_device *out,
+@@ -166,7 +166,7 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
+ 	if (skb->len < sizeof(struct iphdr) ||
+ 	    ip_hdrlen(skb) < sizeof(struct iphdr))
+ 		return NF_ACCEPT;
+-	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
++	return nf_conntrack_in(dev_net(out), PF_INET, ops->hooknum, skb);
+ }
+ 
+ /* Connection tracking may drop packets, but never alters them, so
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index 7428155..12e13bd 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -60,7 +60,7 @@ static enum ip_defrag_users nf_ct_defrag_user(unsigned int hooknum,
+ 		return IP_DEFRAG_CONNTRACK_OUT + zone;
+ }
+ 
+-static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
++static unsigned int ipv4_conntrack_defrag(const struct nf_hook_ops *ops,
+ 					  struct sk_buff *skb,
+ 					  const struct net_device *in,
+ 					  const struct net_device *out,
+@@ -83,7 +83,9 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
+ #endif
+ 	/* Gather fragments. */
+ 	if (ip_is_fragment(ip_hdr(skb))) {
+-		enum ip_defrag_users user = nf_ct_defrag_user(hooknum, skb);
++		enum ip_defrag_users user =
++			nf_ct_defrag_user(ops->hooknum, skb);
 +
-+extern int nft_register_chain_type(struct nf_chain_type *);
-+extern void nft_unregister_chain_type(struct nf_chain_type *);
+ 		if (nf_ct_ipv4_gather_frags(skb, user))
+ 			return NF_STOLEN;
+ 	}
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index 2748b04..bf9f612 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -312,7 +312,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 	return XT_CONTINUE;
+ }
  
- extern int nft_register_expr(struct nft_expr_type *);
- extern void nft_unregister_expr(struct nft_expr_type *);
-@@ -440,8 +453,8 @@ extern void nft_unregister_expr(struct nft_expr_type *);
- #define MODULE_ALIAS_NFT_FAMILY(family)	\
- 	MODULE_ALIAS("nft-afinfo-" __stringify(family))
+-static unsigned int ipv6_synproxy_hook(unsigned int hooknum,
++static unsigned int ipv6_synproxy_hook(const struct nf_hook_ops *ops,
+ 				       struct sk_buff *skb,
+ 				       const struct net_device *in,
+ 				       const struct net_device *out,
+diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
+index 29b44b1..ca7f6c1 100644
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -32,13 +32,14 @@ static const struct xt_table packet_filter = {
  
--#define MODULE_ALIAS_NFT_TABLE(family, name) \
--	MODULE_ALIAS("nft-table-" __stringify(family) "-" name)
-+#define MODULE_ALIAS_NFT_CHAIN(family, name) \
-+	MODULE_ALIAS("nft-chain-" __stringify(family) "-" name)
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-ip6table_filter_hook(unsigned int hook, struct sk_buff *skb,
++ip6table_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in, const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net = dev_net((in != NULL) ? in : out);
  
- #define MODULE_ALIAS_NFT_EXPR(name) \
- 	MODULE_ALIAS("nft-expr-" name)
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 9e92401..779cf95 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -115,6 +115,7 @@ enum nft_table_attributes {
-  * @NFTA_CHAIN_HANDLE: numeric handle of the chain (NLA_U64)
-  * @NFTA_CHAIN_NAME: name of the chain (NLA_STRING)
-  * @NFTA_CHAIN_HOOK: hook specification for basechains (NLA_NESTED: nft_hook_attributes)
-+ * @NFTA_CHAIN_TYPE: type name of the string (NLA_NUL_STRING)
+-	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_filter);
++	return ip6t_do_table(skb, ops->hooknum, in, out,
++			     net->ipv6.ip6table_filter);
+ }
+ 
+ static struct nf_hook_ops *filter_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
+index c705907..307bbb7 100644
+--- a/net/ipv6/netfilter/ip6table_mangle.c
++++ b/net/ipv6/netfilter/ip6table_mangle.c
+@@ -76,17 +76,17 @@ ip6t_mangle_out(struct sk_buff *skb, const struct net_device *out)
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-ip6table_mangle_hook(unsigned int hook, struct sk_buff *skb,
++ip6table_mangle_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in, const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+-	if (hook == NF_INET_LOCAL_OUT)
++	if (ops->hooknum == NF_INET_LOCAL_OUT)
+ 		return ip6t_mangle_out(skb, out);
+-	if (hook == NF_INET_POST_ROUTING)
+-		return ip6t_do_table(skb, hook, in, out,
++	if (ops->hooknum == NF_INET_POST_ROUTING)
++		return ip6t_do_table(skb, ops->hooknum, in, out,
+ 				     dev_net(out)->ipv6.ip6table_mangle);
+ 	/* INPUT/FORWARD */
+-	return ip6t_do_table(skb, hook, in, out,
++	return ip6t_do_table(skb, ops->hooknum, in, out,
+ 			     dev_net(in)->ipv6.ip6table_mangle);
+ }
+ 
+diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
+index 9b076d2..84c7f33 100644
+--- a/net/ipv6/netfilter/ip6table_nat.c
++++ b/net/ipv6/netfilter/ip6table_nat.c
+@@ -63,7 +63,7 @@ static unsigned int nf_nat_rule_find(struct sk_buff *skb, unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv6_fn(unsigned int hooknum,
++nf_nat_ipv6_fn(const struct nf_hook_ops *ops,
+ 	       struct sk_buff *skb,
+ 	       const struct net_device *in,
+ 	       const struct net_device *out,
+@@ -72,7 +72,7 @@ nf_nat_ipv6_fn(unsigned int hooknum,
+ 	struct nf_conn *ct;
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn_nat *nat;
+-	enum nf_nat_manip_type maniptype = HOOK2MANIP(hooknum);
++	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
+ 	__be16 frag_off;
+ 	int hdrlen;
+ 	u8 nexthdr;
+@@ -111,7 +111,8 @@ nf_nat_ipv6_fn(unsigned int hooknum,
+ 
+ 		if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
+ 			if (!nf_nat_icmpv6_reply_translation(skb, ct, ctinfo,
+-							     hooknum, hdrlen))
++							     ops->hooknum,
++							     hdrlen))
+ 				return NF_DROP;
+ 			else
+ 				return NF_ACCEPT;
+@@ -124,14 +125,14 @@ nf_nat_ipv6_fn(unsigned int hooknum,
+ 		if (!nf_nat_initialized(ct, maniptype)) {
+ 			unsigned int ret;
+ 
+-			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
++			ret = nf_nat_rule_find(skb, ops->hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+ 		} else {
+ 			pr_debug("Already setup manip %s for ct %p\n",
+ 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+ 				 ct);
+-			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
+ 				goto oif_changed;
+ 		}
+ 		break;
+@@ -140,11 +141,11 @@ nf_nat_ipv6_fn(unsigned int hooknum,
+ 		/* ESTABLISHED */
+ 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
+ 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
+-		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, out))
+ 			goto oif_changed;
+ 	}
+ 
+-	return nf_nat_packet(ct, ctinfo, hooknum, skb);
++	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
+ 
+ oif_changed:
+ 	nf_ct_kill_acct(ct, ctinfo, skb);
+@@ -152,7 +153,7 @@ oif_changed:
+ }
+ 
+ static unsigned int
+-nf_nat_ipv6_in(unsigned int hooknum,
++nf_nat_ipv6_in(const struct nf_hook_ops *ops,
+ 	       struct sk_buff *skb,
+ 	       const struct net_device *in,
+ 	       const struct net_device *out,
+@@ -161,7 +162,7 @@ nf_nat_ipv6_in(unsigned int hooknum,
+ 	unsigned int ret;
+ 	struct in6_addr daddr = ipv6_hdr(skb)->daddr;
+ 
+-	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    ipv6_addr_cmp(&daddr, &ipv6_hdr(skb)->daddr))
+ 		skb_dst_drop(skb);
+@@ -170,7 +171,7 @@ nf_nat_ipv6_in(unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv6_out(unsigned int hooknum,
++nf_nat_ipv6_out(const struct nf_hook_ops *ops,
+ 		struct sk_buff *skb,
+ 		const struct net_device *in,
+ 		const struct net_device *out,
+@@ -187,7 +188,7 @@ nf_nat_ipv6_out(unsigned int hooknum,
+ 	if (skb->len < sizeof(struct ipv6hdr))
+ 		return NF_ACCEPT;
+ 
+-	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
+ #ifdef CONFIG_XFRM
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    !(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
+@@ -209,7 +210,7 @@ nf_nat_ipv6_out(unsigned int hooknum,
+ }
+ 
+ static unsigned int
+-nf_nat_ipv6_local_fn(unsigned int hooknum,
++nf_nat_ipv6_local_fn(const struct nf_hook_ops *ops,
+ 		     struct sk_buff *skb,
+ 		     const struct net_device *in,
+ 		     const struct net_device *out,
+@@ -224,7 +225,7 @@ nf_nat_ipv6_local_fn(unsigned int hooknum,
+ 	if (skb->len < sizeof(struct ipv6hdr))
+ 		return NF_ACCEPT;
+ 
+-	ret = nf_nat_ipv6_fn(hooknum, skb, in, out, okfn);
++	ret = nf_nat_ipv6_fn(ops, skb, in, out, okfn);
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+ 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
+index 9a626d8..5274740 100644
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -19,13 +19,14 @@ static const struct xt_table packet_raw = {
+ 
+ /* The work comes in here from netfilter.c. */
+ static unsigned int
+-ip6table_raw_hook(unsigned int hook, struct sk_buff *skb,
++ip6table_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		  const struct net_device *in, const struct net_device *out,
+ 		  int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net = dev_net((in != NULL) ? in : out);
+ 
+-	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_raw);
++	return ip6t_do_table(skb, ops->hooknum, in, out,
++			     net->ipv6.ip6table_raw);
+ }
+ 
+ static struct nf_hook_ops *rawtable_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
+index ce88d1d..ab3b021 100644
+--- a/net/ipv6/netfilter/ip6table_security.c
++++ b/net/ipv6/netfilter/ip6table_security.c
+@@ -36,14 +36,15 @@ static const struct xt_table security_table = {
+ };
+ 
+ static unsigned int
+-ip6table_security_hook(unsigned int hook, struct sk_buff *skb,
++ip6table_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		       const struct net_device *in,
+ 		       const struct net_device *out,
+ 		       int (*okfn)(struct sk_buff *))
+ {
+ 	const struct net *net = dev_net((in != NULL) ? in : out);
+ 
+-	return ip6t_do_table(skb, hook, in, out, net->ipv6.ip6table_security);
++	return ip6t_do_table(skb, ops->hooknum, in, out,
++			     net->ipv6.ip6table_security);
+ }
+ 
+ static struct nf_hook_ops *sectbl_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 54b75ea..486545e 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -95,7 +95,7 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+ 	return NF_ACCEPT;
+ }
+ 
+-static unsigned int ipv6_helper(unsigned int hooknum,
++static unsigned int ipv6_helper(const struct nf_hook_ops *ops,
+ 				struct sk_buff *skb,
+ 				const struct net_device *in,
+ 				const struct net_device *out,
+@@ -133,7 +133,7 @@ static unsigned int ipv6_helper(unsigned int hooknum,
+ 	return helper->help(skb, protoff, ct, ctinfo);
+ }
+ 
+-static unsigned int ipv6_confirm(unsigned int hooknum,
++static unsigned int ipv6_confirm(const struct nf_hook_ops *ops,
+ 				 struct sk_buff *skb,
+ 				 const struct net_device *in,
+ 				 const struct net_device *out,
+@@ -219,16 +219,17 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
+ 	return nf_conntrack_in(net, PF_INET6, hooknum, skb);
+ }
+ 
+-static unsigned int ipv6_conntrack_in(unsigned int hooknum,
++static unsigned int ipv6_conntrack_in(const struct nf_hook_ops *ops,
+ 				      struct sk_buff *skb,
+ 				      const struct net_device *in,
+ 				      const struct net_device *out,
+ 				      int (*okfn)(struct sk_buff *))
+ {
+-	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, in, out, okfn);
++	return __ipv6_conntrack_in(dev_net(in), ops->hooknum, skb, in, out,
++				   okfn);
+ }
+ 
+-static unsigned int ipv6_conntrack_local(unsigned int hooknum,
++static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
+ 					 struct sk_buff *skb,
+ 					 const struct net_device *in,
+ 					 const struct net_device *out,
+@@ -239,7 +240,8 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
+ 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
+ 		return NF_ACCEPT;
+ 	}
+-	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, in, out, okfn);
++	return __ipv6_conntrack_in(dev_net(out), ops->hooknum, skb, in, out,
++				   okfn);
+ }
+ 
+ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
+diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+index aacd121..ec483aa 100644
+--- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
++++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+@@ -52,7 +52,7 @@ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
+ 
+ }
+ 
+-static unsigned int ipv6_defrag(unsigned int hooknum,
++static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
+ 				struct sk_buff *skb,
+ 				const struct net_device *in,
+ 				const struct net_device *out,
+@@ -66,7 +66,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ 		return NF_ACCEPT;
+ #endif
+ 
+-	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
++	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(ops->hooknum, skb));
+ 	/* queued */
+ 	if (reasm == NULL)
+ 		return NF_STOLEN;
+@@ -75,7 +75,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ 	if (reasm == skb)
+ 		return NF_ACCEPT;
+ 
+-	nf_ct_frag6_output(hooknum, reasm, (struct net_device *)in,
++	nf_ct_frag6_output(ops->hooknum, reasm, (struct net_device *)in,
+ 			   (struct net_device *)out, okfn);
+ 
+ 	return NF_STOLEN;
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 593b16e..1fbab0c 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -146,7 +146,7 @@ unsigned int nf_iterate(struct list_head *head,
+ 		/* Optimization: we don't need to hold module
+ 		   reference here, since function can't sleep. --RR */
+ repeat:
+-		verdict = (*elemp)->hook(hook, skb, indev, outdev, okfn);
++		verdict = (*elemp)->hook(*elemp, skb, indev, outdev, okfn);
+ 		if (verdict != NF_ACCEPT) {
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 			if (unlikely((verdict & NF_VERDICT_MASK)
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 74fd00c..34fda62 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1239,11 +1239,11 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+  *	Check if packet is reply for established ip_vs_conn.
   */
- enum nft_chain_attributes {
- 	NFTA_CHAIN_UNSPEC,
-@@ -122,6 +123,7 @@ enum nft_chain_attributes {
- 	NFTA_CHAIN_HANDLE,
- 	NFTA_CHAIN_NAME,
- 	NFTA_CHAIN_HOOK,
-+	NFTA_CHAIN_TYPE,
- 	__NFTA_CHAIN_MAX
- };
- #define NFTA_CHAIN_MAX		(__NFTA_CHAIN_MAX - 1)
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index eb1d56e..ae65fe9 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -44,13 +44,13 @@ config NFT_REJECT_IPV4
- 	depends on NF_TABLES_IPV4
- 	tristate "nf_tables IPv4 reject support"
- 
--config NF_TABLE_ROUTE_IPV4
-+config NFT_CHAIN_ROUTE_IPV4
- 	depends on NF_TABLES_IPV4
--	tristate "IPv4 nf_tables route table support"
-+	tristate "IPv4 nf_tables route chain support"
- 
--config NF_TABLE_NAT_IPV4
-+config NFT_CHAIN_NAT_IPV4
- 	depends on NF_TABLES_IPV4
--	tristate "IPv4 nf_tables nat table support"
-+	tristate "IPv4 nf_tables nat chain support"
- 
- config IP_NF_IPTABLES
- 	tristate "IP tables support (required for filtering/masq/NAT)"
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index b2f01cd..91e0bd7 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -29,8 +29,8 @@ obj-$(CONFIG_NF_NAT_PROTO_GRE) += nf_nat_proto_gre.o
- 
- obj-$(CONFIG_NF_TABLES_IPV4) += nf_tables_ipv4.o
- obj-$(CONFIG_NFT_REJECT_IPV4) += nft_reject_ipv4.o
--obj-$(CONFIG_NF_TABLE_ROUTE_IPV4) += nf_table_route_ipv4.o
--obj-$(CONFIG_NF_TABLE_NAT_IPV4) += nf_table_nat_ipv4.o
-+obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV4) += nft_chain_route_ipv4.o
-+obj-$(CONFIG_NFT_CHAIN_NAT_IPV4) += nft_chain_nat_ipv4.o
- 
- # generic IP tables 
- obj-$(CONFIG_IP_NF_IPTABLES) += ip_tables.o
-diff --git a/net/ipv4/netfilter/nf_tables_ipv4.c b/net/ipv4/netfilter/nf_tables_ipv4.c
-index 63d0a3b..23525c4 100644
---- a/net/ipv4/netfilter/nf_tables_ipv4.c
-+++ b/net/ipv4/netfilter/nf_tables_ipv4.c
-@@ -1,5 +1,6 @@
- /*
-  * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2012-2013 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -41,14 +42,34 @@ static struct nft_af_info nft_af_ipv4 __read_mostly = {
- 	},
- };
- 
-+static struct nf_chain_type filter_ipv4 = {
-+	.family		= NFPROTO_IPV4,
-+	.name		= "filter",
-+	.type		= NFT_CHAIN_T_DEFAULT,
-+	.hook_mask	= (1 << NF_INET_LOCAL_IN) |
-+			  (1 << NF_INET_LOCAL_OUT) |
-+			  (1 << NF_INET_FORWARD) |
-+			  (1 << NF_INET_PRE_ROUTING) |
-+			  (1 << NF_INET_POST_ROUTING),
-+	.fn		= {
-+		[NF_INET_LOCAL_IN]	= nft_do_chain,
-+		[NF_INET_LOCAL_OUT]	= nft_do_chain,
-+		[NF_INET_FORWARD]	= nft_do_chain,
-+		[NF_INET_PRE_ROUTING]	= nft_do_chain,
-+		[NF_INET_POST_ROUTING]	= nft_do_chain,
-+	},
-+};
-+
- static int __init nf_tables_ipv4_init(void)
+ static unsigned int
+-ip_vs_reply4(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	     const struct net_device *in, const struct net_device *out,
+ 	     int (*okfn)(struct sk_buff *))
  {
-+	nft_register_chain_type(&filter_ipv4);
- 	return nft_register_afinfo(&nft_af_ipv4);
+-	return ip_vs_out(hooknum, skb, AF_INET);
++	return ip_vs_out(ops->hooknum, skb, AF_INET);
  }
  
- static void __exit nf_tables_ipv4_exit(void)
- {
- 	nft_unregister_afinfo(&nft_af_ipv4);
-+	nft_unregister_chain_type(&filter_ipv4);
- }
- 
- module_init(nf_tables_ipv4_init);
-diff --git a/net/ipv4/netfilter/nf_table_nat_ipv4.c b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-similarity index 76%
-rename from net/ipv4/netfilter/nf_table_nat_ipv4.c
-rename to net/ipv4/netfilter/nft_chain_nat_ipv4.c
-index 2ecce39..cd28630 100644
---- a/net/ipv4/netfilter/nf_table_nat_ipv4.c
-+++ b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-@@ -1,5 +1,6 @@
  /*
-  * Copyright (c) 2008-2009 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2012 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -167,7 +168,7 @@ static struct nft_expr_type nft_nat_type __read_mostly = {
- };
- 
- /*
-- * NAT table
-+ * NAT chains
+@@ -1251,11 +1251,11 @@ ip_vs_reply4(unsigned int hooknum, struct sk_buff *skb,
+  *	Check if packet is reply for established ip_vs_conn.
   */
- 
- static unsigned int nf_nat_fn(const struct nf_hook_ops *ops,
-@@ -301,115 +302,52 @@ static unsigned int nf_nat_output(const struct nf_hook_ops *ops,
- 	return ret;
- }
- 
--static struct nft_base_chain nf_chain_nat_prerouting __read_mostly = {
--	.chain	= {
--		.name		= "PREROUTING",
--		.rules		= LIST_HEAD_INIT(nf_chain_nat_prerouting.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
--	},
--	.ops	= {
--		.hook		= nf_nat_prerouting,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
--		.hooknum	= NF_INET_PRE_ROUTING,
--		.priority	= NF_IP_PRI_NAT_DST,
--		.priv		= &nf_chain_nat_prerouting.chain,
--	},
--};
--
--static struct nft_base_chain nf_chain_nat_postrouting __read_mostly = {
--	.chain	= {
--		.name		= "POSTROUTING",
--		.rules		= LIST_HEAD_INIT(nf_chain_nat_postrouting.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
--	},
--	.ops	= {
--		.hook		= nf_nat_postrouting,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
--		.hooknum	= NF_INET_POST_ROUTING,
--		.priority	= NF_IP_PRI_NAT_SRC,
--		.priv		= &nf_chain_nat_postrouting.chain,
--	},
--};
--
--static struct nft_base_chain nf_chain_nat_output __read_mostly = {
--	.chain	= {
--		.name		= "OUTPUT",
--		.rules		= LIST_HEAD_INIT(nf_chain_nat_output.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
--	},
--	.ops	= {
--		.hook		= nf_nat_output,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
--		.hooknum	= NF_INET_LOCAL_OUT,
--		.priority	= NF_IP_PRI_NAT_DST,
--		.priv		= &nf_chain_nat_output.chain,
--	},
--};
--
--static struct nft_base_chain nf_chain_nat_input __read_mostly = {
--	.chain	= {
--		.name		= "INPUT",
--		.rules		= LIST_HEAD_INIT(nf_chain_nat_input.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
--	},
--	.ops	= {
--		.hook		= nf_nat_fn,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
--		.hooknum	= NF_INET_LOCAL_IN,
--		.priority	= NF_IP_PRI_NAT_SRC,
--		.priv		= &nf_chain_nat_input.chain,
-+struct nf_chain_type nft_chain_nat_ipv4 = {
-+	.family		= NFPROTO_IPV4,
-+	.name		= "nat",
-+	.type		= NFT_CHAIN_T_NAT,
-+	.hook_mask	= (1 << NF_INET_PRE_ROUTING) |
-+			  (1 << NF_INET_POST_ROUTING) |
-+			  (1 << NF_INET_LOCAL_OUT) |
-+			  (1 << NF_INET_LOCAL_IN),
-+	.fn		= {
-+		[NF_INET_PRE_ROUTING]	= nf_nat_prerouting,
-+		[NF_INET_POST_ROUTING]	= nf_nat_postrouting,
-+		[NF_INET_LOCAL_OUT]	= nf_nat_output,
-+		[NF_INET_LOCAL_IN]	= nf_nat_fn,
- 	},
-+	.me		= THIS_MODULE,
- };
- 
--
--static struct nft_table nf_table_nat_ipv4 __read_mostly = {
--	.name	= "nat",
--	.chains	= LIST_HEAD_INIT(nf_table_nat_ipv4.chains),
--};
--
--static int __init nf_table_nat_init(void)
-+static int __init nft_chain_nat_init(void)
+ static unsigned int
+-ip_vs_local_reply4(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_local_reply4(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		   const struct net_device *in, const struct net_device *out,
+ 		   int (*okfn)(struct sk_buff *))
  {
- 	int err;
- 
--	list_add_tail(&nf_chain_nat_prerouting.chain.list,
--		      &nf_table_nat_ipv4.chains);
--	list_add_tail(&nf_chain_nat_postrouting.chain.list,
--		      &nf_table_nat_ipv4.chains);
--	list_add_tail(&nf_chain_nat_output.chain.list,
--		      &nf_table_nat_ipv4.chains);
--	list_add_tail(&nf_chain_nat_input.chain.list,
--		      &nf_table_nat_ipv4.chains);
--
--	err = nft_register_table(&nf_table_nat_ipv4, NFPROTO_IPV4);
-+	err = nft_register_chain_type(&nft_chain_nat_ipv4);
- 	if (err < 0)
--		goto err1;
-+		return err;
- 
- 	err = nft_register_expr(&nft_nat_type);
- 	if (err < 0)
--		goto err2;
-+		goto err;
- 
- 	return 0;
- 
--err2:
--	nft_unregister_table(&nf_table_nat_ipv4, NFPROTO_IPV4);
--err1:
-+err:
-+	nft_unregister_chain_type(&nft_chain_nat_ipv4);
- 	return err;
+-	return ip_vs_out(hooknum, skb, AF_INET);
++	return ip_vs_out(ops->hooknum, skb, AF_INET);
  }
  
--static void __exit nf_table_nat_exit(void)
-+static void __exit nft_chain_nat_exit(void)
+ #ifdef CONFIG_IP_VS_IPV6
+@@ -1266,11 +1266,11 @@ ip_vs_local_reply4(unsigned int hooknum, struct sk_buff *skb,
+  *	Check if packet is reply for established ip_vs_conn.
+  */
+ static unsigned int
+-ip_vs_reply6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 	     const struct net_device *in, const struct net_device *out,
+ 	     int (*okfn)(struct sk_buff *))
  {
- 	nft_unregister_expr(&nft_nat_type);
--	nft_unregister_table(&nf_table_nat_ipv4, AF_INET);
-+	nft_unregister_chain_type(&nft_chain_nat_ipv4);
+-	return ip_vs_out(hooknum, skb, AF_INET6);
++	return ip_vs_out(ops->hooknum, skb, AF_INET6);
  }
- 
--module_init(nf_table_nat_init);
--module_exit(nf_table_nat_exit);
-+module_init(nft_chain_nat_init);
-+module_exit(nft_chain_nat_exit);
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
--MODULE_ALIAS_NFT_TABLE(AF_INET, "nat");
-+MODULE_ALIAS_NFT_CHAIN(AF_INET, "nat");
- MODULE_ALIAS_NFT_EXPR("nat");
-diff --git a/net/ipv4/netfilter/nf_table_route_ipv4.c b/net/ipv4/netfilter/nft_chain_route_ipv4.c
-similarity index 61%
-rename from net/ipv4/netfilter/nf_table_route_ipv4.c
-rename to net/ipv4/netfilter/nft_chain_route_ipv4.c
-index 4f257a1..6b84e09 100644
---- a/net/ipv4/netfilter/nf_table_route_ipv4.c
-+++ b/net/ipv4/netfilter/nft_chain_route_ipv4.c
-@@ -1,5 +1,6 @@
- /*
-  * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2012 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -56,42 +57,30 @@ static unsigned int nf_route_table_hook(const struct nf_hook_ops *ops,
- 	return ret;
- }
- 
--static struct nft_base_chain nf_chain_route_output __read_mostly = {
--	.chain	= {
--		.name		= "OUTPUT",
--		.rules		= LIST_HEAD_INIT(nf_chain_route_output.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
-+static struct nf_chain_type nft_chain_route_ipv4 = {
-+	.family		= NFPROTO_IPV4,
-+	.name		= "route",
-+	.type		= NFT_CHAIN_T_ROUTE,
-+	.hook_mask	= (1 << NF_INET_LOCAL_OUT),
-+	.fn		= {
-+		[NF_INET_LOCAL_OUT]	= nf_route_table_hook,
- 	},
--	.ops	= {
--		.hook		= nf_route_table_hook,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
--		.hooknum	= NF_INET_LOCAL_OUT,
--		.priority	= NF_IP_PRI_MANGLE,
--		.priv		= &nf_chain_route_output.chain,
--	},
--};
--
--static struct nft_table nf_table_route_ipv4 __read_mostly = {
--	.name	= "route",
--	.chains	= LIST_HEAD_INIT(nf_table_route_ipv4.chains),
-+	.me		= THIS_MODULE,
- };
- 
--static int __init nf_table_route_init(void)
-+static int __init nft_chain_route_init(void)
- {
--	list_add_tail(&nf_chain_route_output.chain.list,
--		      &nf_table_route_ipv4.chains);
--	return nft_register_table(&nf_table_route_ipv4, NFPROTO_IPV4);
-+	return nft_register_chain_type(&nft_chain_route_ipv4);
- }
- 
--static void __exit nf_table_route_exit(void)
-+static void __exit nft_chain_route_exit(void)
- {
--	nft_unregister_table(&nf_table_route_ipv4, NFPROTO_IPV4);
-+	nft_unregister_chain_type(&nft_chain_route_ipv4);
- }
- 
--module_init(nf_table_route_init);
--module_exit(nf_table_route_exit);
-+module_init(nft_chain_route_init);
-+module_exit(nft_chain_route_exit);
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
--MODULE_ALIAS_NFT_TABLE(AF_INET, "route");
-+MODULE_ALIAS_NFT_CHAIN(AF_INET, "route");
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 5677e38..2383306 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -29,9 +29,9 @@ config NF_TABLES_IPV6
- 	depends on NF_TABLES
- 	tristate "IPv6 nf_tables support"
- 
--config NF_TABLE_ROUTE_IPV6
-+config NFT_CHAIN_ROUTE_IPV6
- 	depends on NF_TABLES_IPV6
--	tristate "IPv6 nf_tables route table support"
-+	tristate "IPv6 nf_tables route chain support"
- 
- config IP6_NF_IPTABLES
- 	tristate "IP6 tables support (required for filtering)"
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index 956af44..be4913a 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -25,7 +25,7 @@ obj-$(CONFIG_NF_DEFRAG_IPV6) += nf_defrag_ipv6.o
- 
- # nf_tables
- obj-$(CONFIG_NF_TABLES_IPV6) += nf_tables_ipv6.o
--obj-$(CONFIG_NF_TABLE_ROUTE_IPV6) += nf_table_route_ipv6.o
-+obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV6) += nft_chain_route_ipv6.o
- 
- # matches
- obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
-diff --git a/net/ipv6/netfilter/nf_tables_ipv6.c b/net/ipv6/netfilter/nf_tables_ipv6.c
-index e0717ce..3631d62 100644
---- a/net/ipv6/netfilter/nf_tables_ipv6.c
-+++ b/net/ipv6/netfilter/nf_tables_ipv6.c
-@@ -1,5 +1,6 @@
- /*
-  * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2012-2013 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -39,14 +40,33 @@ static struct nft_af_info nft_af_ipv6 __read_mostly = {
- 	},
- };
- 
-+static struct nf_chain_type filter_ipv6 = {
-+	.family		= NFPROTO_IPV6,
-+	.name		= "filter",
-+	.type		= NFT_CHAIN_T_DEFAULT,
-+	.hook_mask	= (1 << NF_INET_LOCAL_IN) |
-+			  (1 << NF_INET_LOCAL_OUT) |
-+			  (1 << NF_INET_FORWARD) |
-+			  (1 << NF_INET_PRE_ROUTING) |
-+			  (1 << NF_INET_POST_ROUTING),
-+	.fn		= {
-+		[NF_INET_LOCAL_IN]	= nft_do_chain,
-+		[NF_INET_LOCAL_OUT]	= nft_do_chain,
-+		[NF_INET_FORWARD]	= nft_do_chain,
-+		[NF_INET_PRE_ROUTING]	= nft_do_chain,
-+		[NF_INET_POST_ROUTING]	= nft_do_chain,
-+	},
-+};
-+
- static int __init nf_tables_ipv6_init(void)
- {
-+	nft_register_chain_type(&filter_ipv6);
- 	return nft_register_afinfo(&nft_af_ipv6);
- }
--
- static void __exit nf_tables_ipv6_exit(void)
- {
- 	nft_unregister_afinfo(&nft_af_ipv6);
-+	nft_unregister_chain_type(&filter_ipv6);
- }
- 
- module_init(nf_tables_ipv6_init);
-diff --git a/net/ipv6/netfilter/nf_table_route_ipv6.c b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-similarity index 65%
-rename from net/ipv6/netfilter/nf_table_route_ipv6.c
-rename to net/ipv6/netfilter/nft_chain_route_ipv6.c
-index 48ac65c..4cdc992 100644
---- a/net/ipv6/netfilter/nf_table_route_ipv6.c
-+++ b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-@@ -1,5 +1,6 @@
- /*
-  * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2012 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -52,42 +53,30 @@ static unsigned int nf_route_table_hook(const struct nf_hook_ops *ops,
- 	return ret;
- }
- 
--static struct nft_base_chain nf_chain_route_output __read_mostly = {
--	.chain	= {
--		.name		= "OUTPUT",
--		.rules		= LIST_HEAD_INIT(nf_chain_route_output.chain.rules),
--		.flags		= NFT_BASE_CHAIN | NFT_CHAIN_BUILTIN,
--	},
--	.ops	= {
--		.hook		= nf_route_table_hook,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV6,
--		.hooknum	= NF_INET_LOCAL_OUT,
--		.priority	= NF_IP6_PRI_MANGLE,
--		.priv		= &nf_chain_route_output.chain,
--	},
-+static struct nf_chain_type nft_chain_route_ipv6 = {
-+	.family		= NFPROTO_IPV6,
-+	.name		= "route",
-+	.type		= NFT_CHAIN_T_ROUTE,
-+	.hook_mask	= (1 << NF_INET_LOCAL_OUT),
-+	.fn		= {
-+                [NF_INET_LOCAL_OUT]	= nf_route_table_hook,
-+        },
-+        .me		= THIS_MODULE,
- };
- 
--static struct nft_table nf_table_route_ipv6 __read_mostly = {
--	.name	= "route",
--	.chains	= LIST_HEAD_INIT(nf_table_route_ipv6.chains),
--};
--
--static int __init nf_table_route_init(void)
-+static int __init nft_chain_route_init(void)
- {
--	list_add_tail(&nf_chain_route_output.chain.list,
--		      &nf_table_route_ipv6.chains);
--	return nft_register_table(&nf_table_route_ipv6, NFPROTO_IPV6);
-+	return nft_register_chain_type(&nft_chain_route_ipv6);
- }
- 
--static void __exit nf_table_route_exit(void)
-+static void __exit nft_chain_route_exit(void)
- {
--	nft_unregister_table(&nf_table_route_ipv6, NFPROTO_IPV6);
-+	nft_unregister_chain_type(&nft_chain_route_ipv6);
- }
- 
--module_init(nf_table_route_init);
--module_exit(nf_table_route_exit);
-+module_init(nft_chain_route_init);
-+module_exit(nft_chain_route_exit);
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
--MODULE_ALIAS_NFT_TABLE(AF_INET6, "route");
-+MODULE_ALIAS_NFT_CHAIN(AF_INET6, "route");
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 6dac9a3..9c2d8d5 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -104,8 +104,7 @@ static struct nft_table *nft_table_lookup(const struct nft_af_info *afi,
- }
- 
- static struct nft_table *nf_tables_table_lookup(const struct nft_af_info *afi,
--						const struct nlattr *nla,
--						bool autoload)
-+						const struct nlattr *nla)
- {
- 	struct nft_table *table;
- 
-@@ -116,16 +115,6 @@ static struct nft_table *nf_tables_table_lookup(const struct nft_af_info *afi,
- 	if (table != NULL)
- 		return table;
- 
--#ifdef CONFIG_MODULES
--	if (autoload) {
--		nfnl_unlock(NFNL_SUBSYS_NFTABLES);
--		request_module("nft-table-%u-%*.s", afi->family,
--			       nla_len(nla)-1, (const char *)nla_data(nla));
--		nfnl_lock(NFNL_SUBSYS_NFTABLES);
--		if (nft_table_lookup(afi, nla))
--			return ERR_PTR(-EAGAIN);
--	}
--#endif
- 	return ERR_PTR(-ENOENT);
- }
- 
-@@ -134,6 +123,39 @@ static inline u64 nf_tables_alloc_handle(struct nft_table *table)
- 	return ++table->hgenerator;
- }
- 
-+static struct nf_chain_type *chain_type[AF_MAX][NFT_CHAIN_T_MAX];
-+
-+static int __nf_tables_chain_type_lookup(int family, const struct nlattr *nla)
-+{
-+	int i;
-+
-+	for (i=0; i<NFT_CHAIN_T_MAX; i++) {
-+		if (chain_type[family][i] != NULL &&
-+		    !nla_strcmp(nla, chain_type[family][i]->name))
-+			return i;
-+	}
-+	return -1;
-+}
-+
-+static int nf_tables_chain_type_lookup(const struct nft_af_info *afi,
-+				       const struct nlattr *nla,
-+				       bool autoload)
-+{
-+	int type;
-+
-+	type = __nf_tables_chain_type_lookup(afi->family, nla);
-+#ifdef CONFIG_MODULES
-+	if (type < 0 && autoload) {
-+		nfnl_unlock(NFNL_SUBSYS_NFTABLES);
-+		request_module("nft-chain-%u-%*.s", afi->family,
-+			       nla_len(nla)-1, (const char *)nla_data(nla));
-+		nfnl_lock(NFNL_SUBSYS_NFTABLES);
-+		type = __nf_tables_chain_type_lookup(afi->family, nla);
-+	}
-+#endif
-+	return type;
-+}
-+
- static const struct nla_policy nft_table_policy[NFTA_TABLE_MAX + 1] = {
- 	[NFTA_TABLE_NAME]	= { .type = NLA_STRING },
- };
-@@ -258,7 +280,7 @@ static int nf_tables_gettable(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_TABLE_NAME], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_TABLE_NAME]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
-@@ -294,7 +316,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 		return PTR_ERR(afi);
- 
- 	name = nla[NFTA_TABLE_NAME];
--	table = nf_tables_table_lookup(afi, name, false);
-+	table = nf_tables_table_lookup(afi, name);
- 	if (IS_ERR(table)) {
- 		if (PTR_ERR(table) != -ENOENT)
- 			return PTR_ERR(table);
-@@ -335,13 +357,10 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_TABLE_NAME], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_TABLE_NAME]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
--	if (table->flags & NFT_TABLE_BUILTIN)
--		return -EOPNOTSUPP;
--
- 	if (table->use)
- 		return -EBUSY;
- 
-@@ -351,99 +370,34 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 	return 0;
- }
- 
--static struct nft_table *__nf_tables_table_lookup(const struct nft_af_info *afi,
--						  const char *name)
-+int nft_register_chain_type(struct nf_chain_type *ctype)
- {
--	struct nft_table *table;
--
--	list_for_each_entry(table, &afi->tables, list) {
--		if (!strcmp(name, table->name))
--			return table;
--	}
--
--	return ERR_PTR(-ENOENT);
--}
--
--static int nf_tables_chain_notify(const struct sk_buff *oskb,
--				  const struct nlmsghdr *nlh,
--				  const struct nft_table *table,
--				  const struct nft_chain *chain,
--				  int event, int family);
--
--/**
-- *	nft_register_table - register a built-in table
-- *
-- *	@table: the table to register
-- *	@family: protocol family to register table with
-- *
-- *	Register a built-in table for use with nf_tables. Returns zero on
-- *	success or a negative errno code otherwise.
-- */
--int nft_register_table(struct nft_table *table, int family)
--{
--	struct nft_af_info *afi;
--	struct nft_table *t;
--	struct nft_chain *chain;
--	int err;
-+	int err = 0;
- 
- 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
--again:
--	afi = nf_tables_afinfo_lookup(family, true);
--	if (IS_ERR(afi)) {
--		err = PTR_ERR(afi);
--		if (err == -EAGAIN)
--			goto again;
--		goto err;
--	}
--
--	t = __nf_tables_table_lookup(afi, table->name);
--	if (IS_ERR(t)) {
--		err = PTR_ERR(t);
--		if (err != -ENOENT)
--			goto err;
--		t = NULL;
-+	if (chain_type[ctype->family][ctype->type] != NULL) {
-+		err = -EBUSY;
-+		goto out;
- 	}
- 
--	if (t != NULL) {
--		err = -EEXIST;
--		goto err;
--	}
-+	if (!try_module_get(ctype->me))
-+		goto out;
- 
--	table->flags |= NFT_TABLE_BUILTIN;
--	INIT_LIST_HEAD(&table->sets);
--	list_add_tail(&table->list, &afi->tables);
--	nf_tables_table_notify(NULL, NULL, table, NFT_MSG_NEWTABLE, family);
--	list_for_each_entry(chain, &table->chains, list)
--		nf_tables_chain_notify(NULL, NULL, table, chain,
--				       NFT_MSG_NEWCHAIN, family);
--	err = 0;
--err:
-+	chain_type[ctype->family][ctype->type] = ctype;
-+out:
- 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
- 	return err;
- }
--EXPORT_SYMBOL_GPL(nft_register_table);
-+EXPORT_SYMBOL_GPL(nft_register_chain_type);
- 
--/**
-- *	nft_unregister_table - unregister a built-in table
-- *
-- *	@table: the table to unregister
-- *	@family: protocol family to unregister table with
-- *
-- *	Unregister a built-in table for use with nf_tables.
-- */
--void nft_unregister_table(struct nft_table *table, int family)
-+void nft_unregister_chain_type(struct nf_chain_type *ctype)
- {
--	struct nft_chain *chain;
--
- 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
--	list_del(&table->list);
--	list_for_each_entry(chain, &table->chains, list)
--		nf_tables_chain_notify(NULL, NULL, table, chain,
--				       NFT_MSG_DELCHAIN, family);
--	nf_tables_table_notify(NULL, NULL, table, NFT_MSG_DELTABLE, family);
-+	chain_type[ctype->family][ctype->type] = NULL;
-+	module_put(ctype->me);
- 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
- }
--EXPORT_SYMBOL_GPL(nft_unregister_table);
-+EXPORT_SYMBOL_GPL(nft_unregister_chain_type);
  
  /*
-  * Chains
-@@ -484,6 +438,7 @@ static const struct nla_policy nft_chain_policy[NFTA_CHAIN_MAX + 1] = {
- 	[NFTA_CHAIN_NAME]	= { .type = NLA_STRING,
- 				    .len = NFT_CHAIN_MAXNAMELEN - 1 },
- 	[NFTA_CHAIN_HOOK]	= { .type = NLA_NESTED },
-+	[NFTA_CHAIN_TYPE]	= { .type = NLA_NUL_STRING },
- };
+@@ -1278,11 +1278,11 @@ ip_vs_reply6(unsigned int hooknum, struct sk_buff *skb,
+  *	Check if packet is reply for established ip_vs_conn.
+  */
+ static unsigned int
+-ip_vs_local_reply6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_local_reply6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		   const struct net_device *in, const struct net_device *out,
+ 		   int (*okfn)(struct sk_buff *))
+ {
+-	return ip_vs_out(hooknum, skb, AF_INET6);
++	return ip_vs_out(ops->hooknum, skb, AF_INET6);
+ }
  
- static const struct nla_policy nft_hook_policy[NFTA_HOOK_MAX + 1] = {
-@@ -526,6 +481,10 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, u32 portid, u32 seq,
- 		if (nla_put_be32(skb, NFTA_HOOK_PRIORITY, htonl(ops->priority)))
- 			goto nla_put_failure;
- 		nla_nest_end(skb, nest);
-+
-+		if (nla_put_string(skb, NFTA_CHAIN_TYPE,
-+			chain_type[ops->pf][nft_base_chain(chain)->type]->name))
-+				goto nla_put_failure;
- 	}
+ #endif
+@@ -1733,12 +1733,12 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+  *	Schedule and forward packets from remote clients
+  */
+ static unsigned int
+-ip_vs_remote_request4(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_remote_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		      const struct net_device *in,
+ 		      const struct net_device *out,
+ 		      int (*okfn)(struct sk_buff *))
+ {
+-	return ip_vs_in(hooknum, skb, AF_INET);
++	return ip_vs_in(ops->hooknum, skb, AF_INET);
+ }
  
- 	return nlmsg_end(skb, nlh);
-@@ -633,7 +592,7 @@ static int nf_tables_getchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
+ /*
+@@ -1746,11 +1746,11 @@ ip_vs_remote_request4(unsigned int hooknum, struct sk_buff *skb,
+  *	Schedule and forward packets from local clients
+  */
+ static unsigned int
+-ip_vs_local_request4(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_local_request4(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in, const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+-	return ip_vs_in(hooknum, skb, AF_INET);
++	return ip_vs_in(ops->hooknum, skb, AF_INET);
+ }
  
--	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
+ #ifdef CONFIG_IP_VS_IPV6
+@@ -1760,7 +1760,7 @@ ip_vs_local_request4(unsigned int hooknum, struct sk_buff *skb,
+  * Copy info from first fragment, to the rest of them.
+  */
+ static unsigned int
+-ip_vs_preroute_frag6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_preroute_frag6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in,
+ 		     const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+@@ -1792,12 +1792,12 @@ ip_vs_preroute_frag6(unsigned int hooknum, struct sk_buff *skb,
+  *	Schedule and forward packets from remote clients
+  */
+ static unsigned int
+-ip_vs_remote_request6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_remote_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		      const struct net_device *in,
+ 		      const struct net_device *out,
+ 		      int (*okfn)(struct sk_buff *))
+ {
+-	return ip_vs_in(hooknum, skb, AF_INET6);
++	return ip_vs_in(ops->hooknum, skb, AF_INET6);
+ }
  
-@@ -680,7 +639,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
+ /*
+@@ -1805,11 +1805,11 @@ ip_vs_remote_request6(unsigned int hooknum, struct sk_buff *skb,
+  *	Schedule and forward packets from local clients
+  */
+ static unsigned int
+-ip_vs_local_request6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_local_request6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct net_device *in, const struct net_device *out,
+ 		     int (*okfn)(struct sk_buff *))
+ {
+-	return ip_vs_in(hooknum, skb, AF_INET6);
++	return ip_vs_in(ops->hooknum, skb, AF_INET6);
+ }
  
--	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE], create);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
+ #endif
+@@ -1825,7 +1825,7 @@ ip_vs_local_request6(unsigned int hooknum, struct sk_buff *skb,
+  *      and send them to ip_vs_in_icmp.
+  */
+ static unsigned int
+-ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_forward_icmp(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		   const struct net_device *in, const struct net_device *out,
+ 		   int (*okfn)(struct sk_buff *))
+ {
+@@ -1842,12 +1842,12 @@ ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
+ 	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
+ 		return NF_ACCEPT;
  
-@@ -722,6 +681,17 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+-	return ip_vs_in_icmp(skb, &r, hooknum);
++	return ip_vs_in_icmp(skb, &r, ops->hooknum);
+ }
  
- 	if (nla[NFTA_CHAIN_HOOK]) {
- 		struct nf_hook_ops *ops;
-+		nf_hookfn *hookfn;
-+		u32 hooknum;
-+		int type = NFT_CHAIN_T_DEFAULT;
-+
-+		if (nla[NFTA_CHAIN_TYPE]) {
-+			type = nf_tables_chain_type_lookup(afi,
-+							   nla[NFTA_CHAIN_TYPE],
-+							   create);
-+			if (type < 0)
-+				return -ENOENT;
-+		}
+ #ifdef CONFIG_IP_VS_IPV6
+ static unsigned int
+-ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
++ip_vs_forward_icmp_v6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		      const struct net_device *in, const struct net_device *out,
+ 		      int (*okfn)(struct sk_buff *))
+ {
+@@ -1866,7 +1866,7 @@ ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
+ 	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
+ 		return NF_ACCEPT;
  
- 		err = nla_parse_nested(ha, NFTA_HOOK_MAX, nla[NFTA_CHAIN_HOOK],
- 				       nft_hook_policy);
-@@ -730,12 +700,20 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 		if (ha[NFTA_HOOK_HOOKNUM] == NULL ||
- 		    ha[NFTA_HOOK_PRIORITY] == NULL)
- 			return -EINVAL;
--		if (ntohl(nla_get_be32(ha[NFTA_HOOK_HOOKNUM])) >= afi->nhooks)
-+
-+		hooknum = ntohl(nla_get_be32(ha[NFTA_HOOK_HOOKNUM]));
-+		if (hooknum >= afi->nhooks)
- 			return -EINVAL;
+-	return ip_vs_in_icmp_v6(skb, &r, hooknum, &iphdr);
++	return ip_vs_in_icmp_v6(skb, &r, ops->hooknum, &iphdr);
+ }
+ #endif
  
-+		hookfn = chain_type[family][type]->fn[hooknum];
-+		if (hookfn == NULL)
-+			return -EOPNOTSUPP;
-+
- 		basechain = kzalloc(sizeof(*basechain), GFP_KERNEL);
- 		if (basechain == NULL)
- 			return -ENOMEM;
-+
-+		basechain->type = type;
- 		chain = &basechain->chain;
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 568c769..3f224d7 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4668,7 +4668,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb, int ifindex,
+ 	return NF_ACCEPT;
+ }
  
- 		ops = &basechain->ops;
-@@ -744,7 +722,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 		ops->hooknum	= ntohl(nla_get_be32(ha[NFTA_HOOK_HOOKNUM]));
- 		ops->priority	= ntohl(nla_get_be32(ha[NFTA_HOOK_PRIORITY]));
- 		ops->priv	= chain;
--		ops->hook	= nft_do_chain;
-+		ops->hook       = hookfn;
- 		if (afi->hooks[ops->hooknum])
- 			ops->hook = afi->hooks[ops->hooknum];
+-static unsigned int selinux_ipv4_forward(unsigned int hooknum,
++static unsigned int selinux_ipv4_forward(const struct nf_hook_ops *ops,
+ 					 struct sk_buff *skb,
+ 					 const struct net_device *in,
+ 					 const struct net_device *out,
+@@ -4678,7 +4678,7 @@ static unsigned int selinux_ipv4_forward(unsigned int hooknum,
+ }
  
-@@ -793,7 +771,7 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-static unsigned int selinux_ipv6_forward(unsigned int hooknum,
++static unsigned int selinux_ipv6_forward(const struct nf_hook_ops *ops,
+ 					 struct sk_buff *skb,
+ 					 const struct net_device *in,
+ 					 const struct net_device *out,
+@@ -4710,7 +4710,7 @@ static unsigned int selinux_ip_output(struct sk_buff *skb,
+ 	return NF_ACCEPT;
+ }
  
--	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_CHAIN_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
+-static unsigned int selinux_ipv4_output(unsigned int hooknum,
++static unsigned int selinux_ipv4_output(const struct nf_hook_ops *ops,
+ 					struct sk_buff *skb,
+ 					const struct net_device *in,
+ 					const struct net_device *out,
+@@ -4837,7 +4837,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 	return NF_ACCEPT;
+ }
  
-@@ -801,9 +779,6 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(chain))
- 		return PTR_ERR(chain);
+-static unsigned int selinux_ipv4_postroute(unsigned int hooknum,
++static unsigned int selinux_ipv4_postroute(const struct nf_hook_ops *ops,
+ 					   struct sk_buff *skb,
+ 					   const struct net_device *in,
+ 					   const struct net_device *out,
+@@ -4847,7 +4847,7 @@ static unsigned int selinux_ipv4_postroute(unsigned int hooknum,
+ }
  
--	if (chain->flags & NFT_CHAIN_BUILTIN)
--		return -EOPNOTSUPP;
--
- 	if (!list_empty(&chain->rules))
- 		return -EBUSY;
- 
-@@ -1190,7 +1165,7 @@ static int nf_tables_getrule(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
-@@ -1268,7 +1243,7 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE], create);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
-@@ -1374,7 +1349,7 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_RULE_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
-@@ -1490,7 +1465,7 @@ static int nft_ctx_init_from_setattr(struct nft_ctx *ctx,
- 		return PTR_ERR(afi);
- 
- 	if (nla[NFTA_SET_TABLE] != NULL) {
--		table = nf_tables_table_lookup(afi, nla[NFTA_SET_TABLE], false);
-+		table = nf_tables_table_lookup(afi, nla[NFTA_SET_TABLE]);
- 		if (IS_ERR(table))
- 			return PTR_ERR(table);
- 	}
-@@ -1820,7 +1795,7 @@ static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_SET_TABLE], create);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_SET_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
-@@ -2008,7 +1983,7 @@ static int nft_ctx_init_from_elemattr(struct nft_ctx *ctx,
- 	if (IS_ERR(afi))
- 		return PTR_ERR(afi);
- 
--	table = nf_tables_table_lookup(afi, nla[NFTA_SET_ELEM_LIST_TABLE], false);
-+	table = nf_tables_table_lookup(afi, nla[NFTA_SET_ELEM_LIST_TABLE]);
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-static unsigned int selinux_ipv6_postroute(unsigned int hooknum,
++static unsigned int selinux_ipv6_postroute(const struct nf_hook_ops *ops,
+ 					   struct sk_buff *skb,
+ 					   const struct net_device *in,
+ 					   const struct net_device *out,
 -- 
 1.7.10.4
 
