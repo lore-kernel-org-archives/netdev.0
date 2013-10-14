@@ -1,51 +1,51 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
- checksum offload from guest
-Date: Mon, 14 Oct 2013 10:49:20 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
-References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
- <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
- <20131014104235.GB11739@zion.uk.xensource.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 2/2] ixgbe: enable l2 forwarding acceleration for macvlans
+Date: Mon, 14 Oct 2013 06:50:23 -0400
+Message-ID: <20131014105023.GC26880@hmsreliant.think-freely.org>
+References: <1380140209-24587-1-git-send-email-nhorman@tuxdriver.com>
+ <1381517037-26007-1-git-send-email-nhorman@tuxdriver.com>
+ <1381517037-26007-3-git-send-email-nhorman@tuxdriver.com>
+ <525B0721.7060709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64920 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753959Ab3JNKtv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 06:49:51 -0400
-In-Reply-To: <20131014104235.GB11739@zion.uk.xensource.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49955 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754652Ab3JNKu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 06:50:27 -0400
+Content-Disposition: inline
+In-Reply-To: <525B0721.7060709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 14 October 2013 11:43
-> To: Paul Durrant
-> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
-> Ian Campbell
-> Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
-> checksum offload from guest
+On Sun, Oct 13, 2013 at 01:48:33PM -0700, John Fastabend wrote:
+> On 10/11/2013 11:43 AM, Neil Horman wrote:
+> >Now that l2 acceleration ops are in place from the prior patch, enable ixgbe to
+> >take advantage of these operations.  Allow it to allocate queues for a macvlan
+> >so that when we transmit a frame, we can do the switching in hardware inside the
+> >ixgbe card, rather than in software.
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >CC: john.fastabend@gmail.com
+> >CC: Andy Gospodarek <andy@greyhouse.net>
+> >CC: "David S. Miller" <davem@davemloft.net>
+> >---
 > 
-> On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
-> [...]
-> > -/*
-> > - * This is the amount of packet we copy rather than map, so that the
-> > - * guest can't fiddle with the contents of the headers while we do
-> > - * packet processing on them (netfilter, routing, etc).
-> > +/* This is a miniumum size for the linear area to avoid lots of
-> > + * calls to __pskb_pull_tail() as we set up checksum offsets.
-> >   */
+> Neil, I'm fairly sure I can simplify this patch further. I'll be able
+> to take a shot at it Tuesday if you don't mind waiting.
 > 
-> You seem to forget to explain why 128 is chosen. :-)
+> I can resubmit the series then and preserve your signed-off on at least
+> the first patch. Seem reasonable?
+> 
+That sounds fine.
+Thanks!
+Neil
 
-Is that not sufficient explanation? What sort of thing are you looking for?
-
-  Paul
+> .John
+> 
+> -- 
+> John Fastabend         Intel Corporation
+> 
