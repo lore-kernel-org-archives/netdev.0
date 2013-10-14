@@ -1,63 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH] net bridge: remove unused field
-Date: Mon, 14 Oct 2013 17:11:09 -0400
-Message-ID: <525C5DED.1080406@mojatatu.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next] netdev: inet_timewait_sock.h missing semi-colon
+ when KMEMCHECK is enabled
+Date: Mon, 14 Oct 2013 14:24:08 -0700
+Message-ID: <1381785848.12919.6.camel@joe-AO722>
+References: <1381762088-18880-1-git-send-email-treding@nvidia.com>
+	 <525C47C0.2000907@infradead.org> <1381780437.12919.3.camel@joe-AO722>
+	 <525C5863.1000505@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020004080708080408040005"
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:59584 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756815Ab3JNVLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 17:11:22 -0400
-Received: by mail-qa0-f42.google.com with SMTP id w8so2852612qac.1
-        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 14:11:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------020004080708080408040005
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: Thierry Reding <thierry.reding@gmail.com>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <525C5863.1000505@infradead.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Trivial patch
+On Mon, 2013-10-14 at 13:47 -0700, Randy Dunlap wrote:
+> On 10/14/13 12:53, Joe Perches wrote:
+> > On Mon, 2013-10-14 at 12:36 -0700, Randy Dunlap wrote:
+> >> From: Randy Dunlap <rdunlap@infradead.org>
+> >>
+> >> Fix (a few hundred) build errors due to missing semi-colon when
+> >> KMEMCHECK is enabled:
+> >>
+> >>   include/net/inet_timewait_sock.h:139:2: error: expected ',', ';' or '}' before 'int'
+> >>   include/net/inet_timewait_sock.h:148:28: error: 'const struct inet_timewait_sock' has no member named 'tw_death_node'
+> >>
+> >> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> >> ---
+> >>  include/net/inet_timewait_sock.h |    2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> --- next-2013-1014.orig/include/net/inet_timewait_sock.h
+> >> +++ next-2013-1014/include/net/inet_timewait_sock.h
+> >> @@ -135,7 +135,7 @@ struct inet_timewait_sock {
+> >>  				tw_transparent  : 1,
+> >>  				tw_pad		: 6,	/* 6 bits hole */
+> >>  				tw_tos		: 8,
+> >> -				tw_pad2		: 16 /* 16 bits hole */
+> >> +				tw_pad2		: 16;	/* 16 bits hole */
+> >>  	kmemcheck_bitfield_end(flags);
+> >>  	u32			tw_ttd;
+> >>  	struct inet_bind_bucket	*tw_tb;
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> Please read the FAQ at  http://www.tux.org/lkml/
+> > 
+> > Shouldn't this be done in kmemcheck.h?
+> 
+> This patch makes sense and probably should be merged
+> but it does not fix the build errors that I reported.
 
-cheers,
-jamal
-
---------------020004080708080408040005
-Content-Type: text/plain; charset=UTF-8;
- name="patch-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="patch-1"
-
-commit 984b1bc7c51a1201707238f7aa5fa1a8b72fde90
-Author: jamal <jhs@mojatatu.com>
-Date:   Mon Oct 14 17:04:16 2013 -0400
-
-    Remove unused enum
-    
-    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 80394e8..f8dab16 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -209,11 +209,6 @@ enum {
- #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
- 
- enum {
--	BRIDGE_MODE_UNSPEC,
--	BRIDGE_MODE_HAIRPIN,
--};
--
--enum {
- 	IFLA_BRPORT_UNSPEC,
- 	IFLA_BRPORT_STATE,	/* Spanning tree state     */
- 	IFLA_BRPORT_PRIORITY,	/* "             priority  */
-
---------------020004080708080408040005--
+You sure?
