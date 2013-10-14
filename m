@@ -1,46 +1,72 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: fix incorrect ca_state in tail loss probe
-Date: Mon, 14 Oct 2013 01:55:23 -0400
-Message-ID: <CADVnQymADSKHr6oxr6dN8gdjxf-vtCXOd6xm3neRcWLp7nh9Qg@mail.gmail.com>
-References: <1381598187-9681-1-git-send-email-ycheng@google.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC] ipv6: always join solicited-node address
+Date: Mon, 14 Oct 2013 09:09:59 +0200
+Message-ID: <87fvs4s4zc.fsf@nemi.mork.no>
+References: <1381685064-24805-1-git-send-email-bjorn@mork.no>
+	<20131014005508.GE14021@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Netdev <netdev@vger.kernel.org>, michael@sterretts.net,
-	jwboyer@fedoraproject.org,
-	"Steinar H. Gunderson" <sesse@google.com>,
-	dormando <dormando@rydia.net>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:60836 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731Ab3JNFzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 01:55:25 -0400
-Received: by mail-ee0-f48.google.com with SMTP id l10so3065523eei.7
-        for <netdev@vger.kernel.org>; Sun, 13 Oct 2013 22:55:24 -0700 (PDT)
-In-Reply-To: <1381598187-9681-1-git-send-email-ycheng@google.com>
+Received: from canardo.mork.no ([148.122.252.1]:54940 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259Ab3JNHKY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 03:10:24 -0400
+Received: from nemi.mork.no (ip6-localhost [IPv6:::1])
+	by canardo.mork.no (8.14.4/8.14.4) with ESMTP id r9E7AF6l009960
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 09:10:15 +0200
+Received: from bjorn by nemi.mork.no with local (Exim 4.80)
+	(envelope-from <bjorn@mork.no>)
+	id 1VVcHv-0004KU-8D
+	for netdev@vger.kernel.org; Mon, 14 Oct 2013 09:09:59 +0200
+In-Reply-To: <20131014005508.GE14021@order.stressinduktion.org> (Hannes
+	Frederic Sowa's message of "Mon, 14 Oct 2013 02:55:08 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 12, 2013 at 1:16 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> On receiving an ACK that covers the loss probe sequence, TLP
-> immediately sets the congestion state to Open, even though some packets
-> are not recovered and retransmisssion are on the way.  The later ACks
-> may trigger a WARN_ON check in step D of tcp_fastretrans_alert(), e.g.,
-> https://bugzilla.redhat.com/show_bug.cgi?id=989251
->
-> The fix is to follow the similar procedure in recovery by calling
-> tcp_try_keep_open(). The sender switches to Open state if no packets
-> are retransmissted. Otherwise it goes to Disorder and let subsequent
-> ACKs move the state to Recovery or Open.
->
-> Reported-By: Michael Sterrett <michael@sterretts.net>
-> Tested-By: Dormando <dormando@rydia.net>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> IFF_NOARP seems to be a bit messed up in ipv6. Your patch seems fine =
+to
+> me but I would add protection to the ndisc_rcv and sending routines t=
+o
+> do nothing if IFF_NOARP is set for that interface.
 
-Nice catch!
+That's what I thought.  So for my problem, this will not really change
+much.
 
-neal
+> So it would be possible that you could resolve this issue by just iss=
+uing
+> an "ip link set arp on dev <interface>" and won't have hassle with ra=
+cing
+> interface initialization.
+
+Yes, but that would also make the IP layer try to resolve IP to link
+layer addressess both for IPv4 and IPv6, which just won't work. At leas=
+t
+not for IPv4, where there just is no way to transport an ARP to the
+modem.  And I assume it may fail for IPv6 too on any sane device.
+
+> Is this a specific bug of the modem you are using or are all devices
+> powered by this driver like this?
+
+Unfortunately I have no IPv6 enabled SIM myself, so I have no
+information about other devices.  This report was based on user
+feedback.
+
+I assume the bug is specific to this firmware implementation, probably
+extending to all similar devices from the same vendor.  But it could be
+more common than that.  The fact that the bug is there indicates that
+this works just fine in Windows.
+
+Yes, I realize that I am in ugly-hack-to-workaround-firmware-issues lan=
+d
+again... But it sure would be nice to have some way for a driver to
+indicate that L2 neighbour tables are meaningless, but that any incomin=
+g
+requests should still be answered.
+
+
+Bj=C3=B8rn
