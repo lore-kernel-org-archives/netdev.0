@@ -1,78 +1,81 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH][net-next] gianfar: Simplify MQ polling to avoid soft
- lockup
-Date: Mon, 14 Oct 2013 18:11:15 +0300
-Message-ID: <525C0993.70503@freescale.com>
-References: <1381759509-26882-1-git-send-email-claudiu.manoil@freescale.com> <1381761267.3392.49.camel@edumazet-glaptop.roam.corp.google.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
+Date: Mon, 14 Oct 2013 11:12:47 -0400
+Message-ID: <3511324.zOrNRFllMJ@sifl>
+References: <0DB595A2CB707F458400BE9663B6A72269C0047793@SC-VEXCH2.marvell.com> <2291823.ee0I8c00DA@olly> <0DB595A2CB707F458400BE9663B6A72269C00479DF@SC-VEXCH2.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: Seif Mazareeb <seif@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:48902
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750837Ab3JNPLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 11:11:31 -0400
-In-Reply-To: <1381761267.3392.49.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:53125 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754880Ab3JNPMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 11:12:52 -0400
+Received: by mail-qc0-f181.google.com with SMTP id q4so4911813qcx.40
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 08:12:51 -0700 (PDT)
+In-Reply-To: <0DB595A2CB707F458400BE9663B6A72269C00479DF@SC-VEXCH2.marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/14/2013 5:34 PM, Eric Dumazet wrote:
-> On Mon, 2013-10-14 at 17:05 +0300, Claudiu Manoil wrote:
->> Under certain low traffic conditions, the single core
->> devices with multiple Rx/Tx queues (MQ mode) may reach
->> soft lockup due to gfar_poll not returning in proper time.
->> The following exception was obtained using iperf on a 100Mbit
->> half-duplex link, for a p1010 single core device:
->>
->> BUG: soft lockup - CPU#0 stuck for 23s! [iperf:2847]
->> Modules linked in:
->> CPU: 0 PID: 2847 Comm: iperf Not tainted 3.12.0-rc3 #16
->> task: e8bf8000 ti: eeb16000 task.ti: ee646000
->> NIP: c0255b6c LR: c0367ae8 CTR: c0461c18
->> REGS: eeb17e70 TRAP: 0901   Not tainted  (3.12.0-rc3)
->> MSR: 00029000 <CE,EE,ME>  CR: 44228428  XER: 20000000
->>
->> GPR00: c0367ad4 eeb17f20 e8bf8000 ee01f4b4 00000008 ffffffff ffffffff
->> 00000000
->> GPR08: 000000c0 00000008 000000ff ffffffc0 000193fe
->> NIP [c0255b6c] find_next_bit+0xb8/0xc4
->> LR [c0367ae8] gfar_poll+0xc8/0x1d8
->> Call Trace:
->> [eeb17f20] [c0367ad4] gfar_poll+0xb4/0x1d8 (unreliable)
->> [eeb17f70] [c0422100] net_rx_action+0xa4/0x158
->> [eeb17fa0] [c003ec6c] __do_softirq+0xcc/0x17c
->> [eeb17ff0] [c000c28c] call_do_softirq+0x24/0x3c
->> [ee647cc0] [c0004660] do_softirq+0x6c/0x94
->> [ee647ce0] [c003eb9c] local_bh_enable+0x9c/0xa0
->> [ee647cf0] [c0454fe8] tcp_prequeue_process+0xa4/0xdc
->> [ee647d10] [c0457e44] tcp_recvmsg+0x498/0x96c
->> [ee647d80] [c047b630] inet_recvmsg+0x40/0x64
->> [ee647da0] [c040ca8c] sock_recvmsg+0x90/0xc0
->> [ee647e30] [c040edb8] SyS_recvfrom+0x98/0xfc
->>
->> To prevent this, the outer while() loop has been removed
->> allowing gfar_poll() to return faster even if there's
->> still budget left.  Also, there's no need to recompute
->> the budget per Rx queue anymore.
->
-> It seems there is a race condition, and this patch only makes it happen
-> less often ?
->
-> return faster means what exactly ?
->
+On Saturday, October 12, 2013 10:21:50 PM Seif Mazareeb wrote:
+> When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function could
+> loop forever in the main loop if opt[opt_iter +1] == 0, this will causing a
+> kernel crash in an SMP system, since the CPU executing this function will
+> stall /not respond to IPIs.
+> 
+> This problem can be reproduced by running the IP Stack Integrity Checker
+> (http://isic.sourceforge.net) using the following command on a Linux machine
+> connected to DUT:
+> 
+> "icmpsic -s rand -d <DUT IP address> -r 123456"
+> wait (1-2 min)
+> 
+> Signed-off-by: Seif Mazareeb <seif@marvell.com>
 
-Hi Eric,
-Because of the outer while loop, gfar_poll may not return due
-to continuous tx work. The later implementation of gfar_poll
-allows only one iteration of the Tx queues before returning
-control to net_rx_action(), that's what I meant with "returns faster".
-I tested this fix with different loads, and the soft lockup
-didn't trigger (without the fix it triggers right away).
+Thanks for sticking with this.
 
-Besides, isn't this a more appropriate napi poll implementation
-than the former one with the outer while() loop?
+Acked-by: Paul Moore <paul@paul-moore.com>
 
-Thanks,
-Claudiu
+> ---
+>  include/net/cipso_ipv4.h | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
+> index a7a683e..a8c2ef6 100644
+> --- a/include/net/cipso_ipv4.h
+> +++ b/include/net/cipso_ipv4.h
+> @@ -290,6 +290,7 @@ static inline int cipso_v4_validate(const struct sk_buff
+> *skb, unsigned char err_offset = 0;
+>         u8 opt_len = opt[1];
+>         u8 opt_iter;
+> +       u8 tag_len;
+> 
+>         if (opt_len < 8) {
+>                 err_offset = 1;
+> @@ -302,11 +303,12 @@ static inline int cipso_v4_validate(const struct
+> sk_buff *skb, }
+> 
+>         for (opt_iter = 6; opt_iter < opt_len;) {
+> -               if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
+> +               tag_len = opt[opt_iter + 1];
+> +               if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len -
+> opt_iter))) { err_offset = opt_iter + 1;
+>                         goto out;
+>                 }
+> -               opt_iter += opt[opt_iter + 1];
+> +               opt_iter += tag_len;
+>         }
+> 
+>  out:
+> --
+> 1.8.1.2
+
+-- 
+paul moore
+www.paul-moore.com
