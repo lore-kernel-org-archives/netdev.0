@@ -1,76 +1,72 @@
 From: Tino Reichardt <milky-kernel@mcmilk.de>
-Subject: [PATCH 05/07] via-velocity: Support for byte queue limits
-Date: Mon, 14 Oct 2013 20:26:21 +0200
-Message-ID: <1381775183-24866-6-git-send-email-milky-kernel@mcmilk.de>
+Subject: [PATCH 04/07] via-rhine: Support for byte queue limits
+Date: Mon, 14 Oct 2013 20:26:20 +0200
+Message-ID: <1381775183-24866-5-git-send-email-milky-kernel@mcmilk.de>
 References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
-To: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org, Roger Luethi <rl@hellgate.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:35492 "EHLO lotte.svc-box.de"
+Received: from lotte.svc-box.de ([80.252.109.10]:35467 "EHLO lotte.svc-box.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757064Ab3JNSf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 14:35:57 -0400
+	id S1756964Ab3JNSfw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 14:35:52 -0400
 In-Reply-To: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to via-velocity to use byte queue limits.
-
-I can't test this patch on real hardware :(
+Changes to via-rhine to use byte queue limits.
 
 
 Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
 
 ---
- drivers/net/ethernet/via/via-velocity.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/via/via-rhine.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index d022bf9..037f304 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -1751,6 +1751,8 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
- 					le16_to_cpu(pktlen), DMA_TO_DEVICE);
- 		}
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index bdf697b..49bd6653 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1220,6 +1220,7 @@ static void alloc_tbufs(struct net_device* dev)
  	}
-+
-+	netdev_reset_queue(vptr->netdev);
- 	dev_kfree_skb_irq(skb);
- 	tdinfo->skb = NULL;
+ 	rp->tx_ring[i-1].next_desc = cpu_to_le32(rp->tx_ring_dma);
+ 
++	netdev_reset_queue(dev);
  }
-@@ -1915,6 +1917,7 @@ static int velocity_tx_srv(struct velocity_info *vptr)
- 	int works = 0;
- 	struct velocity_td_info *tdinfo;
- 	struct net_device_stats *stats = &vptr->netdev->stats;
+ 
+ static void free_tbufs(struct net_device* dev)
+@@ -1719,6 +1720,7 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+ 	/* lock eth irq */
+ 	wmb();
+ 	rp->tx_ring[entry].tx_status |= cpu_to_le32(DescOwn);
++	netdev_sent_queue(dev, skb->len);
+ 	wmb();
+ 
+ 	rp->cur_tx++;
+@@ -1783,6 +1785,7 @@ static void rhine_tx(struct net_device *dev)
+ {
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	int txstatus = 0, entry = rp->dirty_tx % TX_RING_SIZE;
 +	unsigned int pkts_compl = 0, bytes_compl = 0;
  
- 	for (qnum = 0; qnum < vptr->tx.numq; qnum++) {
- 		for (idx = vptr->tx.tail[qnum]; vptr->tx.used[qnum] > 0;
-@@ -1946,6 +1949,8 @@ static int velocity_tx_srv(struct velocity_info *vptr)
- 			} else {
- 				stats->tx_packets++;
- 				stats->tx_bytes += tdinfo->skb->len;
-+				pkts_compl++;
-+				bytes_compl += tdinfo->skb->len;
- 			}
- 			velocity_free_tx_buf(vptr, tdinfo, td);
- 			vptr->tx.used[qnum]--;
-@@ -1955,6 +1960,9 @@ static int velocity_tx_srv(struct velocity_info *vptr)
- 		if (AVAIL_TD(vptr, qnum) < 1)
- 			full = 1;
+ 	/* find and cleanup dirty tx descriptors */
+ 	while (rp->dirty_tx != rp->cur_tx) {
+@@ -1830,10 +1833,17 @@ static void rhine_tx(struct net_device *dev)
+ 					 rp->tx_skbuff[entry]->len,
+ 					 PCI_DMA_TODEVICE);
+ 		}
++
++		bytes_compl += rp->tx_skbuff[entry]->len;
++		pkts_compl++;
+ 		dev_kfree_skb(rp->tx_skbuff[entry]);
++
+ 		rp->tx_skbuff[entry] = NULL;
+ 		entry = (++rp->dirty_tx) % TX_RING_SIZE;
  	}
 +
-+	netdev_completed_queue(vptr->netdev, pkts_compl, bytes_compl);
++	netdev_completed_queue(dev, pkts_compl, bytes_compl);
 +
- 	/*
- 	 *	Look to see if we should kick the transmit network
- 	 *	layer for more work.
-@@ -2641,6 +2649,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	td_ptr->td_buf[0].size |= TD_QUEUE;
- 	mac_tx_queue_wake(vptr->mac_regs, qnum);
- 
-+	netdev_sent_queue(vptr->netdev, skb->len);
- 	spin_unlock_irqrestore(&vptr->lock, flags);
- out:
- 	return NETDEV_TX_OK;
+ 	if ((rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)
+ 		netif_wake_queue(dev);
+ }
 -- 
 1.8.4
