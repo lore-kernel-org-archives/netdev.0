@@ -1,143 +1,78 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] sctp: Namespacify checksum_disable
-Date: Mon, 14 Oct 2013 16:32:25 +0800
-Message-ID: <1381739545-674-1-git-send-email-fan.du@windriver.com>
+Subject: Re: [PATCHv2 RESEND] {xfrm, sctp} Stick to software crc32 even if
+ hardware is capable of that
+Date: Mon, 14 Oct 2013 16:33:46 +0800
+Message-ID: <525BAC6A.8000004@windriver.com>
+References: <1381735658-15478-1-git-send-email-fan.du@windriver.com> <525BA63A.7040708@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61636 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:62828 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673Ab3JNIcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 04:32:43 -0400
+	with ESMTP id S1753874Ab3JNIfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 04:35:30 -0400
+In-Reply-To: <525BA63A.7040708@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SCTP CRC32-C checksum computing and verifying should be namespace-sensible,
-as each, e.g. tenant instance might need different checksum configuration for
-its requirement. So this patch enhance SCTP with this feature.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/net/netns/sctp.h   |    5 +++++
- include/net/sctp/structs.h |    3 ---
- net/sctp/input.c           |    2 +-
- net/sctp/output.c          |    4 +++-
- net/sctp/protocol.c        |    5 +++--
- net/sctp/sysctl.c          |    7 +++++++
- 6 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
-index 3573a81..704adb3 100644
---- a/include/net/netns/sctp.h
-+++ b/include/net/netns/sctp.h
-@@ -129,6 +129,11 @@ struct netns_sctp {
- 
- 	/* Threshold for autoclose timeout, in seconds. */
- 	unsigned long max_autoclose;
-+
-+	/* Set to 1 to disable CRC32-C checksum computing and verifying.
-+	 * Default to 0 to enable this feature.
-+	 */
-+	int checksum_disable;
- };
- 
- #endif /* __NETNS_SCTP_H__ */
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 2174d8d..820895e 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -134,9 +134,6 @@ extern struct sctp_globals {
- 	__u16 max_instreams;
- 	__u16 max_outstreams;
- 
--	/* Flag to indicate whether computing and verifying checksum
--	 * is disabled. */
--        bool checksum_disable;
- } sctp_globals;
- 
- #define sctp_max_instreams		(sctp_globals.max_instreams)
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 98b69bb..9db2a65 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -134,7 +134,7 @@ int sctp_rcv(struct sk_buff *skb)
- 	__skb_pull(skb, skb_transport_offset(skb));
- 	if (skb->len < sizeof(struct sctphdr))
- 		goto discard_it;
--	if (!sctp_checksum_disable && !skb_csum_unnecessary(skb) &&
-+	if (!net->sctp.checksum_disable && !skb_csum_unnecessary(skb) &&
- 		  sctp_rcv_checksum(net, skb) < 0)
- 		goto discard_it;
- 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 6de6402..5d0a45e 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -395,6 +395,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	struct sk_buff *nskb;
- 	struct sctp_chunk *chunk, *tmp;
- 	struct sock *sk;
-+	struct net *net;
- 	int err = 0;
- 	int padding;		/* How much padding do we need?  */
- 	__u8 has_data = 0;
-@@ -411,6 +412,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	/* Set up convenience variables... */
- 	chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
- 	sk = chunk->skb->sk;
-+	net = sock_net(sk);
- 
- 	/* Allocate the new skb.  */
- 	nskb = alloc_skb(packet->size + LL_MAX_HEADER, GFP_ATOMIC);
-@@ -545,7 +547,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	 * Note: Adler-32 is no longer applicable, as has been replaced
- 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
- 	 */
--	if (!sctp_checksum_disable) {
-+	if (!net->sctp.checksum_disable) {
- 		if ((!(dst->dev->features & NETIF_F_SCTP_CSUM)) ||
- 			is_xfrm_armed(dst)) {
- 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 5e17092..b3c51ce 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1239,6 +1239,9 @@ static int __net_init sctp_net_init(struct net *net)
- 	/* Initialize maximum autoclose timeout. */
- 	net->sctp.max_autoclose		= INT_MAX / HZ;
- 
-+	/* Enable checksum by default. */
-+	net->sctp.checksum_disable = 0;
-+
- 	status = sctp_sysctl_net_register(net);
- 	if (status)
- 		goto err_sysctl_register;
-@@ -1543,6 +1546,4 @@ MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-132");
- MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
- MODULE_AUTHOR("Linux Kernel SCTP developers <linux-sctp@vger.kernel.org>");
- MODULE_DESCRIPTION("Support for the SCTP protocol (RFC2960)");
--module_param_named(no_checksums, sctp_checksum_disable, bool, 0644);
--MODULE_PARM_DESC(no_checksums, "Disable checksums computing and verification");
- MODULE_LICENSE("GPL");
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 6b36561..d6a6cca 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -290,6 +290,13 @@ static struct ctl_table sctp_net_table[] = {
- 		.extra1		= &max_autoclose_min,
- 		.extra2		= &max_autoclose_max,
- 	},
-+	{
-+		.procname	= "checksum_disable",
-+		.data		= &init_net.sctp.checksum_disable,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 
- 	{ /* sentinel */ }
- };
--- 
-1.7.9.5
+On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 16:07, Daniel Borkmann wrote:
+> On 10/14/2013 09:27 AM, Fan Du wrote:
+>> igb/ixgbe have hardware sctp checksum support, when this feature is =
+enabled
+>> and also IPsec is armed to protect sctp traffic, ugly things happene=
+d as
+>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum ev=
+ery thing
+>> up and pack the 16bits result in the checksum field). The result is =
+fail
+>> establishment of sctp communication.
+>>
+>> Signed-off-by: Fan Du <fan.du@windriver.com>
+>> Cc: Vlad Yasevich <vyasevich@gmail.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+>> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+>> ---
+>>   net/sctp/output.c |   14 +++++++++++++-
+>>   1 file changed, 13 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/output.c b/net/sctp/output.c
+>> index 0ac3a65..6de6402 100644
+>> --- a/net/sctp/output.c
+>> +++ b/net/sctp/output.c
+>> @@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct sk_b=
+uff *skb, struct sock *sk)
+>>       atomic_inc(&sk->sk_wmem_alloc);
+>>   }
+>>
+>> +static int is_xfrm_armed(struct dst_entry *dst)
+>> +{
+>> +#ifdef CONFIG_XFRM
+>> +    /* If dst->xfrm is valid, this skb needs to be transformed */
+>> +    return dst->xfrm !=3D NULL;
+>> +#else
+>> +    return 0;
+>> +#endif
+>> +}
+>
+> Instead of putting this into SCTP code, isn't the above rather a cand=
+idate for
+> include/net/xfrm.h, e.g. as ... bool xfrm_is_armed(...) ?
+
+Should be in such style in terms of its name, but this is truly SCTP sp=
+ecific in this scenario.
+No one elsewhere barely need this as far as I can tell...
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
