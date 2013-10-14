@@ -1,79 +1,66 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
-Date: Mon, 14 Oct 2013 18:03:34 +0200 (CEST)
-Message-ID: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: kernel policy routing table src ip not respected since 2.6.37 and
+ commit 9fc3bbb4a752
+Date: Mon, 14 Oct 2013 09:13:42 -0700
+Message-ID: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: jsing@google.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:34638 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906Ab3JNQDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 12:03:38 -0400
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:59378 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754841Ab3JNQNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 12:13:44 -0400
+Received: by mail-oa0-f46.google.com with SMTP id g12so450859oah.5
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 09:13:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ipcomp_compress(), sortirq is enabled too early, allowing the
-per-cpu scratch buffer to be rewritten by ipcomp_decompress()
-(called on the same CPU in softirq context) between populating
-the buffer and copying the compressed data to the skb.
+I had a simple bash script to test if the policy routing table src ip
+is respected or not, git bisect found the  commit 9fc3bbb4a752 to
+change the policy routing table source ip behavior.
 
-Add similar protection into ipcomp_decompress() as it can be
-called from process context as well (even if such scenario seems
-a bit artificial).
+commit 9fc3bbb4a752f108cf096d96640f3b548bbbce6c
+Author: Joel Sing <jsing@google.com>
+Date:   Mon Jan 3 20:24:20 2011 +0000
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/xfrm/xfrm_ipcomp.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+    ipv4/route.c: respect prefsrc for local routes
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index 2906d52..96946fb 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
- 	const int cpu = get_cpu();
- 	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
- 	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
--	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
-+	int err;
- 	int len;
- 
-+	local_bh_disable();
-+	err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
- 	if (err)
- 		goto out;
- 
-@@ -103,6 +105,7 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
- 	err = 0;
- 
- out:
-+	local_bh_enable();
- 	put_cpu();
- 	return err;
- }
-@@ -148,7 +151,6 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	local_bh_disable();
- 	err = crypto_comp_compress(tfm, start, plen, scratch, &dlen);
--	local_bh_enable();
- 	if (err)
- 		goto out;
- 
-@@ -158,12 +160,14 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
- 	}
- 
- 	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
-+	local_bh_enable();
- 	put_cpu();
- 
- 	pskb_trim(skb, dlen + sizeof(struct ip_comp_hdr));
- 	return 0;
- 
- out:
-+	local_bh_enable();
- 	put_cpu();
- 	return err;
- }
--- 
-1.8.1.4
+    The preferred source address is currently ignored for local routes,
+    which results in all local connections having a src address that is the
+    same as the local dst address. Fix this by respecting the preferred source
+    address when it is provided for local routes.
+
+test script:
+
+#!/bin/bash
+ip addr add 10.1.1.1/24 dev eth0
+ip addr add 10.1.1.2/24 dev eth0
+ip rule add priority 245 table 245
+ip route add 10.1.1.0/24 dev eth0  proto kernel  scope link  src
+10.1.1.2 table 245 <===source ip 10.1.1.2 to be preferred
+
+ip addr show dev eth0
+ip route list table main
+ip route list table 245
+
+
+tcpdump -nn -i eth0 host 10.1.1.9 and icmp &
+
+ping 10.1.1.9
+
+
+
+--before commit 9fc3bbb4a752
+
+the source is from ip 10.1.1.2 as expected
+
+--after commit 9fc3bbb4a752
+
+the source is from ip 10.1.1.1 which not expected since I have high
+priority table 245 with source ip 10.1.1.2
+
+is this regression of commit 9fc3bbb4a752 ?
+
+Vincent
