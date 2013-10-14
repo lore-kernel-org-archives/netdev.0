@@ -1,74 +1,32 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH -next] netdev: inet_timewait_sock.h missing semi-colon
- when KMEMCHECK is enabled
-Date: Mon, 14 Oct 2013 12:53:57 -0700
-Message-ID: <1381780437.12919.3.camel@joe-AO722>
-References: <1381762088-18880-1-git-send-email-treding@nvidia.com>
-	 <525C47C0.2000907@infradead.org>
+From: "Mrs. Maryann Jamila Hussein." <WEB8@HUSSEIN967.onmicrosoft.com>
+Subject: RE: INVESTMENT/ RELOCATION ASSISTANCE. 14th/10/2013
+Date: Tue, 15 Oct 2013 01:25:55 +0530
+Message-ID: <26dc2b38-5311-4dce-970f-9852595b9b1f@HKXPR03MB007.apcprd03.prod.outlook.com>
+Reply-To: <mrs.maryann_qassim@live.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Thierry Reding <thierry.reding@gmail.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <525C47C0.2000907@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <WEB8@HUSSEIN967.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emea01-db3-ndr.ptr.protection.outlook.com ([157.56.120.99]:9819
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754984Ab3JNT4f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 15:56:35 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-10-14 at 12:36 -0700, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> Fix (a few hundred) build errors due to missing semi-colon when
-> KMEMCHECK is enabled:
-> 
->   include/net/inet_timewait_sock.h:139:2: error: expected ',', ';' or '}' before 'int'
->   include/net/inet_timewait_sock.h:148:28: error: 'const struct inet_timewait_sock' has no member named 'tw_death_node'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> ---
->  include/net/inet_timewait_sock.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- next-2013-1014.orig/include/net/inet_timewait_sock.h
-> +++ next-2013-1014/include/net/inet_timewait_sock.h
-> @@ -135,7 +135,7 @@ struct inet_timewait_sock {
->  				tw_transparent  : 1,
->  				tw_pad		: 6,	/* 6 bits hole */
->  				tw_tos		: 8,
-> -				tw_pad2		: 16 /* 16 bits hole */
-> +				tw_pad2		: 16;	/* 16 bits hole */
->  	kmemcheck_bitfield_end(flags);
->  	u32			tw_ttd;
->  	struct inet_bind_bucket	*tw_tb;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Dear Beloved, 
 
-Shouldn't this be done in kmemcheck.h?
+I am Mrs. Maryann Jamila Hussein a Teacher and a Muslim Convert here in Syria,i had sent a previous mail which i am not sure you got. I need your assistance to invest and help me relocate my 3 kids who are 17 years and below, so that they can get a better life there in your country due to the on going crises here in Syria.
 
- include/linux/kmemcheck.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I need your trust, before the death of my husband we had a savings with an Indian Bank, so money is not the issue. 
 
-diff --git a/include/linux/kmemcheck.h b/include/linux/kmemcheck.h
-index 39f8453..b9ffad5 100644
---- a/include/linux/kmemcheck.h
-+++ b/include/linux/kmemcheck.h
-@@ -62,10 +62,10 @@ bool kmemcheck_is_obj_initialized(unsigned long addr, size_t size);
-  *     kmemcheck_annotate_bitfield(a, flags);
-  */
- #define kmemcheck_bitfield_begin(name)	\
--	int name##_begin[0];
-+	int name##_begin[0]
- 
- #define kmemcheck_bitfield_end(name)	\
--	int name##_end[0];
-+	int name##_end[0]
- 
- #define kmemcheck_annotate_bitfield(ptr, name)				\
- 	do {								\
+I got your reference in my search for someone who suits my 
+purpose.If you can help me reply, let me know.
+
+Regards,
+
+Mrs. Maryann Jamila Hussein.
+=====================================
