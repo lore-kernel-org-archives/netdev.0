@@ -1,69 +1,84 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net 2/2] virtio-net: refill only when device is up during
-	setting queues
-Date: Mon, 14 Oct 2013 14:09:51 +0300
-Message-ID: <20131014110951.GG30954@redhat.com>
-References: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
-	<1381744595-26881-2-git-send-email-jasowang@redhat.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v4 1/5] xen-netback: add support for IPv6
+ checksum offload to guest
+Date: Mon, 14 Oct 2013 11:10:05 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0138C0B@AMSPEX01CL01.citrite.net>
+References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
+	 <1381503982-1418-2-git-send-email-paul.durrant@citrix.com>
+ <1381748013.24708.102.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1381744595-26881-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:54812 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754582Ab3JNLPT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 07:15:19 -0400
+In-Reply-To: <1381748013.24708.102.camel@kazak.uk.xensource.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 05:56:35PM +0800, Jason Wang wrote:
-> We used to schedule the refill work unconditionally after changing the
-> number of queues. This may lead an issue if the device is not
-> up. Since we only try to cancel the work in ndo_stop(), this may cause
-> the refill work still work after removing the device. Fix this by only
-> schedule the work when device is up.
-> 
-> The bug were introduce by commit 9b9cd8024a2882e896c65222aa421d461354e3f2.
-> (virtio-net: fix the race between channels setting and refill)
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-It bothers me that we look at the flag without any
-locks here.
-I think we'll need to take the rtnl lock at least
-on restore.
-
-> ---
-> The patch were need for 3.10 and above.
-> ---
->  drivers/net/virtio_net.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index c4bc1cc..92f0096 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -938,7 +938,9 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
->  		return -EINVAL;
->  	} else {
->  		vi->curr_queue_pairs = queue_pairs;
-> -		schedule_delayed_work(&vi->refill, 0);
-> +		/* virtnet_open() will refill when device is going to up. */
-> +		if (dev->flags & IFF_UP)
-> +			schedule_delayed_work(&vi->refill, 0);
->  	}
->  
->  	return 0;
-> -- 
-> 1.8.1.2
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMTQgT2N0b2JlciAyMDEzIDExOjU0DQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IHhlbi1k
+ZXZlbEBsaXN0cy54ZW4ub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBXZWkgTGl1OyBEYXZp
+ZCBWcmFiZWwNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2NCAxLzVdIHhlbi1uZXRi
+YWNrOiBhZGQgc3VwcG9ydCBmb3IgSVB2Ng0KPiBjaGVja3N1bSBvZmZsb2FkIHRvIGd1ZXN0DQo+
+IA0KPiBPbiBGcmksIDIwMTMtMTAtMTEgYXQgMTY6MDYgKzAxMDAsIFBhdWwgRHVycmFudCB3cm90
+ZToNCj4gPiBDaGVjayB4ZW5zdG9yZSBmbGFnIGZlYXR1cmUtaXB2Ni1jc3VtLW9mZmxvYWQgdG8g
+ZGV0ZXJtaW5lIGlmIGENCj4gPiBndWVzdCBpcyBoYXBweSB0byBhY2NlcHQgSVB2NiBwYWNrZXRz
+IHdpdGggb25seSBwYXJ0aWFsIGNoZWNrc3VtLg0KPiA+IEFsc28gY2hlY2sgYW5hbG9nb3VzIGZl
+YXR1cmUtaXAtY3N1bS1vZmZsb2FkIHRvIGRldGVybWluZSBpZiBhDQo+ID4gZ3Vlc3QgaXMgaGFw
+cHkgdG8gYWNjZXB0IElQdjQgcGFja2V0cyB3aXRoIG9ubHkgcGFydGlhbCBjaGVja3N1bQ0KPiA+
+IGFzIGEgcmVwbGFjZW1lbnQgZm9yIGEgbmVnYXRlZCBmZWF0dXJlLW5vLWNzdW0tb2ZmbG9hZCB2
+YWx1ZSBhbmQNCj4gPiBhZGQgYSBjb21tZW50IHRvIGRlcHJlY2F0ZSB1c2Ugb2YgZmVhdHVyZS1u
+by1jc3VtLW9mZmxvYWQuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBh
+dWwuZHVycmFudEBjaXRyaXguY29tPg0KPiA+IENjOiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXgu
+Y29tPg0KPiA+IENjOiBEYXZpZCBWcmFiZWwgPGRhdmlkLnZyYWJlbEBjaXRyaXguY29tPg0KPiA+
+IENjOiBJYW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiANCj4gU2hvdWxk
+bid0IHRoaXMgY29tZSBsYXRlciBpbiB0aGUgc2VyaWVzLCBpLmUuIGFmdGVyIG5ldGJhY2sgaXMg
+YWN0dWFsbHkNCj4gYWJsZSB0byBjb3BlIHdpdGggaXB2NiBvZmZsb2Fkcz8NCj4gDQoNCkkgZ3Vl
+c3MgdGhhdCdzIGRlYmF0YWJsZS4gVGhlIHBhdGNoZXMgZG9uJ3QgaGF2ZSBhbnkgZGVwZW5kZW5j
+eSByZWxhdGlvbjsgb2ZmbG9hZHMgdG8gYW5kIGZyb20gdGhlIGd1ZXN0IGFyZSBxdWl0ZSBpbmRl
+cGVuZGVudC4NCg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9jb21t
+b24uaCBiL2RyaXZlcnMvbmV0L3hlbi0NCj4gbmV0YmFjay9jb21tb24uaA0KPiA+IGluZGV4IDU3
+MTUzMTguLmI0YTlhM2MgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
+Y29tbW9uLmgNCj4gPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9jb21tb24uaA0KPiA+
+IEBAIC0xNTMsNyArMTUzLDggQEAgc3RydWN0IHhlbnZpZiB7DQo+ID4gIAl1OCBjYW5fc2c6MTsN
+Cj4gPiAgCXU4IGdzbzoxOw0KPiA+ICAJdTggZ3NvX3ByZWZpeDoxOw0KPiA+IC0JdTggY3N1bTox
+Ow0KPiA+ICsJdTggaXBfY3N1bToxOw0KPiA+ICsJdTggaXB2Nl9jc3VtOjE7DQo+IA0KPiBXaHkg
+bm90IGlwdjRfY3N1bSBmb3IgY29uc2lzdGVuY3kvdW5hbWJpZ3VpdHk/DQo+IA0KDQpJIGZvbGxv
+d2VkIGdlbmVyYWwgbGludXggbmFtaW5nIGNvbnZlbnRpb25zIGUuZy4gaXBfaGRyIGFuZCBpcHY2
+X2hkci4NCg0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3hlbi9pbnRlcmZhY2UvaW8vbmV0aWYu
+aA0KPiBiL2luY2x1ZGUveGVuL2ludGVyZmFjZS9pby9uZXRpZi5oDQo+ID4gaW5kZXggZWIyNjJl
+My4uZDlmYjQ0NzM5IDEwMDY0NA0KPiA+IC0tLSBhL2luY2x1ZGUveGVuL2ludGVyZmFjZS9pby9u
+ZXRpZi5oDQo+ID4gKysrIGIvaW5jbHVkZS94ZW4vaW50ZXJmYWNlL2lvL25ldGlmLmgNCj4gPiBA
+QCAtNTEsNiArNTEsMTYgQEANCj4gPiAgICovDQo+ID4NCj4gPiAgLyoNCj4gPiArICogImZlYXR1
+cmUtbm8tY3N1bS1vZmZsb2FkIiB3YXMgdXNlZCB0byB0dXJuIG9mZiBJUHY0IFRDUC9VRFANCj4g
+Y2hlY2tzdW0NCj4gPiArICogb2ZmbG9hZCBidXQgaXMgbm93IGRlcHJlY2F0ZWQuIFR3byBuZXcg
+ZmVhdHVyZSBmbGFncyBzaG91bGQgbm93IGJlDQo+IHVzZWQNCj4gPiArICogdG8gY29udHJvbCBj
+aGVja3N1bSBvZmZsb2FkOg0KPiANCj4gSG93IGlzIGEgZnJvbnRlbmQgdG8ga25vdyB3aGljaCBz
+b3J0IG9mIGJhY2tlbmQgaXQgaXMgdGFsa2luZyB0b28/IElzDQo+IHRoZXJlIGdvaW5nIHRvIGJl
+IGEgZmVhdHVyZSBmbGFnIHRvIGluZGljYXRlIHN1cHBvcnQgZm9yIHRoZXNlIG5ldw0KPiBmbGFn
+cz8NCj4gDQo+IEluIHBhcnRpY3VsYXIgYSBuZXcgZnJvbnRlbmQgcnVubmluZyBvbiBhbiBvbGQg
+YmFja2VuZCBuZWVkcyB0byBrbm93DQo+IHRoYXQgaXQgbmVlZHMgdG8gc2V0IG5vLWNzdW0tb2Zm
+bG9hZCBpbnN0ZWFkIG9mIGlwLWNzdW0tb2ZmbG9hZCBzb21laG93Lg0KPiANCg0KR29vZCBwb2lu
+dC4gV2l0aG91dCBhbnkgdmVyc2lvbiBJIGd1ZXNzIHdlIGhhdmUgdG8gbGl2ZSB3aXRoIHRoZSBv
+bGQgZmxhZyBmb3JldmVyLiBJJ2xsIHN0aWNrIHdpdGggaXQgZm9yIHY0IGFuZCBqdXN0IGxlYXZl
+IHRoZSBuZXcgb25lIGZvciB2Ni4NCg0KICBQYXVsDQoNCj4gPiArICogImZlYXR1cmUtaXAtY3N1
+bS1vZmZsb2FkIiBzaG91bGQgYmUgdXNlZCB0byB0dXJuIElQdjQgVENQL1VEUA0KPiBjaGVja3N1
+bQ0KPiANCj4gImlwdjQiIGFnYWluPw0KPiANCj4gPiArICogb2ZmbG9hZCBvbiBvciBvZmYuIElm
+IGl0IGlzIG1pc3NpbmcgdGhlbiB0aGUgZmVhdHVyZSBpcyBhc3N1bWVkIHRvIGJlIG9uLg0KPiA+
+ICsgKiAiZmVhdHVyZS1pcHY2LWNzdW0tb2ZmbG9hZCIgc2hvdWxkIGJlIHVzZWQgdG8gdHVybiBJ
+UHY2IFRDUC9VRFANCj4gY2hlY2tzdW0NCj4gPiArICogb2ZmbG9hZCBvbiBvciBvZmYuIElmIGl0
+IGlzIG1pc3NpbmcgdGhlbiB0aGUgZmVhdHVyZSBpcyBhc3N1bWVkIHRvIGJlIG9mZi4NCj4gPiAr
+ICovDQo+ID4gKw0KPiA+ICsvKg0KPiA+ICAgKiBUaGlzIGlzIHRoZSAnd2lyZScgZm9ybWF0IGZv
+ciBwYWNrZXRzOg0KPiA+ICAgKiAgUmVxdWVzdCAxOiB4ZW5fbmV0aWZfdHhfcmVxdWVzdCAgLS0g
+WEVOX05FVFRYRl8qIChhbnkgZmxhZ3MpDQo+ID4gICAqIFtSZXF1ZXN0IDI6IHhlbl9uZXRpZl9l
+eHRyYV9pbmZvXSAgICAob25seSBpZiByZXF1ZXN0IDEgaGFzDQo+IFhFTl9ORVRUWEZfZXh0cmFf
+aW5mbykNCj4gDQoNCg==
