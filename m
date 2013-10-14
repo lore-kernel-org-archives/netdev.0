@@ -1,71 +1,74 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 1/2] virtio-net: don't respond to cpu hotplug notifier if
-	we're not ready
-Date: Mon, 14 Oct 2013 17:56:34 +0800
-Message-ID: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
+ is not set
+Date: Mon, 14 Oct 2013 13:10:51 +0300
+Message-ID: <20131014101051.GH6192@mwanda>
+References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+ <20131013212810.GA15167@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: support@caviumnetworks.com, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org,
+ Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20131013212810.GA15167@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-We're trying to re-configure the affinity unconditionally in cpu hotplug
-callback. This may lead the issue during resuming from s3/s4 since
+On Sun, Oct 13, 2013 at 02:28:10PM -0700, Greg KH wrote:
+> On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
+> > A zero pointer deref on priv->phydev->link was causing oops on our syst=
+ems.
+> > Might be related to improper configuration but we should fail gracefull=
+y here ;-)
+> > =
 
-- virt queues haven't been allocated at that time.
-- it's unnecessary since thaw method will re-configure the affinity.
+> > Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
+> > =
 
-Fix this issue by checking the config_enable and do nothing is we're not ready.
+> > ---
+> > =
 
-The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
-(virtio-net: reset virtqueue affinity when doing cpu hotplug).
+> > diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/o=
+cteon/ethernet-mdio.c
+> > index 83b1030..bc8c503 100644
+> > --- a/drivers/staging/octeon/ethernet-mdio.c
+> > +++ b/drivers/staging/octeon/ethernet-mdio.c
+> > @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device *=
+dev)
+> >         struct octeon_ethernet *priv =3D netdev_priv(dev);
+> >         cvmx_helper_link_info_t link_info;
+> >  =
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is need for 3.8 and above.
----
- drivers/net/virtio_net.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+> > +       if(!priv->phydev)
+> > +               return ;
+> =
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index defec2b..c4bc1cc 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1116,6 +1116,11 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
- {
- 	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
- 
-+	mutex_lock(&vi->config_lock);
-+
-+	if (!vi->config_enable)
-+		goto done;
-+
- 	switch(action & ~CPU_TASKS_FROZEN) {
- 	case CPU_ONLINE:
- 	case CPU_DOWN_FAILED:
-@@ -1128,6 +1133,9 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
- 	default:
- 		break;
- 	}
-+
-+done:
-+	mutex_unlock(&vi->config_lock);
- 	return NOTIFY_OK;
- }
- 
--- 
-1.8.1.2
+> Please always run your patches through the scripts/checkpatch.pl tool so
+> that maintainers don't have to point out the obvious coding syle errors
+> by hand each time :)
+
+Also it's whitespace damaged and doesn't apply.
+
+> =
+
+> Care to try again?
+> =
+
+> Also, how was phydev NULL?  What was causing that?
+
+To me it looks like phydev is always NULL.
+
+regards,
+dan carpenter
