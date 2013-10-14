@@ -1,109 +1,284 @@
 From: Bandan Das <bsd@redhat.com>
-Subject: [RFC PATCH v2 0/1] Workqueue based vhost work scheduling
-Date: Sun, 13 Oct 2013 21:55:42 -0400
-Message-ID: <1381715743-13672-1-git-send-email-bsd@redhat.com>
+Subject: [RFC PATCH v2 1/1] Workqueue based vhost workers
+Date: Sun, 13 Oct 2013 21:55:43 -0400
+Message-ID: <1381715743-13672-2-git-send-email-bsd@redhat.com>
+References: <1381715743-13672-1-git-send-email-bsd@redhat.com>
 Cc: netdev@vger.kernel.org, Michael Tsirkin <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>
+	Jason Wang <jasowang@redhat.com>, Bandan Das <bsd@makefile.in>
 To: kvm@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25502 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11210 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755498Ab3JNB6E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Oct 2013 21:58:04 -0400
+	id S1755535Ab3JNB6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Oct 2013 21:58:20 -0400
+In-Reply-To: <1381715743-13672-1-git-send-email-bsd@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a followup to RFC posted by Shirley Ma on 22 March 2012 :
-NUMA aware scheduling per vhost thread patch [1]. This patch is against
-3.12-rc4.
-
-This is a step-down from the previous version in the sense that
-this patch utilizes the workqueue mechanism instead of creating per-cpu
-vhost threads, or in other words, the per-cpu threads are completely invisible
-to vhost as they are the responsibility of the cmwq implementation. 
-
-The workqueue implementation [2] maintains a pool of dedicated threads per CPU
-that are used when work is queued. The user can control certain aspects of the 
-work execution using special flags that can be passed along during the call
-to alloc_workqueue. Based on this description, the approach is that instead of 
-vhost creating per-cpu thread to address issues pointed out
-in RFC v1, we just let the cmwq mechanism do the heavy lifting for us.
-The end result is that the changes in v2 are substantially smaller compared
-to v1.
-
-The major changes wrt v1 :
- - A module param called cmwq_worker, that when enabled, uses the wq 
-   backend
- - vhost doesn't manage any per cpu threads anymore, trust wq backend to 
-   do the right thing.
- - A significant part of v1 was to decide where to run the job - this is 
-   gone now for reasons discussed above.
-
-Testing :
-
-As of now, some basic netperf testing varying only the message sizes 
-keeping all other factors constant (to keep it simple) I however agree that 
-this needs more testing for more concrete conclusions. 
-
-The host is Nehalem 4 cores x 4 sockets with 4G memory, cpu 0-7 - numa node0
-and cpu 8-16 = numa node1.
-The host is running 4 guests with -smp 4 and -m 1G to keep it somewhat 
-realistic. netperf in Guest 0 interacts with netserv running in the host
-for our test results.
-
-Results :
-
-I noticed a common signature in all the tests except UDP_RR - 
-for small message sizes, the workqueue implementation has a slightly better
-throughput, however with increase in message size, the throughput
-degrades slightly compared to the unpatched version. I suspect that the 
-vhost_submission_workfn can be modified to make this better or there could be 
-other factors that I still haven't thought about. Ofcourse, we shouldn't 
-forget the important condition that we are not running on a vhost 
-specific dedicated thread anymore.
-
-UDP_RR however, exhibited better results constantly for the wq version.
-
-I include the figures for just TCP_STREAM and UDP_RR below :
-
-TCP_STREAM
-
-Size      Throughput (Without patch)      Throughput (With patch)
-bytes          10^6bytes/sec                 10^6bytes/sec
---------------------------------------------------------------------------
-256                2695.22                     2793.14
-512                5682.10                     5896.34
-1024               7511.18                     7295.96
-2048               8197.94                     7564.50
-4096               8764.95                     7822.98
-8192               8205.89                     8046.49
-16384              11495.72                    11101.35
-
-UDP_RR
-Size            (Without patch)            (With patch)
-bytes            Trans/sec                  Trans/sec
---------------------------------------------------------------------------
-256                10966.77	             14842.16
-512                9930.06                   14747.76
-1024               10587.85	             14544.10
-2048               7172.34		     13790.56
-4096               7628.35		     13333.39
-8192               5663.10                   11916.82
-16384              6807.25		     9994.11
-
-I had already discussed my results with Michael privately, so sorry for 
-the duplicate information, Michael!
-
-[1] http://www.mail-archive.com/kvm@vger.kernel.org/msg69868.html
-[2] Documentation/workqueue.txt 
-
-Bandan Das (1):
-  Workqueue based vhost workers
-
+Signed-off-by: Bandan Das <bsd@makefile.in>
+---
  drivers/vhost/net.c   |  25 +++++++++++
  drivers/vhost/vhost.c | 115 +++++++++++++++++++++++++++++++++++++++++++-------
  drivers/vhost/vhost.h |   6 +++
  3 files changed, 130 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 831eb4f..f5307d7 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -34,6 +34,10 @@ module_param(experimental_zcopytx, int, 0444);
+ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+ 		                       " 1 -Enable; 0 - Disable");
+ 
++static int cmwq_worker;
++module_param(cmwq_worker, int, 0444);
++MODULE_PARM_DESC(cmwq_worker, "Use cmwq for worker threads - Experimental, 1 - Enable; 0 - Disable");
++
+ /* Max number of bytes transferred before requeueing the job.
+  * Using this limit prevents one virtqueue from starving others. */
+ #define VHOST_NET_WEIGHT 0x80000
+@@ -694,6 +698,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+ 	}
+ 
+ 	dev = &n->dev;
++	dev->use_wq = 0;
+ 	vqs[VHOST_NET_VQ_TX] = &n->vqs[VHOST_NET_VQ_TX].vq;
+ 	vqs[VHOST_NET_VQ_RX] = &n->vqs[VHOST_NET_VQ_RX].vq;
+ 	n->vqs[VHOST_NET_VQ_TX].vq.handle_kick = handle_tx_kick;
+@@ -706,6 +711,10 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+ 		n->vqs[i].vhost_hlen = 0;
+ 		n->vqs[i].sock_hlen = 0;
+ 	}
++
++	if (cmwq_worker)
++		dev->use_wq = 1;
++
+ 	r = vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
+ 	if (r < 0) {
+ 		kfree(n);
+@@ -1123,14 +1132,30 @@ static struct miscdevice vhost_net_misc = {
+ 
+ static int vhost_net_init(void)
+ {
++	int ret = 0;
++
+ 	if (experimental_zcopytx)
+ 		vhost_net_enable_zcopy(VHOST_NET_VQ_TX);
++
++	if (cmwq_worker) {
++		ret = vhost_wq_init();
++		if (ret) {
++			pr_info("Enabling wq based vhost workers failed! "
++				 "Switching to device based worker instead\n");
++			cmwq_worker = 0;
++		} else
++		  pr_info("Enabled workqueues based vhost workers\n");
++	}
++
+ 	return misc_register(&vhost_net_misc);
+ }
+ module_init(vhost_net_init);
+ 
+ static void vhost_net_exit(void)
+ {
++	if (cmwq_worker)
++		vhost_wq_cleanup();
++
+ 	misc_deregister(&vhost_net_misc);
+ }
+ module_exit(vhost_net_exit);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 69068e0..ba7ff7a 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -37,6 +37,9 @@ enum {
+ #define vhost_used_event(vq) ((u16 __user *)&vq->avail->ring[vq->num])
+ #define vhost_avail_event(vq) ((u16 __user *)&vq->used->ring[vq->num])
+ 
++static struct workqueue_struct *qworker;
++static void vhost_submission_workfn(struct work_struct *qwork);
++
+ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 			    poll_table *pt)
+ {
+@@ -162,7 +165,10 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
+ 		list_add_tail(&work->node, &dev->work_list);
+ 		work->queue_seq++;
+ 		spin_unlock_irqrestore(&dev->work_lock, flags);
+-		wake_up_process(dev->worker);
++		if (dev->use_wq)
++			queue_work(qworker, &dev->qwork);
++		else
++			wake_up_process(dev->worker);
+ 	} else {
+ 		spin_unlock_irqrestore(&dev->work_lock, flags);
+ 	}
+@@ -307,6 +313,9 @@ long vhost_dev_init(struct vhost_dev *dev,
+ 	INIT_LIST_HEAD(&dev->work_list);
+ 	dev->worker = NULL;
+ 
++	if (dev->use_wq)
++		INIT_WORK(&dev->qwork, vhost_submission_workfn);
++
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		vq = dev->vqs[i];
+ 		vq->log = NULL;
+@@ -367,7 +376,7 @@ EXPORT_SYMBOL_GPL(vhost_dev_has_owner);
+ /* Caller should have device mutex */
+ long vhost_dev_set_owner(struct vhost_dev *dev)
+ {
+-	struct task_struct *worker;
++	struct task_struct *worker = NULL;
+ 	int err;
+ 
+ 	/* Is there an owner already? */
+@@ -376,28 +385,35 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
+ 		goto err_mm;
+ 	}
+ 
++	err = vhost_dev_alloc_iovecs(dev);
++	if (err)
++		goto err_cgroup;
++
+ 	/* No owner, become one */
+ 	dev->mm = get_task_mm(current);
+-	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
+-	if (IS_ERR(worker)) {
+-		err = PTR_ERR(worker);
+-		goto err_worker;
+-	}
+ 
+-	dev->worker = worker;
+-	wake_up_process(worker);	/* avoid contributing to loadavg */
++	if (!dev->use_wq) {
++		worker = kthread_create(vhost_worker,
++					dev, "vhost-%d", current->pid);
++		if (IS_ERR(worker)) {
++			err = PTR_ERR(worker);
++			goto err_worker;
++		}
+ 
+-	err = vhost_attach_cgroups(dev);
+-	if (err)
+-		goto err_cgroup;
++		dev->worker = worker;
++		/* avoid contributing to loadavg */
++		wake_up_process(worker);
+ 
+-	err = vhost_dev_alloc_iovecs(dev);
+-	if (err)
+-		goto err_cgroup;
++		err = vhost_attach_cgroups(dev);
++		if (err)
++			goto err_cgroup;
++	} /* else don't worry, we are using wqs for vhost work */
+ 
+ 	return 0;
++
+ err_cgroup:
+-	kthread_stop(worker);
++	if (worker)
++		kthread_stop(worker);
+ 	dev->worker = NULL;
+ err_worker:
+ 	if (dev->mm)
+@@ -1539,6 +1555,73 @@ void vhost_disable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ }
+ EXPORT_SYMBOL_GPL(vhost_disable_notify);
+ 
++static void vhost_submission_workfn(struct work_struct *qwork)
++{
++	struct vhost_dev *dev =
++		container_of(qwork, struct vhost_dev, qwork);
++	struct vhost_work *work = NULL;
++	unsigned uninitialized_var(seq);
++	struct mm_struct *prev_mm = NULL;
++	mm_segment_t oldfs = get_fs();
++
++	set_fs(USER_DS);
++
++	for (;;) {
++
++		spin_lock_irq(&dev->work_lock);
++
++		if (list_empty(&dev->work_list)) {
++			spin_unlock(&dev->work_lock);
++			break;
++		}
++
++		work = list_first_entry(&dev->work_list,
++					struct vhost_work, node);
++		list_del_init(&work->node);
++		seq = work->queue_seq;
++
++		if (prev_mm != dev->mm) {
++			if (prev_mm)
++				unuse_mm(prev_mm);
++			prev_mm = dev->mm;
++			use_mm(prev_mm);
++		}
++
++		spin_unlock_irq(&dev->work_lock);
++
++		if (work) {
++			work->fn(work);
++
++			spin_lock_irq(&dev->work_lock);
++			work->done_seq = seq;
++			if (work->flushing)
++				wake_up_all(&work->done);
++			spin_unlock_irq(&dev->work_lock);
++
++		}
++	}
++
++	if (prev_mm)
++		unuse_mm(prev_mm);
++	set_fs(oldfs);
++}
++
++int vhost_wq_init(void)
++{
++	qworker = alloc_workqueue("vhost_worker",
++			WQ_MEM_RECLAIM|WQ_CPU_INTENSIVE|WQ_SYSFS, 0);
++	if (!qworker)
++		return -ENOMEM;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(vhost_wq_init);
++
++void vhost_wq_cleanup(void)
++{
++	destroy_workqueue(qworker);
++}
++EXPORT_SYMBOL_GPL(vhost_wq_cleanup);
++
+ static int __init vhost_init(void)
+ {
+ 	return 0;
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 4465ed5..3f6c147 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -125,6 +125,8 @@ struct vhost_dev {
+ 	spinlock_t work_lock;
+ 	struct list_head work_list;
+ 	struct task_struct *worker;
++	int use_wq;
++	struct work_struct qwork;
+ };
+ 
+ long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
+@@ -161,6 +163,10 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
+ 
++/* Experimental cmwq decls */
++int  vhost_wq_init(void);
++void vhost_wq_cleanup(void);
++
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+ 		if ((vq)->error_ctx)                               \
 -- 
 1.8.3.1
