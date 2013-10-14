@@ -1,85 +1,64 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next v4 1/5] xen-netback: add support for IPv6
- checksum offload to guest
-Date: Mon, 14 Oct 2013 11:53:33 +0100
-Message-ID: <1381748013.24708.102.camel@kazak.uk.xensource.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
+ checksum offload from guest
+Date: Mon, 14 Oct 2013 11:55:27 +0100
+Message-ID: <20131014105527.GD11739@zion.uk.xensource.com>
 References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
-	 <1381503982-1418-2-git-send-email-paul.durrant@citrix.com>
+ <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
+ <20131014104235.GB11739@zion.uk.xensource.com>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:28213 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754097Ab3JNKzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 06:55:19 -0400
-In-Reply-To: <1381503982-1418-2-git-send-email-paul.durrant@citrix.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:42645 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756044Ab3JNKz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 06:55:28 -0400
+Content-Disposition: inline
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-10-11 at 16:06 +0100, Paul Durrant wrote:
-> Check xenstore flag feature-ipv6-csum-offload to determine if a
-> guest is happy to accept IPv6 packets with only partial checksum.
-> Also check analogous feature-ip-csum-offload to determine if a
-> guest is happy to accept IPv4 packets with only partial checksum
-> as a replacement for a negated feature-no-csum-offload value and
-> add a comment to deprecate use of feature-no-csum-offload.
+On Mon, Oct 14, 2013 at 11:49:20AM +0100, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: Wei Liu [mailto:wei.liu2@citrix.com]
+> > Sent: 14 October 2013 11:43
+> > To: Paul Durrant
+> > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David Vrabel;
+> > Ian Campbell
+> > Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
+> > checksum offload from guest
+> > 
+> > On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
+> > [...]
+> > > -/*
+> > > - * This is the amount of packet we copy rather than map, so that the
+> > > - * guest can't fiddle with the contents of the headers while we do
+> > > - * packet processing on them (netfilter, routing, etc).
+> > > +/* This is a miniumum size for the linear area to avoid lots of
+> > > + * calls to __pskb_pull_tail() as we set up checksum offsets.
+> > >   */
+> > 
+> > You seem to forget to explain why 128 is chosen. :-)
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Is that not sufficient explanation? What sort of thing are you looking for?
+> 
 
-Shouldn't this come later in the series, i.e. after netback is actually
-able to cope with ipv6 offloads?
+>From the second version of this patch, we had a conversation.
 
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 5715318..b4a9a3c 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -153,7 +153,8 @@ struct xenvif {
->  	u8 can_sg:1;
->  	u8 gso:1;
->  	u8 gso_prefix:1;
-> -	u8 csum:1;
-> +	u8 ip_csum:1;
-> +	u8 ipv6_csum:1;
+> Where does 128 come from?
+>
 
-Why not ipv4_csum for consistency/unambiguity?
+"It's just an arbitrary power of 2 that was chosen because it seems to
+cover most likely v6 headers and all v4 headers."
 
-> diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-> index eb262e3..d9fb44739 100644
-> --- a/include/xen/interface/io/netif.h
-> +++ b/include/xen/interface/io/netif.h
-> @@ -51,6 +51,16 @@
->   */
->  
->  /*
-> + * "feature-no-csum-offload" was used to turn off IPv4 TCP/UDP checksum
-> + * offload but is now deprecated. Two new feature flags should now be used
-> + * to control checksum offload:
+So something like: "We choose 128 which is likely to cover most V6
+headers and all V4 headers" would be sufficeint.
 
-How is a frontend to know which sort of backend it is talking too? Is
-there going to be a feature flag to indicate support for these new
-flags?
-
-In particular a new frontend running on an old backend needs to know
-that it needs to set no-csum-offload instead of ip-csum-offload somehow.
-
-> + * "feature-ip-csum-offload" should be used to turn IPv4 TCP/UDP checksum
-
-"ipv4" again?
-
-> + * offload on or off. If it is missing then the feature is assumed to be on.
-> + * "feature-ipv6-csum-offload" should be used to turn IPv6 TCP/UDP checksum
-> + * offload on or off. If it is missing then the feature is assumed to be off.
-> + */
-> +
-> +/*
->   * This is the 'wire' format for packets:
->   *  Request 1: xen_netif_tx_request  -- XEN_NETTXF_* (any flags)
->   * [Request 2: xen_netif_extra_info]    (only if request 1 has XEN_NETTXF_extra_info)
+Wei.
