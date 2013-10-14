@@ -1,169 +1,173 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next] sctp: Namespacify checksum_disable
-Date: Mon, 14 Oct 2013 10:08:14 -0400
-Message-ID: <1170c5bd-54e0-4051-a280-ff6538a47614@email.android.com>
-References: <1381739545-674-1-git-send-email-fan.du@windriver.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: Simplify MQ polling to avoid soft lockup
+Date: Mon, 14 Oct 2013 17:05:09 +0300
+Message-ID: <1381759509-26882-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>, nhorman@tuxdriver.com
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f51.google.com ([209.85.128.51]:37676 "EHLO
-	mail-qe0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782Ab3JNOIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 10:08:20 -0400
-Received: by mail-qe0-f51.google.com with SMTP id q19so5276363qeb.10
-        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 07:08:19 -0700 (PDT)
-In-Reply-To: <1381739545-674-1-git-send-email-fan.du@windriver.com>
+Received: from mail-db9lp0252.outbound.messaging.microsoft.com ([213.199.154.252]:14647
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750738Ab3JNOKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 10:10:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Under certain low traffic conditions, the single core
+devices with multiple Rx/Tx queues (MQ mode) may reach
+soft lockup due to gfar_poll not returning in proper time.
+The following exception was obtained using iperf on a 100Mbit
+half-duplex link, for a p1010 single core device:
 
+BUG: soft lockup - CPU#0 stuck for 23s! [iperf:2847]
+Modules linked in:
+CPU: 0 PID: 2847 Comm: iperf Not tainted 3.12.0-rc3 #16
+task: e8bf8000 ti: eeb16000 task.ti: ee646000
+NIP: c0255b6c LR: c0367ae8 CTR: c0461c18
+REGS: eeb17e70 TRAP: 0901   Not tainted  (3.12.0-rc3)
+MSR: 00029000 <CE,EE,ME>  CR: 44228428  XER: 20000000
 
-Fan Du <fan.du@windriver.com> wrote:
+GPR00: c0367ad4 eeb17f20 e8bf8000 ee01f4b4 00000008 ffffffff ffffffff
+00000000
+GPR08: 000000c0 00000008 000000ff ffffffc0 000193fe
+NIP [c0255b6c] find_next_bit+0xb8/0xc4
+LR [c0367ae8] gfar_poll+0xc8/0x1d8
+Call Trace:
+[eeb17f20] [c0367ad4] gfar_poll+0xb4/0x1d8 (unreliable)
+[eeb17f70] [c0422100] net_rx_action+0xa4/0x158
+[eeb17fa0] [c003ec6c] __do_softirq+0xcc/0x17c
+[eeb17ff0] [c000c28c] call_do_softirq+0x24/0x3c
+[ee647cc0] [c0004660] do_softirq+0x6c/0x94
+[ee647ce0] [c003eb9c] local_bh_enable+0x9c/0xa0
+[ee647cf0] [c0454fe8] tcp_prequeue_process+0xa4/0xdc
+[ee647d10] [c0457e44] tcp_recvmsg+0x498/0x96c
+[ee647d80] [c047b630] inet_recvmsg+0x40/0x64
+[ee647da0] [c040ca8c] sock_recvmsg+0x90/0xc0
+[ee647e30] [c040edb8] SyS_recvfrom+0x98/0xfc
 
->SCTP CRC32-C checksum computing and verifying should be
->namespace-sensible,
->as each, e.g. tenant instance might need different checksum
->configuration for
->its requirement. So this patch enhance SCTP with this feature.
->
->Signed-off-by: Fan Du <fan.du@windriver.com>
+To prevent this, the outer while() loop has been removed
+allowing gfar_poll() to return faster even if there's
+still budget left.  Also, there's no need to recompute
+the budget per Rx queue anymore.
 
-NACK.  We don't want that setting to be sysctl configurable.  It is only useful in very limited circumstances and is not really for production/everyday use.
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 87 ++++++++++++++------------------
+ 1 file changed, 38 insertions(+), 49 deletions(-)
 
-In fact, I am going to send in a patch that makes this module parameter read only in /sys. 
-
--vlad
->---
-> include/net/netns/sctp.h   |    5 +++++
-> include/net/sctp/structs.h |    3 ---
-> net/sctp/input.c           |    2 +-
-> net/sctp/output.c          |    4 +++-
-> net/sctp/protocol.c        |    5 +++--
-> net/sctp/sysctl.c          |    7 +++++++
-> 6 files changed, 19 insertions(+), 7 deletions(-)
->
->diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
->index 3573a81..704adb3 100644
->--- a/include/net/netns/sctp.h
->+++ b/include/net/netns/sctp.h
->@@ -129,6 +129,11 @@ struct netns_sctp {
-> 
-> 	/* Threshold for autoclose timeout, in seconds. */
-> 	unsigned long max_autoclose;
->+
->+	/* Set to 1 to disable CRC32-C checksum computing and verifying.
->+	 * Default to 0 to enable this feature.
->+	 */
->+	int checksum_disable;
-> };
-> 
-> #endif /* __NETNS_SCTP_H__ */
->diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
->index 2174d8d..820895e 100644
->--- a/include/net/sctp/structs.h
->+++ b/include/net/sctp/structs.h
->@@ -134,9 +134,6 @@ extern struct sctp_globals {
-> 	__u16 max_instreams;
-> 	__u16 max_outstreams;
-> 
->-	/* Flag to indicate whether computing and verifying checksum
->-	 * is disabled. */
->-        bool checksum_disable;
-> } sctp_globals;
-> 
-> #define sctp_max_instreams		(sctp_globals.max_instreams)
->diff --git a/net/sctp/input.c b/net/sctp/input.c
->index 98b69bb..9db2a65 100644
->--- a/net/sctp/input.c
->+++ b/net/sctp/input.c
->@@ -134,7 +134,7 @@ int sctp_rcv(struct sk_buff *skb)
-> 	__skb_pull(skb, skb_transport_offset(skb));
-> 	if (skb->len < sizeof(struct sctphdr))
-> 		goto discard_it;
->-	if (!sctp_checksum_disable && !skb_csum_unnecessary(skb) &&
->+	if (!net->sctp.checksum_disable && !skb_csum_unnecessary(skb) &&
-> 		  sctp_rcv_checksum(net, skb) < 0)
-> 		goto discard_it;
-> 
->diff --git a/net/sctp/output.c b/net/sctp/output.c
->index 6de6402..5d0a45e 100644
->--- a/net/sctp/output.c
->+++ b/net/sctp/output.c
->@@ -395,6 +395,7 @@ int sctp_packet_transmit(struct sctp_packet
->*packet)
-> 	struct sk_buff *nskb;
-> 	struct sctp_chunk *chunk, *tmp;
-> 	struct sock *sk;
->+	struct net *net;
-> 	int err = 0;
-> 	int padding;		/* How much padding do we need?  */
-> 	__u8 has_data = 0;
->@@ -411,6 +412,7 @@ int sctp_packet_transmit(struct sctp_packet
->*packet)
-> 	/* Set up convenience variables... */
-> 	chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
-> 	sk = chunk->skb->sk;
->+	net = sock_net(sk);
-> 
-> 	/* Allocate the new skb.  */
-> 	nskb = alloc_skb(packet->size + LL_MAX_HEADER, GFP_ATOMIC);
->@@ -545,7 +547,7 @@ int sctp_packet_transmit(struct sctp_packet
->*packet)
-> 	 * Note: Adler-32 is no longer applicable, as has been replaced
-> 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
-> 	 */
->-	if (!sctp_checksum_disable) {
->+	if (!net->sctp.checksum_disable) {
-> 		if ((!(dst->dev->features & NETIF_F_SCTP_CSUM)) ||
-> 			is_xfrm_armed(dst)) {
-> 
->diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
->index 5e17092..b3c51ce 100644
->--- a/net/sctp/protocol.c
->+++ b/net/sctp/protocol.c
->@@ -1239,6 +1239,9 @@ static int __net_init sctp_net_init(struct net
->*net)
-> 	/* Initialize maximum autoclose timeout. */
-> 	net->sctp.max_autoclose		= INT_MAX / HZ;
-> 
->+	/* Enable checksum by default. */
->+	net->sctp.checksum_disable = 0;
->+
-> 	status = sctp_sysctl_net_register(net);
-> 	if (status)
-> 		goto err_sysctl_register;
->@@ -1543,6 +1546,4 @@ MODULE_ALIAS("net-pf-" __stringify(PF_INET)
->"-proto-132");
-> MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
->MODULE_AUTHOR("Linux Kernel SCTP developers
-><linux-sctp@vger.kernel.org>");
-> MODULE_DESCRIPTION("Support for the SCTP protocol (RFC2960)");
->-module_param_named(no_checksums, sctp_checksum_disable, bool, 0644);
->-MODULE_PARM_DESC(no_checksums, "Disable checksums computing and
->verification");
-> MODULE_LICENSE("GPL");
->diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->index 6b36561..d6a6cca 100644
->--- a/net/sctp/sysctl.c
->+++ b/net/sctp/sysctl.c
->@@ -290,6 +290,13 @@ static struct ctl_table sctp_net_table[] = {
-> 		.extra1		= &max_autoclose_min,
-> 		.extra2		= &max_autoclose_max,
-> 	},
->+	{
->+		.procname	= "checksum_disable",
->+		.data		= &init_net.sctp.checksum_disable,
->+		.maxlen		= sizeof(int),
->+		.mode		= 0644,
->+		.proc_handler	= proc_dointvec,
->+	},
-> 
-> 	{ /* sentinel */ }
-> };
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 9fbe4dd..d6d810c 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2918,7 +2918,7 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	int work_done = 0, work_done_per_q = 0;
+ 	int i, budget_per_q = 0;
+-	int has_tx_work;
++	int has_tx_work = 0;
+ 	unsigned long rstat_rxf;
+ 	int num_act_queues;
+ 
+@@ -2933,62 +2933,51 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 	if (num_act_queues)
+ 		budget_per_q = budget/num_act_queues;
+ 
+-	while (1) {
+-		has_tx_work = 0;
+-		for_each_set_bit(i, &gfargrp->tx_bit_map, priv->num_tx_queues) {
+-			tx_queue = priv->tx_queue[i];
+-			/* run Tx cleanup to completion */
+-			if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx]) {
+-				gfar_clean_tx_ring(tx_queue);
+-				has_tx_work = 1;
+-			}
++	for_each_set_bit(i, &gfargrp->tx_bit_map, priv->num_tx_queues) {
++		tx_queue = priv->tx_queue[i];
++		/* run Tx cleanup to completion */
++		if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx]) {
++			gfar_clean_tx_ring(tx_queue);
++			has_tx_work = 1;
+ 		}
++	}
+ 
+-		for_each_set_bit(i, &gfargrp->rx_bit_map, priv->num_rx_queues) {
+-			/* skip queue if not active */
+-			if (!(rstat_rxf & (RSTAT_CLEAR_RXF0 >> i)))
+-				continue;
+-
+-			rx_queue = priv->rx_queue[i];
+-			work_done_per_q =
+-				gfar_clean_rx_ring(rx_queue, budget_per_q);
+-			work_done += work_done_per_q;
+-
+-			/* finished processing this queue */
+-			if (work_done_per_q < budget_per_q) {
+-				/* clear active queue hw indication */
+-				gfar_write(&regs->rstat,
+-					   RSTAT_CLEAR_RXF0 >> i);
+-				rstat_rxf &= ~(RSTAT_CLEAR_RXF0 >> i);
+-				num_act_queues--;
+-
+-				if (!num_act_queues)
+-					break;
+-				/* recompute budget per Rx queue */
+-				budget_per_q =
+-					(budget - work_done) / num_act_queues;
+-			}
+-		}
++	for_each_set_bit(i, &gfargrp->rx_bit_map, priv->num_rx_queues) {
++		/* skip queue if not active */
++		if (!(rstat_rxf & (RSTAT_CLEAR_RXF0 >> i)))
++			continue;
+ 
+-		if (work_done >= budget)
+-			break;
++		rx_queue = priv->rx_queue[i];
++		work_done_per_q =
++			gfar_clean_rx_ring(rx_queue, budget_per_q);
++		work_done += work_done_per_q;
++
++		/* finished processing this queue */
++		if (work_done_per_q < budget_per_q) {
++			/* clear active queue hw indication */
++			gfar_write(&regs->rstat,
++				   RSTAT_CLEAR_RXF0 >> i);
++			num_act_queues--;
++
++			if (!num_act_queues)
++				break;
++		}
++	}
+ 
+-		if (!num_act_queues && !has_tx_work) {
++	if (!num_act_queues && !has_tx_work) {
+ 
+-			napi_complete(napi);
++		napi_complete(napi);
+ 
+-			/* Clear the halt bit in RSTAT */
+-			gfar_write(&regs->rstat, gfargrp->rstat);
++		/* Clear the halt bit in RSTAT */
++		gfar_write(&regs->rstat, gfargrp->rstat);
+ 
+-			gfar_write(&regs->imask, IMASK_DEFAULT);
++		gfar_write(&regs->imask, IMASK_DEFAULT);
+ 
+-			/* If we are coalescing interrupts, update the timer
+-			 * Otherwise, clear it
+-			 */
+-			gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
+-						  gfargrp->tx_bit_map);
+-			break;
+-		}
++		/* If we are coalescing interrupts, update the timer
++		 * Otherwise, clear it
++		 */
++		gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
++					  gfargrp->tx_bit_map);
+ 	}
+ 
+ 	return work_done;
 -- 
-Sent from my Android phone with K-9 Mail. Please excuse my brevity.
+1.7.11.7
