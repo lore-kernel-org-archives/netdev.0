@@ -1,79 +1,79 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
- checksum offload from guest
-Date: Mon, 14 Oct 2013 10:57:41 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0138BC3@AMSPEX01CL01.citrite.net>
-References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
- <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
- <20131014104235.GB11739@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
- <20131014105527.GD11739@zion.uk.xensource.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net 1/2] virtio-net: don't respond to cpu hotplug
+	notifier if we're not ready
+Date: Mon, 14 Oct 2013 14:06:21 +0300
+Message-ID: <20131014110621.GF30954@redhat.com>
+References: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:51315 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753797Ab3JNK5o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 06:57:44 -0400
-In-Reply-To: <20131014105527.GD11739@zion.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 14 October 2013 11:55
-> To: Paul Durrant
-> Cc: Wei Liu; xen-devel@lists.xen.org; netdev@vger.kernel.org; David Vrabel;
-> Ian Campbell
-> Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
-> checksum offload from guest
+On Mon, Oct 14, 2013 at 05:56:34PM +0800, Jason Wang wrote:
+> We're trying to re-configure the affinity unconditionally in cpu hotplug
+> callback. This may lead the issue during resuming from s3/s4 since
 > 
-> On Mon, Oct 14, 2013 at 11:49:20AM +0100, Paul Durrant wrote:
-> > > -----Original Message-----
-> > > From: Wei Liu [mailto:wei.liu2@citrix.com]
-> > > Sent: 14 October 2013 11:43
-> > > To: Paul Durrant
-> > > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; David
-> Vrabel;
-> > > Ian Campbell
-> > > Subject: Re: [PATCH net-next v4 2/5] xen-netback: add support for IPv6
-> > > checksum offload from guest
-> > >
-> > > On Fri, Oct 11, 2013 at 04:06:19PM +0100, Paul Durrant wrote:
-> > > [...]
-> > > > -/*
-> > > > - * This is the amount of packet we copy rather than map, so that the
-> > > > - * guest can't fiddle with the contents of the headers while we do
-> > > > - * packet processing on them (netfilter, routing, etc).
-> > > > +/* This is a miniumum size for the linear area to avoid lots of
-> > > > + * calls to __pskb_pull_tail() as we set up checksum offsets.
-> > > >   */
-> > >
-> > > You seem to forget to explain why 128 is chosen. :-)
-> >
-> > Is that not sufficient explanation? What sort of thing are you looking for?
-> >
+> - virt queues haven't been allocated at that time.
+> - it's unnecessary since thaw method will re-configure the affinity.
 > 
-> From the second version of this patch, we had a conversation.
+> Fix this issue by checking the config_enable and do nothing is we're not ready.
 > 
-> > Where does 128 come from?
-> >
+> The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
+> (virtio-net: reset virtqueue affinity when doing cpu hotplug).
 > 
-> "It's just an arbitrary power of 2 that was chosen because it seems to
-> cover most likely v6 headers and all v4 headers."
-> 
-> So something like: "We choose 128 which is likely to cover most V6
-> headers and all V4 headers" would be sufficeint.
-> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Ok. I figured that was implied by "set up checksum offsets" but I can be more explicit.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-  Paul
+> ---
+> The patch is need for 3.8 and above.
+> ---
+>  drivers/net/virtio_net.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index defec2b..c4bc1cc 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1116,6 +1116,11 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
+>  {
+>  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
+>  
+> +	mutex_lock(&vi->config_lock);
+> +
+> +	if (!vi->config_enable)
+> +		goto done;
+> +
+>  	switch(action & ~CPU_TASKS_FROZEN) {
+>  	case CPU_ONLINE:
+>  	case CPU_DOWN_FAILED:
+> @@ -1128,6 +1133,9 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
+>  	default:
+>  		break;
+>  	}
+> +
+> +done:
+> +	mutex_unlock(&vi->config_lock);
+>  	return NOTIFY_OK;
+>  }
+>  
+> -- 
+> 1.8.1.2
