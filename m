@@ -1,64 +1,85 @@
-From: Aaro Koskinen <aaro.koskinen@iki.fi>
-Subject: Re: [PATCHv2] staging: octeon-ethernet: trivial: Avoid OOPS if
- phydev is not set
-Date: Mon, 14 Oct 2013 22:06:10 +0300
-Message-ID: <20131014190610.GC4260@blackmetal.musicnaut.iki.fi>
-References: <1381773535.2049.4.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 01/07] 8139too: Support for byte queue limits
+Date: Mon, 14 Oct 2013 12:11:31 -0700
+Message-ID: <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
+	 <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	dan.carpenter@oracle.com
-To: Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Tino Reichardt <milky-kernel@mcmilk.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from filtteri5.pp.htv.fi ([213.243.153.188]:58830 "EHLO
-	filtteri5.pp.htv.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756057Ab3JNTGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 15:06:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1381773535.2049.4.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:60460 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753884Ab3JNTLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 15:11:33 -0400
+Received: by mail-pd0-f175.google.com with SMTP id q10so7793758pdj.34
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 12:11:32 -0700 (PDT)
+In-Reply-To: <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 07:58:55PM +0200, Sebastian P=F6hn wrote:
-> Sorry. Haven't signed off for a while now :(
->=20
-> I bet that this is really an issue of incorrect OF information. If I =
-find out more I'll let you know.
->=20
-> @dan: The code works for some interfaces - so phydev is set correctly=
- in some cases.
-
-Kernel git log is not a chat forum; please write a proper changelog,
-if possible include the original oops log.
-
-Thanks,
-
-A.
-
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
+On Mon, 2013-10-14 at 20:26 +0200, Tino Reichardt wrote:
+> Changes to 8139too to use byte queue limits.
+> 
+> This patch was not tested on real hardware currently, but compiles fine and
+> should work.
+> 
+> 
+> Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
+> 
 > ---
-> diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging=
-/octeon/ethernet-mdio.c
-> index 83b1030..bc8c503 100644
-> --- a/drivers/staging/octeon/ethernet-mdio.c
-> +++ b/drivers/staging/octeon/ethernet-mdio.c
-> @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_device=
- *dev)
->  	struct octeon_ethernet *priv =3D netdev_priv(dev);
->  	cvmx_helper_link_info_t link_info;
-> =20
-> +	if (!priv->phydev)
-> +		return;
-> +
->  	if (priv->last_link !=3D priv->phydev->link) {
->  		priv->last_link =3D priv->phydev->link;
->  		link_info.u64 =3D 0;
->=20
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-de=
-vel
+>  drivers/net/ethernet/realtek/8139too.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+> index 3ccedeb..992ac57 100644
+> --- a/drivers/net/ethernet/realtek/8139too.c
+> +++ b/drivers/net/ethernet/realtek/8139too.c
+> @@ -1409,6 +1409,7 @@ static void rtl8139_hw_start (struct net_device *dev)
+>  	}
+>  
+>  	netdev_dbg(dev, "init buffer addresses\n");
+> +	netdev_reset_queue(dev);
+>  
+>  	/* Lock Config[01234] and BMCR register writes */
+>  	RTL_W8 (Cfg9346, Cfg9346_Lock);
+> @@ -1638,6 +1639,7 @@ static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
+>  {
+>  	tp->cur_tx = 0;
+>  	tp->dirty_tx = 0;
+> +	netdev_reset_queue(tp->dev);
+>  
+>  	/* XXX account for unsent Tx packets in tp->stats.tx_dropped */
+>  }
+> @@ -1733,6 +1735,7 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
+>  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
+>  
+>  	tp->cur_tx++;
+> +	netdev_sent_queue(dev, len);
+>  
+
+This looks wrong if len < ETH_ZLEN
+
+>  	if ((tp->cur_tx - NUM_TX_DESC) == tp->dirty_tx)
+>  		netif_stop_queue (dev);
+> @@ -1750,6 +1753,7 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
+>  				  void __iomem *ioaddr)
+>  {
+>  	unsigned long dirty_tx, tx_left;
+> +	unsigned bytes_compl = 0, pkts_compl = 0;
+>  
+>  	assert (dev != NULL);
+>  	assert (ioaddr != NULL);
+> @@ -1792,6 +1796,8 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
+>  			u64_stats_update_begin(&tp->tx_stats.syncp);
+>  			tp->tx_stats.packets++;
+>  			tp->tx_stats.bytes += txstatus & 0x7ff;
+> +			pkts_compl++;
+> +			bytes_compl += txstatus & 0x7ff;
+
+Because here len reported by NIC will be >= ETH_ZLEN
