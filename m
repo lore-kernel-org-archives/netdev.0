@@ -1,176 +1,80 @@
-From: Tino Reichardt <milky-kernel@mcmilk.de>
-Subject: [PATCH 06/07] 3c59x: Support for byte queue limits
-Date: Mon, 14 Oct 2013 20:26:22 +0200
-Message-ID: <1381775183-24866-7-git-send-email-milky-kernel@mcmilk.de>
-References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
-To: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
+ is not set
+Date: Mon, 14 Oct 2013 21:39:06 +0300
+Message-ID: <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
+References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
+ <20131013212810.GA15167@kroah.com>
+ <20131014101051.GH6192@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <gregkh@linuxfoundation.org>, support@caviumnetworks.com,
+	netdev@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
+	Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>,
+	David Daney <david.daney@cavium.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:35489 "EHLO lotte.svc-box.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757053Ab3JNSfx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 14:35:53 -0400
-In-Reply-To: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
+Received: from filtteri6.pp.htv.fi ([213.243.153.189]:37884 "EHLO
+	filtteri6.pp.htv.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884Ab3JNSjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 14:39:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20131014101051.GH6192@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to 3c59x to use byte queue limits.
+Hi,
 
-The checkpatch.pl script will raise this formatting error:
-"WARNING: line over 80 characters" - but I don't want to change the whole
-formatting of this driver ;)
+On Mon, Oct 14, 2013 at 01:10:51PM +0300, Dan Carpenter wrote:
+> On Sun, Oct 13, 2013 at 02:28:10PM -0700, Greg KH wrote:
+> > On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
+> > > A zero pointer deref on priv->phydev->link was causing oops on ou=
+r systems.
+> > > Might be related to improper configuration but we should fail gra=
+cefully here ;-)
+> > >=20
+> > > Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
+> > >=20
+> > > ---
+> > >=20
+> > > diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/sta=
+ging/octeon/ethernet-mdio.c
+> > > index 83b1030..bc8c503 100644
+> > > --- a/drivers/staging/octeon/ethernet-mdio.c
+> > > +++ b/drivers/staging/octeon/ethernet-mdio.c
+> > > @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_de=
+vice *dev)
+> > >         struct octeon_ethernet *priv =3D netdev_priv(dev);
+> > >         cvmx_helper_link_info_t link_info;
+> > > =20
+> > > +       if(!priv->phydev)
+> > > +               return ;
+> >=20
+> > Please always run your patches through the scripts/checkpatch.pl to=
+ol so
+> > that maintainers don't have to point out the obvious coding syle er=
+rors
+> > by hand each time :)
+>=20
+> Also it's whitespace damaged and doesn't apply.
+>=20
+> >=20
+> > Care to try again?
+> >=20
+> > Also, how was phydev NULL?  What was causing that?
+>=20
+> To me it looks like phydev is always NULL.
 
-This patch was not tested on real hardware currently, but compiles fine and
-should work.
+It's initialized in cvm_oct_phy_setup_device():
 
+	priv->phydev =3D of_phy_connect(dev, phy_node, cvm_oct_adjust_link, 0,
+				      PHY_INTERFACE_MODE_GMII);
 
-Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
+So maybe there is a chance that cvm_oct_adjust_link() callback gets cal=
+led
+already before the function returns? Getting a copy of the original OOP=
+S
+report/crash dump could help to confirm this.
 
----
- drivers/net/ethernet/3com/3c59x.c | 37 +++++++++++++++++++++++++++++++------
- 1 file changed, 31 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index ad5272b..fd03165 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -1726,6 +1726,8 @@ vortex_up(struct net_device *dev)
- 	iowrite16(vp->intr_enable, ioaddr + EL3_CMD);
- 	if (vp->cb_fn_base)			/* The PCMCIA people are idiots.  */
- 		iowrite32(0x8000, vp->cb_fn_base + 4);
-+
-+	netdev_reset_queue(dev);
- 	netif_start_queue (dev);
- err_out:
- 	return err;
-@@ -2080,10 +2082,13 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		spin_unlock_irq(&vp->window_lock);
- 		vp->tx_skb = skb;
- 		iowrite16(StartDMADown, ioaddr + EL3_CMD);
-+		netdev_sent_queue(dev, len);
- 		/* netif_wake_queue() will be called at the DMADone interrupt. */
- 	} else {
- 		/* ... and the packet rounded to a doubleword. */
--		iowrite32_rep(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
-+		int len = (skb->len + 3) >> 2;
-+		iowrite32_rep(ioaddr + TX_FIFO, skb->data, len);
-+		netdev_sent_queue(dev, len);
- 		dev_kfree_skb (skb);
- 		if (ioread16(ioaddr + TxFree) > 1536) {
- 			netif_start_queue (dev);	/* AKPM: redundant? */
-@@ -2094,7 +2099,6 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
--
- 	/* Clear the Tx status stack. */
- 	{
- 		int tx_status;
-@@ -2164,12 +2168,14 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vp->tx_ring[entry].frag[0].addr = cpu_to_le32(pci_map_single(VORTEX_PCI(vp), skb->data,
- 										skb->len, PCI_DMA_TODEVICE));
- 		vp->tx_ring[entry].frag[0].length = cpu_to_le32(skb->len | LAST_FRAG);
-+		netdev_sent_queue(dev, skb->len);
- 	} else {
--		int i;
-+		int i, len;
- 
- 		vp->tx_ring[entry].frag[0].addr = cpu_to_le32(pci_map_single(VORTEX_PCI(vp), skb->data,
- 										skb_headlen(skb), PCI_DMA_TODEVICE));
- 		vp->tx_ring[entry].frag[0].length = cpu_to_le32(skb_headlen(skb));
-+		len = skb_headlen(skb);
- 
- 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-@@ -2180,16 +2186,21 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 						(void *)skb_frag_address(frag),
- 						skb_frag_size(frag), PCI_DMA_TODEVICE));
- 
--			if (i == skb_shinfo(skb)->nr_frags-1)
-+			if (i == skb_shinfo(skb)->nr_frags - 1) {
- 					vp->tx_ring[entry].frag[i+1].length = cpu_to_le32(skb_frag_size(frag)|LAST_FRAG);
--			else
-+					len += skb_frag_size(frag) | LAST_FRAG;
-+			} else {
- 					vp->tx_ring[entry].frag[i+1].length = cpu_to_le32(skb_frag_size(frag));
-+					len += skb_frag_size(frag);
-+			}
- 		}
-+		netdev_sent_queue(dev, len);
- 	}
- #else
- 	vp->tx_ring[entry].addr = cpu_to_le32(pci_map_single(VORTEX_PCI(vp), skb->data, skb->len, PCI_DMA_TODEVICE));
- 	vp->tx_ring[entry].length = cpu_to_le32(skb->len | LAST_FRAG);
- 	vp->tx_ring[entry].status = cpu_to_le32(skb->len | TxIntrUploaded);
-+	netdev_sent_queue(dev, skb->len | LAST_FRAG);
- #endif
- 
- 	spin_lock_irqsave(&vp->lock, flags);
-@@ -2234,6 +2245,7 @@ vortex_interrupt(int irq, void *dev_id)
- 	int status;
- 	int work_done = max_interrupt_work;
- 	int handled = 0;
-+	unsigned bytes_compl = 0, pkts_compl = 0;
- 
- 	ioaddr = vp->ioaddr;
- 	spin_lock(&vp->lock);
-@@ -2279,8 +2291,12 @@ vortex_interrupt(int irq, void *dev_id)
- 
- 		if (status & DMADone) {
- 			if (ioread16(ioaddr + Wn7_MasterStatus) & 0x1000) {
-+				int len;
- 				iowrite16(0x1000, ioaddr + Wn7_MasterStatus); /* Ack the event. */
--				pci_unmap_single(VORTEX_PCI(vp), vp->tx_skb_dma, (vp->tx_skb->len + 3) & ~3, PCI_DMA_TODEVICE);
-+				len = (vp->tx_skb->len + 3) & ~3;
-+				pci_unmap_single(VORTEX_PCI(vp), vp->tx_skb_dma, len, PCI_DMA_TODEVICE);
-+				bytes_compl += len;
-+				pkts_compl++;
- 				dev_kfree_skb_irq(vp->tx_skb); /* Release the transferred buffer */
- 				if (ioread16(ioaddr + TxFree) > 1536) {
- 					/*
-@@ -2327,6 +2343,8 @@ vortex_interrupt(int irq, void *dev_id)
- 
- 	spin_unlock(&vp->window_lock);
- 
-+	netdev_completed_queue(dev, pkts_compl, bytes_compl);
-+
- 	if (vortex_debug > 4)
- 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
- 			   dev->name, status);
-@@ -2348,6 +2366,7 @@ boomerang_interrupt(int irq, void *dev_id)
- 	void __iomem *ioaddr;
- 	int status;
- 	int work_done = max_interrupt_work;
-+	unsigned bytes_compl = 0, pkts_compl = 0;
- 
- 	ioaddr = vp->ioaddr;
- 
-@@ -2420,6 +2439,8 @@ boomerang_interrupt(int irq, void *dev_id)
- 					pci_unmap_single(VORTEX_PCI(vp),
- 						le32_to_cpu(vp->tx_ring[entry].addr), skb->len, PCI_DMA_TODEVICE);
- #endif
-+					bytes_compl += skb->len;
-+					pkts_compl++;
- 					dev_kfree_skb_irq(skb);
- 					vp->tx_skbuff[entry] = NULL;
- 				} else {
-@@ -2467,6 +2488,9 @@ boomerang_interrupt(int irq, void *dev_id)
- handler_exit:
- 	vp->handling_irq = 0;
- 	spin_unlock(&vp->lock);
-+
-+	netdev_completed_queue(dev, pkts_compl, bytes_compl);
-+
- 	return IRQ_HANDLED;
- }
- 
-@@ -2660,6 +2684,7 @@ vortex_down(struct net_device *dev, int final_down)
- 	struct vortex_private *vp = netdev_priv(dev);
- 	void __iomem *ioaddr = vp->ioaddr;
- 
-+	netdev_reset_queue(dev);
- 	netif_stop_queue (dev);
- 
- 	del_timer_sync(&vp->rx_oom_timer);
--- 
-1.8.4
+A.
