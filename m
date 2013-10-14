@@ -1,326 +1,66 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 2/2] Don't compute checksum value for SCTP skb with,
- CHECKSUM_PARTIAL set
-Date: Mon, 14 Oct 2013 15:16:14 +0800
-Message-ID: <525B9A3E.2080508@windriver.com>
-References: <1381384296-1821-1-git-send-email-fan.du@windriver.com> <20131010131116.GA16147@hmsreliant.think-freely.org> <5257A3D6.3010002@windriver.com> <52580A68.9040502@gmail.com> <52591A1E.7010705@windriver.com> <b4c6105a-057c-4fd7-9b49-99df902447d8@email.android.com>
+Subject: [PATCHv2 RESEND] {xfrm, sctp} Stick to software crc32 even if hardware is capable of that
+Date: Mon, 14 Oct 2013 15:27:38 +0800
+Message-ID: <1381735658-15478-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+Content-Type: text/plain
+Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43196 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:45391 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395Ab3JNHSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 03:18:11 -0400
-In-Reply-To: <b4c6105a-057c-4fd7-9b49-99df902447d8@email.android.com>
+	with ESMTP id S1751673Ab3JNH1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 03:27:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+igb/ixgbe have hardware sctp checksum support, when this feature is enabled
+and also IPsec is armed to protect sctp traffic, ugly things happened as
+xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum every thing
+up and pack the 16bits result in the checksum field). The result is fail
+establishment of sctp communication.
 
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/sctp/output.c |   14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-On 2013=E5=B9=B410=E6=9C=8812=E6=97=A5 21:06, Vlad Yasevich wrote:
->
->
-> Fan Du<fan.du@windriver.com>  wrote:
->
->>
->>
->> On 2013=E5=B9=B410=E6=9C=8811=E6=97=A5 22:25, Vlad Yasevich wrote:
->>> On 10/11/2013 03:08 AM, Fan Du wrote:
->>>>
->>>>
->>>> On 2013=E5=B9=B410=E6=9C=8810=E6=97=A5 21:11, Neil Horman wrote:
->>>>> On Thu, Oct 10, 2013 at 01:51:36PM +0800, Fan Du wrote:
->>>>>> igb/ixgbe have hardware sctp checksum support, when this feature
->> is
->>>>>> enabled
->>>>>> and also IPsec is armed to protect sctp traffic, ugly things
->> happened as
->>>>>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(su=
-m
->>>>>> every thing
->>>>>> up and pack the 16bits result in the checksum field). The result
->> is fail
->>>>>> establishment of sctp communication.
->>>>>>
->>>>> Shouldn't this be fixed in the xfrm code then? E.g. check the
->> device
->>>>> features
->>>>> for SCTP checksum offloading and and skip the checksum during xfr=
-m
->>>>> output if its
->>>>> available?
->>>>>
->>>>> Or am I missing something?
->>>>> Neil
->>>>>
->>>>>
->>>>
->>>>
->>>>  From cff25810910603ff991f0c56441d6de8dc33a822 Mon Sep 17 00:00:00
->> 2001
->>>> From: Fan Du<fan.du@windriver.com>
->>>> Date: Fri, 11 Oct 2013 14:31:57 +0800
->>>> Subject: [PATCH 2/2] Don't compute checksum value for SCTP skb wit=
-h
->>>> CHECKSUM_PARTIAL set
->>>> MIME-Version: 1.0
->>>> Content-Type: text/plain; charset=3DUTF-8
->>>> Content-Transfer-Encoding: 8bit
->>>>
->>>> IPsec is not enabled in this scenario:
->>>>
->>>> SCTP skb set CHECKSUM_PARTIAL to indicate hardware is capable of
->> doing
->>>> SCTP checksum(crc32-c) scoping the whole SCTP packet range. Howeve=
-r
->> when
->>>> such kind of skb is delivered through IPv4/v6 output handler,
->> IPv4/v6 stack
->>>> interpret CHECKSUM_PARTIAL by calling skb_checksum_help to compute
->> 16bits
->>>> checksum value by summing everything up, the whole SCTP packet in
->> software
->>>> manner=EF=BC=81 After this skb reach NIC, after hardware doing its=
- SCTP
->> checking
->>>> business, a crc32-c value will overwrite the value IPv4/v6 stack
->> computed
->>>> before.
->>>>
->>>> This patch solves this by introducing skb_is_sctpv4/6 to optimize
->> such
->>>> case.
->>>>
->>>> Signed-off-by: Fan Du<fan.du@windriver.com>
->>>> ---
->>>> v2:
->>>> Rework this problem by introducing skb_is_scktv4/6
->>>>
->>>> ---
->>>> include/linux/ip.h | 5 +++++
->>>> include/linux/ipv6.h | 6 ++++++
->>>> include/linux/skbuff.h | 1 -
->>>> net/core/skbuff.c | 1 +
->>>> net/ipv4/ip_output.c | 4 +++-
->>>> net/ipv6/ip6_output.c | 1 +
->>>> net/xfrm/xfrm_output.c | 20 +++++++++++++++-----
->>>> 7 files changed, 31 insertions(+), 7 deletions(-)
->>>>
->>>> diff --git a/include/linux/ip.h b/include/linux/ip.h
->>>> index 492bc65..f556292 100644
->>>> --- a/include/linux/ip.h
->>>> +++ b/include/linux/ip.h
->>>> @@ -19,6 +19,7 @@
->>>>
->>>> #include<linux/skbuff.h>
->>>> #include<uapi/linux/ip.h>
->>>> +#include<uapi/linux/in.h>
->>>>
->>>> static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
->>>> {
->>>> @@ -34,4 +35,8 @@ static inline struct iphdr *ipip_hdr(const struc=
-t
->>>> sk_buff *skb)
->>>> {
->>>> return (struct iphdr *)skb_transport_header(skb);
->>>> }
->>>> +static inline int skb_is_sctpv4(const struct sk_buff *skb)
->>>> +{
->>>> + return ip_hdr(skb)->protocol =3D=3D IPPROTO_SCTP;
->>>> +}
->>>> #endif /* _LINUX_IP_H */
->>>> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
->>>> index 28ea384..6e17c04 100644
->>>> --- a/include/linux/ipv6.h
->>>> +++ b/include/linux/ipv6.h
->>>> @@ -2,6 +2,7 @@
->>>> #define _IPV6_H
->>>>
->>>> #include<uapi/linux/ipv6.h>
->>>> +#include<uapi/linux/in.h>
->>>>
->>>> #define ipv6_optlen(p) (((p)->hdrlen+1)<<  3)
->>>> /*
->>>> @@ -387,4 +388,9 @@ static inline struct raw6_sock *raw6_sk(const
->> struct
->>>> sock *sk)
->>>> ((__sk)->sk_bound_dev_if =3D=3D (__dif)))&&  \
->>>> net_eq(sock_net(__sk), (__net)))
->>>>
->>>> +static inline int skb_is_sctpv6(const struct sk_buff *skb)
->>>> +{
->>>> + return ipv6_hdr(skb)->nexthdr =3D=3D IPPROTO_SCTP;
->>>> +}
->>>> +
->>>> #endif /* _IPV6_H */
->>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->>>> index 2ddb48d..b36d0cc 100644
->>>> --- a/include/linux/skbuff.h
->>>> +++ b/include/linux/skbuff.h
->>>> @@ -2393,7 +2393,6 @@ extern void skb_split(struct sk_buff *skb,
->>>> extern int skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
->>>> int shiftlen);
->>>> extern void skb_scrub_packet(struct sk_buff *skb, bool xnet);
->>>> -
->>>> extern struct sk_buff *skb_segment(struct sk_buff *skb,
->>>> netdev_features_t features);
->>>>
->>>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->>>> index d81cff1..54d6172 100644
->>>> --- a/net/core/skbuff.c
->>>> +++ b/net/core/skbuff.c
->>>> @@ -3526,3 +3526,4 @@ void skb_scrub_packet(struct sk_buff *skb,
->> bool xnet)
->>>> nf_reset_trace(skb);
->>>> }
->>>> EXPORT_SYMBOL_GPL(skb_scrub_packet);
->>>> +
->>>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
->>>> index a04d872..8676b2c 100644
->>>> --- a/net/ipv4/ip_output.c
->>>> +++ b/net/ipv4/ip_output.c
->>>> @@ -587,7 +587,9 @@ slow_path_clean:
->>>>
->>>> slow_path:
->>>> /* for offloaded checksums cleanup checksum before fragmentation *=
-/
->>>> - if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
->> skb_checksum_help(skb))
->>>> + if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
->>>> + !skb_is_sctpv4(skb)&&
->>>> + skb_checksum_help(skb))
->>>> goto fail;
->>>> iph =3D ip_hdr(skb);
->>>>
->>>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->>>> index 3a692d5..9b27d95 100644
->>>> --- a/net/ipv6/ip6_output.c
->>>> +++ b/net/ipv6/ip6_output.c
->>>> @@ -671,6 +671,7 @@ slow_path_clean:
->>>>
->>>> slow_path:
->>>> if ((skb->ip_summed =3D=3D CHECKSUM_PARTIAL)&&
->>>> + !skb_is_sctpv6(skb)&&
->>>> skb_checksum_help(skb))
->>>> goto fail;
->>>>
->>>
->>> No, this isn't right. This is a case where IP fragmentation is
->>> required, and the above code will cause SCTP checksum to not be
->>> computed.
->>
->> Ok, I got my ball, ten bucks bet this correct ;)
->>
->> IPv4:
->> after skb reach fragmentation part, CHECKSUM_PARTIAL denotes
->> L4 layer protocol need to be checksummed, then IPv4 checksum is
->> recomputed for each fragmented IPv4 packet.
->>
->> IPv6:
->> Here IPv6 doesn't need checksum for its header, again
->> CHECKSUM_PARTIAL denotes L4 layer protocol need to be checksummed.
->>
->> So all in all, this is the right place to distinguish SCTP skb out,
->> and skip checksum operation as hw does it thereafter.
->>
->
->   How does HW compute SCTP checksum when the data is split between sk=
-b?
-> Each skb will be submitted separately to the HW.
-> I think we need to fall back to SW checksum when packer will be fragm=
-ented.
-
-Hi, Vlad
-
-I understand your argument now, I finally applied a 82576 NIC with SCTP=
- CHECKSUM
-supported to test this. It seems when sending this super-sized packet,
-sctp_datamsg_from_user fragments each packet to 1480 size already using=
- pathmtu,
-this pathmtu is equal or less than the interface device mtu, which mean=
-s
-ip_fragment/ip6_fragment didn't fragments any SCTP skb.
-
-Host A(with 82576):
-sctp_test -h 128.224.162.161 -p 5001 -H 128.224.162.220 -P 500 -x 1 -c =
-5 -s -T
-                                                                      ^=
-^^
-                                                 set each packet to 327=
-68 bytes
-
-I cannot picture any scenario where a SCTP skb with CHECK_PARTIAL set t=
-o reach
-ip_fragment/ip6_fragment. FWIW, the fix for xfrm_output part is definit=
-ely a
-valid one.
-
-
-> -vlad
->
->> Q.E.D.
->>
->>
->>> Looks like SCTP needs to compute the checksum in the case where
->>> skb will be fragmented.
->>>
->>> An alternative, that will also allow us to get rid of patch 1
->>> in the serices is to have a checksum handler offload function
->>> that can be used to compute checksum in this case.
->>>
->>> -vlad
->>>
->>>> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
->>>> index 3bb2cdc..ddef94a 100644
->>>> --- a/net/xfrm/xfrm_output.c
->>>> +++ b/net/xfrm/xfrm_output.c
->>>> @@ -180,6 +180,14 @@ static int xfrm_output_gso(struct sk_buff *sk=
-b)
->>>> return 0;
->>>> }
->>>>
->>>> +static int skb_is_sctp(const struct sk_buff *skb)
->>>> +{
->>>> + if (skb->protocol =3D=3D __constant_htons(ETH_P_IP))
->>>> + return skb_is_sctpv4(skb);
->>>> + else
->>>> + return skb_is_sctpv6(skb);
->>>> +}
->>>> +
->>>> int xfrm_output(struct sk_buff *skb)
->>>> {
->>>> struct net *net =3D dev_net(skb_dst(skb)->dev);
->>>> @@ -189,11 +197,13 @@ int xfrm_output(struct sk_buff *skb)
->>>> return xfrm_output_gso(skb);
->>>>
->>>> if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
->>>> - err =3D skb_checksum_help(skb);
->>>> - if (err) {
->>>> - XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTERROR);
->>>> - kfree_skb(skb);
->>>> - return err;
->>>> + if (!skb_is_sctp(skb)) {
->>>> + err =3D skb_checksum_help(skb);
->>>> + if (err) {
->>>> + XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTERROR);
->>>> + kfree_skb(skb);
->>>> + return err;
->>>> + }
->>>> }
->>>> }
->>>>
->>>
->>>
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 0ac3a65..6de6402 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ 	atomic_inc(&sk->sk_wmem_alloc);
+ }
+ 
++static int is_xfrm_armed(struct dst_entry *dst)
++{
++#ifdef CONFIG_XFRM
++	/* If dst->xfrm is valid, this skb needs to be transformed */
++	return dst->xfrm != NULL;
++#else
++	return 0;
++#endif
++}
++
+ /* All packets are sent to the network through this function from
+  * sctp_outq_tail().
+  *
+@@ -536,7 +546,9 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
+ 	 */
+ 	if (!sctp_checksum_disable) {
+-		if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
++		if ((!(dst->dev->features & NETIF_F_SCTP_CSUM)) ||
++			is_xfrm_armed(dst)) {
++
+ 			__u32 crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
+ 
+ 			/* 3) Put the resultant value into the checksum field in the
+-- 
+1.7.9.5
