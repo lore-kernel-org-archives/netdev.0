@@ -1,60 +1,43 @@
-From: Tino Reichardt <list-linux-netdev@mcmilk.de>
-Subject: Re: [PATCH 01/07] 8139too: Support for byte queue limits
-Date: Mon, 14 Oct 2013 21:31:55 +0200
-Message-ID: <20131014193155.GC23070@mcmilk.de>
-References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
- <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
- <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH -next] netdev: inet_timewait_sock.h missing semi-colon when
+ KMEMCHECK is enabled
+Date: Mon, 14 Oct 2013 12:36:32 -0700
+Message-ID: <525C47C0.2000907@infradead.org>
+References: <1381762088-18880-1-git-send-email-treding@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:38635 "EHLO lotte.svc-box.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756419Ab3JNTb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 15:31:58 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by lotte.svc-box.de (Postfix) with ESMTP id 39F69148018F
-	for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 21:31:57 +0200 (CEST)
-Received: from lotte.svc-box.de ([127.0.0.1])
-	by localhost (lotte.svc-box.de [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id BS-21FkyFXJH for <netdev@vger.kernel.org>;
-	Mon, 14 Oct 2013 21:31:55 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Mark Brown <broonie@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Thierry Reding <thierry.reding@gmail.com>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1381762088-18880-1-git-send-email-treding@nvidia.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2013-10-14 at 20:26 +0200, Tino Reichardt wrote:
-> > Changes to 8139too to use byte queue limits.
-> > 
-> > This patch was not tested on real hardware currently, but compiles fine and
-> > should work.
-> > 
-> >  	tp->cur_tx = 0;
-> >  	tp->dirty_tx = 0;
-> > +	netdev_reset_queue(tp->dev);
-> >  
-> >  	/* XXX account for unsent Tx packets in tp->stats.tx_dropped */
-> >  }
-> > @@ -1733,6 +1735,7 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
-> >  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
-> >  
-> >  	tp->cur_tx++;
-> > +	netdev_sent_queue(dev, len);
-> >  
-> 
-> This looks wrong if len < ETH_ZLEN
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Yes you are right. I looked to the debug statement in the end of that
-function, so len had to be correct ... but it isn't ... yes :(
+Fix (a few hundred) build errors due to missing semi-colon when
+KMEMCHECK is enabled:
 
-netif_dbg(tp, tx_queued, dev, "Queued Tx packet size %u to slot %d\n"...
+  include/net/inet_timewait_sock.h:139:2: error: expected ',', ';' or '}' before 'int'
+  include/net/inet_timewait_sock.h:148:28: error: 'const struct inet_timewait_sock' has no member named 'tw_death_node'
 
-Should a make len = max(len, ETH_ZLEN) there .. so the debug statement
-is also correct?
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+---
+ include/net/inet_timewait_sock.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
--- 
-Best regards, TR
+--- next-2013-1014.orig/include/net/inet_timewait_sock.h
++++ next-2013-1014/include/net/inet_timewait_sock.h
+@@ -135,7 +135,7 @@ struct inet_timewait_sock {
+ 				tw_transparent  : 1,
+ 				tw_pad		: 6,	/* 6 bits hole */
+ 				tw_tos		: 8,
+-				tw_pad2		: 16 /* 16 bits hole */
++				tw_pad2		: 16;	/* 16 bits hole */
+ 	kmemcheck_bitfield_end(flags);
+ 	u32			tw_ttd;
+ 	struct inet_bind_bucket	*tw_tb;
