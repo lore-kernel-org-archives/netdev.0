@@ -1,221 +1,201 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/17] netfilter: nf_tables: add support for dormant tables
-Date: Mon, 14 Oct 2013 18:38:52 +0200
-Message-ID: <1381768738-17739-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/17] netfilter: nft_payload: add optimized payload implementation for small loads
+Date: Mon, 14 Oct 2013 18:38:48 +0200
+Message-ID: <1381768738-17739-8-git-send-email-pablo@netfilter.org>
 References: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34784 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:34764 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757257Ab3JNQjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Oct 2013 12:39:22 -0400
+	id S1757266Ab3JNQjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 12:39:19 -0400
 In-Reply-To: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows you to temporarily disable an entire table.
-You can change the state of a dormant table via NFT_MSG_NEWTABLE
-messages. Using this operation you can wake up a table, so their
-chains are registered.
+From: Patrick McHardy <kaber@trash.net>
 
-This provides atomicity at chain level. Thus, the rule-set of one
-chain is applied at once, avoiding any possible intermediate state
-in every chain. Still, the chains that belongs to a table are
-registered consecutively. This also allows you to have inactive
-tables in the kernel.
+Add an optimized payload expression implementation for small (up to 4 bytes)
+aligned data loads from the linear packet area.
 
+This patch also includes original Patrick McHardy's entitled (nf_tables:
+inline nft_payload_fast_eval() into main evaluation loop).
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |   11 ++++
- net/netfilter/nf_tables_api.c            |   97 +++++++++++++++++++++++++++---
- 2 files changed, 101 insertions(+), 7 deletions(-)
+ include/net/netfilter/nf_tables_core.h |    9 +++++
+ net/netfilter/nf_tables_core.c         |   31 +++++++++++++-
+ net/netfilter/nft_payload.c            |   69 +++++++++++++++++++-------------
+ 3 files changed, 81 insertions(+), 28 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 1563875..a9c4bce 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -97,13 +97,24 @@ enum nft_hook_attributes {
- #define NFTA_HOOK_MAX		(__NFTA_HOOK_MAX - 1)
+diff --git a/include/net/netfilter/nf_tables_core.h b/include/net/netfilter/nf_tables_core.h
+index 3df6a9b..fe7b162 100644
+--- a/include/net/netfilter/nf_tables_core.h
++++ b/include/net/netfilter/nf_tables_core.h
+@@ -27,6 +27,15 @@ extern void nft_bitwise_module_exit(void);
+ extern int nft_byteorder_module_init(void);
+ extern void nft_byteorder_module_exit(void);
  
- /**
-+ * enum nft_table_flags - nf_tables table flags
-+ *
-+ * @NFT_TABLE_F_DORMANT: this table is not active
-+ */
-+enum nft_table_flags {
-+	NFT_TABLE_F_DORMANT	= 0x1,
++struct nft_payload {
++	enum nft_payload_bases	base:8;
++	u8			offset;
++	u8			len;
++	enum nft_registers	dreg:8;
 +};
 +
-+/**
-  * enum nft_table_attributes - nf_tables table netlink attributes
-  *
-  * @NFTA_TABLE_NAME: name of the table (NLA_STRING)
-+ * @NFTA_TABLE_FLAGS: bitmask of enum nft_table_flags (NLA_U32)
-  */
- enum nft_table_attributes {
- 	NFTA_TABLE_UNSPEC,
- 	NFTA_TABLE_NAME,
-+	NFTA_TABLE_FLAGS,
- 	__NFTA_TABLE_MAX
- };
- #define NFTA_TABLE_MAX		(__NFTA_TABLE_MAX - 1)
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 61e017b..a4dd7ce 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -158,6 +158,7 @@ static int nf_tables_chain_type_lookup(const struct nft_af_info *afi,
++extern const struct nft_expr_ops nft_payload_fast_ops;
++
+ extern int nft_payload_module_init(void);
+ extern void nft_payload_module_exit(void);
  
- static const struct nla_policy nft_table_policy[NFTA_TABLE_MAX + 1] = {
- 	[NFTA_TABLE_NAME]	= { .type = NLA_STRING },
-+	[NFTA_TABLE_FLAGS]	= { .type = NLA_U32 },
- };
- 
- static int nf_tables_fill_table_info(struct sk_buff *skb, u32 portid, u32 seq,
-@@ -177,7 +178,8 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, u32 portid, u32 seq,
- 	nfmsg->version		= NFNETLINK_V0;
- 	nfmsg->res_id		= 0;
- 
--	if (nla_put_string(skb, NFTA_TABLE_NAME, table->name))
-+	if (nla_put_string(skb, NFTA_TABLE_NAME, table->name) ||
-+	    nla_put_be32(skb, NFTA_TABLE_FLAGS, htonl(table->flags)))
- 		goto nla_put_failure;
- 
- 	return nlmsg_end(skb, nlh);
-@@ -301,6 +303,74 @@ err:
- 	return err;
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index 2400018..9aede59 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -32,6 +32,34 @@ static void nft_cmp_fast_eval(const struct nft_expr *expr,
+ 	data[NFT_REG_VERDICT].verdict = NFT_BREAK;
  }
  
-+static int nf_tables_table_enable(struct nft_table *table)
++static bool nft_payload_fast_eval(const struct nft_expr *expr,
++				  struct nft_data data[NFT_REG_MAX + 1],
++				  const struct nft_pktinfo *pkt)
 +{
-+	struct nft_chain *chain;
-+	int err, i = 0;
++	const struct nft_payload *priv = nft_expr_priv(expr);
++	const struct sk_buff *skb = pkt->skb;
++	struct nft_data *dest = &data[priv->dreg];
++	unsigned char *ptr;
 +
-+	list_for_each_entry(chain, &table->chains, list) {
-+		err = nf_register_hook(&nft_base_chain(chain)->ops);
-+		if (err < 0)
-+			goto err;
++	if (priv->base == NFT_PAYLOAD_NETWORK_HEADER)
++		ptr = skb_network_header(skb);
++	else
++		ptr = skb_transport_header(skb);
 +
-+		i++;
-+	}
-+	return 0;
-+err:
-+	list_for_each_entry(chain, &table->chains, list) {
-+		if (i-- <= 0)
-+			break;
++	ptr += priv->offset;
 +
-+		nf_unregister_hook(&nft_base_chain(chain)->ops);
-+	}
-+	return err;
++	if (unlikely(ptr + priv->len >= skb_tail_pointer(skb)))
++		return false;
++
++	if (priv->len == 2)
++		*(u16 *)dest->data = *(u16 *)ptr;
++	else if (priv->len == 4)
++		*(u32 *)dest->data = *(u32 *)ptr;
++	else
++		*(u8 *)dest->data = *(u8 *)ptr;
++	return true;
 +}
 +
-+static int nf_tables_table_disable(struct nft_table *table)
-+{
-+	struct nft_chain *chain;
-+
-+	list_for_each_entry(chain, &table->chains, list)
-+		nf_unregister_hook(&nft_base_chain(chain)->ops);
-+
-+	return 0;
-+}
-+
-+static int nf_tables_updtable(struct sock *nlsk, struct sk_buff *skb,
-+			      const struct nlmsghdr *nlh,
-+			      const struct nlattr * const nla[],
-+			      struct nft_af_info *afi, struct nft_table *table)
-+{
-+	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
-+	int family = nfmsg->nfgen_family, ret = 0;
-+
-+	if (nla[NFTA_TABLE_FLAGS]) {
-+		__be32 flags;
-+
-+		flags = ntohl(nla_get_be32(nla[NFTA_TABLE_FLAGS]));
-+		if (flags & ~NFT_TABLE_F_DORMANT)
-+			return -EINVAL;
-+
-+		if ((flags & NFT_TABLE_F_DORMANT) &&
-+		    !(table->flags & NFT_TABLE_F_DORMANT)) {
-+			ret = nf_tables_table_disable(table);
-+			if (ret >= 0)
-+				table->flags |= NFT_TABLE_F_DORMANT;
-+		} else if (!(flags & NFT_TABLE_F_DORMANT) &&
-+			   table->flags & NFT_TABLE_F_DORMANT) {
-+			ret = nf_tables_table_enable(table);
-+			if (ret >= 0)
-+				table->flags &= ~NFT_TABLE_F_DORMANT;
-+		}
-+		if (ret < 0)
-+			goto err;
-+	}
-+
-+	nf_tables_table_notify(skb, nlh, table, NFT_MSG_NEWTABLE, family);
-+err:
-+	return ret;
-+}
-+
- static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 			      const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
-@@ -328,7 +398,7 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 			return -EEXIST;
- 		if (nlh->nlmsg_flags & NLM_F_REPLACE)
- 			return -EOPNOTSUPP;
--		return 0;
-+		return nf_tables_updtable(nlsk, skb, nlh, nla, afi, table);
- 	}
+ unsigned int nft_do_chain(const struct nf_hook_ops *ops,
+ 			  struct sk_buff *skb,
+ 			  const struct net_device *in,
+@@ -62,7 +90,8 @@ next_rule:
+ 		nft_rule_for_each_expr(expr, last, rule) {
+ 			if (expr->ops == &nft_cmp_fast_ops)
+ 				nft_cmp_fast_eval(expr, data);
+-			else
++			else if (expr->ops != &nft_payload_fast_ops ||
++				 !nft_payload_fast_eval(expr, data, &pkt))
+ 				expr->ops->eval(expr, data, &pkt);
  
- 	table = kzalloc(sizeof(*table) + nla_len(name), GFP_KERNEL);
-@@ -339,6 +409,18 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 	INIT_LIST_HEAD(&table->chains);
- 	INIT_LIST_HEAD(&table->sets);
+ 			if (data[NFT_REG_VERDICT].verdict != NFT_CONTINUE)
+diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
+index d99db6e..7cf13f7 100644
+--- a/net/netfilter/nft_payload.c
++++ b/net/netfilter/nft_payload.c
+@@ -17,13 +17,6 @@
+ #include <net/netfilter/nf_tables_core.h>
+ #include <net/netfilter/nf_tables.h>
  
-+	if (nla[NFTA_TABLE_FLAGS]) {
-+		__be32 flags;
-+
-+		flags = ntohl(nla_get_be32(nla[NFTA_TABLE_FLAGS]));
-+		if (flags & ~NFT_TABLE_F_DORMANT) {
-+			kfree(table);
-+			return -EINVAL;
-+		}
-+
-+		table->flags |= flags;
-+	}
-+
- 	list_add_tail(&table->list, &afi->tables);
- 	nf_tables_table_notify(skb, nlh, table, NFT_MSG_NEWTABLE, family);
- 	return 0;
-@@ -890,10 +972,8 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	chain->handle = nf_tables_alloc_handle(table);
- 	nla_strlcpy(chain->name, name, NFT_CHAIN_MAXNAMELEN);
- 
--	list_add_tail(&chain->list, &table->chains);
--	table->use++;
+-struct nft_payload {
+-	enum nft_payload_bases	base:8;
+-	u8			offset;
+-	u8			len;
+-	enum nft_registers	dreg:8;
+-};
 -
--	if (chain->flags & NFT_BASE_CHAIN) {
-+	if (!(table->flags & NFT_TABLE_F_DORMANT) &&
-+	    chain->flags & NFT_BASE_CHAIN) {
- 		err = nf_register_hook(&nft_base_chain(chain)->ops);
- 		if (err < 0) {
- 			free_percpu(basechain->stats);
-@@ -901,6 +981,8 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			return err;
- 		}
- 	}
-+	list_add_tail(&chain->list, &table->chains);
-+	table->use++;
- notify:
- 	nf_tables_chain_notify(skb, nlh, table, chain, NFT_MSG_NEWCHAIN,
- 			       family);
-@@ -948,7 +1030,8 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	list_del(&chain->list);
- 	table->use--;
+ static void nft_payload_eval(const struct nft_expr *expr,
+ 			     struct nft_data data[NFT_REG_MAX + 1],
+ 			     const struct nft_pktinfo *pkt)
+@@ -71,27 +64,9 @@ static int nft_payload_init(const struct nft_ctx *ctx,
+ 	struct nft_payload *priv = nft_expr_priv(expr);
+ 	int err;
  
--	if (chain->flags & NFT_BASE_CHAIN)
-+	if (!(table->flags & NFT_TABLE_F_DORMANT) &&
-+	    chain->flags & NFT_BASE_CHAIN)
- 		nf_unregister_hook(&nft_base_chain(chain)->ops);
+-	if (tb[NFTA_PAYLOAD_DREG] == NULL ||
+-	    tb[NFTA_PAYLOAD_BASE] == NULL ||
+-	    tb[NFTA_PAYLOAD_OFFSET] == NULL ||
+-	    tb[NFTA_PAYLOAD_LEN] == NULL)
+-		return -EINVAL;
+-
+-	priv->base = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_BASE]));
+-	switch (priv->base) {
+-	case NFT_PAYLOAD_LL_HEADER:
+-	case NFT_PAYLOAD_NETWORK_HEADER:
+-	case NFT_PAYLOAD_TRANSPORT_HEADER:
+-		break;
+-	default:
+-		return -EOPNOTSUPP;
+-	}
+-
++	priv->base   = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_BASE]));
+ 	priv->offset = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_OFFSET]));
+ 	priv->len    = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_LEN]));
+-	if (priv->len == 0 ||
+-	    priv->len > FIELD_SIZEOF(struct nft_data, data))
+-		return -EINVAL;
  
- 	nf_tables_chain_notify(skb, nlh, table, chain, NFT_MSG_DELCHAIN,
+ 	priv->dreg = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_DREG]));
+ 	err = nft_validate_output_register(priv->dreg);
+@@ -124,9 +99,49 @@ static const struct nft_expr_ops nft_payload_ops = {
+ 	.dump		= nft_payload_dump,
+ };
+ 
++const struct nft_expr_ops nft_payload_fast_ops = {
++	.type		= &nft_payload_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_payload)),
++	.eval		= nft_payload_eval,
++	.init		= nft_payload_init,
++	.dump		= nft_payload_dump,
++};
++
++static const struct nft_expr_ops *nft_payload_select_ops(const struct nlattr * const tb[])
++{
++	enum nft_payload_bases base;
++	unsigned int offset, len;
++
++	if (tb[NFTA_PAYLOAD_DREG] == NULL ||
++	    tb[NFTA_PAYLOAD_BASE] == NULL ||
++	    tb[NFTA_PAYLOAD_OFFSET] == NULL ||
++	    tb[NFTA_PAYLOAD_LEN] == NULL)
++		return ERR_PTR(-EINVAL);
++
++	base = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_BASE]));
++	switch (base) {
++	case NFT_PAYLOAD_LL_HEADER:
++	case NFT_PAYLOAD_NETWORK_HEADER:
++	case NFT_PAYLOAD_TRANSPORT_HEADER:
++		break;
++	default:
++		return ERR_PTR(-EOPNOTSUPP);
++	}
++
++	offset = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_OFFSET]));
++	len = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_LEN]));
++	if (len == 0 || len > FIELD_SIZEOF(struct nft_data, data))
++		return ERR_PTR(-EINVAL);
++
++	if (len <= 4 && IS_ALIGNED(offset, len) && base != NFT_PAYLOAD_LL_HEADER)
++		return &nft_payload_fast_ops;
++	else
++		return &nft_payload_ops;
++}
++
+ static struct nft_expr_type nft_payload_type __read_mostly = {
+ 	.name		= "payload",
+-	.ops		= &nft_payload_ops,
++	.select_ops	= nft_payload_select_ops,
+ 	.policy		= nft_payload_policy,
+ 	.maxattr	= NFTA_PAYLOAD_MAX,
+ 	.owner		= THIS_MODULE,
 -- 
 1.7.10.4
