@@ -1,45 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next] net: Delete trailing semi-colon from definition of
- netdev_WARN()
-Date: Mon, 14 Oct 2013 21:49:21 +0100
-Message-ID: <1381783761.1626.16.camel@bwh-desktop.uk.level5networks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: SW csum errors
+Date: Mon, 14 Oct 2013 13:58:59 -0700
+Message-ID: <20131014135859.74f38507@nehalam.linuxnetplumber.net>
+References: <CAJoZ4U3yCrGW=5TO5z0FL2HQ+thZVzVfiPOTxTGKBuR=njadOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Kyle Hubert <khubert@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41633 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758293Ab3JNUt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 16:49:27 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:56717 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757090Ab3JNU7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 16:59:03 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so8077372pad.9
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 13:59:02 -0700 (PDT)
+In-Reply-To: <CAJoZ4U3yCrGW=5TO5z0FL2HQ+thZVzVfiPOTxTGKBuR=njadOg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Macro definitions should not normally end with a semi-colon, as this
-makes it dangerous to use them an if...else statement.  Happily this
-has not happened yet.
+On Mon, 14 Oct 2013 16:13:15 -0400
+Kyle Hubert <khubert@gmail.com> wrote:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/netdevice.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> My problem is rather specific. I am working on an RDMA device, and we
+> have full end to end reliability. However, one of the initial spins of
+> our chip had some errors, since fixed, where the csum was unreliable.
+> So, we did exactly what Dave Miller warned not to do in the linked
+> message. We ran outgoing IP packets through the SKB checksum
+> function.. Unfortunately, we occasionally saw NFS csum errors on full
+> MTU packets.
+> 
+> Here is his response:
+> 
+> http://marc.info/?l=linux-netdev&m=128286758300676&w=2
+> 
+> Relevant portion:
+> 
+> "
+> Paged SKBs can have references to page cache pages and similar.  These
+> can be updated asynchronously to the transmit, there is no locking at
+> all to freeze the contents, and therefore full checksum offload is
+> required to support SG correctly.
+> 
+> So don't get the idea to do the checksum in software in the infiniband
+> layer, and advertize hw checksumming support, to get around this :-)
+> "
+> 
+> Now that those chips have long gone, I am left pondering about these
+> packets "corrupted" before the device transfers them. Can I get more
+> information about these paged SKBs with asynchronous modifications?
+> How does NFS use them?
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2e53b44..27f62f7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3049,7 +3049,7 @@ do {								\
-  * file/line information and a backtrace.
-  */
- #define netdev_WARN(dev, format, args...)			\
--	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args);
-+	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
- 
- /* netif printk helpers, similar to netdev_printk */
- 
+You would have to either mark the pages as copy on write or copy the data.
+Setting COW is expensive because you have to coordinate with other CPU's
+on SMP. Not sure exactly how.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You can demonstrate this with either sendfile() or NFS where underlying
+file contents are being modified while packet is in the queue.
