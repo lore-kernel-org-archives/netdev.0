@@ -1,99 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] staging: octeon-ethernet: trivial: Avoid OOPS if phydev
- is not set
-Date: Mon, 14 Oct 2013 22:16:49 +0300
-Message-ID: <20131014191541.GA11797@mwanda>
-References: <1381690794.2848.11.camel@alpha.Speedport_W723_V_Typ_A_1_00_098>
- <20131013212810.GA15167@kroah.com> <20131014101051.GH6192@mwanda>
- <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
+From: Tino Reichardt <list-linux-netdev@mcmilk.de>
+Subject: Re: [PATCH 01/07] 8139too: Support for byte queue limits
+Date: Mon, 14 Oct 2013 21:31:55 +0200
+Message-ID: <20131014193155.GC23070@mcmilk.de>
+References: <1381775183-24866-1-git-send-email-milky-kernel@mcmilk.de>
+ <1381775183-24866-2-git-send-email-milky-kernel@mcmilk.de>
+ <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: support@caviumnetworks.com, David Daney <david.daney@cavium.com>,
- Greg KH <gregkh@linuxfoundation.org>, driverdev-devel@linuxdriverproject.org,
- Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@gmail.com>,
- netdev@vger.kernel.org
-To: Aaro Koskinen <aaro.koskinen@iki.fi>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lotte.svc-box.de ([80.252.109.10]:38635 "EHLO lotte.svc-box.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756419Ab3JNTb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Oct 2013 15:31:58 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by lotte.svc-box.de (Postfix) with ESMTP id 39F69148018F
+	for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 21:31:57 +0200 (CEST)
+Received: from lotte.svc-box.de ([127.0.0.1])
+	by localhost (lotte.svc-box.de [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id BS-21FkyFXJH for <netdev@vger.kernel.org>;
+	Mon, 14 Oct 2013 21:31:55 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <20131014183906.GA4260@blackmetal.musicnaut.iki.fi>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1381777891.2045.1.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 14, 2013 at 09:39:06PM +0300, Aaro Koskinen wrote:
-> Hi,
-> =
+* Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2013-10-14 at 20:26 +0200, Tino Reichardt wrote:
+> > Changes to 8139too to use byte queue limits.
+> > 
+> > This patch was not tested on real hardware currently, but compiles fine and
+> > should work.
+> > 
+> >  	tp->cur_tx = 0;
+> >  	tp->dirty_tx = 0;
+> > +	netdev_reset_queue(tp->dev);
+> >  
+> >  	/* XXX account for unsent Tx packets in tp->stats.tx_dropped */
+> >  }
+> > @@ -1733,6 +1735,7 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
+> >  		   tp->tx_flag | max(len, (unsigned int)ETH_ZLEN));
+> >  
+> >  	tp->cur_tx++;
+> > +	netdev_sent_queue(dev, len);
+> >  
+> 
+> This looks wrong if len < ETH_ZLEN
 
-> On Mon, Oct 14, 2013 at 01:10:51PM +0300, Dan Carpenter wrote:
-> > On Sun, Oct 13, 2013 at 02:28:10PM -0700, Greg KH wrote:
-> > > On Sun, Oct 13, 2013 at 08:59:54PM +0200, Sebastian P=F6hn wrote:
-> > > > A zero pointer deref on priv->phydev->link was causing oops on our =
-systems.
-> > > > Might be related to improper configuration but we should fail grace=
-fully here ;-)
-> > > > =
+Yes you are right. I looked to the debug statement in the end of that
+function, so len had to be correct ... but it isn't ... yes :(
 
-> > > > Signed-off-by: Sebastian Poehn <sebastian.poehn@googlemail.com>
-> > > > =
+netif_dbg(tp, tx_queued, dev, "Queued Tx packet size %u to slot %d\n"...
 
-> > > > ---
-> > > > =
+Should a make len = max(len, ETH_ZLEN) there .. so the debug statement
+is also correct?
 
-> > > > diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/stagi=
-ng/octeon/ethernet-mdio.c
-> > > > index 83b1030..bc8c503 100644
-> > > > --- a/drivers/staging/octeon/ethernet-mdio.c
-> > > > +++ b/drivers/staging/octeon/ethernet-mdio.c
-> > > > @@ -121,6 +121,9 @@ static void cvm_oct_adjust_link(struct net_devi=
-ce *dev)
-> > > >         struct octeon_ethernet *priv =3D netdev_priv(dev);
-> > > >         cvmx_helper_link_info_t link_info;
-> > > >  =
 
-> > > > +       if(!priv->phydev)
-> > > > +               return ;
-> > > =
-
-> > > Please always run your patches through the scripts/checkpatch.pl tool=
- so
-> > > that maintainers don't have to point out the obvious coding syle erro=
-rs
-> > > by hand each time :)
-> > =
-
-> > Also it's whitespace damaged and doesn't apply.
-> > =
-
-> > > =
-
-> > > Care to try again?
-> > > =
-
-> > > Also, how was phydev NULL?  What was causing that?
-> > =
-
-> > To me it looks like phydev is always NULL.
-> =
-
-> It's initialized in cvm_oct_phy_setup_device():
-> =
-
-> 	priv->phydev =3D of_phy_connect(dev, phy_node, cvm_oct_adjust_link, 0,
-        ^^^^^^^^^^^^                                 ^^^^^^^^^^^^^^^^^^^
-
-Sorry I should have explained better.
-
-We use cvm_oct_adjust_link() to initialize priv->phydev but
-cvm_oct_adjust_link() depends on priv->phydev.  It seems like we would
-hit the NULL dereference every time.  Weird huh?
-
-regards,
-dan carpenter
+-- 
+Best regards, TR
