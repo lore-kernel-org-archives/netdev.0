@@ -1,38 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH -next] netdev: inet_timewait_sock.h missing semi-colon
- when KMEMCHECK is enabled
-Date: Mon, 14 Oct 2013 14:25:51 -0700
-Message-ID: <1381785951.12919.8.camel@joe-AO722>
-References: <1381762088-18880-1-git-send-email-treding@nvidia.com>
-	 <525C47C0.2000907@infradead.org> <1381780437.12919.3.camel@joe-AO722>
-	 <525C5863.1000505@infradead.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [RFC] bridge and friends: reduce TheLinuxWay(tm)
+Date: Mon, 14 Oct 2013 17:32:05 -0400
+Message-ID: <525C62D5.3090004@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thierry Reding <thierry.reding@gmail.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <525C5863.1000505@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f43.google.com ([209.85.128.43]:41565 "EHLO
+	mail-qe0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754984Ab3JNVcJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 17:32:09 -0400
+Received: by mail-qe0-f43.google.com with SMTP id nc12so5701779qeb.30
+        for <netdev@vger.kernel.org>; Mon, 14 Oct 2013 14:32:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-10-14 at 13:47 -0700, Randy Dunlap wrote:
-> On 10/14/13 12:53, Joe Perches wrote:
-> > On Mon, 2013-10-14 at 12:36 -0700, Randy Dunlap wrote:
-> >> From: Randy Dunlap <rdunlap@infradead.org>
-> >>
-> >> Fix (a few hundred) build errors due to missing semi-colon when
-> >> KMEMCHECK is enabled:
+IOW, TheCutNpasteTrain.
 
-keyword: enabled...
+There's a lot of clutter on the netlink interface used
+by bridge and vxlan.
+1) A lot of things which are boolean on/off end up using a uchar.
+Example:
+IFLA_BRPORT_MODE, IFLA_BRPORT_GUARD, IFLA_BRPORT_PROTECT,
+IFLA_BRPORT_LEARNING, IFLA_BRPORT_UNICAST_FLOOD, BRIDGE_VLAN_INFO_PVID,
+BRIDGE_VLAN_INFO_UNTAGGED, BRIDGE_MODE_VEPA,
+IFLA_VXLAN_PROXY,IFLA_VXLAN_RSC, etc
 
-> > Shouldn't this be done in kmemcheck.h?
-> 
-> This patch makes sense and probably should be merged
-> but it does not fix the build errors that I reported.
+2) There's a few fields which are basically intended to project the
+same message to the kernel but are redefined a few times:
+Example:
+BRIDGE_VLAN_INFO_MASTER vs NTF_MASTER vs BRIDGE_FLAGS_MASTER
 
-Duh, enabled.  Yeah, you're sure...
+Also i am not sure why multicast snooping needs its own subheader.
+
+Is it too late to make changes? git logs shows some of these feature
+have only been on the last 2-3 months.
+One approach to resolve this is introduce a new BRIDGE_FLAGS TLV
+which will work like the ifi_flags/change and put all these flags in
+one spot. New iproute will use these and the old one will continue using
+the old approach. It would require to EOL the old interface at some
+point.
+
+If this is agreeable and it is not on someone todo list - I will send
+patches later on.
+
+cheers,
+jamal
