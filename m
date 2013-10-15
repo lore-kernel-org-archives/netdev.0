@@ -1,80 +1,155 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v3 0/9] qlcnic: fixes and ethtool enhancements.
-Date: Tue, 15 Oct 2013 12:57:45 -0400
-Message-ID: <cover.1381882600.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v3 2/9] qlcnic: Enhance ethtool to display ring indices and interrupt mask
+Date: Tue, 15 Oct 2013 12:57:47 -0400
+Message-ID: <1f37eaba4655b9e1557c041d101b2601bbad2d23.1381882600.git.himanshu.madhani@qlogic.com>
+References: <cover.1381882600.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Pratik Pujar <pratik.pujar@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:28576 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:21778 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932317Ab3JOR23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 13:28:29 -0400
+	by vger.kernel.org with ESMTP id S933078Ab3JOR2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 13:28:30 -0400
+In-Reply-To: <cover.1381882600.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-This patch series contains
+o Updated ethtool -d <ethX> option to display ring indices for Transmit(Tx),
+  Receive(Rx), and Status(St) rings.
+o Updated ethtool -d <ethX> option to display ring interrupt mask for Transmit(Tx),
+  and Status(St) rings.
 
-o patch to fix regression introduced by commit
-  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f.
-o updates to ethtool for pause settings and enhance
-  register dump to display mask and ring indices.
-o cleanup in DCB code and remove redundant eSwitch enablement command.
-o fixed firmware dump collection logic to skip unknown entries.
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  8 ++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 54 ++++++++++++++++------
+ 2 files changed, 44 insertions(+), 18 deletions(-)
 
-Changes from v2 -> v3
-
-o Updated patch to print informational messages as per Joe Perches's comment.
-
-Changes from v1 -> v2
-
-o Dropped patch to register device if adapter is in FAILED state for more rework.
-o Updated patch to display ring indices via ethtool per Ben Hutchings's comment.
-o Update patch for DCB cleanup per Stephen Hemminger's comment.
-
-Please apply to net-next.
-
-Thanks,
-Himanshu
-
-Himanshu Madhani (2):
-  qlcnic: Validate Tx queue only for 82xx adapters.
-  qlcnic: update version to 5.3.51
-
-Jitendra Kalsaria (1):
-  qlcnic: Update ethtool standard pause settings.
-
-Pratik Pujar (2):
-  qlcnic: Enhance ethtool to display ring indices and interrupt mask
-  qlcnic: Firmware dump collection when auto recovery is disabled.
-
-Shahed Shaikh (1):
-  qlcnic: Skip unknown entry type while collecting firmware dump
-
-Sony Chacko (1):
-  qlcnic: Remove redundant eSwitch enable commands
-
-Sucheta Chakraborty (2):
-  qlcnic: Print informational messages only once during driver load.
-  qlcnic: dcb code cleanup and refactoring.
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 101 +----------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  40 ++---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   5 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |  20 ++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |  47 +++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 184 ++++++++++-----------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    | 109 ++++++++++--
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  56 +++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  53 +++---
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  41 +++--
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   9 +-
- 12 files changed, 343 insertions(+), 324 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 66e94dc..c2df4ce 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -3267,12 +3267,12 @@ int qlcnic_83xx_reg_test(struct qlcnic_adapter *adapter)
+ 	return 0;
+ }
+ 
+-int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
++inline int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
+ {
+ 	return (ARRAY_SIZE(qlcnic_83xx_ext_reg_tbl) *
+-		sizeof(adapter->ahw->ext_reg_tbl)) +
+-		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) +
+-		sizeof(adapter->ahw->reg_tbl));
++		sizeof(*adapter->ahw->ext_reg_tbl)) +
++		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) *
++		sizeof(*adapter->ahw->reg_tbl));
+ }
+ 
+ int qlcnic_83xx_get_registers(struct qlcnic_adapter *adapter, u32 *regs_buff)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index ebe4c86..66355b7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -187,8 +187,8 @@ static int qlcnic_dev_statistics_len(struct qlcnic_adapter *adapter)
+ 		return -1;
+ }
+ 
+-#define QLCNIC_RING_REGS_COUNT	20
+-#define QLCNIC_RING_REGS_LEN	(QLCNIC_RING_REGS_COUNT * sizeof(u32))
++#define	QLCNIC_TX_INTR_NOT_CONFIGURED	0X78563412
++
+ #define QLCNIC_MAX_EEPROM_LEN   1024
+ 
+ static const u32 diag_registers[] = {
+@@ -219,7 +219,15 @@ static const u32 ext_diag_registers[] = {
+ };
+ 
+ #define QLCNIC_MGMT_API_VERSION	2
+-#define QLCNIC_ETHTOOL_REGS_VER	3
++#define QLCNIC_ETHTOOL_REGS_VER	4
++
++static inline int qlcnic_get_ring_regs_len(struct qlcnic_adapter *adapter)
++{
++	int ring_regs_cnt = (adapter->max_drv_tx_rings * 5) +
++			    (adapter->max_rds_rings * 2) +
++			    (adapter->max_sds_rings * 3) + 5;
++	return ring_regs_cnt * sizeof(u32);
++}
+ 
+ static int qlcnic_get_regs_len(struct net_device *dev)
+ {
+@@ -231,7 +239,9 @@ static int qlcnic_get_regs_len(struct net_device *dev)
+ 	else
+ 		len = sizeof(ext_diag_registers) + sizeof(diag_registers);
+ 
+-	return QLCNIC_RING_REGS_LEN + len + QLCNIC_DEV_INFO_SIZE + 1;
++	len += ((QLCNIC_DEV_INFO_SIZE + 2) * sizeof(u32));
++	len += qlcnic_get_ring_regs_len(adapter);
++	return len;
+ }
+ 
+ static int qlcnic_get_eeprom_len(struct net_device *dev)
+@@ -493,6 +503,8 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
+ 	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_host_rds_ring *rds_rings;
++	struct qlcnic_host_tx_ring *tx_ring;
+ 	u32 *regs_buff = p;
+ 	int ring, i = 0;
+ 
+@@ -512,21 +524,35 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
+ 		return;
+ 
+-	regs_buff[i++] = 0xFFEFCDAB; /* Marker btw regs and ring count*/
+-
+-	regs_buff[i++] = 1; /* No. of tx ring */
+-	regs_buff[i++] = le32_to_cpu(*(adapter->tx_ring->hw_consumer));
+-	regs_buff[i++] = readl(adapter->tx_ring->crb_cmd_producer);
+-
+-	regs_buff[i++] = 2; /* No. of rx ring */
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[0].crb_rcv_producer);
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[1].crb_rcv_producer);
++	/* Marker btw regs and TX ring count */
++	regs_buff[i++] = 0xFFEFCDAB;
++
++	regs_buff[i++] = adapter->max_drv_tx_rings; /* No. of TX ring */
++	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
++		tx_ring = &adapter->tx_ring[ring];
++		regs_buff[i++] = le32_to_cpu(*(tx_ring->hw_consumer));
++		regs_buff[i++] = tx_ring->sw_consumer;
++		regs_buff[i++] = readl(tx_ring->crb_cmd_producer);
++		regs_buff[i++] = tx_ring->producer;
++		if (tx_ring->crb_intr_mask)
++			regs_buff[i++] = readl(tx_ring->crb_intr_mask);
++		else
++			regs_buff[i++] = QLCNIC_TX_INTR_NOT_CONFIGURED;
++	}
+ 
+-	regs_buff[i++] = adapter->max_sds_rings;
++	regs_buff[i++] = adapter->max_rds_rings; /* No. of RX ring */
++	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
++		rds_rings = &recv_ctx->rds_rings[ring];
++		regs_buff[i++] = readl(rds_rings->crb_rcv_producer);
++		regs_buff[i++] = rds_rings->producer;
++	}
+ 
++	regs_buff[i++] = adapter->max_sds_rings; /* No. of SDS ring */
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &(recv_ctx->sds_rings[ring]);
+ 		regs_buff[i++] = readl(sds_ring->crb_sts_consumer);
++		regs_buff[i++] = sds_ring->consumer;
++		regs_buff[i++] = readl(sds_ring->crb_intr_mask);
+ 	}
+ }
+ 
 -- 
 1.8.1.4
