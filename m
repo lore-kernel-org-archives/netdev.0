@@ -1,133 +1,82 @@
-From: Chang Xiangzhong <changxiangzhong@gmail.com>
-Subject: [PATCH V2] For for each TSN t being newly acked (Not only cumulatively, but also SELECTIVELY) cacc_saw_newack should be set to 1.
-Date: Tue, 15 Oct 2013 20:13:04 +0200
-Message-ID: <1381860784-16481-1-git-send-email-changxiangzhong@gmail.com>
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Chang Xiangzhong <changxiangzhong@gmail.com>
-To: vyasevich@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 1/2] tcp: must unclone packets before mangling them
+Date: Tue, 15 Oct 2013 11:54:30 -0700
+Message-ID: <1381863270.2045.62.camel@edumazet-glaptop.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:58011 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754634Ab3JOSyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 14:54:32 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr4so9202554pbb.34
+        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 11:54:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+
+TCP stack should make sure it owns skbs before mangling them.
+
+We had various crashes using bnx2x, and it turned out gso_size
+was cleared right before bnx2x driver was populating TC descriptor
+of the _previous_ packet send. TCP stack can sometime retransmit
+packets that are still in Qdisc.
+
+Of course we could make bnx2x driver more robust (using
+ACCESS_ONCE(shinfo->gso_size) for example), but the bug is TCP stack.
+
+We have identified two points where skb_unclone() was needed.
+
+This patch adds a WARN_ON_ONCE() to warn us if we missed another
+fix of this kind.
+
+Kudos to Neal for finding the root cause of this bug. Its visible
+using small MSS.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
 ---
- net/sctp/outqueue.c |   76 ++++++++++++++++++++++++---------------------------
- 1 file changed, 35 insertions(+), 41 deletions(-)
+ net/ipv4/tcp_output.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 94df758..84ef3b8 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1357,13 +1357,13 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 
- 		tsn = ntohl(tchunk->subh.data_hdr->tsn);
- 		if (sctp_acked(sack, tsn)) {
--			/* If this queue is the retransmit queue, the
--			 * retransmit timer has already reclaimed
--			 * the outstanding bytes for this chunk, so only
--			 * count bytes associated with a transport.
--			 */
--			if (transport) {
--				/* If this chunk is being used for RTT
-+			if (!tchunk->tsn_gap_acked) {
-+				/* If this queue is the retransmit queue, the
-+				 * retransmit timer has already reclaimed
-+				 * the outstanding bytes for this chunk, so only
-+				 * count bytes associated with a transport.
-+				 *
-+				 * If this chunk is being used for RTT
- 				 * measurement, calculate the RTT and update
- 				 * the RTO using this value.
- 				 *
-@@ -1374,28 +1374,44 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				 * first instance of the packet or a later
- 				 * instance).
- 				 */
--				if (!tchunk->tsn_gap_acked &&
--				    tchunk->rtt_in_progress) {
-+				if (transport && tchunk->rtt_in_progress) {
- 					tchunk->rtt_in_progress = 0;
- 					rtt = jiffies - tchunk->sent_at;
- 					sctp_transport_update_rto(transport,
--								  rtt);
-+						rtt);
- 				}
--			}
- 
--			/* If the chunk hasn't been marked as ACKED,
--			 * mark it and account bytes_acked if the
--			 * chunk had a valid transport (it will not
--			 * have a transport if ASCONF had deleted it
--			 * while DATA was outstanding).
--			 */
--			if (!tchunk->tsn_gap_acked) {
-+				/* If the chunk hasn't been marked as ACKED,
-+				 * mark it and account bytes_acked if the
-+				 * chunk had a valid transport (it will not
-+				 * have a transport if ASCONF had deleted it
-+				 * while DATA was outstanding).
-+				 */
- 				tchunk->tsn_gap_acked = 1;
- 				*highest_new_tsn_in_sack = tsn;
- 				bytes_acked += sctp_data_size(tchunk);
- 				if (!tchunk->transport)
- 					migrate_bytes += sctp_data_size(tchunk);
- 				forward_progress = true;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c6f01f2..8fad1c1 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -986,6 +986,9 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff *skb)
+ static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
+ 				 unsigned int mss_now)
+ {
++	/* Make sure we own this skb before messing gso_size/gso_segs */
++	WARN_ON_ONCE(skb_cloned(skb));
 +
-+				/* SFR-CACC algorithm:
-+				 * 2) If the SACK contains gap acks
-+				 * and the flag CHANGEOVER_ACTIVE is
-+				 * set the receiver of the SACK MUST
-+				 * take the following action:
-+				 *
-+				 * B) For each TSN t being acked that
-+				 * has not been acked in any SACK so
-+				 * far, set cacc_saw_newack to 1 for
-+				 * the destination that the TSN was
-+				 * sent to.
-+				 */
-+				if (transport &&
-+					sack->num_gap_ack_blocks &&
-+					q->asoc->peer.primary_path->cacc.
-+					changeover_active
-+				   )
-+					transport->cacc.cacc_saw_newack = 1;
- 			}
+ 	if (skb->len <= mss_now || !sk_can_gso(sk) ||
+ 	    skb->ip_summed == CHECKSUM_NONE) {
+ 		/* Avoid the costly divide in the normal
+@@ -1067,9 +1070,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+ 	if (nsize < 0)
+ 		nsize = 0;
  
- 			if (TSN_lte(tsn, sack_ctsn)) {
-@@ -1411,30 +1427,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				restart_timer = 1;
- 				forward_progress = true;
+-	if (skb_cloned(skb) &&
+-	    skb_is_nonlinear(skb) &&
+-	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++	if (skb_unclone(skb, GFP_ATOMIC))
+ 		return -ENOMEM;
  
--				if (!tchunk->tsn_gap_acked) {
--					/*
--					 * SFR-CACC algorithm:
--					 * 2) If the SACK contains gap acks
--					 * and the flag CHANGEOVER_ACTIVE is
--					 * set the receiver of the SACK MUST
--					 * take the following action:
--					 *
--					 * B) For each TSN t being acked that
--					 * has not been acked in any SACK so
--					 * far, set cacc_saw_newack to 1 for
--					 * the destination that the TSN was
--					 * sent to.
--					 */
--					if (transport &&
--					    sack->num_gap_ack_blocks &&
--					    q->asoc->peer.primary_path->cacc.
--					    changeover_active)
--						transport->cacc.cacc_saw_newack
--							= 1;
--				}
--
- 				list_add_tail(&tchunk->transmitted_list,
--					      &q->sacked);
-+					&q->sacked);
- 			} else {
- 				/* RFC2960 7.2.4, sctpimpguide-05 2.8.2
- 				 * M2) Each time a SACK arrives reporting
--- 
-1.7.9.5
+ 	/* Get a new skb... force flag on. */
+@@ -2344,6 +2345,8 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		int oldpcount = tcp_skb_pcount(skb);
+ 
+ 		if (unlikely(oldpcount > 1)) {
++			if (skb_unclone(skb, GFP_ATOMIC))
++				return -ENOMEM;
+ 			tcp_init_tso_segs(sk, skb, cur_mss);
+ 			tcp_adjust_pcount(sk, skb, oldpcount - tcp_skb_pcount(skb));
+ 		}
