@@ -1,7 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 05/18] rt18192u: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:45:01 +0800
-Message-ID: <1381837514-50660-6-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 04/18] rt18192e: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:45:00 +0800
+Message-ID: <1381837514-50660-5-git-send-email-wangkefeng.wang@huawei.com>
 References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -32,21 +32,21 @@ In-Reply-To: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_XXX_ratelimited() is called to simplify code.
+Wrapper functions net_ratelimited_function() and net_XXX_ratelimited()
+are called to simplify code.
 
 Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 ---
- .../rtl8192u/ieee80211/ieee80211_crypt_ccmp.c      | 17 ++++-------------
- .../rtl8192u/ieee80211/ieee80211_crypt_tkip.c      | 22 +++++-----------------
- drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c  |  7 ++-----
- drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c  |  4 +---
- 4 files changed, 12 insertions(+), 38 deletions(-)
+ drivers/staging/rtl8192e/rtllib_crypt_ccmp.c | 13 +++----------
+ drivers/staging/rtl8192e/rtllib_crypt_tkip.c | 21 +++++----------------
+ drivers/staging/rtl8192e/rtllib_rx.c         |  6 ++----
+ 3 files changed, 10 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
-index f2b1677..534f0a4 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
-@@ -284,10 +284,8 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+diff --git a/drivers/staging/rtl8192e/rtllib_crypt_ccmp.c b/drivers/staging/rtl8192e/rtllib_crypt_ccmp.c
+index e51cb49..0d089c1 100644
+--- a/drivers/staging/rtl8192e/rtllib_crypt_ccmp.c
++++ b/drivers/staging/rtl8192e/rtllib_crypt_ccmp.c
+@@ -275,10 +275,8 @@ static int rtllib_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  	pos = skb->data + hdr_len;
  	keyidx = pos[3];
  	if (!(keyidx & (1 << 5))) {
@@ -58,7 +58,7 @@ index f2b1677..534f0a4 100644
  		key->dot11RSNAStatsCCMPFormatErrors++;
  		return -2;
  	}
-@@ -298,11 +296,9 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+@@ -289,11 +287,9 @@ static int rtllib_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  		return -6;
  	}
  	if (!key->key_set) {
@@ -71,36 +71,23 @@ index f2b1677..534f0a4 100644
  		return -3;
  	}
  
-@@ -315,11 +311,9 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
- 	pos += 8;
- 
- 	if (memcmp(pn, key->rx_pn, CCMP_PN_LEN) <= 0) {
--		if (net_ratelimit()) {
--			printk(KERN_DEBUG "CCMP: replay detected: STA=%pM"
-+		net_dbg_ratelimited("CCMP: replay detected: STA=%pM"
- 			       " previous PN %pm received PN %pm\n",
- 			       hdr->addr2, key->rx_pn, pn);
--		}
- 		key->dot11RSNAStatsCCMPReplays++;
- 		return -4;
- 	}
-@@ -353,10 +347,7 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+@@ -338,10 +334,7 @@ static int rtllib_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  		}
  
  		if (memcmp(mic, a, CCMP_MIC_LEN) != 0) {
 -			if (net_ratelimit()) {
 -				printk(KERN_DEBUG "CCMP: decrypt failed: STA="
--				"%pM\n", hdr->addr2);
+-				" %pM\n", hdr->addr2);
 -			}
-+			net_dbg_ratelimited("CCMP: decrypt failed: STA=%pM\n", hdr->addr2);
++			net_dbg_ratelimited("CCMP: decrypt failed: STA= %pM\n", hdr->addr2);
  			key->dot11RSNAStatsCCMPDecryptErrors++;
  			return -5;
  		}
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
-index 93121b4..7bb5a96 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
-@@ -406,10 +406,8 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+diff --git a/drivers/staging/rtl8192e/rtllib_crypt_tkip.c b/drivers/staging/rtl8192e/rtllib_crypt_tkip.c
+index 5cfd73b..c1f7683 100644
+--- a/drivers/staging/rtl8192e/rtllib_crypt_tkip.c
++++ b/drivers/staging/rtl8192e/rtllib_crypt_tkip.c
+@@ -396,10 +396,8 @@ static int rtllib_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  	pos = skb->data + hdr_len;
  	keyidx = pos[3];
  	if (!(keyidx & (1 << 5))) {
@@ -112,7 +99,7 @@ index 93121b4..7bb5a96 100644
  		return -2;
  	}
  	keyidx >>= 6;
-@@ -419,11 +417,9 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+@@ -409,11 +407,9 @@ static int rtllib_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  		return -6;
  	}
  	if (!tkey->key_set) {
@@ -125,88 +112,68 @@ index 93121b4..7bb5a96 100644
  		return -3;
  	}
  	iv16 = (pos[0] << 8) | pos[2];
-@@ -434,12 +430,10 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
- 	{
- 		if (iv32 < tkey->rx_iv32 ||
- 		(iv32 == tkey->rx_iv32 && iv16 <= tkey->rx_iv16)) {
+@@ -424,12 +420,10 @@ static int rtllib_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 		if ((iv32 < tkey->rx_iv32 ||
+ 		    (iv32 == tkey->rx_iv32 && iv16 <= tkey->rx_iv16)) &&
+ 		    tkey->initialized) {
 -			if (net_ratelimit()) {
--				printk(KERN_DEBUG "TKIP: replay detected: STA=%pM"
-+			net_dbg_ratelimited("TKIP: replay detected: STA=%pM"
- 				" previous TSC %08x%04x received TSC "
- 				"%08x%04x\n", hdr->addr2,
- 				tkey->rx_iv32, tkey->rx_iv16, iv32, iv16);
+-				printk(KERN_DEBUG "TKIP: replay detected: STA="
++			net_dbg_ratelimited("TKIP: replay detected: STA="
+ 				       " %pM previous TSC %08x%04x received "
+ 				      "TSC %08x%04x\n",hdr->addr2,
+ 				      tkey->rx_iv32, tkey->rx_iv16, iv32, iv16);
 -			}
  			tkey->dot11RSNAStatsTKIPReplays++;
  			return -4;
  		}
-@@ -456,11 +450,8 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
- 		sg_init_one(&sg, pos, plen+4);
+@@ -448,11 +442,9 @@ static int rtllib_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
  
+ 		crypto_blkcipher_setkey(tkey->rx_tfm_arc4, rc4key, 16);
  		if (crypto_blkcipher_decrypt(&desc, &sg, &sg, plen + 4)) {
 -			if (net_ratelimit()) {
 -				printk(KERN_DEBUG ": TKIP: failed to decrypt "
--						"received packet from %pM\n",
-+			net_dbg_ratelimited("TKIP: failed to decrypt received packet from %pM\n",
- 						hdr->addr2);
++			net_dbg_ratelimited(": TKIP: failed to decrypt "
+ 				       "received packet from %pM\n",
+ 				       hdr->addr2);
 -			}
  			return -7;
  		}
  
-@@ -476,10 +467,7 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
- 				* it needs to be recalculated for the next packet. */
+@@ -469,10 +461,7 @@ static int rtllib_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 				 * next packet. */
  				tkey->rx_phase1_done = 0;
  			}
 -			if (net_ratelimit()) {
 -				printk(KERN_DEBUG "TKIP: ICV error detected: STA="
--				"%pM\n", hdr->addr2);
+-				" %pM\n", hdr->addr2);
 -			}
-+			net_dbg_ratelimited("TKIP: ICV error detected: STA=%pM\n", hdr->addr2);
++			net_dbg_ratelimited("TKIP: ICV error detected: STA= %pM\n", hdr->addr2);
  			tkey->dot11RSNAStatsTKIPICVErrors++;
  			return -5;
  		}
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-index 59900bf..5e6c1eb 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-@@ -355,11 +355,9 @@ ieee80211_rx_frame_decrypt(struct ieee80211_device *ieee, struct sk_buff *skb,
- #ifdef CONFIG_IEEE80211_CRYPT_TKIP
- 	if (ieee->tkip_countermeasures &&
- 	    strcmp(crypt->ops->name, "TKIP") == 0) {
--		if (net_ratelimit()) {
--			printk(KERN_DEBUG "%s: TKIP countermeasures: dropped "
-+		net_dbg_ratelimited("%s: TKIP countermeasures: dropped "
- 			       "received packet from %pM\n",
- 			       ieee->dev->name, hdr->addr2);
--		}
- 		return -1;
- 	}
- #endif
-@@ -946,8 +944,7 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
+diff --git a/drivers/staging/rtl8192e/rtllib_rx.c b/drivers/staging/rtl8192e/rtllib_rx.c
+index 8aeaed5..4335611 100644
+--- a/drivers/staging/rtl8192e/rtllib_rx.c
++++ b/drivers/staging/rtl8192e/rtllib_rx.c
+@@ -870,8 +870,7 @@ static size_t rtllib_rx_get_hdrlen(struct rtllib_device *ieee,
  
- 	if(HTCCheck(ieee, skb->data))
- 	{
--		if(net_ratelimit())
--		printk("find HTCControl\n");
-+		net_info_ratelimited("find HTCControl\n");
+ 	hdrlen = rtllib_get_hdrlen(fc);
+ 	if (HTCCheck(ieee, skb->data)) {
+-		if (net_ratelimit())
+-			printk(KERN_INFO "%s: find HTCControl!\n", __func__);
++		net_info_ratelimited("%s: find HTCControl!\n", __func__);
  		hdrlen += 4;
  		rx_stats->bContainHTC = 1;
  	}
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-index a7bcc64f..55c24d7 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-@@ -197,11 +197,9 @@ int ieee80211_encrypt_fragment(
- 	if (ieee->tkip_countermeasures &&
- 	    crypt && crypt->ops && strcmp(crypt->ops->name, "TKIP") == 0) {
- 		header = (struct ieee80211_hdr *) frag->data;
--		if (net_ratelimit()) {
--			printk(KERN_DEBUG "%s: TKIP countermeasures: dropped "
-+		net_dbg_ratelimited("%s: TKIP countermeasures: dropped "
- 			       "TX packet to %pM\n",
- 			       ieee->dev->name, header->addr1);
--		}
- 		return -1;
+@@ -1439,8 +1438,7 @@ static int rtllib_rx_Monitor(struct rtllib_device *ieee, struct sk_buff *skb,
  	}
- #endif
+ 
+ 	if (HTCCheck(ieee, skb->data)) {
+-		if (net_ratelimit())
+-			printk(KERN_INFO "%s: Find HTCControl!\n", __func__);
++		net_info_ratelimited("%s: Find HTCControl!\n", __func__);
+ 		hdrlen += 4;
+ 	}
+ 
 -- 
 1.8.2.1
