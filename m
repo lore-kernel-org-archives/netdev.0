@@ -1,86 +1,74 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: DomU's network interface will hung when Dom0 running 32bit
-Date: Tue, 15 Oct 2013 17:03:36 +0100
-Message-ID: <20131015160336.GT11739@zion.uk.xensource.com>
-References: <525CAC21.5040202@oracle.com>
- <1381826609.24708.135.camel@kazak.uk.xensource.com>
- <525D0C41.2080407@oracle.com>
- <20131015100624.GB29436@zion.uk.xensource.com>
- <525D2667.6040102@oracle.com>
- <20131015125802.GR11739@zion.uk.xensource.com>
- <525D513B.70406@oracle.com>
- <20131015144910.GS11739@zion.uk.xensource.com>
- <1381848632.21901.42.camel@kazak.uk.xensource.com>
- <525D5D0E.5070107@oracle.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
+Date: Tue, 15 Oct 2013 18:07:52 +0200 (CEST)
+Message-ID: <alpine.LNX.2.02.1310151806230.12061@eeeadesso>
+References: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com> <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com> <1381848597.25397.4.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	ANNIE LI <annie.li@oracle.com>
-To: jianhai luan <jianhai.luan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:37238 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759507Ab3JOQEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 12:04:10 -0400
-Content-Disposition: inline
-In-Reply-To: <525D5D0E.5070107@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
+	christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Antonella Pellizzari <anto.pellizzari83@gmail.com>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381848597.25397.4.camel@dcbw.foobar.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2013 at 11:19:42PM +0800, jianhai luan wrote:
-[...]
-> >>>>
-> >>>>* time_after_eq(now, next_credit) -> false
-> >>>>* time_before(now, expires) -> false
-> >>>If now is placed in above environment, the result will be correct
-> >>>(Sending package will be not allowed until next_credit).
-> >>No, it is not necessarily correct. Keep in mind that "now" wraps around,
-> >>which is the issue you try to fix. You still have a window to stall your
-> >>frontend.
-> >Remember that time_after_eq is supposed to work even with wraparound
-> >occurring, so long as the two times are less than MAX_LONG/2 apart.
-> 
-> Sorry for my misunderstand explanation. I mean that
->   * time_after_eq()/time_before_eq() fix the jiffies wraparound, so
-> please think about  jiffies in line increasing.
->   * time_after_eq()/time_before_eq() have the range (0, MAX_LONG/2),
-> the judge will be wrong if out of the range.
-> 
-> So please think about three kind environment
->   -  expires        now        next_credit
->      --------time increases this direction ---------->
-> 
->   -  expires        [next_credit        now next_credit+MAX_LONG/2
->      --------time increase this direction ----------->
-> 
->   - expires        next_credit        next_credit+MAX_LONG/2 now
->      --------time increadse this direction ---------->
-> 
-> The first environment should be netfront consume all credit_byte
-> before next_credit, So we should pending one timer to calculator the
-> new credit_byte, and don't transmit until next_credit.
-> 
-> the second environment should be calculator the credit_byte because
-> netfront don't consume all credit_byte before next_credit, and
-> time_after_eq() do correct judge.
-> 
-> the third environment should be calculator in time because netfront
-> don't consume all credit_byte until next_credit.But time_after_eq do
-> error judge (time_after_eq(now, next_credit) is false), so the
-> remaining_byte isn't be increased.
-> 
-> and I work on the third environment.  You know now >
-> next_credit+MAX_LONG/2, time_before(now, expire) should be
-> true(time_before(now, expire) is false in first environment)
-> >
+:) I'm very happy you got it working.
+The firmware of our device seems so fragile still - and several QMI calls can 
+bring it to a crashing state, especially when asking a network scan to the NAS 
+service.
 
-Thanks for staighten this out for me. I'm just too dumb for this, please
-be patient with me. :-)
 
-Could you prove that time_before(now, expire) is always true in third
-case? That's where my main cencern lies. Is it because msecs_to_jiffies
-always returns MAX_JIFFY_OFFSET (which is ((LONG_MAX >> 1)-1) ) at most?
+On Tue, 15 Oct 2013, Dan Williams wrote:
 
-Wei.
+==Date: Tue, 15 Oct 2013 09:49:57 -0500
+==From: Dan Williams <dcbw@redhat.com>
+==To: Enrico Mioso <mrkiko.rs@gmail.com>
+==Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
+==    christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
+==    netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+==    Antonella Pellizzari <anto.pellizzari83@gmail.com>
+==Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
+==
+==On Tue, 2013-10-15 at 15:06 +0200, Enrico Mioso wrote:
+==> This is a QMI device, manufactured by TCT Mobile Phones.
+==> A companion patch blacklisting this device's QMI interface in the option.c
+==> driver has been sent.
+==> 
+==> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
+==> Signed-off-by: Antonella Pellizzari <anto.pellizzari83@gmail.com>
+==
+==Good find.  For the record, mine has:
+==
+==PX1522E16X  1  [Oct 15 2010 02:00:00]
+==
+==	ctl (1.4)
+==	wds (1.8)
+==	dms (1.3)
+==	nas (1.2)
+==	qos (1.2)
+==	wms (1.1)
+==	pds (1.4)
+==	auth (1.0)
+==	voice (1.0)
+==	cat2 (1.1)
+==
+==Tested-by: Dan Williams <dcbw@redhat.com>
+==
+==> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+==> index 3d6aaf7..818ce90 100644
+==> --- a/drivers/net/usb/qmi_wwan.c
+==> +++ b/drivers/net/usb/qmi_wwan.c
+==> @@ -714,6 +714,7 @@ static const struct usb_device_id products[] = {
+==>  	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+==>  	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
+==>  	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+==> +	{QMI_FIXED_INTF(0x0b3c, 0xc005, 6)},    /* Olivetti Olicard 200 */
+==>  	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
+==>  
+==>  	/* 4. Gobi 1000 devices */
+==
+==
+==
