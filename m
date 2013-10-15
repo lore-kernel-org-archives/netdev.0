@@ -1,61 +1,44 @@
-From: Damian Pietras <damianp@daper.net>
-Subject: "xfrm: Fix the gc threshold value for ipv4" broke my IPSec connections
-Date: Tue, 15 Oct 2013 22:40:53 +0200
-Message-ID: <525DA855.1010905@daper.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
+Date: Tue, 15 Oct 2013 22:55:10 +0200
+Message-ID: <20131015205510.GA18442@unicorn.suse.cz>
+References: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
+ <20131015083348.GW7660@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isp1.vx1.pl ([188.165.119.169]:40894 "EHLO isp1.vx1.pl"
+Received: from cantor2.suse.de ([195.135.220.15]:35210 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759846Ab3JOUs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 16:48:27 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by isp1.vx1.pl (Postfix) with ESMTP id 47CCF60AE7
-	for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 22:42:29 +0200 (CEST)
-Received: from isp1.vx1.pl ([127.0.0.1])
-	by localhost (isp1.vx1.pl [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id Se4aMD0uX+67 for <netdev@vger.kernel.org>;
-	Tue, 15 Oct 2013 22:42:28 +0200 (CEST)
-Received: from [192.168.156.1] (87-205-28-158.ip.netia.com.pl [87.205.28.158])
-	(Authenticated sender: damianp@daper.net)
-	by isp1.vx1.pl (Postfix) with ESMTPSA id BF14E608B3
-	for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 22:42:28 +0200 (CEST)
+	id S1759563Ab3JOUzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 16:55:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20131015083348.GW7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've recently upgraded from 3.4.x to 3.10.x and this broke my IPSec
-setup in transport mode. The simplest test case is to setup few such
-connections with few boxes like this:
+On Tue, Oct 15, 2013 at 10:33:48AM +0200, Steffen Klassert wrote:
+> > diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+> > index 2906d52..96946fb 100644
+> > --- a/net/xfrm/xfrm_ipcomp.c
+> > +++ b/net/xfrm/xfrm_ipcomp.c
+> > @@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+> >  	const int cpu = get_cpu();
+> >  	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+> >  	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+> > -	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+> > +	int err;
+> >  	int len;
+> >  
+> > +	local_bh_disable();
+> 
+> Maybe we could disable the BHs before we fetch the percpu pointers.
+> Then we can use smp_processor_id() to get the cpu. With that we
+> could get rid of a (now useless) preempt_disable()/preempt_enable()
+> pair. Same could be done in ipcomp_compress().
 
-spdadd 192.168.1.100 192.168.2.100 any -P out ipsec
-           esp/transport//require
-           ah/transport//require;
+Sounds like a good idea. I'll send v2 after some basic testing.
 
-spdadd 192.168.2.100 192.168.1.100 any -P in ipsec
-           esp/transport//require
-           ah/transport//require;
-
-Then set up an HTTP server on one box and run ab on the other box to
-create come TCP connections:
-
-ab -n 10000 -c 50 http://192.168.1.100/
-
-Then the connect() call will very quickly start returning ENOBUFS. I
-haven't seen anything wrong with my simple setup (just copy of
-ipsec-howto.org in transport mode and pre shared keys) and started
-bisecting. That way I found this commit to break my case:
-
-703fb94ec58e0e8769380c2877a8a34aeb5b6c97
-xfrm: Fix the gc threshold value for ipv4
-
-Reverting it on 3.10.15 fixes my issue. This seems to be there from 3.7
-and I don't really believe such simple case stayed broken for so long.
-Em I missing something or there is really a bug?
-
-If smeone is interested in details of this configuration and commands
-I'm running, just let me know. This was reproduced with few VMs under XEN.
-
--- 
-Damian Pietras
+                                                 Michal Kubecek
