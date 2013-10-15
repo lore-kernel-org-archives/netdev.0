@@ -1,88 +1,65 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
-Date: Tue, 15 Oct 2013 09:28:15 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
-References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
- <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC 0/2] xfrm: Remove ancient sleeping code
+Date: Tue, 15 Oct 2013 09:30:20 +0200
+Message-ID: <20131015073020.GV7660@secunet.com>
+References: <20131010063301.GO7660@secunet.com>
+ <20131011.150124.527914076255487526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
-	Simon Horman <horms@verge.net.au>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:52842 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946Ab3JOH2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 03:28:32 -0400
-In-Reply-To: <52597FC0.4090801@cogentembedded.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:34641 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751200Ab3JOHaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 03:30:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20131011.150124.527914076255487526.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei
+On Fri, Oct 11, 2013 at 03:01:24PM -0400, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Thu, 10 Oct 2013 08:33:01 +0200
+> 
+> > The two RFC patches to remove the sleeping code are in reply to this
+> > mail. I'd add this to the ipsec-next tree if there are no objections.
+> 
+> The sleep path has the slight benefit that the TCP retransmit timers
+> for the initial SYN packet will not be started until the IPSEC rule
+> is resolved and the SYN actually goes out.
 
-On Sat, 12 Oct 2013, Sergei Shtylyov wrote:
+Yes, that's a slight advantage of the sleeping. But if the IPsec state
+does not get resolved for whatever reason, the retransmit timer will
+never start. The task will wake up but goes back to sleep immediately
+because the needed state is not resolved.
 
-> Hello.
 > 
-> On 07-10-2013 8:29, Nguyen Hong Ky wrote:
+> With the packet queue, if the IPSEC resolution is slow then we'll have
+> spurious SYN retransmits.
 > 
-> > This patch will fix RX packets errors when receiving big size
-> > of data by set bit RNC = 1.
-> 
-> > RNC - Receive Enable Control
-> 
-> > 0: Upon completion of reception of one frame, the E-DMAC writes
-> > the receive status to the descriptor and clears the RR bit in
-> > EDRRR to 0.
-> 
-> > 1: Upon completion of reception of one frame, the E-DMAC writes
-> > (writes back) the receive status to the descriptor. In addition,
-> > the E-DMAC reads the next descriptor and prepares for reception
-> > of the next frame.
-> 
-> > In addition, for get more stable when receiving packets, I set
-> > maximum size for the transmit/receive FIFO and inserts padding
-> > in receive data.
-> 
-> > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
-> > ---
-> >   drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
-> >   1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> > b/drivers/net/ethernet/renesas/sh_eth.c
-> > index a753928..11d34f0 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> > @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
-> >   	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-> >   			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
-> >   			  EESR_TDE | EESR_ECI,
-> > +	.fdr_value	= 0x0000070f,
-> > +	.rmcr_value	= 0x00000001,
-> > 
-> >   	.apr		= 1,
-> >   	.mpr		= 1,
-> >   	.tpauser	= 1,
-> >   	.bculr		= 1,
-> >   	.hw_swap	= 1,
-> > +	.rpadir		= 1,
-> > +	.rpadir_value   = 2 << 16,
-> >   	.no_trimd	= 1,
-> >   	.no_ade		= 1,
-> >   	.tsu		= 1,
-> 
->    Guennadi, could you check if this patch fixes your issue with NFS. Make
-> sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
+> It makes no sense for TCP to keep queueing up SYNs if they will just
+> all get stuck in the packet queue.  The first one is enough.
 
-Yes, the current -next, which includes this patch (in a slightly different 
-form) boots fine over NFS for me.
+Right, that's why I've limited the queue to 100 packets. We can
+queue the SYNs of up to 100 tcp connestions that want to use
+this IPsec state. It surely can happen that we queue multiple
+retransmitted SYNs if the IPsec resolution is slow. But the
+queueing code tries at least to get the packets out before
+the first tcp retransmit. I think there is still room for
+optimizations, maybe reducing the queue lenght or the queue
+timeout to avoid queueing retransmitted SYNs as much as possible.
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
-http://www.open-technology.de/
+> 
+> On the other hand we do want TCP to timeout, we do want the user to
+> be able to "Ctrl-C" (ie. send a SIGINT) during a connect, etc.
+
+As mentioned above, tcp does not timeout if the state is not
+getting resolved and the task that tried to open the tcp
+conection hangs indefinitely.
+
+We could fiddle something to get a terminating condition if the
+state is not resolved after some time, but my plan was to disable
+the larval_drop sysctl by default some day again. At best without
+any notable change to userspace. That's why I would prefer to
+remove the sleeping entirely.
