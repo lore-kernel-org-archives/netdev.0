@@ -1,128 +1,42 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: fix a cacc_saw_newack missetting issue
-Date: Tue, 15 Oct 2013 10:34:06 -0400
-Message-ID: <525D525E.8010508@gmail.com>
-References: <1381757623-12803-1-git-send-email-changxiangzhong@gmail.com> <525D4D2D.8000506@gmail.com> <525D50BD.5030301@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] usb: serial: option: blacklist Olivetti Olicard200
+Date: Tue, 15 Oct 2013 09:47:18 -0500
+Message-ID: <1381848438.25397.1.camel@dcbw.foobar.com>
+References: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chang <changxiangzhong@gmail.com>, nhorman@tuxdriver.com
+Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
+	christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Antonella Pellizzari <anto.pellizzari83@gmail.com>
+To: Enrico Mioso <mrkiko.rs@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <525D50BD.5030301@gmail.com>
+In-Reply-To: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2013 10:27 AM, Chang wrote:
->
-> On 10/15/2013 04:11 PM, Vlad Yasevich wrote:
->> On 10/14/2013 09:33 AM, Chang Xiangzhong wrote:
->>> For for each TSN t being newly acked (Not only cumulatively,
->>> but also SELECTIVELY) cacc_saw_newack should be set to 1.
->>>
->>> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
->>> ---
->>>   net/sctp/outqueue.c |   42 +++++++++++++++++++++---------------------
->>>   1 file changed, 21 insertions(+), 21 deletions(-)
->>>
->>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
->>> index 94df758..d86032b 100644
->>> --- a/net/sctp/outqueue.c
->>> +++ b/net/sctp/outqueue.c
->>> @@ -1398,6 +1398,27 @@ static void sctp_check_transmitted(struct
->>> sctp_outq *q,
->>>                   forward_progress = true;
->>>               }
->>>
->>> +            if (!tchunk->tsn_gap_acked) {
->>
->> You can remove this test since the block just above already performs
->> it.  Just fold this code into the block above.
->>
->> -vlad
->>
-> Sorry, I'm not sure if I fully understand you. There are code blocks
-> which checking the tchunk->tsn_gap_acked. In addition, they check other
-> states as well.
+On Tue, 2013-10-15 at 15:06 +0200, Enrico Mioso wrote:
+> Interface 6 of this device speaks QMI as per tests done by us.
+> Credits go to Antonella for providing the hardware.
+> 
+> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
+> Signed-off-by: Antonella Pellizzari <anto.pellizzari83@gmail.com>
 
-The flow is:
+Tested-by: Dan Williams <dcbw@redhat.com>
 
-	 if (sctp_acked(sack, tsn)) {
-		...
-		if (transport) {
-			....
-		}
-
-		if (!tchunk->tsn_gap_acked) {
-			....
-		}
-
-		if (TSN_lte(tsn, sack_ctsn)) {
-			....
-			/* SFR-CACC ...
-		}
-
-Since you are moving this up, you can simply re-use
-the if (!tchunk->tsn_gap_acked) immediately above.
-
->>> +                /*
->>> +                 * SFR-CACC algorithm:
->>> +                 * 2) If the SACK contains gap acks
->>> +                 * and the flag CHANGEOVER_ACTIVE is
->>> +                 * set the receiver of the SACK MUST
->>> +                 * take the following action:
->>> +                 *
->>> +                 * B) For each TSN t being acked that
->>> +                 * has not been acked in any SACK so
->>> +                 * far, set cacc_saw_newack to 1 for
->>> +                 * the destination that the TSN was
->>> +                 * sent to.
->>> +                 */
->>> +                if (transport &&
->>> +                    sack->num_gap_ack_blocks &&
->>> +                    q->asoc->peer.primary_path->cacc.
->>> +                    changeover_active)
->>> +                    transport->cacc.cacc_saw_newack    = 1;
-							^^^^
-
-Don't need that many spaces...
-
--vlad
->>> +            }
->>> +
->>>               if (TSN_lte(tsn, sack_ctsn)) {
->>>                   /* RFC 2960  6.3.2 Retransmission Timer Rules
->>>                    *
->>> @@ -1411,27 +1432,6 @@ static void sctp_check_transmitted(struct
->>> sctp_outq *q,
->>>                   restart_timer = 1;
->>>                   forward_progress = true;
->>>
->>> -                if (!tchunk->tsn_gap_acked) {
->>> -                    /*
->>> -                     * SFR-CACC algorithm:
->>> -                     * 2) If the SACK contains gap acks
->>> -                     * and the flag CHANGEOVER_ACTIVE is
->>> -                     * set the receiver of the SACK MUST
->>> -                     * take the following action:
->>> -                     *
->>> -                     * B) For each TSN t being acked that
->>> -                     * has not been acked in any SACK so
->>> -                     * far, set cacc_saw_newack to 1 for
->>> -                     * the destination that the TSN was
->>> -                     * sent to.
->>> -                     */
->>> -                    if (transport &&
->>> -                        sack->num_gap_ack_blocks &&
->>> - q->asoc->peer.primary_path->cacc.
->>> -                        changeover_active)
->>> -                        transport->cacc.cacc_saw_newack
->>> -                            = 1;
->>> -                }
->>>
->>> list_add_tail(&tchunk->transmitted_list,
->>>                             &q->sacked);
->>>
->>
->
+> diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
+> index 80a7104..d7c10d6 100644
+> --- a/drivers/usb/serial/option.c
+> +++ b/drivers/usb/serial/option.c
+> @@ -1257,7 +1257,9 @@ static const struct usb_device_id option_ids[] = {
+>  
+>  	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD100) },
+>  	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD145) },
+> -	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD200) },
+> +	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD200),
+> +		.driver_info = (kernel_ulong_t)&net_intf6_blacklist
+> +	},
+>  	{ USB_DEVICE(CELOT_VENDOR_ID, CELOT_PRODUCT_CT680M) }, /* CT-650 CDMA 450 1xEVDO modem */
+>  	{ USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID, SAMSUNG_PRODUCT_GT_B3730, USB_CLASS_CDC_DATA, 0x00, 0x00) }, /* Samsung GT-B3730 LTE USB modem.*/
+>  	{ USB_DEVICE(YUGA_VENDOR_ID, YUGA_PRODUCT_CEM600) },
