@@ -1,79 +1,85 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: kernel policy routing table src ip not respected since 2.6.37
- and commit 9fc3bbb4a752
-Date: Tue, 15 Oct 2013 11:51:04 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310151144580.1562@ssi.bg>
-References: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
+Date: Tue, 15 Oct 2013 16:59:04 +0800
+Message-ID: <525D03D8.7060802@windriver.com>
+References: <20131014160334.BCCDDE8A31@unicorn.suse.cz> <20131015083348.GW7660@secunet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, jsing@google.com
-To: Vincent Li <vincent.mc.li@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53361 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752178Ab3JOIvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 04:51:18 -0400
-In-Reply-To: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:54524 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753362Ab3JOJBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 05:01:08 -0400
+In-Reply-To: <20131015083348.GW7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
 
-On Mon, 14 Oct 2013, Vincent Li wrote:
+On 2013=E5=B9=B410=E6=9C=8815=E6=97=A5 16:33, Steffen Klassert wrote:
+> On Mon, Oct 14, 2013 at 06:03:34PM +0200, Michal Kubecek wrote:
+>> In ipcomp_compress(), sortirq is enabled too early, allowing the
+>> per-cpu scratch buffer to be rewritten by ipcomp_decompress()
+>> (called on the same CPU in softirq context) between populating
+>> the buffer and copying the compressed data to the skb.
+>>
+>> Add similar protection into ipcomp_decompress() as it can be
+>> called from process context as well (even if such scenario seems
+>> a bit artificial).
+>>
+>> Signed-off-by: Michal Kubecek<mkubecek@suse.cz>
+>> ---
+>>   net/xfrm/xfrm_ipcomp.c | 8 ++++++--
+>>   1 file changed, 6 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+>> index 2906d52..96946fb 100644
+>> --- a/net/xfrm/xfrm_ipcomp.c
+>> +++ b/net/xfrm/xfrm_ipcomp.c
+>> @@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x=
+, struct sk_buff *skb)
+>>   	const int cpu =3D get_cpu();
+>>   	u8 *scratch =3D *per_cpu_ptr(ipcomp_scratches, cpu);
+>>   	struct crypto_comp *tfm =3D *per_cpu_ptr(ipcd->tfms, cpu);
+>> -	int err =3D crypto_comp_decompress(tfm, start, plen, scratch,&dlen=
+);
+>> +	int err;
+>>   	int len;
+>>
+>> +	local_bh_disable();
+>
+> Maybe we could disable the BHs before we fetch the percpu pointers.
+> Then we can use smp_processor_id() to get the cpu. With that we
+> could get rid of a (now useless) preempt_disable()/preempt_enable()
+> pair. Same could be done in ipcomp_compress().
 
-> I had a simple bash script to test if the policy routing table src ip
-> is respected or not, git bisect found the  commit 9fc3bbb4a752 to
-> change the policy routing table source ip behavior.
-> 
-> commit 9fc3bbb4a752f108cf096d96640f3b548bbbce6c
-> Author: Joel Sing <jsing@google.com>
-> Date:   Mon Jan 3 20:24:20 2011 +0000
-> 
->     ipv4/route.c: respect prefsrc for local routes
-> 
->     The preferred source address is currently ignored for local routes,
->     which results in all local connections having a src address that is the
->     same as the local dst address. Fix this by respecting the preferred source
->     address when it is provided for local routes.
-> 
-> test script:
-> 
-> #!/bin/bash
-> ip addr add 10.1.1.1/24 dev eth0
-> ip addr add 10.1.1.2/24 dev eth0
-> ip rule add priority 245 table 245
-> ip route add 10.1.1.0/24 dev eth0  proto kernel  scope link  src
-> 10.1.1.2 table 245 <===source ip 10.1.1.2 to be preferred
-> 
-> ip addr show dev eth0
-> ip route list table main
-> ip route list table 245
-> 
-> 
-> tcpdump -nn -i eth0 host 10.1.1.9 and icmp &
-> 
-> ping 10.1.1.9
-> 
-> 
-> 
-> --before commit 9fc3bbb4a752
-> 
-> the source is from ip 10.1.1.2 as expected
-> 
-> --after commit 9fc3bbb4a752
-> 
-> the source is from ip 10.1.1.1 which not expected since I have high
-> priority table 245 with source ip 10.1.1.2
-> 
-> is this regression of commit 9fc3bbb4a752 ?
+Is it possible that two tasks race scratch buffer when both of them try=
+ing to compress data
+without preempt disabled? for example, when task A working on compressi=
+on, then task B
+with higher priority preempts task A, and try to touch scratch buffer, =
+which leaves stale
+data for task A after then.
 
-	Hm, it works here on 3.11.3. ARP request uses
-10.1.1.2 and ICMP packet has such source. May be something with
-the ping tool you are using? Check 'strace ping -c 1 10.1.1.9', may
-be it binds to first device IP?
+I think we needs preempt disabled for such case, otherwise I overlook c=
+odes in somewhere else.
 
-Regards
+> Looks ok otherwise. Thanks!
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
---
-Julian Anastasov <ja@ssi.bg>
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
