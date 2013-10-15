@@ -1,8 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 15/18] net: xen: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:45:11 +0800
-Message-ID: <1381837514-50660-16-git-send-email-wangkefeng.wang@huawei.com>
-References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 00/18] cleanup: wrapper functions of net_ratelimit() called to simplify code
+Date: Tue, 15 Oct 2013 19:44:56 +0800
+Message-ID: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -28,156 +27,107 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	<netdev@vger.ker
 To: <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wrapper functions net_ratelimited_function() and net_XXX_ratelimited()
-are called to simplify code.
+Macro PRINTR is called only once in nfnetlink_log.c, and it can be 
+replaced by wrappe function of net_ratelimit(), so kill it.
 
-Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
----
- drivers/net/xen-netback/netback.c | 21 +++++++++------------
- drivers/net/xen-netfront.c        | 27 +++++++++------------------
- 2 files changed, 18 insertions(+), 30 deletions(-)
+Meanwhile, I found many files could use wrappe functions of net_ratelimit()
+to simplify, so I did.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f3e591c..bceb2ad 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -776,10 +776,9 @@ static int xenvif_count_requests(struct xenvif *vif,
- 		 * dropped
- 		 */
- 		if (!drop_err && slots >= XEN_NETBK_LEGACY_SLOTS_MAX) {
--			if (net_ratelimit())
--				netdev_dbg(vif->dev,
--					   "Too many slots (%d) exceeding limit (%d), dropping packet\n",
--					   slots, XEN_NETBK_LEGACY_SLOTS_MAX);
-+			net_ratelimited_function(netdev_dbg, vif->dev,
-+				"Too many slots (%d) exceeding limit (%d), dropping packet\n",
-+				slots, XEN_NETBK_LEGACY_SLOTS_MAX);
- 			drop_err = -E2BIG;
- 		}
- 
-@@ -799,10 +798,9 @@ static int xenvif_count_requests(struct xenvif *vif,
- 		 * Consume all slots and drop the packet.
- 		 */
- 		if (!drop_err && txp->size > first->size) {
--			if (net_ratelimit())
--				netdev_dbg(vif->dev,
--					   "Invalid tx request, slot size %u > remaining size %u\n",
--					   txp->size, first->size);
-+			net_ratelimited_function(netdev_dbg, vif->dev,
-+				"Invalid tx request, slot size %u > remaining size %u\n",
-+				txp->size, first->size);
- 			drop_err = -EIO;
- 		}
- 
-@@ -1170,10 +1168,9 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
- 		}
- 		break;
- 	default:
--		if (net_ratelimit())
--			netdev_err(vif->dev,
--				   "Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
--				   iph->protocol);
-+		net_ratelimited_function(netdev_err, vif->dev,
-+			"Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
-+			iph->protocol);
- 		goto out;
- 	}
- 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 36808bf..11eeef1 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -690,8 +690,7 @@ static int xennet_get_extras(struct netfront_info *np,
- 		grant_ref_t ref;
- 
- 		if (unlikely(cons + 1 == rp)) {
--			if (net_ratelimit())
--				dev_warn(dev, "Missing extra info\n");
-+			net_ratelimited_function(dev_warn, dev, "Missing extra info\n");
- 			err = -EBADR;
- 			break;
- 		}
-@@ -701,8 +700,7 @@ static int xennet_get_extras(struct netfront_info *np,
- 
- 		if (unlikely(!extra->type ||
- 			     extra->type >= XEN_NETIF_EXTRA_TYPE_MAX)) {
--			if (net_ratelimit())
--				dev_warn(dev, "Invalid extra type: %d\n",
-+			net_ratelimited_function(dev_warn, dev, "Invalid extra type: %d\n",
- 					extra->type);
- 			err = -EINVAL;
- 		} else {
-@@ -742,8 +740,7 @@ static int xennet_get_responses(struct netfront_info *np,
- 	for (;;) {
- 		if (unlikely(rx->status < 0 ||
- 			     rx->offset + rx->status > PAGE_SIZE)) {
--			if (net_ratelimit())
--				dev_warn(dev, "rx->offset: %x, size: %u\n",
-+			net_ratelimited_function(dev_warn, dev, "rx->offset: %x, size: %u\n",
- 					 rx->offset, rx->status);
- 			xennet_move_rx_slot(np, skb, ref);
- 			err = -EINVAL;
-@@ -756,8 +753,7 @@ static int xennet_get_responses(struct netfront_info *np,
- 		 * situation to the system controller to reboot the backend.
- 		 */
- 		if (ref == GRANT_INVALID_REF) {
--			if (net_ratelimit())
--				dev_warn(dev, "Bad rx response id %d.\n",
-+			net_ratelimited_function(dev_warn, dev, "Bad rx response id %d.\n",
- 					 rx->id);
- 			err = -EINVAL;
- 			goto next;
-@@ -775,8 +771,7 @@ next:
- 			break;
- 
- 		if (cons + slots == rp) {
--			if (net_ratelimit())
--				dev_warn(dev, "Need more slots\n");
-+			net_ratelimited_function(dev_warn, dev, "Need more slots\n");
- 			err = -ENOENT;
- 			break;
- 		}
-@@ -788,8 +783,7 @@ next:
- 	}
- 
- 	if (unlikely(slots > max)) {
--		if (net_ratelimit())
--			dev_warn(dev, "Too many slots\n");
-+		net_ratelimited_function(dev_warn, dev, "Too many slots\n");
- 		err = -E2BIG;
- 	}
- 
-@@ -803,15 +797,13 @@ static int xennet_set_skb_gso(struct sk_buff *skb,
- 			      struct xen_netif_extra_info *gso)
- {
- 	if (!gso->u.gso.size) {
--		if (net_ratelimit())
--			pr_warn("GSO size must not be zero\n");
-+		net_warn_ratelimited("GSO size must not be zero\n");
- 		return -EINVAL;
- 	}
- 
- 	/* Currently only TCPv4 S.O. is supported. */
- 	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
--		if (net_ratelimit())
--			pr_warn("Bad GSO type %d\n", gso->u.gso.type);
-+		net_warn_ratelimited("Bad GSO type %d\n", gso->u.gso.type);
- 		return -EINVAL;
- 	}
- 
-@@ -910,8 +902,7 @@ static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
- 		}
- 		break;
- 	default:
--		if (net_ratelimit())
--			pr_err("Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
-+		net_err_ratelimited("Attempting to checksum a non-TCP/UDP packet, dropping a protocol %d packet\n",
- 			       iph->protocol);
- 		goto out;
- 	}
+
+Kefeng Wang (18):
+  netfilter: cleanup: delete Macro PRINTR
+  net: use wrapper functions of net_ratelimit() to simplify code
+  rt18187se: use wrapper functions of net_ratelimit() to simplify code
+  rt18192e: use wrapper functions of net_ratelimit() to simplify code
+  rt18192u: use wrapper functions of net_ratelimit() to simplify code
+  net: wireless: use wrapper functions of net_ratelimit() to simplify
+    code
+  net: ethernet: use wrapper functions of net_ratelimit() to simplify
+    code
+  atm: use wrapper functions of net_ratelimit() to simplify code
+  block: aoe: use wrapper functions of net_ratelimit() to simplify code
+  net: peak_usb: use wrapper functions of net_ratelimit() to simplify
+    code
+  net: hamradio: use wrapper functions of net_ratelimit() to simplify
+    code
+  net: irda: use wrapper functions of net_ratelimit() to simplify code
+  net: ppp: use wrapper functions of net_ratelimit() to simplify code
+  net: usb: use wrapper functions of net_ratelimit() to simplify code
+  net: xen: use wrapper functions of net_ratelimit() to simplify code
+  net: virtio: use wrapper functions of net_ratelimit() to simplify code
+  net: vxlan: use wrapper functions of net_ratelimit() to simplify code
+  net: wimax: use wrapper functions of net_ratelimit() to simplify code
+
+ drivers/atm/solos-pci.c                            | 20 ++++-----
+ drivers/block/aoe/aoenet.c                         |  4 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c       | 11 ++---
+ drivers/net/ethernet/aeroflex/greth.c              | 16 +++----
+ drivers/net/ethernet/alteon/acenic.c               |  3 +-
+ drivers/net/ethernet/arc/emac_main.c               |  7 ++--
+ drivers/net/ethernet/broadcom/b44.c                |  4 +-
+ drivers/net/ethernet/ethoc.c                       |  4 +-
+ drivers/net/ethernet/faraday/ftgmac100.c           | 49 +++++++---------------
+ drivers/net/ethernet/faraday/ftmac100.c            | 45 ++++++--------------
+ drivers/net/ethernet/freescale/fec_mpc52xx.c       |  3 +-
+ drivers/net/ethernet/ibm/emac/mal.c                | 15 ++-----
+ drivers/net/ethernet/marvell/mv643xx_eth.c         |  6 +--
+ drivers/net/ethernet/marvell/pxa168_eth.c          |  8 +---
+ drivers/net/ethernet/marvell/sky2.c                | 42 +++++++------------
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c   |  5 +--
+ drivers/net/ethernet/realtek/r8169.c               | 13 +++---
+ drivers/net/ethernet/sfc/rx.c                      |  8 ++--
+ drivers/net/ethernet/sfc/siena_sriov.c             | 27 ++++--------
+ drivers/net/ethernet/ti/davinci_emac.c             |  4 +-
+ drivers/net/ethernet/tundra/tsi108_eth.c           | 12 ++----
+ drivers/net/hamradio/6pack.c                       |  3 +-
+ drivers/net/hamradio/bpqether.c                    |  3 +-
+ drivers/net/irda/stir4200.c                        |  3 +-
+ drivers/net/ppp/ppp_generic.c                      | 11 +++--
+ drivers/net/usb/usbnet.c                           |  4 +-
+ drivers/net/virtio_net.c                           |  3 +-
+ drivers/net/vxlan.c                                |  3 +-
+ drivers/net/wimax/i2400m/netdev.c                  |  3 +-
+ drivers/net/wireless/adm8211.c                     |  5 +--
+ drivers/net/wireless/ath/carl9170/cmd.c            | 15 +++----
+ drivers/net/wireless/ath/carl9170/phy.c            |  7 +---
+ drivers/net/wireless/ath/carl9170/rx.c             | 45 ++++++--------------
+ drivers/net/wireless/ath/carl9170/usb.c            | 12 ++----
+ drivers/net/wireless/hostap/hostap_80211_rx.c      |  8 +---
+ drivers/net/wireless/hostap/hostap_80211_tx.c      | 13 ++----
+ drivers/net/wireless/hostap/hostap_ap.c            |  6 +--
+ drivers/net/wireless/hostap/hostap_hw.c            | 17 +++-----
+ drivers/net/wireless/iwlegacy/3945-mac.c           |  4 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c           |  6 +--
+ drivers/net/wireless/iwlwifi/pcie/rx.c             |  7 ++--
+ drivers/net/wireless/libertas_tf/cmd.c             |  6 +--
+ drivers/net/wireless/mwl8k.c                       |  5 +--
+ drivers/net/wireless/orinoco/hermes.c              |  6 +--
+ drivers/net/wireless/orinoco/main.c                | 16 +++----
+ drivers/net/wireless/orinoco/orinoco_usb.c         |  3 +-
+ drivers/net/wireless/p54/p54pci.c                  |  6 +--
+ drivers/net/xen-netback/netback.c                  | 21 ++++------
+ drivers/net/xen-netfront.c                         | 27 ++++--------
+ .../rtl8187se/ieee80211/ieee80211_crypt_ccmp.c     | 16 ++-----
+ .../rtl8187se/ieee80211/ieee80211_crypt_tkip.c     | 27 ++++--------
+ drivers/staging/rtl8187se/ieee80211/ieee80211_rx.c |  4 +-
+ drivers/staging/rtl8187se/ieee80211/ieee80211_tx.c |  7 +---
+ drivers/staging/rtl8192e/rtllib_crypt_ccmp.c       | 13 ++----
+ drivers/staging/rtl8192e/rtllib_crypt_tkip.c       | 21 +++-------
+ drivers/staging/rtl8192e/rtllib_rx.c               |  6 +--
+ .../rtl8192u/ieee80211/ieee80211_crypt_ccmp.c      | 17 ++------
+ .../rtl8192u/ieee80211/ieee80211_crypt_tkip.c      | 22 +++-------
+ drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c  |  7 +---
+ drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c  |  4 +-
+ net/bridge/br_fdb.c                                |  6 +--
+ net/bridge/br_multicast.c                          | 13 ++----
+ net/bridge/br_stp_bpdu.c                           | 11 ++---
+ net/mac80211/rx.c                                  |  6 +--
+ net/netfilter/ipset/ip_set_hash_gen.h              |  3 +-
+ net/netfilter/nfnetlink_log.c                      |  5 +--
+ 66 files changed, 246 insertions(+), 516 deletions(-)
+
 -- 
 1.8.2.1
