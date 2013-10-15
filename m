@@ -1,8 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 6/9] bnx2x: Prevent null pointer dereference on
- error flow
-Date: Tue, 15 Oct 2013 16:28:52 +0200
-Message-ID: <1381847335-32662-7-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net 7/9] bnx2x: Lock DMAE when used by statistic flow
+Date: Tue, 15 Oct 2013 16:28:53 +0200
+Message-ID: <1381847335-32662-8-git-send-email-yuvalmin@broadcom.com>
 References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,41 +10,138 @@ Cc: ariele@broadcom.com, eilong@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2709 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3822 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759122Ab3JOO3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:29:16 -0400
+	id S932270Ab3JOO3T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 10:29:19 -0400
 In-Reply-To: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If debug message is open and bnx2x_vfop_qdtor_cmd() were to fail,
-the resulting print would have caused a null pointer dereference.
+From: Ariel Elior <ariele@broadcom.com>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+bnx2x has several clients to its DMAE machines - all of them with the exception
+of the statistics flow used the same locking mechanisms to synchronize the DMAE
+machines' usage.
+
+Since statistics (which are periodically entered) use DMAE without taking the
+locks, they may erase the commands which were previously set -
+e.g., it may cause a VF to timeout while waiting for a PF answer on the VF-PF
+channel as that command header would have been overwritten by the statistics'
+header.
+
+This patch makes certain that all flows utilizing DMAE will use the same
+API, assuring that the locking scheme will be kept by all said flows.
+
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  3 ++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 14 +++++++-------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  2 +-
+ 4 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 997c661..bf08ad6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -470,10 +470,10 @@ static int bnx2x_vfop_qdtor_cmd(struct bnx2x *bp,
- 				 bnx2x_vfop_qdtor, cmd->done);
- 		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qdtor,
- 					     cmd->block);
-+	} else {
-+		BNX2X_ERR("VF[%d] failed to add a vfop\n", vf->abs_vfid);
-+		return -ENOMEM;
- 	}
--	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop. rc %d\n",
--	   vf->abs_vfid, vfop->rc);
--	return -ENOMEM;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 275b126..310c57a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2073,7 +2073,8 @@ u32 bnx2x_dmae_opcode(struct bnx2x *bp, u8 src_type, u8 dst_type,
+ 
+ void bnx2x_prep_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae,
+ 			       u8 src_type, u8 dst_type);
+-int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae);
++int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae,
++			       u32 *comp);
+ 
+ /* FLR related routines */
+ u32 bnx2x_flr_clnup_poll_count(struct bnx2x *bp);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 3fd76b9..173508c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -503,9 +503,9 @@ void bnx2x_prep_dmae_with_comp(struct bnx2x *bp,
  }
  
- static void
+ /* issue a dmae command over the init-channel and wait for completion */
+-int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae)
++int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae,
++			       u32 *comp)
+ {
+-	u32 *wb_comp = bnx2x_sp(bp, wb_comp);
+ 	int cnt = CHIP_REV_IS_SLOW(bp) ? (400000) : 4000;
+ 	int rc = 0;
+ 
+@@ -518,14 +518,14 @@ int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae)
+ 	spin_lock_bh(&bp->dmae_lock);
+ 
+ 	/* reset completion */
+-	*wb_comp = 0;
++	*comp = 0;
+ 
+ 	/* post the command on the channel used for initializations */
+ 	bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
+ 
+ 	/* wait for completion */
+ 	udelay(5);
+-	while ((*wb_comp & ~DMAE_PCI_ERR_FLAG) != DMAE_COMP_VAL) {
++	while ((*comp & ~DMAE_PCI_ERR_FLAG) != DMAE_COMP_VAL) {
+ 
+ 		if (!cnt ||
+ 		    (bp->recovery_state != BNX2X_RECOVERY_DONE &&
+@@ -537,7 +537,7 @@ int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae)
+ 		cnt--;
+ 		udelay(50);
+ 	}
+-	if (*wb_comp & DMAE_PCI_ERR_FLAG) {
++	if (*comp & DMAE_PCI_ERR_FLAG) {
+ 		BNX2X_ERR("DMAE PCI error!\n");
+ 		rc = DMAE_PCI_ERROR;
+ 	}
+@@ -574,7 +574,7 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
+ 	dmae.len = len32;
+ 
+ 	/* issue the command and wait for completion */
+-	rc = bnx2x_issue_dmae_with_comp(bp, &dmae);
++	rc = bnx2x_issue_dmae_with_comp(bp, &dmae, bnx2x_sp(bp, wb_comp));
+ 	if (rc) {
+ 		BNX2X_ERR("DMAE returned failure %d\n", rc);
+ 		bnx2x_panic();
+@@ -611,7 +611,7 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
+ 	dmae.len = len32;
+ 
+ 	/* issue the command and wait for completion */
+-	rc = bnx2x_issue_dmae_with_comp(bp, &dmae);
++	rc = bnx2x_issue_dmae_with_comp(bp, &dmae, bnx2x_sp(bp, wb_comp));
+ 	if (rc) {
+ 		BNX2X_ERR("DMAE returned failure %d\n", rc);
+ 		bnx2x_panic();
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 86436c7..3b75070 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -196,7 +196,7 @@ static void bnx2x_hw_stats_post(struct bnx2x *bp)
+ 
+ 	} else if (bp->func_stx) {
+ 		*stats_comp = 0;
+-		bnx2x_post_dmae(bp, dmae, INIT_DMAE_C(bp));
++		bnx2x_issue_dmae_with_comp(bp, dmae, stats_comp);
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index da16953..28757df 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -980,7 +980,7 @@ static int bnx2x_copy32_vf_dmae(struct bnx2x *bp, u8 from_vf,
+ 	dmae.len = len32;
+ 
+ 	/* issue the command and wait for completion */
+-	return bnx2x_issue_dmae_with_comp(bp, &dmae);
++	return bnx2x_issue_dmae_with_comp(bp, &dmae, bnx2x_sp(bp, wb_comp));
+ }
+ 
+ static void bnx2x_vf_mbx_resp(struct bnx2x *bp, struct bnx2x_virtf *vf)
 -- 
 1.8.1.227.g44fe835
