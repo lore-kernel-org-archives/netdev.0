@@ -1,54 +1,88 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH RFC 4/5] net: macb: Use devm_request_irq()
-Date: Tue, 15 Oct 2013 13:20:16 -0700
-Message-ID: <ffb65abe-36e2-45c3-9d40-02050545184d@TX2EHSMHS038.ehs.local>
-References: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
- <1381795140-10792-5-git-send-email-soren.brinkmann@xilinx.com>
- <525D95A4.3020706@cogentembedded.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel side)
+Date: Tue, 15 Oct 2013 13:34:39 -0700
+Message-ID: <87a9ias274.fsf@xmission.com>
+References: <1380854061-30091-1-git-send-email-yamato@redhat.com>
+	<20131008.152349.729447337097758010.davem@davemloft.net>
+	<20131008141337.1a8a556c@nehalam.linuxnetplumber.net>
+	<20131009165254.2e1c8332@nehalam.linuxnetplumber.net>
+	<87li22vv1w.fsf@xmission.com> <525D7109.4010004@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <525D95A4.3020706@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, yamato@redhat.com,
+	netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:36578 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757504Ab3JOUep convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 16:34:45 -0400
+In-Reply-To: <525D7109.4010004@6wind.com> (Nicolas Dichtel's message of "Tue,
+	15 Oct 2013 18:44:57 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 15, 2013 at 11:21:08PM +0400, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 10/15/2013 03:58 AM, Soren Brinkmann wrote:
->=20
-> >Use the device managed interface to request the IRQ, simplifying err=
-or
-> >paths.
->=20
-> >Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
-> >---
-> >  drivers/net/ethernet/cadence/macb.c | 8 +++-----
-> >  1 file changed, 3 insertions(+), 5 deletions(-)
->=20
-> >diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ether=
-net/cadence/macb.c
-> >index 436aecc31732..603844b1d483 100644
-> >--- a/drivers/net/ethernet/cadence/macb.c
-> >+++ b/drivers/net/ethernet/cadence/macb.c
-> >@@ -1825,7 +1825,8 @@ static int __init macb_probe(struct platform_d=
-evice *pdev)
-> >  	}
-> >
-> >  	dev->irq =3D platform_get_irq(pdev, 0);
-> >-	err =3D request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
-> >+	err =3D devm_request_irq(&pdev->dev, dev->irq, macb_interrupt, 0,
-> >+			dev->name, dev);
->=20
->    You should start the continuation line right under &.
-Actually this one is a good example why I don't do such alignment: You
-do a simple search & replace - in this case request_irq ->
-devm_request_irq - and all alignment is gone.
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-	S=C3=B6ren
+> Le 10/10/2013 02:17, Eric W. Biederman a =C3=A9crit :
+>>
+>> Right.
+>>
+>> IFLA_NET_NS_PID is not invertible as there may be no processes runni=
+ng
+>> in a pid namespace.
+>>
+>> IFLA_NET_NS_FD is in principle invertible.  We just need to add a fi=
+le
+>> descriptor to the callers fd table.  I don't see IFLA_NET_NS_FD bein=
+g
+>> invertible for broadcast messages, but for unicast it looks like a b=
+it
+>> of a pain but there are no fundamental problems.
+> I'm not sure to understand why it is invertible only for unicast mess=
+age.
+> Or are you saying that it is invertible only for the netns where the
+> caller stands (and then not for the veth peer)?
+
+The pain is that it is a special case of SCM_RIGHTS aka passing file
+descriptors.  Right now we don't support SCM_RIGHTS on netlink sockets
+and so from that perspective IFLA_NET_NS_FD is a bit of a hack.
+
+=46or unicast messages we can just stuff a file descriptor in the calli=
+ng
+process and be done with it.  For multicast messages we have to be much
+more complete.
+
+>> I don't know if we care enough yet to write the code for the
+>> IFLA_NET_NS_FD attribute but it is doable.
+> I care ;-)
+> Has somebody already started to write a patch?
+
+=46or IFLA_NET_NS_FD not that I know of.
+
+Mostly it is doable but there are some silly cases.
+- Do we need to actually implement SCM_RIGHTS to prevent people
+  accepting file-descriptors unknowingly and hitting their file
+  descriptor limits.
+
+  In which case we need to call the attribute IFLA_NET_NS_SCM_FD
+  so we knew it was just an index into the passed file descriptors.n
+
+- Do we need an extra permission check to prevent keeping a network
+  namespace alive longer than necessary?  Aka there are some permission
+  checks opening and bind mounting /proc/<pid>/ns/net do we need
+  a similar check.  Perhaps we would need to require CAP_NET_ADMIN over
+  the target network namespace.
+
+Beyond that it is just the logistics to open what is essentially
+/proc/<pid>/ns/net and add it to the file descriptor table of the
+requesting process.  Exactly which mount of proc we are going to
+find the appropriate file to open I don't know.
+
+It isn't likely to be lots of code but it is code that the necessary
+infrastructure is not in place for, and a bunch of moderately hairy
+corner cases to deal with.
+
+Eric
