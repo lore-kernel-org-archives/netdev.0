@@ -1,42 +1,88 @@
-From: wangweidong <wangweidong1@huawei.com>
-Subject: [PACTH net-next] SUNRPC: remove an unnecessary if statement
-Date: Tue, 15 Oct 2013 11:44:30 +0800
-Message-ID: <525CBA1E.3030209@huawei.com>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
+Date: Tue, 15 Oct 2013 09:28:15 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
+References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
+ <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-nfs@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <dingtianhong@huawei.com>
-To: <davem@davemloft.net>, <Trond.Myklebust@netapp.com>,
-	<bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
+	Simon Horman <horms@verge.net.au>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.171]:52842 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946Ab3JOH2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 03:28:32 -0400
+In-Reply-To: <52597FC0.4090801@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If req allocated failed just goto out_free, no need to check the
-'i < num_prealloc'. There is just code simplification, no
-functional changes.
+Hi Sergei
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+On Sat, 12 Oct 2013, Sergei Shtylyov wrote:
+
+> Hello.
+> 
+> On 07-10-2013 8:29, Nguyen Hong Ky wrote:
+> 
+> > This patch will fix RX packets errors when receiving big size
+> > of data by set bit RNC = 1.
+> 
+> > RNC - Receive Enable Control
+> 
+> > 0: Upon completion of reception of one frame, the E-DMAC writes
+> > the receive status to the descriptor and clears the RR bit in
+> > EDRRR to 0.
+> 
+> > 1: Upon completion of reception of one frame, the E-DMAC writes
+> > (writes back) the receive status to the descriptor. In addition,
+> > the E-DMAC reads the next descriptor and prepares for reception
+> > of the next frame.
+> 
+> > In addition, for get more stable when receiving packets, I set
+> > maximum size for the transmit/receive FIFO and inserts padding
+> > in receive data.
+> 
+> > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
+> > ---
+> >   drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
+> >   1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> > b/drivers/net/ethernet/renesas/sh_eth.c
+> > index a753928..11d34f0 100644
+> > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> > @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
+> >   	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+> >   			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
+> >   			  EESR_TDE | EESR_ECI,
+> > +	.fdr_value	= 0x0000070f,
+> > +	.rmcr_value	= 0x00000001,
+> > 
+> >   	.apr		= 1,
+> >   	.mpr		= 1,
+> >   	.tpauser	= 1,
+> >   	.bculr		= 1,
+> >   	.hw_swap	= 1,
+> > +	.rpadir		= 1,
+> > +	.rpadir_value   = 2 << 16,
+> >   	.no_trimd	= 1,
+> >   	.no_ade		= 1,
+> >   	.tsu		= 1,
+> 
+>    Guennadi, could you check if this patch fixes your issue with NFS. Make
+> sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
+
+Yes, the current -next, which includes this patch (in a slightly different 
+form) boots fine over NFS for me.
+
+Thanks
+Guennadi
 ---
- net/sunrpc/xprt.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index 095363e..a8e20de 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -1087,11 +1087,9 @@ struct rpc_xprt *xprt_alloc(struct net *net, size_t size,
- 	for (i = 0; i < num_prealloc; i++) {
- 		req = kzalloc(sizeof(struct rpc_rqst), GFP_KERNEL);
- 		if (!req)
--			break;
-+			goto out_free;
- 		list_add(&req->rq_list, &xprt->free);
- 	}
--	if (i < num_prealloc)
--		goto out_free;
- 	if (max_alloc > num_prealloc)
- 		xprt->max_reqs = max_alloc;
- 	else
--- 1.7.12
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+http://www.open-technology.de/
