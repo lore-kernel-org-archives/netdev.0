@@ -1,99 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 3/3] ipvs: improved SH fallback strategy
-Date: Tue, 15 Oct 2013 11:01:47 +0900
-Message-ID: <1381802507-7934-4-git-send-email-horms@verge.net.au>
-References: <1381802507-7934-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Alexander Frolkin <avf@eldamar.org.uk>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: DomU's network interface will hung when Dom0 running 32bit
+Date: Tue, 15 Oct 2013 10:44:49 +0800
+Message-ID: <525CAC21.5040202@oracle.com>
+References: <52590DFE.6080203@oracle.com> <20131014111958.GE11739@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44815 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757054Ab3JOCCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 22:02:11 -0400
-In-Reply-To: <1381802507-7934-1-git-send-email-horms@verge.net.au>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46260 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122Ab3JOCpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 22:45:01 -0400
+In-Reply-To: <20131014111958.GE11739@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Frolkin <avf@eldamar.org.uk>
 
-Improve the SH fallback realserver selection strategy.
+On 2013-10-14 19:19, Wei Liu wrote:
+> On Sat, Oct 12, 2013 at 04:53:18PM +0800, jianhai luan wrote:
+>> Hi Ian,
+>>    I meet the DomU's network interface hung issue recently, and have
+>> been working on the issue from that time. I find that DomU's network
+>> interface, which send lesser package, will hung if Dom0 running
+>> 32bit and DomU's up-time is very long.  I think that one jiffies
+>> overflow bug exist in the function tx_credit_exceeded().
+>>    I know the inline function time_after_eq(a,b) will process jiffies
+>> overflow, but the function have one limit a should little that (b +
+>> MAX_SIGNAL_LONG). If a large than the value, time_after_eq will
+>> return false. The MAX_SINGNAL_LONG should be 0x7fffffff at 32-bit
+>> machine.
+>>    If DomU's network interface send lesser package (<0.5k/s if
+>> jiffies=250 and credit_bytes=ULONG_MAX), jiffies will beyond out
+>> (credit_timeout.expires + MAX_SIGNAL_LONG) and time_after_eq(now,
+>> next_credit) will failure (should be true). So one timer which will
+>> not be trigger in short time, and later process will be aborted when
+>> timer_pending(&vif->credit_timeout) is true. The result will be
+>> DomU's network interface will be hung in long time (> 40days).
+>>    Please think about the below scenario:
+>>    Condition:
+>>      Dom0 running 32-bit and HZ = 1000
+>>      vif->credit_timeout->expire = 0xffffffff, vif->remaining_credit
+>> = 0xffffffff, vif->credit_usec=0 jiffies=0
+>>      vif receive lesser package (DomU send lesser package). If the
+>> value is litter than 2K/s, consume 4G(0xffffffff) will need 582.55
+>> hours. jiffies will large than 0x7ffffff. we guess jiffies =
+>> 0x800000ff, time_after_eq(0x800000ff, 0xffffffff) will failure, and
+>> one time which expire is 0xfffffff will be pended into system. So
+>> the interface will hung until jiffies recount 0xffffffff (that will
+>> need very long time).
+> If I'm not mistaken you meant time_after_eq(now, next_credit) in
+> netback. How does next_credit become 0xffffffff?
 
-With sh and sh-fallback, if a realserver is down, this attempts to
-distribute the traffic that would have gone to that server evenly
-among the remaining servers.
-
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sh.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 3588fae..cc65b2f 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -115,27 +115,46 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- }
- 
- 
--/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-+ *
-+ * The fallback strategy loops around the table starting from a "random"
-+ * point (in fact, it is chosen to be the original hash value to make the
-+ * algorithm deterministic) to find a new server.
-+ */
- static inline struct ip_vs_dest *
- ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- 		      const union nf_inet_addr *addr, __be16 port)
- {
--	unsigned int offset;
--	unsigned int hash;
-+	unsigned int offset, roffset;
-+	unsigned int hash, ihash;
- 	struct ip_vs_dest *dest;
- 
-+	/* first try the dest it's supposed to go to */
-+	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	dest = rcu_dereference(s->buckets[ihash].dest);
-+	if (!dest)
-+		return NULL;
-+	if (!is_unavailable(dest))
-+		return dest;
-+
-+	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-+
-+	/* if the original dest is unavailable, loop around the table
-+	 * starting from ihash to find a new dest
-+	 */
- 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
--		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-+		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-+		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
- 		dest = rcu_dereference(s->buckets[hash].dest);
- 		if (!dest)
- 			break;
--		if (is_unavailable(dest))
--			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
--				      "%s:%d (offset %d)",
--				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
--				      ntohs(dest->port), offset);
--		else
-+		if (!is_unavailable(dest))
- 			return dest;
-+		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-+			      "server %s:%d (offset %d), reselecting",
-+			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+			      ntohs(dest->port), roffset);
- 	}
- 
- 	return NULL;
--- 
-1.8.4
+I only assume the value is 0xfffffff, and the value of next_credit 
+isn't  point. If the delta between now and next_credit larger than 
+ULONG_MAX, time_after_eq will do wrong judge.
+>
+> Wei.
+>
+>>    If some error exist in above explain, please help me point it out.
+>>
+>> Thanks,
+>> Jason
