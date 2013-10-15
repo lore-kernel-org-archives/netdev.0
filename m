@@ -1,8 +1,9 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] usb: serial: option: blacklist Olivetti Olicard200
-Date: Tue, 15 Oct 2013 09:47:18 -0500
-Message-ID: <1381848438.25397.1.camel@dcbw.foobar.com>
+Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
+Date: Tue, 15 Oct 2013 09:49:57 -0500
+Message-ID: <1381848597.25397.4.camel@dcbw.foobar.com>
 References: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com>
+	 <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,31 +13,44 @@ Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
 	Antonella Pellizzari <anto.pellizzari83@gmail.com>
 To: Enrico Mioso <mrkiko.rs@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com>
+In-Reply-To: <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2013-10-15 at 15:06 +0200, Enrico Mioso wrote:
-> Interface 6 of this device speaks QMI as per tests done by us.
-> Credits go to Antonella for providing the hardware.
+> This is a QMI device, manufactured by TCT Mobile Phones.
+> A companion patch blacklisting this device's QMI interface in the option.c
+> driver has been sent.
 > 
 > Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
 > Signed-off-by: Antonella Pellizzari <anto.pellizzari83@gmail.com>
 
+Good find.  For the record, mine has:
+
+PX1522E16X  1  [Oct 15 2010 02:00:00]
+
+	ctl (1.4)
+	wds (1.8)
+	dms (1.3)
+	nas (1.2)
+	qos (1.2)
+	wms (1.1)
+	pds (1.4)
+	auth (1.0)
+	voice (1.0)
+	cat2 (1.1)
+
 Tested-by: Dan Williams <dcbw@redhat.com>
 
-> diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
-> index 80a7104..d7c10d6 100644
-> --- a/drivers/usb/serial/option.c
-> +++ b/drivers/usb/serial/option.c
-> @@ -1257,7 +1257,9 @@ static const struct usb_device_id option_ids[] = {
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 3d6aaf7..818ce90 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -714,6 +714,7 @@ static const struct usb_device_id products[] = {
+>  	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+>  	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
+>  	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+> +	{QMI_FIXED_INTF(0x0b3c, 0xc005, 6)},    /* Olivetti Olicard 200 */
+>  	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
 >  
->  	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD100) },
->  	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD145) },
-> -	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD200) },
-> +	{ USB_DEVICE(OLIVETTI_VENDOR_ID, OLIVETTI_PRODUCT_OLICARD200),
-> +		.driver_info = (kernel_ulong_t)&net_intf6_blacklist
-> +	},
->  	{ USB_DEVICE(CELOT_VENDOR_ID, CELOT_PRODUCT_CT680M) }, /* CT-650 CDMA 450 1xEVDO modem */
->  	{ USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID, SAMSUNG_PRODUCT_GT_B3730, USB_CLASS_CDC_DATA, 0x00, 0x00) }, /* Samsung GT-B3730 LTE USB modem.*/
->  	{ USB_DEVICE(YUGA_VENDOR_ID, YUGA_PRODUCT_CEM600) },
+>  	/* 4. Gobi 1000 devices */
