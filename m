@@ -1,40 +1,111 @@
-From: =?iso-8859-15?Q?Kelleter=2C_G=FCnther?= <GKelleter@datus.com>
-Subject: [PATCH] X.25: Fix address field length calculation
-Date: Tue, 15 Oct 2013 14:29:06 +0000
-Message-ID: <525D5131.9070007@datus.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net 3/9] bnx2x: Unlock VF-PF channel on MAC/VLAN config
+ error
+Date: Tue, 15 Oct 2013 16:28:49 +0200
+Message-ID: <1381847335-32662-4-git-send-email-yuvalmin@broadcom.com>
+References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"linux-x25@vger.kernel.org" <linux-x25@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "andrew.hendry@gmail.com" <andrew.hendry@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: de-DE
-Content-ID: <01736E88829C1B4A9589D66039BC9A5E@datus.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ariele@broadcom.com, eilong@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4405 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759175Ab3JOO3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 10:29:11 -0400
+In-Reply-To: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
+From: Ariel Elior <ariele@broadcom.com>
 
-Signed-off-by: Guenther Kelleter <gkelleter@datus.com>
+Current code returns upon failure, leaving the VF-PF in an unusable state;
+This patch adds the missing release so further commands could pass between
+PF and VF.
+
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
-Wrong length calculation leads to rejection of CALL ACCEPT packets.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
 
- net/x25/af_x25.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 45a3ab5..2daf224 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 9ad012b..997c661 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -3390,14 +3390,16 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
+ 		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_ETH_MAC, true);
+ 		if (rc) {
+ 			BNX2X_ERR("failed to delete eth macs\n");
+-			return -EINVAL;
++			rc = -EINVAL;
++			goto out;
+ 		}
+ 
+ 		/* remove existing uc list macs */
+ 		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_UC_LIST_MAC, true);
+ 		if (rc) {
+ 			BNX2X_ERR("failed to delete uc_list macs\n");
+-			return -EINVAL;
++			rc = -EINVAL;
++			goto out;
+ 		}
+ 
+ 		/* configure the new mac to device */
+@@ -3405,6 +3407,7 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
+ 		bnx2x_set_mac_one(bp, (u8 *)&bulletin->mac, mac_obj, true,
+ 				  BNX2X_ETH_MAC, &ramrod_flags);
+ 
++out:
+ 		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_MAC);
  	}
-  	len = *skb->data;
--	needed = 1 + (len >> 4) + (len & 0x0f);
-+	needed = 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
-  	if (!pskb_may_pull(skb, needed)) {
- 		/* packet is too short to hold the addresses it claims
+ 
+@@ -3467,7 +3470,8 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 					  &ramrod_flags);
+ 		if (rc) {
+ 			BNX2X_ERR("failed to delete vlans\n");
+-			return -EINVAL;
++			rc = -EINVAL;
++			goto out;
+ 		}
+ 
+ 		/* send queue update ramrod to configure default vlan and silent
+@@ -3501,7 +3505,8 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 			rc = bnx2x_config_vlan_mac(bp, &ramrod_param);
+ 			if (rc) {
+ 				BNX2X_ERR("failed to configure vlan\n");
+-				return -EINVAL;
++				rc =  -EINVAL;
++				goto out;
+ 			}
+ 
+ 			/* configure default vlan to vf queue and set silent
+@@ -3519,18 +3524,18 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 		rc = bnx2x_queue_state_change(bp, &q_params);
+ 		if (rc) {
+ 			BNX2X_ERR("Failed to configure default VLAN\n");
+-			return rc;
++			goto out;
+ 		}
+ 
+ 		/* clear the flag indicating that this VF needs its vlan
+-		 * (will only be set if the HV configured th Vlan before vf was
+-		 * and we were called because the VF came up later
++		 * (will only be set if the HV configured the Vlan before vf was
++		 * up and we were called because the VF came up later
+ 		 */
++out:
+ 		vf->cfg_flags &= ~VF_CFG_VLAN;
+-
+ 		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
+ 	}
+-	return 0;
++	return rc;
+ }
+ 
+ /* crc is the first field in the bulletin board. Compute the crc over the
 -- 
-1.8.3.4.71.g0878476
+1.8.1.227.g44fe835
