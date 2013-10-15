@@ -1,82 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 1/2] tcp: must unclone packets before mangling them
-Date: Tue, 15 Oct 2013 11:54:30 -0700
-Message-ID: <1381863270.2045.62.camel@edumazet-glaptop.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] bridge: Correctly clamp MAX forward_delay when enabling STP
+Date: Tue, 15 Oct 2013 14:57:45 -0400
+Message-ID: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:58011 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754634Ab3JOSyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 14:54:32 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so9202554pbb.34
-        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 11:54:32 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:4214 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754754Ab3JOS5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 14:57:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Commit be4f154d5ef0ca147ab6bcd38857a774133f5450
+	bridge: Clamp forward_delay when enabling STP
+had a typo when attempting to clamp maximum forward delay.
 
-TCP stack should make sure it owns skbs before mangling them.
+It is possible to set bridge_forward_delay to be higher then
+permitted maximum when STP is off.  When turning STP on, the
+higher then allowed delay has to be clamed down to max value.
 
-We had various crashes using bnx2x, and it turned out gso_size
-was cleared right before bnx2x driver was populating TC descriptor
-of the _previous_ packet send. TCP stack can sometime retransmit
-packets that are still in Qdisc.
-
-Of course we could make bnx2x driver more robust (using
-ACCESS_ONCE(shinfo->gso_size) for example), but the bug is TCP stack.
-
-We have identified two points where skb_unclone() was needed.
-
-This patch adds a WARN_ON_ONCE() to warn us if we missed another
-fix of this kind.
-
-Kudos to Neal for finding the root cause of this bug. Its visible
-using small MSS.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/ipv4/tcp_output.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ net/bridge/br_stp_if.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index c6f01f2..8fad1c1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -986,6 +986,9 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff *skb)
- static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
- 				 unsigned int mss_now)
- {
-+	/* Make sure we own this skb before messing gso_size/gso_segs */
-+	WARN_ON_ONCE(skb_cloned(skb));
-+
- 	if (skb->len <= mss_now || !sk_can_gso(sk) ||
- 	    skb->ip_summed == CHECKSUM_NONE) {
- 		/* Avoid the costly divide in the normal
-@@ -1067,9 +1070,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
- 	if (nsize < 0)
- 		nsize = 0;
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 108084a..656a6f3 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -134,7 +134,7 @@ static void br_stp_start(struct net_bridge *br)
  
--	if (skb_cloned(skb) &&
--	    skb_is_nonlinear(skb) &&
--	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
-+	if (skb_unclone(skb, GFP_ATOMIC))
- 		return -ENOMEM;
+ 	if (br->bridge_forward_delay < BR_MIN_FORWARD_DELAY)
+ 		__br_set_forward_delay(br, BR_MIN_FORWARD_DELAY);
+-	else if (br->bridge_forward_delay < BR_MAX_FORWARD_DELAY)
++	else if (br->bridge_forward_delay > BR_MAX_FORWARD_DELAY)
+ 		__br_set_forward_delay(br, BR_MAX_FORWARD_DELAY);
  
- 	/* Get a new skb... force flag on. */
-@@ -2344,6 +2345,8 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 		int oldpcount = tcp_skb_pcount(skb);
- 
- 		if (unlikely(oldpcount > 1)) {
-+			if (skb_unclone(skb, GFP_ATOMIC))
-+				return -ENOMEM;
- 			tcp_init_tso_segs(sk, skb, cur_mss);
- 			tcp_adjust_pcount(sk, skb, oldpcount - tcp_skb_pcount(skb));
- 		}
+ 	if (r == 0) {
+-- 
+1.8.3.1
