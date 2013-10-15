@@ -1,73 +1,57 @@
-From: Milad khajavi <khajavi@gmail.com>
-Subject: =?UTF-8?Q?How_to_filter_and_intercept_packets_by_using_net=5Fdev?=
-	=?UTF-8?Q?=5Fadd_api=3F=E2=80=8F?=
-Date: Tue, 15 Oct 2013 15:34:17 +0330
-Message-ID: <CAJUHuJpjdRLAPBA1TpSG5=gySDyaaKG+CU-v=h3h+davru+pMA@mail.gmail.com>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Subject: [PATCH 12/18] net: irda: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:45:08 +0800
+Message-ID: <1381837514-50660-13-git-send-email-wangkefeng.wang@huawei.com>
+References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:49857 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932506Ab3JOMEt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 08:04:49 -0400
-Received: by mail-la0-f53.google.com with SMTP id el20so6655170lab.40
-        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 05:04:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Stephen Hemminger" <stephen@networkplumber.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>, <netfilter@vger.kernel.org>,
+	<netdev@vger.ker
+To: <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm writing ethernet network driver for linux. I want to receive
-packets, edit and resend them. I know how to edit the packet in
-packet_interceptor function, but how can I drop incoming packets in
-this function??
+net_ratelimited_function() is called to simplify code.
 
-Yesterday I've asked this question in stackoverflow [1], but since
-now, no one reply that.
+Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+---
+ drivers/net/irda/stir4200.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-#include <linux/netdevice.h>
-#include <linux/skbuff.h>
-#include <linux/ip.h>
-
-struct packet_type my_proto;
-
-int packet_interceptor(struct sk_buff *skb,
-    struct net_device *dev,
-    struct packet_type *pt,
-    struct net_device *orig_dev) {
-
-    //// I don't want certain packets go to upper in net_devices for
-further processing.
-    //// How can I drop sk_buff here?!
-
-  return 0;
-}
-
-static int hello_init( void ) {
-    printk(KERN_INFO "Hello, world!\n");
-
-    my_proto.type =3D htons(ETH_P_ALL);
-    my_proto.dev =3D NULL;
-    my_proto.func =3D packet_interceptor;
-
-    dev_add_pack(&my_proto);
-    return 0;
-}
-
-static void hello_exit(void) {
-  dev_remove_pack(&my_proto);
-  printk(KERN_INFO "Bye, world\n");
-}
-
-module_init(hello_init);
-module_exit(hello_exit);
-
-[1] - http://stackoverflow.com/questions/19342252/how-to-filter-and-int=
-ercept-linux-packets-by-using-net-dev-add-api
-
---=20
-=EF=BB=BF=EF=BB=BFMil=C4=81d Kh=C4=81javi
-http://blog.khajavi.ir
-Having the source means you can do it yourself.
-I tried to change the world, but I couldn=E2=80=99t find the source cod=
-e.
+diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
+index 876e709..d499b2b 100644
+--- a/drivers/net/irda/stir4200.c
++++ b/drivers/net/irda/stir4200.c
+@@ -783,8 +783,7 @@ static int stir_transmit_thread(void *arg)
+ 				break;
+ 
+ 			if (unlikely(receive_start(stir))) {
+-				if (net_ratelimit())
+-					dev_info(&dev->dev,
++				net_ratelimited_function(dev_info, &dev->dev,
+ 						 "%s: receive usb submit failed\n",
+ 						 stir->netdev->name);
+ 				stir->receiving = 0;
+-- 
+1.8.2.1
