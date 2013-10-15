@@ -1,75 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: add/use RMCR.RNC bit
-Date: Wed, 16 Oct 2013 02:29:58 +0400
-Message-ID: <201310160229.58735.sergei.shtylyov@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH ipsec v2] xfrm: prevent ipcomp scratch buffer race
+ condition
+Date: Tue, 15 Oct 2013 15:44:29 -0700
+Message-ID: <1381877069.2045.75.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131015083348.GW7660@secunet.com>
+	 <20131015214030.B0D06E8A60@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
-	davem@davemloft.net, horms@verge.net.au
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:40329 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933522Ab3JOWob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 18:44:31 -0400
+Received: by mail-pa0-f42.google.com with SMTP id kx10so90394pab.15
+        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 15:44:30 -0700 (PDT)
+In-Reply-To: <20131015214030.B0D06E8A60@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Declare 'enum EMCR_BIT' containing the single member for the RMCR.RNC bit and
-replace bare numbers in the driver by  this mnemonic.
+On Tue, 2013-10-15 at 23:40 +0200, Michal Kubecek wrote:
+> In ipcomp_compress(), sortirq is enabled too early, allowing the
+> per-cpu scratch buffer to be rewritten by ipcomp_decompress()
+> (called on the same CPU in softirq context) between populating
+> the buffer and copying the compressed data to the skb.
+> 
+> Add similar protection into ipcomp_decompress() as it can be
+> called from process context as well (even if such scenario seems
+> a bit artificial).
+> 
+> v2: as pointed out by Steffen Klassert, if we also move the
+> local_bh_disable() before reading the per-cpu pointers, we can
+> get rid of get_cpu()/put_cpu().
+> 
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+>  net/xfrm/xfrm_ipcomp.c | 29 ++++++++++++++++++-----------
+>  1 file changed, 18 insertions(+), 11 deletions(-)
+> 
+> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+> index 2906d52..9fe4f42 100644
+> --- a/net/xfrm/xfrm_ipcomp.c
+> +++ b/net/xfrm/xfrm_ipcomp.c
+> @@ -45,12 +45,17 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+>  	const int plen = skb->len;
+>  	int dlen = IPCOMP_SCRATCH_SIZE;
+>  	const u8 *start = skb->data;
+> -	const int cpu = get_cpu();
+> -	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+> -	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+> -	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+> +	struct crypto_comp *tfm;
+> +	u8 *scratch;
+> +	int cpu;
+> +	int err;
+>  	int len;
+>  
+> +	local_bh_disable();
+> +	cpu = smp_processor_id();
+> +	scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+> +	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
 
-Suggested-by: David Miller <davem@davemloft.net>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-This patch is against DaveM's 'net.git' repo but it intended for 'net-next.git'
-repo -- it's  because 'net-next.git' doesn't contain the required Simon Horman's
-patch yet.
-
- drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
- drivers/net/ethernet/renesas/sh_eth.h |    3 +++
- 2 files changed, 6 insertions(+), 3 deletions(-)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -483,7 +483,7 @@ static struct sh_eth_cpu_data sh7757_dat
- 	.register_type	= SH_ETH_REG_FAST_SH4,
- 
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
--	.rmcr_value	= 0x00000001,
-+	.rmcr_value	= RMCR_RNC,
- 
- 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
- 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
-@@ -561,7 +561,7 @@ static struct sh_eth_cpu_data sh7757_dat
- 			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
- 			  EESR_TDE | EESR_ECI,
- 	.fdr_value	= 0x0000072f,
--	.rmcr_value	= 0x00000001,
-+	.rmcr_value	= RMCR_RNC,
- 
- 	.irq_flags	= IRQF_SHARED,
- 	.apr		= 1,
-@@ -689,7 +689,7 @@ static struct sh_eth_cpu_data r8a7740_da
- 			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
- 			  EESR_TDE | EESR_ECI,
- 	.fdr_value	= 0x0000070f,
--	.rmcr_value	= 0x00000001,
-+	.rmcr_value	= RMCR_RNC,
- 
- 	.apr		= 1,
- 	.mpr		= 1,
-Index: net/drivers/net/ethernet/renesas/sh_eth.h
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.h
-+++ net/drivers/net/ethernet/renesas/sh_eth.h
-@@ -321,6 +321,9 @@ enum TD_STS_BIT {
- #define TD_TFP	(TD_TFP1|TD_TFP0)
- 
- /* RMCR */
-+enum RMCR_BIT {
-+	RMCR_RNC = 0x00000001,
-+};
- #define DEFAULT_RMCR_VALUE	0x00000000
- 
- /* ECMR */
+Have you tried this_cpu_ptr() instead ?
