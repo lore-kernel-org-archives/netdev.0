@@ -1,48 +1,47 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next] sctp: Namespacify checksum_disable
-Date: Tue, 15 Oct 2013 09:38:18 +0800
-Message-ID: <525C9C8A.7030603@windriver.com>
-References: <1381739545-674-1-git-send-email-fan.du@windriver.com> <1170c5bd-54e0-4051-a280-ff6538a47614@email.android.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCHv2] ipvs: improved SH fallback strategy
+Date: Tue, 15 Oct 2013 10:55:18 +0900
+Message-ID: <20131015015518.GC6317@verge.net.au>
+References: <20130923115139.GA15034@eldamar.org.uk>
+ <524099BA.5020303@cogentembedded.com>
+ <20130924093238.GD18494@eldamar.org.uk>
+ <20130925003033.GG26081@verge.net.au>
+ <20130925092638.GD19768@eldamar.org.uk>
+ <alpine.LFD.2.00.1309260817290.1640@ja.ssi.bg>
+ <20130926100540.GB27583@eldamar.org.uk>
+ <alpine.LFD.2.00.1309262255400.1949@ja.ssi.bg>
+ <20130927100622.GC28974@eldamar.org.uk>
+ <alpine.LFD.2.00.1309272218180.1725@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36762 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751070Ab3JOBkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 21:40:18 -0400
-In-Reply-To: <1170c5bd-54e0-4051-a280-ff6538a47614@email.android.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Frolkin <avf@eldamar.org.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1309272218180.1725@ja.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 27, 2013 at 10:20:42PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 27 Sep 2013, Alexander Frolkin wrote:
+> 
+> > Improve the SH fallback realserver selection strategy.
+> > 
+> > With sh and sh-fallback, if a realserver is down, this attempts to
+> > distribute the traffic that would have gone to that server evenly
+> > among the remaining servers.
+> > 
+> > Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+> 
+> 	Thanks! Looks good to me.
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-
-On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 22:08, Vlad Yasevich wrote:
->
-> Fan Du<fan.du@windriver.com>  wrote:
->
->> >SCTP CRC32-C checksum computing and verifying should be
->> >namespace-sensible,
->> >as each, e.g. tenant instance might need different checksum
->> >configuration for
->> >its requirement. So this patch enhance SCTP with this feature.
->> >
->> >Signed-off-by: Fan Du<fan.du@windriver.com>
-> NACK.  We don't want that setting to be sysctl configurable.  It is o=
-nly useful in very limited circumstances and is not really for producti=
-on/everyday use.
->
-> In fact, I am going to send in a patch that makes this module paramet=
-er read only in /sys.
-
-Thanks for the background explanation, Vlad.
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+Sorry for letting this one slip.
+I have queued it up.
