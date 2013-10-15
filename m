@@ -1,77 +1,79 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: DomU's network interface will hung when Dom0 running 32bit
-Date: Tue, 15 Oct 2013 09:43:29 +0100
-Message-ID: <1381826609.24708.135.camel@kazak.uk.xensource.com>
-References: <52590DFE.6080203@oracle.com>
-	 <20131014111958.GE11739@zion.uk.xensource.com>
-	 <525CAC21.5040202@oracle.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: kernel policy routing table src ip not respected since 2.6.37
+ and commit 9fc3bbb4a752
+Date: Tue, 15 Oct 2013 11:51:04 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310151144580.1562@ssi.bg>
+References: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>
-To: jianhai luan <jianhai.luan@oracle.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, jsing@google.com
+To: Vincent Li <vincent.mc.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34251 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965Ab3JOInc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 04:43:32 -0400
-In-Reply-To: <525CAC21.5040202@oracle.com>
+Received: from ja.ssi.bg ([178.16.129.10]:53361 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752178Ab3JOIvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 04:51:18 -0400
+In-Reply-To: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-10-15 at 10:44 +0800, jianhai luan wrote:
-> On 2013-10-14 19:19, Wei Liu wrote:
-> > On Sat, Oct 12, 2013 at 04:53:18PM +0800, jianhai luan wrote:
-> >> Hi Ian,
-> >>    I meet the DomU's network interface hung issue recently, and have
-> >> been working on the issue from that time. I find that DomU's network
-> >> interface, which send lesser package, will hung if Dom0 running
-> >> 32bit and DomU's up-time is very long.  I think that one jiffies
-> >> overflow bug exist in the function tx_credit_exceeded().
-> >>    I know the inline function time_after_eq(a,b) will process jiffies
-> >> overflow, but the function have one limit a should little that (b +
-> >> MAX_SIGNAL_LONG). If a large than the value, time_after_eq will
-> >> return false. The MAX_SINGNAL_LONG should be 0x7fffffff at 32-bit
-> >> machine.
-> >>    If DomU's network interface send lesser package (<0.5k/s if
-> >> jiffies=250 and credit_bytes=ULONG_MAX), jiffies will beyond out
-> >> (credit_timeout.expires + MAX_SIGNAL_LONG) and time_after_eq(now,
-> >> next_credit) will failure (should be true). So one timer which will
-> >> not be trigger in short time, and later process will be aborted when
-> >> timer_pending(&vif->credit_timeout) is true. The result will be
-> >> DomU's network interface will be hung in long time (> 40days).
-> >>    Please think about the below scenario:
-> >>    Condition:
-> >>      Dom0 running 32-bit and HZ = 1000
-> >>      vif->credit_timeout->expire = 0xffffffff, vif->remaining_credit
-> >> = 0xffffffff, vif->credit_usec=0 jiffies=0
-> >>      vif receive lesser package (DomU send lesser package). If the
-> >> value is litter than 2K/s, consume 4G(0xffffffff) will need 582.55
-> >> hours. jiffies will large than 0x7ffffff. we guess jiffies =
-> >> 0x800000ff, time_after_eq(0x800000ff, 0xffffffff) will failure, and
-> >> one time which expire is 0xfffffff will be pended into system. So
-> >> the interface will hung until jiffies recount 0xffffffff (that will
-> >> need very long time).
-> > If I'm not mistaken you meant time_after_eq(now, next_credit) in
-> > netback. How does next_credit become 0xffffffff?
+
+	Hello,
+
+On Mon, 14 Oct 2013, Vincent Li wrote:
+
+> I had a simple bash script to test if the policy routing table src ip
+> is respected or not, git bisect found the  commit 9fc3bbb4a752 to
+> change the policy routing table source ip behavior.
 > 
-> I only assume the value is 0xfffffff, and the value of next_credit 
-> isn't  point. If the delta between now and next_credit larger than 
-> ULONG_MAX, time_after_eq will do wrong judge.
-
-So it sounds like we need a timer which is independent of the traffic
-being sent to keep credit_timeout.expires rolling over.
-
-Can you propose a patch?
-
-Ian.
-
-> >
-> > Wei.
-> >
-> >>    If some error exist in above explain, please help me point it out.
-> >>
-> >> Thanks,
-> >> Jason
+> commit 9fc3bbb4a752f108cf096d96640f3b548bbbce6c
+> Author: Joel Sing <jsing@google.com>
+> Date:   Mon Jan 3 20:24:20 2011 +0000
 > 
+>     ipv4/route.c: respect prefsrc for local routes
+> 
+>     The preferred source address is currently ignored for local routes,
+>     which results in all local connections having a src address that is the
+>     same as the local dst address. Fix this by respecting the preferred source
+>     address when it is provided for local routes.
+> 
+> test script:
+> 
+> #!/bin/bash
+> ip addr add 10.1.1.1/24 dev eth0
+> ip addr add 10.1.1.2/24 dev eth0
+> ip rule add priority 245 table 245
+> ip route add 10.1.1.0/24 dev eth0  proto kernel  scope link  src
+> 10.1.1.2 table 245 <===source ip 10.1.1.2 to be preferred
+> 
+> ip addr show dev eth0
+> ip route list table main
+> ip route list table 245
+> 
+> 
+> tcpdump -nn -i eth0 host 10.1.1.9 and icmp &
+> 
+> ping 10.1.1.9
+> 
+> 
+> 
+> --before commit 9fc3bbb4a752
+> 
+> the source is from ip 10.1.1.2 as expected
+> 
+> --after commit 9fc3bbb4a752
+> 
+> the source is from ip 10.1.1.1 which not expected since I have high
+> priority table 245 with source ip 10.1.1.2
+> 
+> is this regression of commit 9fc3bbb4a752 ?
+
+	Hm, it works here on 3.11.3. ARP request uses
+10.1.1.2 and ICMP packet has such source. May be something with
+the ping tool you are using? Check 'strace ping -c 1 10.1.1.9', may
+be it binds to first device IP?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
