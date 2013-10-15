@@ -1,7 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 08/18] atm: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:45:04 +0800
-Message-ID: <1381837514-50660-9-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 18/18] net: wimax: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:45:14 +0800
+Message-ID: <1381837514-50660-19-git-send-email-wangkefeng.wang@huawei.com>
 References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -36,67 +36,22 @@ net_ratelimited_function() is called to simplify code.
 
 Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 ---
- drivers/atm/solos-pci.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+ drivers/net/wimax/i2400m/netdev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 32784d1..a4d20e9 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -807,8 +807,8 @@ void solos_bh(unsigned long card_arg)
- 
- 				skb = alloc_skb(size + 1, GFP_ATOMIC);
- 				if (!skb) {
--					if (net_ratelimit())
--						dev_warn(&card->dev->dev, "Failed to allocate sk_buff for RX\n");
-+					net_ratelimited_function(dev_warn, &card->dev->dev,
-+						"Failed to allocate sk_buff for RX\n");
- 					continue;
- 				}
- 
-@@ -829,8 +829,8 @@ void solos_bh(unsigned long card_arg)
- 				vcc = find_vcc(card->atmdev[port], le16_to_cpu(header->vpi),
- 					       le16_to_cpu(header->vci));
- 				if (!vcc) {
--					if (net_ratelimit())
--						dev_warn(&card->dev->dev, "Received packet for unknown VPI.VCI %d.%d on port %d\n",
-+					net_ratelimited_function(dev_warn, &card->dev->dev,
-+						"Received packet for unknown VPI.VCI %d.%d on port %d\n",
- 							 le16_to_cpu(header->vpi), le16_to_cpu(header->vci),
- 							 port);
- 					dev_kfree_skb_any(skb);
-@@ -856,9 +856,8 @@ void solos_bh(unsigned long card_arg)
- 					break;
- 				spin_lock(&card->cli_queue_lock);
- 				if (skb_queue_len(&card->cli_queue[port]) > 10) {
--					if (net_ratelimit())
--						dev_warn(&card->dev->dev, "Dropping console response on port %d\n",
--							 port);
-+					net_ratelimited_function(dev_warn, &card->dev->dev,
-+						"Dropping console response on port %d\n", port);
- 					dev_kfree_skb_any(skb);
- 				} else
- 					skb_queue_tail(&card->cli_queue[port], skb);
-@@ -878,8 +877,7 @@ void solos_bh(unsigned long card_arg)
- 					  card->config_regs + RX_DMA_ADDR(port));
- 				card->rx_skb[port] = skb;
- 			} else {
--				if (net_ratelimit())
--					dev_warn(&card->dev->dev, "Failed to allocate RX skb");
-+				net_ratelimited_function(dev_warn, &card->dev->dev, "Failed to allocate RX skb");
- 
- 				/* We'll have to try again later */
- 				tasklet_schedule(&card->tlet);
-@@ -927,8 +925,8 @@ static int popen(struct atm_vcc *vcc)
- 
- 	skb = alloc_skb(sizeof(*header), GFP_KERNEL);
- 	if (!skb) {
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+index 4889613..678717a 100644
+--- a/drivers/net/wimax/i2400m/netdev.c
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -305,8 +305,7 @@ int i2400m_net_wake_tx(struct i2400m *i2400m, struct net_device *net_dev,
+ 		 * queue -- blame the queue disciplines that
+ 		 * queue without looking -- I guess there is a reason
+ 		 * for that. */
 -		if (net_ratelimit())
--			dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
-+		net_ratelimited_function(dev_warn, &card->dev->dev,
-+			"Failed to allocate sk_buff in popen()\n");
- 		return -ENOMEM;
- 	}
- 	header = (void *)skb_put(skb, sizeof(*header));
+-			d_printf(1, dev, "NETTX: device exiting idle, "
++		net_ratelimited_function(d_printf, 1, dev, "NETTX: device exiting idle, "
+ 				 "dropping skb %p, queue running %d\n",
+ 				 skb, netif_queue_stopped(net_dev));
+ 		result = -EBUSY;
 -- 
 1.8.2.1
