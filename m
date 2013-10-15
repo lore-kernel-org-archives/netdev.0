@@ -1,55 +1,40 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net net 5/9] bnx2x: Fix config when SR-IOV and iSCSI are
- enabled
-Date: Tue, 15 Oct 2013 16:28:51 +0200
-Message-ID: <1381847335-32662-6-git-send-email-yuvalmin@broadcom.com>
-References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+From: =?iso-8859-15?Q?Kelleter=2C_G=FCnther?= <GKelleter@datus.com>
+Subject: [PATCH] X.25: Fix address field length calculation
+Date: Tue, 15 Oct 2013 14:29:06 +0000
+Message-ID: <525D5131.9070007@datus.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2703 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759175Ab3JOO3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:29:16 -0400
-In-Reply-To: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"linux-x25@vger.kernel.org" <linux-x25@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "andrew.hendry@gmail.com" <andrew.hendry@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: de-DE
+Content-ID: <01736E88829C1B4A9589D66039BC9A5E@datus.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ariel Elior <ariele@broadcom.com>
+Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
 
-Starting with commit b9871bc "bnx2x: VF RSS support - PF side", if a PF will
-have SR-IOV supported in its PCI configuration space, storage drivers will not
-work for that interface.
-
-This patch fixes the resource calculation to allow such a configuration to
-properly work.
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Guenther Kelleter <gkelleter@datus.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Wrong length calculation leads to rejection of CALL ACCEPT packets.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 986edbf..275b126 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1197,8 +1197,9 @@ union cdu_context {
- /* TM (timers) host DB constants */
- #define TM_ILT_PAGE_SZ_HW	0
- #define TM_ILT_PAGE_SZ		(4096 << TM_ILT_PAGE_SZ_HW) /* 4K */
--/* #define TM_CONN_NUM		(CNIC_STARTING_CID+CNIC_ISCSI_CXT_MAX) */
--#define TM_CONN_NUM		1024
-+#define TM_CONN_NUM		(BNX2X_FIRST_VF_CID + \
-+				 BNX2X_VF_CIDS + \
-+				 CNIC_ISCSI_CID_MAX)
- #define TM_ILT_SZ		(8 * TM_CONN_NUM)
- #define TM_ILT_LINES		DIV_ROUND_UP(TM_ILT_SZ, TM_ILT_PAGE_SZ)
- 
+ net/x25/af_x25.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 45a3ab5..2daf224 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
+ 	}
+  	len = *skb->data;
+-	needed = 1 + (len >> 4) + (len & 0x0f);
++	needed = 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
+  	if (!pskb_may_pull(skb, needed)) {
+ 		/* packet is too short to hold the addresses it claims
 -- 
-1.8.1.227.g44fe835
+1.8.3.4.71.g0878476
