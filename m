@@ -1,132 +1,114 @@
-From: Chang <changxiangzhong@gmail.com>
-Subject: Re: [PATCH] net: sctp: fix a cacc_saw_newack missetting issue
-Date: Tue, 15 Oct 2013 17:13:32 +0200
-Message-ID: <525D5B9C.3030302@gmail.com>
-References: <1381757623-12803-1-git-send-email-changxiangzhong@gmail.com> <525D4D2D.8000506@gmail.com> <525D50BD.5030301@gmail.com> <525D525E.8010508@gmail.com>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: DomU's network interface will hung when Dom0 running 32bit
+Date: Tue, 15 Oct 2013 23:19:42 +0800
+Message-ID: <525D5D0E.5070107@oracle.com>
+References: <52590DFE.6080203@oracle.com>	 <20131014111958.GE11739@zion.uk.xensource.com>	 <525CAC21.5040202@oracle.com>	 <1381826609.24708.135.camel@kazak.uk.xensource.com>	 <525D0C41.2080407@oracle.com>	 <20131015100624.GB29436@zion.uk.xensource.com>	 <525D2667.6040102@oracle.com>	 <20131015125802.GR11739@zion.uk.xensource.com> <525D513B.70406@oracle.com>	 <20131015144910.GS11739@zion.uk.xensource.com> <1381848632.21901.42.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <525D525E.8010508@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	ANNIE LI <annie.li@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34195 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932203Ab3JOPUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 11:20:01 -0400
+In-Reply-To: <1381848632.21901.42.camel@kazak.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks, I've got it and will submit a new patch later.
-On 10/15/2013 04:34 PM, Vlad Yasevich wrote:
-> On 10/15/2013 10:27 AM, Chang wrote:
->>
->> On 10/15/2013 04:11 PM, Vlad Yasevich wrote:
->>> On 10/14/2013 09:33 AM, Chang Xiangzhong wrote:
->>>> For for each TSN t being newly acked (Not only cumulatively,
->>>> but also SELECTIVELY) cacc_saw_newack should be set to 1.
+
+On 2013-10-15 22:50, Ian Campbell wrote:
+> On Tue, 2013-10-15 at 15:49 +0100, Wei Liu wrote:
+>> On Tue, Oct 15, 2013 at 10:29:15PM +0800, jianhai luan wrote:
+>>> On 2013-10-15 20:58, Wei Liu wrote:
+>>>> On Tue, Oct 15, 2013 at 07:26:31PM +0800, jianhai luan wrote:
+>>>> [...]
+>>>>>>>> Can you propose a patch?
+>>>>>>> Because credit_timeout.expire always after jiffies, i judge the
+>>>>>>> value over the range of time_after_eq() by time_before(now,
+>>>>>>> vif->credit_timeout.expires). please check the patch.
+>>>>>> I don't think this really fix the issue for you. You still have chance
+>>>>>> that now wraps around and falls between expires and next_credit. In that
+>>>>>> case it's stalled again.
+>>>>> if time_before(now, vif->credit_timeout.expires) is true, time wrap
+>>>>> and do operation. Otherwise time_before(now,
+>>>>> vif->credit_timeout.expires) isn't true, now -
+>>>>> vif->credit_timeout.expires should be letter than ULONG_MAX/2.
+>>>>> Because next_credit large than vif->credit_timeout.expires
+>>>>> (next_crdit = vif->credit_timeout.expires +
+>>>>> msecs_to_jiffies(vif->credit_usec/1000)), the delta between now and
+>>>>> next_credit should be in range of time_after_eq().  So
+>>>>> time_after_eq() do correctly judge.
+>>>>>
+>>>> Not sure I understand you. Consider "now" is placed like this:
 >>>>
->>>> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
->>>> ---
->>>>   net/sctp/outqueue.c |   42 
->>>> +++++++++++++++++++++---------------------
->>>>   1 file changed, 21 insertions(+), 21 deletions(-)
+>>>>     expires   now   next_credit
+>>>>     ----time increases this direction--->
 >>>>
->>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
->>>> index 94df758..d86032b 100644
->>>> --- a/net/sctp/outqueue.c
->>>> +++ b/net/sctp/outqueue.c
->>>> @@ -1398,6 +1398,27 @@ static void sctp_check_transmitted(struct
->>>> sctp_outq *q,
->>>>                   forward_progress = true;
->>>>               }
->>>>
->>>> +            if (!tchunk->tsn_gap_acked) {
+>>>> * time_after_eq(now, next_credit) -> false
+>>>> * time_before(now, expires) -> false
+>>> If now is placed in above environment, the result will be correct
+>>> (Sending package will be not allowed until next_credit).
+>> No, it is not necessarily correct. Keep in mind that "now" wraps around,
+>> which is the issue you try to fix. You still have a window to stall your
+>> frontend.
+> Remember that time_after_eq is supposed to work even with wraparound
+> occurring, so long as the two times are less than MAX_LONG/2 apart.
+
+Sorry for my misunderstand explanation. I mean that
+   * time_after_eq()/time_before_eq() fix the jiffies wraparound, so 
+please think about  jiffies in line increasing.
+   * time_after_eq()/time_before_eq() have the range (0, MAX_LONG/2), 
+the judge will be wrong if out of the range.
+
+So please think about three kind environment
+   -  expires        now        next_credit
+      --------time increases this direction ---------->
+
+   -  expires        [next_credit        now next_credit+MAX_LONG/2
+      --------time increase this direction ----------->
+
+   - expires        next_credit        next_credit+MAX_LONG/2 now
+      --------time increadse this direction ---------->
+
+The first environment should be netfront consume all credit_byte before 
+next_credit, So we should pending one timer to calculator the new 
+credit_byte, and don't transmit until next_credit.
+
+the second environment should be calculator the credit_byte because 
+netfront don't consume all credit_byte before next_credit, and 
+time_after_eq() do correct judge.
+
+the third environment should be calculator in time because netfront 
+don't consume all credit_byte until next_credit.But time_after_eq do 
+error judge (time_after_eq(now, next_credit) is false), so the 
+remaining_byte isn't be increased.
+
+and I work on the third environment.  You know now > 
+next_credit+MAX_LONG/2, time_before(now, expire) should be 
+true(time_before(now, expire) is false in first environment)
+>
+>>> * time_after_eq(now, next_credit)  --> false will include two environment:
+>>>    expires     now   next_credit
+>>>    -----------time increases this direction ---->
 >>>
->>> You can remove this test since the block just above already performs
->>> it.  Just fold this code into the block above.
+>>> Or
+>>>    expires      next_credit             next_credit + MAX_LONG/2 now
+>>>    -----------time increases this direction ---->
 >>>
->>> -vlad
 >>>
->> Sorry, I'm not sure if I fully understand you. There are code blocks
->> which checking the tchunk->tsn_gap_acked. In addition, they check other
->> states as well.
->
-> The flow is:
->
->      if (sctp_acked(sack, tsn)) {
->         ...
->         if (transport) {
->             ....
->         }
->
->         if (!tchunk->tsn_gap_acked) {
->             ....
->         }
->
->         if (TSN_lte(tsn, sack_ctsn)) {
->             ....
->             /* SFR-CACC ...
->         }
->
-> Since you are moving this up, you can simply re-use
-> the if (!tchunk->tsn_gap_acked) immediately above.
->
->>>> +                /*
->>>> +                 * SFR-CACC algorithm:
->>>> +                 * 2) If the SACK contains gap acks
->>>> +                 * and the flag CHANGEOVER_ACTIVE is
->>>> +                 * set the receiver of the SACK MUST
->>>> +                 * take the following action:
->>>> +                 *
->>>> +                 * B) For each TSN t being acked that
->>>> +                 * has not been acked in any SACK so
->>>> +                 * far, set cacc_saw_newack to 1 for
->>>> +                 * the destination that the TSN was
->>>> +                 * sent to.
->>>> +                 */
->>>> +                if (transport &&
->>>> +                    sack->num_gap_ack_blocks &&
->>>> + q->asoc->peer.primary_path->cacc.
->>>> +                    changeover_active)
->>>> +                    transport->cacc.cacc_saw_newack    = 1;
->                             ^^^^
->
-> Don't need that many spaces...
->
-> -vlad
->>>> +            }
->>>> +
->>>>               if (TSN_lte(tsn, sack_ctsn)) {
->>>>                   /* RFC 2960  6.3.2 Retransmission Timer Rules
->>>>                    *
->>>> @@ -1411,27 +1432,6 @@ static void sctp_check_transmitted(struct
->>>> sctp_outq *q,
->>>>                   restart_timer = 1;
->>>>                   forward_progress = true;
->>>>
->>>> -                if (!tchunk->tsn_gap_acked) {
->>>> -                    /*
->>>> -                     * SFR-CACC algorithm:
->>>> -                     * 2) If the SACK contains gap acks
->>>> -                     * and the flag CHANGEOVER_ACTIVE is
->>>> -                     * set the receiver of the SACK MUST
->>>> -                     * take the following action:
->>>> -                     *
->>>> -                     * B) For each TSN t being acked that
->>>> -                     * has not been acked in any SACK so
->>>> -                     * far, set cacc_saw_newack to 1 for
->>>> -                     * the destination that the TSN was
->>>> -                     * sent to.
->>>> -                     */
->>>> -                    if (transport &&
->>>> -                        sack->num_gap_ack_blocks &&
->>>> - q->asoc->peer.primary_path->cacc.
->>>> -                        changeover_active)
->>>> -                        transport->cacc.cacc_saw_newack
->>>> -                            = 1;
->>>> -                }
->>>>
->>>> list_add_tail(&tchunk->transmitted_list,
->>>>                             &q->sacked);
->>>>
+>>> the first environment should be correct to control transmit. the
+>>> second environment is our included environment.
 >>>
->>
+>>> Jason
+>>>> Then it's stuck again. You're merely narrowing the window, not fixing
+>>>> the real problem.
+>>>>
+>>>> Wei.
+>>>>
+>>>>> Jason
+>>>>>> Wei.
 >
