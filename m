@@ -1,244 +1,110 @@
-From: Arvid Brodin <arvid.brodin@xdin.com>
-Subject: Re: net/hsr Patch - Help
-Date: Tue, 15 Oct 2013 21:09:01 +0200
-Message-ID: <525D92CD.6090901@xdin.com>
-References: <52299175.90302@ehu.es> <522E1035.2050503@xdin.com> <525CF1F3.2050006@ehu.es>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: RE: [Ilw] drivers/net/wireless/iwlwifi/dvm/tx.c:456
+ iwlagn_tx_skb+0x6c5/0x883()
+Date: Tue, 15 Oct 2013 19:11:36 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB301DC4E24@HASMSX103.ger.corp.intel.com>
+References: <9010061839.20131015123940@eikelenboom.it>
+ <0BA3FCBA62E2DC44AF3030971E174FB301DC46E5@HASMSX103.ger.corp.intel.com>
+ <1127865420.20131015151054@eikelenboom.it>
+ <0BA3FCBA62E2DC44AF3030971E174FB301DC4AB7@HASMSX103.ger.corp.intel.com>
+ <1764863131.20131015210406@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	balferreira <balferreira@googlemail.com>,
-	Joe Perches <joe@perches.com>
-To: =?ISO-8859-1?Q?El=EDas_Molina_Mu=F1oz?= <elias.molina@ehu.es>
+Content-Type: multipart/mixed;
+	boundary="_002_0BA3FCBA62E2DC44AF3030971E174FB301DC4E24HASMSX103gercor_"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:58791 "EHLO spam1.webland.se"
+Received: from mga09.intel.com ([134.134.136.24]:34192 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757185Ab3JOTJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 15:09:05 -0400
-In-Reply-To: <525CF1F3.2050006@ehu.es>
+	id S1756260Ab3JOTLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 15:11:41 -0400
+In-Reply-To: <1764863131.20131015210406@eikelenboom.it>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-10-15 09:42, El=EDas Molina Mu=F1oz wrote:
-> El 09/09/2013 20:15, Arvid Brodin escribi=F3:
->> On 2013-09-06 10:25, El=EDas Molina Mu=F1oz wrote:
->>> Dear Mr. Brodin,
->>>=20
->>> I would like to introduce myself. My name is El=EDas Molina, PhD.=20
->>> Student at University of Basque Country (Spain). I am writing to=20
->>> enquire about your HSR patch.
->> Hi!
->>=20
->>> I have read "This is a patch against net-next (2013-08-21)" in
->>> its last version (v3) so I have tried with several kernel
->>> versions but I do not know which is the repo's correct version
->>> of=20
->>> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/
->>> .
->>>=20
->>> Could you tell me which is the kernel version to apply your
->>> patch?
->> I made an error when I sent that patch, so it won't apply to any
->> kernel version.
->>=20
->> The below patch should work (cd to the net-next directory and apply
->> with patch -Np1):
->>=20
-[removed]
+--_002_0BA3FCBA62E2DC44AF3030971E174FB301DC4E24HASMSX103gercor_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-> Dear Mr. Brodin,
-> =20
-> Thanks for getting back to me and I apologize for being so late
-> replying.
-> =20
-> I am writing to enquire if, once compiled the kernel with your patch,
-> there is a sample application for verifying the correct operation of
-> HSR, as you did in http://patchwork.ozlabs.org/patch/191165/ with
-> Documentation/networking/hsr/hsr_genl.c
-> =20
-> Thank you very much. Best regards,
-> =20
-> El=EDas Molina
+> > Please apply this:
+> > diff --git a/drivers/net/wireless/iwlwifi/dvm/tx.c
+> b/drivers/net/wireless/iwlwifi/dvm/tx.c
+> > index d131f85..5968f19 100644
+> > --- a/drivers/net/wireless/iwlwifi/dvm/tx.c
+> > +++ b/drivers/net/wireless/iwlwifi/dvm/tx.c
+> > @@ -457,8 +457,8 @@ int iwlagn_tx_skb(struct iwl_priv *priv,
+> >         WARN_ON_ONCE(is_agg &&
+> >                      priv->queue_to_mac80211[txq_id] !=3D info->hw_queu=
+e);
+> >
+> > -       IWL_DEBUG_TX(priv, "TX to [%d|%d] Q:%d - seq: 0x%x\n", sta_id, =
+tid,
+> > -                    txq_id, seq_number);
+> > +       IWL_DEBUG_TX(priv, "TX to [%d|%d] Q:%d info Q %d - seq: 0x%x\n"=
+,
+> sta_id, tid,
+> > +                    txq_id, info->hw_queue, seq_number);
+> >
+> >         if (iwl_trans_tx(priv->trans, skb, dev_cmd, txq_id))
+> >                 goto drop_unlock_sta;
+>=20
+> > and send the output back to me
+>=20
+> > Thanks.
+>=20
 
-Hi again,
-
-I'm CC:ing the netdev list and others who've shown interest in HSR, sin=
-ce=20
-they might be interested as well.
-
-Yes, I have patches for iproute2 (to make it possible to add HSR device=
-s)
-and also a "hsrinfo" program which can be used to query an HSR interfac=
-e=20
-for statistics, and to listen for any HSR errors detected. The hsrinfo=20
-program is based on the hsr_genl program that you mention. It requires=20
-the libnl3 library.
-
-The iproute patch is below (I'll send a separate message with the hsrin=
-fo
-code).
-
-(I don't think the patch below will get accepted into iproute2 before=20
-the HSR patch itself is accepted into the kernel - which I'm beginning =
-to=20
-doubt it ever will be, unfortunately.)
+Can you please apply the patch attached (and remove the previous change)?
+Thanks.
 
 
-This patch adds support to iproute2 for adding High-Availability Seamle=
-ss
-Redundancy (HSR) network devices.
+--_002_0BA3FCBA62E2DC44AF3030971E174FB301DC4E24HASMSX103gercor_
+Content-Type: application/octet-stream;
+	name="0001-iwlwifi-dvm-don-t-override-mac80211-s-queue-setting.patch"
+Content-Description: 0001-iwlwifi-dvm-don-t-override-mac80211-s-queue-setting.patch
+Content-Disposition: attachment;
+	filename="0001-iwlwifi-dvm-don-t-override-mac80211-s-queue-setting.patch";
+	size=1902; creation-date="Tue, 15 Oct 2013 19:09:32 GMT";
+	modification-date="Tue, 15 Oct 2013 19:09:50 GMT"
+Content-Transfer-Encoding: base64
 
-Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
----
- include/linux/if_link.h | 12 +++++++
- ip/Makefile             |  2 +-
- ip/iplink_hsr.c         | 86 +++++++++++++++++++++++++++++++++++++++++=
-++++++++
- 3 files changed, 99 insertions(+), 1 deletion(-)
- create mode 100644 ip/iplink_hsr.c
+RnJvbSBmZGRhNzliMjQyMTM0ODMwMzRjZDlhMTczYmQxYjA3ODMwOWNiNGI5IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBFbW1hbnVlbCBHcnVtYmFjaCA8ZW1tYW51ZWwuZ3J1bWJhY2hA
+aW50ZWwuY29tPgpEYXRlOiBUdWUsIDE1IE9jdCAyMDEzIDIyOjA0OjU0ICswMzAwClN1YmplY3Q6
+IFtQQVRDSF0gaXdsd2lmaTogZHZtOiBkb24ndCBvdmVycmlkZSBtYWM4MDIxMSdzIHF1ZXVlIHNl
+dHRpbmcKClNpbmNlIHdlIHNldCBJRUVFODAyMTFfSFdfUVVFVUVfQ09OVFJPTCwgd2UgY2FuIGxl
+dAptYWM4MDIxMSBkbyB0aGUgcXVldWUgYXNzaWduZW1lbnQgYW5kIGRvbid0IG5lZWQgdG8Kb3Zl
+cnJpZGUgaXRzIGRlY2lzaW9ucy4KVGhpcyBpcyB0cnVlIGZvciBvZmZjaGFubmVsIHBhY2tldHMs
+IHBhY2tldHMgdG8gIGJlIHNlbnQKYWZ0ZXIgRFRJTSwgYnV0IG5vdCBmb3IgQU1QRFVzIHNpbmNl
+IHdlIGhhdmUgYSBzcGVjaWFsCnF1ZXVlIGZvciB0aGVtLiBTbyBmb3IgQU1QRFUsIHdlIHN0aWxs
+IG92ZXJyaWRlCmluZm8tPmh3X3F1ZXVlIGJ5IHRoZSBBTVBEVSBxdWV1ZS4KClNpZ25lZC1vZmYt
+Ynk6IEVtbWFudWVsIEdydW1iYWNoIDxlbW1hbnVlbC5ncnVtYmFjaEBpbnRlbC5jb20+Ci0tLQog
+ZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9kdm0vdHguYyB8IDE0ICsrKy0tLS0tLS0tLS0t
+CiAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAxMSBkZWxldGlvbnMoLSkKCmRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2R2bS90eC5jIGIvZHJpdmVycy9u
+ZXQvd2lyZWxlc3MvaXdsd2lmaS9kdm0vdHguYwppbmRleCBkMTMxZjg1Li44NjE5NmE1IDEwMDY0
+NAotLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2R2bS90eC5jCisrKyBiL2RyaXZl
+cnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvZHZtL3R4LmMKQEAgLTQzMywyNyArNDMzLDE5IEBAIGlu
+dCBpd2xhZ25fdHhfc2tiKHN0cnVjdCBpd2xfcHJpdiAqcHJpdiwKIAkvKiBDb3B5IE1BQyBoZWFk
+ZXIgZnJvbSBza2IgaW50byBjb21tYW5kIGJ1ZmZlciAqLwogCW1lbWNweSh0eF9jbWQtPmhkciwg
+aGRyLCBoZHJfbGVuKTsKIAorCXR4cV9pZCA9IGluZm8tPmh3X3F1ZXVlOworCiAJaWYgKGlzX2Fn
+ZykKIAkJdHhxX2lkID0gcHJpdi0+dGlkX2RhdGFbc3RhX2lkXVt0aWRdLmFnZy50eHFfaWQ7CiAJ
+ZWxzZSBpZiAoaW5mby0+ZmxhZ3MgJiBJRUVFODAyMTFfVFhfQ1RMX1NFTkRfQUZURVJfRFRJTSkg
+ewogCQkvKgotCQkgKiBTZW5kIHRoaXMgZnJhbWUgYWZ0ZXIgRFRJTSAtLSB0aGVyZSdzIGEgc3Bl
+Y2lhbCBxdWV1ZQotCQkgKiByZXNlcnZlZCBmb3IgdGhpcyBmb3IgY29udGV4dHMgdGhhdCBzdXBw
+b3J0IEFQIG1vZGUuCi0JCSAqLwotCQl0eHFfaWQgPSBjdHgtPm1jYXN0X3F1ZXVlOwotCi0JCS8q
+CiAJCSAqIFRoZSBtaWNyb2NvZGUgd2lsbCBjbGVhciB0aGUgbW9yZSBkYXRhCiAJCSAqIGJpdCBp
+biB0aGUgbGFzdCBmcmFtZSBpdCB0cmFuc21pdHMuCiAJCSAqLwogCQloZHItPmZyYW1lX2NvbnRy
+b2wgfD0KIAkJCWNwdV90b19sZTE2KElFRUU4MDIxMV9GQ1RMX01PUkVEQVRBKTsKLQl9IGVsc2Ug
+aWYgKGluZm8tPmZsYWdzICYgSUVFRTgwMjExX1RYX0NUTF9UWF9PRkZDSEFOKQotCQl0eHFfaWQg
+PSBJV0xfQVVYX1FVRVVFOwotCWVsc2UKLQkJdHhxX2lkID0gY3R4LT5hY190b19xdWV1ZVtza2Jf
+Z2V0X3F1ZXVlX21hcHBpbmcoc2tiKV07CisJfQogCi0JV0FSTl9PTl9PTkNFKCFpc19hZ2cgJiYg
+dHhxX2lkICE9IGluZm8tPmh3X3F1ZXVlKTsKIAlXQVJOX09OX09OQ0UoaXNfYWdnICYmCiAJCSAg
+ICAgcHJpdi0+cXVldWVfdG9fbWFjODAyMTFbdHhxX2lkXSAhPSBpbmZvLT5od19xdWV1ZSk7CiAK
+LS0gCjEuOC4xLm1zeXNnaXQuMQoK
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index d07aeca..bab39e8 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -465,4 +465,16 @@ enum {
-=20
- #define IFLA_IPOIB_MAX (__IFLA_IPOIB_MAX - 1)
-=20
-+/* HSR section */
-+
-+enum {
-+	IFLA_HSR_UNSPEC,
-+	IFLA_HSR_SLAVE1,
-+	IFLA_HSR_SLAVE2,
-+	IFLA_HSR_MULTICAST_SPEC,
-+	__IFLA_HSR_MAX,
-+};
-+
-+#define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/ip/Makefile b/ip/Makefile
-index 48bd4a1..5ef1562 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -5,7 +5,7 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o iprule=
-=2Eo ipnetns.o \
-     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
-     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o \
-     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tn=
-l.o \
--    link_iptnl.o
-+    link_iptnl.o iplink_hsr.o
-=20
- RTMONOBJ=3Drtmon.o
-=20
-diff --git a/ip/iplink_hsr.c b/ip/iplink_hsr.c
-new file mode 100644
-index 0000000..c7c00d6
---- /dev/null
-+++ b/ip/iplink_hsr.c
-@@ -0,0 +1,86 @@
-+/*
-+ * iplink_hsr.c	HSR device support
-+ *
-+ *              This program is free software; you can redistribute it=
- and/or
-+ *              modify it under the terms of the GNU General Public Li=
-cense
-+ *              as published by the Free Software Foundation; either v=
-ersion
-+ *              2 of the License, or (at your option) any later versio=
-n.
-+ *
-+ * Authors:     Arvid Brodin <arvid.brodin@xdin.com>
-+ *
-+ * 		Based on iplink_vlan.c by Patrick McHardy <kaber@trash.net>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>  /* Needed by linux/if.h for some reason */
-+#include <linux/if.h>
-+
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void usage(void)
-+{
-+	fprintf(stderr,
-+"Usage:\tip link add name NAME type hsr slave1 SLAVE1-IF slave2 SLAVE2=
--IF\n"
-+"\t[ multicast ADDR-BYTE ]\n"
-+"\n"
-+"NAME\n"
-+"	name of new hsr device (e.g. hsr0)\n"
-+"SLAVE1-IF, SLAVE2-IF\n"
-+"	the two slave devices bound to the HSR device\n"
-+"ADDR-BYTE\n"
-+"	0-255; the last byte of the multicast address used for HSR supervisi=
-on\n"
-+"	frames (default =3D 0)\n");
-+}
-+
-+static int hsr_parse_opt(struct link_util *lu, int argc, char **argv,
-+			  struct nlmsghdr *n)
-+{
-+	int ifindex;
-+	unsigned char multicast_spec;
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "multicast") =3D=3D 0) {
-+			NEXT_ARG();
-+			if (get_u8(&multicast_spec, *argv, 0))
-+				invarg("ADDR-BYTE is invalid", *argv);
-+			addattr_l(n, 1024, IFLA_HSR_MULTICAST_SPEC, &multicast_spec, 1);
-+		} else if (matches(*argv, "slave1") =3D=3D 0) {
-+			NEXT_ARG();
-+			ifindex =3D ll_name_to_index(*argv);
-+			if (ifindex =3D=3D 0)
-+				invarg("No such interface", *argv);
-+			addattr_l(n, 1024, IFLA_HSR_SLAVE1, &ifindex, 4);
-+		} else if (matches(*argv, "slave2") =3D=3D 0) {
-+			NEXT_ARG();
-+			ifindex =3D ll_name_to_index(*argv);
-+			if (ifindex =3D=3D 0)
-+				invarg("No such interface", *argv);
-+			addattr_l(n, 1024, IFLA_HSR_SLAVE2, &ifindex, 4);
-+		} else if (matches(*argv, "help") =3D=3D 0) {
-+			usage();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "hsr: what is \"%s\"?\n", *argv);
-+			usage();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+static void hsr_print_opt(struct link_util *lu, FILE *f, struct rtattr=
- *tb[])
-+{
-+	fprintf(f, "hsr_print_opt() called\n");
-+}
-+
-+struct link_util hsr_link_util =3D {
-+	.id		=3D "hsr",
-+	.maxattr	=3D IFLA_VLAN_MAX,
-+	.parse_opt	=3D hsr_parse_opt,
-+	.print_opt	=3D hsr_print_opt,
-+};
---=20
-1.8.1.5
-
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
+--_002_0BA3FCBA62E2DC44AF3030971E174FB301DC4E24HASMSX103gercor_--
