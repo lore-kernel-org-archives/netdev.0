@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 0/3] bonding: patchset for rcu use in bonding
-Date: Tue, 15 Oct 2013 16:28:31 +0800
-Message-ID: <525CFCAF.2000605@huawei.com>
+Subject: [PATCH net-next v2 1/3] bonding: use RCU protection for 3ad xmit
+ path
+Date: Tue, 15 Oct 2013 16:28:35 +0800
+Message-ID: <525CFCB3.50409@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,33 +13,78 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:9746 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:9740 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752707Ab3JOI3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 04:29:50 -0400
+	with ESMTP id S1757744Ab3JOI37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 04:29:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
+(bonding: initial RCU conversion) has convert the roundrobin,
+active-backup, broadcast and xor xmit path to rcu protection,
+the performance will be better for these mode, so this time,
+convert xmit path for 3ad mode.
 
-The Patch Set convert the xmit of 3ad and alb mode to use rcu lock.
-dd rtnl lock and remove read lock for bond sysfs.
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_3ad.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-v2 because the bond_for_each_slave_rcu without rcu_read_lock() will occurs one warming, so
-add new function for alb xmit path to avoid warming.
-
-Ding Tianhong (3):
-Wang Yufen (1):
-Yang Yingliang (1):
-  bonding: use RCU protection for 3ad xmit path
-  bonding: use RCU protection for alb xmit path
-  bonding: add rtnl lock and remove read lock for bond sysfs
-
- drivers/net/bonding/bond_3ad.c   | 10 +++----
- drivers/net/bonding/bond_alb.c   | 58 +++++++++++++++++++++++++++++-----------
- drivers/net/bonding/bond_sysfs.c | 30 ++++++++++++---------
- drivers/net/bonding/bonding.h    | 14 ++++++++++
- 4 files changed, 78 insertions(+), 34 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ea3e64e..187b1b7 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2344,7 +2344,7 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
+ 	struct slave *slave;
+ 	struct port *port;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (port->aggregator && port->aggregator->is_active) {
+ 			aggregator = port->aggregator;
+@@ -2369,9 +2369,9 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+ {
+ 	int ret;
+ 
+-	read_lock(&bond->lock);
++	rcu_read_lock();
+ 	ret = __bond_3ad_get_active_agg_info(bond, ad_info);
+-	read_unlock(&bond->lock);
++	rcu_read_unlock();
+ 
+ 	return ret;
+ }
+@@ -2388,7 +2388,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	int res = 1;
+ 	int agg_id;
+ 
+-	read_lock(&bond->lock);
+ 	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 		pr_debug("%s: Error: __bond_3ad_get_active_agg_info failed\n",
+ 			 dev->name);
+@@ -2406,7 +2405,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
+ 	first_ok_slave = NULL;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		agg = SLAVE_AD_INFO(slave).port.aggregator;
+ 		if (!agg || agg->aggregator_identifier != agg_id)
+ 			continue;
+@@ -2436,7 +2435,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		res = bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+ 
+ out:
+-	read_unlock(&bond->lock);
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+ 		kfree_skb(skb);
 -- 
 1.8.2.1
