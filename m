@@ -1,7 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 11/18] net: hamradio: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:45:07 +0800
-Message-ID: <1381837514-50660-12-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 02/18] net: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:44:58 +0800
+Message-ID: <1381837514-50660-3-git-send-email-wangkefeng.wang@huawei.com>
 References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -32,41 +32,118 @@ In-Reply-To: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_XXX_ratelimited() is called to simplify code.
+Wrapper functions net_ratelimited_function() and net_XXX_ratelimited()
+are called to simplify code.
 
 Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 ---
- drivers/net/hamradio/6pack.c    | 3 +--
- drivers/net/hamradio/bpqether.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ net/bridge/br_fdb.c                   |  6 ++----
+ net/bridge/br_multicast.c             | 13 ++++---------
+ net/bridge/br_stp_bpdu.c              | 11 ++++-------
+ net/mac80211/rx.c                     |  6 ++----
+ net/netfilter/ipset/ip_set_hash_gen.h |  3 +--
+ 5 files changed, 13 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
-index 1450e33..9e97eba 100644
---- a/drivers/net/hamradio/6pack.c
-+++ b/drivers/net/hamradio/6pack.c
-@@ -237,8 +237,7 @@ static void sp_encaps(struct sixpack *sp, unsigned char *icp, int len)
- out_drop:
- 	sp->dev->stats.tx_dropped++;
- 	netif_start_queue(sp->dev);
--	if (net_ratelimit())
--		printk(KERN_DEBUG "%s: %s - dropped.\n", sp->dev->name, msg);
-+	net_dbg_ratelimited("%s: %s - dropped.\n", sp->dev->name, msg);
- }
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index ffd5874..e47dfe5 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -465,10 +465,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 	if (likely(fdb)) {
+ 		/* attempt to update an entry for a local interface */
+ 		if (unlikely(fdb->is_local)) {
+-			if (net_ratelimit())
+-				br_warn(br, "received packet on %s with "
+-					"own address as source address\n",
+-					source->dev->name);
++			net_ratelimited_function(br_warn, br, "received packet on %s "
++				"with own address as source address\n", source->dev->name);
+ 		} else {
+ 			/* fastpath: update of existing entry */
+ 			fdb->dst = source;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index d1c5786..c00d8a2 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -530,11 +530,8 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
+ 	max = mdb->max;
  
- /* Encapsulate an IP datagram and kick it into a TTY queue. */
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index f91bf0d..1522b4a 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -269,8 +269,7 @@ static netdev_tx_t bpq_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * space for the BPQ headers.
- 	 */
- 	if (skb_cow(skb, AX25_BPQ_HEADER_LEN)) {
+ 	if (unlikely(count > br->hash_elasticity && count)) {
 -		if (net_ratelimit())
--			pr_err("bpqether: out of memory\n");
-+		net_err_ratelimited("pqether: out of memory\n");
- 		kfree_skb(skb);
+-			br_info(br, "Multicast hash table "
+-				"chain limit reached: %s\n",
+-				port ? port->dev->name : br->dev->name);
+-
++		net_ratelimited_function(br_info, br, "Multicast hash table "
++			"chain limit reached: %s\n", port ? port->dev->name : br->dev->name);
+ 		elasticity = br->hash_elasticity;
+ 	}
  
- 		return NETDEV_TX_OK;
+@@ -554,10 +551,8 @@ disable:
+ 
+ 	if (max > mdb->max || elasticity) {
+ 		if (mdb->old) {
+-			if (net_ratelimit())
+-				br_info(br, "Multicast hash table "
+-					"on fire: %s\n",
+-					port ? port->dev->name : br->dev->name);
++			net_ratelimited_function(br_info, br, "Multicast hash table "
++				"on fire: %s\n", port ? port->dev->name : br->dev->name);
+ 			err = -EEXIST;
+ 			goto err;
+ 		}
+diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
+index 8660ea3..482ef11 100644
+--- a/net/bridge/br_stp_bpdu.c
++++ b/net/bridge/br_stp_bpdu.c
+@@ -220,13 +220,10 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
+ 		bpdu.forward_delay = br_get_ticks(buf+30);
+ 
+ 		if (bpdu.message_age > bpdu.max_age) {
+-			if (net_ratelimit())
+-				br_notice(p->br,
+-					  "port %u config from %pM"
+-					  " (message_age %ul > max_age %ul)\n",
+-					  p->port_no,
+-					  eth_hdr(skb)->h_source,
+-					  bpdu.message_age, bpdu.max_age);
++			net_ratelimited_function(br_notice, p->br,
++				"port %u config from %pM (message_age %ul > max_age %ul)\n",
++				p->port_no, eth_hdr(skb)->h_source,
++				bpdu.message_age, bpdu.max_age);
+ 			goto out;
+ 		}
+ 
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 54395d7..35b8b1d 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -3156,10 +3156,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
+ 	if (!consume) {
+ 		skb = skb_copy(skb, GFP_ATOMIC);
+ 		if (!skb) {
+-			if (net_ratelimit())
+-				wiphy_debug(local->hw.wiphy,
+-					"failed to copy skb for %s\n",
+-					sdata->name);
++			net_ratelimited_function(wiphy_debug, local->hw.wiphy,
++				"failed to copy skb for %s\n", sdata->name);
+ 			return true;
+ 		}
+ 
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 707bc52..6179436 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -607,8 +607,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 		mtype_expire(h, NETS_LENGTH(set->family), h->dsize);
+ 
+ 	if (h->elements >= h->maxelem) {
+-		if (net_ratelimit())
+-			pr_warning("Set %s is full, maxelem %u reached\n",
++		net_warn_ratelimited("Set %s is full, maxelem %u reached\n",
+ 				   set->name, h->maxelem);
+ 		return -IPSET_ERR_HASH_FULL;
+ 	}
 -- 
 1.8.2.1
