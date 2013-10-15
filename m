@@ -1,81 +1,65 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: DomU's network interface will hung when Dom0 running 32bit
-Date: Tue, 15 Oct 2013 11:06:24 +0100
-Message-ID: <20131015100624.GB29436@zion.uk.xensource.com>
-References: <52590DFE.6080203@oracle.com>
- <20131014111958.GE11739@zion.uk.xensource.com>
- <525CAC21.5040202@oracle.com>
- <1381826609.24708.135.camel@kazak.uk.xensource.com>
- <525D0C41.2080407@oracle.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: drivers/net/wireless/iwlwifi/dvm/tx.c:456 iwlagn_tx_skb+0x6c5/0x883()
+Date: Tue, 15 Oct 2013 12:39:40 +0200
+Message-ID: <9010061839.20131015123940@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	ANNIE LI <annie.li@oracle.com>
-To: jianhai luan <jianhai.luan@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilw@linux.intel.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>,
+	johannes.berg@intel.com, <ilw@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:42374 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753835Ab3JOKGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 06:06:25 -0400
-Content-Disposition: inline
-In-Reply-To: <525D0C41.2080407@oracle.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:52894 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758507Ab3JOKqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 06:46:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 15, 2013 at 05:34:57PM +0800, jianhai luan wrote:
-> 
-> On 2013-10-15 16:43, Ian Campbell wrote:
-> >On Tue, 2013-10-15 at 10:44 +0800, jianhai luan wrote:
-> >>On 2013-10-14 19:19, Wei Liu wrote:
-> >>>On Sat, Oct 12, 2013 at 04:53:18PM +0800, jianhai luan wrote:
-> >>>>Hi Ian,
-> >>>>    I meet the DomU's network interface hung issue recently, and have
-> >>>>been working on the issue from that time. I find that DomU's network
-> >>>>interface, which send lesser package, will hung if Dom0 running
-> >>>>32bit and DomU's up-time is very long.  I think that one jiffies
-> >>>>overflow bug exist in the function tx_credit_exceeded().
-> >>>>    I know the inline function time_after_eq(a,b) will process jiffies
-> >>>>overflow, but the function have one limit a should little that (b +
-> >>>>MAX_SIGNAL_LONG). If a large than the value, time_after_eq will
-> >>>>return false. The MAX_SINGNAL_LONG should be 0x7fffffff at 32-bit
-> >>>>machine.
-> >>>>    If DomU's network interface send lesser package (<0.5k/s if
-> >>>>jiffies=250 and credit_bytes=ULONG_MAX), jiffies will beyond out
-> >>>>(credit_timeout.expires + MAX_SIGNAL_LONG) and time_after_eq(now,
-> >>>>next_credit) will failure (should be true). So one timer which will
-> >>>>not be trigger in short time, and later process will be aborted when
-> >>>>timer_pending(&vif->credit_timeout) is true. The result will be
-> >>>>DomU's network interface will be hung in long time (> 40days).
-> >>>>    Please think about the below scenario:
-> >>>>    Condition:
-> >>>>      Dom0 running 32-bit and HZ = 1000
-> >>>>      vif->credit_timeout->expire = 0xffffffff, vif->remaining_credit
-> >>>>= 0xffffffff, vif->credit_usec=0 jiffies=0
-> >>>>      vif receive lesser package (DomU send lesser package). If the
-> >>>>value is litter than 2K/s, consume 4G(0xffffffff) will need 582.55
-> >>>>hours. jiffies will large than 0x7ffffff. we guess jiffies =
-> >>>>0x800000ff, time_after_eq(0x800000ff, 0xffffffff) will failure, and
-> >>>>one time which expire is 0xfffffff will be pended into system. So
-> >>>>the interface will hung until jiffies recount 0xffffffff (that will
-> >>>>need very long time).
-> >>>If I'm not mistaken you meant time_after_eq(now, next_credit) in
-> >>>netback. How does next_credit become 0xffffffff?
-> >>I only assume the value is 0xfffffff, and the value of next_credit
-> >>isn't  point. If the delta between now and next_credit larger than
-> >>ULONG_MAX, time_after_eq will do wrong judge.
-> >So it sounds like we need a timer which is independent of the traffic
-> >being sent to keep credit_timeout.expires rolling over.
-> >
-> >Can you propose a patch?
-> 
-> Because credit_timeout.expire always after jiffies, i judge the
-> value over the range of time_after_eq() by time_before(now,
-> vif->credit_timeout.expires). please check the patch.
+Hi,
 
-I don't think this really fix the issue for you. You still have chance
-that now wraps around and falls between expires and next_credit. In that
-case it's stalled again.
+I'm having a:
 
-Wei.
+02:00.0 Network controller: Intel Corporation Centrino Advanced-N 6235 (rev 24)
+
+And i'm running into this warning on boot with a 3.11.2 and 3.12-rc5 kernel.
+
+[   23.904950] ------------[ cut here ]------------
+[   23.904957] WARNING: CPU: 0 PID: 2531 at drivers/net/wireless/iwlwifi/dvm/tx.c:456 iwlagn_tx_skb+0x6c5/0x883()
+[   23.904959] Modules linked in:
+[   23.904962] CPU: 0 PID: 2531 Comm: hostapd Not tainted 3.12.0-rc5+ #1
+[   23.904963] Hardware name:                  /D53427RKE, BIOS RKPPT10H.86A.0017.2013.0425.1251 04/25/2013
+[   23.904966]  0000000000000000 0000000000000009 ffffffff8189aa62 0000000000000000
+[   23.904968]  ffffffff8105a4f2 ffff880058339a48 ffffffff815f8a04 0000000000000000
+[   23.904970]  ffff8800560097b0 0000000000000208 0000000000000000 ffff8800561a9e5e
+[   23.904971] Call Trace:
+[   23.904977]  [<ffffffff8189aa62>] ? dump_stack+0x41/0x51
+[   23.904981]  [<ffffffff8105a4f2>] ? warn_slowpath_common+0x78/0x90
+[   23.904984]  [<ffffffff815f8a04>] ? iwlagn_tx_skb+0x6c5/0x883
+[   23.904986]  [<ffffffff815f8a04>] ? iwlagn_tx_skb+0x6c5/0x883
+[   23.904989]  [<ffffffff818a0040>] ? put_cred+0x15/0x15
+[   23.904991]  [<ffffffff815f6db4>] ? iwlagn_mac_tx+0x19/0x2f
+[   23.904995]  [<ffffffff8186cc45>] ? __ieee80211_tx+0x226/0x29b
+[   23.904998]  [<ffffffff8186e6bd>] ? ieee80211_tx+0xa6/0xb5
+[   23.905001]  [<ffffffff8186e98b>] ? ieee80211_monitor_start_xmit+0x1e9/0x204
+[   23.905005]  [<ffffffff8171ce5f>] ? dev_hard_start_xmit+0x271/0x3ec
+[   23.905008]  [<ffffffff817351ac>] ? sch_direct_xmit+0x66/0x164
+[   23.905010]  [<ffffffff8171d1bf>] ? dev_queue_xmit+0x1e5/0x3c8
+[   23.905013]  [<ffffffff817fac5a>] ? packet_sendmsg+0xac5/0xb3d
+[   23.905017]  [<ffffffff81709a09>] ? sock_sendmsg+0x37/0x52
+[   23.905020]  [<ffffffff810f9e0c>] ? __do_fault+0x338/0x36b
+[   23.905023]  [<ffffffff81713820>] ? verify_iovec+0x44/0x94
+[   23.905025]  [<ffffffff81709e63>] ? ___sys_sendmsg+0x1f1/0x283
+[   23.905029]  [<ffffffff81140a73>] ? __inode_wait_for_writeback+0x67/0xae
+[   23.905031]  [<ffffffff8111735e>] ? __cache_free.isra.46+0x178/0x187
+[   23.905033]  [<ffffffff811173b1>] ? kmem_cache_free+0x44/0x84
+[   23.905036]  [<ffffffff81132c22>] ? dentry_kill+0x13d/0x149
+[   23.905038]  [<ffffffff81132f6f>] ? dput+0xe5/0xef
+[   23.905041]  [<ffffffff81136e04>] ? fget_light+0x2e/0x7c
+[   23.905043]  [<ffffffff8170ae62>] ? __sys_sendmsg+0x39/0x57
+[   23.905046]  [<ffffffff818a7e39>] ? system_call_fastpath+0x16/0x1b
+[   23.905047] ---[ end trace 1b3eb79359c1d1e6 ]---
+
+--
+Sander
