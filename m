@@ -1,109 +1,88 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH ipsec v2] xfrm: prevent ipcomp scratch buffer race condition
-Date: Tue, 15 Oct 2013 23:40:30 +0200 (CEST)
-Message-ID: <20131015214030.B0D06E8A60@unicorn.suse.cz>
-References: <20131015083348.GW7660@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
+Date: Wed, 16 Oct 2013 01:48:12 +0400
+Message-ID: <525DB81C.6010106@cogentembedded.com>
+References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp> <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com> <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
+	Simon Horman <horms@verge.net.au>
+To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:36297 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933181Ab3JOVkc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 17:40:32 -0400
-In-Reply-To: <20131015083348.GW7660@secunet.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:43937 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933657Ab3JOVtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 17:49:15 -0400
+Received: by mail-la0-f47.google.com with SMTP id eo20so7297403lab.6
+        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 14:49:14 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ipcomp_compress(), sortirq is enabled too early, allowing the
-per-cpu scratch buffer to be rewritten by ipcomp_decompress()
-(called on the same CPU in softirq context) between populating
-the buffer and copying the compressed data to the skb.
+Hello.
 
-Add similar protection into ipcomp_decompress() as it can be
-called from process context as well (even if such scenario seems
-a bit artificial).
+On 10/15/2013 11:28 AM, Guennadi Liakhovetski wrote:
 
-v2: as pointed out by Steffen Klassert, if we also move the
-local_bh_disable() before reading the per-cpu pointers, we can
-get rid of get_cpu()/put_cpu().
+>>> This patch will fix RX packets errors when receiving big size
+>>> of data by set bit RNC = 1.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/xfrm/xfrm_ipcomp.c | 29 ++++++++++++++++++-----------
- 1 file changed, 18 insertions(+), 11 deletions(-)
+>>> RNC - Receive Enable Control
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index 2906d52..9fe4f42 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -45,12 +45,17 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
- 	const int plen = skb->len;
- 	int dlen = IPCOMP_SCRATCH_SIZE;
- 	const u8 *start = skb->data;
--	const int cpu = get_cpu();
--	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
--	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
--	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
-+	struct crypto_comp *tfm;
-+	u8 *scratch;
-+	int cpu;
-+	int err;
- 	int len;
- 
-+	local_bh_disable();
-+	cpu = smp_processor_id();
-+	scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
-+	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
-+	err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
- 	if (err)
- 		goto out;
- 
-@@ -103,7 +108,7 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
- 	err = 0;
- 
- out:
--	put_cpu();
-+	local_bh_enable();
- 	return err;
- }
- 
-@@ -141,14 +146,16 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
- 	const int plen = skb->len;
- 	int dlen = IPCOMP_SCRATCH_SIZE;
- 	u8 *start = skb->data;
--	const int cpu = get_cpu();
--	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
--	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
-+	struct crypto_comp *tfm;
-+	u8 *scratch;
-+	int cpu;
- 	int err;
- 
- 	local_bh_disable();
-+	cpu = smp_processor_id();
-+	scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
-+	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
- 	err = crypto_comp_compress(tfm, start, plen, scratch, &dlen);
--	local_bh_enable();
- 	if (err)
- 		goto out;
- 
-@@ -158,13 +165,13 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
- 	}
- 
- 	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
--	put_cpu();
-+	local_bh_enable();
- 
- 	pskb_trim(skb, dlen + sizeof(struct ip_comp_hdr));
- 	return 0;
- 
- out:
--	put_cpu();
-+	local_bh_enable();
- 	return err;
- }
- 
--- 
-1.8.1.4
+>>> 0: Upon completion of reception of one frame, the E-DMAC writes
+>>> the receive status to the descriptor and clears the RR bit in
+>>> EDRRR to 0.
+
+>>> 1: Upon completion of reception of one frame, the E-DMAC writes
+>>> (writes back) the receive status to the descriptor. In addition,
+>>> the E-DMAC reads the next descriptor and prepares for reception
+>>> of the next frame.
+
+>>> In addition, for get more stable when receiving packets, I set
+>>> maximum size for the transmit/receive FIFO and inserts padding
+>>> in receive data.
+
+>>> Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
+>>> ---
+>>>    drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
+>>>    1 files changed, 4 insertions(+), 0 deletions(-)
+
+>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+>>> b/drivers/net/ethernet/renesas/sh_eth.c
+>>> index a753928..11d34f0 100644
+>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>>> @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
+>>>    	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+>>>    			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
+>>>    			  EESR_TDE | EESR_ECI,
+>>> +	.fdr_value	= 0x0000070f,
+>>> +	.rmcr_value	= 0x00000001,
+>>>
+>>>    	.apr		= 1,
+>>>    	.mpr		= 1,
+>>>    	.tpauser	= 1,
+>>>    	.bculr		= 1,
+>>>    	.hw_swap	= 1,
+>>> +	.rpadir		= 1,
+>>> +	.rpadir_value   = 2 << 16,
+>>>    	.no_trimd	= 1,
+>>>    	.no_ade		= 1,
+>>>    	.tsu		= 1,
+
+>>     Guennadi, could you check if this patch fixes your issue with NFS. Make
+>> sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
+
+> Yes, the current -next, which includes this patch (in a slightly different
+> form) boots fine over NFS for me.
+
+    I don't know what you mean by "slightly different form" exactly. Also, I 
+was unable to locate the fresh -next tree. 'net-next.git' contains this patch 
+in a mismerged form, 'net.git' has Simon's patch that corrects this mismerge.
+
+> Thanks
+> Guennadi
+
+WBR, Sergei
