@@ -1,23 +1,25 @@
 From: "John W. Linville" <linville@tuxdriver.com>
 Subject: pull request: wireless 2013-10-15
-Date: Tue, 15 Oct 2013 13:46:44 -0400
-Message-ID: <20131015174644.GC7615@tuxdriver.com>
+Date: Tue, 15 Oct 2013 13:56:12 -0400
+Message-ID: <20131015175611.GA15706@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qMm9M+Fa2AknHoGS"
+	protocol="application/pgp-signature"; boundary="GvXjxJ+pjyke8COw"
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: dave@davemloft.net
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---qMm9M+Fa2AknHoGS
+--GvXjxJ+pjyke8COw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
+
+(Sorry for the repost -- mistyped Dave's email address the first time...)
 
 Dave,
 
@@ -392,25 +394,25 @@ index 7d604c0..a271c27 100644
 John W. Linville		Someday the world will need a hero, and you
 linville@tuxdriver.com			might be all we have.  Be ready.
 
---qMm9M+Fa2AknHoGS
+--GvXjxJ+pjyke8COw
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.14 (GNU/Linux)
 
-iQIcBAEBAgAGBQJSXX+EAAoJEJctW/TcYTgGTcMP/2u7camHKkSufkyKsT/I/GWc
-55Jwm9ithrBBYVcjwIvFibyHP1w1HhzY+PkWXSo+HF4GprP60nRL9Q1D9HZE67WR
-zF/AJ5DDnvySKP+0iDEX3dDamiDNzewCr+Ukyc/M1lSfL1tSkaCCgtQGGo6w8r4U
-7yJIihMOuRDIlSmSmyVUQ5wuRaYed7nNg4SLfZxmhKxPSP2EwI9SpZYHF12Hao9P
-h1SER663m3Sct4sdikkHHrn0xyJoYiawyRhzC0ayM7zm60soTmXk6Pr/slQvzrWn
-Avwxe1nPSsJVe9gAasa2xkQgpIVt/3gYfukH8+XXBo5lUn9IkaoCpskTav0/kDua
-pgwEHWXcJlJ96N7m3gVc1/CyTiqQHlz3Yd7CRhjvqyWtNNUi5PLgZ6xvJmnRoFmP
-ZN1/s6q7uPzwE7YgmeAmPS85TG9cOErKQqK21o933UqJQOHsTcZciTwNsWtAx957
-cb6/Vj+xRfyhCMO1wcu1s+8vREGH7clxVGu3/RXxmka9a6tmDNHMcIvavTdPqwcb
-mZmPstikiW22B+uSoVnWCv6AQ1OqIlX+zvmq2ZucV1f7utPurjMOw+q8pKYOWhl6
-PZ7qP8yscqlttcSNgt7aPYk8HpKeCrEolgsemm817YE81RzNwuXVz+XybhHvtes5
-oOJHsbIB7VDkv7WbKJtM
-=vkzh
+iQIcBAEBAgAGBQJSXYG7AAoJEJctW/TcYTgGyWYP+gIysc6DObzT14G2hD8TSXyR
+ARecFTl6aV385JkLUrXOSvcla9cNXdwm/aXpn1hwcRS79VVvo4yzvbLoT+a2XX07
+z/MDIhI8mhjALevoEgexyQSXTMzrEsMZ/OkfmoBlJpWNcuqL0rIi4ljrvhhZEi8r
+aVJI4GG5sdedZCW511YfwmEkyDnV1kdka6DxLtb7in/Xe2h4rpYGyH6meOIK9dAw
+2ePd6cKbMfvu9VlhVbTh+IcynMYZaVzkOHJVEi6CNEBggj6PuA2LoqtQ5Hpqozib
+8JqbhXPBKRJRsENkWoRYojrO+Uxftm2iHr06fRKiieWrUpvXO1ig3DRceZR+UDu5
+RXqlkMlUAr6R3pS8OOl4j23asMOSxIUTNnudBRA97c5ZajpDSOiZSKfV4Mv9ONtB
+Nh5RwApm/ZfwTl+GKZ8bp08pFYOoRVZxuwcQZGXPDCqxo4IFhrM3BU6LckR0Spfp
+b6o8l4+4hIb3ci9dq8bNZzuO+a613JUPnUM9g5buZ5ffXs8t9n0VyVq7TtjfkWLc
+TNkwpsCgw3pkYQUbTKTuYIp2weDFyBvWlDzg59Zdg1kQaDvd+AP+JikjbHqeTmnb
+2d+T1TlB2IK96YgvxE5yVKBPssg7f+fpnj/8P51K1FrhikecLjEorzsauPhQxB23
+TQHcXJZ5RjBalO6WlXXM
+=mr2Y
 -----END PGP SIGNATURE-----
 
---qMm9M+Fa2AknHoGS--
+--GvXjxJ+pjyke8COw--
