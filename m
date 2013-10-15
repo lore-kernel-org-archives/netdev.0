@@ -1,101 +1,132 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/4] net/mlx4: Fix typo, move similar defs to same location
-Date: Tue, 15 Oct 2013 16:55:22 +0200
-Message-ID: <1381848924-18992-3-git-send-email-amirv@mellanox.com>
-References: <1381848924-18992-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Eyal Perry <eyalpe@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52153 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933175Ab3JOO4C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:56:02 -0400
-In-Reply-To: <1381848924-18992-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chang <changxiangzhong@gmail.com>
+Subject: Re: [PATCH] net: sctp: fix a cacc_saw_newack missetting issue
+Date: Tue, 15 Oct 2013 17:13:32 +0200
+Message-ID: <525D5B9C.3030302@gmail.com>
+References: <1381757623-12803-1-git-send-email-changxiangzhong@gmail.com> <525D4D2D.8000506@gmail.com> <525D50BD.5030301@gmail.com> <525D525E.8010508@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <525D525E.8010508@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-
-Small code cleanup:
-
-1. change MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN to MLX4_DEV_CAP_FLAG2_REASSIGN_MAC_EN
-
-2. put MLX4_SET_PORT_PRIO2TC and MLX4_SET_PORT_SCHEDULER in the same union with the
-   other MLX4_SET_PORT_yyy
-
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c        | 2 +-
- include/linux/mlx4/cmd.h                       | 6 ++----
- include/linux/mlx4/device.h                    | 2 +-
- 4 files changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index fa37b7a..85d9166 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1733,7 +1733,7 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
- 
- 	/* Unregister Mac address for the port */
- 	mlx4_en_put_qp(priv);
--	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN))
-+	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_REASSIGN_MAC_EN))
- 		mdev->mac_removed[priv->port] = 1;
- 
- 	/* Free RX Rings */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 0d63daa..a377484 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -652,7 +652,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		 QUERY_DEV_CAP_RSVD_LKEY_OFFSET);
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FW_REASSIGN_MAC);
- 	if (field & 1<<6)
--		dev_cap->flags2 |= MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN;
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_REASSIGN_MAC_EN;
- 	MLX4_GET(dev_cap->max_icm_sz, outbox,
- 		 QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET);
- 	if (dev_cap->flags & MLX4_DEV_CAP_FLAG_COUNTERS)
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index cd1fdf7..8df61bc 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -154,10 +154,6 @@ enum {
- 	MLX4_CMD_QUERY_IF_STAT	 = 0X54,
- 	MLX4_CMD_SET_IF_STAT	 = 0X55,
- 
--	/* set port opcode modifiers */
--	MLX4_SET_PORT_PRIO2TC = 0x8,
--	MLX4_SET_PORT_SCHEDULER  = 0x9,
--
- 	/* register/delete flow steering network rules */
- 	MLX4_QP_FLOW_STEERING_ATTACH = 0x65,
- 	MLX4_QP_FLOW_STEERING_DETACH = 0x66,
-@@ -182,6 +178,8 @@ enum {
- 	MLX4_SET_PORT_VLAN_TABLE = 0x3,
- 	MLX4_SET_PORT_PRIO_MAP  = 0x4,
- 	MLX4_SET_PORT_GID_TABLE = 0x5,
-+	MLX4_SET_PORT_PRIO2TC	= 0x8,
-+	MLX4_SET_PORT_SCHEDULER = 0x9,
- };
- 
- enum {
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 24ce6bd..9ad0c18 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -155,7 +155,7 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
- 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
- 	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
--	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4,
-+	MLX4_DEV_CAP_FLAG2_REASSIGN_MAC_EN	= 1LL <<  4,
- 	MLX4_DEV_CAP_FLAG2_TS			= 1LL <<  5,
- 	MLX4_DEV_CAP_FLAG2_VLAN_CONTROL		= 1LL <<  6,
- 	MLX4_DEV_CAP_FLAG2_FSM			= 1LL <<  7,
--- 
-1.8.3.4
+Thanks, I've got it and will submit a new patch later.
+On 10/15/2013 04:34 PM, Vlad Yasevich wrote:
+> On 10/15/2013 10:27 AM, Chang wrote:
+>>
+>> On 10/15/2013 04:11 PM, Vlad Yasevich wrote:
+>>> On 10/14/2013 09:33 AM, Chang Xiangzhong wrote:
+>>>> For for each TSN t being newly acked (Not only cumulatively,
+>>>> but also SELECTIVELY) cacc_saw_newack should be set to 1.
+>>>>
+>>>> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
+>>>> ---
+>>>>   net/sctp/outqueue.c |   42 
+>>>> +++++++++++++++++++++---------------------
+>>>>   1 file changed, 21 insertions(+), 21 deletions(-)
+>>>>
+>>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>>>> index 94df758..d86032b 100644
+>>>> --- a/net/sctp/outqueue.c
+>>>> +++ b/net/sctp/outqueue.c
+>>>> @@ -1398,6 +1398,27 @@ static void sctp_check_transmitted(struct
+>>>> sctp_outq *q,
+>>>>                   forward_progress = true;
+>>>>               }
+>>>>
+>>>> +            if (!tchunk->tsn_gap_acked) {
+>>>
+>>> You can remove this test since the block just above already performs
+>>> it.  Just fold this code into the block above.
+>>>
+>>> -vlad
+>>>
+>> Sorry, I'm not sure if I fully understand you. There are code blocks
+>> which checking the tchunk->tsn_gap_acked. In addition, they check other
+>> states as well.
+>
+> The flow is:
+>
+>      if (sctp_acked(sack, tsn)) {
+>         ...
+>         if (transport) {
+>             ....
+>         }
+>
+>         if (!tchunk->tsn_gap_acked) {
+>             ....
+>         }
+>
+>         if (TSN_lte(tsn, sack_ctsn)) {
+>             ....
+>             /* SFR-CACC ...
+>         }
+>
+> Since you are moving this up, you can simply re-use
+> the if (!tchunk->tsn_gap_acked) immediately above.
+>
+>>>> +                /*
+>>>> +                 * SFR-CACC algorithm:
+>>>> +                 * 2) If the SACK contains gap acks
+>>>> +                 * and the flag CHANGEOVER_ACTIVE is
+>>>> +                 * set the receiver of the SACK MUST
+>>>> +                 * take the following action:
+>>>> +                 *
+>>>> +                 * B) For each TSN t being acked that
+>>>> +                 * has not been acked in any SACK so
+>>>> +                 * far, set cacc_saw_newack to 1 for
+>>>> +                 * the destination that the TSN was
+>>>> +                 * sent to.
+>>>> +                 */
+>>>> +                if (transport &&
+>>>> +                    sack->num_gap_ack_blocks &&
+>>>> + q->asoc->peer.primary_path->cacc.
+>>>> +                    changeover_active)
+>>>> +                    transport->cacc.cacc_saw_newack    = 1;
+>                             ^^^^
+>
+> Don't need that many spaces...
+>
+> -vlad
+>>>> +            }
+>>>> +
+>>>>               if (TSN_lte(tsn, sack_ctsn)) {
+>>>>                   /* RFC 2960  6.3.2 Retransmission Timer Rules
+>>>>                    *
+>>>> @@ -1411,27 +1432,6 @@ static void sctp_check_transmitted(struct
+>>>> sctp_outq *q,
+>>>>                   restart_timer = 1;
+>>>>                   forward_progress = true;
+>>>>
+>>>> -                if (!tchunk->tsn_gap_acked) {
+>>>> -                    /*
+>>>> -                     * SFR-CACC algorithm:
+>>>> -                     * 2) If the SACK contains gap acks
+>>>> -                     * and the flag CHANGEOVER_ACTIVE is
+>>>> -                     * set the receiver of the SACK MUST
+>>>> -                     * take the following action:
+>>>> -                     *
+>>>> -                     * B) For each TSN t being acked that
+>>>> -                     * has not been acked in any SACK so
+>>>> -                     * far, set cacc_saw_newack to 1 for
+>>>> -                     * the destination that the TSN was
+>>>> -                     * sent to.
+>>>> -                     */
+>>>> -                    if (transport &&
+>>>> -                        sack->num_gap_ack_blocks &&
+>>>> - q->asoc->peer.primary_path->cacc.
+>>>> -                        changeover_active)
+>>>> -                        transport->cacc.cacc_saw_newack
+>>>> -                            = 1;
+>>>> -                }
+>>>>
+>>>> list_add_tail(&tchunk->transmitted_list,
+>>>>                             &q->sacked);
+>>>>
+>>>
+>>
+>
