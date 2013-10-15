@@ -1,52 +1,219 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] drivers: net: phy: marvell.c: removed checkpatch.pl warnings
-Date: Tue, 15 Oct 2013 21:12:40 +0400
-Message-ID: <525D7788.3010803@cogentembedded.com>
-References: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] For for each TSN t being newly acked (Not only cumulatively,
+ but also SELECTIVELY) cacc_saw_newack should be set to 1.
+Date: Tue, 15 Oct 2013 13:25:06 -0400
+Message-ID: <525D7A72.70200@gmail.com>
+References: <1381856348-15503-1-git-send-email-changxiangzhong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, michal.simek@xilinx.com, lars@metafoo.de,
-	RHoover@digilentinc.com, netdev@vger.kernel.org
-To: Avinash kumar <avi.kp.137@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:40041 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759290Ab3JORNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 13:13:44 -0400
-Received: by mail-la0-f43.google.com with SMTP id ec20so944665lab.2
-        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 10:13:43 -0700 (PDT)
-In-Reply-To: <1380514004-8701-1-git-send-email-avi.kp.137@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chang Xiangzhong <changxiangzhong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381856348-15503-1-git-send-email-changxiangzhong@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 09/30/2013 08:06 AM, Avinash kumar wrote:
-
-> removes following warnings-
-> drivers/net/phy/marvell.c:37: WARNING: Use #include <linux/io.h> instead of <asm/io.h>
-> drivers/net/phy/marvell.c:39: WARNING: Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
-
-> Signed-off-by: Avinash Kumar <avi.kp.137@gmail.com>
+On 10/15/2013 12:59 PM, Chang Xiangzhong wrote:
+> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
 > ---
->   drivers/net/phy/marvell.c |    4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
-
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 2e91477..2e3c778e 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -34,9 +34,9 @@
->   #include <linux/marvell_phy.h>
->   #include <linux/of.h>
+>   net/sctp/outqueue.c |  142 ++++++++++++++++++++++++---------------------------
+>   1 file changed, 68 insertions(+), 74 deletions(-)
 >
-> -#include <asm/io.h>
-> +#include <linux/io.h>
->   #include <asm/irq.h>
-> -#include <asm/uaccess.h>
-> +#include <linux/uaccess.h>
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 94df758..f10d848 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -1357,84 +1357,78 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>
+>   		tsn = ntohl(tchunk->subh.data_hdr->tsn);
+>   		if (sctp_acked(sack, tsn)) {
+> -			/* If this queue is the retransmit queue, the
+> -			 * retransmit timer has already reclaimed
+> -			 * the outstanding bytes for this chunk, so only
+> -			 * count bytes associated with a transport.
+> -			 */
+> -			if (transport) {
+> -				/* If this chunk is being used for RTT
+> -				 * measurement, calculate the RTT and update
+> -				 * the RTO using this value.
+> -				 *
+> -				 * 6.3.1 C5) Karn's algorithm: RTT measurements
+> -				 * MUST NOT be made using packets that were
+> -				 * retransmitted (and thus for which it is
+> -				 * ambiguous whether the reply was for the
+> -				 * first instance of the packet or a later
+> -				 * instance).
+> -				 */
+> -				if (!tchunk->tsn_gap_acked &&
+> -				    tchunk->rtt_in_progress) {
+> -					tchunk->rtt_in_progress = 0;
+> -					rtt = jiffies - tchunk->sent_at;
+> -					sctp_transport_update_rto(transport,
+> -								  rtt);
+> -				}
+> -			}
+> -
+> -			/* If the chunk hasn't been marked as ACKED,
+> -			 * mark it and account bytes_acked if the
+> -			 * chunk had a valid transport (it will not
+> -			 * have a transport if ASCONF had deleted it
+> -			 * while DATA was outstanding).
+> -			 */
+>   			if (!tchunk->tsn_gap_acked) {
+> -				tchunk->tsn_gap_acked = 1;
+> -				*highest_new_tsn_in_sack = tsn;
+> -				bytes_acked += sctp_data_size(tchunk);
+> -				if (!tchunk->transport)
+> -					migrate_bytes += sctp_data_size(tchunk);
+> -				forward_progress = true;
+> +			    /* If this queue is the retransmit queue, the
+> +			     * retransmit timer has already reclaimed
+> +			     * the outstanding bytes for this chunk, so only
+> +			     * count bytes associated with a transport.
+> +			     *
+> +			     * If this chunk is being used for RTT
+> +			     * measurement, calculate the RTT and update
+> +			     * the RTO using this value.
+> +			     *
+> +			     * 6.3.1 C5) Karn's algorithm: RTT measurements
+> +			     * MUST NOT be made using packets that were
+> +			     * retransmitted (and thus for which it is
+> +			     * ambiguous whether the reply was for the
+> +			     * first instance of the packet or a later
+> +			     * instance).
+> +			     */
+> +			    if (transport && tchunk->rtt_in_progress) {
+> +				tchunk->rtt_in_progress = 0;
+> +				rtt = jiffies - tchunk->sent_at;
+> +				sctp_transport_update_rto(transport,
+> +					rtt);
+> +			    }
+> +
+> +			    /* If the chunk hasn't been marked as ACKED,
+> +			     * mark it and account bytes_acked if the
+> +			     * chunk had a valid transport (it will not
+> +			     * have a transport if ASCONF had deleted it
+> +			     * while DATA was outstanding).
+> +			     */
+> +			    tchunk->tsn_gap_acked = 1;
+> +			    *highest_new_tsn_in_sack = tsn;
+> +			    bytes_acked += sctp_data_size(tchunk);
+> +			    if (!tchunk->transport)
+> +				migrate_bytes += sctp_data_size(tchunk);
+> +			    forward_progress = true;
+> +
+> +			    /*
+> +			     * SFR-CACC algorithm:
+> +			     * 2) If the SACK contains gap acks
+> +			     * and the flag CHANGEOVER_ACTIVE is
+> +			     * set the receiver of the SACK MUST
+> +			     * take the following action:
+> +			     *
+> +			     * B) For each TSN t being acked that
+> +			     * has not been acked in any SACK so
+> +			     * far, set cacc_saw_newack to 1 for
+> +			     * the destination that the TSN was
+> +			     * sent to.
+> +			     */
+> +			    if (transport &&
+> +				    sack->num_gap_ack_blocks &&
+> +				    q->asoc->peer.primary_path->cacc.
+> +				    changeover_active)
+> +				transport->cacc.cacc_saw_newack = 1;
+>   			}
 
-    You should move these #include's to the group of <linux/> #include's  now.
+Indents should be tab based.
+This is a bit more of a re-write that is needed for the this particualar 
+patch.  What's wrong with just doing this?
 
-WBR, Sergei
+@@ -1396,6 +1396,25 @@ static void sctp_check_transmitted(struct 
+sctp_outq *q,
+                                 if (!tchunk->transport)
+                                         migrate_bytes += 
+sctp_data_size(tchunk);
+                                 forward_progress = true;
++
++                               /*
++                                * SFR-CACC algorithm:
++                                * 2) If the SACK contains gap acks
++                                * and the flag CHANGEOVER_ACTIVE is
++                                * set the receiver of the SACK MUST
++                                * take the following action:
++                                *
++                                * B) For each TSN t being acked that
++                                * has not been acked in any SACK so
++                                * far, set cacc_saw_newack to 1 for
++                                * the destination that the TSN was
++                                * sent to.
++                                */
++                               if (transport &&
++                                   sack->num_gap_ack_blocks &&
++                                   q->asoc->peer.primary_path->cacc.
++                                   changeover_active)
++                                       transport->cacc.cacc_saw_newack = 1;
+                         }
+
+
+                         if (TSN_lte(tsn, sack_ctsn)) {
+
+-vlad
+
+>
+>   			if (TSN_lte(tsn, sack_ctsn)) {
+> -				/* RFC 2960  6.3.2 Retransmission Timer Rules
+> -				 *
+> -				 * R3) Whenever a SACK is received
+> -				 * that acknowledges the DATA chunk
+> -				 * with the earliest outstanding TSN
+> -				 * for that address, restart T3-rtx
+> -				 * timer for that address with its
+> -				 * current RTO.
+> -				 */
+> -				restart_timer = 1;
+> -				forward_progress = true;
+> -
+> -				if (!tchunk->tsn_gap_acked) {
+> -					/*
+> -					 * SFR-CACC algorithm:
+> -					 * 2) If the SACK contains gap acks
+> -					 * and the flag CHANGEOVER_ACTIVE is
+> -					 * set the receiver of the SACK MUST
+> -					 * take the following action:
+> -					 *
+> -					 * B) For each TSN t being acked that
+> -					 * has not been acked in any SACK so
+> -					 * far, set cacc_saw_newack to 1 for
+> -					 * the destination that the TSN was
+> -					 * sent to.
+> -					 */
+> -					if (transport &&
+> -					    sack->num_gap_ack_blocks &&
+> -					    q->asoc->peer.primary_path->cacc.
+> -					    changeover_active)
+> -						transport->cacc.cacc_saw_newack
+> -							= 1;
+> -				}
+> -
+> -				list_add_tail(&tchunk->transmitted_list,
+> -					      &q->sacked);
+> +			    /* RFC 2960  6.3.2 Retransmission Timer Rules
+> +			     *
+> +			     * R3) Whenever a SACK is received
+> +			     * that acknowledges the DATA chunk
+> +			     * with the earliest outstanding TSN
+> +			     * for that address, restart T3-rtx
+> +			     * timer for that address with its
+> +			     * current RTO.
+> +			     */
+> +			    restart_timer = 1;
+> +			    forward_progress = true;
+> +
+> +			    list_add_tail(&tchunk->transmitted_list,
+> +				    &q->sacked);
+>   			} else {
+>   				/* RFC2960 7.2.4, sctpimpguide-05 2.8.2
+>   				 * M2) Each time a SACK arrives reporting
+>
