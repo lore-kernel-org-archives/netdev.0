@@ -1,102 +1,34 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v3 3/9] qlcnic: Firmware dump collection when auto recovery is disabled.
-Date: Tue, 15 Oct 2013 12:57:48 -0400
-Message-ID: <a5a93fef39ca3ed667245a4f11c0d807af488685.1381882600.git.himanshu.madhani@qlogic.com>
-References: <cover.1381882600.git.himanshu.madhani@qlogic.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] X.25: Fix address field length calculation
+Date: Tue, 15 Oct 2013 10:29:50 -0700
+Message-ID: <1381858190.22110.25.camel@joe-AO722>
+References: <525D5131.9070007@datus.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Pratik Pujar <pratik.pujar@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:1137 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933012Ab3JOR23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 13:28:29 -0400
-In-Reply-To: <cover.1381882600.git.himanshu.madhani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "andrew.hendry@gmail.com" <andrew.hendry@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-x25@vger.kernel.org" <linux-x25@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Kelleter," =?ISO-8859-1?Q?G=FCnther?= <GKelleter@datus.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <525D5131.9070007@datus.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pratik Pujar <pratik.pujar@qlogic.com>
+On Tue, 2013-10-15 at 14:29 +0000, Kelleter, G=FCnther wrote:
+> Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
+[]
+> Wrong length calculation leads to rejection of CALL ACCEPT packets.
+[]
+> diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+[]
+> @@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
+>  	}
+>   	len =3D *skb->data;
+> -	needed =3D 1 + (len >> 4) + (len & 0x0f);
+> +	needed =3D 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
 
-o Allow collecting the firmware dump of halted firmware when auto
-  recovery is disabled.
-
-Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 11 +++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  7 ++++++-
- 2 files changed, 17 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index f09e787..d303fab 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -818,6 +818,7 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	struct qlcnic_mailbox *mbx = ahw->mailbox;
- 	int ret = 0;
-+	u32 owner;
- 	u32 val;
- 
- 	/* Perform NIC configuration based ready state entry actions */
-@@ -846,6 +847,10 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
- 			clear_bit(QLC_83XX_MBX_READY, &mbx->status);
- 			set_bit(__QLCNIC_RESETTING, &adapter->state);
- 			qlcnic_83xx_idc_enter_need_reset_state(adapter, 1);
-+		}  else {
-+			owner = qlcnic_83xx_idc_find_reset_owner_id(adapter);
-+			if (ahw->pci_func == owner)
-+				qlcnic_dump_fw(adapter);
- 		}
- 		return -EIO;
- 	}
-@@ -1058,6 +1063,12 @@ void qlcnic_83xx_idc_poll_dev_state(struct work_struct *work)
- 	adapter->ahw->idc.prev_state = adapter->ahw->idc.curr_state;
- 	qlcnic_83xx_periodic_tasks(adapter);
- 
-+	/* Do not reschedule if firmaware is in hanged state and auto
-+	 * recovery is disabled
-+	 */
-+	if ((adapter->flags & QLCNIC_FW_HANG) && !qlcnic_auto_fw_reset)
-+		return;
-+
- 	/* Re-schedule the function */
- 	if (test_bit(QLC_83XX_MODULE_LOADED, &adapter->ahw->idc.status))
- 		qlcnic_schedule_work(adapter, qlcnic_83xx_idc_poll_dev_state,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 55e8b23..5195972 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3353,6 +3353,8 @@ done:
- static int
- qlcnic_check_health(struct qlcnic_adapter *adapter)
- {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
- 	u32 state = 0, heartbeat;
- 	u32 peg_status;
- 	int err = 0;
-@@ -3377,7 +3379,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		if (adapter->need_fw_reset)
- 			goto detach;
- 
--		if (adapter->ahw->reset_context && qlcnic_auto_fw_reset)
-+		if (ahw->reset_context && qlcnic_auto_fw_reset)
- 			qlcnic_reset_hw_context(adapter);
- 
- 		return 0;
-@@ -3420,6 +3422,9 @@ detach:
- 
- 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
- 		QLCDB(adapter, DRV, "fw recovery scheduled.\n");
-+	} else if (!qlcnic_auto_fw_reset && fw_dump->enable &&
-+		   adapter->flags & QLCNIC_FW_RESET_OWNER) {
-+		qlcnic_dump_fw(adapter);
- 	}
- 
- 	return 1;
--- 
-1.8.1.4
+This calculation looks odd.
+Perhaps use bcd.h instead?
