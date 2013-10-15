@@ -1,71 +1,73 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 9/9] bnx2x: Set NETIF_F_HIGHDMA unconditionally
-Date: Tue, 15 Oct 2013 16:28:55 +0200
-Message-ID: <1381847335-32662-10-git-send-email-yuvalmin@broadcom.com>
-References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: DomU's network interface will hung when Dom0 running 32bit
+Date: Tue, 15 Oct 2013 22:29:15 +0800
+Message-ID: <525D513B.70406@oracle.com>
+References: <52590DFE.6080203@oracle.com> <20131014111958.GE11739@zion.uk.xensource.com> <525CAC21.5040202@oracle.com> <1381826609.24708.135.camel@kazak.uk.xensource.com> <525D0C41.2080407@oracle.com> <20131015100624.GB29436@zion.uk.xensource.com> <525D2667.6040102@oracle.com> <20131015125802.GR11739@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Merav Sicron" <meravs@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	ANNIE LI <annie.li@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4405 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932524Ab3JOO30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:29:26 -0400
-In-Reply-To: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31246 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932524Ab3JOO32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 10:29:28 -0400
+In-Reply-To: <20131015125802.GR11739@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Merav Sicron <meravs@broadcom.com>
 
-Current driver implementation incorrectly sets the flag only if 64-bit
-DMA mask succeeded.
+On 2013-10-15 20:58, Wei Liu wrote:
+> On Tue, Oct 15, 2013 at 07:26:31PM +0800, jianhai luan wrote:
+> [...]
+>>>>> Can you propose a patch?
+>>>> Because credit_timeout.expire always after jiffies, i judge the
+>>>> value over the range of time_after_eq() by time_before(now,
+>>>> vif->credit_timeout.expires). please check the patch.
+>>> I don't think this really fix the issue for you. You still have chance
+>>> that now wraps around and falls between expires and next_credit. In that
+>>> case it's stalled again.
+>> if time_before(now, vif->credit_timeout.expires) is true, time wrap
+>> and do operation. Otherwise time_before(now,
+>> vif->credit_timeout.expires) isn't true, now -
+>> vif->credit_timeout.expires should be letter than ULONG_MAX/2.
+>> Because next_credit large than vif->credit_timeout.expires
+>> (next_crdit = vif->credit_timeout.expires +
+>> msecs_to_jiffies(vif->credit_usec/1000)), the delta between now and
+>> next_credit should be in range of time_after_eq().  So
+>> time_after_eq() do correctly judge.
+>>
+> Not sure I understand you. Consider "now" is placed like this:
+>
+>     expires   now   next_credit
+>     ----time increases this direction--->
+>
+> * time_after_eq(now, next_credit) -> false
+> * time_before(now, expires) -> false
 
-Signed-off-by: Merav Sicron <meravs@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 1 -
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 +---
- 2 files changed, 1 insertion(+), 4 deletions(-)
+If now is placed in above environment, the result will be correct 
+(Sending package will be not allowed until next_credit).
+* time_after_eq(now, next_credit)  --> false will include two environment:
+   expires     now   next_credit
+   -----------time increases this direction ---->
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 310c57a..c5e375d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1528,7 +1528,6 @@ struct bnx2x {
- #define PCI_32BIT_FLAG			(1 << 1)
- #define ONE_PORT_FLAG			(1 << 2)
- #define NO_WOL_FLAG			(1 << 3)
--#define USING_DAC_FLAG			(1 << 4)
- #define USING_MSIX_FLAG			(1 << 5)
- #define USING_MSI_FLAG			(1 << 6)
- #define DISABLE_MSI_FLAG		(1 << 7)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index fdc65e6..a3747d1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12109,7 +12109,6 @@ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
- 	struct device *dev = &bp->pdev->dev;
- 
- 	if (dma_set_mask(dev, DMA_BIT_MASK(64)) == 0) {
--		bp->flags |= USING_DAC_FLAG;
- 		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64)) != 0) {
- 			dev_err(dev, "dma_set_coherent_mask failed, aborting\n");
- 			return -EIO;
-@@ -12277,8 +12276,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
- 
- 	dev->features |= dev->hw_features | NETIF_F_HW_VLAN_CTAG_RX;
--	if (bp->flags & USING_DAC_FLAG)
--		dev->features |= NETIF_F_HIGHDMA;
-+	dev->features |= NETIF_F_HIGHDMA;
- 
- 	/* Add Loopback capability to the device */
- 	dev->hw_features |= NETIF_F_LOOPBACK;
--- 
-1.8.1.227.g44fe835
+Or
+   expires      next_credit             next_credit + MAX_LONG/2 now
+   -----------time increases this direction ---->
+
+
+the first environment should be correct to control transmit. the second 
+environment is our included environment.
+
+Jason
+>
+> Then it's stuck again. You're merely narrowing the window, not fixing
+> the real problem.
+>
+> Wei.
+>
+>> Jason
+>>> Wei.
