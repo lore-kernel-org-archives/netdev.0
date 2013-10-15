@@ -1,81 +1,92 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
-Date: Tue, 15 Oct 2013 16:59:04 +0800
-Message-ID: <525D03D8.7060802@windriver.com>
-References: <20131014160334.BCCDDE8A31@unicorn.suse.cz> <20131015083348.GW7660@secunet.com>
+Subject: Re: [PATCHv2 RESEND] {xfrm, sctp} Stick to software crc32 even if
+ hardware is capable of that
+Date: Tue, 15 Oct 2013 17:17:27 +0800
+Message-ID: <525D0827.2070301@windriver.com>
+References: <1381735658-15478-1-git-send-email-fan.du@windriver.com> <525BA63A.7040708@redhat.com> <525BAC6A.8000004@windriver.com> <fed034cb-be28-488b-883f-627e8e7499b9@email.android.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Kubecek <mkubecek@suse.cz>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>, <nhorman@tuxdriver.com>,
+	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54524 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:59074 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362Ab3JOJBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 05:01:08 -0400
-In-Reply-To: <20131015083348.GW7660@secunet.com>
+	with ESMTP id S1757801Ab3JOJTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 05:19:37 -0400
+In-Reply-To: <fed034cb-be28-488b-883f-627e8e7499b9@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2013=E5=B9=B410=E6=9C=8815=E6=97=A5 16:33, Steffen Klassert wrote:
-> On Mon, Oct 14, 2013 at 06:03:34PM +0200, Michal Kubecek wrote:
->> In ipcomp_compress(), sortirq is enabled too early, allowing the
->> per-cpu scratch buffer to be rewritten by ipcomp_decompress()
->> (called on the same CPU in softirq context) between populating
->> the buffer and copying the compressed data to the skb.
->>
->> Add similar protection into ipcomp_decompress() as it can be
->> called from process context as well (even if such scenario seems
->> a bit artificial).
->>
->> Signed-off-by: Michal Kubecek<mkubecek@suse.cz>
->> ---
->>   net/xfrm/xfrm_ipcomp.c | 8 ++++++--
->>   1 file changed, 6 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
->> index 2906d52..96946fb 100644
->> --- a/net/xfrm/xfrm_ipcomp.c
->> +++ b/net/xfrm/xfrm_ipcomp.c
->> @@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x=
-, struct sk_buff *skb)
->>   	const int cpu =3D get_cpu();
->>   	u8 *scratch =3D *per_cpu_ptr(ipcomp_scratches, cpu);
->>   	struct crypto_comp *tfm =3D *per_cpu_ptr(ipcd->tfms, cpu);
->> -	int err =3D crypto_comp_decompress(tfm, start, plen, scratch,&dlen=
-);
->> +	int err;
->>   	int len;
->>
->> +	local_bh_disable();
+On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 22:16, Vlad Yasevich wrote:
 >
-> Maybe we could disable the BHs before we fetch the percpu pointers.
-> Then we can use smp_processor_id() to get the cpu. With that we
-> could get rid of a (now useless) preempt_disable()/preempt_enable()
-> pair. Same could be done in ipcomp_compress().
-
-Is it possible that two tasks race scratch buffer when both of them try=
-ing to compress data
-without preempt disabled? for example, when task A working on compressi=
-on, then task B
-with higher priority preempts task A, and try to touch scratch buffer, =
-which leaves stale
-data for task A after then.
-
-I think we needs preempt disabled for such case, otherwise I overlook c=
-odes in somewhere else.
-
-> Looks ok otherwise. Thanks!
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Fan Du<fan.du@windriver.com>  wrote:
+>
+>>
+>>
+>> On 2013=E5=B9=B410=E6=9C=8814=E6=97=A5 16:07, Daniel Borkmann wrote:
+>>> On 10/14/2013 09:27 AM, Fan Du wrote:
+>>>> igb/ixgbe have hardware sctp checksum support, when this feature i=
+s
+>> enabled
+>>>> and also IPsec is armed to protect sctp traffic, ugly things
+>> happened as
+>>>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum
+>> every thing
+>>>> up and pack the 16bits result in the checksum field). The result i=
+s
+>> fail
+>>>> establishment of sctp communication.
+>>>>
+>>>> Signed-off-by: Fan Du<fan.du@windriver.com>
+>>>> Cc: Vlad Yasevich<vyasevich@gmail.com>
+>>>> Cc: Neil Horman<nhorman@tuxdriver.com>
+>>>> Cc: Steffen Klassert<steffen.klassert@secunet.com>
+>>>> Acked-by: Vlad Yasevich<vyasevich@gmail.com>
+>>>> ---
+>>>>    net/sctp/output.c |   14 +++++++++++++-
+>>>>    1 file changed, 13 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/net/sctp/output.c b/net/sctp/output.c
+>>>> index 0ac3a65..6de6402 100644
+>>>> --- a/net/sctp/output.c
+>>>> +++ b/net/sctp/output.c
+>>>> @@ -372,6 +372,16 @@ static void sctp_packet_set_owner_w(struct
+>> sk_buff *skb, struct sock *sk)
+>>>>        atomic_inc(&sk->sk_wmem_alloc);
+>>>>    }
+>>>>
+>>>> +static int is_xfrm_armed(struct dst_entry *dst)
+>>>> +{
+>>>> +#ifdef CONFIG_XFRM
+>>>> +    /* If dst->xfrm is valid, this skb needs to be transformed */
+>>>> +    return dst->xfrm !=3D NULL;
+>>>> +#else
+>>>> +    return 0;
+>>>> +#endif
+>>>> +}
+>>>
+>>> Instead of putting this into SCTP code, isn't the above rather a
+>> candidate for
+>>> include/net/xfrm.h, e.g. as ... bool xfrm_is_armed(...) ?
+>>
+>> Should be in such style in terms of its name, but this is truly SCTP
+>> specific in this scenario.
+>> No one elsewhere barely need this as far as I can tell...
+>
+> It almost begs for dst_xfrm() function that returns NULL or dst->xfrm=
+=2E
+> Thar can live in dst code.
+
+Ok, I will show my love in such style in v3.
+
+> -vlad
 >
 
 --=20
