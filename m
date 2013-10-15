@@ -1,196 +1,55 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 2/3] bonding: use RCU protection for alb xmit
- path
-Date: Tue, 15 Oct 2013 16:28:39 +0800
-Message-ID: <525CFCB7.3000808@huawei.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
+Date: Tue, 15 Oct 2013 10:33:48 +0200
+Message-ID: <20131015083348.GW7660@secunet.com>
+References: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:9928 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757868Ab3JOIaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 04:30:05 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:36025 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750987Ab3JOIdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 04:33:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 278b20837511776dc9d5f6ee1c7fabd5479838bb
-(bonding: initial RCU conversion) has convert the roundrobin,
-active-backup, broadcast and xor xmit path to rcu protection,
-the performance will be better for these mode, so this time,
-convert xmit path for alb mode.
+On Mon, Oct 14, 2013 at 06:03:34PM +0200, Michal Kubecek wrote:
+> In ipcomp_compress(), sortirq is enabled too early, allowing the
+> per-cpu scratch buffer to be rewritten by ipcomp_decompress()
+> (called on the same CPU in softirq context) between populating
+> the buffer and copying the compressed data to the skb.
+> 
+> Add similar protection into ipcomp_decompress() as it can be
+> called from process context as well (even if such scenario seems
+> a bit artificial).
+> 
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+>  net/xfrm/xfrm_ipcomp.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+> index 2906d52..96946fb 100644
+> --- a/net/xfrm/xfrm_ipcomp.c
+> +++ b/net/xfrm/xfrm_ipcomp.c
+> @@ -48,9 +48,11 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+>  	const int cpu = get_cpu();
+>  	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+>  	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+> -	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+> +	int err;
+>  	int len;
+>  
+> +	local_bh_disable();
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c | 58 +++++++++++++++++++++++++++++++-----------
- drivers/net/bonding/bonding.h  | 14 ++++++++++
- 2 files changed, 57 insertions(+), 15 deletions(-)
+Maybe we could disable the BHs before we fetch the percpu pointers.
+Then we can use smp_processor_id() to get the cpu. With that we
+could get rid of a (now useless) preempt_disable()/preempt_enable()
+pair. Same could be done in ipcomp_compress().
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 576ccea..0287240 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -230,7 +230,7 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
- 	max_gap = LLONG_MIN;
- 
- 	/* Find the slave with the largest gap */
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (SLAVE_IS_OK(slave)) {
- 			long long gap = compute_gap(slave);
- 
-@@ -412,6 +412,39 @@ static struct slave *rlb_next_rx_slave(struct bonding *bond)
- 	return rx_slave;
- }
- 
-+/* Caller must hold rcu_read_lock() for read */
-+static struct slave *__rlb_next_rx_slave(struct bonding *bond)
-+{
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+	struct slave *before = NULL, *rx_slave = NULL, *slave;
-+	struct list_head *iter;
-+	bool found = false;
-+
-+	bond_for_each_slave_rcu(bond, slave, iter) {
-+		if (!SLAVE_IS_OK(slave))
-+			continue;
-+		if (!found) {
-+			if (!before || before->speed < slave->speed)
-+				before = slave;
-+		} else {
-+			if (!rx_slave || rx_slave->speed < slave->speed)
-+				rx_slave = slave;
-+		}
-+		if (slave == bond_info->rx_slave)
-+			found = true;
-+	}
-+	/* we didn't find anything after the current or we have something
-+	 * better before and up to the current slave
-+	 */
-+	if (!rx_slave || (before && rx_slave->speed < before->speed))
-+		rx_slave = before;
-+
-+	if (rx_slave)
-+		bond_info->rx_slave = rx_slave;
-+
-+	return rx_slave;
-+}
-+
- /* teach the switch the mac of a disabled slave
-  * on the primary for fault tolerance
-  *
-@@ -628,12 +661,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct arp_pkt *arp = arp_pkt(skb);
--	struct slave *assigned_slave;
-+	struct slave *assigned_slave, *curr_active_slave;
- 	struct rlb_client_info *client_info;
- 	u32 hash_index = 0;
- 
- 	_lock_rx_hashtbl(bond);
- 
-+	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-+
- 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
- 	client_info = &(bond_info->rx_hashtbl[hash_index]);
- 
-@@ -658,14 +693,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- 			 * that the new client can be assigned to this entry.
- 			 */
- 			if (bond->curr_active_slave &&
--			    client_info->slave != bond->curr_active_slave) {
--				client_info->slave = bond->curr_active_slave;
-+			    client_info->slave != curr_active_slave) {
-+				client_info->slave = curr_active_slave;
- 				rlb_update_client(client_info);
- 			}
- 		}
- 	}
- 	/* assign a new slave */
--	assigned_slave = rlb_next_rx_slave(bond);
-+	assigned_slave = __rlb_next_rx_slave(bond);
- 
- 	if (assigned_slave) {
- 		if (!(client_info->assigned &&
-@@ -728,7 +763,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 	/* Don't modify or load balance ARPs that do not originate locally
- 	 * (e.g.,arrive via a bridge).
- 	 */
--	if (!bond_slave_has_mac(bond, arp->mac_src))
-+	if (!bond_slave_has_mac_rcu(bond, arp->mac_src))
- 		return NULL;
- 
- 	if (arp->op_code == htons(ARPOP_REPLY)) {
-@@ -1343,11 +1378,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 	skb_reset_mac_header(skb);
- 	eth_data = eth_hdr(skb);
- 
--	/* make sure that the curr_active_slave do not change during tx
--	 */
--	read_lock(&bond->lock);
--	read_lock(&bond->curr_slave_lock);
--
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP: {
- 		const struct iphdr *iph = ip_hdr(skb);
-@@ -1429,12 +1459,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 
- 	if (!tx_slave) {
- 		/* unbalanced or unassigned, send through primary */
--		tx_slave = bond->curr_active_slave;
-+		tx_slave = rcu_dereference(bond->curr_active_slave);
- 		bond_info->unbalanced_load += skb->len;
- 	}
- 
- 	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
--		if (tx_slave != bond->curr_active_slave) {
-+		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
- 			memcpy(eth_data->h_source,
- 			       tx_slave->dev->dev_addr,
- 			       ETH_ALEN);
-@@ -1449,8 +1479,6 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		}
- 	}
- 
--	read_unlock(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	if (res) {
- 		/* no suitable interface, frame not sent */
- 		kfree_skb(skb);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 0bd04fb..3c3076e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -464,6 +464,20 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
- 	return NULL;
- }
- 
-+/* Caller must hold rcu_read_lock() for read */
-+static inline struct slave *bond_slave_has_mac_rcu(struct bonding *bond,
-+					       const u8 *mac)
-+{
-+	struct list_head *iter;
-+	struct slave *tmp;
-+
-+	bond_for_each_slave_rcu(bond, tmp, iter)
-+		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
-+			return tmp;
-+
-+	return NULL;
-+}
-+
- /* Check if the ip is present in arp ip list, or first free slot if ip == 0
-  * Returns -1 if not found, index if found
-  */
--- 
-1.8.2.1
+Looks ok otherwise. Thanks!
