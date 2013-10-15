@@ -1,111 +1,108 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 3/9] bnx2x: Unlock VF-PF channel on MAC/VLAN config
- error
-Date: Tue, 15 Oct 2013 16:28:49 +0200
-Message-ID: <1381847335-32662-4-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net 2/9] bnx2x: Prevent an illegal pointer dereference
+ during panic
+Date: Tue, 15 Oct 2013 16:28:48 +0200
+Message-ID: <1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
 References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: ariele@broadcom.com, eilong@broadcom.com,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4405 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4414 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759175Ab3JOO3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:29:11 -0400
+	id S1759113Ab3JOO3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 10:29:06 -0400
 In-Reply-To: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Current code returns upon failure, leaving the VF-PF in an unusable state;
-This patch adds the missing release so further commands could pass between
-PF and VF.
+During a panic, the driver tries to print the Management FW buffer of recent
+commands. To do so, the driver reads the address of that buffer from a known
+address. If the buffer is unavailable (e.g., PCI reads don't work, MCP is
+failing, etc.), the driver will try to access the address it has read, possibly
+causing a kernel panic.
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
+This check 'sanitizes' the access, validating the read value is indeed a valid
+address inside the management FW's buffers.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 23 ++++++++++++++---------
- 1 file changed, 14 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  4 ++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 19 ++++++++++++++-----
+ 2 files changed, 18 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 9ad012b..997c661 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -3390,14 +3390,16 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
- 		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_ETH_MAC, true);
- 		if (rc) {
- 			BNX2X_ERR("failed to delete eth macs\n");
--			return -EINVAL;
-+			rc = -EINVAL;
-+			goto out;
- 		}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 97b3d32..d21742c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2498,4 +2498,8 @@ enum bnx2x_pci_bus_speed {
+ };
  
- 		/* remove existing uc list macs */
- 		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_UC_LIST_MAC, true);
- 		if (rc) {
- 			BNX2X_ERR("failed to delete uc_list macs\n");
--			return -EINVAL;
-+			rc = -EINVAL;
-+			goto out;
- 		}
+ void bnx2x_set_local_cmng(struct bnx2x *bp);
++
++#define MCPR_SCRATCH_BASE(bp) \
++	(CHIP_IS_E1x(bp) ? MCP_REG_MCPR_SCRATCH : MCP_A_REG_MCPR_SCRATCH)
++
+ #endif /* bnx2x.h */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 60f9e68..3fd76b9 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -775,6 +775,15 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
+ 		trace_shmem_base = bp->common.shmem_base;
+ 	else
+ 		trace_shmem_base = SHMEM2_RD(bp, other_shmem_base_addr);
++
++	/* sanity */
++	if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) ||
++	    trace_shmem_base > MCPR_SCRATCH_BASE(bp) + 0x28000) {
++		BNX2X_ERR("Unable to dump trace buffer (mark %x)\n",
++			  trace_shmem_base);
++		return;
++	}
++
+ 	addr = trace_shmem_base - 0x800;
  
- 		/* configure the new mac to device */
-@@ -3405,6 +3407,7 @@ int bnx2x_set_vf_mac(struct net_device *dev, int vfidx, u8 *mac)
- 		bnx2x_set_mac_one(bp, (u8 *)&bulletin->mac, mac_obj, true,
- 				  BNX2X_ETH_MAC, &ramrod_flags);
+ 	/* validate TRCB signature */
+@@ -787,8 +796,7 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
+ 	/* read cyclic buffer pointer */
+ 	addr += 4;
+ 	mark = REG_RD(bp, addr);
+-	mark = (CHIP_IS_E1x(bp) ? MCP_REG_MCPR_SCRATCH : MCP_A_REG_MCPR_SCRATCH)
+-			+ ((mark + 0x3) & ~0x3) - 0x08000000;
++	mark = MCPR_SCRATCH_BASE(bp) + ((mark + 0x3) & ~0x3) - 0x08000000;
+ 	printk("%s" "begin fw dump (mark 0x%x)\n", lvl, mark);
  
-+out:
- 		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_MAC);
- 	}
+ 	printk("%s", lvl);
+@@ -11685,9 +11693,6 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+ static int bnx2x_open(struct net_device *dev)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	bool global = false;
+-	int other_engine = BP_PATH(bp) ? 0 : 1;
+-	bool other_load_status, load_status;
+ 	int rc;
  
-@@ -3467,7 +3470,8 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
- 					  &ramrod_flags);
- 		if (rc) {
- 			BNX2X_ERR("failed to delete vlans\n");
--			return -EINVAL;
-+			rc = -EINVAL;
-+			goto out;
- 		}
- 
- 		/* send queue update ramrod to configure default vlan and silent
-@@ -3501,7 +3505,8 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
- 			rc = bnx2x_config_vlan_mac(bp, &ramrod_param);
- 			if (rc) {
- 				BNX2X_ERR("failed to configure vlan\n");
--				return -EINVAL;
-+				rc =  -EINVAL;
-+				goto out;
- 			}
- 
- 			/* configure default vlan to vf queue and set silent
-@@ -3519,18 +3524,18 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
- 		rc = bnx2x_queue_state_change(bp, &q_params);
- 		if (rc) {
- 			BNX2X_ERR("Failed to configure default VLAN\n");
--			return rc;
-+			goto out;
- 		}
- 
- 		/* clear the flag indicating that this VF needs its vlan
--		 * (will only be set if the HV configured th Vlan before vf was
--		 * and we were called because the VF came up later
-+		 * (will only be set if the HV configured the Vlan before vf was
-+		 * up and we were called because the VF came up later
- 		 */
-+out:
- 		vf->cfg_flags &= ~VF_CFG_VLAN;
--
- 		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
- 	}
--	return 0;
-+	return rc;
- }
- 
- /* crc is the first field in the bulletin board. Compute the crc over the
+ 	bp->stats_init = true;
+@@ -11703,6 +11708,10 @@ static int bnx2x_open(struct net_device *dev)
+ 	 * Parity recovery is only relevant for PF driver.
+ 	 */
+ 	if (IS_PF(bp)) {
++		int other_engine = BP_PATH(bp) ? 0 : 1;
++		bool other_load_status, load_status;
++		bool global = false;
++
+ 		other_load_status = bnx2x_get_load_status(bp, other_engine);
+ 		load_status = bnx2x_get_load_status(bp, BP_PATH(bp));
+ 		if (!bnx2x_reset_is_done(bp, BP_PATH(bp)) ||
 -- 
 1.8.1.227.g44fe835
