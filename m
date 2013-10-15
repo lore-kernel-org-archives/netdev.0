@@ -1,166 +1,81 @@
-From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH RFC 5/5] net: macb: Adjust tx_clk when link speed changes
-Date: Mon, 14 Oct 2013 16:59:00 -0700
-Message-ID: <1381795140-10792-6-git-send-email-soren.brinkmann@xilinx.com>
-References: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michal Simek <michal.simek@xilinx.com>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:54467 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757784Ab3JNX7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Oct 2013 19:59:33 -0400
-In-Reply-To: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: Re: [PATCH net 1/2] virtio-net: don't respond to cpu hotplug notifier
+	if we're not ready
+Date: Tue, 15 Oct 2013 08:18:32 +0800
+Message-ID: <525C89D8.4020306@cn.fujitsu.com>
+References: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
+Reply-To: gaowanlong@cn.fujitsu.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1381744595-26881-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Adjust the ethernet clock according to the negotiated link speed.
+On 10/14/2013 05:56 PM, Jason Wang wrote:
+> We're trying to re-configure the affinity unconditionally in cpu hotplug
+> callback. This may lead the issue during resuming from s3/s4 since
+> 
+> - virt queues haven't been allocated at that time.
+> - it's unnecessary since thaw method will re-configure the affinity.
+> 
+> Fix this issue by checking the config_enable and do nothing is we're not ready.
+> 
+> The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
+> (virtio-net: reset virtqueue affinity when doing cpu hotplug).
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c | 66 +++++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/cadence/macb.h |  1 +
- 2 files changed, 67 insertions(+)
+Thank you.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 603844b1d483..beb9fa863811 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -204,6 +204,49 @@ static int macb_mdio_reset(struct mii_bus *bus)
- 	return 0;
- }
- 
-+/**
-+ * macb_set_tx_clk() - Set a clock to a new frequency
-+ * @clk		Pointer to the clock to change
-+ * @rate	New frequency in Hz
-+ * @dev		Pointer to the struct net_device
-+ */
-+static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
-+{
-+	long ferr;
-+	long rate;
-+	long rate_rounded;
-+
-+	switch (speed) {
-+	case SPEED_10:
-+		rate = 2500000;
-+		break;
-+	case SPEED_100:
-+		rate = 25000000;
-+		break;
-+	case SPEED_1000:
-+		rate = 125000000;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	rate_rounded = clk_round_rate(clk, rate);
-+	if (rate_rounded < 0)
-+		return;
-+
-+	/* RGMII allows 50 ppm frequency error. Test and warn if this limit
-+	 * are not satisfied.
-+	 */
-+	ferr = abs(rate_rounded - rate);
-+	ferr = DIV_ROUND_UP(ferr, rate / 100000);
-+	if (ferr > 5)
-+		netdev_warn(dev, "unable to generate target frequency: %ld Hz\n",
-+				rate);
-+
-+	if (clk_set_rate(clk, rate_rounded))
-+		netdev_err(dev, "adjusting tx_clk failed.\n");
-+}
-+
- static void macb_handle_link_change(struct net_device *dev)
- {
- 	struct macb *bp = netdev_priv(dev);
-@@ -251,6 +294,9 @@ static void macb_handle_link_change(struct net_device *dev)
- 
- 	spin_unlock_irqrestore(&bp->lock, flags);
- 
-+	if (!IS_ERR(bp->tx_clk))
-+		macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
-+
- 	if (status_change) {
- 		if (phydev->link) {
- 			netif_carrier_on(dev);
-@@ -1805,6 +1851,8 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out_free_dev;
- 	}
- 
-+	bp->tx_clk = devm_clk_get(&pdev->dev, "tx_clk");
-+
- 	err = clk_prepare_enable(bp->pclk);
- 	if (err) {
- 		dev_err(&pdev->dev, "failed to enable pclk (%u)\n", err);
-@@ -1817,6 +1865,15 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out_disable_pclk;
- 	}
- 
-+	if (!IS_ERR(bp->tx_clk)) {
-+		err = clk_prepare_enable(bp->tx_clk);
-+		if (err) {
-+			dev_err(&pdev->dev, "failed to enable tx_clk (%u)\n",
-+					err);
-+			goto err_out_disable_hclk;
-+		}
-+	}
-+
- 	bp->regs = devm_ioremap(&pdev->dev, regs->start, resource_size(regs));
- 	if (!bp->regs) {
- 		dev_err(&pdev->dev, "failed to map registers, aborting.\n");
-@@ -1917,6 +1974,9 @@ static int __init macb_probe(struct platform_device *pdev)
- err_out_unregister_netdev:
- 	unregister_netdev(dev);
- err_out_disable_clocks:
-+	if (!IS_ERR(bp->tx_clk))
-+		clk_disable_unprepare(bp->tx_clk);
-+err_out_disable_hclk:
- 	clk_disable_unprepare(bp->hclk);
- err_out_disable_pclk:
- 	clk_disable_unprepare(bp->pclk);
-@@ -1941,6 +2001,8 @@ static int __exit macb_remove(struct platform_device *pdev)
- 		kfree(bp->mii_bus->irq);
- 		mdiobus_free(bp->mii_bus);
- 		unregister_netdev(dev);
-+		if (!IS_ERR(bp->tx_clk))
-+			clk_disable_unprepare(bp->tx_clk);
- 		clk_disable_unprepare(bp->hclk);
- 		clk_disable_unprepare(bp->pclk);
- 		free_netdev(dev);
-@@ -1959,6 +2021,8 @@ static int macb_suspend(struct device *dev)
- 	netif_carrier_off(netdev);
- 	netif_device_detach(netdev);
- 
-+	if (!IS_ERR(bp->tx_clk))
-+		clk_disable_unprepare(bp->tx_clk);
- 	clk_disable_unprepare(bp->hclk);
- 	clk_disable_unprepare(bp->pclk);
- 
-@@ -1973,6 +2037,8 @@ static int macb_resume(struct device *dev)
- 
- 	clk_prepare_enable(bp->pclk);
- 	clk_prepare_enable(bp->hclk);
-+	if (!IS_ERR(bp->tx_clk))
-+		clk_prepare_enable(bp->tx_clk);
- 
- 	netif_device_attach(netdev);
- 
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index f4076155bed7..51c02442160a 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -572,6 +572,7 @@ struct macb {
- 	struct platform_device	*pdev;
- 	struct clk		*pclk;
- 	struct clk		*hclk;
-+	struct clk		*tx_clk;
- 	struct net_device	*dev;
- 	struct napi_struct	napi;
- 	struct work_struct	tx_error_task;
--- 
-1.8.4
+Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+
+
+> ---
+> The patch is need for 3.8 and above.
+> ---
+>  drivers/net/virtio_net.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index defec2b..c4bc1cc 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1116,6 +1116,11 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
+>  {
+>  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
+>  
+> +	mutex_lock(&vi->config_lock);
+> +
+> +	if (!vi->config_enable)
+> +		goto done;
+> +
+>  	switch(action & ~CPU_TASKS_FROZEN) {
+>  	case CPU_ONLINE:
+>  	case CPU_DOWN_FAILED:
+> @@ -1128,6 +1133,9 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
+>  	default:
+>  		break;
+>  	}
+> +
+> +done:
+> +	mutex_unlock(&vi->config_lock);
+>  	return NOTIFY_OK;
+>  }
+>  
+> 
