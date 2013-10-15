@@ -1,7 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 18/18] net: wimax: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:45:14 +0800
-Message-ID: <1381837514-50660-19-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 16/18] net: virtio: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:45:12 +0800
+Message-ID: <1381837514-50660-17-git-send-email-wangkefeng.wang@huawei.com>
 References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -36,22 +36,22 @@ net_ratelimited_function() is called to simplify code.
 
 Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 ---
- drivers/net/wimax/i2400m/netdev.c | 3 +--
+ drivers/net/virtio_net.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-index 4889613..678717a 100644
---- a/drivers/net/wimax/i2400m/netdev.c
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -305,8 +305,7 @@ int i2400m_net_wake_tx(struct i2400m *i2400m, struct net_device *net_dev,
- 		 * queue -- blame the queue disciplines that
- 		 * queue without looking -- I guess there is a reason
- 		 * for that. */
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index defec2b..4f63c12 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -753,8 +753,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* This should not happen! */
+ 	if (unlikely(err)) {
+ 		dev->stats.tx_fifo_errors++;
 -		if (net_ratelimit())
--			d_printf(1, dev, "NETTX: device exiting idle, "
-+		net_ratelimited_function(d_printf, 1, dev, "NETTX: device exiting idle, "
- 				 "dropping skb %p, queue running %d\n",
- 				 skb, netif_queue_stopped(net_dev));
- 		result = -EBUSY;
+-			dev_warn(&dev->dev,
++		net_ratelimited_function(dev_warn, &dev->dev,
+ 				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
+ 		dev->stats.tx_dropped++;
+ 		kfree_skb(skb);
 -- 
 1.8.2.1
