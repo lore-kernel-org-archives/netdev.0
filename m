@@ -1,55 +1,128 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH 2/2] be2net: drop non-tso frames longer than mtu
-Date: Tue, 15 Oct 2013 16:30:35 +0200
-Message-ID: <525D518B.5010901@redhat.com>
-References: <1381838188-9625-1-git-send-email-sathya.perla@emulex.com>  <1381838188-9625-2-git-send-email-sathya.perla@emulex.com> <1381844840.2045.37.camel@edumazet-glaptop.roam.corp.google.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: fix a cacc_saw_newack missetting issue
+Date: Tue, 15 Oct 2013 10:34:06 -0400
+Message-ID: <525D525E.8010508@gmail.com>
+References: <1381757623-12803-1-git-send-email-changxiangzhong@gmail.com> <525D4D2D.8000506@gmail.com> <525D50BD.5030301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Sathya Perla <sathya.perla@emulex.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22695 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932673Ab3JOOao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 10:30:44 -0400
-In-Reply-To: <1381844840.2045.37.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chang <changxiangzhong@gmail.com>, nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <525D50BD.5030301@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/15/2013 03:47 PM, Eric Dumazet wrote:
-> On Tue, 2013-10-15 at 17:26 +0530, Sathya Perla wrote:
->> From: Vasundhara Volam <vasundhara.volam@emulex.com>
->>
->> Pktgen can generate non-TSO frames of arbitrary length disregarding
->> the MTU value of the physical interface. Drop such frames in the driver
->> instead of sending them to HW as it cannot handle such frames.
->>
->> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
->> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
->> ---
->>   drivers/net/ethernet/emulex/benet/be_main.c |    9 +++++++--
->>   1 files changed, 7 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
->> index 2c38cc4..76057b8 100644
->> --- a/drivers/net/ethernet/emulex/benet/be_main.c
->> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
->> @@ -855,6 +855,13 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
->>   	unsigned int eth_hdr_len;
->>   	struct iphdr *ip;
->>
->> +	/* Don't allow non-TSO packets longer than MTU */
->> +	eth_hdr_len = (ntohs(skb->protocol) == ETH_P_8021Q) ?
->> +			VLAN_ETH_HLEN : ETH_HLEN;
->> +	if (!skb_is_gso(skb) &&
->> +	    (skb->len - eth_hdr_len) > adapter->netdev->mtu)
->> +			goto tx_drop;
->> +
+On 10/15/2013 10:27 AM, Chang wrote:
 >
-> When you say 'cannot handle them', is it some kind of nasty thing like
-> hang / crash ?
-AFAIK, the firmware in the card becomes unresponsive and reboot is 
-needed to make the NIC working.
+> On 10/15/2013 04:11 PM, Vlad Yasevich wrote:
+>> On 10/14/2013 09:33 AM, Chang Xiangzhong wrote:
+>>> For for each TSN t being newly acked (Not only cumulatively,
+>>> but also SELECTIVELY) cacc_saw_newack should be set to 1.
+>>>
+>>> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
+>>> ---
+>>>   net/sctp/outqueue.c |   42 +++++++++++++++++++++---------------------
+>>>   1 file changed, 21 insertions(+), 21 deletions(-)
+>>>
+>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>>> index 94df758..d86032b 100644
+>>> --- a/net/sctp/outqueue.c
+>>> +++ b/net/sctp/outqueue.c
+>>> @@ -1398,6 +1398,27 @@ static void sctp_check_transmitted(struct
+>>> sctp_outq *q,
+>>>                   forward_progress = true;
+>>>               }
+>>>
+>>> +            if (!tchunk->tsn_gap_acked) {
+>>
+>> You can remove this test since the block just above already performs
+>> it.  Just fold this code into the block above.
+>>
+>> -vlad
+>>
+> Sorry, I'm not sure if I fully understand you. There are code blocks
+> which checking the tchunk->tsn_gap_acked. In addition, they check other
+> states as well.
 
-Ivan
+The flow is:
+
+	 if (sctp_acked(sack, tsn)) {
+		...
+		if (transport) {
+			....
+		}
+
+		if (!tchunk->tsn_gap_acked) {
+			....
+		}
+
+		if (TSN_lte(tsn, sack_ctsn)) {
+			....
+			/* SFR-CACC ...
+		}
+
+Since you are moving this up, you can simply re-use
+the if (!tchunk->tsn_gap_acked) immediately above.
+
+>>> +                /*
+>>> +                 * SFR-CACC algorithm:
+>>> +                 * 2) If the SACK contains gap acks
+>>> +                 * and the flag CHANGEOVER_ACTIVE is
+>>> +                 * set the receiver of the SACK MUST
+>>> +                 * take the following action:
+>>> +                 *
+>>> +                 * B) For each TSN t being acked that
+>>> +                 * has not been acked in any SACK so
+>>> +                 * far, set cacc_saw_newack to 1 for
+>>> +                 * the destination that the TSN was
+>>> +                 * sent to.
+>>> +                 */
+>>> +                if (transport &&
+>>> +                    sack->num_gap_ack_blocks &&
+>>> +                    q->asoc->peer.primary_path->cacc.
+>>> +                    changeover_active)
+>>> +                    transport->cacc.cacc_saw_newack    = 1;
+							^^^^
+
+Don't need that many spaces...
+
+-vlad
+>>> +            }
+>>> +
+>>>               if (TSN_lte(tsn, sack_ctsn)) {
+>>>                   /* RFC 2960  6.3.2 Retransmission Timer Rules
+>>>                    *
+>>> @@ -1411,27 +1432,6 @@ static void sctp_check_transmitted(struct
+>>> sctp_outq *q,
+>>>                   restart_timer = 1;
+>>>                   forward_progress = true;
+>>>
+>>> -                if (!tchunk->tsn_gap_acked) {
+>>> -                    /*
+>>> -                     * SFR-CACC algorithm:
+>>> -                     * 2) If the SACK contains gap acks
+>>> -                     * and the flag CHANGEOVER_ACTIVE is
+>>> -                     * set the receiver of the SACK MUST
+>>> -                     * take the following action:
+>>> -                     *
+>>> -                     * B) For each TSN t being acked that
+>>> -                     * has not been acked in any SACK so
+>>> -                     * far, set cacc_saw_newack to 1 for
+>>> -                     * the destination that the TSN was
+>>> -                     * sent to.
+>>> -                     */
+>>> -                    if (transport &&
+>>> -                        sack->num_gap_ack_blocks &&
+>>> - q->asoc->peer.primary_path->cacc.
+>>> -                        changeover_active)
+>>> -                        transport->cacc.cacc_saw_newack
+>>> -                            = 1;
+>>> -                }
+>>>
+>>> list_add_tail(&tchunk->transmitted_list,
+>>>                             &q->sacked);
+>>>
+>>
+>
