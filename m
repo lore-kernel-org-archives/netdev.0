@@ -1,7 +1,7 @@
 From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH 02/18] net: use wrapper functions of net_ratelimit() to simplify code
-Date: Tue, 15 Oct 2013 19:44:58 +0800
-Message-ID: <1381837514-50660-3-git-send-email-wangkefeng.wang@huawei.com>
+Subject: [PATCH 05/18] rt18192u: use wrapper functions of net_ratelimit() to simplify code
+Date: Tue, 15 Oct 2013 19:45:01 +0800
+Message-ID: <1381837514-50660-6-git-send-email-wangkefeng.wang@huawei.com>
 References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -32,118 +32,181 @@ In-Reply-To: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wrapper functions net_ratelimited_function() and net_XXX_ratelimited()
-are called to simplify code.
+net_XXX_ratelimited() is called to simplify code.
 
 Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 ---
- net/bridge/br_fdb.c                   |  6 ++----
- net/bridge/br_multicast.c             | 13 ++++---------
- net/bridge/br_stp_bpdu.c              | 11 ++++-------
- net/mac80211/rx.c                     |  6 ++----
- net/netfilter/ipset/ip_set_hash_gen.h |  3 +--
- 5 files changed, 13 insertions(+), 26 deletions(-)
+ .../rtl8192u/ieee80211/ieee80211_crypt_ccmp.c      | 17 ++++-------------
+ .../rtl8192u/ieee80211/ieee80211_crypt_tkip.c      | 22 +++++-----------------
+ drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c  |  7 ++-----
+ drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c  |  4 +---
+ 4 files changed, 12 insertions(+), 38 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index ffd5874..e47dfe5 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -465,10 +465,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 	if (likely(fdb)) {
- 		/* attempt to update an entry for a local interface */
- 		if (unlikely(fdb->is_local)) {
--			if (net_ratelimit())
--				br_warn(br, "received packet on %s with "
--					"own address as source address\n",
--					source->dev->name);
-+			net_ratelimited_function(br_warn, br, "received packet on %s "
-+				"with own address as source address\n", source->dev->name);
- 		} else {
- 			/* fastpath: update of existing entry */
- 			fdb->dst = source;
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index d1c5786..c00d8a2 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -530,11 +530,8 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
- 	max = mdb->max;
- 
- 	if (unlikely(count > br->hash_elasticity && count)) {
--		if (net_ratelimit())
--			br_info(br, "Multicast hash table "
--				"chain limit reached: %s\n",
--				port ? port->dev->name : br->dev->name);
--
-+		net_ratelimited_function(br_info, br, "Multicast hash table "
-+			"chain limit reached: %s\n", port ? port->dev->name : br->dev->name);
- 		elasticity = br->hash_elasticity;
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
+index f2b1677..534f0a4 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_ccmp.c
+@@ -284,10 +284,8 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 	pos = skb->data + hdr_len;
+ 	keyidx = pos[3];
+ 	if (!(keyidx & (1 << 5))) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "CCMP: received packet without ExtIV"
++		net_dbg_ratelimited("CCMP: received packet without ExtIV"
+ 			       " flag from %pM\n", hdr->addr2);
+-		}
+ 		key->dot11RSNAStatsCCMPFormatErrors++;
+ 		return -2;
+ 	}
+@@ -298,11 +296,9 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 		return -6;
+ 	}
+ 	if (!key->key_set) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "CCMP: received packet from %pM"
++		net_dbg_ratelimited("CCMP: received packet from %pM"
+ 			       " with keyid=%d that does not have a configured"
+ 			       " key\n", hdr->addr2, keyidx);
+-		}
+ 		return -3;
  	}
  
-@@ -554,10 +551,8 @@ disable:
+@@ -315,11 +311,9 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 	pos += 8;
  
- 	if (max > mdb->max || elasticity) {
- 		if (mdb->old) {
--			if (net_ratelimit())
--				br_info(br, "Multicast hash table "
--					"on fire: %s\n",
--					port ? port->dev->name : br->dev->name);
-+			net_ratelimited_function(br_info, br, "Multicast hash table "
-+				"on fire: %s\n", port ? port->dev->name : br->dev->name);
- 			err = -EEXIST;
- 			goto err;
- 		}
-diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
-index 8660ea3..482ef11 100644
---- a/net/bridge/br_stp_bpdu.c
-+++ b/net/bridge/br_stp_bpdu.c
-@@ -220,13 +220,10 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
- 		bpdu.forward_delay = br_get_ticks(buf+30);
- 
- 		if (bpdu.message_age > bpdu.max_age) {
--			if (net_ratelimit())
--				br_notice(p->br,
--					  "port %u config from %pM"
--					  " (message_age %ul > max_age %ul)\n",
--					  p->port_no,
--					  eth_hdr(skb)->h_source,
--					  bpdu.message_age, bpdu.max_age);
-+			net_ratelimited_function(br_notice, p->br,
-+				"port %u config from %pM (message_age %ul > max_age %ul)\n",
-+				p->port_no, eth_hdr(skb)->h_source,
-+				bpdu.message_age, bpdu.max_age);
- 			goto out;
- 		}
- 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 54395d7..35b8b1d 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -3156,10 +3156,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
- 	if (!consume) {
- 		skb = skb_copy(skb, GFP_ATOMIC);
- 		if (!skb) {
--			if (net_ratelimit())
--				wiphy_debug(local->hw.wiphy,
--					"failed to copy skb for %s\n",
--					sdata->name);
-+			net_ratelimited_function(wiphy_debug, local->hw.wiphy,
-+				"failed to copy skb for %s\n", sdata->name);
- 			return true;
- 		}
- 
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 707bc52..6179436 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -607,8 +607,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 		mtype_expire(h, NETS_LENGTH(set->family), h->dsize);
- 
- 	if (h->elements >= h->maxelem) {
--		if (net_ratelimit())
--			pr_warning("Set %s is full, maxelem %u reached\n",
-+		net_warn_ratelimited("Set %s is full, maxelem %u reached\n",
- 				   set->name, h->maxelem);
- 		return -IPSET_ERR_HASH_FULL;
+ 	if (memcmp(pn, key->rx_pn, CCMP_PN_LEN) <= 0) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "CCMP: replay detected: STA=%pM"
++		net_dbg_ratelimited("CCMP: replay detected: STA=%pM"
+ 			       " previous PN %pm received PN %pm\n",
+ 			       hdr->addr2, key->rx_pn, pn);
+-		}
+ 		key->dot11RSNAStatsCCMPReplays++;
+ 		return -4;
  	}
+@@ -353,10 +347,7 @@ static int ieee80211_ccmp_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 		}
+ 
+ 		if (memcmp(mic, a, CCMP_MIC_LEN) != 0) {
+-			if (net_ratelimit()) {
+-				printk(KERN_DEBUG "CCMP: decrypt failed: STA="
+-				"%pM\n", hdr->addr2);
+-			}
++			net_dbg_ratelimited("CCMP: decrypt failed: STA=%pM\n", hdr->addr2);
+ 			key->dot11RSNAStatsCCMPDecryptErrors++;
+ 			return -5;
+ 		}
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
+index 93121b4..7bb5a96 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_crypt_tkip.c
+@@ -406,10 +406,8 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 	pos = skb->data + hdr_len;
+ 	keyidx = pos[3];
+ 	if (!(keyidx & (1 << 5))) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "TKIP: received packet without ExtIV"
++		net_dbg_ratelimited("TKIP: received packet without ExtIV"
+ 			       " flag from %pM\n", hdr->addr2);
+-		}
+ 		return -2;
+ 	}
+ 	keyidx >>= 6;
+@@ -419,11 +417,9 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 		return -6;
+ 	}
+ 	if (!tkey->key_set) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "TKIP: received packet from %pM"
++		net_dbg_ratelimited("TKIP: received packet from %pM"
+ 			       " with keyid=%d that does not have a configured"
+ 			       " key\n", hdr->addr2, keyidx);
+-		}
+ 		return -3;
+ 	}
+ 	iv16 = (pos[0] << 8) | pos[2];
+@@ -434,12 +430,10 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 	{
+ 		if (iv32 < tkey->rx_iv32 ||
+ 		(iv32 == tkey->rx_iv32 && iv16 <= tkey->rx_iv16)) {
+-			if (net_ratelimit()) {
+-				printk(KERN_DEBUG "TKIP: replay detected: STA=%pM"
++			net_dbg_ratelimited("TKIP: replay detected: STA=%pM"
+ 				" previous TSC %08x%04x received TSC "
+ 				"%08x%04x\n", hdr->addr2,
+ 				tkey->rx_iv32, tkey->rx_iv16, iv32, iv16);
+-			}
+ 			tkey->dot11RSNAStatsTKIPReplays++;
+ 			return -4;
+ 		}
+@@ -456,11 +450,8 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 		sg_init_one(&sg, pos, plen+4);
+ 
+ 		if (crypto_blkcipher_decrypt(&desc, &sg, &sg, plen + 4)) {
+-			if (net_ratelimit()) {
+-				printk(KERN_DEBUG ": TKIP: failed to decrypt "
+-						"received packet from %pM\n",
++			net_dbg_ratelimited("TKIP: failed to decrypt received packet from %pM\n",
+ 						hdr->addr2);
+-			}
+ 			return -7;
+ 		}
+ 
+@@ -476,10 +467,7 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ 				* it needs to be recalculated for the next packet. */
+ 				tkey->rx_phase1_done = 0;
+ 			}
+-			if (net_ratelimit()) {
+-				printk(KERN_DEBUG "TKIP: ICV error detected: STA="
+-				"%pM\n", hdr->addr2);
+-			}
++			net_dbg_ratelimited("TKIP: ICV error detected: STA=%pM\n", hdr->addr2);
+ 			tkey->dot11RSNAStatsTKIPICVErrors++;
+ 			return -5;
+ 		}
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
+index 59900bf..5e6c1eb 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
+@@ -355,11 +355,9 @@ ieee80211_rx_frame_decrypt(struct ieee80211_device *ieee, struct sk_buff *skb,
+ #ifdef CONFIG_IEEE80211_CRYPT_TKIP
+ 	if (ieee->tkip_countermeasures &&
+ 	    strcmp(crypt->ops->name, "TKIP") == 0) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "%s: TKIP countermeasures: dropped "
++		net_dbg_ratelimited("%s: TKIP countermeasures: dropped "
+ 			       "received packet from %pM\n",
+ 			       ieee->dev->name, hdr->addr2);
+-		}
+ 		return -1;
+ 	}
+ #endif
+@@ -946,8 +944,7 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
+ 
+ 	if(HTCCheck(ieee, skb->data))
+ 	{
+-		if(net_ratelimit())
+-		printk("find HTCControl\n");
++		net_info_ratelimited("find HTCControl\n");
+ 		hdrlen += 4;
+ 		rx_stats->bContainHTC = 1;
+ 	}
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
+index a7bcc64f..55c24d7 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
+@@ -197,11 +197,9 @@ int ieee80211_encrypt_fragment(
+ 	if (ieee->tkip_countermeasures &&
+ 	    crypt && crypt->ops && strcmp(crypt->ops->name, "TKIP") == 0) {
+ 		header = (struct ieee80211_hdr *) frag->data;
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "%s: TKIP countermeasures: dropped "
++		net_dbg_ratelimited("%s: TKIP countermeasures: dropped "
+ 			       "TX packet to %pM\n",
+ 			       ieee->dev->name, header->addr1);
+-		}
+ 		return -1;
+ 	}
+ #endif
 -- 
 1.8.2.1
