@@ -1,219 +1,85 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] For for each TSN t being newly acked (Not only cumulatively,
- but also SELECTIVELY) cacc_saw_newack should be set to 1.
-Date: Tue, 15 Oct 2013 13:25:06 -0400
-Message-ID: <525D7A72.70200@gmail.com>
-References: <1381856348-15503-1-git-send-email-changxiangzhong@gmail.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v3 4/9] qlcnic: Update ethtool standard pause settings.
+Date: Tue, 15 Oct 2013 12:57:49 -0400
+Message-ID: <2a2533ac84ecafdd5f75e4ce6e5450e80b7dce8d.1381882600.git.himanshu.madhani@qlogic.com>
+References: <cover.1381882600.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chang Xiangzhong <changxiangzhong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381856348-15503-1-git-send-email-changxiangzhong@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:36039 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933002Ab3JOR23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 13:28:29 -0400
+In-Reply-To: <cover.1381882600.git.himanshu.madhani@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2013 12:59 PM, Chang Xiangzhong wrote:
-> Signed-off-by: Xiangzhong Chang <changxiangzhong@gmail.com>
-> ---
->   net/sctp/outqueue.c |  142 ++++++++++++++++++++++++---------------------------
->   1 file changed, 68 insertions(+), 74 deletions(-)
->
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 94df758..f10d848 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1357,84 +1357,78 @@ static void sctp_check_transmitted(struct sctp_outq *q,
->
->   		tsn = ntohl(tchunk->subh.data_hdr->tsn);
->   		if (sctp_acked(sack, tsn)) {
-> -			/* If this queue is the retransmit queue, the
-> -			 * retransmit timer has already reclaimed
-> -			 * the outstanding bytes for this chunk, so only
-> -			 * count bytes associated with a transport.
-> -			 */
-> -			if (transport) {
-> -				/* If this chunk is being used for RTT
-> -				 * measurement, calculate the RTT and update
-> -				 * the RTO using this value.
-> -				 *
-> -				 * 6.3.1 C5) Karn's algorithm: RTT measurements
-> -				 * MUST NOT be made using packets that were
-> -				 * retransmitted (and thus for which it is
-> -				 * ambiguous whether the reply was for the
-> -				 * first instance of the packet or a later
-> -				 * instance).
-> -				 */
-> -				if (!tchunk->tsn_gap_acked &&
-> -				    tchunk->rtt_in_progress) {
-> -					tchunk->rtt_in_progress = 0;
-> -					rtt = jiffies - tchunk->sent_at;
-> -					sctp_transport_update_rto(transport,
-> -								  rtt);
-> -				}
-> -			}
-> -
-> -			/* If the chunk hasn't been marked as ACKED,
-> -			 * mark it and account bytes_acked if the
-> -			 * chunk had a valid transport (it will not
-> -			 * have a transport if ASCONF had deleted it
-> -			 * while DATA was outstanding).
-> -			 */
->   			if (!tchunk->tsn_gap_acked) {
-> -				tchunk->tsn_gap_acked = 1;
-> -				*highest_new_tsn_in_sack = tsn;
-> -				bytes_acked += sctp_data_size(tchunk);
-> -				if (!tchunk->transport)
-> -					migrate_bytes += sctp_data_size(tchunk);
-> -				forward_progress = true;
-> +			    /* If this queue is the retransmit queue, the
-> +			     * retransmit timer has already reclaimed
-> +			     * the outstanding bytes for this chunk, so only
-> +			     * count bytes associated with a transport.
-> +			     *
-> +			     * If this chunk is being used for RTT
-> +			     * measurement, calculate the RTT and update
-> +			     * the RTO using this value.
-> +			     *
-> +			     * 6.3.1 C5) Karn's algorithm: RTT measurements
-> +			     * MUST NOT be made using packets that were
-> +			     * retransmitted (and thus for which it is
-> +			     * ambiguous whether the reply was for the
-> +			     * first instance of the packet or a later
-> +			     * instance).
-> +			     */
-> +			    if (transport && tchunk->rtt_in_progress) {
-> +				tchunk->rtt_in_progress = 0;
-> +				rtt = jiffies - tchunk->sent_at;
-> +				sctp_transport_update_rto(transport,
-> +					rtt);
-> +			    }
-> +
-> +			    /* If the chunk hasn't been marked as ACKED,
-> +			     * mark it and account bytes_acked if the
-> +			     * chunk had a valid transport (it will not
-> +			     * have a transport if ASCONF had deleted it
-> +			     * while DATA was outstanding).
-> +			     */
-> +			    tchunk->tsn_gap_acked = 1;
-> +			    *highest_new_tsn_in_sack = tsn;
-> +			    bytes_acked += sctp_data_size(tchunk);
-> +			    if (!tchunk->transport)
-> +				migrate_bytes += sctp_data_size(tchunk);
-> +			    forward_progress = true;
-> +
-> +			    /*
-> +			     * SFR-CACC algorithm:
-> +			     * 2) If the SACK contains gap acks
-> +			     * and the flag CHANGEOVER_ACTIVE is
-> +			     * set the receiver of the SACK MUST
-> +			     * take the following action:
-> +			     *
-> +			     * B) For each TSN t being acked that
-> +			     * has not been acked in any SACK so
-> +			     * far, set cacc_saw_newack to 1 for
-> +			     * the destination that the TSN was
-> +			     * sent to.
-> +			     */
-> +			    if (transport &&
-> +				    sack->num_gap_ack_blocks &&
-> +				    q->asoc->peer.primary_path->cacc.
-> +				    changeover_active)
-> +				transport->cacc.cacc_saw_newack = 1;
->   			}
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Indents should be tab based.
-This is a bit more of a re-write that is needed for the this particualar 
-patch.  What's wrong with just doing this?
+Update ethtool standard pause parameter settings and display
 
-@@ -1396,6 +1396,25 @@ static void sctp_check_transmitted(struct 
-sctp_outq *q,
-                                 if (!tchunk->transport)
-                                         migrate_bytes += 
-sctp_data_size(tchunk);
-                                 forward_progress = true;
-+
-+                               /*
-+                                * SFR-CACC algorithm:
-+                                * 2) If the SACK contains gap acks
-+                                * and the flag CHANGEOVER_ACTIVE is
-+                                * set the receiver of the SACK MUST
-+                                * take the following action:
-+                                *
-+                                * B) For each TSN t being acked that
-+                                * has not been acked in any SACK so
-+                                * far, set cacc_saw_newack to 1 for
-+                                * the destination that the TSN was
-+                                * sent to.
-+                                */
-+                               if (transport &&
-+                                   sack->num_gap_ack_blocks &&
-+                                   q->asoc->peer.primary_path->cacc.
-+                                   changeover_active)
-+                                       transport->cacc.cacc_saw_newack = 1;
-                         }
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 18 +++++++++++++++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h |  3 +++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
-
-                         if (TSN_lte(tsn, sack_ctsn)) {
-
--vlad
-
->
->   			if (TSN_lte(tsn, sack_ctsn)) {
-> -				/* RFC 2960  6.3.2 Retransmission Timer Rules
-> -				 *
-> -				 * R3) Whenever a SACK is received
-> -				 * that acknowledges the DATA chunk
-> -				 * with the earliest outstanding TSN
-> -				 * for that address, restart T3-rtx
-> -				 * timer for that address with its
-> -				 * current RTO.
-> -				 */
-> -				restart_timer = 1;
-> -				forward_progress = true;
-> -
-> -				if (!tchunk->tsn_gap_acked) {
-> -					/*
-> -					 * SFR-CACC algorithm:
-> -					 * 2) If the SACK contains gap acks
-> -					 * and the flag CHANGEOVER_ACTIVE is
-> -					 * set the receiver of the SACK MUST
-> -					 * take the following action:
-> -					 *
-> -					 * B) For each TSN t being acked that
-> -					 * has not been acked in any SACK so
-> -					 * far, set cacc_saw_newack to 1 for
-> -					 * the destination that the TSN was
-> -					 * sent to.
-> -					 */
-> -					if (transport &&
-> -					    sack->num_gap_ack_blocks &&
-> -					    q->asoc->peer.primary_path->cacc.
-> -					    changeover_active)
-> -						transport->cacc.cacc_saw_newack
-> -							= 1;
-> -				}
-> -
-> -				list_add_tail(&tchunk->transmitted_list,
-> -					      &q->sacked);
-> +			    /* RFC 2960  6.3.2 Retransmission Timer Rules
-> +			     *
-> +			     * R3) Whenever a SACK is received
-> +			     * that acknowledges the DATA chunk
-> +			     * with the earliest outstanding TSN
-> +			     * for that address, restart T3-rtx
-> +			     * timer for that address with its
-> +			     * current RTO.
-> +			     */
-> +			    restart_timer = 1;
-> +			    forward_progress = true;
-> +
-> +			    list_add_tail(&tchunk->transmitted_list,
-> +				    &q->sacked);
->   			} else {
->   				/* RFC2960 7.2.4, sctpimpguide-05 2.8.2
->   				 * M2) Each time a SACK arrives reporting
->
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index c2df4ce..268fda6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -3369,10 +3369,21 @@ void qlcnic_83xx_get_pauseparam(struct qlcnic_adapter *adapter,
+ 	}
+ 	config = ahw->port_config;
+ 	if (config & QLC_83XX_CFG_STD_PAUSE) {
+-		if (config & QLC_83XX_CFG_STD_TX_PAUSE)
++		switch (MSW(config)) {
++		case QLC_83XX_TX_PAUSE:
++			pause->tx_pause = 1;
++			break;
++		case QLC_83XX_RX_PAUSE:
++			pause->rx_pause = 1;
++			break;
++		case QLC_83XX_TX_RX_PAUSE:
++		default:
++			/* Backward compatibility for existing
++			 * flash definitions
++			 */
+ 			pause->tx_pause = 1;
+-		if (config & QLC_83XX_CFG_STD_RX_PAUSE)
+ 			pause->rx_pause = 1;
++		}
+ 	}
+ 
+ 	if (QLC_83XX_AUTONEG(config))
+@@ -3415,7 +3426,8 @@ int qlcnic_83xx_set_pauseparam(struct qlcnic_adapter *adapter,
+ 		ahw->port_config &= ~QLC_83XX_CFG_STD_RX_PAUSE;
+ 		ahw->port_config |= QLC_83XX_CFG_STD_TX_PAUSE;
+ 	} else if (!pause->rx_pause && !pause->tx_pause) {
+-		ahw->port_config &= ~QLC_83XX_CFG_STD_TX_RX_PAUSE;
++		ahw->port_config &= ~(QLC_83XX_CFG_STD_TX_RX_PAUSE |
++				      QLC_83XX_CFG_STD_PAUSE);
+ 	}
+ 	status = qlcnic_83xx_set_port_config(adapter);
+ 	if (status) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 533e150..2883b57 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -363,6 +363,9 @@ enum qlcnic_83xx_states {
+ #define QLC_83XX_LINK_EEE(data)		((data) & BIT_13)
+ #define QLC_83XX_DCBX(data)			(((data) >> 28) & 7)
+ #define QLC_83XX_AUTONEG(data)			((data) & BIT_15)
++#define QLC_83XX_TX_PAUSE			0x10
++#define QLC_83XX_RX_PAUSE			0x20
++#define QLC_83XX_TX_RX_PAUSE			0x30
+ #define QLC_83XX_CFG_STD_PAUSE			(1 << 5)
+ #define QLC_83XX_CFG_STD_TX_PAUSE		(1 << 20)
+ #define QLC_83XX_CFG_STD_RX_PAUSE		(2 << 20)
+-- 
+1.8.1.4
