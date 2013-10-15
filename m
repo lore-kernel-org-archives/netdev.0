@@ -1,88 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
-Date: Wed, 16 Oct 2013 01:48:12 +0400
-Message-ID: <525DB81C.6010106@cogentembedded.com>
-References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp> <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com> <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next] openvswitch: fix vport-netdev unregister
+Date: Tue, 15 Oct 2013 14:49:41 -0700
+Message-ID: <CAMEtUuyyR7sgGaDbQ0RmVfaY1uQr+wniv2DcsYUqCkG3uWgv5g@mail.gmail.com>
+References: <1381722652-3689-1-git-send-email-ast@plumgrid.com>
+	<CAEP_g=-hkjjph8qO8MQL=BBA8MnaUdE2vTy3jN+m7Vh5skfa6g@mail.gmail.com>
+	<CAMEtUuxysgzNqeBpBQ-ajLtymYCvEF-GMiUcQuy1b-QA=dFhdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
-	Simon Horman <horms@verge.net.au>
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jiri Pirko <jiri@resnulli.us>, Cong Wang <amwang@redhat.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:43937 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933657Ab3JOVtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 17:49:15 -0400
-Received: by mail-la0-f47.google.com with SMTP id eo20so7297403lab.6
-        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 14:49:14 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.1310150926220.5601@axis700.grange>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:35249 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933657Ab3JOVtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 17:49:43 -0400
+Received: by mail-we0-f176.google.com with SMTP id w62so9022084wes.7
+        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 14:49:42 -0700 (PDT)
+In-Reply-To: <CAMEtUuxysgzNqeBpBQ-ajLtymYCvEF-GMiUcQuy1b-QA=dFhdw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/15/2013 11:28 AM, Guennadi Liakhovetski wrote:
-
->>> This patch will fix RX packets errors when receiving big size
->>> of data by set bit RNC = 1.
-
->>> RNC - Receive Enable Control
-
->>> 0: Upon completion of reception of one frame, the E-DMAC writes
->>> the receive status to the descriptor and clears the RR bit in
->>> EDRRR to 0.
-
->>> 1: Upon completion of reception of one frame, the E-DMAC writes
->>> (writes back) the receive status to the descriptor. In addition,
->>> the E-DMAC reads the next descriptor and prepares for reception
->>> of the next frame.
-
->>> In addition, for get more stable when receiving packets, I set
->>> maximum size for the transmit/receive FIFO and inserts padding
->>> in receive data.
-
->>> Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
->>> ---
->>>    drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
->>>    1 files changed, 4 insertions(+), 0 deletions(-)
-
->>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
->>> b/drivers/net/ethernet/renesas/sh_eth.c
->>> index a753928..11d34f0 100644
->>> --- a/drivers/net/ethernet/renesas/sh_eth.c
->>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->>> @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
->>>    	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
->>>    			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
->>>    			  EESR_TDE | EESR_ECI,
->>> +	.fdr_value	= 0x0000070f,
->>> +	.rmcr_value	= 0x00000001,
+On Tue, Oct 15, 2013 at 9:53 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Tue, Oct 15, 2013 at 8:31 AM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Sun, Oct 13, 2013 at 8:50 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>> diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
+>>> index c323567..ffa429a 100644
+>>> --- a/net/openvswitch/dp_notify.c
+>>> +++ b/net/openvswitch/dp_notify.c
+>>> @@ -59,15 +59,9 @@ void ovs_dp_notify_wq(struct work_struct *work)
+>>>                         struct hlist_node *n;
 >>>
->>>    	.apr		= 1,
->>>    	.mpr		= 1,
->>>    	.tpauser	= 1,
->>>    	.bculr		= 1,
->>>    	.hw_swap	= 1,
->>> +	.rpadir		= 1,
->>> +	.rpadir_value   = 2 << 16,
->>>    	.no_trimd	= 1,
->>>    	.no_ade		= 1,
->>>    	.tsu		= 1,
+>>>                         hlist_for_each_entry_safe(vport, n, &dp->ports[i], dp_hash_node) {
+>>> -                               struct netdev_vport *netdev_vport;
+>>> -
+>>>                                 if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
+>>>                                         continue;
+>>> -
+>>> -                               netdev_vport = netdev_vport_priv(vport);
+>>> -                               if (netdev_vport->dev->reg_state == NETREG_UNREGISTERED ||
+>>> -                                   netdev_vport->dev->reg_state == NETREG_UNREGISTERING)
+>>> -                                       dp_detach_port_notify(vport);
+>>> +                               dp_detach_port_notify(vport);
+>>
+>> Doesn't this free *all* ports of type OVS_VPORT_TYPE_NETDEV when any
+>> one of them is removed?
+>
+> sorry. not sure what I was thinking on Sunday evening. will respin
 
->>     Guennadi, could you check if this patch fixes your issue with NFS. Make
->> sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
-
-> Yes, the current -next, which includes this patch (in a slightly different
-> form) boots fine over NFS for me.
-
-    I don't know what you mean by "slightly different form" exactly. Also, I 
-was unable to locate the fresh -next tree. 'net-next.git' contains this patch 
-in a mismerged form, 'net.git' has Simon's patch that corrects this mismerge.
-
-> Thanks
-> Guennadi
-
-WBR, Sergei
+will take it back. the check was removed to prevent hang upon dev netns moves,
+since reg_state will still be == netreg_registered,
+but yes, different check is needed.
+sending v4
