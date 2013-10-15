@@ -1,42 +1,59 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: kernel policy routing table src ip not respected since 2.6.37
- and commit 9fc3bbb4a752
-Date: Tue, 15 Oct 2013 23:36:47 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310152242170.1919@ssi.bg>
-References: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com> <alpine.LFD.2.03.1310151144580.1562@ssi.bg> <CAK3+h2w13isZEOurBMv57L0H_pkqMdYmPaNE3Kn5vPxfqErOMw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC 4/5] net: macb: Use devm_request_irq()
+Date: Wed, 16 Oct 2013 00:38:06 +0400
+Message-ID: <525DA7AE.8030102@cogentembedded.com>
+References: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com> <1381795140-10792-5-git-send-email-soren.brinkmann@xilinx.com> <525D95A4.3020706@cogentembedded.com> <ffb65abe-36e2-45c3-9d40-02050545184d@TX2EHSMHS038.ehs.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Joel Sing <jsing@google.com>
-To: Vincent Li <vincent.mc.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49582 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932576Ab3JOUhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 16:37:05 -0400
-In-Reply-To: <CAK3+h2w13isZEOurBMv57L0H_pkqMdYmPaNE3Kn5vPxfqErOMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michal Simek <michal.simek@xilinx.com>
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ffb65abe-36e2-45c3-9d40-02050545184d@TX2EHSMHS038.ehs.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/16/2013 12:20 AM, S=C3=B6ren Brinkmann wrote:
 
-	Hello,
+>>> Use the device managed interface to request the IRQ, simplifying er=
+ror
+>>> paths.
 
-On Tue, 15 Oct 2013, Vincent Li wrote:
+>>> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+>>> ---
+>>>   drivers/net/ethernet/cadence/macb.c | 8 +++-----
+>>>   1 file changed, 3 insertions(+), 5 deletions(-)
 
-> it is strange though when 10.1.1.9 is unreachable address and the ping
-> utility reports error 'Destination Host Unreachable' with source
-> 10.1.1.1.  before 2.6.37, it reports 10.1.1..2
+>>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
+rnet/cadence/macb.c
+>>> index 436aecc31732..603844b1d483 100644
+>>> --- a/drivers/net/ethernet/cadence/macb.c
+>>> +++ b/drivers/net/ethernet/cadence/macb.c
+>>> @@ -1825,7 +1825,8 @@ static int __init macb_probe(struct platform_=
+device *pdev)
+>>>   	}
+>>>
+>>>   	dev->irq =3D platform_get_irq(pdev, 0);
+>>> -	err =3D request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
+>>> +	err =3D devm_request_irq(&pdev->dev, dev->irq, macb_interrupt, 0,
+>>> +			dev->name, dev);
 
-	I see, it is the icmp_send() function that uses
-inet_select_addr() to select primary source for locally generated
-ICMP errors that are sent back to the sender (10.1.1.2).
-In your case it is the error_report from the ARP code.
+>>     You should start the continuation line right under &.
 
-	So, you are correct about the commit but I don't
-see any problem with this behavior. IIRC, users preferred
-to see primary addresses in the traceroute output.
+> Actually this one is a good example why I don't do such alignment: Yo=
+u
+> do a simple search & replace - in this case request_irq ->
+> devm_request_irq - and all alignment is gone.
 
-Regards
+    I didn't understand why this is a good example. In this case you br=
+oke the=20
+line yourself and did it incorrectly, not following the networking codi=
+ng=20
+style which assumes Emacs-style alignment for broken lines.
 
---
-Julian Anastasov <ja@ssi.bg>
+> 	S=C3=B6ren
+
+WBR, Sergei
