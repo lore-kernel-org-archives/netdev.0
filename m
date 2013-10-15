@@ -1,74 +1,175 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
-Date: Tue, 15 Oct 2013 18:07:52 +0200 (CEST)
-Message-ID: <alpine.LNX.2.02.1310151806230.12061@eeeadesso>
-References: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com> <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com> <1381848597.25397.4.camel@dcbw.foobar.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: getting lldp DCB_CMD_IEEE_GET after DCB_CMD_GCAP fails
+Date: Tue, 15 Oct 2013 18:18:39 +0200
+Message-ID: <20131015161838.GA10478@aepfle.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
-	christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Antonella Pellizzari <anto.pellizzari83@gmail.com>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381848597.25397.4.camel@dcbw.foobar.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:33977 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759113Ab3JOQSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 12:18:43 -0400
+Received: from probook.site
+	(dslb-088-074-056-021.pools.arcor-ip.net [88.74.56.21])
+	by smtp.strato.de (RZmta 32.6 DYNA|AUTH)
+	with (TLSv1.0:DHE-RSA-AES256-SHA encrypted) ESMTPSA id e0125cp9FFgf27
+	for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 18:18:39 +0200 (CEST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-:) I'm very happy you got it working.
-The firmware of our device seems so fragile still - and several QMI calls can 
-bring it to a crashing state, especially when asking a network scan to the NAS 
-service.
+
+If this list is the wrong place, please point me to the right direction.
 
 
-On Tue, 15 Oct 2013, Dan Williams wrote:
+In the example code below the part which grabs DCB_CMD_IEEE_GET fails,
+unless the "hack" part is executed. What I see inside the kernel is that
+__netlink_dump_start gets to the err=-EBUSY case because nlk->cb is
+still set. The nl_ack_handler is executed, an "empty" error is returned.
+I have compared my code with open-lldp-0.9.46/test/nltest.c and did not
+spot the difference.
 
-==Date: Tue, 15 Oct 2013 09:49:57 -0500
-==From: Dan Williams <dcbw@redhat.com>
-==To: Enrico Mioso <mrkiko.rs@gmail.com>
-==Cc: gregkh@linuxfoundation.org, davem@davemloft.net, bjorn@mork.no,
-==    christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
-==    netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-==    Antonella Pellizzari <anto.pellizzari83@gmail.com>
-==Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
-==
-==On Tue, 2013-10-15 at 15:06 +0200, Enrico Mioso wrote:
-==> This is a QMI device, manufactured by TCT Mobile Phones.
-==> A companion patch blacklisting this device's QMI interface in the option.c
-==> driver has been sent.
-==> 
-==> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-==> Signed-off-by: Antonella Pellizzari <anto.pellizzari83@gmail.com>
-==
-==Good find.  For the record, mine has:
-==
-==PX1522E16X  1  [Oct 15 2010 02:00:00]
-==
-==	ctl (1.4)
-==	wds (1.8)
-==	dms (1.3)
-==	nas (1.2)
-==	qos (1.2)
-==	wms (1.1)
-==	pds (1.4)
-==	auth (1.0)
-==	voice (1.0)
-==	cat2 (1.1)
-==
-==Tested-by: Dan Williams <dcbw@redhat.com>
-==
-==> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-==> index 3d6aaf7..818ce90 100644
-==> --- a/drivers/net/usb/qmi_wwan.c
-==> +++ b/drivers/net/usb/qmi_wwan.c
-==> @@ -714,6 +714,7 @@ static const struct usb_device_id products[] = {
-==>  	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
-==>  	{QMI_FIXED_INTF(0x2357, 0x9000, 4)},	/* TP-LINK MA260 */
-==>  	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
-==> +	{QMI_FIXED_INTF(0x0b3c, 0xc005, 6)},    /* Olivetti Olicard 200 */
-==>  	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
-==>  
-==>  	/* 4. Gobi 1000 devices */
-==
-==
-==
+
+Is the code below supposed to work anyway? Thanks for any help.
+
+
+Olaf
+
+
+/* cc -lnl lldptest.c -o lldptest */
+#include <stdio.h>
+#include <netlink/msg.h>
+#include <linux/dcbnl.h>
+
+static int nl_dump_valid(struct nl_msg *msg, void *p)
+{
+	struct nlmsghdr *nlh = p;
+	nlh = nlmsg_hdr(msg);
+	printf("%s: %x\n", __func__, nlh->nlmsg_len);
+	return NL_OK;
+}
+
+static int nl_ack_handler(struct nl_msg *msg, void *arg)
+{
+	arg = msg;
+	printf("%s: %p\n", __func__, arg);
+	return NL_STOP;
+}
+
+static int nl_error_handler(struct sockaddr_nl *sender, struct nlmsgerr *err, void *arg)
+{
+	char *s = arg;
+	printf("%s: %p %s %x\n", __func__, sender, s, err->error);
+	return NL_STOP;
+}
+
+int main(int argc, char *argv[])
+{
+	struct nl_handle *nl_handle;
+	struct nl_cb *nl_cb, *tmp_cb;
+	struct nl_msg *msg;
+	struct nlattr *nla;
+	struct dcbmsg dcb = {.dcb_family = AF_UNSPEC, };
+	char *ifname;
+	int hack;
+	int protocol = 0;
+	int ret = 1;
+
+	if (argc < 2) {
+		printf("Usage: %s <ifname> [hack]\n", argv[0]);
+		goto out;
+	}
+	ifname = argv[1];
+	hack = !!argv[2];
+
+	nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!nl_cb) {
+		perror("nl_cb_alloc");
+		goto out;
+	}
+	nl_handle = nl_handle_alloc_cb(nl_cb);
+	if (nl_connect(nl_handle, protocol) < 0) {
+		perror("nl_connect");
+		goto out;
+	}
+
+	tmp_cb = nl_cb_clone(nl_cb);
+	dcb.cmd = DCB_CMD_GCAP;
+	nl_cb_err(tmp_cb, NL_CB_CUSTOM, nl_error_handler, "DCB_CMD_GCAP");
+	nl_cb_set(tmp_cb, NL_CB_ACK, NL_CB_CUSTOM, nl_ack_handler, NULL);
+	nl_cb_set(tmp_cb, NL_CB_VALID, NL_CB_CUSTOM, nl_dump_valid, NULL);
+
+	msg = nlmsg_alloc_simple(RTM_GETDCB, NLM_F_REQUEST);
+	if (!msg) {
+		perror("nlmsg_alloc_simple");
+		goto out;
+	}
+	if (nlmsg_append(msg, &dcb, sizeof(dcb), NLMSG_ALIGNTO) < 0) {
+		perror("nlmsg_append");
+		goto out;
+	}
+
+	NLA_PUT_STRING(msg, DCB_ATTR_IFNAME, ifname);
+	nla = nla_nest_start(msg, DCB_ATTR_CAP);
+	NLA_PUT_FLAG(msg, DCB_CAP_ATTR_ALL);
+	nla_nest_end(msg, nla);
+
+	if (nl_send_auto_complete(nl_handle, msg) < 0) {
+		perror("nl_send_auto_complete");
+		goto out;
+	}
+
+	if ((nl_recvmsgs(nl_handle, tmp_cb)) < 0) {
+		perror("nl_recvmsgs");
+		goto out;
+	}
+
+	nl_cb_put(tmp_cb);
+	nlmsg_free(msg);
+
+	if (hack) {
+		nl_close(nl_handle);
+		nl_handle = nl_handle_alloc_cb(nl_cb);
+		if (nl_connect(nl_handle, protocol) < 0) {
+			perror("nl_connect");
+			goto out;
+		}
+	}
+
+	tmp_cb = nl_cb_clone(nl_cb);
+	dcb.cmd = DCB_CMD_IEEE_GET;
+	nl_cb_err(tmp_cb, NL_CB_CUSTOM, nl_error_handler, "DCB_CMD_IEEE_GET");
+	nl_cb_set(tmp_cb, NL_CB_ACK, NL_CB_CUSTOM, nl_ack_handler, NULL);
+	nl_cb_set(tmp_cb, NL_CB_VALID, NL_CB_CUSTOM, nl_dump_valid, NULL);
+
+	msg = nlmsg_alloc_simple(RTM_GETDCB, NLM_F_REQUEST);
+	if (!msg) {
+		perror("nlmsg_alloc_simple");
+		goto out;
+	}
+	if (nlmsg_append(msg, &dcb, sizeof(dcb), NLMSG_ALIGNTO) < 0) {
+		perror("nlmsg_append");
+		goto out;
+	}
+
+	NLA_PUT_STRING(msg, DCB_ATTR_IFNAME, ifname);
+	if (nl_send_auto_complete(nl_handle, msg) < 0) {
+		perror("nl_send_auto_complete");
+		goto out;
+	}
+
+	if ((nl_recvmsgs(nl_handle, tmp_cb)) < 0) {
+		perror("nl_recvmsgs");
+		goto out;
+	}
+
+	nl_cb_put(tmp_cb);
+	nlmsg_free(msg);
+
+	ret = 0;
+
+      nla_put_failure:
+      out:
+	return ret;
+}
