@@ -1,65 +1,44 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] bridge: Correctly clamp MAX forward_delay when enabling
- STP
-Date: Tue, 15 Oct 2013 21:17:11 +0200
-Message-ID: <20131015191711.GC13150@redhat.com>
-References: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC 4/5] net: macb: Use devm_request_irq()
+Date: Tue, 15 Oct 2013 23:21:08 +0400
+Message-ID: <525D95A4.3020706@cogentembedded.com>
+References: <1381795140-10792-1-git-send-email-soren.brinkmann@xilinx.com> <1381795140-10792-5-git-send-email-soren.brinkmann@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24924 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757102Ab3JOTTX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Oct 2013 15:19:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michal Simek <michal.simek@xilinx.com>
+To: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381795140-10792-5-git-send-email-soren.brinkmann@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2013 at 02:57:45PM -0400, Vlad Yasevich wrote:
->Commit be4f154d5ef0ca147ab6bcd38857a774133f5450
->	bridge: Clamp forward_delay when enabling STP
->had a typo when attempting to clamp maximum forward delay.
->
->It is possible to set bridge_forward_delay to be higher then
->permitted maximum when STP is off.  When turning STP on, the
->higher then allowed delay has to be clamed down to max value.
->
->CC: Herbert Xu <herbert@gondor.apana.org.au>
->CC: Stephen Hemminger <shemminger@vyatta.com>
->Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Hello.
 
-I think it should also be queued for stable, as it's present there also.
-David, mind adding it?
+On 10/15/2013 03:58 AM, Soren Brinkmann wrote:
 
-As for the code - great catch!
+> Use the device managed interface to request the IRQ, simplifying error
+> paths.
 
-Reviewed-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> ---
+>   drivers/net/ethernet/cadence/macb.c | 8 +++-----
+>   1 file changed, 3 insertions(+), 5 deletions(-)
 
->---
-> net/bridge/br_stp_if.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 436aecc31732..603844b1d483 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1825,7 +1825,8 @@ static int __init macb_probe(struct platform_device *pdev)
+>   	}
 >
->diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
->index 108084a..656a6f3 100644
->--- a/net/bridge/br_stp_if.c
->+++ b/net/bridge/br_stp_if.c
->@@ -134,7 +134,7 @@ static void br_stp_start(struct net_bridge *br)
->
-> 	if (br->bridge_forward_delay < BR_MIN_FORWARD_DELAY)
-> 		__br_set_forward_delay(br, BR_MIN_FORWARD_DELAY);
->-	else if (br->bridge_forward_delay < BR_MAX_FORWARD_DELAY)
->+	else if (br->bridge_forward_delay > BR_MAX_FORWARD_DELAY)
-> 		__br_set_forward_delay(br, BR_MAX_FORWARD_DELAY);
->
-> 	if (r == 0) {
->-- 
->1.8.3.1
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   	dev->irq = platform_get_irq(pdev, 0);
+> -	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
+> +	err = devm_request_irq(&pdev->dev, dev->irq, macb_interrupt, 0,
+> +			dev->name, dev);
+
+    You should start the continuation line right under &.
+
+WBR, Sergei
