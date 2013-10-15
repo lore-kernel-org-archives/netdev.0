@@ -1,50 +1,109 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Re: kernel policy routing table src ip not respected since 2.6.37 and
- commit 9fc3bbb4a752
-Date: Tue, 15 Oct 2013 14:38:52 -0700
-Message-ID: <CAK3+h2wUY_JuD=jAX9KH8Jvnxey5mJ05G5_STorwuVeBhmJo1g@mail.gmail.com>
-References: <CAK3+h2zGFnbC-hpPB8fPX7TC3rKCWbPYVY4WW4HDYbN+LXNXXw@mail.gmail.com>
-	<alpine.LFD.2.03.1310151144580.1562@ssi.bg>
-	<CAK3+h2w13isZEOurBMv57L0H_pkqMdYmPaNE3Kn5vPxfqErOMw@mail.gmail.com>
-	<alpine.LFD.2.03.1310152242170.1919@ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Joel Sing <jsing@google.com>
-To: Julian Anastasov <ja@ssi.bg>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH ipsec v2] xfrm: prevent ipcomp scratch buffer race condition
+Date: Tue, 15 Oct 2013 23:40:30 +0200 (CEST)
+Message-ID: <20131015214030.B0D06E8A60@unicorn.suse.cz>
+References: <20131015083348.GW7660@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:54995 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933696Ab3JOVix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 17:38:53 -0400
-Received: by mail-ob0-f181.google.com with SMTP id va2so6505730obc.12
-        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 14:38:52 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.03.1310152242170.1919@ssi.bg>
+Received: from cantor2.suse.de ([195.135.220.15]:36297 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933181Ab3JOVkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Oct 2013 17:40:32 -0400
+In-Reply-To: <20131015083348.GW7660@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ok, thanks for the clarification.
+In ipcomp_compress(), sortirq is enabled too early, allowing the
+per-cpu scratch buffer to be rewritten by ipcomp_decompress()
+(called on the same CPU in softirq context) between populating
+the buffer and copying the compressed data to the skb.
 
-On Tue, Oct 15, 2013 at 1:36 PM, Julian Anastasov <ja@ssi.bg> wrote:
->
->         Hello,
->
-> On Tue, 15 Oct 2013, Vincent Li wrote:
->
->> it is strange though when 10.1.1.9 is unreachable address and the ping
->> utility reports error 'Destination Host Unreachable' with source
->> 10.1.1.1.  before 2.6.37, it reports 10.1.1..2
->
->         I see, it is the icmp_send() function that uses
-> inet_select_addr() to select primary source for locally generated
-> ICMP errors that are sent back to the sender (10.1.1.2).
-> In your case it is the error_report from the ARP code.
->
->         So, you are correct about the commit but I don't
-> see any problem with this behavior. IIRC, users preferred
-> to see primary addresses in the traceroute output.
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+Add similar protection into ipcomp_decompress() as it can be
+called from process context as well (even if such scenario seems
+a bit artificial).
+
+v2: as pointed out by Steffen Klassert, if we also move the
+local_bh_disable() before reading the per-cpu pointers, we can
+get rid of get_cpu()/put_cpu().
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/xfrm/xfrm_ipcomp.c | 29 ++++++++++++++++++-----------
+ 1 file changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index 2906d52..9fe4f42 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -45,12 +45,17 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+ 	const int plen = skb->len;
+ 	int dlen = IPCOMP_SCRATCH_SIZE;
+ 	const u8 *start = skb->data;
+-	const int cpu = get_cpu();
+-	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+-	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+-	int err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
++	struct crypto_comp *tfm;
++	u8 *scratch;
++	int cpu;
++	int err;
+ 	int len;
+ 
++	local_bh_disable();
++	cpu = smp_processor_id();
++	scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
++	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
++	err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+ 	if (err)
+ 		goto out;
+ 
+@@ -103,7 +108,7 @@ static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
+ 	err = 0;
+ 
+ out:
+-	put_cpu();
++	local_bh_enable();
+ 	return err;
+ }
+ 
+@@ -141,14 +146,16 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
+ 	const int plen = skb->len;
+ 	int dlen = IPCOMP_SCRATCH_SIZE;
+ 	u8 *start = skb->data;
+-	const int cpu = get_cpu();
+-	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
+-	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
++	struct crypto_comp *tfm;
++	u8 *scratch;
++	int cpu;
+ 	int err;
+ 
+ 	local_bh_disable();
++	cpu = smp_processor_id();
++	scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
++	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+ 	err = crypto_comp_compress(tfm, start, plen, scratch, &dlen);
+-	local_bh_enable();
+ 	if (err)
+ 		goto out;
+ 
+@@ -158,13 +165,13 @@ static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
+ 
+ 	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
+-	put_cpu();
++	local_bh_enable();
+ 
+ 	pskb_trim(skb, dlen + sizeof(struct ip_comp_hdr));
+ 	return 0;
+ 
+ out:
+-	put_cpu();
++	local_bh_enable();
+ 	return err;
+ }
+ 
+-- 
+1.8.1.4
