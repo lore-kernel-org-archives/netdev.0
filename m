@@ -1,52 +1,65 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC 3/5] net:stmmac: ensure we reclaim all dirty descriptors.
-Date: Wed, 16 Oct 2013 21:46:05 +0400
-Message-ID: <525ED0DD.9070201@cogentembedded.com>
-References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC] bridge and friends: reduce TheLinuxWay(tm)
+Date: Wed, 16 Oct 2013 13:49:34 -0400
+Message-ID: <525ED1AE.7050101@mojatatu.com>
+References: <525C62D5.3090004@mojatatu.com> <20131014144156.6dc52a78@nehalam.linuxnetplumber.net> <525E9AB1.6090502@mojatatu.com> <525EC8AF.6000902@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: Jimmy Perchet <jimmy.perchet@parrot.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: vyasevic@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:41856 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934767Ab3JPRrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:47:08 -0400
-Received: by mail-lb0-f180.google.com with SMTP id q8so908226lbi.25
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:47:07 -0700 (PDT)
-In-Reply-To: <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
+Received: from mail-yh0-f48.google.com ([209.85.213.48]:57619 "EHLO
+	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761275Ab3JPRtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:49:36 -0400
+Received: by mail-yh0-f48.google.com with SMTP id f64so252997yha.21
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:49:35 -0700 (PDT)
+In-Reply-To: <525EC8AF.6000902@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/16/2013 07:24 PM, Jimmy Perchet wrote:
-
-> On low speed link (10MBit/s), some TX descriptors can remain dirty
-> if the tx coalescence timer expires before they were treated. Re-arm timer
-> in this case.
-
-> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++++-
->   1 file changed, 5 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 0015175..af04b5d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1284,8 +1284,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
->   			p = priv->dma_tx + entry;
+On 10/16/13 13:11, Vlad Yasevich wrote:
+> On 10/16/2013 09:54 AM, Jamal Hadi Salim wrote:
 >
->   		/* Check if the descriptor is owned by the DMA. */
-> -		if (priv->hw->desc->get_tx_owner(p))
-> +		if (priv->hw->desc->get_tx_owner(p)) {
-> +			/* Be sure to harvest remaining descriptor. */
-> +			mod_timer(&priv->txtimer,
-> +			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+>
+> This was to display or filter out virtual function data.
+>
 
-   The continuation line should stat right under &, according to thenetworking 
-coding style.
+Stephen explained - and it seems to make sense (working around
+netlink weaknesses). It could be made more generic.
 
-WBR, Sergei
+
+> I probably doesn't need to use this as we want the bridge data, not the
+> VF data stored as part of PF interface.
+>
+
+I think we need some filtering in the kernel. As it stands today,
+unfortunately you get everything ;-> I was suprised at the amount of
+data i get from the kernel these days when i ask for a simple netdev
+info (I think no less than 1K per netdev; everything from /proc entries
+from some bread crumbs i dont see any use for.
+
+>> - get attributes for all bridge ports for bridge br-blah (not there)
+>> you could also use the ifindex of br-blah here instead
+>
+> This would be usefull.
+>
+
+Its a usability improvement.
+We still have the ifi->ifindex available. It could be used to signal
+which bridge device's ports i want.
+But then i get _all_ the ports for that bridge.
+
+>
+>
+> You can already do this with:
+>
+>      ip link set dev ethX master brX
+>
+
+Yes, I know - it sucks from a usability pov.
+
+cheers,
+jamal
