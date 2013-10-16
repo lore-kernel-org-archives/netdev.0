@@ -1,43 +1,52 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: remove redundant code in __tcp_retransmit_skb()
-Date: Wed, 16 Oct 2013 13:34:10 -0400
-Message-ID: <CAK6E8=cW93nE9x-=_qvvA02rMgT5+AqRj56yb+h6SfU9GOacfg@mail.gmail.com>
-References: <1381941411-30645-1-git-send-email-ncardwell@google.com> <1381941843.2045.132.camel@edumazet-glaptop.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC 3/5] net:stmmac: ensure we reclaim all dirty descriptors.
+Date: Wed, 16 Oct 2013 21:46:05 +0400
+Message-ID: <525ED0DD.9070201@cogentembedded.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: Jimmy Perchet <jimmy.perchet@parrot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:53236 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760963Ab3JPRec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:34:32 -0400
-Received: by mail-ie0-f175.google.com with SMTP id aq17so1858914iec.6
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:34:31 -0700 (PDT)
-In-Reply-To: <1381941843.2045.132.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:41856 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934767Ab3JPRrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:47:08 -0400
+Received: by mail-lb0-f180.google.com with SMTP id q8so908226lbi.25
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:47:07 -0700 (PDT)
+In-Reply-To: <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 12:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-10-16 at 12:36 -0400, Neal Cardwell wrote:
->> Remove the specialized code in __tcp_retransmit_skb() that tries to trim
->> any ACKed payload preceding a FIN before we retransmit (this was added
->> in 1999 in v2.2.3pre3). This trimming code was made unreachable by the
->> more general code added above it that uses tcp_trim_head() to trim any
->> ACKed payload, with or without a FIN (this was added in "[NET]: Add
->> segmentation offload support to TCP." in 2002 circa v2.5.33).
->>
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Yuchung Cheng <ycheng@google.com>
->> ---
->>  net/ipv4/tcp_output.c | 15 ---------------
->>  1 file changed, 15 deletions(-)
+Hello.
+
+On 10/16/2013 07:24 PM, Jimmy Perchet wrote:
+
+> On low speed link (10MBit/s), some TX descriptors can remain dirty
+> if the tx coalescence timer expires before they were treated. Re-arm timer
+> in this case.
+
+> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
+
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 0015175..af04b5d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1284,8 +1284,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+>   			p = priv->dma_tx + entry;
 >
-> Acked-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
->
->
+>   		/* Check if the descriptor is owned by the DMA. */
+> -		if (priv->hw->desc->get_tx_owner(p))
+> +		if (priv->hw->desc->get_tx_owner(p)) {
+> +			/* Be sure to harvest remaining descriptor. */
+> +			mod_timer(&priv->txtimer,
+> +			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+
+   The continuation line should stat right under &, according to thenetworking 
+coding style.
+
+WBR, Sergei
