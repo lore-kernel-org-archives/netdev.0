@@ -1,42 +1,95 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] bridge: Correctly clamp MAX forward_delay when enabling
- STP
-Date: Wed, 16 Oct 2013 08:56:57 +0800
-Message-ID: <20131016005657.GA5394@gondor.apana.org.au>
-References: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCHv3 net] {xfrm, sctp} Stick to software crc32 even if hardware
+ is capable of that
+Date: Tue, 15 Oct 2013 21:05:42 -0400
+Message-ID: <525DE666.10308@gmail.com>
+References: <1381828777-15894-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>, nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:49913 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933711Ab3JPA5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 20:57:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:57230 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933711Ab3JPBFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 21:05:46 -0400
+Received: by mail-qc0-f180.google.com with SMTP id p19so44431qcv.25
+        for <netdev@vger.kernel.org>; Tue, 15 Oct 2013 18:05:45 -0700 (PDT)
+In-Reply-To: <1381828777-15894-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 15, 2013 at 02:57:45PM -0400, Vlad Yasevich wrote:
-> Commit be4f154d5ef0ca147ab6bcd38857a774133f5450
-> 	bridge: Clamp forward_delay when enabling STP
-> had a typo when attempting to clamp maximum forward delay.
-> 
-> It is possible to set bridge_forward_delay to be higher then
-> permitted maximum when STP is off.  When turning STP on, the
-> higher then allowed delay has to be clamed down to max value.
-> 
-> CC: Herbert Xu <herbert@gondor.apana.org.au>
-> CC: Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+On 10/15/2013 05:19 AM, Fan Du wrote:
+> igb/ixgbe have hardware sctp checksum support, when this feature is enabled
+> and also IPsec is armed to protect sctp traffic, ugly things happened as
+> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum every thing
+> up and pack the 16bits result in the checksum field). The result is fail
+> establishment of sctp communication.
+>
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Good catch!
+Looks good to me.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-vlad
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> ---
+> v3:
+>    - Rename is_xfrm_armed by dst_xfrm
+>    - Move this funtion in include/net/dst.h
+>
+> v2:
+>    - Split v1 into two separate patches.
+>
+> ---
+>   include/net/dst.h |   12 ++++++++++++
+>   net/sctp/output.c |    3 ++-
+>   2 files changed, 14 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 211dcf1..44995c1 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -478,10 +478,22 @@ static inline struct dst_entry *xfrm_lookup(struct net *net,
+>   {
+>   	return dst_orig;
+>   }
+> +
+> +static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+> +{
+> +	return NULL;
+> +}
+> +
+>   #else
+>   struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>   			      const struct flowi *fl, struct sock *sk,
+>   			      int flags);
+> +
+> +/* skb attached with this dst needs transformation if dst->xfrm is valid */
+> +static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+> +{
+> +	return dst->xfrm;
+> +}
+>   #endif
+>
+>   #endif /* _NET_DST_H */
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 0ac3a65..24b3718 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -536,7 +536,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>   	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
+>   	 */
+>   	if (!sctp_checksum_disable) {
+> -		if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
+> +		if (!(dst->dev->features & NETIF_F_SCTP_CSUM) ||
+> +			(dst_xfrm(dst) != NULL)) {
+>   			__u32 crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
+>
+>   			/* 3) Put the resultant value into the checksum field in the
+>
