@@ -1,102 +1,60 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH] WAN: Adding support for Infineon PEF2256 E1 chipset
-Date: Wed, 16 Oct 2013 11:24:57 -0500
-Message-ID: <CAL_JsqLSOy0OqEm4C1sCMSJnZ3O6Zsizpk_NJFxLij6LfyYK4A@mail.gmail.com>
-References: <201310161525.r9GFPZI5006238@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-doc@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, jerome.chantelauze@c-s.fr
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <201310161525.r9GFPZI5006238@localhost.localdomain>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next] tcp: remove redundant code in __tcp_retransmit_skb()
+Date: Wed, 16 Oct 2013 12:36:51 -0400
+Message-ID: <1381941411-30645-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:38755 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760719Ab3JPQg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 12:36:58 -0400
+Received: by mail-pd0-f201.google.com with SMTP id v10so95787pde.2
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 09:36:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 10:25 AM, Christophe Leroy
-<christophe.leroy@c-s.fr> wrote:
-> The patch adds WAN support for Infineon PEF2256 E1 Chipset.
->
-> Signed-off-by: Jerome Chantelauze <jerome.chantelauze@c-s.fr>
-> Acked-by: Christophe Leroy <christophe.leroy@c-s.fr>
+Remove the specialized code in __tcp_retransmit_skb() that tries to trim
+any ACKed payload preceding a FIN before we retransmit (this was added
+in 1999 in v2.2.3pre3). This trimming code was made unreachable by the
+more general code added above it that uses tcp_trim_head() to trim any
+ACKed payload, with or without a FIN (this was added in "[NET]: Add
+segmentation offload support to TCP." in 2002 circa v2.5.33).
 
-[snip]
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
 
-> diff -urN a/Documentation/devicetree/bindings/net/pef2256.txt b/Documentation/devicetree/bindings/net/pef2256.txt
-> --- a/Documentation/devicetree/bindings/net/pef2256.txt 1970-01-01 01:00:00.000000000 +0100
-> +++ b/Documentation/devicetree/bindings/net/pef2256.txt 2013-10-13 15:05:42.000000000 +0200
-> @@ -0,0 +1,29 @@
-> +* Wan on Infineon pef2256 E1 controller
-> +
-> +Required properties:
-> +- compatible: Should be "infineon,pef2256"
-> +- reg: Address and length of the register set for the device
-> +- interrupts: Should contain interrupts
-> +
-> +Optional properties:
-> +- data-rate: Data rate on the system highway.
-> +  Supported values are: 2, 4, 8, 16.
-> +  8 if not defined.
-
-What are the units? Specify them in the property name.
-
-> +- channel-phase: First time slot transmission channel phase.
-> +  Supported values are: 0, 1, 2, 3, 4, 5, 6, 7.
-> +  0 if not defined.
-
-This description basically tells me nothing.
-
-> +- rising-edge-sync-pulse: rising edge synchronous pulse.
-> +  Supported values are: "receive", "transmit".
-> +  "transmit" if not defined.
-
-Are receive and transmit mutually exclusive? If so, then wouldn't a
-single property like "rx-rising-edge-sync-pulse" be sufficient.
-
-> +
-> +Examples:
-> +
-> +       e1-wan@4,2000000 {
-> +               compatible = "infineon,pef2256";
-> +               reg = <4 0x2000000 0xFF>;
-> +               interrupts = <8 1>;
-> +               interrupt-parent = <&PIC>;
-> +               data-rate = <4>;
-> +               channel-phase = <1>;
-> +               rising-edge-sync-pulse = "transmit";
-> +       };
-> diff -urN a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
-> --- a/drivers/net/wan/Makefile  1970-01-01 01:00:00.000000000 +0100
-> +++ b/drivers/net/wan/Makefile  2013-10-13 13:05:01.000000000 +0200
-> @@ -22,6 +22,7 @@
->  obj-$(CONFIG_COSA)             += cosa.o
->  obj-$(CONFIG_FARSYNC)          += farsync.o
->  obj-$(CONFIG_DSCC4)             += dscc4.o
-> +obj-$(CONFIG_PEF2256)           += pef2256.o
->  obj-$(CONFIG_X25_ASY)          += x25_asy.o
->
->  obj-$(CONFIG_LANMEDIA)         += lmc/
-> diff -urN a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
-> --- a/drivers/net/wan/Kconfig   1970-01-01 01:00:00.000000000 +0100
-> +++ b/drivers/net/wan/Kconfig   2013-10-13 13:05:01.000000000 +0200
-> @@ -266,6 +266,16 @@
->           To compile this driver as a module, choose M here: the
->           module will be called farsync.
->
-> +config PEF2256
-> +       tristate "PEF2256 support"
-> +       depends on HDLC && OF && SYSFS
-
-It would be better if this can build without OF selected.
-
-Rob
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e5ce0e1..ce7c4d9 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2351,21 +2351,6 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_retrans_try_collapse(sk, skb, cur_mss);
+ 
+-	/* Some Solaris stacks overoptimize and ignore the FIN on a
+-	 * retransmit when old data is attached.  So strip it off
+-	 * since it is cheap to do so and saves bytes on the network.
+-	 */
+-	if (skb->len > 0 &&
+-	    (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) &&
+-	    tp->snd_una == (TCP_SKB_CB(skb)->end_seq - 1)) {
+-		if (!pskb_trim(skb, 0)) {
+-			/* Reuse, even though it does some unnecessary work */
+-			tcp_init_nondata_skb(skb, TCP_SKB_CB(skb)->end_seq - 1,
+-					     TCP_SKB_CB(skb)->tcp_flags);
+-			skb->ip_summed = CHECKSUM_NONE;
+-		}
+-	}
+-
+ 	/* Make a copy, if the first transmission SKB clone we made
+ 	 * is still in somebody's hands, else make a clone.
+ 	 */
+-- 
+1.8.4
