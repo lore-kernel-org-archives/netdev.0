@@ -1,52 +1,231 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net 3/4] bridge: Fix the way the PVID is referenced
-Date: Wed, 16 Oct 2013 17:07:15 +0900
-Message-ID: <1381910836-718-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net 1/4] bridge: Don't use VID 0 and 4095 in vlan filtering
+Date: Wed, 16 Oct 2013 17:07:13 +0900
+Message-ID: <1381910836-718-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Toshiaki Makita <toshiaki.makita1@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:50639 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760004Ab3JPIIG (ORCPT
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:44172 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753585Ab3JPIIG (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 04:08:06 -0400
 In-Reply-To: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are using the VLAN_TAG_PRESENT bit to detect whether the PVID is
-set or not at br_get_pvid(), while we don't care about the bit in
-adding/deleting the PVID, which makes it impossible to forward any
-incomming untagged frame with vlan_filtering enabled.
+IEEE 802.1Q says that:
+- VID 0 shall not be configured as a PVID, or configured in any Filtering
+Database entry.
+- VID 4095 shall not be configured as a PVID, or transmitted in a tag
+header. This VID value may be used to indicate a wildcard match for the VID
+in management operations or Filtering Database entries.
+(See IEEE 802.1Q-2011 6.9.1 and Table 9-2)
 
-Since vid 0 cannot be used for the PVID, we can use vid 0 to indicate
-that the PVID is not set, which is slightly more efficient than using
-the VLAN_TAG_PRESENT.
-
-Fix the problem by getting rid of using the VLAN_TAG_PRESENT.
+Don't accept adding these VIDs in the vlan_filtering implementation.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_private.h | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/bridge/br_fdb.c     |  4 +-
+ net/bridge/br_netlink.c |  2 +-
+ net/bridge/br_vlan.c    | 97 +++++++++++++++++++++++--------------------------
+ 3 files changed, 49 insertions(+), 54 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index efb57d9..7ca2ae4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -643,9 +643,7 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
- 	 * vid wasn't set
- 	 */
- 	smp_rmb();
--	return (v->pvid & VLAN_TAG_PRESENT) ?
--			(v->pvid & ~VLAN_TAG_PRESENT) :
--			VLAN_N_VID;
-+	return v->pvid ?: VLAN_N_VID;
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index ffd5874..33e8f23 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -700,7 +700,7 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ 		vid = nla_get_u16(tb[NDA_VLAN]);
+ 
+-		if (vid >= VLAN_N_VID) {
++		if (!vid || vid >= VLAN_VID_MASK) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+ 				vid);
+ 			return -EINVAL;
+@@ -794,7 +794,7 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ 		vid = nla_get_u16(tb[NDA_VLAN]);
+ 
+-		if (vid >= VLAN_N_VID) {
++		if (!vid || vid >= VLAN_VID_MASK) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
+ 				vid);
+ 			return -EINVAL;
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index e74ddc1..f75d92e 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -243,7 +243,7 @@ static int br_afspec(struct net_bridge *br,
+ 
+ 		vinfo = nla_data(tb[IFLA_BRIDGE_VLAN_INFO]);
+ 
+-		if (vinfo->vid >= VLAN_N_VID)
++		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
+ 			return -EINVAL;
+ 
+ 		switch (cmd) {
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 9a9ffe7..21b6d21 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -45,37 +45,34 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 		return 0;
+ 	}
+ 
+-	if (vid) {
+-		if (v->port_idx) {
+-			p = v->parent.port;
+-			br = p->br;
+-			dev = p->dev;
+-		} else {
+-			br = v->parent.br;
+-			dev = br->dev;
+-		}
+-		ops = dev->netdev_ops;
+-
+-		if (p && (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)) {
+-			/* Add VLAN to the device filter if it is supported.
+-			 * Stricly speaking, this is not necessary now, since
+-			 * devices are made promiscuous by the bridge, but if
+-			 * that ever changes this code will allow tagged
+-			 * traffic to enter the bridge.
+-			 */
+-			err = ops->ndo_vlan_rx_add_vid(dev, htons(ETH_P_8021Q),
+-						       vid);
+-			if (err)
+-				return err;
+-		}
+-
+-		err = br_fdb_insert(br, p, dev->dev_addr, vid);
+-		if (err) {
+-			br_err(br, "failed insert local address into bridge "
+-			       "forwarding table\n");
+-			goto out_filt;
+-		}
++	if (v->port_idx) {
++		p = v->parent.port;
++		br = p->br;
++		dev = p->dev;
++	} else {
++		br = v->parent.br;
++		dev = br->dev;
++	}
++	ops = dev->netdev_ops;
++
++	if (p && (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)) {
++		/* Add VLAN to the device filter if it is supported.
++		 * Stricly speaking, this is not necessary now, since
++		 * devices are made promiscuous by the bridge, but if
++		 * that ever changes this code will allow tagged
++		 * traffic to enter the bridge.
++		 */
++		err = ops->ndo_vlan_rx_add_vid(dev, htons(ETH_P_8021Q),
++					       vid);
++		if (err)
++			return err;
++	}
+ 
++	err = br_fdb_insert(br, p, dev->dev_addr, vid);
++	if (err) {
++		br_err(br, "failed insert local address into bridge "
++		       "forwarding table\n");
++		goto out_filt;
+ 	}
+ 
+ 	set_bit(vid, v->vlan_bitmap);
+@@ -98,7 +95,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
+ 	__vlan_delete_pvid(v, vid);
+ 	clear_bit(vid, v->untagged_bitmap);
+ 
+-	if (v->port_idx && vid) {
++	if (v->port_idx) {
+ 		struct net_device *dev = v->parent.port->dev;
+ 		const struct net_device_ops *ops = dev->netdev_ops;
+ 
+@@ -248,7 +245,9 @@ bool br_allowed_egress(struct net_bridge *br,
+ 	return false;
  }
  
- #else
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ {
+ 	struct net_port_vlans *pv = NULL;
+@@ -278,7 +277,9 @@ out:
+ 	return err;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ {
+ 	struct net_port_vlans *pv;
+@@ -289,14 +290,9 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
+-	if (vid) {
+-		/* If the VID !=0 remove fdb for this vid. VID 0 is special
+-		 * in that it's the default and is always there in the fdb.
+-		 */
+-		spin_lock_bh(&br->hash_lock);
+-		fdb_delete_by_addr(br, br->dev->dev_addr, vid);
+-		spin_unlock_bh(&br->hash_lock);
+-	}
++	spin_lock_bh(&br->hash_lock);
++	fdb_delete_by_addr(br, br->dev->dev_addr, vid);
++	spin_unlock_bh(&br->hash_lock);
+ 
+ 	__vlan_del(pv, vid);
+ 	return 0;
+@@ -329,7 +325,9 @@ unlock:
+ 	return 0;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ {
+ 	struct net_port_vlans *pv = NULL;
+@@ -363,7 +361,9 @@ clean_up:
+ 	return err;
+ }
+ 
+-/* Must be protected by RTNL */
++/* Must be protected by RTNL.
++ * Must be called with vid in range from 1 to 4094 inclusive.
++ */
+ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ {
+ 	struct net_port_vlans *pv;
+@@ -374,14 +374,9 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
+-	if (vid) {
+-		/* If the VID !=0 remove fdb for this vid. VID 0 is special
+-		 * in that it's the default and is always there in the fdb.
+-		 */
+-		spin_lock_bh(&port->br->hash_lock);
+-		fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
+-		spin_unlock_bh(&port->br->hash_lock);
+-	}
++	spin_lock_bh(&port->br->hash_lock);
++	fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
++	spin_unlock_bh(&port->br->hash_lock);
+ 
+ 	return __vlan_del(pv, vid);
+ }
 -- 
 1.8.1.2
