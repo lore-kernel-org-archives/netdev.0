@@ -1,65 +1,37 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC] bridge and friends: reduce TheLinuxWay(tm)
-Date: Wed, 16 Oct 2013 13:49:34 -0400
-Message-ID: <525ED1AE.7050101@mojatatu.com>
-References: <525C62D5.3090004@mojatatu.com> <20131014144156.6dc52a78@nehalam.linuxnetplumber.net> <525E9AB1.6090502@mojatatu.com> <525EC8AF.6000902@redhat.com>
+Date: Wed, 16 Oct 2013 11:35:50 -0700
+Message-ID: <1381948550.2045.136.camel@edumazet-glaptop.roam.corp.google.com>
+References: <525C62D5.3090004@mojatatu.com>
+	 <20131014144156.6dc52a78@nehalam.linuxnetplumber.net>
+	 <525E9AB1.6090502@mojatatu.com> <525EC8AF.6000902@redhat.com>
+	 <525ED1AE.7050101@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Cc: vyasevic@redhat.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: vyasevic@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f48.google.com ([209.85.213.48]:57619 "EHLO
-	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761275Ab3JPRtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:49:36 -0400
-Received: by mail-yh0-f48.google.com with SMTP id f64so252997yha.21
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:49:35 -0700 (PDT)
-In-Reply-To: <525EC8AF.6000902@redhat.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:54451 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761899Ab3JPSfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 14:35:53 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so1179573pbc.35
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 11:35:52 -0700 (PDT)
+In-Reply-To: <525ED1AE.7050101@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/13 13:11, Vlad Yasevich wrote:
-> On 10/16/2013 09:54 AM, Jamal Hadi Salim wrote:
->
->
-> This was to display or filter out virtual function data.
->
+On Wed, 2013-10-16 at 13:49 -0400, Jamal Hadi Salim wrote:
 
-Stephen explained - and it seems to make sense (working around
-netlink weaknesses). It could be made more generic.
+> I think we need some filtering in the kernel. As it stands today,
+> unfortunately you get everything ;-> I was suprised at the amount of
+> data i get from the kernel these days when i ask for a simple netdev
+> info (I think no less than 1K per netdev; everything from /proc entries
+> from some bread crumbs i dont see any use for.
 
-
-> I probably doesn't need to use this as we want the bridge data, not the
-> VF data stored as part of PF interface.
->
-
-I think we need some filtering in the kernel. As it stands today,
-unfortunately you get everything ;-> I was suprised at the amount of
-data i get from the kernel these days when i ask for a simple netdev
-info (I think no less than 1K per netdev; everything from /proc entries
-from some bread crumbs i dont see any use for.
-
->> - get attributes for all bridge ports for bridge br-blah (not there)
->> you could also use the ifindex of br-blah here instead
->
-> This would be usefull.
->
-
-Its a usability improvement.
-We still have the ifi->ifindex available. It could be used to signal
-which bridge device's ports i want.
-But then i get _all_ the ports for that bridge.
-
->
->
-> You can already do this with:
->
->      ip link set dev ethX master brX
->
-
-Yes, I know - it sucks from a usability pov.
-
-cheers,
-jamal
+By the way, "ip link show dev xxxx" seems to dump all devices info from
+the kernel...
