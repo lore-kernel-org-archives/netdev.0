@@ -1,47 +1,35 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] ipvs: avoid rcu_barrier during netns cleanup
-Date: Wed, 16 Oct 2013 12:43:06 +0200
-Message-ID: <20131016104306.GA10288@localhost>
-References: <1381802507-7934-1-git-send-email-horms@verge.net.au>
- <1381802507-7934-3-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1381802507-7934-3-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Subject: [PATCH 0/5] rfkill-gpio: ACPI support
+Date: Wed, 16 Oct 2013 13:53:38 +0300
+Message-ID: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Rhyland Klein <rklein@nvidia.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	linux-acpi@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2013 at 11:01:46AM +0900, Simon Horman wrote:
-> From: Julian Anastasov <ja@ssi.bg>
-> 
-> commit 578bc3ef1e473a ("ipvs: reorganize dest trash") added
-> rcu_barrier() on cleanup to wait dest users and schedulers
-> like LBLC and LBLCR to put their last dest reference.
-> Using rcu_barrier with many namespaces is problematic.
-> 
-> Trying to fix it by freeing dest with kfree_rcu is not
-> a solution, RCU callbacks can run in parallel and execution
-> order is random.
-> 
-> Fix it by creating new function ip_vs_dest_put_and_free()
-> which is heavier than ip_vs_dest_put(). We will use it just
-> for schedulers like LBLC, LBLCR that can delay their dest
-> release.
-> 
-> By default, dests reference is above 0 if they are present in
-> service and it is 0 when deleted but still in trash list.
-> Change the dest trash code to use ip_vs_dest_put_and_free(),
-> so that refcnt -1 can be used for freeing. As result,
-> such checks remain in slow path and the rcu_barrier() from
-> netns cleanup can be removed.
+Hi,
 
-I can enqueue this fix to nf if you like. No need to resend, I can
-manually apply.
+The first patches prepare the driver for the support. The last patch
+can then add the support quite easily. With these patches, adding DT
+support later will be quite straight forward if someone needs it.
 
-Let me know.
+
+Heikki Krogerus (5):
+  net: rfkill: gpio: convert to resource managed allocation
+  net: rfkill: gpio: clean up clock handling
+  net: rfkill: gpio: spinlock-safe GPIO access
+  net: rfkill: gpio: prepare for DT and ACPI support
+  net: rfkill: gpio: add ACPI support
+
+ net/rfkill/Kconfig       |   2 +-
+ net/rfkill/rfkill-gpio.c | 211 ++++++++++++++++++++++-------------------------
+ 2 files changed, 99 insertions(+), 114 deletions(-)
+
+-- 
+1.8.4.rc3
+
