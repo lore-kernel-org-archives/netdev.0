@@ -1,57 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net 4/4] bridge: Fix updating FDB entries when the
- PVID is applied
-Date: Wed, 16 Oct 2013 08:57:15 -0700
-Message-ID: <20131016085715.3442e8c3@nehalam.linuxnetplumber.net>
-References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1381910836-718-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Kyle Hubert <khubert@gmail.com>
+Subject: Re: SW csum errors
+Date: Wed, 16 Oct 2013 11:58:01 -0400
+Message-ID: <CAJoZ4U2C0Ngbd9-zvh+2RzSk4EO_sC6ESFbYx022uoJwj-1iKg@mail.gmail.com>
+References: <CAJoZ4U3yCrGW=5TO5z0FL2HQ+thZVzVfiPOTxTGKBuR=njadOg@mail.gmail.com>
+	<20131014135859.74f38507@nehalam.linuxnetplumber.net>
+	<CAJoZ4U0PNtk2e_x4D3N_fFN32uTVe6Z+FPg7ofG69KjQzsZ7xA@mail.gmail.com>
+	<1381937065.2045.131.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	Toshiaki Makita <toshiaki.makita1@gmail.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:41913 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755150Ab3JPP5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 11:57:19 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so1130468pdi.19
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 08:57:18 -0700 (PDT)
-In-Reply-To: <1381910836-718-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:55409 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441Ab3JPP6D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 11:58:03 -0400
+Received: by mail-qa0-f47.google.com with SMTP id k15so4401078qaq.20
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 08:58:01 -0700 (PDT)
+In-Reply-To: <1381937065.2045.131.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Oct 2013 17:07:16 +0900
-Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+On Wed, Oct 16, 2013 at 11:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-10-16 at 11:10 -0400, Kyle Hubert wrote:
+>
+>> Thanks, I didn't realize it was as simple as file backed pages being
+>> changed. Yes, our device does support SG, so we do have zero-copy
+>> sendfile() support. I'll concoct a simple test to prove this.
+>
+> You also can use vmsplice()/splice() and touch anonymous memory,
+> no need to play with a file ;)
 
-> We currently set the value that variable vid is pointing, which will be
-> used in FDB later, to 0 at br_allowed_ingress() when we receive untagged
-> or priority-tagged frames, even though the PVID is valid.
-> This leads to FDB updates in such a wrong way that they are learned with
-> VID 0.
-> Update the value to that of PVID if the PVID is applied.
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/bridge/br_vlan.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index 5a9c44a..53f0990 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -217,6 +217,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
->  		/* PVID is set on this port.  Any untagged or priority-tagged
->  		 * ingress frame is considered to belong to this vlan.
->  		 */
-> +		*vid = pvid;
->  		if (likely(err))
->  			/* Untagged Frame. */
->  			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+Thanks, this would be even easier to test. It also reminds me that
+there are other vectors to constructing SKB frags. It looks like if we
+need to enable SW checksumming ever again, we should just disable the
+SG feature and let the normal stack handle validity.
 
-
-Ok, but side-effects seem like an indication of poor code logic
-flow design. Not your fault but part of the the per-vlan filtering code.
+-Kyle
