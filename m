@@ -1,7 +1,7 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v5 1/5] xen-netback: add support for IPv6 checksum offload to guest
-Date: Wed, 16 Oct 2013 17:50:28 +0100
-Message-ID: <1381942232-26268-2-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next v5 3/5] xen-netback: Unconditionally set NETIF_F_RXCSUM
+Date: Wed, 16 Oct 2013 17:50:30 +0100
+Message-ID: <1381942232-26268-4-git-send-email-paul.durrant@citrix.com>
 References: <1381942232-26268-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,113 +11,38 @@ Cc: Paul Durrant <paul.durrant@citrix.com>,
 	Ian Campbell <ian.campbell@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:57659 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:43735 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761111Ab3JPQug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 12:50:36 -0400
+	with ESMTP id S1761116Ab3JPQuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 12:50:37 -0400
 In-Reply-To: <1381942232-26268-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check xenstore flag feature-ipv6-csum-offload to determine if a
-guest is happy to accept IPv6 packets with only partial checksum.
+There is no mechanism to insist that a guest always generates a packet
+with good checksum (at least for IPv4) so we must handle checksum
+offloading from the guest and hence should set NETIF_F_RXCSUM.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 Cc: Wei Liu <wei.liu2@citrix.com>
 Cc: David Vrabel <david.vrabel@citrix.com>
 Cc: Ian Campbell <ian.campbell@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |    3 ++-
- drivers/net/xen-netback/interface.c |   10 +++++++---
- drivers/net/xen-netback/xenbus.c    |    7 ++++++-
- include/xen/interface/io/netif.h    |    7 +++++++
- 4 files changed, 22 insertions(+), 5 deletions(-)
+ drivers/net/xen-netback/interface.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 5715318..b4a9a3c 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -153,7 +153,8 @@ struct xenvif {
- 	u8 can_sg:1;
- 	u8 gso:1;
- 	u8 gso_prefix:1;
--	u8 csum:1;
-+	u8 ip_csum:1;
-+	u8 ipv6_csum:1;
- 
- 	/* Internal feature information. */
- 	u8 can_queue:1;	    /* can queue packets for receiver? */
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 01bb854..8e92783 100644
+index 8e92783..cb0d8ea 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -216,8 +216,10 @@ static netdev_features_t xenvif_fix_features(struct net_device *dev,
- 		features &= ~NETIF_F_SG;
- 	if (!vif->gso && !vif->gso_prefix)
- 		features &= ~NETIF_F_TSO;
--	if (!vif->csum)
-+	if (!vif->ip_csum)
- 		features &= ~NETIF_F_IP_CSUM;
-+	if (!vif->ipv6_csum)
-+		features &= ~NETIF_F_IPV6_CSUM;
- 
- 	return features;
- }
-@@ -306,7 +308,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	vif->domid  = domid;
- 	vif->handle = handle;
- 	vif->can_sg = 1;
--	vif->csum = 1;
-+	vif->ip_csum = 1;
- 	vif->dev = dev;
- 
- 	vif->credit_bytes = vif->remaining_credit = ~0UL;
-@@ -316,7 +318,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	vif->credit_timeout.expires = jiffies;
- 
- 	dev->netdev_ops	= &xenvif_netdev_ops;
--	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-+	dev->hw_features = NETIF_F_SG |
-+		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-+		NETIF_F_TSO;
- 	dev->features = dev->hw_features;
+@@ -321,7 +321,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	dev->hw_features = NETIF_F_SG |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		NETIF_F_TSO;
+-	dev->features = dev->hw_features;
++	dev->features = dev->hw_features | NETIF_F_RXCSUM;
  	SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
  
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 1b08d87..ad27b15 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -574,7 +574,12 @@ static int connect_rings(struct backend_info *be)
- 	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-no-csum-offload",
- 			 "%d", &val) < 0)
- 		val = 0;
--	vif->csum = !val;
-+	vif->ip_csum = !val;
-+
-+	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-ipv6-csum-offload",
-+			 "%d", &val) < 0)
-+		val = 0;
-+	vif->ipv6_csum = !!val;
- 
- 	/* Map the shared frame, irq etc. */
- 	err = xenvif_connect(vif, tx_ring_ref, rx_ring_ref,
-diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-index eb262e3..c9e8184 100644
---- a/include/xen/interface/io/netif.h
-+++ b/include/xen/interface/io/netif.h
-@@ -51,6 +51,13 @@
-  */
- 
- /*
-+ * "feature-no-csum-offload" should be used to turn IPv4 TCP/UDP checksum
-+ * offload off or on. If it is missing then the feature is assumed to be on.
-+ * "feature-ipv6-csum-offload" should be used to turn IPv6 TCP/UDP checksum
-+ * offload on or off. If it is missing then the feature is assumed to be off.
-+ */
-+
-+/*
-  * This is the 'wire' format for packets:
-  *  Request 1: xen_netif_tx_request  -- XEN_NETTXF_* (any flags)
-  * [Request 2: xen_netif_extra_info]    (only if request 1 has XEN_NETTXF_extra_info)
+ 	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
 -- 
 1.7.10.4
