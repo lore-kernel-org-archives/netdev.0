@@ -1,69 +1,76 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Wed, 16 Oct 2013 23:26:14 +0800
-Message-ID: <525EB016.6090002@oracle.com>
-References: <20131014111958.GE11739@zion.uk.xensource.com> <525CAC21.5040202@oracle.com> <1381826609.24708.135.camel@kazak.uk.xensource.com> <525D0C41.2080407@oracle.com> <20131015100624.GB29436@zion.uk.xensource.com> <525D2667.6040102@oracle.com> <20131015125802.GR11739@zion.uk.xensource.com> <525E41CF.7090008@oracle.com> <525E5EDF.4030904@oracle.com> <525E8FB3.8000606@oracle.com> <20131016134740.GG16371@zion.uk.xensource.com> <525EAB02.9050207@oracle.com>
+From: Jimmy Perchet <jimmy.perchet@parrot.com>
+Subject: [PATCH RFC 0/5] net:stmmac: fix jumbo frames handling and optimisation
+Date: Wed, 16 Oct 2013 17:24:07 +0200
+Message-ID: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb18030; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org
-To: jianhai luan <jianhai.luan@oracle.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Jimmy Perchet <jimmy.perchet@parrot.com>
+To: <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:21693 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074Ab3JPP00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 11:26:26 -0400
-In-Reply-To: <525EAB02.9050207@oracle.com>
+Received: from co202.xi-lite.net ([149.6.83.202]:60729 "EHLO co202.xi-lite.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752060Ab3JPPjR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 11:39:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-On 2013-10-16 23:04, jianhai luan wrote:
->
->  From ef02403a10173896c5c102f768741d0700b8a3a2 Mon Sep 17 00:00:00 2001
-> From: Jason Luan<jianhai.luan@oracle.com>
-> Date: Tue, 15 Oct 2013 17:07:49 +0800
-> Subject: [PATCH] xen-netback: pending timer only in the range [expire,
->   next_credit)
->
-> The function time_after_eq() do correct judge in range of MAX_UNLONG/2.
-> If net-front send lesser package, the delta between now and next_credit
-> will out of the range and time_after_eq() will do wrong judge in result
-> to net-front hung.  For example:
->      expire    next_credit    ....    next_credit+MAX_UNLONG/2    now
->      -----------------time increases this direction----------------->
->
-> We should be add the environment which now beyond next_credit+MAX_UNLONG/2.
-> Because the fact now mustn't before expire, time_before(now, expire) == true
-> will show the environment.
->      time_after_eq(now, next_credit) || time_before (now, expire)
->      ==
->      !time_in_range_open(now, expire, next_credit)
->
-> Signed-off-by: Jason Luan<jianhai.luan@oracle.com>
-> ---
->   drivers/net/xen-netback/netback.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index f3e591c..62492f0 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1195,7 +1195,7 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->   		return true;
->   
->   	/* Passed the point where we can replenish credit? */
+I began using Synopsys IP few weeks ago and figured out that jumbo frames
+are not well supported by stmmac driver.
 
-I think the comments above can be removed, and it is better to explain 
-the if condition here briefly.
+This patch series addresses several issues which prevent them from working
+properly :
+*(1/5) Threshold dma mode is needed on rx path if jumbo frames are expected.
 
-Thanks
-Annie
+*(2/5) RX buffers are not allocated with the needed size because
+priv->dma_buf_sz is updated too late (i.e. after stmmac_init_rx_buffers call)
 
-> -	if (time_after_eq(now, next_credit)) {
-> +	if (!time_in_range(now, vif->credit_timeout.expires, next_credit)) {
->   		vif->credit_timeout.expires = now;
->   		tx_add_credit(vif);
->   	}
+*(3/5) On low speed link (10MBit/s), some TX descriptors can remain dirty
+if the tx coalescence timer expires before they were treated. Re-arm timer
+in this case.
+
+*(4/5) There is several confusions regarding descriptor's max buffer size, 
+typically the "-1" is often forgotten.
+*(4/5) Jumbo frames' last descriptor is never "closed", resulting in truncated
+frames transfer.
+*(4/5) Frags could not be jumbo.
+Regarding these last points, I didn't find simpler way than writing
+new "prepare frame" functions for both ring and chain mode and update
+xmit function accordingly.
+
+
+The last patch is not related to jumbo frames but concern a possible
+optimisation :
+*(5/5) Tx descriptor's cleanup and preparation are serialized, which is not
+necessary and decrease performance. In addition TX descriptor's cleanup is
+performed on NET_-RX- softirq, this is confusing.
+By taking care of "cur_tx" and "dirty_tx" it is possible to avoid serialization
+and defer cleanup in workqueue.
+On my smp embedded system, with 1Gbit/s link which is cpu bound, it increases
+througput by about 90MBit/s (400MBit/s to 490MBit/s).
+
+
+Best Regards,
+Jimmy Perchet
+
+Jimmy Perchet (5):
+  net:stmmac: set threshold/store and forward mode according to mtu
+    size.
+  net:stmmac: fix rx buffer allocation.
+  net:stmmac: ensure we reclaim all dirty descriptors.
+  net:stmmac: fix jumbo frame handling.
+  net:stmmac: asynchronous tx_clean
+
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |  99 +++++-----
+ drivers/net/ethernet/stmicro/stmmac/common.h      |   6 +
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h   |   8 +-
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   6 +
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |   6 +
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |  90 ++++-----
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 219 +++++++++++++---------
+ 8 files changed, 233 insertions(+), 207 deletions(-)
+
+-- 
+1.8.1.2
