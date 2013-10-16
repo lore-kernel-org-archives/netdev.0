@@ -1,70 +1,61 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Wed, 16 Oct 2013 17:11:39 +0100
-Message-ID: <525EBABB.4070906@citrix.com>
-References: <1381826609.24708.135.camel@kazak.uk.xensource.com>	<525D0C41.2080407@oracle.com>	<20131015100624.GB29436@zion.uk.xensource.com>	<525D2667.6040102@oracle.com>	<20131015125802.GR11739@zion.uk.xensource.com>	<525E41CF.7090008@oracle.com> <525E5EDF.4030904@oracle.com>	<525E8FB3.8000606@oracle.com>	<20131016134740.GG16371@zion.uk.xensource.com>	<525EAB02.9050207@oracle.com> <20131016151732.GJ16371@zion.uk.xensource.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net 4/4] bridge: Fix updating FDB entries when the
+ PVID is applied
+Date: Wed, 16 Oct 2013 12:11:43 -0400
+Message-ID: <525EBABF.6030304@redhat.com>
+References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	<1381910836-718-5-git-send-email-makita.toshiaki@lab.ntt.co.jp> <20131016085715.3442e8c3@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jianhai luan <jianhai.luan@oracle.com>,
-	<xen-devel@lists.xenproject.org>, annie li <annie.li@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Toshiaki Makita <toshiaki.makita1@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:25255 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:29189 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760856Ab3JPQLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 12:11:41 -0400
-In-Reply-To: <20131016151732.GJ16371@zion.uk.xensource.com>
+	id S932445Ab3JPQLu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 12:11:50 -0400
+In-Reply-To: <20131016085715.3442e8c3@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/10/13 16:17, Wei Liu wrote:
-> On Wed, Oct 16, 2013 at 11:04:34PM +0800, jianhai luan wrote:
-> [...]
->> >From ef02403a10173896c5c102f768741d0700b8a3a2 Mon Sep 17 00:00:00 2001
->> From: Jason Luan <jianhai.luan@oracle.com>
->> Date: Tue, 15 Oct 2013 17:07:49 +0800
->> Subject: [PATCH] xen-netback: pending timer only in the range [expire,
->>  next_credit)
+On 10/16/2013 11:57 AM, Stephen Hemminger wrote:
+> On Wed, 16 Oct 2013 17:07:16 +0900
+> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+>
+>> We currently set the value that variable vid is pointing, which will be
+>> used in FDB later, to 0 at br_allowed_ingress() when we receive untagged
+>> or priority-tagged frames, even though the PVID is valid.
+>> This leads to FDB updates in such a wrong way that they are learned with
+>> VID 0.
+>> Update the value to that of PVID if the PVID is applied.
 >>
->> The function time_after_eq() do correct judge in range of MAX_UNLONG/2.
->> If net-front send lesser package, the delta between now and next_credit
->> will out of the range and time_after_eq() will do wrong judge in result
->> to net-front hung.  For example:
->>     expire    next_credit    ....    next_credit+MAX_UNLONG/2    now
->>     -----------------time increases this direction----------------->
+>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>   net/bridge/br_vlan.c | 1 +
+>>   1 file changed, 1 insertion(+)
 >>
->> We should be add the environment which now beyond next_credit+MAX_UNLONG/2.
->> Because the fact now mustn't before expire, time_before(now, expire) == true
->> will show the environment.
->>     time_after_eq(now, next_credit) || time_before (now, expire)
->>     ==
->>     !time_in_range_open(now, expire, next_credit)
->>
+>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>> index 5a9c44a..53f0990 100644
+>> --- a/net/bridge/br_vlan.c
+>> +++ b/net/bridge/br_vlan.c
+>> @@ -217,6 +217,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+>>   		/* PVID is set on this port.  Any untagged or priority-tagged
+>>   		 * ingress frame is considered to belong to this vlan.
+>>   		 */
+>> +		*vid = pvid;
+>>   		if (likely(err))
+>>   			/* Untagged Frame. */
+>>   			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+>
+>
+> Ok, but side-effects seem like an indication of poor code logic
+> flow design. Not your fault but part of the the per-vlan filtering code.
+>
 
-I would like the description improved because it's too hard to understand.
+I'll see if I can re-work the code to get rid of the side-effects.
 
-How about something like:
-
-"time_after_eq() only works if the delta is < MAX_ULONG/2.
-
-If netfront sends at a very low rate, the time between subsequent calls
-to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
-timer_after_eq() will be incorrect.  Credit will not be replenished and
-the guest may become unable to send (e.g., if prior to the long gap, all
-credit was exhausted)."
-
-But that's as far as I get because I can't see how the fix is correct.
-The time_in_range() test might still return the wrong value if now has
-advanced even further and wrapped so it is between expire and
-next_credit again.
-
-I think the credit timeout should be always armed to expire in
-MAX_ULONG/4 jiffies (or some other large value).  If credit is exceeded,
-this timer is then adjusted to fire earlier (at next_credit as it does
-already).
-
-David
+-vlad
