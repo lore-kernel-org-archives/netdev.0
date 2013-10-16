@@ -1,84 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] sh_eth: add/use RMCR.RNC bit
-Date: Wed, 16 Oct 2013 09:34:59 +0900
-Message-ID: <20131016003459.GN22321@verge.net.au>
-References: <201310160229.58735.sergei.shtylyov@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Tue, 15 Oct 2013 17:39:09 -0700
+Message-ID: <1381883949.2045.97.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+	 <1381882426.2045.85.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131016002807.GM22321@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, davem@davemloft.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201310160229.58735.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Mark Brooks <mark@loadbalancer.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131016002807.GM22321@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 16, 2013 at 02:29:58AM +0400, Sergei Shtylyov wrote:
-> Declare 'enum EMCR_BIT' containing the single member for the RMCR.RNC bit and
-> replace bare numbers in the driver by  this mnemonic.
-> 
-> Suggested-by: David Miller <davem@davemloft.net>
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On Wed, 2013-10-16 at 09:28 +0900, Simon Horman wrote:
 
-Thanks Sergei,
-
-this seems to move things in the right direction.
-
-Reviewed-by: Simon Horman <horms+renesas@verge.net.au>
-
-> ---
-> This patch is against DaveM's 'net.git' repo but it intended for 'net-next.git'
-> repo -- it's  because 'net-next.git' doesn't contain the required Simon Horman's
-> patch yet.
+> > I guess things like NFQUEUE could happen ?
 > 
->  drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
->  drivers/net/ethernet/renesas/sh_eth.h |    3 +++
->  2 files changed, 6 insertions(+), 3 deletions(-)
-> 
-> Index: net/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -483,7 +483,7 @@ static struct sh_eth_cpu_data sh7757_dat
->  	.register_type	= SH_ETH_REG_FAST_SH4,
->  
->  	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-> -	.rmcr_value	= 0x00000001,
-> +	.rmcr_value	= RMCR_RNC,
->  
->  	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
->  	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
-> @@ -561,7 +561,7 @@ static struct sh_eth_cpu_data sh7757_dat
->  			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
->  			  EESR_TDE | EESR_ECI,
->  	.fdr_value	= 0x0000072f,
-> -	.rmcr_value	= 0x00000001,
-> +	.rmcr_value	= RMCR_RNC,
->  
->  	.irq_flags	= IRQF_SHARED,
->  	.apr		= 1,
-> @@ -689,7 +689,7 @@ static struct sh_eth_cpu_data r8a7740_da
->  			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
->  			  EESR_TDE | EESR_ECI,
->  	.fdr_value	= 0x0000070f,
-> -	.rmcr_value	= 0x00000001,
-> +	.rmcr_value	= RMCR_RNC,
->  
->  	.apr		= 1,
->  	.mpr		= 1,
-> Index: net/drivers/net/ethernet/renesas/sh_eth.h
-> ===================================================================
-> --- net.orig/drivers/net/ethernet/renesas/sh_eth.h
-> +++ net/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -321,6 +321,9 @@ enum TD_STS_BIT {
->  #define TD_TFP	(TD_TFP1|TD_TFP0)
->  
->  /* RMCR */
-> +enum RMCR_BIT {
-> +	RMCR_RNC = 0x00000001,
-> +};
->  #define DEFAULT_RMCR_VALUE	0x00000000
->  
->  /* ECMR */
-> 
+> Could you expand a little?
+
+This was to point that between IPVS and ipv6 stack we might have a
+delay, and daddr was maybe pointed to a freed memory.
+
+IP6CB only uses 24 bytes, so I think you would be safe adding 16 bytes.
+
+
+
