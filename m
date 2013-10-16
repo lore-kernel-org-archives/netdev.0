@@ -1,87 +1,48 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH net-next v4 2/5] xen-netback: add support
- for IPv6 checksum offload from guest
-Date: Wed, 16 Oct 2013 16:57:46 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD013B27C@AMSPEX01CL01.citrite.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v4 0/5] xen-netback: IPv6 offload
+ support
+Date: Wed, 16 Oct 2013 18:00:38 +0100
+Message-ID: <1381942838.30409.26.camel@kazak.uk.xensource.com>
 References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
-	 <1381503982-1418-3-git-send-email-paul.durrant@citrix.com>
-	 <20131014104235.GB11739@zion.uk.xensource.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD0138B8D@AMSPEX01CL01.citrite.net>
-	 <20131014105527.GD11739@zion.uk.xensource.com>
-	 <525BE148.1010508@citrix.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD0138D3C@AMSPEX01CL01.citrite.net>
- <1381939919.30409.4.camel@kazak.uk.xensource.com>
+	 <1381940401.30409.9.camel@kazak.uk.xensource.com>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD013B267@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:27408 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760805Ab3JPQ5y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 12:57:54 -0400
-In-Reply-To: <1381939919.30409.4.camel@kazak.uk.xensource.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:40575 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760805Ab3JPRAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:00:43 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD013B267@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMTYgT2N0b2JlciAyMDEzIDE3OjEyDQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IERhdmlk
-IFZyYWJlbDsgV2VpIExpdTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgeGVuLWRldmVsQGxpc3Rz
-Lnhlbi5vcmcNCj4gU3ViamVjdDogUmU6IFtYZW4tZGV2ZWxdIFtQQVRDSCBuZXQtbmV4dCB2NCAy
-LzVdIHhlbi1uZXRiYWNrOiBhZGQgc3VwcG9ydA0KPiBmb3IgSVB2NiBjaGVja3N1bSBvZmZsb2Fk
-IGZyb20gZ3Vlc3QNCj4gDQo+IE9uIE1vbiwgMjAxMy0xMC0xNCBhdCAxMzozNCArMDEwMCwgUGF1
-bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+
-IEZyb206IERhdmlkIFZyYWJlbA0KPiA+ID4gU2VudDogMTQgT2N0b2JlciAyMDEzIDEzOjE5DQo+
-ID4gPiBUbzogV2VpIExpdQ0KPiA+ID4gQ2M6IFBhdWwgRHVycmFudDsgbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgSWFuIENhbXBiZWxsOyBEYXZpZCBWcmFiZWw7DQo+IHhlbi0NCj4gPiA+IGRldmVs
-QGxpc3RzLnhlbi5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBbWGVuLWRldmVsXSBbUEFUQ0ggbmV0
-LW5leHQgdjQgMi81XSB4ZW4tbmV0YmFjazogYWRkDQo+IHN1cHBvcnQNCj4gPiA+IGZvciBJUHY2
-IGNoZWNrc3VtIG9mZmxvYWQgZnJvbSBndWVzdA0KPiA+ID4NCj4gPiA+IE9uIDE0LzEwLzEzIDEx
-OjU1LCBXZWkgTGl1IHdyb3RlOg0KPiA+ID4gPiBPbiBNb24sIE9jdCAxNCwgMjAxMyBhdCAxMTo0
-OToyMEFNICswMTAwLCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+ID4gPiA+Pj4gLS0tLS1PcmlnaW5h
-bCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4+PiBGcm9tOiBXZWkgTGl1IFttYWlsdG86d2VpLmxpdTJA
-Y2l0cml4LmNvbV0NCj4gPiA+ID4+PiBTZW50OiAxNCBPY3RvYmVyIDIwMTMgMTE6NDMNCj4gPiA+
-ID4+PiBUbzogUGF1bCBEdXJyYW50DQo+ID4gPiA+Pj4gQ2M6IHhlbi1kZXZlbEBsaXN0cy54ZW4u
-b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBXZWkgTGl1OyBEYXZpZA0KPiA+ID4gVnJhYmVs
-Ow0KPiA+ID4gPj4+IElhbiBDYW1wYmVsbA0KPiA+ID4gPj4+IFN1YmplY3Q6IFJlOiBbUEFUQ0gg
-bmV0LW5leHQgdjQgMi81XSB4ZW4tbmV0YmFjazogYWRkIHN1cHBvcnQgZm9yDQo+IElQdjYNCj4g
-PiA+ID4+PiBjaGVja3N1bSBvZmZsb2FkIGZyb20gZ3Vlc3QNCj4gPiA+ID4+Pg0KPiA+ID4gPj4+
-IE9uIEZyaSwgT2N0IDExLCAyMDEzIGF0IDA0OjA2OjE5UE0gKzAxMDAsIFBhdWwgRHVycmFudCB3
-cm90ZToNCj4gPiA+ID4+PiBbLi4uXQ0KPiA+ID4gPj4+PiAtLyoNCj4gPiA+ID4+Pj4gLSAqIFRo
-aXMgaXMgdGhlIGFtb3VudCBvZiBwYWNrZXQgd2UgY29weSByYXRoZXIgdGhhbiBtYXAsIHNvIHRo
-YXQNCj4gdGhlDQo+ID4gPiA+Pj4+IC0gKiBndWVzdCBjYW4ndCBmaWRkbGUgd2l0aCB0aGUgY29u
-dGVudHMgb2YgdGhlIGhlYWRlcnMgd2hpbGUgd2UgZG8NCj4gPiA+ID4+Pj4gLSAqIHBhY2tldCBw
-cm9jZXNzaW5nIG9uIHRoZW0gKG5ldGZpbHRlciwgcm91dGluZywgZXRjKS4NCj4gPiA+ID4+Pj4g
-Ky8qIFRoaXMgaXMgYSBtaW5pdW11bSBzaXplIGZvciB0aGUgbGluZWFyIGFyZWEgdG8gYXZvaWQg
-bG90cyBvZg0KPiA+ID4gPj4+PiArICogY2FsbHMgdG8gX19wc2tiX3B1bGxfdGFpbCgpIGFzIHdl
-IHNldCB1cCBjaGVja3N1bSBvZmZzZXRzLg0KPiA+ID4gPj4+PiAgICovDQo+ID4gPiA+Pj4NCj4g
-PiA+ID4+PiBZb3Ugc2VlbSB0byBmb3JnZXQgdG8gZXhwbGFpbiB3aHkgMTI4IGlzIGNob3Nlbi4g
-Oi0pDQo+ID4gPiA+Pg0KPiA+ID4gPj4gSXMgdGhhdCBub3Qgc3VmZmljaWVudCBleHBsYW5hdGlv
-bj8gV2hhdCBzb3J0IG9mIHRoaW5nIGFyZSB5b3UgbG9va2luZw0KPiBmb3I/DQo+ID4gPiA+Pg0K
-PiA+ID4gPg0KPiA+ID4gPj5Gcm9tIHRoZSBzZWNvbmQgdmVyc2lvbiBvZiB0aGlzIHBhdGNoLCB3
-ZSBoYWQgYSBjb252ZXJzYXRpb24uDQo+ID4gPiA+DQo+ID4gPiA+PiBXaGVyZSBkb2VzIDEyOCBj
-b21lIGZyb20/DQo+ID4gPiA+Pg0KPiA+ID4gPg0KPiA+ID4gPiAiSXQncyBqdXN0IGFuIGFyYml0
-cmFyeSBwb3dlciBvZiAyIHRoYXQgd2FzIGNob3NlbiBiZWNhdXNlIGl0IHNlZW1zIHRvDQo+ID4g
-PiA+IGNvdmVyIG1vc3QgbGlrZWx5IHY2IGhlYWRlcnMgYW5kIGFsbCB2NCBoZWFkZXJzLiINCj4g
-PiA+ID4NCj4gPiA+ID4gU28gc29tZXRoaW5nIGxpa2U6ICJXZSBjaG9vc2UgMTI4IHdoaWNoIGlz
-IGxpa2VseSB0byBjb3ZlciBtb3N0IFY2DQo+ID4gPiA+IGhlYWRlcnMgYW5kIGFsbCBWNCBoZWFk
-ZXJzIiB3b3VsZCBiZSBzdWZmaWNlaW50Lg0KPiA+ID4NCj4gPiA+IElzICJtb3N0IElQdjYgaGVh
-ZGVycyIgYWN0dWFsbHkgZ29vZCBlbm91Z2g/ICBEb24ndCB3ZSBuZWVkIHRvIGVuc3VyZQ0KPiA+
-ID4gbmV0YmFjayBjb3BpZXMgYWxsIElQIGhlYWRlcnM/DQo+ID4gPg0KPiA+DQo+ID4gSXQgd2ls
-bCBkbyBpZiBjaGVja3N1bSBvZmZsb2FkIGlzIGluIHVzZSwgYnV0IHBlcmhhcHMgdGhlIHB1bGwg
-YXMgZmFyDQo+ID4gYXMgdGhlIHRyYW5zcG9ydCBoZWFkZXIgbmVlZHMgdG8gYmUgZG9uZSBhbnl3
-YXk/IEknbSB1bnN1cmUgb2YgdGhlDQo+ID4gZXhwZWN0YXRpb25zIG9mIG90aGVyIGNvZGUuDQo+
-IA0KPiBJJ3ZlIGFsd2F5cyBiZWVuIHVuZGVyIHRoZSBpbXByZXNzaW9uIHRoYXQgdHJhbnNwb3J0
-IGhlYWRlcnMgbmVlZGVkDQo+IHB1bGxpbmcgdXAgdG9vLCBmb3IgdGhlIGJlbmVmaXQgb2YgbmV0
-ZmlsdGVyIHBlcmhhcHM/DQo+IA0KPiBBSVVJIHRoZSBmcmFncyBzaG91bGQgYmUgcHVyZSAicGF5
-bG9hZCIuIEkgbWF5IGJlIHdyb25nIGFib3V0IHRoYXQNCj4gdGhvdWdoLi4uDQo+IA0KDQpJIGRv
-bid0IGJlbGlldmUgdGhlcmUgaXMgYWN0dWFsbHkgYW55IHVwcGVyIGJvdW5kIG9uIElQdjYgaGVh
-ZGVyIHNpemUgc28gY29taW5nIHVwIHdpdGggYSBzdGF0aWMgdmFsdWUgd291bGQgYmUgaGFyZC4g
-RG8gYWxsIGgvdyBkcml2ZXJzIHJlYWxseSBoYXZlIHRvIHBhcnNlIGhlYWRlcnMgKGFzc3VtaW5n
-IHRoZXkncmUgZHJpdmluZyBkdW1iIGgvdyB0aGF0IGRvZXNuJ3QgZG8gaGVhZGVyIHBheWxvYWQg
-c3BsaXQpPw0KDQogIFBhdWwNCg==
+On Wed, 2013-10-16 at 17:53 +0100, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: Ian Campbell
+> > Sent: 16 October 2013 17:20
+> > To: Paul Durrant
+> > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org
+> > Subject: Re: [Xen-devel] [PATCH net-next v4 0/5] xen-netback: IPv6 offload
+> > support
+> > 
+> > On Fri, 2013-10-11 at 16:06 +0100, Paul Durrant wrote:
+> > > This patch series adds support for checksum and large packet offloads into
+> > > xen-netback.
+> > > Testing has mainly been done using the Microsoft network hardware
+> > > certification suite running in Server 2008R2 VMs with Citrix PV frontends.
+> > 
+> > Are there any Linux netfront patches in existence/the pipeline to take
+> > advantage of this?
+> > 
+> 
+> I was waiting for the backend patches to be accepted first ;-)
+
+I think it would be useful to get et least an RFC so others can try it
+etc.
+
+Ian.
