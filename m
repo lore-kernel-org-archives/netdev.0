@@ -1,57 +1,37 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv3 net] {xfrm, sctp} Stick to software crc32 even if hardware
- is capable of that
-Date: Wed, 16 Oct 2013 09:58:03 +0800
-Message-ID: <525DF2AB.1050806@windriver.com>
-References: <1381828777-15894-1-git-send-email-fan.du@windriver.com> <525DE666.10308@gmail.com> <525DF141.6060302@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nhorman@tuxdriver.com>, <steffen.klassert@secunet.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v4 net 0/3] sctp: Use software checksum under certain
+Date: Tue, 15 Oct 2013 22:01:28 -0400
+Message-ID: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
+Cc: linux-sctp@vger.kernel.org, fan.du@windriver.com,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:44468 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932759Ab3JPCAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 22:00:10 -0400
-In-Reply-To: <525DF141.6060302@gmail.com>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:35753 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285Ab3JPCBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 22:01:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+There are some cards that support SCTP checksum offloading.  When using
+these cards with IPSec or forcing IP fragmentation of SCTP traffic,
+the checksum is computed incorrectly due to the fact that xfrm and IP/IPv6
+fragmentation code do not know that this is SCTP traffic and do not
+know that checksum has to be computed differently.
 
+To fix this, we let SCTP detect these conditions and perform software
+checksum calculation.
 
-On 2013=E5=B9=B410=E6=9C=8816=E6=97=A5 09:52, Vlad Yasevich wrote:
-> On 10/15/2013 09:05 PM, Vlad Yasevich wrote:
->> On 10/15/2013 05:19 AM, Fan Du wrote:
->>> igb/ixgbe have hardware sctp checksum support, when this feature is
->>> enabled
->>> and also IPsec is armed to protect sctp traffic, ugly things happen=
-ed as
->>> xfrm_output checks CHECKSUM_PARTIAL to do check sum operation(sum
->>> every thing
->>> up and pack the 16bits result in the checksum field). The result is=
- fail
->>> establishment of sctp communication.
->>>
->>> Signed-off-by: Fan Du <fan.du@windriver.com>
->>> Cc: Vlad Yasevich <vyasevich@gmail.com>
->>> Cc: Neil Horman <nhorman@tuxdriver.com>
->>> Cc: Steffen Klassert <steffen.klassert@secunet.com>
->>> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
->>
->> Looks good to me.
->>
->
-> Just tryied applying this and looks like you based this on net-next.
-> This fixes a rather ugly bug when checksum offloading is done.
-> I am going to rebase this and re-submit for net.
+Fan Du (1):
+  sctp: Use software crc32 checksum when xfrm transform will happen.
 
-:( Sorry for the inconvenience. Stable tree might hurts also.
+Vlad Yasevich (2):
+  net: dst: provide accessor function to dst->xfrm
+  sctp: Perform software checksum if packet has to be fragmented.
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+ include/net/dst.h | 12 ++++++++++++
+ net/sctp/output.c |  3 ++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
---fan
+-- 
+1.8.3.1
