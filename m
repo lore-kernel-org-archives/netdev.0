@@ -1,95 +1,71 @@
-From: Kefeng Wang <wangkefeng.wang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 02/18] net: use wrapper functions of net_ratelimit() to
- simplify code
-Date: Wed, 16 Oct 2013 11:24:22 +0800
-Message-ID: <525E06E6.2080502@huawei.com>
-References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com>  <1381837514-50660-3-git-send-email-wangkefeng.wang@huawei.com> <1381854263.22110.19.camel@joe-AO722>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Subject: Re: [PATCH 14/18] net: usb: use wrapper functions of net_ratelimit()
+ to simplify code
+Date: Wed, 16 Oct 2013 11:27:00 +0800
+Message-ID: <525E0784.1070805@huawei.com>
+References: <1381837514-50660-1-git-send-email-wangkefeng.wang@huawei.com> <1381837514-50660-15-git-send-email-wangkefeng.wang@huawei.com> <525D921C.2030709@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Francois Romieu" <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Chas Williams <chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-	Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <netfilter@vger.k
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1381854263.22110.19.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	"Francois Romieu" <romieu@fr.zoreil.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>, <netfilter@vger.k
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <525D921C.2030709@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for your reply.
+Thanks for you reply.
+On 10/16 3:06, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 10/15/2013 03:45 PM, Kefeng Wang wrote:
+> 
+>> net_ratelimited_function() is called to simplify code.
+> 
+>> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+>> ---
+>>   drivers/net/usb/usbnet.c | 4 ++--
+>>   1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+>> index bf94e10..edf81de 100644
+>> --- a/drivers/net/usb/usbnet.c
+>> +++ b/drivers/net/usb/usbnet.c
+>> @@ -450,8 +450,8 @@ void usbnet_defer_kevent (struct usbnet *dev, int work)
+>>   {
+>>       set_bit (work, &dev->flags);
+>>       if (!schedule_work (&dev->kevent)) {
+>> -        if (net_ratelimit())
+>> -            netdev_err(dev->net, "kevent %d may have been dropped\n", work);
+>> +        net_ratelimited_function(netdev_err, dev->net,
+>> +            "kevent %d may have been dropped\n", work);
+> 
+>    The continuation line should start under 'netdev_err'. Same about the other patches where you didn't change the indentation of the continuation lines though you should have.
 
-On 10/16 0:24, Joe Perches wrote:
-> On Tue, 2013-10-15 at 19:44 +0800, Kefeng Wang wrote:
->> Wrapper functions net_ratelimited_function() and net_XXX_ratelimited()
->> are called to simplify code.
-> []
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> []
->> @@ -465,10 +465,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->>  	if (likely(fdb)) {
->>  		/* attempt to update an entry for a local interface */
->>  		if (unlikely(fdb->is_local)) {
->> -			if (net_ratelimit())
->> -				br_warn(br, "received packet on %s with "
->> -					"own address as source address\n",
->> -					source->dev->name);
->> +			net_ratelimited_function(br_warn, br, "received packet on %s "
->> +				"with own address as source address\n", source->dev->name);
-> 
-> Hello Kefeng.
-> 
-> When these types of lines are changed, please coalesce the
-> fragmented format pieces into a single string.
-> 
-> It makes grep a bit easier and 80 columns limits don't
-> apply to formats.
+Got it, indentation will be changed.
 
-Got it, I will coalesce them, but 80 columns limits will be
-broken.
-
-> I think using net_ratelimited_function is not particularly
-> clarifying here.
+> WBR, Sergei
 > 
-> Maybe net_ratelimited_function should be removed instead
-> of its use sites expanded.
-> 
-> Perhaps adding macros like #define br_warn_ratelimited()
-> would be better.
-
-yes, I found dev_emerg_ratelimited already exists. I should
-use them and will add some similar mcaros.
-
-> This comment applies to the whole series.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
 > 
 > .
 > 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
