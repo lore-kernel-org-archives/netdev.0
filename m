@@ -1,57 +1,94 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 0/2] xfrm: Remove ancient sleeping code
-Date: Wed, 16 Oct 2013 11:45:49 +0200
-Message-ID: <20131016094549.GZ7660@secunet.com>
-References: <20131010063301.GO7660@secunet.com>
- <20131011.150124.527914076255487526.davem@davemloft.net>
- <20131015073020.GV7660@secunet.com>
- <1381881514.2045.82.camel@edumazet-glaptop.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: shrink rt_cache_stat
+Date: Wed, 16 Oct 2013 02:49:04 -0700
+Message-ID: <1381916944.2045.124.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:33264 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760181Ab3JPJpw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 05:45:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1381881514.2045.82.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:56422 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760173Ab3JPJtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 05:49:06 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so595914pbc.35
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 02:49:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 15, 2013 at 04:58:34PM -0700, Eric Dumazet wrote:
-> On Tue, 2013-10-15 at 09:30 +0200, Steffen Klassert wrote:
-> 
-> > Right, that's why I've limited the queue to 100 packets. We can
-> > queue the SYNs of up to 100 tcp connestions that want to use
-> > this IPsec state. It surely can happen that we queue multiple
-> > retransmitted SYNs if the IPsec resolution is slow. But the
-> > queueing code tries at least to get the packets out before
-> > the first tcp retransmit. I think there is still room for
-> > optimizations, maybe reducing the queue lenght or the queue
-> > timeout to avoid queueing retransmitted SYNs as much as possible.
-> 
-> Note that its totally possible to avoid retransmitting SYN if original
-> SYN is still in a host queue.
-> 
-> We currently increment a SNMP counter when we detect this, we could
-> do something else (like not queuing a copy of the packet)
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=0e280af026a5662ffd57c4e623b822df1f7f47ff
+From: Eric Dumazet <edumazet@google.com>
 
-This is interesting, we could do the same check before we queue
-the packet and drop it if the original packet is still in a host
-queue.
+Half of the rt_cache_stat fields are no longer used after IP
+route cache removal, lets shrink this per cpu area.
 
-I'll do a RFC patch.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/route.h |    8 --------
+ net/ipv4/route.c    |   16 ++++++++--------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
 
-> 
-> Another work in progress is to delay RTO arming at the time TCP
-> packet leaves the host queues, instead of at the enqueue time.
-> 
-
-That would be even better, are there already patches publicly
-available?
-
-Thanks!
+diff --git a/include/net/route.h b/include/net/route.h
+index 0ad8e01..dd4ae00 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -88,22 +88,14 @@ struct ip_rt_acct {
+ };
+ 
+ struct rt_cache_stat {
+-        unsigned int in_hit;
+         unsigned int in_slow_tot;
+         unsigned int in_slow_mc;
+         unsigned int in_no_route;
+         unsigned int in_brd;
+         unsigned int in_martian_dst;
+         unsigned int in_martian_src;
+-        unsigned int out_hit;
+         unsigned int out_slow_tot;
+         unsigned int out_slow_mc;
+-        unsigned int gc_total;
+-        unsigned int gc_ignored;
+-        unsigned int gc_goal_miss;
+-        unsigned int gc_dst_overflow;
+-        unsigned int in_hlist_search;
+-        unsigned int out_hlist_search;
+ };
+ 
+ extern struct ip_rt_acct __percpu *ip_rt_acct;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6011615..d2d3253 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -295,7 +295,7 @@ static int rt_cpu_seq_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq,"%08x  %08x %08x %08x %08x %08x %08x %08x "
+ 		   " %08x %08x %08x %08x %08x %08x %08x %08x %08x \n",
+ 		   dst_entries_get_slow(&ipv4_dst_ops),
+-		   st->in_hit,
++		   0, /* st->in_hit */
+ 		   st->in_slow_tot,
+ 		   st->in_slow_mc,
+ 		   st->in_no_route,
+@@ -303,16 +303,16 @@ static int rt_cpu_seq_show(struct seq_file *seq, void *v)
+ 		   st->in_martian_dst,
+ 		   st->in_martian_src,
+ 
+-		   st->out_hit,
++		   0, /* st->out_hit */
+ 		   st->out_slow_tot,
+ 		   st->out_slow_mc,
+ 
+-		   st->gc_total,
+-		   st->gc_ignored,
+-		   st->gc_goal_miss,
+-		   st->gc_dst_overflow,
+-		   st->in_hlist_search,
+-		   st->out_hlist_search
++		   0, /* st->gc_total */
++		   0, /* st->gc_ignored */
++		   0, /* st->gc_goal_miss */
++		   0, /* st->gc_dst_overflow */
++		   0, /* st->in_hlist_search */
++		   0  /* st->out_hlist_search */
+ 		);
+ 	return 0;
+ }
