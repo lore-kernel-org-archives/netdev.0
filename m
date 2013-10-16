@@ -1,90 +1,176 @@
-From: jianhai luan <jianhai.luan@oracle.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Thu, 17 Oct 2013 00:44:53 +0800
-Message-ID: <525EC285.4000009@oracle.com>
-References: <1381826609.24708.135.camel@kazak.uk.xensource.com>	<525D0C41.2080407@oracle.com>	<20131015100624.GB29436@zion.uk.xensource.com>	<525D2667.6040102@oracle.com>	<20131015125802.GR11739@zion.uk.xensource.com>	<525E41CF.7090008@oracle.com> <525E5EDF.4030904@oracle.com>	<525E8FB3.8000606@oracle.com>	<20131016134740.GG16371@zion.uk.xensource.com>	<525EAB02.9050207@oracle.com> <20131016151732.GJ16371@zion.uk.xensource.com> <525EBABB.4070906@citrix.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next v4 5/5] xen-netback: enable IPv6 TCP GSO to the
+ guest
+Date: Wed, 16 Oct 2013 17:49:16 +0100
+Message-ID: <1381942156.30409.19.camel@kazak.uk.xensource.com>
+References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
+	 <1381503982-1418-6-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, annie li <annie.li@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org
-To: David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33008 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760894Ab3JPQpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 12:45:09 -0400
-In-Reply-To: <525EBABB.4070906@citrix.com>
+Received: from smtp.citrix.com ([66.165.176.89]:14544 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759389Ab3JPQtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 12:49:19 -0400
+In-Reply-To: <1381503982-1418-6-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2013-10-11 at 16:06 +0100, Paul Durrant wrote:
+> This patch adds code to handle SKB_GSO_TCPV6 skbs and construct appropriate
+> extra or prefix segments to pass the large packet to the frontend. New
+> xenstore flags, feature-gso-tcpv6 and feature-gso-tcpv6-prefix, are sampled
+> to determine if the frontend is capable of handling such packets.
 
-On 2013-10-17 0:11, David Vrabel wrote:
-> On 16/10/13 16:17, Wei Liu wrote:
->> On Wed, Oct 16, 2013 at 11:04:34PM +0800, jianhai luan wrote:
->> [...]
->>> >From ef02403a10173896c5c102f768741d0700b8a3a2 Mon Sep 17 00:00:00 2001
->>> From: Jason Luan <jianhai.luan@oracle.com>
->>> Date: Tue, 15 Oct 2013 17:07:49 +0800
->>> Subject: [PATCH] xen-netback: pending timer only in the range [expire,
->>>   next_credit)
->>>
->>> The function time_after_eq() do correct judge in range of MAX_UNLONG/2.
->>> If net-front send lesser package, the delta between now and next_credit
->>> will out of the range and time_after_eq() will do wrong judge in result
->>> to net-front hung.  For example:
->>>      expire    next_credit    ....    next_credit+MAX_UNLONG/2    now
->>>      -----------------time increases this direction----------------->
->>>
->>> We should be add the environment which now beyond next_credit+MAX_UNLONG/2.
->>> Because the fact now mustn't before expire, time_before(now, expire) == true
->>> will show the environment.
->>>      time_after_eq(now, next_credit) || time_before (now, expire)
->>>      ==
->>>      !time_in_range_open(now, expire, next_credit)
->>>
-> I would like the description improved because it's too hard to understand.
->
-> How about something like:
->
-> "time_after_eq() only works if the delta is < MAX_ULONG/2.
->
-> If netfront sends at a very low rate, the time between subsequent calls
-> to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
-> timer_after_eq() will be incorrect.  Credit will not be replenished and
-> the guest may become unable to send (e.g., if prior to the long gap, all
-> credit was exhausted)."
+IIRC the reason we have feature-gso-tcpv4 and feature-gso-tcpv4-prefix
+is that the former did things in a way which Windows couldn't cope with.
+I assuming that is true for v6 too. But could Linux cope with the prefix
+version too for v6 and reduce the number of options? Or is the
+non-prefix variant actually better, if the guest can manage, for some
+reason?
 
-Thanks your description, i will accept it. :)
->
-> But that's as far as I get because I can't see how the fix is correct.
-> The time_in_range() test might still return the wrong value if now has
-> advanced even further and wrapped so it is between expire and
-> next_credit again.
+I suppose in the end its all piggybacking off the v4 code paths so
+supporting both isn't a hardship.
 
-typo, time_in_range() should be time_in_range_open().
-Yes, if now have advanced even further and wrapped, it will always fall 
-in [ expire, next_credit). In the range, please think two scenario:
-    * No transmit limit: expire == next_credit, the range will be zero, 
-replenish will always be done.
-    * Transmit limit: Because guest may be consume all credit_bytes in 
-very short time, other time in [expire, next_credit) will don't send any 
-package. So the time which don't send package should be think about when 
-we set the rate parameter.
-       So if now fall in the range, the hung time should be acceptable. 
-(if rate=10000M/s, the worse time will be 4s).
->
-> I think the credit timeout should be always armed to expire in
-> MAX_ULONG/4 jiffies (or some other large value).  If credit is exceeded,
-> this timer is then adjusted to fire earlier (at next_credit as it does
-> already).
 
-Setting timer may be fixed the issue. But i don't think how to verify 
-the fixed expect waiting 180 days. I verified the above patch only 
-change expire's value to emulator the scenario.
->
-> David
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> ---
+>  drivers/net/xen-netback/common.h    |    9 +++++--
+>  drivers/net/xen-netback/interface.c |    6 +++--
+>  drivers/net/xen-netback/netback.c   |   48 +++++++++++++++++++++++++++--------
+>  drivers/net/xen-netback/xenbus.c    |   29 +++++++++++++++++++--
+>  include/xen/interface/io/netif.h    |    1 +
+>  5 files changed, 77 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index b4a9a3c..55b8dec 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -87,9 +87,13 @@ struct pending_tx_info {
+>  struct xenvif_rx_meta {
+>  	int id;
+>  	int size;
+> +	int gso_type;
+>  	int gso_size;
+>  };
+>  
+> +#define GSO_BIT(type) \
+> +	(1 << XEN_NETIF_GSO_TYPE_ ## type)
+> +
+>  /* Discriminate from any valid pending_idx value. */
+>  #define INVALID_PENDING_IDX 0xFFFF
+>  
+> @@ -150,9 +154,10 @@ struct xenvif {
+>  	u8               fe_dev_addr[6];
+>  
+>  	/* Frontend feature information. */
+> +	int gso_mask;
+> +	int gso_prefix_mask;
 
-Jason.
+Are these storing NETIF_F_FOO? In which case they should be
+netif_feature_t I think. At the least it needs to be unsigned.
+
+> +
+>  	u8 can_sg:1;
+> -	u8 gso:1;
+> -	u8 gso_prefix:1;
+>  	u8 ip_csum:1;
+>  	u8 ipv6_csum:1;
+>  
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index cb0d8ea..e4aa267 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -214,8 +214,10 @@ static netdev_features_t xenvif_fix_features(struct net_device *dev,
+>  
+>  	if (!vif->can_sg)
+>  		features &= ~NETIF_F_SG;
+> -	if (!vif->gso && !vif->gso_prefix)
+> +	if (~(vif->gso_mask | vif->gso_prefix_mask) & GSO_BIT(TCPV4))
+
+I must be blind -- where does this GSO_BIT macro come from?
+
+I can't see it in current net-next...
+
+> @@ -392,7 +394,14 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>  		}
+>  
+>  		/* Leave a gap for the GSO descriptor. */
+> -		if (*head && skb_shinfo(skb)->gso_size && !vif->gso_prefix)
+> +		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+> +		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+
+I think you can use skb_is_gso(skb) and skb_is_gso_v6(skb) for these
+ifs.
+
+> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+> +		else
+> +			gso_type = XEN_NETIF_GSO_TYPE_NONE;
+> +
+> +		if (*head && ((1 << gso_type) & vif->gso_mask))
+
+Perhaps test_bit(gso_type, &vif->gso_mask) rather than opencoding
+bitops?
+
+I see there are a lot of these, a vif_can_gso_type(vif, gso_type) helper
+might be nice.
+
+>  			vif->rx.req_cons++;
+>  
+>  		*head = 0; /* There must be something in this buffer now. */
+> @@ -423,14 +432,28 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+>  	unsigned char *data;
+>  	int head = 1;
+>  	int old_meta_prod;
+> +	int gso_type;
+> +	int gso_size;
+>  
+>  	old_meta_prod = npo->meta_prod;
+>  
+> +	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
+> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+> +		gso_size = skb_shinfo(skb)->gso_size;
+> +	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+> +		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+> +		gso_size = skb_shinfo(skb)->gso_size;
+> +	} else {
+> +		gso_type = XEN_NETIF_GSO_TYPE_NONE;
+> +		gso_size = 0;
+> +	}
+> +
+>  	/* Set up a GSO prefix descriptor, if necessary */
+> -	if (skb_shinfo(skb)->gso_size && vif->gso_prefix) {
+> +	if ((1 << skb_shinfo(skb)->gso_type) & vif->gso_prefix_mask) {
+
+Isn't skb->gso_type a Linux GSO flag thing and vif->gso_prefix_mask a
+Xen netif.h GSO type? Are they really comparable in this way?
+
+>  		req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
+>  		meta = npo->meta + npo->meta_prod++;
+> -		meta->gso_size = skb_shinfo(skb)->gso_size;
+> +		meta->gso_type = gso_type;
+> +		meta->gso_size = gso_size;
+>  		meta->size = 0;
+>  		meta->id = req->id;
+>  	}
+
+> +	if (vif->gso_mask & vif->gso_prefix_mask) {
+> +		xenbus_dev_fatal(dev, err,
+> +				 "%s: gso and gso prefix flags are not "
+> +				 "mutually exclusive",
+
+Aren't they? I thought they were? Maybe I'm reading this error message
+backwards, in which case I would contend that it is written
+backwards ;-)
+
+Ian.
