@@ -1,114 +1,106 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Tue, 15 Oct 2013 17:13:46 -0700
-Message-ID: <1381882426.2045.85.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: DomU's network interface will hung when Dom0 running 32bit
+Date: Wed, 16 Oct 2013 08:15:42 +0800
+Message-ID: <525DDAAE.9050400@oracle.com>
+References: <525CAC21.5040202@oracle.com> <1381826609.24708.135.camel@kazak.uk.xensource.com> <525D0C41.2080407@oracle.com> <20131015100624.GB29436@zion.uk.xensource.com> <525D2667.6040102@oracle.com> <20131015125802.GR11739@zion.uk.xensource.com> <525D513B.70406@oracle.com> <20131015144910.GS11739@zion.uk.xensource.com> <1381848632.21901.42.camel@kazak.uk.xensource.com> <525D5D0E.5070107@oracle.com> <20131015160336.GT11739@zion.uk.xensource.com> <525D6C16.6010705@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Mark Brooks <mark@loadbalancer.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1381881751-6719-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, 2013-10-16 at 09:02 +0900, Simon Horman wrote:
-> In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
-> ip6_finish_output2()") changed the behaviour of ip6_finish_output2()
-> such that it creates and uses a neigh entry if none is found.
-> Subsequently the 'n' field was removed from struct rt6_info.
-> 
-> Unfortunately my analysis is that in the case of IPVS direct routing this
-> change leads to incorrect behaviour as in this case packets may be output
-> to a destination other than where they would be output according to the
-> route table. In particular, the destination address may actually be a local
-> address and empirically a neighbour lookup seems to result in it becoming
-> unreachable.
-> 
-> This patch resolves the problem by providing the destination address
-> determined by IPVS to ip6_finish_output2() in the skb callback.  Although
-> this seems to work I can see several problems with this approach:
-> 
-> * It is rather ugly, stuffing an IPVS exception right in
->   the middle of IPv6 code. The overhead could be eliminated for many users
->   by using a staic key. But none the less it is not attractive.
-> 
-> * The use of the skb callback is may not be valid
->   as it crosses from IPVS to IPv6 code. A possible, though unpleasant,
->   alternative is to add a new field to struct sk_buff.
-
-Please no ;)
-
-> 
-> * This covers all IPv6 packets output by IPVS but actually
->   only those output using IPVS Direct-Routing need this.  One way to
->   resolve this would be to add a more fine-grained ipvs_property to
->   struct sk_buff.
-> 
-> Reported-by: Mark Brooks <mark@loadbalancer.org>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  include/net/ip_vs.h             | 6 ++++++
->  net/ipv6/ip6_output.c           | 9 +++++++--
->  net/netfilter/ipvs/ip_vs_xmit.c | 2 ++
->  3 files changed, 15 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 1c2e1b9..11d90a6 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -1649,4 +1649,10 @@ ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
->  		atomic_read(&dest->inactconns);
->  }
->  
-> +struct ipvs_skb_cb {
-> +	struct in6_addr *daddr;
-> +};
-
-So we pass a reference.
-
-> +
-> +#define IP_VS_SKB_CB(skb) ((struct ipvs_skb_cb *)&(skb)->cb)
-> +
->  #endif	/* _NET_IP_VS_H */
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index a54c45c..a340180 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -52,6 +52,7 @@
->  #include <net/addrconf.h>
->  #include <net/rawv6.h>
->  #include <net/icmp.h>
-> +#include <net/ip_vs.h>
->  #include <net/xfrm.h>
->  #include <net/checksum.h>
->  #include <linux/mroute6.h>
-> @@ -61,7 +62,7 @@ static int ip6_finish_output2(struct sk_buff *skb)
->  	struct dst_entry *dst = skb_dst(skb);
->  	struct net_device *dev = dst->dev;
->  	struct neighbour *neigh;
-> -	struct in6_addr *nexthop;
-> +	struct in6_addr *nexthop, *daddr;
->  	int ret;
->  
->  	skb->protocol = htons(ETH_P_IPV6);
-> @@ -105,7 +106,11 @@ static int ip6_finish_output2(struct sk_buff *skb)
->  	}
->  
->  	rcu_read_lock_bh();
-> -	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
-> +	if (unlikely(IS_ENABLED(CONFIG_IP_VS) && skb->ipvs_property))
-> +		daddr = IP_VS_SKB_CB(skb)->daddr;
-
-What guarantee do we have daddr points to valid memory (not already
-freed/reused) ?
-
-I guess things like NFQUEUE could happen ?
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	ANNIE LI <annie.li@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:48516 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933634Ab3JPAQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 20:16:06 -0400
+In-Reply-To: <525D6C16.6010705@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+On 2013-10-16 0:23, jianhai luan wrote:
+>
+> On 2013-10-16 0:03, Wei Liu wrote:
+>> On Tue, Oct 15, 2013 at 11:19:42PM +0800, jianhai luan wrote:
+>> [...]
+>>>>>>> * time_after_eq(now, next_credit) -> false
+>>>>>>> * time_before(now, expires) -> false
+>>>>>> If now is placed in above environment, the result will be correct
+>>>>>> (Sending package will be not allowed until next_credit).
+>>>>> No, it is not necessarily correct. Keep in mind that "now" wraps 
+>>>>> around,
+>>>>> which is the issue you try to fix. You still have a window to 
+>>>>> stall your
+>>>>> frontend.
+>>>> Remember that time_after_eq is supposed to work even with wraparound
+>>>> occurring, so long as the two times are less than MAX_LONG/2 apart.
+>>> Sorry for my misunderstand explanation. I mean that
+>>>    * time_after_eq()/time_before_eq() fix the jiffies wraparound, so
+>>> please think about  jiffies in line increasing.
+>>>    * time_after_eq()/time_before_eq() have the range (0, MAX_LONG/2),
+>>> the judge will be wrong if out of the range.
+>>>
+>>> So please think about three kind environment
+>>>    -  expires        now        next_credit
+>>>       --------time increases this direction ---------->
+>>>
+>>>    -  expires        [next_credit        now next_credit+MAX_LONG/2
+>>>       --------time increase this direction ----------->
+>>>
+>>>    - expires        next_credit        next_credit+MAX_LONG/2 now
+>>>       --------time increadse this direction ---------->
+>>>
+>>> The first environment should be netfront consume all credit_byte
+>>> before next_credit, So we should pending one timer to calculator the
+>>> new credit_byte, and don't transmit until next_credit.
+>>>
+>>> the second environment should be calculator the credit_byte because
+>>> netfront don't consume all credit_byte before next_credit, and
+>>> time_after_eq() do correct judge.
+>>>
+>>> the third environment should be calculator in time because netfront
+>>> don't consume all credit_byte until next_credit.But time_after_eq do
+>>> error judge (time_after_eq(now, next_credit) is false), so the
+>>> remaining_byte isn't be increased.
+>>>
+>>> and I work on the third environment.  You know now >
+>>> next_credit+MAX_LONG/2, time_before(now, expire) should be
+>>> true(time_before(now, expire) is false in first environment)
+>> Thanks for staighten this out for me. I'm just too dumb for this, please
+>> be patient with me. :-)
+>>
+>> Could you prove that time_before(now, expire) is always true in third
+>> case? That's where my main cencern lies. Is it because msecs_to_jiffies
+>> always returns MAX_JIFFY_OFFSET (which is ((LONG_MAX >> 1)-1) ) at most?
+>
+> I have wrong judge in third environment. If now large than expires + 
+> MAX_UNLONG, time_before(now, expires) will be false.
+>   expires    next_credit    next_credit+MAX_UNLONG/2    expires + 
+> MAX_UNLONG    now    next_credit+MAX_UNLONG
+>   --------------------------------------------------------- time 
+> increadse this direction  ---------------------------------->
+>
+>   In the above environment, time_before(now, expires) will return 
+> false. But the jiffies elapsed more time and next_credit will be 
+> reachable in soon(time_after_eq(now, next_credit) will be true).
 
+After above talk, the window should be exist (expire+MAX_ULONG 
+next_credit+MAX_ULONG, expire + 2MAX_ULONF next_credit+MAX_ULONG 
+....,expire+<n>ULONG next_credit+<n>MAX_ULONG). Other time window should 
+be not exist (maybe i don't think about).
+  If so, please think about the below:
+   * If no speed control, vif->credit_usec should be zero. expire = 
+next_credit and the window is zero
+   * If we have done speed control, the scenario should be very likely 
+than first environment except the value is larger (the delta is 
+<n>MAX_UNLONG)
+      - If do speed control. the window should have been think about
+                      speed            worse time
+                      100M/s          40s
+                      1000M/s       4s
+      - the time should be acceptable.
+>>
+>> Wei.
+>
