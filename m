@@ -1,49 +1,60 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net 1/4] bridge: Don't use VID 0 and 4095 in vlan
- filtering
-Date: Wed, 16 Oct 2013 08:47:38 -0700
-Message-ID: <20131016084738.6e2eaae0@nehalam.linuxnetplumber.net>
-References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1381910836-718-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 path discovery oddities - flushing the routing cache resolves
+Date: Wed, 16 Oct 2013 17:48:41 +0200
+Message-ID: <20131016154841.GC18135@order.stressinduktion.org>
+References: <525E6B03.1040409@blub.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	Toshiaki Makita <toshiaki.makita1@gmail.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Valentijn Sessink <valentyn@blub.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:58559 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753790Ab3JPPrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 11:47:42 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so983495pbb.6
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 08:47:41 -0700 (PDT)
-In-Reply-To: <1381910836-718-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from order.stressinduktion.org ([87.106.68.36]:38773 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755206Ab3JPPsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 11:48:42 -0400
+Content-Disposition: inline
+In-Reply-To: <525E6B03.1040409@blub.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Oct 2013 17:07:13 +0900
-Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
-
-> IEEE 802.1Q says that:
-> - VID 0 shall not be configured as a PVID, or configured in any Filtering
-> Database entry.
-> - VID 4095 shall not be configured as a PVID, or transmitted in a tag
-> header. This VID value may be used to indicate a wildcard match for the VID
-> in management operations or Filtering Database entries.
-> (See IEEE 802.1Q-2011 6.9.1 and Table 9-2)
+On Wed, Oct 16, 2013 at 12:31:31PM +0200, Valentijn Sessink wrote:
+> Hello list,
 > 
-> Don't accept adding these VIDs in the vlan_filtering implementation.
+> I'm experiencing difficulties with IPv6 path discovery. The setup is 
+> quite simple, a machine with native IPv6, no special routing - let's 
+> call it the "server" for now. Unfortunately, I seem to loose 
+> connectivity multiple times a day - and after digging in, I found this 
+> to be "too big" messages that weren't honored at the server. The network 
+> consists of something like:
 > 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/bridge/br_fdb.c     |  4 +-
->  net/bridge/br_netlink.c |  2 +-
->  net/bridge/br_vlan.c    | 97 +++++++++++++++++++++++--------------------------
->  3 files changed, 49 insertions(+), 54 deletions(-)
+> server --- hosting --- others ---- SIXXS tunnel with 1280 MTU --- me.
+> 
+> A "ip -6 route list cache" would show a cached route to my "client", but 
+> one without MTU. Then after "ip -6 route flush cache", and after trying 
+> to send a large packet (for example issuing "ps uaxww" on an ssh 
+> prompt), "ip -6 route list cache" will show a correct MTU.
 
-This one looks good, thanks.
+Oh, thats another very good hint.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+> But after a while, things start to go wrong again, and another "ip -6 
+> route flush cache" is needed.
+> 
+> The server is running 3.8.0-something (ubuntu 12.04 with a newer kernel).
+> 
+> tcpdump shows that on reception of icmpv6 "too big", nothing happens 
+> (i.e. the "too big" packet will be sent time and again), and after the 
+> "ip -6 route flush cache", suddenly the "too big" message is honored.
+> 
+> I saw a couple of path discovery issues on this list, more specifically 
+> one with the subject "IPv6 path MTU discovery broken" earlier this month 
+> - but I'm not sure it's the same issue (because the original submitter 
+> specifically mentions kernels 3.10 and 3.11 and has a much more 
+> complicated routing table).
+
+I do think these two issues are connected. Could you send me a the
+corresponding ip route output and /proc/net/ipv6_route output for when it
+works and mtus are correctly handled and when it does not work?
+
+Thanks,
+
+  Hannes
