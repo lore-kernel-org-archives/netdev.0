@@ -1,28 +1,91 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] net: qmi_wwan: Olivetti Olicard 200 support
-Date: Wed, 16 Oct 2013 13:24:28 -0700
-Message-ID: <20131016202428.GA24399@kroah.com>
-References: <1381842408-10800-1-git-send-email-mrkiko.rs@gmail.com>
- <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [RFC] net: stmmac: keep RXC running in LPI mode to avoid system
+ overload
+Date: Wed, 16 Oct 2013 22:29:00 +0200
+Message-ID: <525EF70C.9090708@st.com>
+References: <808496140.2212.1381694572197.JavaMail.root@abilis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, bjorn@mork.no, dcbw@redhat.com,
-	christian.schmiedl@gemalto.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Antonella Pellizzari <anto.pellizzari83@gmail.com>
-To: Enrico Mioso <mrkiko.rs@gmail.com>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Christian Ruppert <chrisr@abilis.com>
+To: Romain Baeriswyl <Romain.Baeriswyl@abilis.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1381842408-10800-2-git-send-email-mrkiko.rs@gmail.com>
+In-Reply-To: <808496140.2212.1381694572197.JavaMail.root@abilis.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2013 at 03:06:48PM +0200, Enrico Mioso wrote:
-> This is a QMI device, manufactured by TCT Mobile Phones.
-> A companion patch blacklisting this device's QMI interface in the option.c
-> driver has been sent.
-> 
-> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-> Signed-off-by: Antonella Pellizzari <anto.pellizzari83@gmail.com>
+Hello Romain
+On 10/13/2013 10:02 PM, Romain Baeriswyl wrote:
+> Hello Guiseppe,
+>
+> Thanks for your answer. Please find below some details and answers.
+>
+>>> In order to avoid system overload, the clock RXC from the Phy
+>>> should not be
+>>> stopped when in LPI mode.
+>>>
+>>> With the RTL8211E PHY which support EEE mode and with Apple Airport
+>>> Extreme that
+>>> supports it also, the kernel get frozen as soon as some Ethernet
+>>> transfers are
+>>
+>>
+>> hmm, I have a board with this transceiver so I could do some tests
+>> this could take a while, unfortunately.
+>>
+>>> on-going. System seems to be overloaded with too many interrupts.
+>>> The 'top'
+>>> command reports often around ~80% irq.
+>>
+>> do you mean lpi mac interrupts?
+>
+> By disabling the LPI mode with ethtool --set-eee eth0 eee off, the
+> interrupt overload remains. Both counters irq_rx_path_in_lpi_mode_n and
+> irq_rx_path_exit_lpi_mode_n continue to run meaning the PHY continue
+> to put the RX path in LPI mode.
+>
+> Only way I found to get ride of the overload is to keep the RX_CLK running
+> in LPI mode. In this configuration, the RX link still continue to go in
+> LPI mode and the two above counters continue to run.
+>
+>>>
+>>> By letting the RXC clock running even in LPI mode as proposed
+>>> below, the issue
+>>> seems solved. Is it the right way to proceed?
+>>
+>> For EEE capability, RX_CLK may be halted for this reason i used it as
+>> default in the stmmac and never seen your issue.
+>>
+>>>
+>>> What is the power impact to not stop RXC in LPI mode?
+>>
+>> I can point you to "22.2.2.8a Receive direction LPI transition"
+>> in IEEE802-3az... where is it reported that the PHY  halt the RX_CLK
+>> in LPI mode.
+>
+> Actually the PHY "may" stop RX_CLK.
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Another option it could be add a new parameter to enable/disable it.
+We can decide a parameter for the stmmac or something for ethtool.
+
+>
+>>
+>> May I suspect some issues on your HW? or disable it with ethtool
+>>
+>
+> Yes, it could be HW issue. It would be very useful if you could reproduce
+> the setup using a SoC with "DesignWare Cores Ethernet MAC" core,
+> the RTL8211E PHY and an Apple Airport Extreme. The issue could well be between
+> the controller and the PHY.
+>
+> Which Ethernet switch or router did you use to test the EEE mode?
+
+when I tested EEE I connected with P2P two STi boards.
+You can test it too.
+
+> I may try these equipments as well.
+>
+
+peppe
