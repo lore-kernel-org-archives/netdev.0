@@ -1,102 +1,108 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
-Date: Wed, 16 Oct 2013 07:37:20 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1310160737090.15740@axis700.grange>
-References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
- <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com>
- <Pine.LNX.4.64.1310150926220.5601@axis700.grange> <525DB81C.6010106@cogentembedded.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next] {selinux, af_key} Rework pfkey_sadb2xfrm_user_sec_ctx
+Date: Wed, 16 Oct 2013 14:15:14 +0800
+Message-ID: <1381904114-29556-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
-	Simon Horman <horms@verge.net.au>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:53947 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385Ab3JPFhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 01:37:32 -0400
-In-Reply-To: <525DB81C.6010106@cogentembedded.com>
+Received: from mail.windriver.com ([147.11.1.11]:54928 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923Ab3JPGPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 02:15:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Oct 2013, Sergei Shtylyov wrote:
+Taking advantages of sadb_x_sec_ctx and xfrm_user_sec_ctx share the same
+structure arrangement, rework pfkey_sadb2xfrm_user_sec_ctx by casting
+sadb_x_sec_ctx into xfrm_user_sec_ctx with minor len fix.
 
-> Hello.
-> 
-> On 10/15/2013 11:28 AM, Guennadi Liakhovetski wrote:
-> 
-> > > > This patch will fix RX packets errors when receiving big size
-> > > > of data by set bit RNC = 1.
-> 
-> > > > RNC - Receive Enable Control
-> 
-> > > > 0: Upon completion of reception of one frame, the E-DMAC writes
-> > > > the receive status to the descriptor and clears the RR bit in
-> > > > EDRRR to 0.
-> 
-> > > > 1: Upon completion of reception of one frame, the E-DMAC writes
-> > > > (writes back) the receive status to the descriptor. In addition,
-> > > > the E-DMAC reads the next descriptor and prepares for reception
-> > > > of the next frame.
-> 
-> > > > In addition, for get more stable when receiving packets, I set
-> > > > maximum size for the transmit/receive FIFO and inserts padding
-> > > > in receive data.
-> 
-> > > > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
-> > > > ---
-> > > >    drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
-> > > >    1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> > > > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> > > > b/drivers/net/ethernet/renesas/sh_eth.c
-> > > > index a753928..11d34f0 100644
-> > > > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > > > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> > > > @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
-> > > >    	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT
-> > > > |
-> > > >    			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE
-> > > > |
-> > > >    			  EESR_TDE | EESR_ECI,
-> > > > +	.fdr_value	= 0x0000070f,
-> > > > +	.rmcr_value	= 0x00000001,
-> > > > 
-> > > >    	.apr		= 1,
-> > > >    	.mpr		= 1,
-> > > >    	.tpauser	= 1,
-> > > >    	.bculr		= 1,
-> > > >    	.hw_swap	= 1,
-> > > > +	.rpadir		= 1,
-> > > > +	.rpadir_value   = 2 << 16,
-> > > >    	.no_trimd	= 1,
-> > > >    	.no_ade		= 1,
-> > > >    	.tsu		= 1,
-> 
-> > >     Guennadi, could you check if this patch fixes your issue with NFS.
-> > > Make
-> > > sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
-> 
-> > Yes, the current -next, which includes this patch (in a slightly different
-> > form) boots fine over NFS for me.
-> 
->    I don't know what you mean by "slightly different form" exactly. Also, I
-> was unable to locate the fresh -next tree.
+Then we can:
+ -Avoid kmalloc/free memory for xfrm_user_sec_ctx, sadb_x_sec_ctx would be fine.
+ -Fix missing return value check bug for pfkey_compile_policy when kmalloc fails
 
-git://gitorious.org/thierryreding/linux-next.git
-
-> 'net-next.git' contains this patch
-> in a mismerged form, 'net.git' has Simon's patch that corrects this mismerge.
-> 
-> > Thanks
-> > Guennadi
-> 
-> WBR, Sergei
-> 
-
+Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
-http://www.open-technology.de/
+ net/key/af_key.c |   33 +--------------------------------
+ 1 file changed, 1 insertion(+), 32 deletions(-)
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 9d58537..c7d304d 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -435,22 +435,9 @@ static inline int verify_sec_ctx_len(const void *p)
+ 
+ static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
+ {
+-	struct xfrm_user_sec_ctx *uctx = NULL;
+-	int ctx_size = sec_ctx->sadb_x_ctx_len;
+-
+-	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
+-
+-	if (!uctx)
+-		return NULL;
++	struct xfrm_user_sec_ctx *uctx = (struct xfrm_user_sec_ctx *)sec_ctx;
+ 
+ 	uctx->len = pfkey_sec_ctx_len(sec_ctx);
+-	uctx->exttype = sec_ctx->sadb_x_sec_exttype;
+-	uctx->ctx_doi = sec_ctx->sadb_x_ctx_doi;
+-	uctx->ctx_alg = sec_ctx->sadb_x_ctx_alg;
+-	uctx->ctx_len = sec_ctx->sadb_x_ctx_len;
+-	memcpy(uctx + 1, sec_ctx + 1,
+-	       uctx->ctx_len);
+-
+ 	return uctx;
+ }
+ 
+@@ -1125,12 +1112,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+ 	if (sec_ctx != NULL) {
+ 		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+ 
+-		if (!uctx)
+-			goto out;
+-
+ 		err = security_xfrm_state_alloc(x, uctx);
+-		kfree(uctx);
+-
+ 		if (err)
+ 			goto out;
+ 	}
+@@ -2225,14 +2207,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 	if (sec_ctx != NULL) {
+ 		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+ 
+-		if (!uctx) {
+-			err = -ENOBUFS;
+-			goto out;
+-		}
+-
+ 		err = security_xfrm_policy_alloc(&xp->security, uctx);
+-		kfree(uctx);
+-
+ 		if (err)
+ 			goto out;
+ 	}
+@@ -2329,11 +2304,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
+ 	if (sec_ctx != NULL) {
+ 		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+ 
+-		if (!uctx)
+-			return -ENOMEM;
+-
+ 		err = security_xfrm_policy_alloc(&pol_ctx, uctx);
+-		kfree(uctx);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -3230,8 +3201,6 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+ 			goto out;
+ 		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
+ 		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
+-		kfree(uctx);
+-
+ 		if (*dir)
+ 			goto out;
+ 	}
+-- 
+1.7.9.5
