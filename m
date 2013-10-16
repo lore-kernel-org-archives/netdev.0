@@ -1,41 +1,50 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.43 0/5] MPLS actions and matches
-Date: Wed, 16 Oct 2013 13:23:59 +0900
-Message-ID: <20131016042359.GA22553@verge.net.au>
-References: <1381132847-12589-1-git-send-email-horms@verge.net.au>
- <20131010003139.GA20311@verge.net.au>
- <20131016035530.GA29165@nicira.com>
- <20131016035600.GB29165@nicira.com>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Wed, 16 Oct 2013 13:26:15 +0900
+Message-ID: <20131016042615.GB22553@verge.net.au>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+ <1381882426.2045.85.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131016002807.GM22321@verge.net.au>
+ <1381883949.2045.97.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131016021304.GA17801@verge.net.au>
+ <1381891259.2045.100.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Ben Pfaff <blp@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48861 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885Ab3JPEYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 00:24:03 -0400
+Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Mark Brooks <mark@loadbalancer.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131016035600.GB29165@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1381891259.2045.100.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2013 at 08:56:00PM -0700, Ben Pfaff wrote:
-> On Tue, Oct 15, 2013 at 08:55:30PM -0700, Ben Pfaff wrote:
-> > On Thu, Oct 10, 2013 at 09:31:41AM +0900, Simon Horman wrote:
-> > > I believe this series addresses the feedback that each of you
-> > > gave with regards to recent previous postings of this patch-set.
-> > > I'm wondering if you could find some time to review it.
-> > 
-> > I'm waiting for an ack from Jesse, then I'm going to do a final pass and
-> > I hope to commit this series at this point.  I see some ways that we can
-> > improve MPLS support afterward but I don't see any blockers.
+On Tue, Oct 15, 2013 at 07:40:59PM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-16 at 11:13 +0900, Simon Horman wrote:
 > 
-> (Yet.  Somehow MPLS seems to require fractal review.)
+> > That does seem very promising but while implementing it
+> > I hit a problem.
+> > 
+> > struct tcp_skb_cb includes a field of type struct inet6_skb_parm.  And
+> > expanding struct inet6_skb_parm by 16 bytes means that struct tcp_skb_cb is
+> > now larger than 48 bytes and no longer fits in skb->cb.
+> > 
+> > Is it appropriate to grow skb->cb as the comment above struct tcp_skb_cb
+> > suggests?
+> 
+> Ah well...
+> 
+> No, its not appropriate to grow sk_buff by 16 bytes, sorry.
+> 
+> You could not change struct inet6_skb_parm, but define IP6CB as
+> a compound 
+> 
+> struct ip6cb {
+>    struct inet6_skb_parm foo;
+>    struct in6_addr       bar;
+> };
 
-If you notice something please let me know :)
+Thanks for your guidance, that possibility had occured to me too.
+I'll rework the patch accordingly.
