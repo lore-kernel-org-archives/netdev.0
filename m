@@ -1,54 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC] xfrm: Don't queue retransmitted packets if the original
- is still on the host
-Date: Wed, 16 Oct 2013 13:42:47 +0200
-Message-ID: <20131016114246.GB7660@secunet.com>
-References: <20131010063301.GO7660@secunet.com>
- <20131011.150124.527914076255487526.davem@davemloft.net>
- <20131015073020.GV7660@secunet.com>
- <1381881514.2045.82.camel@edumazet-glaptop.roam.corp.google.com>
- <20131016094549.GZ7660@secunet.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH 2/2] be2net: drop non-tso frames longer than mtu
+Date: Wed, 16 Oct 2013 12:08:08 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C26A2A3A4@CMEXMB1.ad.emulex.com>
+References: <1381838188-9625-1-git-send-email-sathya.perla@emulex.com>
+	 <1381838188-9625-2-git-send-email-sathya.perla@emulex.com>
+ <1381844840.2045.37.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36394 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932406Ab3JPLnA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 07:43:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20131016094549.GZ7660@secunet.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:30294 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760301Ab3JPMIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 08:08:10 -0400
+In-Reply-To: <1381844840.2045.37.camel@edumazet-glaptop.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It does not make sense to queue retransmitted packets if the
-original packet is still in some queue of this host. So add
-a check to xdst_queue_output() and drop the packet if the
-original packet is not yet sent.
-
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ed38d5d..e09edfc 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1832,6 +1832,13 @@ static int xdst_queue_output(struct sk_buff *skb)
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
- 	struct xfrm_policy_queue *pq = &xdst->pols[0]->polq;
-+	const struct sk_buff *fclone = skb + 1;
-+
-+	if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
-+		     fclone->fclone == SKB_FCLONE_CLONE)) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
- 
- 	if (pq->hold_queue.qlen > XFRM_MAX_QUEUE_LEN) {
- 		kfree_skb(skb);
--- 
-1.7.9.5
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiA+DQo+ID4gUGt0Z2VuIGNhbiBnZW5lcmF0ZSBu
+b24tVFNPIGZyYW1lcyBvZiBhcmJpdHJhcnkgbGVuZ3RoIGRpc3JlZ2FyZGluZw0KPiA+IHRoZSBN
+VFUgdmFsdWUgb2YgdGhlIHBoeXNpY2FsIGludGVyZmFjZS4gRHJvcCBzdWNoIGZyYW1lcyBpbiB0
+aGUgZHJpdmVyDQo+ID4gaW5zdGVhZCBvZiBzZW5kaW5nIHRoZW0gdG8gSFcgYXMgaXQgY2Fubm90
+IGhhbmRsZSBzdWNoIGZyYW1lcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFZhc3VuZGhhcmEg
+Vm9sYW0gPHZhc3VuZGhhcmEudm9sYW1AZW11bGV4LmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBT
+YXRoeWEgUGVybGEgPHNhdGh5YS5wZXJsYUBlbXVsZXguY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgvYmVuZXQvYmVfbWFpbi5jIHwgICAgOSArKysrKysrLS0N
+Cj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+
+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0L2Jl
+X21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9tYWluLmMN
+Cj4gPiBpbmRleCAyYzM4Y2M0Li43NjA1N2I4IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9lbXVsZXgvYmVuZXQvYmVfbWFpbi5jDQo+ID4gQEAgLTg1NSw2ICs4NTUsMTMgQEAg
+c3RhdGljIHN0cnVjdCBza19idWZmICpiZV94bWl0X3dvcmthcm91bmRzKHN0cnVjdCBiZV9hZGFw
+dGVyDQo+ICphZGFwdGVyLA0KPiA+ICAJdW5zaWduZWQgaW50IGV0aF9oZHJfbGVuOw0KPiA+ICAJ
+c3RydWN0IGlwaGRyICppcDsNCj4gPg0KPiA+ICsJLyogRG9uJ3QgYWxsb3cgbm9uLVRTTyBwYWNr
+ZXRzIGxvbmdlciB0aGFuIE1UVSAqLw0KPiA+ICsJZXRoX2hkcl9sZW4gPSAobnRvaHMoc2tiLT5w
+cm90b2NvbCkgPT0gRVRIX1BfODAyMVEpID8NCj4gPiArCQkJVkxBTl9FVEhfSExFTiA6IEVUSF9I
+TEVOOw0KPiA+ICsJaWYgKCFza2JfaXNfZ3NvKHNrYikgJiYNCj4gPiArCSAgICAoc2tiLT5sZW4g
+LSBldGhfaGRyX2xlbikgPiBhZGFwdGVyLT5uZXRkZXYtPm10dSkNCj4gPiArCQkJZ290byB0eF9k
+cm9wOw0KPiA+ICsNCj4gDQo+IFdoZW4geW91IHNheSAnY2Fubm90IGhhbmRsZSB0aGVtJywgaXMg
+aXQgc29tZSBraW5kIG9mIG5hc3R5IHRoaW5nIGxpa2UNCj4gaGFuZyAvIGNyYXNoID8NClRoaXMg
+Y2hpcCBnb2VzIGludG8gYW4gdW5yZWNvdmVyYWJsZSBlcnJvciBzdGF0ZSAobmVlZGluZyBhIHNl
+cnZlciByZWJvb3QgdG8gcmVjdGlmeS4pDQoNCj4gDQo+IE9uZSBjb3VsZCBpbWFnaW5lIGdzb19z
+aXplICsgc2l6ZW9mKGhlYWRlcnMpID4gbXR1LCBhbmQgZ2l2ZSB0aGUgc2FtZQ0KPiBwcm9ibGVt
+ID8NCldvbid0IHRoZSBtc3MgKGdzb19zaXplKSB2YWx1ZSBmb3IgVENQIHBrdHMgYmUgZGVyaXZl
+ZCBmcm9tIHRoZSBtdHUgb2YgdGhlIG91dC1nb2luZyBpbnRlcmZhY2U/DQpJbiB0aGF0IGNhc2Ug
+d2hlbiB3aWxsIGdzb19zaXplICsgaGVhZGVycyA+IG10dT8NCkluIGFueSBjYXNlLCBmb3IgVFNP
+IHBrdHMsIHRoZSBIVyBqdXN0IGRyb3BzIHBrdHMgd2hlbiBmcmFtZXMgYWZ0ZXIgc2VnbWVudGF0
+aW9uDQphcmUgbG9uZ2VyIHRoYW4gOTAxOGJ5dGVzIChvciBpbiByZWNlbnQgRlcgdmVyc2lvbnMg
+OTIwMGIpDQoNCj4gDQo+IA0KPiBBRkFJSywgd2UgaGF2ZSBubyBjaGVjayBpbiBuZXQvY29yZS9k
+ZXYuYy4NCj4gDQo+IE1heWJlIHdlIHNob3VsZCBpbnN0ZWFkIGFkZCB0aGVtIHRoZXJlIChhbmQg
+aW4gcGt0Z2VuKQ0KSSBhZ3JlZTsgZG9pbmcgdGhpcyB3aWxsIHNvbHZlIGlzc3VlcyB3aXRoIGFu
+eSBvdGhlciBkcml2ZXJzL2RldmljZXMgaWYgdGhleSBoYXZlIGEgc2ltaWxhciBwcm9ibGVtLg0K
+DQp0aGFua3MsDQotU2F0aHlhDQo=
