@@ -1,81 +1,66 @@
-From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH 3/5] net: rfkill: gpio: spinlock-safe GPIO access
-Date: Wed, 16 Oct 2013 13:53:41 +0300
-Message-ID: <1381920823-15403-4-git-send-email-heikki.krogerus@linux.intel.com>
-References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com>
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1381920823-15403-1-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: "xfrm: Fix the gc threshold value for ipv4" broke my IPSec
+ connections
+Date: Wed, 16 Oct 2013 13:35:00 +0200
+Message-ID: <20131016113500.GA7660@secunet.com>
+References: <525DA855.1010905@daper.net>
+ <1381870957.2045.73.camel@edumazet-glaptop.roam.corp.google.com>
+ <525DBE65.1070707@daper.net>
+ <1381877486.2045.78.camel@edumazet-glaptop.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Damian Pietras <damianp@daper.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:36119 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932406Ab3JPLfE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 07:35:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1381877486.2045.78.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This sets the direction of the gpio once when it's requested,
-and uses the spinlock-safe gpio_set_state() to change the
-state.
+On Tue, Oct 15, 2013 at 03:51:26PM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-16 at 00:15 +0200, Damian Pietras wrote:
+> > On 15.10.2013 23:02, Eric Dumazet wrote:
+> > >> 703fb94ec58e0e8769380c2877a8a34aeb5b6c97
+> > >> xfrm: Fix the gc threshold value for ipv4
+> > >>
+> > >> Reverting it on 3.10.15 fixes my issue. This seems to be there from 3.7
+> > >> and I don't really believe such simple case stayed broken for so long.
+> > >> Em I missing something or there is really a bug?
+> > >>
+> > >> If smeone is interested in details of this configuration and commands
+> > >> I'm running, just let me know. This was reproduced with few VMs under XEN.
+> > >>
+> > > 
+> > > It looks like you need to tune /proc/sys/net/ipv4/xfrm4_gc_thresh to a
+> > > sensible value given your workload.
+> > > 
+> > > try :
+> > > 
+> > > echo 65536 >/proc/sys/net/ipv4/xfrm4_gc_thresh
+> > > 
+> > > Presumably the 1024 default is really too small...
+> > 
+> > Now it's working in my test setup, I'm changing it on the production
+> > boxes, thanks!
+> > 
+> > 
+> 
+> Steffen, what do you think ?
+> 
+> 1024 seems really small, given we had much higher values.
 
-Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
- net/rfkill/rfkill-gpio.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Sure, we can increase the default value, maybe along with the ipv6 side.
+Any recomendation on a good default for both?
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index 1d104e7..aa4ac10 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -42,18 +42,18 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
- 
- 	if (blocked) {
- 		if (gpio_is_valid(rfkill->pdata->shutdown_gpio))
--			gpio_direction_output(rfkill->pdata->shutdown_gpio, 0);
-+			gpio_set_value(rfkill->pdata->shutdown_gpio, 0);
- 		if (gpio_is_valid(rfkill->pdata->reset_gpio))
--			gpio_direction_output(rfkill->pdata->reset_gpio, 0);
-+			gpio_set_value(rfkill->pdata->reset_gpio, 0);
- 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
- 			clk_disable(rfkill->clk);
- 	} else {
- 		if (!IS_ERR(rfkill->clk) && !rfkill->clk_enabled)
- 			clk_enable(rfkill->clk);
- 		if (gpio_is_valid(rfkill->pdata->reset_gpio))
--			gpio_direction_output(rfkill->pdata->reset_gpio, 1);
-+			gpio_set_value(rfkill->pdata->reset_gpio, 1);
- 		if (gpio_is_valid(rfkill->pdata->shutdown_gpio))
--			gpio_direction_output(rfkill->pdata->shutdown_gpio, 1);
-+			gpio_set_value(rfkill->pdata->shutdown_gpio, 1);
- 	}
- 
- 	rfkill->clk_enabled = blocked;
-@@ -114,8 +114,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	rfkill->clk = devm_clk_get(&pdev->dev, pdata->power_clk_name);
- 
- 	if (gpio_is_valid(pdata->reset_gpio)) {
--		ret = devm_gpio_request(&pdev->dev, pdata->reset_gpio,
--					rfkill->reset_name);
-+		ret = devm_gpio_request_one(&pdev->dev, pdata->reset_gpio,
-+					    0, rfkill->reset_name);
- 		if (ret) {
- 			pr_warn("%s: failed to get reset gpio.\n", __func__);
- 			return ret;
-@@ -123,8 +123,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	}
- 
- 	if (gpio_is_valid(pdata->shutdown_gpio)) {
--		ret = devm_gpio_request(&pdev->dev, pdata->shutdown_gpio,
--					rfkill->shutdown_name);
-+		ret = devm_gpio_request_one(&pdev->dev, pdata->shutdown_gpio,
-+					    0, rfkill->shutdown_name);
- 		if (ret) {
- 			pr_warn("%s: failed to get shutdown gpio.\n", __func__);
- 			return ret;
--- 
-1.8.4.rc3
+> 
+> (256 K on a 1GB host)
+> 
+> This sysctl also needs an entry in
+> Documentation/networking/ip-sysctl.txt
+> 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, it's undocumented. I'll take care of it.
