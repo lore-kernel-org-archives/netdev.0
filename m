@@ -1,99 +1,57 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Wed, 16 Oct 2013 17:39:43 +0800
-Message-ID: <525E5EDF.4030904@oracle.com>
-References: <52590DFE.6080203@oracle.com> <20131014111958.GE11739@zion.uk.xensource.com> <525CAC21.5040202@oracle.com> <1381826609.24708.135.camel@kazak.uk.xensource.com> <525D0C41.2080407@oracle.com> <20131015100624.GB29436@zion.uk.xensource.com> <525D2667.6040102@oracle.com> <20131015125802.GR11739@zion.uk.xensource.com> <525E41CF.7090008@oracle.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC 0/2] xfrm: Remove ancient sleeping code
+Date: Wed, 16 Oct 2013 11:45:49 +0200
+Message-ID: <20131016094549.GZ7660@secunet.com>
+References: <20131010063301.GO7660@secunet.com>
+ <20131011.150124.527914076255487526.davem@davemloft.net>
+ <20131015073020.GV7660@secunet.com>
+ <1381881514.2045.82.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org
-To: jianhai luan <jianhai.luan@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42774 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760301Ab3JPJjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 05:39:53 -0400
-In-Reply-To: <525E41CF.7090008@oracle.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:33264 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760181Ab3JPJpw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 05:45:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1381881514.2045.82.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 15, 2013 at 04:58:34PM -0700, Eric Dumazet wrote:
+> On Tue, 2013-10-15 at 09:30 +0200, Steffen Klassert wrote:
+> 
+> > Right, that's why I've limited the queue to 100 packets. We can
+> > queue the SYNs of up to 100 tcp connestions that want to use
+> > this IPsec state. It surely can happen that we queue multiple
+> > retransmitted SYNs if the IPsec resolution is slow. But the
+> > queueing code tries at least to get the packets out before
+> > the first tcp retransmit. I think there is still room for
+> > optimizations, maybe reducing the queue lenght or the queue
+> > timeout to avoid queueing retransmitted SYNs as much as possible.
+> 
+> Note that its totally possible to avoid retransmitting SYN if original
+> SYN is still in a host queue.
+> 
+> We currently increment a SNMP counter when we detect this, we could
+> do something else (like not queuing a copy of the packet)
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=0e280af026a5662ffd57c4e623b822df1f7f47ff
 
-On 2013-10-16 15:35, jianhai luan wrote:
->
-> On 2013-10-15 20:58, Wei Liu wrote:
->> On Tue, Oct 15, 2013 at 07:26:31PM +0800, jianhai luan wrote:
->> [...]
->>>>>> Can you propose a patch?
->>>>> Because credit_timeout.expire always after jiffies, i judge the
->>>>> value over the range of time_after_eq() by time_before(now,
->>>>> vif->credit_timeout.expires). please check the patch.
->>>> I don't think this really fix the issue for you. You still have chance
->>>> that now wraps around and falls between expires and next_credit. In 
->>>> that
->>>> case it's stalled again.
->>> if time_before(now, vif->credit_timeout.expires) is true, time wrap
->>> and do operation. Otherwise time_before(now,
->>> vif->credit_timeout.expires) isn't true, now -
->>> vif->credit_timeout.expires should be letter than ULONG_MAX/2.
->>> Because next_credit large than vif->credit_timeout.expires
->>> (next_crdit = vif->credit_timeout.expires +
->>> msecs_to_jiffies(vif->credit_usec/1000)), the delta between now and
->>> next_credit should be in range of time_after_eq().  So
->>> time_after_eq() do correctly judge.
->>>
->> Not sure I understand you. Consider "now" is placed like this:
->>
->>     expires   now   next_credit
->>     ----time increases this direction--->
->>
->> * time_after_eq(now, next_credit) -> false
->> * time_before(now, expires) -> false
->>
->> Then it's stuck again. You're merely narrowing the window, not fixing
->> the real problem.
->
-> The above environment isn't stack again. The netback will pending one 
-> timer to process the environment.
->
-> The attachment program will prove if !(time_after_eq(now, next_credit) 
-> || time_before(now, vif->credit_timeout.expires)), now will only be 
-> placed in  above environment [ expires next_credit),  and the above 
-> environment will be processed by timer in soon.
+This is interesting, we could do the same check before we queue
+the packet and drop it if the original packet is still in a host
+queue.
 
-Or check following to see what the if condition really do,
+I'll do a RFC patch.
 
-----------expires-------now-------credit----------    is the only case 
-where we need to add a timer.
+> 
+> Another work in progress is to delay RTO arming at the time TCP
+> packet leaves the host queues, instead of at the enqueue time.
+> 
 
-Other cases like following would match the if condition above, then no 
-timer is added.
-----------expires----------credit------now------
------now-----expires----------credit----------
+That would be even better, are there already patches publicly
+available?
 
-Or we can consider the extreme condition, when the rate control does not 
-exist, "credit_usec" is zero, and "next_credit" is equal to "expires". 
-The above if condition would cover all conditions, and no rate control 
-really happens. If credit_usec is not zero, the "if condition" would 
-cover the range outside of that from expires to next_credit.
-
-Even if "now" is wrapped again into the range from "expires" to 
-"next_credit", the "next_credit" that is set in __mod_timer is 
-reasonable value(this can be gotten from credit_usec), and the timer 
-would be hit soon.
-
-Thanks
-Annie
->>
->> Wei.
->>
->>> Jason
->>>> Wei.
-> Jason.
->
->
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
+Thanks!
