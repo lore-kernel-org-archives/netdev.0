@@ -1,108 +1,67 @@
-From: jianhai luan <jianhai.luan@oracle.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Wed, 16 Oct 2013 21:08:03 +0800
-Message-ID: <525E8FB3.8000606@oracle.com>
-References: <52590DFE.6080203@oracle.com> <20131014111958.GE11739@zion.uk.xensource.com> <525CAC21.5040202@oracle.com> <1381826609.24708.135.camel@kazak.uk.xensource.com> <525D0C41.2080407@oracle.com> <20131015100624.GB29436@zion.uk.xensource.com> <525D2667.6040102@oracle.com> <20131015125802.GR11739@zion.uk.xensource.com> <525E41CF.7090008@oracle.com> <525E5EDF.4030904@oracle.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v4 net 1/3] net: dst: provide accessor function to
+ dst->xfrm
+Date: Wed, 16 Oct 2013 09:31:29 -0400
+Message-ID: <20131016133129.GA10623@neilslaptop.think-freely.org>
+References: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
+ <1381888891-31186-2-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org
-To: annie li <annie.li@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	fan.du@windriver.com
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25914 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934006Ab3JPNIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 09:08:20 -0400
-In-Reply-To: <525E5EDF.4030904@oracle.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56641 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934252Ab3JPNbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 09:31:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1381888891-31186-2-git-send-email-vyasevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2013-10-16 17:39, annie li wrote:
->
-> On 2013-10-16 15:35, jianhai luan wrote:
->>
->> On 2013-10-15 20:58, Wei Liu wrote:
->>> On Tue, Oct 15, 2013 at 07:26:31PM +0800, jianhai luan wrote:
->>> [...]
->>>>>>> Can you propose a patch?
->>>>>> Because credit_timeout.expire always after jiffies, i judge the
->>>>>> value over the range of time_after_eq() by time_before(now,
->>>>>> vif->credit_timeout.expires). please check the patch.
->>>>> I don't think this really fix the issue for you. You still have 
->>>>> chance
->>>>> that now wraps around and falls between expires and next_credit. 
->>>>> In that
->>>>> case it's stalled again.
->>>> if time_before(now, vif->credit_timeout.expires) is true, time wrap
->>>> and do operation. Otherwise time_before(now,
->>>> vif->credit_timeout.expires) isn't true, now -
->>>> vif->credit_timeout.expires should be letter than ULONG_MAX/2.
->>>> Because next_credit large than vif->credit_timeout.expires
->>>> (next_crdit = vif->credit_timeout.expires +
->>>> msecs_to_jiffies(vif->credit_usec/1000)), the delta between now and
->>>> next_credit should be in range of time_after_eq().  So
->>>> time_after_eq() do correctly judge.
->>>>
->>> Not sure I understand you. Consider "now" is placed like this:
->>>
->>>     expires   now   next_credit
->>>     ----time increases this direction--->
->>>
->>> * time_after_eq(now, next_credit) -> false
->>> * time_before(now, expires) -> false
->>>
->>> Then it's stuck again. You're merely narrowing the window, not fixing
->>> the real problem.
->>
->> The above environment isn't stack again. The netback will pending one 
->> timer to process the environment.
->>
->> The attachment program will prove if !(time_after_eq(now, 
->> next_credit) || time_before(now, vif->credit_timeout.expires)), now 
->> will only be placed in above environment [ expires next_credit),  and 
->> the above environment will be processed by timer in soon.
->
-> Or check following to see what the if condition really do,
->
-> ----------expires-------now-------credit----------    is the only case 
-> where we need to add a timer.
->
-> Other cases like following would match the if condition above, then no 
-> timer is added.
-> ----------expires----------credit------now------
-> -----now-----expires----------credit----------
->
-> Or we can consider the extreme condition, when the rate control does 
-> not exist, "credit_usec" is zero, and "next_credit" is equal to 
-> "expires". The above if condition would cover all conditions, and no 
-> rate control really happens. If credit_usec is not zero, the "if 
-> condition" would cover the range outside of that from expires to 
-> next_credit.
->
-> Even if "now" is wrapped again into the range from "expires" to 
-> "next_credit", the "next_credit" that is set in __mod_timer is 
-> reasonable value(this can be gotten from credit_usec), and the timer 
-> would be hit soon.
-
-Thanks Annie's express, my option is consistent with Annie.
-
-Jason
->
-> Thanks
-> Annie
->>>
->>> Wei.
->>>
->>>> Jason
->>>>> Wei.
->> Jason.
->>
->>
->> _______________________________________________
->> Xen-devel mailing list
->> Xen-devel@lists.xen.org
->> http://lists.xen.org/xen-devel
->
+On Tue, Oct 15, 2013 at 10:01:29PM -0400, Vlad Yasevich wrote:
+> dst->xfrm is conditionally defined.  Provide accessor funtion that
+> is always available.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> ---
+>  include/net/dst.h | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 3bc4865..3c4c944 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -479,10 +479,22 @@ static inline struct dst_entry *xfrm_lookup(struct net *net,
+>  {
+>  	return dst_orig;
+>  } 
+> +
+> +static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+> +{
+> +	return NULL;
+> +}
+> +
+>  #else
+>  extern struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>  				     const struct flowi *fl, struct sock *sk,
+>  				     int flags);
+> +
+> +/* skb attached with this dst needs transformation if dst->xfrm is valid */
+> +static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+> +{
+> +	return dst->xfrm;
+> +}
+>  #endif
+>  
+>  #endif /* _NET_DST_H */
+> -- 
+> 1.8.3.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
