@@ -1,91 +1,112 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [RFC] net: stmmac: keep RXC running in LPI mode to avoid system
- overload
-Date: Wed, 16 Oct 2013 22:29:00 +0200
-Message-ID: <525EF70C.9090708@st.com>
-References: <808496140.2212.1381694572197.JavaMail.root@abilis.com>
+Subject: Re: [PATCH RFC 0/5] net:stmmac: fix jumbo frames handling and optimisation
+Date: Wed, 16 Oct 2013 22:37:19 +0200
+Message-ID: <525EF8FF.2010206@st.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Christian Ruppert <chrisr@abilis.com>
-To: Romain Baeriswyl <Romain.Baeriswyl@abilis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <808496140.2212.1381694572197.JavaMail.root@abilis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Jimmy Perchet <jimmy.perchet@parrot.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:50248 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761983Ab3JPUha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 16:37:30 -0400
+In-Reply-To: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Romain
-On 10/13/2013 10:02 PM, Romain Baeriswyl wrote:
-> Hello Guiseppe,
->
-> Thanks for your answer. Please find below some details and answers.
->
->>> In order to avoid system overload, the clock RXC from the Phy
->>> should not be
->>> stopped when in LPI mode.
->>>
->>> With the RTL8211E PHY which support EEE mode and with Apple Airport
->>> Extreme that
->>> supports it also, the kernel get frozen as soon as some Ethernet
->>> transfers are
->>
->>
->> hmm, I have a board with this transceiver so I could do some tests
->> this could take a while, unfortunately.
->>
->>> on-going. System seems to be overloaded with too many interrupts.
->>> The 'top'
->>> command reports often around ~80% irq.
->>
->> do you mean lpi mac interrupts?
->
-> By disabling the LPI mode with ethtool --set-eee eth0 eee off, the
-> interrupt overload remains. Both counters irq_rx_path_in_lpi_mode_n and
-> irq_rx_path_exit_lpi_mode_n continue to run meaning the PHY continue
-> to put the RX path in LPI mode.
->
-> Only way I found to get ride of the overload is to keep the RX_CLK running
-> in LPI mode. In this configuration, the RX link still continue to go in
-> LPI mode and the two above counters continue to run.
->
->>>
->>> By letting the RXC clock running even in LPI mode as proposed
->>> below, the issue
->>> seems solved. Is it the right way to proceed?
->>
->> For EEE capability, RX_CLK may be halted for this reason i used it as
->> default in the stmmac and never seen your issue.
->>
->>>
->>> What is the power impact to not stop RXC in LPI mode?
->>
->> I can point you to "22.2.2.8a Receive direction LPI transition"
->> in IEEE802-3az... where is it reported that the PHY  halt the RX_CLK
->> in LPI mode.
->
-> Actually the PHY "may" stop RX_CLK.
+Hello Jimmy
 
-Another option it could be add a new parameter to enable/disable it.
-We can decide a parameter for the stmmac or something for ethtool.
+On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
+> Hello,
+>
+> I began using Synopsys IP few weeks ago and figured out that jumbo frames
+> are not well supported by stmmac driver.
+
+I tested jumbo on chips w/o enhanced some time ago, so welcome further
+tests as you did (maybe on new chips).
 
 >
->>
->> May I suspect some issues on your HW? or disable it with ethtool
->>
->
-> Yes, it could be HW issue. It would be very useful if you could reproduce
-> the setup using a SoC with "DesignWare Cores Ethernet MAC" core,
-> the RTL8211E PHY and an Apple Airport Extreme. The issue could well be between
-> the controller and the PHY.
->
-> Which Ethernet switch or router did you use to test the EEE mode?
+> This patch series addresses several issues which prevent them from working
+> properly :
+> *(1/5) Threshold dma mode is needed on rx path if jumbo frames are expected.
 
-when I tested EEE I connected with P2P two STi boards.
-You can test it too.
+hmm, this depends on the HW. In the past I used HW with a Fifo that is
+16KiB for rx buffers and 8KiB for tx.
 
-> I may try these equipments as well.
+So this could be managed according to these sizes I guess...
+
 >
+> *(2/5) RX buffers are not allocated with the needed size because
+> priv->dma_buf_sz is updated too late (i.e. after stmmac_init_rx_buffers call)
 
-peppe
+I'll look at the patch in detail
+
+>
+> *(3/5) On low speed link (10MBit/s), some TX descriptors can remain dirty
+> if the tx coalescence timer expires before they were treated. Re-arm timer
+> in this case.
+
+hmm not clear to me, let me look at the patch. I hope the link should
+not impact... never seen on my side.
+
+>
+> *(4/5) There is several confusions regarding descriptor's max buffer size,
+> typically the "-1" is often forgotten.
+
+also for this I need to look at the patch
+
+> *(4/5) Jumbo frames' last descriptor is never "closed", resulting in truncated
+> frames transfer.
+
+it sounds to be a bug... let me check
+
+> *(4/5) Frags could not be jumbo.
+> Regarding these last points, I didn't find simpler way than writing
+> new "prepare frame" functions for both ring and chain mode and update
+> xmit function accordingly.
+
+it is strange and not clear too. At any rate, both modes must be
+supported
+
+>
+> The last patch is not related to jumbo frames but concern a possible
+> optimisation :
+> *(5/5) Tx descriptor's cleanup and preparation are serialized, which is not
+> necessary and decrease performance. In addition TX descriptor's cleanup is
+> performed on NET_-RX- softirq, this is confusing.
+> By taking care of "cur_tx" and "dirty_tx" it is possible to avoid serialization
+> and defer cleanup in workqueue.
+> On my smp embedded system, with 1Gbit/s link which is cpu bound, it increases
+> througput by about 90MBit/s (400MBit/s to 490MBit/s).
+
+This sounds another good point, let me enter in the patch
+
+BR
+Peppe
+
+>
+>
+> Best Regards,
+> Jimmy Perchet
+>
+> Jimmy Perchet (5):
+>    net:stmmac: set threshold/store and forward mode according to mtu
+>      size.
+>    net:stmmac: fix rx buffer allocation.
+>    net:stmmac: ensure we reclaim all dirty descriptors.
+>    net:stmmac: fix jumbo frame handling.
+>    net:stmmac: asynchronous tx_clean
+>
+>   drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |  99 +++++-----
+>   drivers/net/ethernet/stmicro/stmmac/common.h      |   6 +
+>   drivers/net/ethernet/stmicro/stmmac/descs_com.h   |   8 +-
+>   drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   6 +
+>   drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |   6 +
+>   drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |  90 ++++-----
+>   drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   6 +-
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 219 +++++++++++++---------
+>   8 files changed, 233 insertions(+), 207 deletions(-)
+>
