@@ -1,38 +1,42 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: DomU's network interface will hung when Dom0 running 32bit
-Date: Wed, 16 Oct 2013 09:46:43 +0100
-Message-ID: <1381913203.21901.46.camel@kazak.uk.xensource.com>
-References: <52590DFE.6080203@oracle.com>
-	  <20131014111958.GE11739@zion.uk.xensource.com>
-	  <525CAC21.5040202@oracle.com>
-	 <1381826609.24708.135.camel@kazak.uk.xensource.com>
-	 <525E3BDC.4060309@oracle.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] X.25: Fix address field length calculation
+Date: Wed, 16 Oct 2013 09:56:18 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B738F@saturn3.aculab.com>
+References: <525D5131.9070007@datus.com> <1381858190.22110.25.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jianhai luan <jianhai.luan@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:43810 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933953Ab3JPIsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 04:48:46 -0400
-In-Reply-To: <525E3BDC.4060309@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <andrew.hendry@gmail.com>, <davem@davemloft.net>,
+	<linux-x25@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Joe Perches" <joe@perches.com>,
+	=?Windows-1252?Q?Kelleter=2C=22_G=FCnther?= <GKelleter@datus.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1381858190.22110.25.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-16 at 15:10 +0800, annie li wrote:
-> Is it a timer to be set as less than ULONG_MAX/2 to avoid
-> credit_timeout.expires rolling over? But the problem is that we can
-> not assure where jiffies start from, and this probably results into
-> current issue again.
+> On Tue, 2013-10-15 at 14:29 +0000, Kelleter, G=FCnther wrote:
+> > Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
+> []
+> > Wrong length calculation leads to rejection of CALL ACCEPT packets.
+> []
+> > diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+> []
+> > @@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
+> >  	}
+> >   	len =3D *skb->data;
+> > -	needed =3D 1 + (len >> 4) + (len & 0x0f);
+> > +	needed =3D 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
+>=20
+> This calculation looks odd.
 
-Not less than the absolute value ULONG_MAX/2, just less than ULONG_MAX/2
-offset from "now". The time_eq macros deal with wraparound.
+Looks correct to me...
+In X.25 the lengths (in digits) of the called and calling addresses
+are encoded in the high and low nibbles of one byte and then
+followed by both addresses with a digit in each nibble.
+If the length of the first address is odd, the second one
+isn't byte aligned.
 
-Looks like Jianhai and Wei are discussing a better fix than an
-additional timer though.
-
-Ian
+	David
