@@ -1,71 +1,59 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: linux-next: Tree for Oct 16 (net/sched/em_ipset.c)
-Date: Wed, 16 Oct 2013 15:39:49 -0700
-Message-ID: <20131016153949.5f2257b4@nehalam.linuxnetplumber.net>
-References: <1381949500-501-1-git-send-email-treding@nvidia.com>
-	<525F09B0.4080802@infradead.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Thu, 17 Oct 2013 01:50:38 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310170115320.1917@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310161015550.1560@ssi.bg> <20131016143246.GB18135@order.stressinduktion.org> <alpine.LFD.2.03.1310162252220.1917@ssi.bg> <20131016215953.GD18135@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thierry Reding <thierry.reding@gmail.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Randy Dunlap <rdunlap@infradead.org>, Vitaly Lavrov <lve@guap.ru>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <525F09B0.4080802@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131016215953.GD18135@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Oct 2013 14:48:32 -0700
-Randy Dunlap <rdunlap@infradead.org> wrote:
 
-> On 10/16/13 11:51, Thierry Reding wrote:
-> > Hi all,
-> > 
-> > I've uploaded today's linux-next tree to the master branch of the
-> > repository below:
-> > 
-> >         git://gitorious.org/thierryreding/linux-next.git
-> > 
-> > A next-20131016 tag is also provided for convenience.
-> > 
-> > Gained two new conflicts, but nothing too exciting. x86 and ARM default
-> > configurations as well as the x86 allmodconfig mostly build fine on the
-> > final tree. There was a failure for the ARM at91x40_defconfig, but the
-> > proper fix wasn't immediately obvious to me, so I've left it broken for
-> > now.
+	Hello,
+
+On Wed, 16 Oct 2013, Hannes Frederic Sowa wrote:
+
+> To have ip6_dst_check working, there must to be a valid link from
+> the rt6_info to the fib6_node. Otherwise we cannot check the serial
+> number. As I currently see we also need a link from the fib6_node down
+> to the dst entry for resource management. Thus we would have to insert
+> the special dst-entry with RTF_GATEWAY and non-null rt6i_gateway back
+> into the fib and have it globally visible. This could have unforseen
+> side effects. We still cache all dst entries in the fib. One think I
+> foresee as a possible problem is the automatic aggregation of ECMP routes,
+> too.
+
+	I'm still not sure what is needed. Looking at
+ip6_pol_route(), I see that everything should just work: for
+routes without RTF_GATEWAY flag we return cloned route
+from rt6_alloc_cow() with valid rt6i_gateway. I still
+didn't tested the problem myself, so I'll stop with the
+comments before that.
+
+> We should provide something similar to what IPv4 does with the
+> KNOWN_NH flag. I guess my idea with exchanging rt6i_dst as nexthop would
+> solve this without too much hassle but this would have to be checked by
+> implementing it.
 > 
-> on i386, when CONFIG_NET_NS is not enabled:
-> 
-> net/sched/em_ipset.c: In function 'em_ipset_change':
-> net/sched/em_ipset.c:27:36: error: 'struct net_device' has no member named 'nd_net'
-> net/sched/em_ipset.c: In function 'em_ipset_destroy':
-> net/sched/em_ipset.c:49:34: error: 'struct net_device' has no member named 'nd_net'
-> 
-> 
+> I don't think that storing a changed nexthop in the ipv6 cb is that nice and
+> maintainable.
 
-I think this should fix.
+	Agreed. I'm not going to test that change. I'll test
+latest net-next without any changes to see where exactly is
+the failure because the IPv6 routing seems capable for what
+we need. I have problems with my setup, so I'll need some
+days. As Simon is also testing the problem, he can find the
+reason before me.
 
+Regards
 
-
---- a/net/sched/em_ipset.c	2013-10-06 14:48:25.030449222 -0700
-+++ b/net/sched/em_ipset.c	2013-10-16 15:38:05.030278287 -0700
-@@ -24,7 +24,7 @@ static int em_ipset_change(struct tcf_pr
- {
- 	struct xt_set_info *set = data;
- 	ip_set_id_t index;
--	struct net *net = qdisc_dev(tp->q)->nd_net;
-+	struct net *net = dev_net(qdisc_dev(tp->q));
- 
- 	if (data_len != sizeof(*set))
- 		return -EINVAL;
-@@ -46,7 +46,7 @@ static void em_ipset_destroy(struct tcf_
- {
- 	const struct xt_set_info *set = (const void *) em->data;
- 	if (set) {
--		ip_set_nfnl_put(qdisc_dev(p->q)->nd_net, set->index);
-+		ip_set_nfnl_put(dev_net(qdisc_dev(p->q)), set->index);
- 		kfree((void *) em->data);
- 	}
- }
+--
+Julian Anastasov <ja@ssi.bg>
