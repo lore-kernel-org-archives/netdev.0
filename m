@@ -1,80 +1,62 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC] bridge and friends: reduce TheLinuxWay(tm)
-Date: Wed, 16 Oct 2013 13:11:11 -0400
-Message-ID: <525EC8AF.6000902@redhat.com>
-References: <525C62D5.3090004@mojatatu.com> <20131014144156.6dc52a78@nehalam.linuxnetplumber.net> <525E9AB1.6090502@mojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: Jason Luan <jianhai.luan@oracle.com>
+Subject: [PATCH net] xen-netback: add the scenario which now
+	beyond the range time_after_eq().
+Date: Thu, 17 Oct 2013 01:22:47 +0800
+Message-ID: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32655 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750892Ab3JPRLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 13:11:16 -0400
-In-Reply-To: <525E9AB1.6090502@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: annie.li@oracle.com, wei.liu2@citrix.com, ian.campbell@citrix.com,
+	Jason Luan <jianhai.luan@oracle.com>, david.vrabel@citrix.com
+To: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-On 10/16/2013 09:54 AM, Jamal Hadi Salim wrote:
-> On 10/14/13 17:41, Stephen Hemminger wrote:
->
->> Unfortunately, by now this is all set in ABI.
->> It was a side effect of the per-feature evolutionary style of
->> development.
->
-> Sadly, I agree. This is the dark side of "have code will travel";
-> you let these things out in the wild, they breed and you cant
-> take them back.
-> BTW: I dont think what i suggested will be a harmful refactoring because
-> no existing interfaces are removed - your call.
->
-> In similar vein:
-> What is the motivation behind IFLA_EXT_MASK?
+time_after_eq() only works if the delta is < MAX_ULONG/2.
 
-This was to display or filter out virtual function data.
+If netfront sends at a very low rate, the time between subsequent calls
+to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
+timer_after_eq() will be incorrect.  Credit will not be replenished and
+the guest may become unable to send (e.g., if prior to the long gap, all
+credit was exhausted).
 
-> Could you not have used
-> ifm ifindex to relay the interface of interest? Currently the ifindex is
-> not used at all. IMO, the following interfaces are useful:
-> - get attributes for all bridge ports (this is there)
-> - get attributes for bridge interface XXX; there using IFLA_EXT_MASK
-> I think it should be using ifm->ifindex
+We should add the scenario which now beyond next_credit+MAX_UNLONG/2. Because
+the fact now must be not before than expire, time_before(now, expire) == true
+will verify the scenario.
+    time_after_eq(now, next_credit) || time_before (now, expire)
+    ==
+    !time_in_range_open(now, expire, next_credit)
 
-I probably doesn't need to use this as we want the bridge data, not the 
-VF data stored as part of PF interface.
+Signed-off-by: Jason Luan <jianhai.luan@oracle.com>
+---
+ drivers/net/xen-netback/netback.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-> - get attributes for all bridge ports for bridge br-blah (not there)
-> you could also use the ifindex of br-blah here instead
-
-This would be usefull.
-
-
->
-> Separate issue:
-> To provide equivalence to brctl:
-> - PF_BRIDGE should allow me to attach a bridge port to bridge of choice
-> with SETLINK
-
-You can already do this with:
-
-	ip link set dev ethX master brX
-
-I know, not very intuative, but it's there :(
-
--vlad
-
-
-
->
-> cheers,
-> jamal
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f3e591c..31eedaf 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1194,8 +1194,11 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ 	if (timer_pending(&vif->credit_timeout))
+ 		return true;
+ 
+-	/* Passed the point where we can replenish credit? */
+-	if (time_after_eq(now, next_credit)) {
++	/* Credit should be replenished when now does not fall into the
++	 * range from expires to next_credit, and time_in_range_open()
++	 * is used to verify whether this case happens.
++	 */
++	if (!time_in_range_open(now, vif->credit_timeout.expires, next_credit)) {
+ 		vif->credit_timeout.expires = now;
+ 		tx_add_credit(vif);
+ 	}
+-- 
+1.7.6.5
