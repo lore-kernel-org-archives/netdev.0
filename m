@@ -1,43 +1,45 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v4 net 0/3] sctp: Use software checksum under certain
-Date: Wed, 16 Oct 2013 10:02:32 +0200
-Message-ID: <525E4818.2080101@redhat.com>
-References: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	fan.du@windriver.com
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net 4/4] bridge: Fix updating FDB entries when the PVID is applied
+Date: Wed, 16 Oct 2013 17:07:16 +0900
+Message-ID: <1381910836-718-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Toshiaki Makita <toshiaki.makita1@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58443 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755174Ab3JPICi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Oct 2013 04:02:38 -0400
-In-Reply-To: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:50640 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759964Ab3JPIIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 04:08:06 -0400
+In-Reply-To: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/2013 04:01 AM, Vlad Yasevich wrote:
-> There are some cards that support SCTP checksum offloading.  When using
-> these cards with IPSec or forcing IP fragmentation of SCTP traffic,
-> the checksum is computed incorrectly due to the fact that xfrm and IP/IPv6
-> fragmentation code do not know that this is SCTP traffic and do not
-> know that checksum has to be computed differently.
->
-> To fix this, we let SCTP detect these conditions and perform software
-> checksum calculation.
->
-> Fan Du (1):
->    sctp: Use software crc32 checksum when xfrm transform will happen.
->
-> Vlad Yasevich (2):
->    net: dst: provide accessor function to dst->xfrm
->    sctp: Perform software checksum if packet has to be fragmented.
->
->   include/net/dst.h | 12 ++++++++++++
->   net/sctp/output.c |  3 ++-
->   2 files changed, 14 insertions(+), 1 deletion(-)
->
+We currently set the value that variable vid is pointing, which will be
+used in FDB later, to 0 at br_allowed_ingress() when we receive untagged
+or priority-tagged frames, even though the PVID is valid.
+This leads to FDB updates in such a wrong way that they are learned with
+VID 0.
+Update the value to that of PVID if the PVID is applied.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Reviewed-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_vlan.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 5a9c44a..53f0990 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -217,6 +217,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 		/* PVID is set on this port.  Any untagged or priority-tagged
+ 		 * ingress frame is considered to belong to this vlan.
+ 		 */
++		*vid = pvid;
+ 		if (likely(err))
+ 			/* Untagged Frame. */
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+-- 
+1.8.1.2
