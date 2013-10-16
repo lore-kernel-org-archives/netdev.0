@@ -1,46 +1,46 @@
 From: Nikita Kiryanov <nikita@compulab.co.il>
-Subject: [PATCH 2/4] dm9000: take phy out of reset during init
-Date: Wed, 16 Oct 2013 11:41:32 +0300
-Message-ID: <1381912894-4780-3-git-send-email-nikita@compulab.co.il>
-References: <1381912894-4780-1-git-send-email-nikita@compulab.co.il>
+Subject: [PATCH 0/4] dm9000 improvements
+Date: Wed, 16 Oct 2013 11:41:30 +0300
+Message-ID: <1381912894-4780-1-git-send-email-nikita@compulab.co.il>
 Cc: Nikita Kiryanov <nikita@compulab.co.il>,
 	"David S. Miller" <davem@davemloft.net>,
 	Jingoo Han <jg1.han@samsung.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>,
+	Michael Abbott <michael.abbott@diamond.ac.uk>,
 	Igor Grinberg <grinberg@compulab.co.il>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softlayer.compulab.co.il ([50.23.254.55]:48034 "EHLO
+Received: from softlayer.compulab.co.il ([50.23.254.55]:41759 "EHLO
 	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753674Ab3JPImK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754149Ab3JPImK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Oct 2013 04:42:10 -0400
-In-Reply-To: <1381912894-4780-1-git-send-email-nikita@compulab.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Take the phy out of reset explicitly during system resume to avoid
-losing network connectivity.
+This is a collection of improvements and bug fixes for dm9000, mostly
+related to its startup and resume-from-suspend sequences.
+
+Patch "Implement full reset of DM9000 network device" was submitted to the
+linux-kernel mailing list but never applied.
+An archive of the submission and the following conversation can be found here:
+http://lkml.indiana.edu/hypermail/linux/kernel/1205.2/02817.html
 
 Cc: David S. Miller <davem@davemloft.net>
 Cc: Jingoo Han <jg1.han@samsung.com>
 Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Nikita Kiryanov <nikita@compulab.co.il>
-Signed-off-by: Igor Grinberg <grinberg@compulab.co.il>
----
- drivers/net/ethernet/davicom/dm9000.c | 1 +
- 1 file changed, 1 insertion(+)
+Cc: Michael Abbott <michael.abbott@diamond.ac.uk>
+Cc: Igor Grinberg <grinberg@compulab.co.il>
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 912983b..3f650ce 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -890,6 +890,7 @@ dm9000_init_dm9000(struct net_device *dev)
- 			(dev->features & NETIF_F_RXCSUM) ? RCSR_CSUM : 0);
- 
- 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
-+	iow(db, DM9000_GPR, 0);
- 
- 	/* If we are dealing with DM9000B, some extra steps are required: a
- 	 * manual phy reset, and setting init params.
+Michael Abbott (1):
+  dm9000: Implement full reset of DM9000 network device
+
+Nikita Kiryanov (3):
+  dm9000: during init reset phy only for dm9000b
+  dm9000: take phy out of reset during init
+  dm9000: report the correct LPA
+
+ drivers/net/ethernet/davicom/dm9000.c | 56 ++++++++++++++++++++++++-----------
+ 1 file changed, 38 insertions(+), 18 deletions(-)
+
 -- 
 1.8.1.2
