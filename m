@@ -1,112 +1,107 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH RFC 0/5] net:stmmac: fix jumbo frames handling and optimisation
-Date: Wed, 16 Oct 2013 22:37:19 +0200
-Message-ID: <525EF8FF.2010206@st.com>
-References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [PATCH 5/5] net: rfkill: gpio: add ACPI support
+Date: Wed, 16 Oct 2013 22:55:01 +0200
+Message-ID: <2878506.7lf24R85t6@vostro.rjw.lan>
+References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com> <1381920823-15403-6-git-send-email-heikki.krogerus@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jimmy Perchet <jimmy.perchet@parrot.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Rhyland Klein <rklein@nvidia.com>, linux-acpi@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Mika Westerberg <mika.westerberg@linux.intel.com>
+To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:50248 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761983Ab3JPUha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 16:37:30 -0400
-In-Reply-To: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
+Received: from v094114.home.net.pl ([79.96.170.134]:54777 "HELO
+	v094114.home.net.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S934413Ab3JPUnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Oct 2013 16:43:11 -0400
+In-Reply-To: <1381920823-15403-6-git-send-email-heikki.krogerus@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jimmy
+On Wednesday, October 16, 2013 01:53:43 PM Heikki Krogerus wrote:
+> Including ACPI ID for Broadcom GPS receiver BCM4752.
+> 
+> Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+> ---
+>  net/rfkill/rfkill-gpio.c | 31 ++++++++++++++++++++++++++++++-
+>  1 file changed, 30 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> index 2dd78c6..5620d3c 100644
+> --- a/net/rfkill/rfkill-gpio.c
+> +++ b/net/rfkill/rfkill-gpio.c
+> @@ -24,6 +24,8 @@
+>  #include <linux/platform_device.h>
+>  #include <linux/clk.h>
+>  #include <linux/slab.h>
+> +#include <linux/acpi.h>
+> +#include <linux/acpi_gpio.h>
+>  
+>  #include <linux/rfkill-gpio.h>
+>  
+> @@ -70,6 +72,23 @@ static const struct rfkill_ops rfkill_gpio_ops = {
+>  	.set_block = rfkill_gpio_set_power,
+>  };
+>  
+> +static int rfkill_gpio_acpi_probe(struct device *dev,
+> +				  struct rfkill_gpio_data *rfkill)
+> +{
+> +	const struct acpi_device_id *id;
+> +
+> +	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+> +	if (!id)
+> +		return -ENODEV;
+> +
+> +	rfkill->name = dev_name(dev);
+> +	rfkill->type = (unsigned)id->driver_data;
+> +	rfkill->reset_gpio = acpi_get_gpio_by_index(dev, 0, NULL);
+> +	rfkill->shutdown_gpio = acpi_get_gpio_by_index(dev, 1, NULL);
+> +
+> +	return 0;
+> +}
+> +
+>  static int rfkill_gpio_probe(struct platform_device *pdev)
+>  {
+>  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+> @@ -82,7 +101,11 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+>  	if (!rfkill)
+>  		return -ENOMEM;
+>  
+> -	if (pdata) {
+> +	if (ACPI_HANDLE(&pdev->dev)) {
+> +		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
+> +		if (ret)
+> +			return ret;
+> +	} else if (pdata) {
+>  		clk_name = pdata->power_clk_name;
+>  		rfkill->name = pdata->name;
+>  		rfkill->type = pdata->type;
+> @@ -170,12 +193,18 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+>  	return 0;
+>  }
+>  
+> +static const struct acpi_device_id rfkill_acpi_match[] = {
+> +	{ "BCM4752", RFKILL_TYPE_GPS },
+> +	{ },
+> +};
+> +
+>  static struct platform_driver rfkill_gpio_driver = {
+>  	.probe = rfkill_gpio_probe,
+>  	.remove = rfkill_gpio_remove,
+>  	.driver = {
+>  		.name = "rfkill_gpio",
+>  		.owner = THIS_MODULE,
+> +		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
+>  	},
+>  };
 
-On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
-> Hello,
->
-> I began using Synopsys IP few weeks ago and figured out that jumbo frames
-> are not well supported by stmmac driver.
+Looks good to me.
 
-I tested jumbo on chips w/o enhanced some time ago, so welcome further
-tests as you did (maybe on new chips).
+Has Mika seen this?
 
->
-> This patch series addresses several issues which prevent them from working
-> properly :
-> *(1/5) Threshold dma mode is needed on rx path if jumbo frames are expected.
-
-hmm, this depends on the HW. In the past I used HW with a Fifo that is
-16KiB for rx buffers and 8KiB for tx.
-
-So this could be managed according to these sizes I guess...
-
->
-> *(2/5) RX buffers are not allocated with the needed size because
-> priv->dma_buf_sz is updated too late (i.e. after stmmac_init_rx_buffers call)
-
-I'll look at the patch in detail
-
->
-> *(3/5) On low speed link (10MBit/s), some TX descriptors can remain dirty
-> if the tx coalescence timer expires before they were treated. Re-arm timer
-> in this case.
-
-hmm not clear to me, let me look at the patch. I hope the link should
-not impact... never seen on my side.
-
->
-> *(4/5) There is several confusions regarding descriptor's max buffer size,
-> typically the "-1" is often forgotten.
-
-also for this I need to look at the patch
-
-> *(4/5) Jumbo frames' last descriptor is never "closed", resulting in truncated
-> frames transfer.
-
-it sounds to be a bug... let me check
-
-> *(4/5) Frags could not be jumbo.
-> Regarding these last points, I didn't find simpler way than writing
-> new "prepare frame" functions for both ring and chain mode and update
-> xmit function accordingly.
-
-it is strange and not clear too. At any rate, both modes must be
-supported
-
->
-> The last patch is not related to jumbo frames but concern a possible
-> optimisation :
-> *(5/5) Tx descriptor's cleanup and preparation are serialized, which is not
-> necessary and decrease performance. In addition TX descriptor's cleanup is
-> performed on NET_-RX- softirq, this is confusing.
-> By taking care of "cur_tx" and "dirty_tx" it is possible to avoid serialization
-> and defer cleanup in workqueue.
-> On my smp embedded system, with 1Gbit/s link which is cpu bound, it increases
-> througput by about 90MBit/s (400MBit/s to 490MBit/s).
-
-This sounds another good point, let me enter in the patch
-
-BR
-Peppe
-
->
->
-> Best Regards,
-> Jimmy Perchet
->
-> Jimmy Perchet (5):
->    net:stmmac: set threshold/store and forward mode according to mtu
->      size.
->    net:stmmac: fix rx buffer allocation.
->    net:stmmac: ensure we reclaim all dirty descriptors.
->    net:stmmac: fix jumbo frame handling.
->    net:stmmac: asynchronous tx_clean
->
->   drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |  99 +++++-----
->   drivers/net/ethernet/stmicro/stmmac/common.h      |   6 +
->   drivers/net/ethernet/stmicro/stmmac/descs_com.h   |   8 +-
->   drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   6 +
->   drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |   6 +
->   drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |  90 ++++-----
->   drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   6 +-
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 219 +++++++++++++---------
->   8 files changed, 233 insertions(+), 207 deletions(-)
->
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
