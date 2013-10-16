@@ -1,54 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Wed, 16 Oct 2013 16:32:46 +0200
-Message-ID: <20131016143246.GB18135@order.stressinduktion.org>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310161015550.1560@ssi.bg>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH: Iproute bridge] remove redundant check
+Date: Wed, 16 Oct 2013 10:33:18 -0400
+Message-ID: <525EA3AE.9020501@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Simon Horman <horms@verge.net.au>,
-	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.03.1310161015550.1560@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030202090505030706020008"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:42093 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753536Ab3JPOdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 10:33:22 -0400
+Received: by mail-yh0-f46.google.com with SMTP id l109so176128yhq.19
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 07:33:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 10:27:47AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Wed, 16 Oct 2013, Simon Horman wrote:
-> 
-> > In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
-> > ip6_finish_output2()") changed the behaviour of ip6_finish_output2()
-> > such that it creates and uses a neigh entry if none is found.
-> > Subsequently the 'n' field was removed from struct rt6_info.
-> 
-> 	Similar change in IPv4 opened the Pandora box:
-> IPVS, xt_TEE, raw.c (IP_HDRINCL). May be the corrsponding
-> places in IPv6 have the same problem.
-> 
-> 	I don't know the IPv6 routing but if we find a way
-> to keep the desired nexthop in rt6i_gateway and to add
-> RTF_GATEWAY checks here and there such solution would be more
-> general. FLOWI_FLAG_KNOWN_NH flag can help, if needed.
+This is a multi-part message in MIME format.
+--------------030202090505030706020008
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I thought about this yesterday but did not see an easy way. How does the IPv4
-implementation accomplish this?
 
-ipvs caches the dst in its own infrastructure, so we need to be sure we don't
-disconnect this dst from the ipv6 routing table, otherwise ip6_dst_check won't
-recognize when relookups should be done. Playing games with RTF_GATEWAY seems
-dangerous then.
+attached,
 
-I am currently thinking about using a new flag to replace the nexthop
-information with rt6i_dst in these circumstances. The flag would have
-to be included in the skb somewhere.
+cheers,
+jamal
 
-Greetings,
+--------------030202090505030706020008
+Content-Type: text/plain; charset=us-ascii;
+ name="patch-simp1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="patch-simp1"
 
-  Hannes
+commit 355c2d4679e81c1e1c2ae12e03b6a2ced5ebb7d0
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Wed Oct 16 10:30:01 2013 -0400
 
+    [Iproute: bridge] Remove redundant check
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+diff --git a/bridge/link.c b/bridge/link.c
+index 38dfaea..ab4a5d5 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -271,7 +271,7 @@ static int brlink_modify(int argc, char **argv)
+ 				exit(-1);
+ 		} else if (strcmp(*argv, "hairpin") == 0) {
+ 			NEXT_ARG();
+-			if (!on_off("hairping", &hairpin, *argv))
++			if (!on_off("hairpin", &hairpin, *argv))
+ 				exit(-1);
+ 		} else if (strcmp(*argv, "fastleave") == 0) {
+ 			NEXT_ARG();
+@@ -357,9 +357,7 @@ static int brlink_modify(int argc, char **argv)
+ 		nest = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+ 
+ 		addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+-
+-		if (mode >= 0)
+-			addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
++		addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
+ 
+ 		addattr_nest_end(&req.n, nest);
+ 	}
+
+--------------030202090505030706020008--
