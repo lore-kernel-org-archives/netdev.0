@@ -1,50 +1,102 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Wed, 16 Oct 2013 13:26:15 +0900
-Message-ID: <20131016042615.GB22553@verge.net.au>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
- <1381882426.2045.85.camel@edumazet-glaptop.roam.corp.google.com>
- <20131016002807.GM22321@verge.net.au>
- <1381883949.2045.97.camel@edumazet-glaptop.roam.corp.google.com>
- <20131016021304.GA17801@verge.net.au>
- <1381891259.2045.100.camel@edumazet-glaptop.roam.corp.google.com>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH] net: sh_eth: Fix RX packets errors on R8A7740
+Date: Wed, 16 Oct 2013 07:37:20 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1310160737090.15740@axis700.grange>
+References: <1381127365-6521-1-git-send-email-nh-ky@jinso.co.jp>
+ <1381127365-6521-2-git-send-email-nh-ky@jinso.co.jp> <52597FC0.4090801@cogentembedded.com>
+ <Pine.LNX.4.64.1310150926220.5601@axis700.grange> <525DB81C.6010106@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Mark Brooks <mark@loadbalancer.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1381891259.2045.100.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Nguyen Hong Ky <nh-ky@jinso.co.jp>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ryusuke Sakato <ryusuke.sakato.bx@renesas.com>,
+	Simon Horman <horms@verge.net.au>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:53947 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385Ab3JPFhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 01:37:32 -0400
+In-Reply-To: <525DB81C.6010106@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 15, 2013 at 07:40:59PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-10-16 at 11:13 +0900, Simon Horman wrote:
-> 
-> > That does seem very promising but while implementing it
-> > I hit a problem.
-> > 
-> > struct tcp_skb_cb includes a field of type struct inet6_skb_parm.  And
-> > expanding struct inet6_skb_parm by 16 bytes means that struct tcp_skb_cb is
-> > now larger than 48 bytes and no longer fits in skb->cb.
-> > 
-> > Is it appropriate to grow skb->cb as the comment above struct tcp_skb_cb
-> > suggests?
-> 
-> Ah well...
-> 
-> No, its not appropriate to grow sk_buff by 16 bytes, sorry.
-> 
-> You could not change struct inet6_skb_parm, but define IP6CB as
-> a compound 
-> 
-> struct ip6cb {
->    struct inet6_skb_parm foo;
->    struct in6_addr       bar;
-> };
+On Wed, 16 Oct 2013, Sergei Shtylyov wrote:
 
-Thanks for your guidance, that possibility had occured to me too.
-I'll rework the patch accordingly.
+> Hello.
+> 
+> On 10/15/2013 11:28 AM, Guennadi Liakhovetski wrote:
+> 
+> > > > This patch will fix RX packets errors when receiving big size
+> > > > of data by set bit RNC = 1.
+> 
+> > > > RNC - Receive Enable Control
+> 
+> > > > 0: Upon completion of reception of one frame, the E-DMAC writes
+> > > > the receive status to the descriptor and clears the RR bit in
+> > > > EDRRR to 0.
+> 
+> > > > 1: Upon completion of reception of one frame, the E-DMAC writes
+> > > > (writes back) the receive status to the descriptor. In addition,
+> > > > the E-DMAC reads the next descriptor and prepares for reception
+> > > > of the next frame.
+> 
+> > > > In addition, for get more stable when receiving packets, I set
+> > > > maximum size for the transmit/receive FIFO and inserts padding
+> > > > in receive data.
+> 
+> > > > Signed-off-by: Nguyen Hong Ky <nh-ky@jinso.co.jp>
+> > > > ---
+> > > >    drivers/net/ethernet/renesas/sh_eth.c |    4 ++++
+> > > >    1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> > > > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> > > > b/drivers/net/ethernet/renesas/sh_eth.c
+> > > > index a753928..11d34f0 100644
+> > > > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > > > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> > > > @@ -649,12 +649,16 @@ static struct sh_eth_cpu_data r8a7740_data = {
+> > > >    	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT
+> > > > |
+> > > >    			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE
+> > > > |
+> > > >    			  EESR_TDE | EESR_ECI,
+> > > > +	.fdr_value	= 0x0000070f,
+> > > > +	.rmcr_value	= 0x00000001,
+> > > > 
+> > > >    	.apr		= 1,
+> > > >    	.mpr		= 1,
+> > > >    	.tpauser	= 1,
+> > > >    	.bculr		= 1,
+> > > >    	.hw_swap	= 1,
+> > > > +	.rpadir		= 1,
+> > > > +	.rpadir_value   = 2 << 16,
+> > > >    	.no_trimd	= 1,
+> > > >    	.no_ade		= 1,
+> > > >    	.tsu		= 1,
+> 
+> > >     Guennadi, could you check if this patch fixes your issue with NFS.
+> > > Make
+> > > sure it applies to 'r8a7740_data' (it was misapplied to DaveM's tree).
+> 
+> > Yes, the current -next, which includes this patch (in a slightly different
+> > form) boots fine over NFS for me.
+> 
+>    I don't know what you mean by "slightly different form" exactly. Also, I
+> was unable to locate the fresh -next tree.
+
+git://gitorious.org/thierryreding/linux-next.git
+
+> 'net-next.git' contains this patch
+> in a mismerged form, 'net.git' has Simon's patch that corrects this mismerge.
+> 
+> > Thanks
+> > Guennadi
+> 
+> WBR, Sergei
+> 
+
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+http://www.open-technology.de/
