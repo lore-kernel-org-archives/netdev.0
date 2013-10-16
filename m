@@ -1,83 +1,22 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net 2/4] bridge: Apply the PVID to priority-tagged frames
-Date: Wed, 16 Oct 2013 17:07:14 +0900
-Message-ID: <1381910836-718-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Toshiaki Makita <toshiaki.makita1@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+From: Freeman Appiah <okcashewnut@myanmar.com.mm>
+Subject: Re: Funds Investment and Management Placement
+Date: Wed, 16 Oct 2013 14:33:14 +0630 (MMT)
+Message-ID: <1882102880.924463.1381910594231.JavaMail.root@YTP-PMX2>
+References: <818990015.924461.1381910585526.JavaMail.root@YTP-PMX2>
+Reply-To: Freeman Appiah <mapia@kimo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:50641 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760022Ab3JPIIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 04:08:06 -0400
-In-Reply-To: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from relayp.teleport.net.mm ([203.81.162.50]:45143 "EHLO
+	mxo.teleport.net.mm" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753674Ab3JPINJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 04:13:09 -0400
+In-Reply-To: <818990015.924461.1381910585526.JavaMail.root@YTP-PMX2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IEEE 802.1Q says that when we receive priority-tagged (VID 0) frames
-use the PVID for the port as its VID.
-(See IEEE 802.1Q-2011 6.9.1 and Table 9-2)
 
-Apply the PVID to not only untagged frames but also priority-tagged frames.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_vlan.c | 27 ++++++++++++++++++++-------
- 1 file changed, 20 insertions(+), 7 deletions(-)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 21b6d21..5a9c44a 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -189,6 +189,8 @@ out:
- bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			struct sk_buff *skb, u16 *vid)
- {
-+	int err;
-+
- 	/* If VLAN filtering is disabled on the bridge, all packets are
- 	 * permitted.
- 	 */
-@@ -201,20 +203,31 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	if (!v)
- 		return false;
- 
--	if (br_vlan_get_tag(skb, vid)) {
-+	err = br_vlan_get_tag(skb, vid);
-+	if (!*vid) {
- 		u16 pvid = br_get_pvid(v);
- 
--		/* Frame did not have a tag.  See if pvid is set
--		 * on this port.  That tells us which vlan untagged
--		 * traffic belongs to.
-+		/* Frame had a tag with VID 0 or did not have a tag.
-+		 * See if pvid is set on this port.  That tells us which
-+		 * vlan untagged or priority-tagged traffic belongs to.
- 		 */
- 		if (pvid == VLAN_N_VID)
- 			return false;
- 
--		/* PVID is set on this port.  Any untagged ingress
--		 * frame is considered to belong to this vlan.
-+		/* PVID is set on this port.  Any untagged or priority-tagged
-+		 * ingress frame is considered to belong to this vlan.
- 		 */
--		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+		if (likely(err))
-+			/* Untagged Frame. */
-+			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+		else
-+			/* Priority-tagged Frame.
-+			 * At this point, We know that skb->vlan_tci had
-+			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
-+			 * We update only VID field and preserve PCP field.
-+			 */
-+			skb->vlan_tci |= pvid;
-+
- 		return true;
- 	}
- 
--- 
-1.8.1.2
+Attn I am Freeman Appiah,I serve as Manager of a Bank Branch in Ghana. In 2009, A customer made a fixed number deposit 24,600,000.00.This investor died four years ago leaving no WILL for Re-transfer to his next of kin. can you be of good assistance so that we can move the funds?
