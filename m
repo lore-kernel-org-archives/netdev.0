@@ -1,55 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Wed, 16 Oct 2013 02:53:22 +0200
-Message-ID: <20131016005322.GA18135@order.stressinduktion.org>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: Correctly clamp MAX forward_delay when enabling
+ STP
+Date: Wed, 16 Oct 2013 08:56:57 +0800
+Message-ID: <20131016005657.GA5394@gondor.apana.org.au>
+References: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Mark Brooks <mark@loadbalancer.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:49913 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933711Ab3JPA5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 20:57:04 -0400
 Content-Disposition: inline
-In-Reply-To: <1381881751-6719-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 09:02:31AM +0900, Simon Horman wrote:
-> In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
-> ip6_finish_output2()") changed the behaviour of ip6_finish_output2()
-> such that it creates and uses a neigh entry if none is found.
-> Subsequently the 'n' field was removed from struct rt6_info.
+On Tue, Oct 15, 2013 at 02:57:45PM -0400, Vlad Yasevich wrote:
+> Commit be4f154d5ef0ca147ab6bcd38857a774133f5450
+> 	bridge: Clamp forward_delay when enabling STP
+> had a typo when attempting to clamp maximum forward delay.
 > 
-> Unfortunately my analysis is that in the case of IPVS direct routing this
-> change leads to incorrect behaviour as in this case packets may be output
-> to a destination other than where they would be output according to the
-> route table. In particular, the destination address may actually be a local
-> address and empirically a neighbour lookup seems to result in it becoming
-> unreachable.
+> It is possible to set bridge_forward_delay to be higher then
+> permitted maximum when STP is off.  When turning STP on, the
+> higher then allowed delay has to be clamed down to max value.
 > 
-> This patch resolves the problem by providing the destination address
-> determined by IPVS to ip6_finish_output2() in the skb callback.  Although
-> this seems to work I can see several problems with this approach:
-> 
-> * It is rather ugly, stuffing an IPVS exception right in
->   the middle of IPv6 code. The overhead could be eliminated for many users
->   by using a staic key. But none the less it is not attractive.
-> 
-> * The use of the skb callback is may not be valid
->   as it crosses from IPVS to IPv6 code. A possible, though unpleasant,
->   alternative is to add a new field to struct sk_buff.
-> 
-> * This covers all IPv6 packets output by IPVS but actually
->   only those output using IPVS Direct-Routing need this.  One way to
->   resolve this would be to add a more fine-grained ipvs_property to
->   struct sk_buff.
+> CC: Herbert Xu <herbert@gondor.apana.org.au>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Hmm, that reminds me on the following bug report which would be nice we could
-solve in one go, too: http://www.spinics.net/lists/netdev/msg250785.html
+Good catch!
 
-Greetings,
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-  Hannes
-
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
