@@ -1,85 +1,43 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] DomU's network interface will hung when Dom0 running
- 32bit
-Date: Wed, 16 Oct 2013 14:47:40 +0100
-Message-ID: <20131016134740.GG16371@zion.uk.xensource.com>
-References: <20131014111958.GE11739@zion.uk.xensource.com>
- <525CAC21.5040202@oracle.com>
- <1381826609.24708.135.camel@kazak.uk.xensource.com>
- <525D0C41.2080407@oracle.com>
- <20131015100624.GB29436@zion.uk.xensource.com>
- <525D2667.6040102@oracle.com>
- <20131015125802.GR11739@zion.uk.xensource.com>
- <525E41CF.7090008@oracle.com>
- <525E5EDF.4030904@oracle.com>
- <525E8FB3.8000606@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 2/2] be2net: drop non-tso frames longer than mtu
+Date: Wed, 16 Oct 2013 06:54:40 -0700
+Message-ID: <1381931680.2045.127.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1381838188-9625-1-git-send-email-sathya.perla@emulex.com>
+	 <1381838188-9625-2-git-send-email-sathya.perla@emulex.com>
+	 <1381844840.2045.37.camel@edumazet-glaptop.roam.corp.google.com>
+	 <CF9D1877D81D214CB0CA0669EFAE020C26A2A3A4@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: annie li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>
-To: jianhai luan <jianhai.luan@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sathya Perla <Sathya.Perla@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:41850 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934197Ab3JPNrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 09:47:42 -0400
-Content-Disposition: inline
-In-Reply-To: <525E8FB3.8000606@oracle.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:53404 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934252Ab3JPNym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 09:54:42 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so845528pbc.21
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 06:54:41 -0700 (PDT)
+In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C26A2A3A4@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 09:08:03PM +0800, jianhai luan wrote:
-[...]
-> >>>
-> >>>    expires   now   next_credit
-> >>>    ----time increases this direction--->
-> >>>
-> >>>* time_after_eq(now, next_credit) -> false
-> >>>* time_before(now, expires) -> false
-> >>>
-> >>>Then it's stuck again. You're merely narrowing the window, not fixing
-> >>>the real problem.
-> >>
-> >>The above environment isn't stack again. The netback will
-> >>pending one timer to process the environment.
-> >>
-> >>The attachment program will prove if !(time_after_eq(now,
-> >>next_credit) || time_before(now, vif->credit_timeout.expires)),
-> >>now will only be placed in above environment [ expires
-> >>next_credit),  and the above environment will be processed by
-> >>timer in soon.
-> >
-> >Or check following to see what the if condition really do,
-> >
-> >----------expires-------now-------credit----------    is the only
-> >case where we need to add a timer.
-> >
-> >Other cases like following would match the if condition above,
-> >then no timer is added.
-> >----------expires----------credit------now------
-> >-----now-----expires----------credit----------
-> >
-> >Or we can consider the extreme condition, when the rate control
-> >does not exist, "credit_usec" is zero, and "next_credit" is equal
-> >to "expires". The above if condition would cover all conditions,
-> >and no rate control really happens. If credit_usec is not zero,
-> >the "if condition" would cover the range outside of that from
-> >expires to next_credit.
-> >
-> >Even if "now" is wrapped again into the range from "expires" to
-> >"next_credit", the "next_credit" that is set in __mod_timer is
-> >reasonable value(this can be gotten from credit_usec), and the
-> >timer would be hit soon.
-> 
-> Thanks Annie's express, my option is consistent with Annie.
-> 
+On Wed, 2013-10-16 at 12:08 +0000, Sathya Perla wrote:
 
-OK, thanks for the explanation. I think I get the idea.
+> Won't the mss (gso_size) value for TCP pkts be derived from the mtu of the out-going interface?
+> In that case when will gso_size + headers > mtu?
 
-In any case, could you use !time_in_range / !time_in_range_open instead
-of open coded one-liner? Though I presume one-liner open coding would
-not hurt.
 
-Wei.
+Not on forwarding :(
+
+Let see we have two ethernet devices, with different mtu : 1500 and 1400
+
+GRO could aggregate GRO packets with MSS=1460 (gso_size=1460), then
+we hapilly send this GSO packet to the other device, and apparently we
+have no check against the lower mtu.
+
+In the best case GRO packet is lost, but in some other cases, the device
+hangs...
+
+> In any case, for TSO pkts, the HW just drops pkts when frames after segmentation
+> are longer than 9018bytes (or in recent FW versions 9200b)
