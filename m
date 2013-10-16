@@ -1,51 +1,42 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v4 net 2/3] sctp: Use software crc32 checksum when xfrm transform will happen.
-Date: Tue, 15 Oct 2013 22:01:30 -0400
-Message-ID: <1381888891-31186-3-git-send-email-vyasevich@gmail.com>
-References: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
-Cc: linux-sctp@vger.kernel.org, fan.du@windriver.com,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:54783 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932759Ab3JPCCF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Oct 2013 22:02:05 -0400
-In-Reply-To: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Wed, 16 Oct 2013 11:13:06 +0900
+Message-ID: <20131016021304.GA17801@verge.net.au>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+ <1381882426.2045.85.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131016002807.GM22321@verge.net.au>
+ <1381883949.2045.97.camel@edumazet-glaptop.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Mark Brooks <mark@loadbalancer.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1381883949.2045.97.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fan Du <fan.du@windriver.com>
+On Tue, Oct 15, 2013 at 05:39:09PM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-16 at 09:28 +0900, Simon Horman wrote:
+> 
+> > > I guess things like NFQUEUE could happen ?
+> > 
+> > Could you expand a little?
+> 
+> This was to point that between IPVS and ipv6 stack we might have a
+> delay, and daddr was maybe pointed to a freed memory.
+> 
+> IP6CB only uses 24 bytes, so I think you would be safe adding 16 bytes.
 
-igb/ixgbe have hardware sctp checksum support, when this feature is enabled
-and also IPsec is armed to protect sctp traffic, ugly things happened as
-xfrm_output checks CHECKSUM_PARTIAL to do checksum operation(sum every thing
-up and pack the 16bits result in the checksum field). The result is fail
-establishment of sctp communication.
+That does seem very promising but while implementing it
+I hit a problem.
 
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
----
- net/sctp/output.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+struct tcp_skb_cb includes a field of type struct inet6_skb_parm.  And
+expanding struct inet6_skb_parm by 16 bytes means that struct tcp_skb_cb is
+now larger than 48 bytes and no longer fits in skb->cb.
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 0ac3a65..d35b54c 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -536,7 +536,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
- 	 */
- 	if (!sctp_checksum_disable) {
--		if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
-+		if (!(dst->dev->features & NETIF_F_SCTP_CSUM) ||
-+		    (dst_xfrm(dst) != NULL)) {
- 			__u32 crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
- 
- 			/* 3) Put the resultant value into the checksum field in the
--- 
-1.8.3.1
+Is it appropriate to grow skb->cb as the comment above struct tcp_skb_cb
+suggests?
