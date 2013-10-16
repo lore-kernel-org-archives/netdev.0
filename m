@@ -1,62 +1,43 @@
-From: Jason Luan <jianhai.luan@oracle.com>
-Subject: [PATCH net] xen-netback: add the scenario which now
-	beyond the range time_after_eq().
-Date: Thu, 17 Oct 2013 01:22:47 +0800
-Message-ID: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: remove redundant code in __tcp_retransmit_skb()
+Date: Wed, 16 Oct 2013 13:34:10 -0400
+Message-ID: <CAK6E8=cW93nE9x-=_qvvA02rMgT5+AqRj56yb+h6SfU9GOacfg@mail.gmail.com>
+References: <1381941411-30645-1-git-send-email-ncardwell@google.com> <1381941843.2045.132.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: annie.li@oracle.com, wei.liu2@citrix.com, ian.campbell@citrix.com,
-	Jason Luan <jianhai.luan@oracle.com>, david.vrabel@citrix.com
-To: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:53236 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760963Ab3JPRec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 13:34:32 -0400
+Received: by mail-ie0-f175.google.com with SMTP id aq17so1858914iec.6
+        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 10:34:31 -0700 (PDT)
+In-Reply-To: <1381941843.2045.132.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-time_after_eq() only works if the delta is < MAX_ULONG/2.
-
-If netfront sends at a very low rate, the time between subsequent calls
-to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
-timer_after_eq() will be incorrect.  Credit will not be replenished and
-the guest may become unable to send (e.g., if prior to the long gap, all
-credit was exhausted).
-
-We should add the scenario which now beyond next_credit+MAX_UNLONG/2. Because
-the fact now must be not before than expire, time_before(now, expire) == true
-will verify the scenario.
-    time_after_eq(now, next_credit) || time_before (now, expire)
-    ==
-    !time_in_range_open(now, expire, next_credit)
-
-Signed-off-by: Jason Luan <jianhai.luan@oracle.com>
----
- drivers/net/xen-netback/netback.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f3e591c..31eedaf 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1194,8 +1194,11 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
- 	if (timer_pending(&vif->credit_timeout))
- 		return true;
- 
--	/* Passed the point where we can replenish credit? */
--	if (time_after_eq(now, next_credit)) {
-+	/* Credit should be replenished when now does not fall into the
-+	 * range from expires to next_credit, and time_in_range_open()
-+	 * is used to verify whether this case happens.
-+	 */
-+	if (!time_in_range_open(now, vif->credit_timeout.expires, next_credit)) {
- 		vif->credit_timeout.expires = now;
- 		tx_add_credit(vif);
- 	}
--- 
-1.7.6.5
+On Wed, Oct 16, 2013 at 12:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-10-16 at 12:36 -0400, Neal Cardwell wrote:
+>> Remove the specialized code in __tcp_retransmit_skb() that tries to trim
+>> any ACKed payload preceding a FIN before we retransmit (this was added
+>> in 1999 in v2.2.3pre3). This trimming code was made unreachable by the
+>> more general code added above it that uses tcp_trim_head() to trim any
+>> ACKed payload, with or without a FIN (this was added in "[NET]: Add
+>> segmentation offload support to TCP." in 2002 circa v2.5.33).
+>>
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Yuchung Cheng <ycheng@google.com>
+>> ---
+>>  net/ipv4/tcp_output.c | 15 ---------------
+>>  1 file changed, 15 deletions(-)
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+>
+>
