@@ -1,87 +1,46 @@
 From: Nikita Kiryanov <nikita@compulab.co.il>
-Subject: [PATCH 3/4] dm9000: Implement full reset of DM9000 network device
-Date: Wed, 16 Oct 2013 11:41:33 +0300
-Message-ID: <1381912894-4780-4-git-send-email-nikita@compulab.co.il>
+Subject: [PATCH 2/4] dm9000: take phy out of reset during init
+Date: Wed, 16 Oct 2013 11:41:32 +0300
+Message-ID: <1381912894-4780-3-git-send-email-nikita@compulab.co.il>
 References: <1381912894-4780-1-git-send-email-nikita@compulab.co.il>
-Cc: Michael Abbott <michael.abbott@diamond.ac.uk>,
+Cc: Nikita Kiryanov <nikita@compulab.co.il>,
 	"David S. Miller" <davem@davemloft.net>,
 	Jingoo Han <jg1.han@samsung.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Igor Grinberg <grinberg@compulab.co.il>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softlayer.compulab.co.il ([50.23.254.55]:50363 "EHLO
+Received: from softlayer.compulab.co.il ([50.23.254.55]:48034 "EHLO
 	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760022Ab3JPImK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753674Ab3JPImK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Oct 2013 04:42:10 -0400
 In-Reply-To: <1381912894-4780-1-git-send-email-nikita@compulab.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Abbott <michael.abbott@diamond.ac.uk>
-
-A Davicom application note for the DM9000 network device recommends
-performing software reset twice to correctly initialise the device.
-Without this reset some devices fail to initialise correctly on
-system startup.
+Take the phy out of reset explicitly during system resume to avoid
+losing network connectivity.
 
 Cc: David S. Miller <davem@davemloft.net>
 Cc: Jingoo Han <jg1.han@samsung.com>
 Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Michael Abbott <michael.abbott@diamond.ac.uk>
+Signed-off-by: Nikita Kiryanov <nikita@compulab.co.il>
+Signed-off-by: Igor Grinberg <grinberg@compulab.co.il>
 ---
- drivers/net/ethernet/davicom/dm9000.c | 33 +++++++++++++++++++++------------
- 1 file changed, 21 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/davicom/dm9000.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 3f650ce..a179f81 100644
+index 912983b..3f650ce 100644
 --- a/drivers/net/ethernet/davicom/dm9000.c
 +++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -158,18 +158,6 @@ static inline board_info_t *to_dm9000_board(struct net_device *dev)
+@@ -890,6 +890,7 @@ dm9000_init_dm9000(struct net_device *dev)
+ 			(dev->features & NETIF_F_RXCSUM) ? RCSR_CSUM : 0);
  
- /* DM9000 network board routine ---------------------------- */
+ 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
++	iow(db, DM9000_GPR, 0);
  
--static void
--dm9000_reset(board_info_t * db)
--{
--	dev_dbg(db->dev, "resetting device\n");
--
--	/* RESET device */
--	writeb(DM9000_NCR, db->io_addr);
--	udelay(200);
--	writeb(NCR_RST, db->io_data);
--	udelay(200);
--}
--
- /*
-  *   Read a byte from I/O port
-  */
-@@ -191,6 +179,27 @@ iow(board_info_t * db, int reg, int value)
- 	writeb(value, db->io_data);
- }
- 
-+static void
-+dm9000_reset(board_info_t *db)
-+{
-+	dev_dbg(db->dev, "resetting device\n");
-+
-+	/* Reset DM9000, see DM9000 Application Notes V1.22 Jun 11, 2004 page 29
-+	 * The essential point is that we have to do a double reset, and the
-+	 * instruction is to set LBK into MAC internal loopback mode.
-+	 */
-+	iow(db, DM9000_NCR, 0x03);
-+	udelay(100); /* Application note says at least 20 us */
-+	if (ior(db, DM9000_NCR) & 1)
-+		dev_err(db->dev, "dm9000 did not respond to first reset\n");
-+
-+	iow(db, DM9000_NCR, 0);
-+	iow(db, DM9000_NCR, 0x03);
-+	udelay(100);
-+	if (ior(db, DM9000_NCR) & 1)
-+		dev_err(db->dev, "dm9000 did not respond to second reset\n");
-+}
-+
- /* routines for sending block to chip */
- 
- static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
+ 	/* If we are dealing with DM9000B, some extra steps are required: a
+ 	 * manual phy reset, and setting init params.
 -- 
 1.8.1.2
