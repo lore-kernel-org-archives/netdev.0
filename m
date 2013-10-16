@@ -1,35 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC] bridge and friends: reduce TheLinuxWay(tm)
-Date: Wed, 16 Oct 2013 10:05:25 -0400
-Message-ID: <525E9D25.30504@mojatatu.com>
-References: <525C62D5.3090004@mojatatu.com> <20131014144156.6dc52a78@nehalam.linuxnetplumber.net> <525E9AB1.6090502@mojatatu.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Wed, 16 Oct 2013 16:32:46 +0200
+Message-ID: <20131016143246.GB18135@order.stressinduktion.org>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310161015550.1560@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f178.google.com ([209.85.213.178]:65217 "EHLO
-	mail-ye0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934103Ab3JPONQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 10:13:16 -0400
-Received: by mail-ye0-f178.google.com with SMTP id l13so159819yen.23
-        for <netdev@vger.kernel.org>; Wed, 16 Oct 2013 07:13:16 -0700 (PDT)
-In-Reply-To: <525E9AB1.6090502@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Simon Horman <horms@verge.net.au>,
+	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.03.1310161015550.1560@ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/16/13 09:54, Jamal Hadi Salim wrote:
+On Wed, Oct 16, 2013 at 10:27:47AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 16 Oct 2013, Simon Horman wrote:
+> 
+> > In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
+> > ip6_finish_output2()") changed the behaviour of ip6_finish_output2()
+> > such that it creates and uses a neigh entry if none is found.
+> > Subsequently the 'n' field was removed from struct rt6_info.
+> 
+> 	Similar change in IPv4 opened the Pandora box:
+> IPVS, xt_TEE, raw.c (IP_HDRINCL). May be the corrsponding
+> places in IPv6 have the same problem.
+> 
+> 	I don't know the IPv6 routing but if we find a way
+> to keep the desired nexthop in rt6i_gateway and to add
+> RTF_GATEWAY checks here and there such solution would be more
+> general. FLOWI_FLAG_KNOWN_NH flag can help, if needed.
 
-> - get attributes for bridge interface XXX; there using IFLA_EXT_MASK
-> I think it should be using ifm->ifindex
+I thought about this yesterday but did not see an easy way. How does the IPv4
+implementation accomplish this?
 
+ipvs caches the dst in its own infrastructure, so we need to be sure we don't
+disconnect this dst from the ipv6 routing table, otherwise ip6_dst_check won't
+recognize when relookups should be done. Playing games with RTF_GATEWAY seems
+dangerous then.
 
-No this doesnt work. Filtering needs to be done in user space ;-<
-IMO: The behavior here should be no different then when getting a link.
-Will you accept a patch for this?
+I am currently thinking about using a new flag to replace the nexthop
+information with rt6i_dst in these circumstances. The flag would have
+to be included in the skb somewhere.
 
-cheers,
-jamal
+Greetings,
+
+  Hannes
+
