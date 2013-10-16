@@ -1,103 +1,54 @@
-From: <gregkh@linuxfoundation.org>
-Subject: patch "ssb: convert bus code to use dev_groups" added to driver-core tree
-Date: Wed, 16 Oct 2013 18:39:19 -0700
-Message-ID: <1381973959182@kroah.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
+	notifier if we're not ready
+Date: Thu, 17 Oct 2013 09:57:41 +1030
+Message-ID: <8738o0aj9u.fsf@rustcorp.com.au>
+References: <1381807139-3450-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-To: gregkh@linuxfoundation.org, m@bues.ch, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38669 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760887Ab3JQBj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 21:39:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1381807139-3450-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+Jason Wang <jasowang@redhat.com> writes:
+> We're trying to re-configure the affinity unconditionally in cpu hotplug
+> callback. This may lead the issue during resuming from s3/s4 since
+>
+> - virt queues haven't been allocated at that time.
+> - it's unnecessary since thaw method will re-configure the affinity.
+>
+> Fix this issue by checking the config_enable and do nothing is we're not ready.
+>
+> The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
+> (virtio-net: reset virtqueue affinity when doing cpu hotplug).
+>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> The patch is need for 3.8 and above.
 
-This is a note to let you know that I've just added the patch titled
+Please put 'CC: stable@kernel.org # 3.8+' in the commit.
 
-    ssb: convert bus code to use dev_groups
+(The specification of the stable line is poor, but that seems to be one
+common method).
 
-to my driver-core git tree which can be found at
-    git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
-in the driver-core-next branch.
-
-The patch will show up in the next release of the linux-next tree
-(usually sometime within the next 24 hours during the week.)
-
-The patch will also be merged in the next major kernel release
-during the merge window.
-
-If you have any questions about this process, please let me know.
-
-
->From 4e9072d61695abcee201591ba9515a28bcb3bd33 Mon Sep 17 00:00:00 2001
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Sun, 6 Oct 2013 23:55:48 -0700
-Subject: ssb: convert bus code to use dev_groups
-
-The dev_attrs field of struct bus_type is going away soon, dev_groups
-should be used instead.  This converts the ssb bus code to use the
-correct field.
-
-Cc: Michael Buesch <m@bues.ch>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/ssb/main.c | 25 ++++++++++++++-----------
- 1 file changed, 14 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index e55ddf7c..32a811d1 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -374,7 +374,8 @@ static ssize_t \
- attrib##_show(struct device *dev, struct device_attribute *attr, char *buf) \
- { \
- 	return sprintf(buf, format_string, dev_to_ssb_dev(dev)->field); \
--}
-+} \
-+static DEVICE_ATTR_RO(attrib);
- 
- ssb_config_attr(core_num, core_index, "%u\n")
- ssb_config_attr(coreid, id.coreid, "0x%04x\n")
-@@ -387,16 +388,18 @@ name_show(struct device *dev, struct device_attribute *attr, char *buf)
- 	return sprintf(buf, "%s\n",
- 		       ssb_core_name(dev_to_ssb_dev(dev)->id.coreid));
- }
--
--static struct device_attribute ssb_device_attrs[] = {
--	__ATTR_RO(name),
--	__ATTR_RO(core_num),
--	__ATTR_RO(coreid),
--	__ATTR_RO(vendor),
--	__ATTR_RO(revision),
--	__ATTR_RO(irq),
--	__ATTR_NULL,
-+static DEVICE_ATTR_RO(name);
-+
-+static struct attribute *ssb_device_attrs[] = {
-+	&dev_attr_name.attr,
-+	&dev_attr_core_num.attr,
-+	&dev_attr_coreid.attr,
-+	&dev_attr_vendor.attr,
-+	&dev_attr_revision.attr,
-+	&dev_attr_irq.attr,
-+	NULL,
- };
-+ATTRIBUTE_GROUPS(ssb_device);
- 
- static struct bus_type ssb_bustype = {
- 	.name		= "ssb",
-@@ -407,7 +410,7 @@ static struct bus_type ssb_bustype = {
- 	.suspend	= ssb_device_suspend,
- 	.resume		= ssb_device_resume,
- 	.uevent		= ssb_device_uevent,
--	.dev_attrs	= ssb_device_attrs,
-+	.dev_groups	= ssb_device_groups,
- };
- 
- static void ssb_buses_lock(void)
--- 
-1.8.4.3.gca3854a
+Cheers,
+Rusty.
