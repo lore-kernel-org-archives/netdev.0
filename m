@@ -1,54 +1,167 @@
-From: undp_chevronpetroleum1@rediffmail.com
-Subject: =?ISO-8859-1?Q?Ofici=E1ln=ED?=
- =?ISO-8859-1?Q?_vyhl=E1=3Fen=ED_OZN=C1MEN=CD?=
-Date: Thu, 17 Oct 2013 13:16:40 -0700
-Message-ID: <web-364510333@mx2.radiant.net>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH net-next v3 3/9] static_key: WARN on usage before
+ jump_label_init was called
+Date: Thu, 17 Oct 2013 17:19:40 -0400
+Message-ID: <20131017171940.173bab09@gandalf.local.home>
+References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
+	<1381987923-1524-4-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andi Kleen <andi@firstfloor.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.radiant.net ([216.21.138.129]:49592 "EHLO mx2.radiant.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758245Ab3JQVQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 17:16:40 -0400
+Received: from cdptpa-outbound-snat.email.rr.com ([107.14.166.225]:62430 "EHLO
+	cdptpa-oedge-vip.email.rr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1762569Ab3JQVTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 17:19:41 -0400
+In-Reply-To: <1381987923-1524-4-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-&#268;=EDslo ?ar?e : ( UK- 209-634 , E- 931-51 )
-Ofici=E1ln=ED vyhl=E1?en=ED OZN=C1MEN=CD
+On Thu, 17 Oct 2013 07:31:57 +0200
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-To je V=E1m ozn=E1mit, ?e jste byl vybr=E1n pro pen&#283;?n=ED cenu
-1,600,000.00 GB kilo mezin=E1rodn=EDch program&#367; uskute&#269;&#328;=
-ovan=FDch na 15.&#345;=EDjna
-2013 ve Spojen=E9m kr=E1lovstv=ED Chevron ropy / OSN o rozvoj
-Program ( UNDP) Chcete-li zah=E1jit zpracov=E1n=ED va?=ED cenu jste kon=
-taktovat
-va?e n=E1roky d&#367;stojn=EDk prost&#345;ednictv=EDm na?ich akreditova=
-n=FDch agent&#367; Prize P&#345;enos jak je uvedeno
-n=ED?e :
+> Based on a patch from Andi Kleen.
 
-Mr.D. Matt
-Organizace spojen=FDch n=E1rod&#367; Komplexn=ED
-PE9 2YP , Lond=FDn
-Spojen=E9 kr=E1lovstv=ED
-E- mail: derickmatt@googlemail.com
+I'm fine with the patch, but the change log needs a lot more work.
+Like, why is this needed?  I know, but does anyone else?
 
-Kontaktujte jej , a poskytne mu na tajnou PIN k=F3du x5pukg2013 a
-Va?e referen&#269;n=ED &#269;=EDslo pro UNDP : 62082013EA-UK/21 . Tak=E9=
- se V=E1m doporu&#269;uje
-aby mu na z=E1klad&#283; uveden=FDch informac=ED, co nejd&#345;=EDve :
-
-N=C1ROK PO?ADAVEK :
-1.Name v pln=E9 v=FD?i : , 2.Address : , 3.Phone/Fax : ,
+-- Steve
 
 
-S pozdravem ,
 
-Mrs.Tulise hn&#283;d=E1
-Program Coordinator
-
-POZN=C1MKA: Chci, abyste v&#283;d&#283;li, ?e m=E1me t&#345;i ?&#357;as=
-tn=E9 v=FDherce v &#268;esk=E9 republice se stalo, ?e jeden z nich
-bude i rady, kter=E9 byste se obr=E1tit na v=FD?e uveden=E9 tvrzen=ED d=
-&#367;stojn=EDka co nejd&#345;=EDve .
+> 
+> Cc: Steven Rostedt <rostedt@goodmis.org>
+> Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Cc: Andi Kleen <andi@firstfloor.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  include/linux/jump_label.h           | 10 ++++++++++
+>  include/linux/jump_label_ratelimit.h |  2 ++
+>  init/main.c                          |  7 +++++++
+>  kernel/jump_label.c                  |  5 +++++
+>  4 files changed, 24 insertions(+)
+> 
+> diff --git a/include/linux/jump_label.h b/include/linux/jump_label.h
+> index a507907..e96be72 100644
+> --- a/include/linux/jump_label.h
+> +++ b/include/linux/jump_label.h
+> @@ -48,6 +48,13 @@
+>  
+>  #include <linux/types.h>
+>  #include <linux/compiler.h>
+> +#include <linux/bug.h>
+> +
+> +extern bool static_key_initialized;
+> +
+> +#define STATIC_KEY_CHECK_USE() WARN(!static_key_initialized,		      \
+> +				    "%s used before call to jump_label_init", \
+> +				    __func__)
+>  
+>  #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
+>  
+> @@ -128,6 +135,7 @@ struct static_key {
+>  
+>  static __always_inline void jump_label_init(void)
+>  {
+> +	static_key_initialized = true;
+>  }
+>  
+>  static __always_inline bool static_key_false(struct static_key *key)
+> @@ -146,11 +154,13 @@ static __always_inline bool static_key_true(struct static_key *key)
+>  
+>  static inline void static_key_slow_inc(struct static_key *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	atomic_inc(&key->enabled);
+>  }
+>  
+>  static inline void static_key_slow_dec(struct static_key *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	atomic_dec(&key->enabled);
+>  }
+>  
+> diff --git a/include/linux/jump_label_ratelimit.h b/include/linux/jump_label_ratelimit.h
+> index 1137883..089f70f 100644
+> --- a/include/linux/jump_label_ratelimit.h
+> +++ b/include/linux/jump_label_ratelimit.h
+> @@ -23,12 +23,14 @@ struct static_key_deferred {
+>  };
+>  static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	static_key_slow_dec(&key->key);
+>  }
+>  static inline void
+>  jump_label_rate_limit(struct static_key_deferred *key,
+>  		unsigned long rl)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  }
+>  #endif	/* HAVE_JUMP_LABEL */
+>  #endif	/* _LINUX_JUMP_LABEL_RATELIMIT_H */
+> diff --git a/init/main.c b/init/main.c
+> index af310af..27bbec1a 100644
+> --- a/init/main.c
+> +++ b/init/main.c
+> @@ -136,6 +136,13 @@ static char *execute_command;
+>  static char *ramdisk_execute_command;
+>  
+>  /*
+> + * Used to generate warnings if static_key manipulation functions are used
+> + * before jump_label_init is called.
+> + */
+> +bool static_key_initialized __read_mostly = false;
+> +EXPORT_SYMBOL_GPL(static_key_initialized);
+> +
+> +/*
+>   * If set, this is an indication to the drivers that reset the underlying
+>   * device before going ahead with the initialization otherwise driver might
+>   * rely on the BIOS and skip the reset operation.
+> diff --git a/kernel/jump_label.c b/kernel/jump_label.c
+> index 297a924..9019f15 100644
+> --- a/kernel/jump_label.c
+> +++ b/kernel/jump_label.c
+> @@ -58,6 +58,7 @@ static void jump_label_update(struct static_key *key, int enable);
+>  
+>  void static_key_slow_inc(struct static_key *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	if (atomic_inc_not_zero(&key->enabled))
+>  		return;
+>  
+> @@ -103,12 +104,14 @@ static void jump_label_update_timeout(struct work_struct *work)
+>  
+>  void static_key_slow_dec(struct static_key *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	__static_key_slow_dec(key, 0, NULL);
+>  }
+>  EXPORT_SYMBOL_GPL(static_key_slow_dec);
+>  
+>  void static_key_slow_dec_deferred(struct static_key_deferred *key)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	__static_key_slow_dec(&key->key, key->timeout, &key->work);
+>  }
+>  EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
+> @@ -116,6 +119,7 @@ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
+>  void jump_label_rate_limit(struct static_key_deferred *key,
+>  		unsigned long rl)
+>  {
+> +	STATIC_KEY_CHECK_USE();
+>  	key->timeout = rl;
+>  	INIT_DELAYED_WORK(&key->work, jump_label_update_timeout);
+>  }
+> @@ -212,6 +216,7 @@ void __init jump_label_init(void)
+>  		key->next = NULL;
+>  #endif
+>  	}
+> +	static_key_initialized = true;
+>  	jump_label_unlock();
+>  }
+>  
