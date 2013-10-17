@@ -1,108 +1,48 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: Re: [PATCH 5/5] net: rfkill: gpio: add ACPI support
-Date: Thu, 17 Oct 2013 10:44:26 +0300
-Message-ID: <20131017074426.GG3521@intel.com>
-References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1381920823-15403-6-git-send-email-heikki.krogerus@linux.intel.com>
- <2878506.7lf24R85t6@vostro.rjw.lan>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] ipvs: avoid rcu_barrier during netns cleanup
+Date: Thu, 17 Oct 2013 10:11:42 +0200
+Message-ID: <20131017081142.GA5324@localhost>
+References: <1381802507-7934-1-git-send-email-horms@verge.net.au>
+ <1381802507-7934-3-git-send-email-horms@verge.net.au>
+ <20131016104306.GA10288@localhost>
+ <alpine.LFD.2.03.1310162231380.1917@ssi.bg>
+ <20131017004939.GB21728@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Rhyland Klein <rklein@nvidia.com>, linux-acpi@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2878506.7lf24R85t6@vostro.rjw.lan>
-Sender: linux-acpi-owner@vger.kernel.org
+In-Reply-To: <20131017004939.GB21728@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 16, 2013 at 10:55:01PM +0200, Rafael J. Wysocki wrote:
-> On Wednesday, October 16, 2013 01:53:43 PM Heikki Krogerus wrote:
-> > Including ACPI ID for Broadcom GPS receiver BCM4752.
+On Thu, Oct 17, 2013 at 09:49:39AM +0900, Simon Horman wrote:
+> On Wed, Oct 16, 2013 at 10:52:14PM +0300, Julian Anastasov wrote:
 > > 
-> > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> > ---
-> >  net/rfkill/rfkill-gpio.c | 31 ++++++++++++++++++++++++++++++-
-> >  1 file changed, 30 insertions(+), 1 deletion(-)
+> > 	Hello,
 > > 
-> > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> > index 2dd78c6..5620d3c 100644
-> > --- a/net/rfkill/rfkill-gpio.c
-> > +++ b/net/rfkill/rfkill-gpio.c
-> > @@ -24,6 +24,8 @@
-> >  #include <linux/platform_device.h>
-> >  #include <linux/clk.h>
-> >  #include <linux/slab.h>
-> > +#include <linux/acpi.h>
-> > +#include <linux/acpi_gpio.h>
-> >  
-> >  #include <linux/rfkill-gpio.h>
-> >  
-> > @@ -70,6 +72,23 @@ static const struct rfkill_ops rfkill_gpio_ops = {
-> >  	.set_block = rfkill_gpio_set_power,
-> >  };
-> >  
-> > +static int rfkill_gpio_acpi_probe(struct device *dev,
-> > +				  struct rfkill_gpio_data *rfkill)
-> > +{
-> > +	const struct acpi_device_id *id;
-> > +
-> > +	id = acpi_match_device(dev->driver->acpi_match_table, dev);
-> > +	if (!id)
-> > +		return -ENODEV;
-> > +
-> > +	rfkill->name = dev_name(dev);
-> > +	rfkill->type = (unsigned)id->driver_data;
-> > +	rfkill->reset_gpio = acpi_get_gpio_by_index(dev, 0, NULL);
-> > +	rfkill->shutdown_gpio = acpi_get_gpio_by_index(dev, 1, NULL);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> >  static int rfkill_gpio_probe(struct platform_device *pdev)
-> >  {
-> >  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
-> > @@ -82,7 +101,11 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
-> >  	if (!rfkill)
-> >  		return -ENOMEM;
-> >  
-> > -	if (pdata) {
-> > +	if (ACPI_HANDLE(&pdev->dev)) {
-> > +		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
-> > +		if (ret)
-> > +			return ret;
-> > +	} else if (pdata) {
-> >  		clk_name = pdata->power_clk_name;
-> >  		rfkill->name = pdata->name;
-> >  		rfkill->type = pdata->type;
-> > @@ -170,12 +193,18 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
-> >  	return 0;
-> >  }
-> >  
-> > +static const struct acpi_device_id rfkill_acpi_match[] = {
-> > +	{ "BCM4752", RFKILL_TYPE_GPS },
-> > +	{ },
-> > +};
-> > +
-> >  static struct platform_driver rfkill_gpio_driver = {
-> >  	.probe = rfkill_gpio_probe,
-> >  	.remove = rfkill_gpio_remove,
-> >  	.driver = {
-> >  		.name = "rfkill_gpio",
-> >  		.owner = THIS_MODULE,
-> > +		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
-> >  	},
-> >  };
+> > On Wed, 16 Oct 2013, Pablo Neira Ayuso wrote:
+> > 
+> > > I can enqueue this fix to nf if you like. No need to resend, I can
+> > > manually apply.
+> > > 
+> > > Let me know.
+> > 
+> > 	It is not critical. I waited weeks the net tree to be
+> > copied into net-next because it collides with the recent
+> > "ipvs: make the service replacement more robust" change in
+> > net tree :) But if a rcu_barrier in the netns cleanup looks
+> > scary enough you can push it to nf. IMHO, it just adds
+> > unneeded delay there.
 > 
-> Looks good to me.
-> 
-> Has Mika seen this?
+> If it is not critical I would prefer for it to travel through
+> nf-next. Though I do not feel strongly about this.
 
-Yes, saw it now and looks good to me as well.
+Will enqueue for nf-next.
 
-Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-
-for the whole series, for what it's worth.
+I'd appreciate if you can recover the tradition of attaching a short
+evaluation in the cover letter as I do when I send pull requests to
+David. Thanks!
