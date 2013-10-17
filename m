@@ -1,73 +1,80 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net] qlcnic: Validate Tx queue only for 82xx adapters.
-Date: Thu, 17 Oct 2013 18:26:38 -0400
-Message-ID: <ee136cd9c8e22123662b55a614e509277cfeba40.1382067199.git.himanshu.madhani@qlogic.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Fri, 18 Oct 2013 02:03:27 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310180153250.4554@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: =?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:22497 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750933Ab3JQW5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 18:57:13 -0400
+Received: from ja.ssi.bg ([178.16.129.10]:36410 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752444Ab3JQXEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 19:04:22 -0400
+In-Reply-To: <1381881751-6719-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-o validate Tx queue only in case of adapters which supports
-  multi Tx queue.
+	Hello,
 
-  This patch is to fix regression introduced in commit
-  aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
-  "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
+	Here is a solution that should work not only for IPVS.
+If the change looks correct I'll send it in a separate message.
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+[PATCH net] ipv6: always prefer rt6i_gateway if present
+
+From: Julian Anastasov <ja@ssi.bg>
+
+In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
+ip6_finish_output2()." changed the behaviour of ip6_finish_output2()
+such that the recently introduced rt6_nexthop() is used
+instead of an assigned neighbor.
+
+As rt6_nexthop() prefers rt6i_gateway only for gatewayed
+routes this causes a problem for users like IPVS, xt_TEE and
+RAW(hdrincl) if they want to use different address for routing
+compared to the destination address.
+
+Fix it by considering the rt6i_gateway address in all
+cases, so that traffic routed to address on local subnet is
+not wrongly diverted to the destination address.
+
+Thanks to Simon Horman and Phil Oester for spotting the
+problematic commit.
+
+Reported-by: Phil Oester <kernel@linuxace.com>
+Reported-by: Mark Brooks <mark@loadbalancer.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 8 +-------
- 2 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index ebe4c86..ff83a9f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -665,7 +665,7 @@ static int qlcnic_set_channels(struct net_device *dev,
- 			return err;
- 	}
+Please review for possible side effects when using
+rt6i_gateway without RTF_GATEWAY!
+
+ include/net/ip6_route.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index f525e70..481404a 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -196,7 +196,7 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
  
--	if (channel->tx_count) {
-+	if (qlcnic_82xx_check(adapter) && channel->tx_count) {
- 		err = qlcnic_validate_max_tx_rings(adapter, channel->tx_count);
- 		if (err)
- 			return err;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index f07f2b0..9e61eb8 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3651,11 +3651,6 @@ int qlcnic_validate_max_tx_rings(struct qlcnic_adapter *adapter, u32 txq)
- 	u8 max_hw = QLCNIC_MAX_TX_RINGS;
- 	u32 max_allowed;
- 
--	if (!qlcnic_82xx_check(adapter)) {
--		netdev_err(netdev, "No Multi TX-Q support\n");
--		return -EINVAL;
--	}
--
- 	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No Multi TX-Q support in INT-x mode\n");
- 		return -EINVAL;
-@@ -3695,8 +3690,7 @@ int qlcnic_validate_max_rss(struct qlcnic_adapter *adapter,
- 	u8 max_hw = adapter->ahw->max_rx_ques;
- 	u32 max_allowed;
- 
--	if (qlcnic_82xx_check(adapter) && !qlcnic_use_msi_x &&
--	    !qlcnic_use_msi) {
-+	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_err(netdev, "No RSS support in INT-x mode\n");
- 		return -EINVAL;
- 	}
+ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
+ {
+-	if (rt->rt6i_flags & RTF_GATEWAY)
++	if (rt->rt6i_flags & RTF_GATEWAY || !ipv6_addr_any(&rt->rt6i_gateway))
+ 		return &rt->rt6i_gateway;
+ 	return dest;
+ }
 -- 
-1.8.1.4
+1.8.3.1
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
