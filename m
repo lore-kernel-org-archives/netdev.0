@@ -1,45 +1,53 @@
-From: Peter Schmitt <peter.schmitt82@yahoo.de>
-Subject: Re: PROBLEM: GRE forwarding not working with 3.10.x, WCCPv2 and Cisco 7200 Router showing IP0 bad-hlen 4 in tcpdump
-Date: Thu, 17 Oct 2013 11:53:10 +0100 (BST)
-Message-ID: <1382007190.35868.YahooMailNeo@web172006.mail.ir2.yahoo.com>
-References: <1381912513.57737.YahooMailNeo@web172002.mail.ir2.yahoo.com> <1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
-Reply-To: Peter Schmitt <peter.schmitt82@yahoo.de>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: Re: [PATCH] X.25: Fix address field length calculation
+Date: Thu, 17 Oct 2013 22:02:13 +1100
+Message-ID: <CADo0ohh7jZhc_WJFkrYYxoYza8ZeSEadzwgwabJWwQ1TucdCcg@mail.gmail.com>
+References: <525D5131.9070007@datus.com>
+	<1381858190.22110.25.camel@joe-AO722>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B738F@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm31.bullet.mail.ne1.yahoo.com ([98.138.229.24]:48162 "HELO
-	nm31.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753343Ab3JQLCE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 07:02:04 -0400
-In-Reply-To: <1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>,
+	=?ISO-8859-1?Q?Kelleter=2C_G=FCnther?= <GKelleter@datus.com>,
+	David Miller <davem@davemloft.net>, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B738F@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Sorry for the previous html mail.
+This appears to be correct, what length addresses are you getting back
+in the call accept when this happens?
 
-
-> 
-> 3.10 is buggy (for ETH_P_WCCP support I mean), 3.11 has the probable
-> fix :
-> 
-> commit 3d7b46cd20e300bd6989fb1f43d46f1b9645816e
-> ("ip_tunnel: push generic protocol handling to ip_tunnel module.")
-> 
-> The problem is 3.10 do not pull the extra 4 bytes of WCCP
-> 
-> This is now properly done in iptunnel_pull_header()
-> 
-
-First of all, many thanks for your help on this.
-
-I tried to apply the fix to the 3.10.16 sources, as I would like to stay with the long-term line. Unfortunately it does not apply, as there are a lot of dependencies on other patches.
-
-Do you think there will be a fix for the long-time 3.10 kernel line? Or can you guide me on how to apply this fix to the long-term kernel?
-
-Best regards,
-Peter
+On Wed, Oct 16, 2013 at 7:56 PM, David Laight <David.Laight@aculab.com>=
+ wrote:
+>> On Tue, 2013-10-15 at 14:29 +0000, Kelleter, G=FCnther wrote:
+>> > Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
+>> []
+>> > Wrong length calculation leads to rejection of CALL ACCEPT packets=
+=2E
+>> []
+>> > diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+>> []
+>> > @@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
+>> >     }
+>> >     len =3D *skb->data;
+>> > -   needed =3D 1 + (len >> 4) + (len & 0x0f);
+>> > +   needed =3D 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
+>>
+>> This calculation looks odd.
+>
+> Looks correct to me...
+> In X.25 the lengths (in digits) of the called and calling addresses
+> are encoded in the high and low nibbles of one byte and then
+> followed by both addresses with a digit in each nibble.
+> If the length of the first address is odd, the second one
+> isn't byte aligned.
+>
+>         David
+>
+>
+>
