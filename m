@@ -1,54 +1,108 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH] be2net: pass if_id for v1 and V2 versions of TX_CREATE cmd
-Date: Thu, 17 Oct 2013 11:47:14 +0530
-Message-ID: <1381990634-6847-1-git-send-email-sathya.perla@emulex.com>
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Subject: Re: [PATCH 5/5] net: rfkill: gpio: add ACPI support
+Date: Thu, 17 Oct 2013 10:44:26 +0300
+Message-ID: <20131017074426.GG3521@intel.com>
+References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com>
+ <1381920823-15403-6-git-send-email-heikki.krogerus@linux.intel.com>
+ <2878506.7lf24R85t6@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:48801 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712Ab3JQGN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 02:13:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Rhyland Klein <rklein@nvidia.com>, linux-acpi@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2878506.7lf24R85t6@vostro.rjw.lan>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+On Wed, Oct 16, 2013 at 10:55:01PM +0200, Rafael J. Wysocki wrote:
+> On Wednesday, October 16, 2013 01:53:43 PM Heikki Krogerus wrote:
+> > Including ACPI ID for Broadcom GPS receiver BCM4752.
+> > 
+> > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+> > ---
+> >  net/rfkill/rfkill-gpio.c | 31 ++++++++++++++++++++++++++++++-
+> >  1 file changed, 30 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> > index 2dd78c6..5620d3c 100644
+> > --- a/net/rfkill/rfkill-gpio.c
+> > +++ b/net/rfkill/rfkill-gpio.c
+> > @@ -24,6 +24,8 @@
+> >  #include <linux/platform_device.h>
+> >  #include <linux/clk.h>
+> >  #include <linux/slab.h>
+> > +#include <linux/acpi.h>
+> > +#include <linux/acpi_gpio.h>
+> >  
+> >  #include <linux/rfkill-gpio.h>
+> >  
+> > @@ -70,6 +72,23 @@ static const struct rfkill_ops rfkill_gpio_ops = {
+> >  	.set_block = rfkill_gpio_set_power,
+> >  };
+> >  
+> > +static int rfkill_gpio_acpi_probe(struct device *dev,
+> > +				  struct rfkill_gpio_data *rfkill)
+> > +{
+> > +	const struct acpi_device_id *id;
+> > +
+> > +	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+> > +	if (!id)
+> > +		return -ENODEV;
+> > +
+> > +	rfkill->name = dev_name(dev);
+> > +	rfkill->type = (unsigned)id->driver_data;
+> > +	rfkill->reset_gpio = acpi_get_gpio_by_index(dev, 0, NULL);
+> > +	rfkill->shutdown_gpio = acpi_get_gpio_by_index(dev, 1, NULL);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> >  static int rfkill_gpio_probe(struct platform_device *pdev)
+> >  {
+> >  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+> > @@ -82,7 +101,11 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+> >  	if (!rfkill)
+> >  		return -ENOMEM;
+> >  
+> > -	if (pdata) {
+> > +	if (ACPI_HANDLE(&pdev->dev)) {
+> > +		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
+> > +		if (ret)
+> > +			return ret;
+> > +	} else if (pdata) {
+> >  		clk_name = pdata->power_clk_name;
+> >  		rfkill->name = pdata->name;
+> >  		rfkill->type = pdata->type;
+> > @@ -170,12 +193,18 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+> >  	return 0;
+> >  }
+> >  
+> > +static const struct acpi_device_id rfkill_acpi_match[] = {
+> > +	{ "BCM4752", RFKILL_TYPE_GPS },
+> > +	{ },
+> > +};
+> > +
+> >  static struct platform_driver rfkill_gpio_driver = {
+> >  	.probe = rfkill_gpio_probe,
+> >  	.remove = rfkill_gpio_remove,
+> >  	.driver = {
+> >  		.name = "rfkill_gpio",
+> >  		.owner = THIS_MODULE,
+> > +		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
+> >  	},
+> >  };
+> 
+> Looks good to me.
+> 
+> Has Mika seen this?
 
-It is a required field for all TX_CREATE cmd versions > 0.
-This fixes a driver initialization failure, caused by recent SH-R Firmwares
-(versions > 10.0.639.0) failing the TX_CREATE cmd when if_id field is
-not passed.
+Yes, saw it now and looks good to me as well.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
+Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 
-Dave, pls consider queuing this patch for -stable tree as it fixes
-a driver load failure. Thanks.
-
- drivers/net/ethernet/emulex/benet/be_cmds.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index bd0e0c0..c08fd32 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1198,7 +1198,6 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
- 
- 	if (lancer_chip(adapter)) {
- 		req->hdr.version = 1;
--		req->if_id = cpu_to_le16(adapter->if_handle);
- 	} else if (BEx_chip(adapter)) {
- 		if (adapter->function_caps & BE_FUNCTION_CAPS_SUPER_NIC)
- 			req->hdr.version = 2;
-@@ -1206,6 +1205,8 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
- 		req->hdr.version = 2;
- 	}
- 
-+	if (req->hdr.version > 0)
-+		req->if_id = cpu_to_le16(adapter->if_handle);
- 	req->num_pages = PAGES_4K_SPANNED(q_mem->va, q_mem->size);
- 	req->ulp_num = BE_ULP1_NUM;
- 	req->type = BE_ETH_TX_RING_TYPE_STANDARD;
--- 
-1.7.1
+for the whole series, for what it's worth.
