@@ -1,46 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Thu, 17 Oct 2013 11:48:07 -0700
-Message-ID: <1382035687.2045.155.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com>
-	 <20131012172124.GA18241@gmail.com>
-	 <20131014202854.GH26880@hmsreliant.think-freely.org>
-	 <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131017003421.GA31470@hmsreliant.think-freely.org>
-	 <20131017084121.GC22705@gmail.com> <52602A29.506@zytor.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] sctp: Do not trigger BUG_ON when deleting assoc without
+ primary path
+Date: Thu, 17 Oct 2013 20:52:58 +0200
+Message-ID: <5260320A.7040109@redhat.com>
+References: <1382031042-27339-1-git-send-email-vyasevich@gmail.com> <526025F2.2040304@redhat.com> <52602BA3.5020405@redhat.com> <52602E0C.6000300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, x86@kernel.org,
-	netdev@vger.kernel.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52602A29.506@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Mark Thomas <Mark.Thomas@metaswitch.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29347 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758227Ab3JQSxT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 14:53:19 -0400
+In-Reply-To: <52602E0C.6000300@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-17 at 11:19 -0700, H. Peter Anvin wrote:
+On 10/17/2013 08:35 PM, Vlad Yasevich wrote:
+> On 10/17/2013 02:25 PM, Daniel Borkmann wrote:
+>> On 10/17/2013 08:01 PM, Daniel Borkmann wrote:
+>>> On 10/17/2013 07:30 PM, Vlad Yasevich wrote:
+>>>> It is possible to enter sctp_cmd_delete_tcb() without having a
+>>>> primary path.  The situations this most often happens in is
+>>>> when duplication cookie processing is triggered.  In this
+>>>> case, we are deleting a temporarily created association that
+>>>> is not fully populated.   Additially, at the time we
+>>>> are deleting the offending association, it is really too
+>>>> late to issue a BUG!
+>>>>
+>>>> This was introduced by:
+>>>> commit f9e42b853523cda0732022c2e0473c183f7aec65
+>>>>     net: sctp: sideeffect: throw BUG if primary_path is NULL
+>>>
+>>> Sure, lets remove it, but then we could still get a WARN() [sure,
+>>> better than BUG], if the user at the very same time checks procfs
+>>> through sctp_seq_dump_local_addrs(), see discussion we had here [1]:
+>>>
+>>>   It may trigger the crash later if the user performs some action on the
+>>>   association that touches the primary. That's the reason why I was
+>>>   proposing the checks below.
+>>>
+>>>   With the checks in command interpreter, we are only left with the
+>>>   possibility that primary_path changes to NULL during the association
+>>>   lifetime, which code audit doesn't support right now.  If that ever
+>>>   changes we would at least have a bit more information to go on.
+>>>
+>>>   [1] http://patchwork.ozlabs.org/patch/251099/
+>>
+>> Meaning, all I'm saying is that with f9e42b853 we wanted to find exactly
+>> such a case we have right now, that is, that an assoc could enter the
+>> hashtable w/o primary path, no?
+>
+> But it didn't enter a hash table in this case.  SCTP_CMD_NEW_ASOC
+> was never issued.  The sequence was:
+>      SCTP_CMD_SET_ASOC
+>      SCTP_CMD_DELETE_TCB
+>
+> Such association would never be found through /proc since it was never
+> hashed.  Such association would never be found the user since it
+> is only really alive while the packet is processed.  By all rights
+> it should be marked as 'temp', but it isn't due to cookie processing.
+>
+> May be we should update cookie processing function to allow it
+> to create temp associations if so desired.
 
-> Seriously, though, how much does it matter?  All the above seems likely
-> to do is to drown the signal by adding noise.
+Yes, I think that might be the better way to move on.
 
-I don't think so.
-
-> 
-> If the parallel (threaded) checksumming is faster, which theory says it
-> should and microbenchmarking confirms, how important are the
-> macrobenchmarks?
-
-Seriously, micro benchmarks are very misleading.
-
-I spent time on this patch, and found no changes on real workloads.
-
-I was excited first, then disappointed.
-
-I hope we will find the real issue, as I really don't care of micro
-benchmarks.
+> -vlad
