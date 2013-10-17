@@ -1,53 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: GRE forwarding not working with 3.10.x, WCCPv2 and
- Cisco 7200 Router showing IP0 bad-hlen 4 in tcpdump
-Date: Thu, 17 Oct 2013 06:44:24 -0700
-Message-ID: <1382017464.2045.149.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1381912513.57737.YahooMailNeo@web172002.mail.ir2.yahoo.com>
-	 <1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1382007190.35868.YahooMailNeo@web172006.mail.ir2.yahoo.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes down
+Date: Thu, 17 Oct 2013 17:43:21 +0400
+Message-ID: <525FE979.3010109@cogentembedded.com>
+References: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Peter Schmitt <peter.schmitt82@yahoo.de>
+Cc: netdev@vger.kernel.org
+To: Kristian Evensen <kristian.evensen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:65095 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755305Ab3JQNo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 09:44:26 -0400
-Received: by mail-pb0-f41.google.com with SMTP id rp16so2337055pbb.28
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 06:44:25 -0700 (PDT)
-In-Reply-To: <1382007190.35868.YahooMailNeo@web172006.mail.ir2.yahoo.com>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:42570 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755034Ab3JQNoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 09:44:25 -0400
+Received: by mail-lb0-f178.google.com with SMTP id z5so1971708lbh.9
+        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 06:44:24 -0700 (PDT)
+In-Reply-To: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-17 at 11:53 +0100, Peter Schmitt wrote:
-> Hi,
-> 
-> 
-> > 
-> > 3.10 is buggy (for ETH_P_WCCP support I mean), 3.11 has the probable
-> > fix :
-> > 
-> > commit 3d7b46cd20e300bd6989fb1f43d46f1b9645816e
-> > ("ip_tunnel: push generic protocol handling to ip_tunnel module.")
-> > 
-> > The problem is 3.10 do not pull the extra 4 bytes of WCCP
-> > 
-> > This is now properly done in iptunnel_pull_header()
-> > 
-> 
-> First of all, many thanks for your help on this.
-> 
-> I tried to apply the fix to the 3.10.16 sources, as I would like to
-> stay with the long-term line. Unfortunately it does not apply, as
-> there are a lot of dependencies on other patches.
-> 
-> Do you think there will be a fix for the long-time 3.10 kernel line?
-> Or can you guide me on how to apply this fix to the long-term kernel?
+Hello.
 
-3.10 is right in the middle of GRE refactoring, and many bugs are in it.
+On 17-10-2013 15:13, Kristian Evensen wrote:
 
-It might be very painful to get a complete list of patches to backport.
+> From: Kristian Evensen <kristian.evensen@gmail.com>
+
+> When a link is set as down using for example "ip link set dev X down", routes
+> are deleted, but RTM_DELROUTE messages are not sent to RTNLGRP_IPV4_ROUTE. This
+> patch makes trie_flush_list() send a RTM_DELROUTE for each route that is
+> removed, and makes rtnelink route deletion behavior consistent across commands.
+> The parameter lists for trie_flush_list() and trie_flush_leaf() are expanded to
+> include required information otherwise unavailable in trie_flush_list().
+
+> One use case that is simplified by this patch is IPv4 WAN connection monitoring.
+> Instead of listening for and handling both RTM_*ROUTE and RTM_*LINK-messages, it
+> is sufficient to handle RTM_*ROUTE.
+
+> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+
+> ---
+>   net/ipv4/fib_trie.c | 16 ++++++++++++----
+>   1 file changed, 12 insertions(+), 4 deletions(-)
+
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index ec9a9ef..acd5b3b 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -1698,15 +1698,23 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+>   	return 0;
+>   }
+>
+> -static int trie_flush_list(struct list_head *head)
+> +static int trie_flush_list(struct list_head *head, u32 tb_id, t_key key,
+> +		int plen)
+
+    The continuation line should start right under *struct* on the first line, 
+according to the networking coding style.
+
+>   {
+>   	struct fib_alias *fa, *fa_node;
+>   	int found = 0;
+> +	struct nl_info cfg;
+> +
+> +	memset(&cfg, 0, sizeof(cfg));
+>
+>   	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
+>   		struct fib_info *fi = fa->fa_info;
+>
+>   		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
+> +			cfg.nl_net = fi->fib_net;
+> +			rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb_id,
+> +					&cfg, 0);
+
+    Here the line should start right under RTM_DELROUTE.
+
+WBR, Sergei
