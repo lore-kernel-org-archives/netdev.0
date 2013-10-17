@@ -1,13 +1,9 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v3 5/9] net: introduce new macro net_get_random_once
-Date: Thu, 17 Oct 2013 07:31:59 +0200
-Message-ID: <1381987923-1524-6-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 1/9] ipv4: split inet_ehashfn to hash functions per compilation unit
+Date: Thu, 17 Oct 2013 07:31:55 +0200
+Message-ID: <1381987923-1524-2-git-send-email-hannes@stressinduktion.org>
 References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
-Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Jason Baron <jbaron@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Eric Dumazet <edumazet@google.com>,
+Cc: linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,190 +11,146 @@ In-Reply-To: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_get_random_once is a new macro which handles the initialization
-of secret keys. It is possible to call it in the fast path. Only the
-initialization depends on the spinlock and is rather slow. Otherwise
-it should get used just before the key is used to delay the entropy
-extration as late as possible to get better randomness. It returns true
-if the key got initialized.
+This duplicates a bit of code but let's us easily introduce
+separate secret keys later. The separate compilation units are
+ipv4/inet_hashtabbles.o, ipv4/udp.o and rds/connection.o.
 
-The usage of static_keys for net_get_random_once is a bit uncommon so
-it needs some further explanation why this actually works:
-
-=== In the simple non-HAVE_JUMP_LABEL case we actually have ===
-no constrains to use static_key_(true|false) on keys initialized with
-STATIC_KEY_INIT_(FALSE|TRUE). So this path just expands in favor of
-the likely case that the initialization is already done. The key is
-initialized like this:
-
-___done_key = { .enabled = ATOMIC_INIT(0) }
-
-The check
-
-                if (!static_key_true(&___done_key))                     \
-
-expands into (pseudo code)
-
-                if (!likely(___done_key > 0))
-
-, so we take the fast path as soon as ___done_key is increased from the
-helper function.
-
-=== If HAVE_JUMP_LABELs are available this depends ===
-on patching of jumps into the prepared NOPs, which is done in
-jump_label_init at boot-up time (from start_kernel). It is forbidden
-and dangerous to use net_get_random_once in functions which are called
-before that!
-
-At compilation time NOPs are generated at the call sites of
-net_get_random_once. E.g. net/ipv6/inet6_hashtable.c:inet6_ehashfn (we
-need to call net_get_random_once two times in inet6_ehashfn, so two NOPs):
-
-      71:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
-      76:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
-
-Both will be patched to the actual jumps to the end of the function to
-call __net_get_random_once at boot time as explained above.
-
-arch_static_branch is optimized and inlined for false as return value and
-actually also returns false in case the NOP is placed in the instruction
-stream. So in the fast case we get a "return false". But because we
-initialize ___done_key with (enabled != (entries & 1)) this call-site
-will get patched up at boot thus returning true. The final check looks
-like this:
-
-                if (!static_key_true(&___done_key))                     \
-                        ___ret = __net_get_random_once(buf,             \
-
-expands to
-
-                if (!!static_key_false(&___done_key))                     \
-                        ___ret = __net_get_random_once(buf,             \
-
-So we get true at boot time and as soon as static_key_slow_inc is called
-on the key it will invert the logic and return false for the fast path.
-static_key_slow_inc will change the branch because it got initialized
-with .enabled == 0. After static_key_slow_inc is called on the key the
-branch is replaced with a nop again.
-
-=== Misc: ===
-The helper defers the increment into a workqueue so we don't
-have problems calling this code from atomic sections. A seperate boolean
-(___done) guards the case where we enter net_get_random_once again before
-the increment happend.
-
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Jason Baron <jbaron@redhat.com>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-I tested this patchset with !CC_HAVE_ASM_GOTO and with CC_HAVE_ASM_GOTO
-on x86_64.
+ include/net/inet_sock.h    | 22 ++++++----------------
+ net/ipv4/inet_hashtables.c | 21 +++++++++++++++++++++
+ net/ipv4/udp.c             | 16 ++++++++++++----
+ net/rds/connection.c       |  6 +++---
+ 4 files changed, 42 insertions(+), 23 deletions(-)
 
-I quickly reviewed that all architectures which implement HAVE_JUMP_LABEL
-also patch all branch sites on boot-up. But this needs further review
-as this is a security sensitive patch series.
-
-Thank you!
-
- include/linux/net.h | 25 +++++++++++++++++++++++++
- net/core/utils.c    | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index ca9ec85..a489705 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -239,6 +239,31 @@ do {								\
- #define net_random()		prandom_u32()
- #define net_srandom(seed)	prandom_seed((__force u32)(seed))
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 06da91e..7a6c7f8 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -208,26 +208,16 @@ extern u32 inet_ehash_secret;
+ extern u32 ipv6_hash_secret;
+ void build_ehash_secret(void);
  
-+bool __net_get_random_once(void *buf, int nbytes, bool *done,
-+			   struct static_key *done_key);
-+
-+#ifdef HAVE_JUMP_LABEL
-+#define ___NET_RANDOM_STATIC_KEY_INIT ((struct static_key) \
-+		{ .enabled = ATOMIC_INIT(0), .entries = (void *)1 })
-+#else /* !HAVE_JUMP_LABEL */
-+#define ___NET_RANDOM_STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
-+#endif /* HAVE_JUMP_LABEL */
-+
-+/* BE CAREFUL: this function is not interrupt safe */
-+#define net_get_random_once(buf, nbytes)				\
-+	({								\
-+		bool ___ret = false;					\
-+		static bool ___done = false;				\
-+		static struct static_key ___done_key =			\
-+			___NET_RANDOM_STATIC_KEY_INIT;			\
-+		if (!static_key_true(&___done_key))			\
-+			___ret = __net_get_random_once(buf,		\
-+						       nbytes,		\
-+						       &___done,	\
-+						       &___done_key);	\
-+		___ret;							\
-+	})
-+
- int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
- 		   size_t num, size_t len);
- int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct kvec *vec,
-diff --git a/net/core/utils.c b/net/core/utils.c
-index aa88e23..bf09371 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -338,3 +338,51 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
- 				  csum_unfold(*sum)));
+-static inline unsigned int inet_ehashfn(struct net *net,
+-					const __be32 laddr, const __u16 lport,
+-					const __be32 faddr, const __be16 fport)
++static inline unsigned int __inet_ehashfn(const __be32 laddr,
++					  const __u16 lport,
++					  const __be32 faddr,
++					  const __be16 fport,
++					  u32 initval)
+ {
+ 	return jhash_3words((__force __u32) laddr,
+ 			    (__force __u32) faddr,
+ 			    ((__u32) lport) << 16 | (__force __u32)fport,
+-			    inet_ehash_secret + net_hash_mix(net));
+-}
+-
+-static inline int inet_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const __be32 laddr = inet->inet_rcv_saddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be32 faddr = inet->inet_daddr;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet_ehashfn(net, laddr, lport, faddr, fport);
++			    initval);
  }
- EXPORT_SYMBOL(inet_proto_csum_replace16);
-+
-+struct __net_random_once_work {
-+	struct work_struct work;
-+	struct static_key *key;
-+};
-+
-+static void __net_random_once_deferred(struct work_struct *w)
+ 
+ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops)
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index a4b66bb..18aa668 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -24,6 +24,27 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
 +{
-+	struct __net_random_once_work *work =
-+		container_of(w, struct __net_random_once_work, work);
-+	if (!static_key_enabled(work->key))
-+		static_key_slow_inc(work->key);
-+	kfree(work);
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
 +}
 +
-+static void __net_random_once_disable_jump(struct static_key *key)
++
++static unsigned int inet_sk_ehashfn(const struct sock *sk)
 +{
-+	struct __net_random_once_work *w;
++	const struct inet_sock *inet = inet_sk(sk);
++	const __be32 laddr = inet->inet_rcv_saddr;
++	const __u16 lport = inet->inet_num;
++	const __be32 faddr = inet->inet_daddr;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
 +
-+	w = kmalloc(sizeof(*w), GFP_ATOMIC);
-+	if (!w)
-+		return;
-+
-+	INIT_WORK(&w->work, __net_random_once_deferred);
-+	w->key = key;
-+	schedule_work(&w->work);
++	return inet_ehashfn(net, laddr, lport, faddr, fport);
 +}
 +
-+bool __net_get_random_once(void *buf, int nbytes, bool *done,
-+			   struct static_key *done_key)
+ /*
+  * Allocate and initialize a new local port bind bucket.
+  * The bindhash mutex for snum's hash chain must be held here.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 9f27bb8..b4437c7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -407,6 +407,14 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+ 	return score;
+ }
+ 
++static unsigned int udp_ehashfn(struct net *net, const __be32 laddr,
++				 const __u16 lport, const __be32 faddr,
++				 const __be16 fport)
 +{
-+	static DEFINE_SPINLOCK(lock);
-+
-+	spin_lock_bh(&lock);
-+	if (*done) {
-+		spin_unlock_bh(&lock);
-+		return false;
-+	}
-+
-+	get_random_bytes(buf, nbytes);
-+	*done = true;
-+	spin_unlock_bh(&lock);
-+
-+	__net_random_once_disable_jump(done_key);
-+
-+	return true;
++	return __inet_ehashfn(laddr, lport, faddr, fport,
++			      inet_ehash_secret + net_hash_mix(net));
 +}
-+EXPORT_SYMBOL(__net_get_random_once);
++
+ 
+ /* called with read_rcu_lock() */
+ static struct sock *udp4_lib_lookup2(struct net *net,
+@@ -430,8 +438,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+@@ -511,8 +519,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, sport);
++				hash = udp_ehashfn(net, daddr, hnum,
++						   saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 642ad42..45e2366 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -52,9 +52,9 @@ static struct kmem_cache *rds_conn_slab;
+ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
+ {
+ 	/* Pass NULL, don't need struct net for hash */
+-	unsigned long hash = inet_ehashfn(NULL,
+-					  be32_to_cpu(laddr), 0,
+-					  be32_to_cpu(faddr), 0);
++	unsigned long hash = __inet_ehashfn(be32_to_cpu(laddr), 0,
++					    be32_to_cpu(faddr), 0,
++					    inet_ehash_secret);
+ 	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
+ }
+ 
 -- 
 1.8.3.1
