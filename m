@@ -1,50 +1,92 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH net-next v4 0/5] xen-netback: IPv6 offload
- support
-Date: Thu, 17 Oct 2013 08:42:05 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD013B6BE@AMSPEX01CL01.citrite.net>
-References: <1381503982-1418-1-git-send-email-paul.durrant@citrix.com>
-	 <1381940401.30409.9.camel@kazak.uk.xensource.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD013B267@AMSPEX01CL01.citrite.net>
- <1381942838.30409.26.camel@kazak.uk.xensource.com>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
+ beyond the range time_after_eq().
+Date: Thu, 17 Oct 2013 17:02:23 +0800
+Message-ID: <525FA79F.8060601@oracle.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com> <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: david.vrabel@citrix.com, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, xen-devel@lists.xenproject.org,
+	annie.li@oracle.com, netdev@vger.kernel.org
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:54133 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681Ab3JQIm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 04:42:28 -0400
-In-Reply-To: <1381942838.30409.26.camel@kazak.uk.xensource.com>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:39976 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137Ab3JQJCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 05:02:36 -0400
+In-Reply-To: <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMTYgT2N0b2JlciAyMDEzIDE4OjAxDQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IHhlbi1k
-ZXZlbEBsaXN0cy54ZW4ub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJl
-OiBbWGVuLWRldmVsXSBbUEFUQ0ggbmV0LW5leHQgdjQgMC81XSB4ZW4tbmV0YmFjazogSVB2NiBv
-ZmZsb2FkDQo+IHN1cHBvcnQNCj4gDQo+IE9uIFdlZCwgMjAxMy0xMC0xNiBhdCAxNzo1MyArMDEw
-MCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-Cj4gPiA+IEZyb206IElhbiBDYW1wYmVsbA0KPiA+ID4gU2VudDogMTYgT2N0b2JlciAyMDEzIDE3
-OjIwDQo+ID4gPiBUbzogUGF1bCBEdXJyYW50DQo+ID4gPiBDYzogeGVuLWRldmVsQGxpc3RzLnhl
-bi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBbWGVuLWRl
-dmVsXSBbUEFUQ0ggbmV0LW5leHQgdjQgMC81XSB4ZW4tbmV0YmFjazogSVB2Ng0KPiBvZmZsb2Fk
-DQo+ID4gPiBzdXBwb3J0DQo+ID4gPg0KPiA+ID4gT24gRnJpLCAyMDEzLTEwLTExIGF0IDE2OjA2
-ICswMTAwLCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+ID4gPiA+IFRoaXMgcGF0Y2ggc2VyaWVzIGFk
-ZHMgc3VwcG9ydCBmb3IgY2hlY2tzdW0gYW5kIGxhcmdlIHBhY2tldCBvZmZsb2Fkcw0KPiBpbnRv
-DQo+ID4gPiA+IHhlbi1uZXRiYWNrLg0KPiA+ID4gPiBUZXN0aW5nIGhhcyBtYWlubHkgYmVlbiBk
-b25lIHVzaW5nIHRoZSBNaWNyb3NvZnQgbmV0d29yayBoYXJkd2FyZQ0KPiA+ID4gPiBjZXJ0aWZp
-Y2F0aW9uIHN1aXRlIHJ1bm5pbmcgaW4gU2VydmVyIDIwMDhSMiBWTXMgd2l0aCBDaXRyaXggUFYN
-Cj4gZnJvbnRlbmRzLg0KPiA+ID4NCj4gPiA+IEFyZSB0aGVyZSBhbnkgTGludXggbmV0ZnJvbnQg
-cGF0Y2hlcyBpbiBleGlzdGVuY2UvdGhlIHBpcGVsaW5lIHRvIHRha2UNCj4gPiA+IGFkdmFudGFn
-ZSBvZiB0aGlzPw0KPiA+ID4NCj4gPg0KPiA+IEkgd2FzIHdhaXRpbmcgZm9yIHRoZSBiYWNrZW5k
-IHBhdGNoZXMgdG8gYmUgYWNjZXB0ZWQgZmlyc3QgOy0pDQo+IA0KPiBJIHRoaW5rIGl0IHdvdWxk
-IGJlIHVzZWZ1bCB0byBnZXQgZXQgbGVhc3QgYW4gUkZDIHNvIG90aGVycyBjYW4gdHJ5IGl0DQo+
-IGV0Yy4NCj4gDQoNCldlbGwsIGV2ZXJ5b25lIGNhbiBidWlsZCBhbmQgdXNlIHRoZSBXaW5kb3dz
-IGZyb250ZW5kIDotKSAoaHR0cHM6Ly9naXRodWIuY29tL3hlbnNlcnZlci93aW4teGVudmlmL3Ry
-ZWUvdXBzdHJlYW0pDQoNCkknbGwgdHJ5IHRvIGhhY2sgdXAgc29tZXRoaW5nIGluIHhlbi1uZXRm
-cm9udCBzb29uLg0KDQogIFBhdWwNCg==
+
+On 2013-10-17 16:26, Jan Beulich wrote:
+>>>> On 16.10.13 at 19:22, Jason Luan <jianhai.luan@oracle.com> wrote:
+>> time_after_eq() only works if the delta is < MAX_ULONG/2.
+>>
+>> If netfront sends at a very low rate, the time between subsequent calls
+>> to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
+>> timer_after_eq() will be incorrect.  Credit will not be replenished and
+>> the guest may become unable to send (e.g., if prior to the long gap, all
+>> credit was exhausted).
+>>
+>> We should add the scenario which now beyond next_credit+MAX_UNLONG/2. Because
+>> the fact now must be not before than expire, time_before(now, expire) == true
+>> will verify the scenario.
+>>      time_after_eq(now, next_credit) || time_before (now, expire)
+>>      ==
+>>      !time_in_range_open(now, expire, next_credit)
+> So first of all this must be with a 32-bit netback. And the not
+> coverable gap between activity is well over 240 days long. _If_
+> this really needs dealing with, then why is extending this from
+> 240+ to 480+ days sufficient? I.e. why don't you simply
+> change to 64-bit jiffy values, and use time_after_eq64()?
+
+Yes, the issue only can be  reproduced in 32-bit Dom0 (Beyond 
+MAX_ULONG/2 in 64-bit will need long long time)
+
+I think the gap should be think all environment even now extending 480+. 
+if now fall in the gap,  one timer will be pending and replenish will be 
+in time.  Please run the attachment test program.
+
+If use time_after_eq64(), expire ,next_credit and other member will must 
+be u64.
+>
+> Jan
+>
+>> Signed-off-by: Jason Luan <jianhai.luan@oracle.com>
+>> ---
+>>   drivers/net/xen-netback/netback.c |    7 +++++--
+>>   1 files changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/netback.c
+>> b/drivers/net/xen-netback/netback.c
+>> index f3e591c..31eedaf 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -1194,8 +1194,11 @@ static bool tx_credit_exceeded(struct xenvif *vif,
+>> unsigned size)
+>>   	if (timer_pending(&vif->credit_timeout))
+>>   		return true;
+>>   
+>> -	/* Passed the point where we can replenish credit? */
+>> -	if (time_after_eq(now, next_credit)) {
+>> +	/* Credit should be replenished when now does not fall into the
+>> +	 * range from expires to next_credit, and time_in_range_open()
+>> +	 * is used to verify whether this case happens.
+>> +	 */
+>> +	if (!time_in_range_open(now, vif->credit_timeout.expires, next_credit)) {
+>>   		vif->credit_timeout.expires = now;
+>>   		tx_add_credit(vif);
+>>   	}
+>> -- 
+>> 1.7.6.5
+>>
+>>
+>> _______________________________________________
+>> Xen-devel mailing list
+>> Xen-devel@lists.xen.org
+>> http://lists.xen.org/xen-devel
+>
+>
