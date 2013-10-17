@@ -1,52 +1,92 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.43 0/5] MPLS actions and matches
-Date: Thu, 17 Oct 2013 09:56:31 +0900
-Message-ID: <20131017005631.GE21728@verge.net.au>
-References: <1381132847-12589-1-git-send-email-horms@verge.net.au>
- <20131010003139.GA20311@verge.net.au>
- <20131016035530.GA29165@nicira.com>
- <CAEP_g=-yCas_3MRY0VrP-W6hOi4wRYNW7=8HEB0GYOp--WU60A@mail.gmail.com>
- <20131016204743.GB4526@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
+Subject: [PATCH v2.44 4/5] datapath: Break out deacceleration portion of vlan_push
+Date: Thu, 17 Oct 2013 10:15:10 +0900
+Message-ID: <1381972511-27221-5-git-send-email-horms@verge.net.au>
+References: <1381972511-27221-1-git-send-email-horms@verge.net.au>
+Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
 	Isaku Yamahata <yamahata@valinux.co.jp>,
 	Joe Stringer <joe@wand.net.nz>
-To: Ben Pfaff <blp@nicira.com>
+To: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60200 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:59862 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761379Ab3JQA4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 20:56:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20131016204743.GB4526@nicira.com>
+	with ESMTP id S1761651Ab3JQBPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 21:15:20 -0400
+In-Reply-To: <1381972511-27221-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 01:47:43PM -0700, Ben Pfaff wrote:
-> On Wed, Oct 16, 2013 at 01:21:22PM -0700, Jesse Gross wrote:
-> > On Tue, Oct 15, 2013 at 8:55 PM, Ben Pfaff <blp@nicira.com> wrote:
-> > > On Thu, Oct 10, 2013 at 09:31:41AM +0900, Simon Horman wrote:
-> > >> I believe this series addresses the feedback that each of you
-> > >> gave with regards to recent previous postings of this patch-set.
-> > >> I'm wondering if you could find some time to review it.
-> > >
-> > > I'm waiting for an ack from Jesse, then I'm going to do a final pass and
-> > > I hope to commit this series at this point.  I see some ways that we can
-> > > improve MPLS support afterward but I don't see any blockers.
-> > 
-> > I guess that we had a deadlock as I was waiting for you. I though that
-> > maybe you would commit the rest of the userspace patches and then I
-> > would just pick up the last two.
-> 
-> Ah, OK.
-> 
-> I will do this, then, after a final pass.
+Break out deacceleration portion of vlan_push into vlan_put
+so that it may be re-used by mpls_push.
 
-I have noticed a minor problem in the first patch of v2.43
-and I have also noticed that it no longer applies on top of master.
-I have prepared v2.44 and will send it shortly.
+For both vlan_push and mpls_push if there is an accelerated VLAN tag
+present then it should be deaccelerated, adding it to the data of
+the skb, before the new tag is added.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+
+v2.41 - v2.44
+* No change
+
+v2.40
+* As suggested by Jesse Gross
+  + Simplify vlan_push by returning an error code
+    rather than an error code encoded as a struct xkb_buff *
+
+v2.39
+* First post
+---
+ datapath/actions.c | 29 +++++++++++++++++++----------
+ 1 file changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/datapath/actions.c b/datapath/actions.c
+index 30ea1d2..d961e5d 100644
+--- a/datapath/actions.c
++++ b/datapath/actions.c
+@@ -105,22 +105,31 @@ static int pop_vlan(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++/* push down current VLAN tag */
++static int put_vlan(struct sk_buff *skb)
+ {
+-	if (unlikely(vlan_tx_tag_present(skb))) {
+-		u16 current_tag;
++	u16 current_tag = vlan_tx_tag_get(skb);
+ 
+-		/* push down current VLAN tag */
+-		current_tag = vlan_tx_tag_get(skb);
++	if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
++		return -ENOMEM;
+ 
+-		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+-			return -ENOMEM;
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(skb->data
++				+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+ 
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	return 0;
++}
+ 
++static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++{
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		int err;
++
++		err = put_vlan(skb);
++		if (unlikely(err))
++			return err;
+ 	}
++
+ 	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ 	return 0;
+ }
+-- 
+1.8.4
