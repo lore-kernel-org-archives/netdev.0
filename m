@@ -1,97 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: unix: inherit SOCK_PASS{CRED,SEC} flags from socket to fix race
-Date: Thu, 17 Oct 2013 22:51:31 +0200
-Message-ID: <5c4eda258a6d7397a180ca72562b0ce5d87beda1.1382042286.git.dborkman@redhat.com>
-References: <cover.1382042286.git.dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: davem@davemloft.net
+From: undp_chevronpetroleum1@rediffmail.com
+Subject: =?ISO-8859-1?Q?Ofici=E1ln=ED?=
+ =?ISO-8859-1?Q?_vyhl=E1=3Fen=ED_OZN=C1MEN=CD?=
+Date: Thu, 17 Oct 2013 13:16:40 -0700
+Message-ID: <web-364510333@mx2.radiant.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15339 "EHLO mx1.redhat.com"
+Received: from mx2.radiant.net ([216.21.138.129]:49592 "EHLO mx2.radiant.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762564Ab3JQUvg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 16:51:36 -0400
-In-Reply-To: <cover.1382042286.git.dborkman@redhat.com>
+	id S1758245Ab3JQVQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 17:16:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case of credentials passing in unix stream sockets (dgram
-sockets seem not affected), we get a rather sparse race after
-commit 16e5726 ("af_unix: dont send SCM_CREDENTIALS by default").
+&#268;=EDslo ?ar?e : ( UK- 209-634 , E- 931-51 )
+Ofici=E1ln=ED vyhl=E1?en=ED OZN=C1MEN=CD
 
-We have a stream server on receiver side that requests credential
-passing from senders (e.g. nc -U). Since we need to set SO_PASSCRED
-on each spawned/accepted socket on server side to 1 first (as it's
-not inherited), it can happen that in the time between accept() and
-setsockopt() we get interrupted, the sender is being scheduled and
-continues with passing data to our receiver. At that time SO_PASSCRED
-is neither set on sender nor receiver side, hence in cmsg's
-SCM_CREDENTIALS we get eventually pid:0, uid:65534, gid:65534
-(== overflow{u,g}id) instead of what we actually would like to see.
+To je V=E1m ozn=E1mit, ?e jste byl vybr=E1n pro pen&#283;?n=ED cenu
+1,600,000.00 GB kilo mezin=E1rodn=EDch program&#367; uskute&#269;&#328;=
+ovan=FDch na 15.&#345;=EDjna
+2013 ve Spojen=E9m kr=E1lovstv=ED Chevron ropy / OSN o rozvoj
+Program ( UNDP) Chcete-li zah=E1jit zpracov=E1n=ED va?=ED cenu jste kon=
+taktovat
+va?e n=E1roky d&#367;stojn=EDk prost&#345;ednictv=EDm na?ich akreditova=
+n=FDch agent&#367; Prize P&#345;enos jak je uvedeno
+n=ED?e :
 
-On the sender side, here nc -U, the tests in maybe_add_creds()
-invoked through unix_stream_sendmsg() would fail, as at that exact
-time, as mentioned, the sender has neither SO_PASSCRED on his side
-nor sees it on the server side, and we have a valid 'other' socket
-in place. Thus, sender believes it would just look like a normal
-connection, not needing/requesting SO_PASSCRED at that time.
+Mr.D. Matt
+Organizace spojen=FDch n=E1rod&#367; Komplexn=ED
+PE9 2YP , Lond=FDn
+Spojen=E9 kr=E1lovstv=ED
+E- mail: derickmatt@googlemail.com
 
-As reverting 16e5726 would not be an option due to the significant
-performance regression reported when having creds always passed,
-one way/trade-off to prevent that would be to set SO_PASSCRED on
-the listener socket and allow inheriting these flags to the spawned
-socket on server side in accept(). It seems also logical to do so
-if we'd tell the listener socket to pass those flags onwards, and
-would fix the race.
+Kontaktujte jej , a poskytne mu na tajnou PIN k=F3du x5pukg2013 a
+Va?e referen&#269;n=ED &#269;=EDslo pro UNDP : 62082013EA-UK/21 . Tak=E9=
+ se V=E1m doporu&#269;uje
+aby mu na z=E1klad&#283; uveden=FDch informac=ED, co nejd&#345;=EDve :
 
-Before, strace:
+N=C1ROK PO?ADAVEK :
+1.Name v pln=E9 v=FD?i : , 2.Address : , 3.Phone/Fax : ,
 
-recvmsg(4, {msg_name(0)=NULL, msg_iov(1)=[{"blub\n", 4096}],
-        msg_controllen=32, {cmsg_len=28, cmsg_level=SOL_SOCKET,
-        cmsg_type=SCM_CREDENTIALS{pid=0, uid=65534, gid=65534}},
-        msg_flags=0}, 0) = 5
 
-After, strace:
+S pozdravem ,
 
-recvmsg(4, {msg_name(0)=NULL, msg_iov(1)=[{"blub\n", 4096}],
-        msg_controllen=32, {cmsg_len=28, cmsg_level=SOL_SOCKET,
-        cmsg_type=SCM_CREDENTIALS{pid=11580, uid=1000, gid=1000}},
-        msg_flags=0}, 0) = 5
+Mrs.Tulise hn&#283;d=E1
+Program Coordinator
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
----
- net/unix/af_unix.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 86de99a..c1f403b 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1246,6 +1246,15 @@ static int unix_socketpair(struct socket *socka, struct socket *sockb)
- 	return 0;
- }
- 
-+static void unix_sock_inherit_flags(const struct socket *old,
-+				    struct socket *new)
-+{
-+	if (test_bit(SOCK_PASSCRED, &old->flags))
-+		set_bit(SOCK_PASSCRED, &new->flags);
-+	if (test_bit(SOCK_PASSSEC, &old->flags))
-+		set_bit(SOCK_PASSSEC, &new->flags);
-+}
-+
- static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
- {
- 	struct sock *sk = sock->sk;
-@@ -1280,6 +1289,7 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
- 	/* attach accepted sock to socket */
- 	unix_state_lock(tsk);
- 	newsock->state = SS_CONNECTED;
-+	unix_sock_inherit_flags(sock, newsock);
- 	sock_graft(tsk, newsock);
- 	unix_state_unlock(tsk);
- 	return 0;
--- 
-1.8.3.1
+POZN=C1MKA: Chci, abyste v&#283;d&#283;li, ?e m=E1me t&#345;i ?&#357;as=
+tn=E9 v=FDherce v &#268;esk=E9 republice se stalo, ?e jeden z nich
+bude i rady, kter=E9 byste se obr=E1tit na v=FD?e uveden=E9 tvrzen=ED d=
+&#367;stojn=EDka co nejd&#345;=EDve .
