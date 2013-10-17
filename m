@@ -1,99 +1,103 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next] {selinux, af_key} Rework pfkey_sadb2xfrm_user_sec_ctx
-Date: Thu, 17 Oct 2013 09:34:53 +0800
-Message-ID: <525F3EBD.80406@windriver.com>
-References: <1381904114-29556-1-git-send-email-fan.du@windriver.com> <1541456.gnvYckRYYL@sifl>
+From: <gregkh@linuxfoundation.org>
+Subject: patch "ssb: convert bus code to use dev_groups" added to driver-core tree
+Date: Wed, 16 Oct 2013 18:39:19 -0700
+Message-ID: <1381973959182@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: text/plain; charset=ASCII
+Content-Transfer-Encoding: 8bit
+To: gregkh@linuxfoundation.org, m@bues.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:41622 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761285Ab3JQBhC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 21:37:02 -0400
-In-Reply-To: <1541456.gnvYckRYYL@sifl>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:38669 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760887Ab3JQBj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Oct 2013 21:39:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+This is a note to let you know that I've just added the patch titled
 
-On 2013=E5=B9=B410=E6=9C=8816=E6=97=A5 23:15, Paul Moore wrote:
-> On Wednesday, October 16, 2013 02:15:14 PM Fan Du wrote:
->> Taking advantages of sadb_x_sec_ctx and xfrm_user_sec_ctx share the =
-same
->> structure arrangement, rework pfkey_sadb2xfrm_user_sec_ctx by castin=
-g
->> sadb_x_sec_ctx into xfrm_user_sec_ctx with minor len fix.
->>
->> Then we can:
->>   -Avoid kmalloc/free memory for xfrm_user_sec_ctx, sadb_x_sec_ctx w=
-ould be
->>    fine.
->>   -Fix missing return value check bug for pfkey_compile_policy when
->>    kmalloc fails
->>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> ---
->>   net/key/af_key.c |   33 +--------------------------------
->>   1 file changed, 1 insertion(+), 32 deletions(-)
->>
->> diff --git a/net/key/af_key.c b/net/key/af_key.c
->> index 9d58537..c7d304d 100644
->> --- a/net/key/af_key.c
->> +++ b/net/key/af_key.c
->> @@ -435,22 +435,9 @@ static inline int verify_sec_ctx_len(const void=
- *p)
->>
->>   static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_c=
-tx(const
->> struct sadb_x_sec_ctx *sec_ctx) {
->> -	struct xfrm_user_sec_ctx *uctx =3D NULL;
->> -	int ctx_size =3D sec_ctx->sadb_x_ctx_len;
->> -
->> -	uctx =3D kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
->> -
->> -	if (!uctx)
->> -		return NULL;
->> +	struct xfrm_user_sec_ctx *uctx =3D (struct xfrm_user_sec_ctx *)sec=
-_ctx;
->>
->>   	uctx->len =3D pfkey_sec_ctx_len(sec_ctx);
->> -	uctx->exttype =3D sec_ctx->sadb_x_sec_exttype;
->> -	uctx->ctx_doi =3D sec_ctx->sadb_x_ctx_doi;
->> -	uctx->ctx_alg =3D sec_ctx->sadb_x_ctx_alg;
->> -	uctx->ctx_len =3D sec_ctx->sadb_x_ctx_len;
->> -	memcpy(uctx + 1, sec_ctx + 1,
->> -	       uctx->ctx_len);
->> -
->>   	return uctx;
->>   }
->
-> The fact that you are now changing sadb_x_sec_ctx->sadb_x_sec_len whe=
-never
-> pfkey_sadb2xfrm_user_sec_ctx() is called raises an eyebrow.  Can you =
-elaborate
-> on why this is not a problem?
->
-Thanks for your attention, Paul.
+    ssb: convert bus code to use dev_groups
 
-sadb_x_sec_ctx is extra headers passed down from user space, the usage =
-of
-of this data structure falls down to one of pfkey_funcs function only f=
-or
-one time, more specifically speaking, it's only used by SELINUX for sec=
-urity
-checking for each operation. In other words, sadb_x_sec_ctx involves wi=
-th a
-one shot business here. So the original codes seems do a lots of extra =
-job
-which could easily be avoid using casting operation.
+to my driver-core git tree which can be found at
+    git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
+in the driver-core-next branch.
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+The patch will show up in the next release of the linux-next tree
+(usually sometime within the next 24 hours during the week.)
 
---fan
+The patch will also be merged in the next major kernel release
+during the merge window.
+
+If you have any questions about this process, please let me know.
+
+
+>From 4e9072d61695abcee201591ba9515a28bcb3bd33 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Sun, 6 Oct 2013 23:55:48 -0700
+Subject: ssb: convert bus code to use dev_groups
+
+The dev_attrs field of struct bus_type is going away soon, dev_groups
+should be used instead.  This converts the ssb bus code to use the
+correct field.
+
+Cc: Michael Buesch <m@bues.ch>
+Cc: <netdev@vger.kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/ssb/main.c | 25 ++++++++++++++-----------
+ 1 file changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index e55ddf7c..32a811d1 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -374,7 +374,8 @@ static ssize_t \
+ attrib##_show(struct device *dev, struct device_attribute *attr, char *buf) \
+ { \
+ 	return sprintf(buf, format_string, dev_to_ssb_dev(dev)->field); \
+-}
++} \
++static DEVICE_ATTR_RO(attrib);
+ 
+ ssb_config_attr(core_num, core_index, "%u\n")
+ ssb_config_attr(coreid, id.coreid, "0x%04x\n")
+@@ -387,16 +388,18 @@ name_show(struct device *dev, struct device_attribute *attr, char *buf)
+ 	return sprintf(buf, "%s\n",
+ 		       ssb_core_name(dev_to_ssb_dev(dev)->id.coreid));
+ }
+-
+-static struct device_attribute ssb_device_attrs[] = {
+-	__ATTR_RO(name),
+-	__ATTR_RO(core_num),
+-	__ATTR_RO(coreid),
+-	__ATTR_RO(vendor),
+-	__ATTR_RO(revision),
+-	__ATTR_RO(irq),
+-	__ATTR_NULL,
++static DEVICE_ATTR_RO(name);
++
++static struct attribute *ssb_device_attrs[] = {
++	&dev_attr_name.attr,
++	&dev_attr_core_num.attr,
++	&dev_attr_coreid.attr,
++	&dev_attr_vendor.attr,
++	&dev_attr_revision.attr,
++	&dev_attr_irq.attr,
++	NULL,
+ };
++ATTRIBUTE_GROUPS(ssb_device);
+ 
+ static struct bus_type ssb_bustype = {
+ 	.name		= "ssb",
+@@ -407,7 +410,7 @@ static struct bus_type ssb_bustype = {
+ 	.suspend	= ssb_device_suspend,
+ 	.resume		= ssb_device_resume,
+ 	.uevent		= ssb_device_uevent,
+-	.dev_attrs	= ssb_device_attrs,
++	.dev_groups	= ssb_device_groups,
+ };
+ 
+ static void ssb_buses_lock(void)
+-- 
+1.8.4.3.gca3854a
