@@ -1,130 +1,90 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
- side)
-Date: Thu, 17 Oct 2013 18:05:16 +0200
-Message-ID: <52600ABC.1030701@6wind.com>
-References: <1380854061-30091-1-git-send-email-yamato@redhat.com>	<20131008.152349.729447337097758010.davem@davemloft.net>	<20131008141337.1a8a556c@nehalam.linuxnetplumber.net>	<20131009165254.2e1c8332@nehalam.linuxnetplumber.net>	<87li22vv1w.fsf@xmission.com> <525D7109.4010004@6wind.com>	<87a9ias274.fsf@xmission.com> <525E659C.3000305@6wind.com> <87txghm1qw.fsf@xmission.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
+ beyond the range time_after_eq().
+Date: Fri, 18 Oct 2013 00:21:22 +0800
+Message-ID: <52600E82.1060604@oracle.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com> <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, yamato@redhat.com,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jason Luan <jianhai.luan@oracle.com>, david.vrabel@citrix.com,
+	ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:39231 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757703Ab3JQQFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 12:05:32 -0400
-Received: by mail-wg0-f49.google.com with SMTP id x12so2482784wgg.4
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 09:05:31 -0700 (PDT)
-In-Reply-To: <87txghm1qw.fsf@xmission.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:36021 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756151Ab3JQQVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 12:21:39 -0400
+In-Reply-To: <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/10/2013 21:53, Eric W. Biederman a =C3=A9crit :
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->
->> Le 15/10/2013 22:34, Eric W. Biederman a =C3=A9crit :
->
->>> For IFLA_NET_NS_FD not that I know of.
->>>
->>> Mostly it is doable but there are some silly cases.
->>> - Do we need to actually implement SCM_RIGHTS to prevent people
->>>     accepting file-descriptors unknowingly and hitting their file
->>>     descriptor limits.
->>>
->>>     In which case we need to call the attribute IFLA_NET_NS_SCM_FD
->>>     so we knew it was just an index into the passed file descriptor=
-s.n
->>>
->>> - Do we need an extra permission check to prevent keeping a network
->>>     namespace alive longer than necessary?  Aka there are some perm=
-ission
->>>     checks opening and bind mounting /proc/<pid>/ns/net do we need
->>>     a similar check.  Perhaps we would need to require CAP_NET_ADMI=
-N over
->>>     the target network namespace.
->>>
->>> Beyond that it is just the logistics to open what is essentially
->>> /proc/<pid>/ns/net and add it to the file descriptor table of the
->>> requesting process.  Exactly which mount of proc we are going to
->>> find the appropriate file to open I don't know.
->>>
->>> It isn't likely to be lots of code but it is code that the necessar=
-y
->>> infrastructure is not in place for, and a bunch of moderately hairy
->>> corner cases to deal with.
->> Got it. This doesn't seems the simpliest/best way to resolve this pb=
-=2E
->> Can we not introduce another identifier (something like IFLA_NET_NS_=
-ID),
->> which will not have such constraint?
->> inode is unique on the system, why not using it as an opaque value t=
-o
->> identitfy the netns (like 'ip netns identify' do)?
->
-> The age old question why can't we have global identifiers for
-> namespaces?
->
-> The answer is that I don't want to implement a namespace for namespac=
-es.
-Sorry, but I don't understand the problem. This ID is owned by the kern=
-el, like
-the netns list (for_each_net()) is owned by it.
 
+On 2013-10-17 16:26, Jan Beulich wrote:
+>>>> On 16.10.13 at 19:22, Jason Luan<jianhai.luan@oracle.com>  wrote:
+>> time_after_eq() only works if the delta is < MAX_ULONG/2.
+>>
+>> If netfront sends at a very low rate, the time between subsequent calls
+>> to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
+>> timer_after_eq() will be incorrect.  Credit will not be replenished and
+>> the guest may become unable to send (e.g., if prior to the long gap, all
+>> credit was exhausted).
+>>
+>> We should add the scenario which now beyond next_credit+MAX_UNLONG/2. Because
+>> the fact now must be not before than expire, time_before(now, expire) == true
+>> will verify the scenario.
+>>      time_after_eq(now, next_credit) || time_before (now, expire)
+>>      ==
+>>      !time_in_range_open(now, expire, next_credit)
+> So first of all this must be with a 32-bit netback. And the not
+> coverable gap between activity is well over 240 days long. _If_
+> this really needs dealing with, then why is extending this from
+> 240+ to 480+ days sufficient?
+
+I am not so sure your mean about extending from 240+ to 480+. Do you 
+mean "now" wrapped case happens and falls into the range of from expires 
+to next_credit? If this happens, the timer would be set with value based 
+on next_credit, which is actually implements the rate control.
+
+Thanks
+Annie
+> I.e. why don't you simply
+> change to 64-bit jiffy values, and use time_after_eq64()?
 >
-> While the proc inode does work today across different mounts of proc,=
- I
-> reserve the right at some future date (if it solves a technical probl=
-em)
-> to give each namespace a different inode number in each different mou=
-nt
-> of proc.  So the inode number is not quite the unique identifier you
-> want.  The inode number is a close as I am willing to get to a namesp=
-ace
-> of namespaces.
+> Jan
 >
-> I think the simplest solution is to just not worry about which namesp=
-ace
-> the other half of a veth pair is in.  But I have not encountered the
-> problem where I need to know exactly which namespace we are worrying
-> about.
-Ok, let's start by explaining our usecase.
-
-We are using namespaces only to implement virtual routers (VR), ie only
-the networking stack is virtualized. We don't care about other namespac=
-es, we
-just want to run several network stacks and beeing able to manage them.
-
-=46or example, providers use this feature to isolate clients, one VR is=
- opened
-for each client. You can have a large number of clients (+10 000) and t=
-hus the
-same number of netns.
-Considering these numbers, we don't want to run one instance per VR for=
- all of
-our network daemons, but have only one instance that manage all VR.
-
-You also have daemons that monitor the system and synchronize network o=
-bjects
-(interfaces, routes, etc.) on another linux. Goal is to implement an hi=
-gh
-availablity system: it's possible to switch to the other linux to avoid=
- service
-interruption.
-This kind of daemon wants to have the full information about interfaces=
- to be
-able to build/configure them on the other linux.
-
+>> Signed-off-by: Jason Luan<jianhai.luan@oracle.com>
+>> ---
+>>   drivers/net/xen-netback/netback.c |    7 +++++--
+>>   1 files changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/netback.c
+>> b/drivers/net/xen-netback/netback.c
+>> index f3e591c..31eedaf 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -1194,8 +1194,11 @@ static bool tx_credit_exceeded(struct xenvif *vif,
+>> unsigned size)
+>>   	if (timer_pending(&vif->credit_timeout))
+>>   		return true;
+>>   
+>> -	/* Passed the point where we can replenish credit? */
+>> -	if (time_after_eq(now, next_credit)) {
+>> +	/* Credit should be replenished when now does not fall into the
+>> +	 * range from expires to next_credit, and time_in_range_open()
+>> +	 * is used to verify whether this case happens.
+>> +	 */
+>> +	if (!time_in_range_open(now, vif->credit_timeout.expires, next_credit)) {
+>>   		vif->credit_timeout.expires = now;
+>>   		tx_add_credit(vif);
+>>   	}
+>> -- 
+>> 1.7.6.5
+>>
+>>
+>> _______________________________________________
+>> Xen-devel mailing list
+>> Xen-devel@lists.xen.org  
+>> http://lists.xen.org/xen-devel  
 >
-> Global identifiers are easy until you hit the cases where they make
-> things impossible.
-I don't want specially to use ID, but I fear that the solution with fil=
-e
-descriptors will be a nightmare.
-
-
-Nicolas
