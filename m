@@ -1,54 +1,43 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] sctp: Do not trigger BUG_ON when deleting assoc without
- primary path
-Date: Thu, 17 Oct 2013 20:25:39 +0200
-Message-ID: <52602BA3.5020405@redhat.com>
-References: <1382031042-27339-1-git-send-email-vyasevich@gmail.com> <526025F2.2040304@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2013-10-13
+Date: Thu, 17 Oct 2013 14:27:40 -0400 (EDT)
+Message-ID: <20131017.142740.1144850877979986678.davem@davemloft.net>
+References: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Mark Thomas <Mark.Thomas@metaswitch.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27522 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762426Ab3JQS0a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 14:26:30 -0400
-In-Reply-To: <526025F2.2040304@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45828 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758168Ab3JQS1m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 14:27:42 -0400
+In-Reply-To: <1381663381-626-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2013 08:01 PM, Daniel Borkmann wrote:
-> On 10/17/2013 07:30 PM, Vlad Yasevich wrote:
->> It is possible to enter sctp_cmd_delete_tcb() without having a
->> primary path.  The situations this most often happens in is
->> when duplication cookie processing is triggered.  In this
->> case, we are deleting a temporarily created association that
->> is not fully populated.   Additially, at the time we
->> are deleting the offending association, it is really too
->> late to issue a BUG!
->>
->> This was introduced by:
->> commit f9e42b853523cda0732022c2e0473c183f7aec65
->>     net: sctp: sideeffect: throw BUG if primary_path is NULL
->
-> Sure, lets remove it, but then we could still get a WARN() [sure,
-> better than BUG], if the user at the very same time checks procfs
-> through sctp_seq_dump_local_addrs(), see discussion we had here [1]:
->
->   It may trigger the crash later if the user performs some action on the
->   association that touches the primary. That's the reason why I was
->   proposing the checks below.
->
->   With the checks in command interpreter, we are only left with the
->   possibility that primary_path changes to NULL during the association
->   lifetime, which code audit doesn't support right now.  If that ever
->   changes we would at least have a bit more information to go on.
->
->   [1] http://patchwork.ozlabs.org/patch/251099/
+=46rom: Antonio Quartulli <antonio@meshcoding.com>
+Date: Sun, 13 Oct 2013 13:22:45 +0200
 
-Meaning, all I'm saying is that with f9e42b853 we wanted to find exactly
-such a case we have right now, that is, that an assoc could enter the
-hashtable w/o primary path, no?
+> this is our second pull request intended for net-next/linux-3.13.
+>=20
+> The most important piece in this patchset is the new packet fragmenta=
+tion code
+> implemented by Martin Hundeb=F8ll during his Google Summer of Code 20=
+12[1]. This
+> code is entirely substituting the current fragmentation mechanism.
+>=20
+> Other than this you have:
+> - the creation of a common BAT ICMP header which makes the ICMP subsy=
+stem more
+>   flexible and extensible
+> - the addition of a dummy rx mode handler for the soft-interface whic=
+h allows
+>   users to set static multicast listeners
+> - some minor improvements and code cleanups
+>=20
+>=20
+> Please pull or let me know of any problem.
+
+Pulled, thanks Antonio.
