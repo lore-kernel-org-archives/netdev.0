@@ -1,149 +1,170 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v3 3/9] static_key: WARN on usage before jump_label_init was called
-Date: Thu, 17 Oct 2013 07:31:57 +0200
-Message-ID: <1381987923-1524-4-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 2/9] ipv6: split inet6_ehashfn to hash functions per compilation unit
+Date: Thu, 17 Oct 2013 07:31:56 +0200
+Message-ID: <1381987923-1524-3-git-send-email-hannes@stressinduktion.org>
 References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
-Cc: linux-kernel@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andi Kleen <andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Based on a patch from Andi Kleen.
+This patch splits the inet6_ehashfn into separate ones in
+ipv6/inet6_hashtables.o and ipv6/udp.o to ease the introduction of
+seperate secrets keys later.
 
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Andi Kleen <andi@firstfloor.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/linux/jump_label.h           | 10 ++++++++++
- include/linux/jump_label_ratelimit.h |  2 ++
- init/main.c                          |  7 +++++++
- kernel/jump_label.c                  |  5 +++++
- 4 files changed, 24 insertions(+)
+ include/net/inet6_hashtables.h | 28 +++++++---------------------
+ include/net/ipv6.h             |  4 ++--
+ net/ipv6/inet6_hashtables.c    | 24 ++++++++++++++++++++++++
+ net/ipv6/udp.c                 | 20 ++++++++++++++++----
+ 4 files changed, 49 insertions(+), 27 deletions(-)
 
-diff --git a/include/linux/jump_label.h b/include/linux/jump_label.h
-index a507907..e96be72 100644
---- a/include/linux/jump_label.h
-+++ b/include/linux/jump_label.h
-@@ -48,6 +48,13 @@
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+index a105d1a..ae06135 100644
+--- a/include/net/inet6_hashtables.h
++++ b/include/net/inet6_hashtables.h
+@@ -28,28 +28,14 @@
  
- #include <linux/types.h>
- #include <linux/compiler.h>
-+#include <linux/bug.h>
+ struct inet_hashinfo;
+ 
+-static inline unsigned int inet6_ehashfn(struct net *net,
+-				const struct in6_addr *laddr, const u16 lport,
+-				const struct in6_addr *faddr, const __be16 fport)
++static inline unsigned int __inet6_ehashfn(const u32 lhash,
++				    const u16 lport,
++				    const u32 fhash,
++				    const __be16 fport,
++				    const u32 initval)
+ {
+-	u32 ports = (((u32)lport) << 16) | (__force u32)fport;
+-
+-	return jhash_3words((__force u32)laddr->s6_addr32[3],
+-			    ipv6_addr_jhash(faddr),
+-			    ports,
+-			    inet_ehash_secret + net_hash_mix(net));
+-}
+-
+-static inline int inet6_sk_ehashfn(const struct sock *sk)
+-{
+-	const struct inet_sock *inet = inet_sk(sk);
+-	const struct in6_addr *laddr = &sk->sk_v6_rcv_saddr;
+-	const struct in6_addr *faddr = &sk->sk_v6_daddr;
+-	const __u16 lport = inet->inet_num;
+-	const __be16 fport = inet->inet_dport;
+-	struct net *net = sock_net(sk);
+-
+-	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++	const u32 ports = (((u32)lport) << 16) | (__force u32)fport;
++	return jhash_3words(lhash, fhash, ports, initval);
+ }
+ 
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *twp);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index fe1c7f6..a35055f 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -539,14 +539,14 @@ static inline u32 ipv6_addr_hash(const struct in6_addr *a)
+ }
+ 
+ /* more secured version of ipv6_addr_hash() */
+-static inline u32 ipv6_addr_jhash(const struct in6_addr *a)
++static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
+ {
+ 	u32 v = (__force u32)a->s6_addr32[0] ^ (__force u32)a->s6_addr32[1];
+ 
+ 	return jhash_3words(v,
+ 			    (__force u32)a->s6_addr32[2],
+ 			    (__force u32)a->s6_addr32[3],
+-			    ipv6_hash_secret);
++			    initval);
+ }
+ 
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 842d833..fa7dd38 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -23,6 +23,30 @@
+ #include <net/secure_seq.h>
+ #include <net/ip.h>
+ 
++static unsigned int inet6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
 +
-+extern bool static_key_initialized;
++static int inet6_sk_ehashfn(const struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	const struct in6_addr *laddr = &sk->sk_v6_rcv_saddr;
++	const struct in6_addr *faddr = &sk->sk_v6_daddr;
++	const __u16 lport = inet->inet_num;
++	const __be16 fport = inet->inet_dport;
++	struct net *net = sock_net(sk);
 +
-+#define STATIC_KEY_CHECK_USE() WARN(!static_key_initialized,		      \
-+				    "%s used before call to jump_label_init", \
-+				    __func__)
- 
- #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
- 
-@@ -128,6 +135,7 @@ struct static_key {
- 
- static __always_inline void jump_label_init(void)
- {
-+	static_key_initialized = true;
- }
- 
- static __always_inline bool static_key_false(struct static_key *key)
-@@ -146,11 +154,13 @@ static __always_inline bool static_key_true(struct static_key *key)
- 
- static inline void static_key_slow_inc(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_inc(&key->enabled);
- }
- 
- static inline void static_key_slow_dec(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_dec(&key->enabled);
- }
- 
-diff --git a/include/linux/jump_label_ratelimit.h b/include/linux/jump_label_ratelimit.h
-index 1137883..089f70f 100644
---- a/include/linux/jump_label_ratelimit.h
-+++ b/include/linux/jump_label_ratelimit.h
-@@ -23,12 +23,14 @@ struct static_key_deferred {
- };
- static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	static_key_slow_dec(&key->key);
- }
- static inline void
- jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- }
- #endif	/* HAVE_JUMP_LABEL */
- #endif	/* _LINUX_JUMP_LABEL_RATELIMIT_H */
-diff --git a/init/main.c b/init/main.c
-index af310af..27bbec1a 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -136,6 +136,13 @@ static char *execute_command;
- static char *ramdisk_execute_command;
- 
- /*
-+ * Used to generate warnings if static_key manipulation functions are used
-+ * before jump_label_init is called.
-+ */
-+bool static_key_initialized __read_mostly = false;
-+EXPORT_SYMBOL_GPL(static_key_initialized);
++	return inet6_ehashfn(net, laddr, lport, faddr, fport);
++}
 +
-+/*
-  * If set, this is an indication to the drivers that reset the underlying
-  * device before going ahead with the initialization otherwise driver might
-  * rely on the BIOS and skip the reset operation.
-diff --git a/kernel/jump_label.c b/kernel/jump_label.c
-index 297a924..9019f15 100644
---- a/kernel/jump_label.c
-+++ b/kernel/jump_label.c
-@@ -58,6 +58,7 @@ static void jump_label_update(struct static_key *key, int enable);
- 
- void static_key_slow_inc(struct static_key *key)
+ int __inet6_hash(struct sock *sk, struct inet_timewait_sock *tw)
  {
-+	STATIC_KEY_CHECK_USE();
- 	if (atomic_inc_not_zero(&key->enabled))
- 		return;
+ 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index b496de1..324bd36 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -53,6 +53,18 @@
+ #include <trace/events/skb.h>
+ #include "udp_impl.h"
  
-@@ -103,12 +104,14 @@ static void jump_label_update_timeout(struct work_struct *work)
- 
- void static_key_slow_dec(struct static_key *key)
++static unsigned int udp6_ehashfn(struct net *net,
++				  const struct in6_addr *laddr,
++				  const u16 lport,
++				  const struct in6_addr *faddr,
++				  const __be16 fport)
++{
++	const u32 lhash = (__force u32)laddr->s6_addr32[3];
++	const u32 fhash = __ipv6_addr_jhash(faddr, ipv6_hash_secret);
++	return __inet6_ehashfn(lhash, lport, fhash, fport,
++			       inet_ehash_secret + net_hash_mix(net));
++}
++
+ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
  {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(key, 0, NULL);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec);
- 
- void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(&key->key, key->timeout, &key->work);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
-@@ -116,6 +119,7 @@ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
- void jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- 	key->timeout = rl;
- 	INIT_DELAYED_WORK(&key->work, jump_label_update_timeout);
- }
-@@ -212,6 +216,7 @@ void __init jump_label_init(void)
- 		key->next = NULL;
- #endif
- 	}
-+	static_key_initialized = true;
- 	jump_label_unlock();
- }
- 
+ 	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
+@@ -214,8 +226,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			} else if (score == SCORE2_MAX)
+ 				goto exact_match;
+@@ -295,8 +307,8 @@ begin:
+ 			badness = score;
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = inet6_ehashfn(net, daddr, hnum,
+-						     saddr, sport);
++				hash = udp6_ehashfn(net, daddr, hnum,
++						    saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
 -- 
 1.8.3.1
