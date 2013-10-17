@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/17] netfilter updates: nf_tables pull request
-Date: Thu, 17 Oct 2013 15:23:02 -0400 (EDT)
-Message-ID: <20131017.152302.168119302436570514.davem@davemloft.net>
-References: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH v4 net 0/3] sctp: Use software checksum under certain
+Date: Thu, 17 Oct 2013 15:26:34 -0400 (EDT)
+Message-ID: <20131017.152634.216002495730124314.davem@davemloft.net>
+References: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1381768738-17739-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	fan.du@windriver.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46329 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758340Ab3JQT0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 15:26:37 -0400
+In-Reply-To: <1381888891-31186-1-git-send-email-vyasevich@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 14 Oct 2013 18:38:41 +0200
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Tue, 15 Oct 2013 22:01:28 -0400
 
-> The following patchset contains the current original nf_tables tree
-> condensed in 17 patches. I have organized them by chronogical order
-> since the original nf_tables code was released in 2009 and by
-> dependencies between the different patches.
- ...
-> There is still work to do to fully replace x_tables [4] [5] but that can
-> be done incrementally by extending our netlink API. Moreover, looking at
-> netfilter-devel and the amount of contributions to nf_tables we've been
-> getting, I think it would be good to have it mainstream to avoid accumulating
-> large patchsets skip continuous rebases.
+> There are some cards that support SCTP checksum offloading.  When using
+> these cards with IPSec or forcing IP fragmentation of SCTP traffic,
+> the checksum is computed incorrectly due to the fact that xfrm and IP/IPv6
+> fragmentation code do not know that this is SCTP traffic and do not
+> know that checksum has to be computed differently.
 > 
-> I tried to provide a reasonable patchset, we have more than 100 accumulated
-> patches in the original nf_tables tree, so I collapsed many of the small
-> fixes to the main patch we had since 2009 and provide a small batch for
-> review to netdev, while trying to retain part of the history.
-> 
-> For those who didn't give a try to nf_tables yet, there's a quick howto
-> available from Eric Leblond that describes how to get things working [6].
-> 
-> Comments/reviews welcome.
+> To fix this, we let SCTP detect these conditions and perform software
+> checksum calculation.
 
-This looks great, pulled, thanks a lot!!
+Series applied, thanks Vlad.
