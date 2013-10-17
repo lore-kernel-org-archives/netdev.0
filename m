@@ -1,36 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes
- down
-Date: Thu, 17 Oct 2013 16:19:55 -0400 (EDT)
-Message-ID: <20131017.161955.793695802575716229.davem@davemloft.net>
-References: <1382028894-14236-1-git-send-email-kristian.evensen@gmail.com>
-	<alpine.LFD.2.03.1310172245440.2016@ssi.bg>
-	<CAKfDRXiM-8dnGqFMofdiaD=EMJNLxzx-yhVManRSiQHgziuVdQ@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v4 net 0/3] sctp: Use software checksum under certain
+Date: Thu, 17 Oct 2013 16:21:31 -0400
+Message-ID: <526046CB.6020506@gmail.com>
+References: <1381888891-31186-1-git-send-email-vyasevich@gmail.com> <20131017.152634.216002495730124314.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: kristian.evensen@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	fan.du@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46938 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762532Ab3JQUUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:20:02 -0400
-In-Reply-To: <CAKfDRXiM-8dnGqFMofdiaD=EMJNLxzx-yhVManRSiQHgziuVdQ@mail.gmail.com>
+Received: from mail-vb0-f54.google.com ([209.85.212.54]:43484 "EHLO
+	mail-vb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762555Ab3JQUVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:21:35 -0400
+In-Reply-To: <20131017.152634.216002495730124314.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Date: Thu, 17 Oct 2013 22:11:39 +0200
+On 10/17/2013 03:26 PM, David Miller wrote:
+> From: Vlad Yasevich <vyasevich@gmail.com>
+> Date: Tue, 15 Oct 2013 22:01:28 -0400
+>
+>> There are some cards that support SCTP checksum offloading.  When using
+>> these cards with IPSec or forcing IP fragmentation of SCTP traffic,
+>> the checksum is computed incorrectly due to the fact that xfrm and IP/IPv6
+>> fragmentation code do not know that this is SCTP traffic and do not
+>> know that checksum has to be computed differently.
+>>
+>> To fix this, we let SCTP detect these conditions and perform software
+>> checksum calculation.
+>
+> Series applied, thanks Vlad.
+>
 
-> On Thu, Oct 17, 2013 at 9:52 PM, Julian Anastasov <ja@ssi.bg> wrote:
->>         IIRC, such notifications were not implemented
->> to avoid storms to routing daemons. Not sure if this is
->> still true.
-> 
-> Thanks for letting me know. I was wondering if this was the case, but
-> then I saw that the deletion of IPv6 routes are announced (when
-> running "ip link set dev X down") and assumed that message storms was
-> (is?) not considered a problem.
+Hi David
 
-I really wish IPV6 wouldn't be inconsistent and behave that way.
+Could you please queue this to stable as well.
+
+Thanks
+-vlad
