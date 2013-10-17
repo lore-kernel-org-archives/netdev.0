@@ -1,82 +1,97 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] fib: Use const struct nl_info * in rtmsg_fib
-Date: Thu, 17 Oct 2013 13:34:11 -0700
-Message-ID: <1382042051.22110.146.camel@joe-AO722>
-References: <CAKfDRXizw1TaK-oHrAQv8Hi80gKiUHjQ6d21o3MOQpuVkcXSow@mail.gmail.com>
-	 <1382028894-14236-1-git-send-email-kristian.evensen@gmail.com>
-	 <1382030610.22110.112.camel@joe-AO722>
-	 <CAKfDRXjctGkcqSt9cM=iWbckLt4=7n8434WAA8rr4_cEofEO=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>
-To: Kristian Evensen <kristian.evensen@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: unix: inherit SOCK_PASS{CRED,SEC} flags from socket to fix race
+Date: Thu, 17 Oct 2013 22:51:31 +0200
+Message-ID: <5c4eda258a6d7397a180ca72562b0ce5d87beda1.1382042286.git.dborkman@redhat.com>
+References: <cover.1382042286.git.dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0082.hostedemail.com ([216.40.44.82]:55264 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758867Ab3JQUeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:34:15 -0400
-In-Reply-To: <CAKfDRXjctGkcqSt9cM=iWbckLt4=7n8434WAA8rr4_cEofEO=Q@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:15339 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762564Ab3JQUvg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 16:51:36 -0400
+In-Reply-To: <cover.1382042286.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rtmsg_fib function doesn't modify this argument so mark
-it const.
+In the case of credentials passing in unix stream sockets (dgram
+sockets seem not affected), we get a rather sparse race after
+commit 16e5726 ("af_unix: dont send SCM_CREDENTIALS by default").
 
-Signed-off-by: Joe Perches <joe@perches.com>
+We have a stream server on receiver side that requests credential
+passing from senders (e.g. nc -U). Since we need to set SO_PASSCRED
+on each spawned/accepted socket on server side to 1 first (as it's
+not inherited), it can happen that in the time between accept() and
+setsockopt() we get interrupted, the sender is being scheduled and
+continues with passing data to our receiver. At that time SO_PASSCRED
+is neither set on sender nor receiver side, hence in cmsg's
+SCM_CREDENTIALS we get eventually pid:0, uid:65534, gid:65534
+(== overflow{u,g}id) instead of what we actually would like to see.
+
+On the sender side, here nc -U, the tests in maybe_add_creds()
+invoked through unix_stream_sendmsg() would fail, as at that exact
+time, as mentioned, the sender has neither SO_PASSCRED on his side
+nor sees it on the server side, and we have a valid 'other' socket
+in place. Thus, sender believes it would just look like a normal
+connection, not needing/requesting SO_PASSCRED at that time.
+
+As reverting 16e5726 would not be an option due to the significant
+performance regression reported when having creds always passed,
+one way/trade-off to prevent that would be to set SO_PASSCRED on
+the listener socket and allow inheriting these flags to the spawned
+socket on server side in accept(). It seems also logical to do so
+if we'd tell the listener socket to pass those flags onwards, and
+would fix the race.
+
+Before, strace:
+
+recvmsg(4, {msg_name(0)=NULL, msg_iov(1)=[{"blub\n", 4096}],
+        msg_controllen=32, {cmsg_len=28, cmsg_level=SOL_SOCKET,
+        cmsg_type=SCM_CREDENTIALS{pid=0, uid=65534, gid=65534}},
+        msg_flags=0}, 0) = 5
+
+After, strace:
+
+recvmsg(4, {msg_name(0)=NULL, msg_iov(1)=[{"blub\n", 4096}],
+        msg_controllen=32, {cmsg_len=28, cmsg_level=SOL_SOCKET,
+        cmsg_type=SCM_CREDENTIALS{pid=11580, uid=1000, gid=1000}},
+        msg_flags=0}, 0) = 5
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
 ---
-On Thu, 2013-10-17 at 22:14 +0200, Kristian Evensen wrote:
-> Hi,
+ net/unix/af_unix.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Hi Kristian.
-
-> On Thu, Oct 17, 2013 at 7:23 PM, Joe Perches <joe@perches.com> wrote:
-> >
-> > Perhaps this memset should be moved into the
-> > list_for_each_entry_safe loop where cfg is used.
-> 
-> Thanks for your comment. I decided to put it there to avoid calling it
-> for each route that will be deleted. Since the struct is never
-> modified (only read in fib_rtmsg()) and we have the rtnl_lock, I
-> assumed it to be safe. Are there cases where this assumption is wrong?
-
-I didn't look too hard.
-I just glanced at the prototype and saw it wasn't const.
-
-If rtmsg_fib() doesn't modify cfg (and it doesn't seem to)
-then the prototype and function should be marked const.
-
-And you're right, it doesn't need to be inside the loop.
-
-cheers, Joe
-
- net/ipv4/fib_lookup.h    | 2 +-
- net/ipv4/fib_semantics.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index af0f14a..50cfb3e 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -32,7 +32,7 @@ extern int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
- 			 int dst_len, u8 tos, struct fib_info *fi,
- 			 unsigned int);
- extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--		      int dst_len, u32 tb_id, struct nl_info *info,
-+		      int dst_len, u32 tb_id, const struct nl_info *info,
- 		      unsigned int nlm_flags);
- extern struct fib_alias *fib_find_alias(struct list_head *fah,
- 					u8 tos, u32 prio);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d5dbca5..e63f47a 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -380,7 +380,7 @@ static inline size_t fib_nlmsg_size(struct fib_info *fi)
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 86de99a..c1f403b 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1246,6 +1246,15 @@ static int unix_socketpair(struct socket *socka, struct socket *sockb)
+ 	return 0;
  }
  
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--	       int dst_len, u32 tb_id, struct nl_info *info,
-+	       int dst_len, u32 tb_id, const struct nl_info *info,
- 	       unsigned int nlm_flags)
++static void unix_sock_inherit_flags(const struct socket *old,
++				    struct socket *new)
++{
++	if (test_bit(SOCK_PASSCRED, &old->flags))
++		set_bit(SOCK_PASSCRED, &new->flags);
++	if (test_bit(SOCK_PASSSEC, &old->flags))
++		set_bit(SOCK_PASSSEC, &new->flags);
++}
++
+ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
  {
- 	struct sk_buff *skb;
+ 	struct sock *sk = sock->sk;
+@@ -1280,6 +1289,7 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
+ 	/* attach accepted sock to socket */
+ 	unix_state_lock(tsk);
+ 	newsock->state = SS_CONNECTED;
++	unix_sock_inherit_flags(sock, newsock);
+ 	sock_graft(tsk, newsock);
+ 	unix_state_unlock(tsk);
+ 	return 0;
+-- 
+1.8.3.1
