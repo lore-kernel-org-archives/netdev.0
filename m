@@ -1,88 +1,119 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
- the skb
-Date: Thu, 17 Oct 2013 13:28:57 +0200
-Message-ID: <20131017112857.GA11318@localhost>
-References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [PATCH 5/5] net: rfkill: gpio: add ACPI support
+Date: Thu, 17 Oct 2013 13:48:34 +0200
+Message-ID: <1525130.mPhAo5k18y@vostro.rjw.lan>
+References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com> <2878506.7lf24R85t6@vostro.rjw.lan> <20131017074426.GG3521@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Antonio Quartulli <antonio@meshcoding.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33960 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752427Ab3JQL3D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 07:29:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Rhyland Klein <rklein@nvidia.com>, linux-acpi@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Mika Westerberg <mika.westerberg@linux.intel.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20131017074426.GG3521@intel.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thursday, October 17, 2013 10:44:26 AM Mika Westerberg wrote:
+> On Wed, Oct 16, 2013 at 10:55:01PM +0200, Rafael J. Wysocki wrote:
+> > On Wednesday, October 16, 2013 01:53:43 PM Heikki Krogerus wrote:
+> > > Including ACPI ID for Broadcom GPS receiver BCM4752.
+> > > 
+> > > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+> > > ---
+> > >  net/rfkill/rfkill-gpio.c | 31 ++++++++++++++++++++++++++++++-
+> > >  1 file changed, 30 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> > > index 2dd78c6..5620d3c 100644
+> > > --- a/net/rfkill/rfkill-gpio.c
+> > > +++ b/net/rfkill/rfkill-gpio.c
+> > > @@ -24,6 +24,8 @@
+> > >  #include <linux/platform_device.h>
+> > >  #include <linux/clk.h>
+> > >  #include <linux/slab.h>
+> > > +#include <linux/acpi.h>
+> > > +#include <linux/acpi_gpio.h>
+> > >  
+> > >  #include <linux/rfkill-gpio.h>
+> > >  
+> > > @@ -70,6 +72,23 @@ static const struct rfkill_ops rfkill_gpio_ops = {
+> > >  	.set_block = rfkill_gpio_set_power,
+> > >  };
+> > >  
+> > > +static int rfkill_gpio_acpi_probe(struct device *dev,
+> > > +				  struct rfkill_gpio_data *rfkill)
+> > > +{
+> > > +	const struct acpi_device_id *id;
+> > > +
+> > > +	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+> > > +	if (!id)
+> > > +		return -ENODEV;
+> > > +
+> > > +	rfkill->name = dev_name(dev);
+> > > +	rfkill->type = (unsigned)id->driver_data;
+> > > +	rfkill->reset_gpio = acpi_get_gpio_by_index(dev, 0, NULL);
+> > > +	rfkill->shutdown_gpio = acpi_get_gpio_by_index(dev, 1, NULL);
+> > > +
+> > > +	return 0;
+> > > +}
+> > > +
+> > >  static int rfkill_gpio_probe(struct platform_device *pdev)
+> > >  {
+> > >  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+> > > @@ -82,7 +101,11 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
+> > >  	if (!rfkill)
+> > >  		return -ENOMEM;
+> > >  
+> > > -	if (pdata) {
+> > > +	if (ACPI_HANDLE(&pdev->dev)) {
+> > > +		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
+> > > +		if (ret)
+> > > +			return ret;
+> > > +	} else if (pdata) {
+> > >  		clk_name = pdata->power_clk_name;
+> > >  		rfkill->name = pdata->name;
+> > >  		rfkill->type = pdata->type;
+> > > @@ -170,12 +193,18 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+> > >  	return 0;
+> > >  }
+> > >  
+> > > +static const struct acpi_device_id rfkill_acpi_match[] = {
+> > > +	{ "BCM4752", RFKILL_TYPE_GPS },
+> > > +	{ },
+> > > +};
+> > > +
+> > >  static struct platform_driver rfkill_gpio_driver = {
+> > >  	.probe = rfkill_gpio_probe,
+> > >  	.remove = rfkill_gpio_remove,
+> > >  	.driver = {
+> > >  		.name = "rfkill_gpio",
+> > >  		.owner = THIS_MODULE,
+> > > +		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
+> > >  	},
+> > >  };
+> > 
+> > Looks good to me.
+> > 
+> > Has Mika seen this?
+> 
+> Yes, saw it now and looks good to me as well.
+> 
+> Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+> 
+> for the whole series, for what it's worth.
 
-On Tue, Oct 15, 2013 at 12:51:36AM +0200, Antonio Quartulli wrote:
-> From: Antonio Quartulli <antonio@open-mesh.com>
-> 
-> Even if it is forbidden to enslave a bridge interface into
-> another one, it is still possible to create a chain of
-> virtual interfaces including two distinct bridges.
->
-> In this case, the skb entering the second bridge could have
-> the nf_bridge field already set due to a previous operation
-> and consequently lead to wrong a processing of the packet
-> itself.
-> 
-> To prevent this behaviour release and set to NULL the
-> nf_bridge field of the skb when forwarding the packet.
-> 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-> ---
-> 
-> I know that not using "extern" when declaring the prototype is not consistent
-> with the surrounding code, but checkpatch complaints about using "extern" in .h
-> file and I prefer to not do something "wrong" even if stylistically ugly.
-> 
-> Cheers,
-> 
-> 
->  net/bridge/br_forward.c   |  2 ++
->  net/bridge/br_netfilter.c | 10 ++++++++++
->  net/bridge/br_private.h   |  2 ++
->  3 files changed, 14 insertions(+)
-> 
-> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-> index 4b81b14..62955f3 100644
-> --- a/net/bridge/br_forward.c
-> +++ b/net/bridge/br_forward.c
-> @@ -49,6 +49,8 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
->  	} else {
->  		skb_push(skb, ETH_HLEN);
->  		br_drop_fake_rtable(skb);
-> +		br_netfilter_skb_free(skb);
-> +
->  		dev_queue_xmit(skb);
->  	}
->  
-> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> index f877362..7cad3e2 100644
-> --- a/net/bridge/br_netfilter.c
-> +++ b/net/bridge/br_netfilter.c
-> @@ -1086,3 +1086,13 @@ void br_netfilter_fini(void)
->  #endif
->  	dst_entries_destroy(&fake_dst_ops);
->  }
-> +
-> +/**
-> + * br_netfilter_skb_free - clean the NF bridge data in an skb
-> + * @skb: the skb which the data to free belongs to
-> + */
-> +void br_netfilter_skb_free(struct sk_buff *skb)
-> +{
-> +	nf_bridge_put(skb->nf_bridge);
-> +	skb->nf_bridge = NULL;
-> +}
+OK, so
 
-This should be nf_reset.
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+
+for the ACPI-related changes.
+
+Thanks!
+
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
