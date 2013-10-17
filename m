@@ -1,35 +1,42 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes down
-Date: Thu, 17 Oct 2013 22:11:39 +0200
-Message-ID: <CAKfDRXiM-8dnGqFMofdiaD=EMJNLxzx-yhVManRSiQHgziuVdQ@mail.gmail.com>
-References: <CAKfDRXizw1TaK-oHrAQv8Hi80gKiUHjQ6d21o3MOQpuVkcXSow@mail.gmail.com>
-	<1382028894-14236-1-git-send-email-kristian.evensen@gmail.com>
-	<alpine.LFD.2.03.1310172245440.2016@ssi.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: Correctly clamp MAX forward_delay when
+ enabling STP
+Date: Thu, 17 Oct 2013 16:12:58 -0400 (EDT)
+Message-ID: <20131017.161258.343998972337901996.davem@davemloft.net>
+References: <1381863465-27304-1-git-send-email-vyasevic@redhat.com>
+	<20131016005657.GA5394@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org, shemminger@vyatta.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:43654 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762555Ab3JQULk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:11:40 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md4so2779002pbc.16
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 13:11:40 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.03.1310172245440.2016@ssi.bg>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46868 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758649Ab3JQUM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:12:59 -0400
+In-Reply-To: <20131016005657.GA5394@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 16 Oct 2013 08:56:57 +0800
 
-On Thu, Oct 17, 2013 at 9:52 PM, Julian Anastasov <ja@ssi.bg> wrote:
->         IIRC, such notifications were not implemented
-> to avoid storms to routing daemons. Not sure if this is
-> still true.
+> On Tue, Oct 15, 2013 at 02:57:45PM -0400, Vlad Yasevich wrote:
+>> Commit be4f154d5ef0ca147ab6bcd38857a774133f5450
+>> 	bridge: Clamp forward_delay when enabling STP
+>> had a typo when attempting to clamp maximum forward delay.
+>> 
+>> It is possible to set bridge_forward_delay to be higher then
+>> permitted maximum when STP is off.  When turning STP on, the
+>> higher then allowed delay has to be clamed down to max value.
+>> 
+>> CC: Herbert Xu <herbert@gondor.apana.org.au>
+>> CC: Stephen Hemminger <shemminger@vyatta.com>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> 
+> Good catch!
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks for letting me know. I was wondering if this was the case, but
-then I saw that the deletion of IPv6 routes are announced (when
-running "ip link set dev X down") and assumed that message storms was
-(is?) not considered a problem.
-
--Kristian
+Applied and queued up for -stable, thanks.
