@@ -1,37 +1,54 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH 0/2] be2net: patch set
-Date: Thu, 17 Oct 2013 06:00:10 +0000
-Message-ID: <e2c8da3b-1a7e-40fe-a19b-b9f8bbda712e@CMEXHTCAS2.ad.emulex.com>
-References: <1381837869-9543-1-git-send-email-sathya.perla@emulex.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH] be2net: pass if_id for v1 and V2 versions of TX_CREATE cmd
+Date: Thu, 17 Oct 2013 11:47:14 +0530
+Message-ID: <1381990634-6847-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Sathya Perla <Sathya.Perla@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:48636 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:48801 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073Ab3JQGAN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 02:00:13 -0400
-In-Reply-To: <1381837869-9543-1-git-send-email-sathya.perla@emulex.com>
-Content-Language: en-US
+	with ESMTP id S1751712Ab3JQGN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 02:13:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf
-> Of Sathya Perla
-> 
-> Pls apply the following fixes to the net tree. Thanks.
-> 
-> Vasundhara Volam (2):
->   be2net: pass if_id for v1 and V2 versions of TX_CREATE cmd
->   be2net: drop non-tso frames longer than mtu
-> 
-Dave, I'll re-send this patch-set without the "drop non-tso frames" patch.
-Based on Eric's comments, it seems better to place the mtu checks in pktgen and
-before ndo_start_xmit() invocation so that all drivers/devices may benefit from the check.
+It is a required field for all TX_CREATE cmd versions > 0.
+This fixes a driver initialization failure, caused by recent SH-R Firmwares
+(versions > 10.0.639.0) failing the TX_CREATE cmd when if_id field is
+not passed.
 
-thanks,
--Sathya
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+
+Dave, pls consider queuing this patch for -stable tree as it fixes
+a driver load failure. Thanks.
+
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index bd0e0c0..c08fd32 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1198,7 +1198,6 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
+ 
+ 	if (lancer_chip(adapter)) {
+ 		req->hdr.version = 1;
+-		req->if_id = cpu_to_le16(adapter->if_handle);
+ 	} else if (BEx_chip(adapter)) {
+ 		if (adapter->function_caps & BE_FUNCTION_CAPS_SUPER_NIC)
+ 			req->hdr.version = 2;
+@@ -1206,6 +1205,8 @@ int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
+ 		req->hdr.version = 2;
+ 	}
+ 
++	if (req->hdr.version > 0)
++		req->if_id = cpu_to_le16(adapter->if_handle);
+ 	req->num_pages = PAGES_4K_SPANNED(q_mem->va, q_mem->size);
+ 	req->ulp_num = BE_ULP1_NUM;
+ 	req->type = BE_ETH_TX_RING_TYPE_STANDARD;
+-- 
+1.7.1
