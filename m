@@ -1,77 +1,79 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes down
-Date: Thu, 17 Oct 2013 17:43:21 +0400
-Message-ID: <525FE979.3010109@cogentembedded.com>
-References: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
+From: jianhai luan <jianhai.luan@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
+ beyond the range time_after_eq().
+Date: Thu, 17 Oct 2013 21:59:30 +0800
+Message-ID: <525FED42.4040608@oracle.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com> <525FBB4F02000078000FBB30@nat28.tlf.novell.com> <525FA79F.8060601@oracle.com> <525FAABE.5080806@citrix.com> <525FB9BC.9010608@oracle.com> <525FBC7F.9040800@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kristian Evensen <kristian.evensen@gmail.com>
+Cc: Jan Beulich <JBeulich@suse.com>, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, xen-devel@lists.xenproject.org,
+	annie.li@oracle.com, netdev@vger.kernel.org
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:42570 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755034Ab3JQNoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 09:44:25 -0400
-Received: by mail-lb0-f178.google.com with SMTP id z5so1971708lbh.9
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 06:44:24 -0700 (PDT)
-In-Reply-To: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:36712 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756499Ab3JQN7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 09:59:47 -0400
+In-Reply-To: <525FBC7F.9040800@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 17-10-2013 15:13, Kristian Evensen wrote:
+On 2013-10-17 18:31, David Vrabel wrote:
+> On 17/10/13 11:19, jianhai luan wrote:
+>> On 2013-10-17 17:15, David Vrabel wrote:
+>>> On 17/10/13 10:02, jianhai luan wrote:
+>>>> On 2013-10-17 16:26, Jan Beulich wrote:
+>>>>>>>> On 16.10.13 at 19:22, Jason Luan <jianhai.luan@oracle.com> wrote:
+>>>>>> time_after_eq() only works if the delta is < MAX_ULONG/2.
+>>>>>>
+>>>>>> If netfront sends at a very low rate, the time between subsequent
+>>>>>> calls
+>>>>>> to tx_credit_exceeded() may exceed MAX_ULONG/2 and the test for
+>>>>>> timer_after_eq() will be incorrect.  Credit will not be replenished
+>>>>>> and
+>>>>>> the guest may become unable to send (e.g., if prior to the long
+>>>>>> gap, all
+>>>>>> credit was exhausted).
+>>>>>>
+>>>>>> We should add the scenario which now beyond next_credit+MAX_UNLONG/2.
+>>>>>> Because
+>>>>>> the fact now must be not before than expire, time_before(now, expire)
+>>>>>> == true
+>>>>>> will verify the scenario.
+>>>>>>        time_after_eq(now, next_credit) || time_before (now, expire)
+>>>>>>        ==
+>>>>>>        !time_in_range_open(now, expire, next_credit)
+>>>>> So first of all this must be with a 32-bit netback. And the not
+>>>>> coverable gap between activity is well over 240 days long. _If_
+>>>>> this really needs dealing with, then why is extending this from
+>>>>> 240+ to 480+ days sufficient? I.e. why don't you simply
+>>>>> change to 64-bit jiffy values, and use time_after_eq64()?
+>>>> Yes, the issue only can be  reproduced in 32-bit Dom0 (Beyond
+>>>> MAX_ULONG/2 in 64-bit will need long long time)
+>>>>
+>>>> I think the gap should be think all environment even now extending 480+.
+>>>> if now fall in the gap,  one timer will be pending and replenish will be
+>>>> in time.  Please run the attachment test program.
+>>>>
+>>>> If use time_after_eq64(), expire ,next_credit and other member will must
+>>>> be u64.
+>>> Yes, you'll need to store next_credit as a u64 in vif instead of
+>>> calculating it in tx_credit_exceeded from expires (which is only an
+>>> unsigned long).
+>> I know that.  Even we use u64, time_after_eq()  will also do wrong judge
+>> in theory (not in reality because need long long time).
+> If jiffies_64 has millisecond resolution that would be more than
+> 500,000,000 years.
 
-> From: Kristian Evensen <kristian.evensen@gmail.com>
-
-> When a link is set as down using for example "ip link set dev X down", routes
-> are deleted, but RTM_DELROUTE messages are not sent to RTNLGRP_IPV4_ROUTE. This
-> patch makes trie_flush_list() send a RTM_DELROUTE for each route that is
-> removed, and makes rtnelink route deletion behavior consistent across commands.
-> The parameter lists for trie_flush_list() and trie_flush_leaf() are expanded to
-> include required information otherwise unavailable in trie_flush_list().
-
-> One use case that is simplified by this patch is IPv4 WAN connection monitoring.
-> Instead of listening for and handling both RTM_*ROUTE and RTM_*LINK-messages, it
-> is sufficient to handle RTM_*ROUTE.
-
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
-
-> ---
->   net/ipv4/fib_trie.c | 16 ++++++++++++----
->   1 file changed, 12 insertions(+), 4 deletions(-)
-
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index ec9a9ef..acd5b3b 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1698,15 +1698,23 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
->   	return 0;
->   }
+Yes, I agree the fact.
 >
-> -static int trie_flush_list(struct list_head *head)
-> +static int trie_flush_list(struct list_head *head, u32 tb_id, t_key key,
-> +		int plen)
+>> I think the two better fixed way is below:
+>>    - By time_before() to judge if now beyond MAX_ULONG/2
+> This is broken, so no.
 
-    The continuation line should start right under *struct* on the first line, 
-according to the networking coding style.
-
->   {
->   	struct fib_alias *fa, *fa_node;
->   	int found = 0;
-> +	struct nl_info cfg;
-> +
-> +	memset(&cfg, 0, sizeof(cfg));
+Where is broken?  would you like to help me point it out.
 >
->   	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
->   		struct fib_info *fi = fa->fa_info;
->
->   		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
-> +			cfg.nl_net = fi->fib_net;
-> +			rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb_id,
-> +					&cfg, 0);
-
-    Here the line should start right under RTM_DELROUTE.
-
-WBR, Sergei
+> David
