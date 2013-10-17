@@ -1,119 +1,80 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH 5/5] net: rfkill: gpio: add ACPI support
-Date: Thu, 17 Oct 2013 13:48:34 +0200
-Message-ID: <1525130.mPhAo5k18y@vostro.rjw.lan>
-References: <1381920823-15403-1-git-send-email-heikki.krogerus@linux.intel.com> <2878506.7lf24R85t6@vostro.rjw.lan> <20131017074426.GG3521@intel.com>
+From: Antonio Quartulli <antonio@open-mesh.com>
+Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
+ the skb
+Date: Thu, 17 Oct 2013 13:37:35 +0200
+Message-ID: <20131017113735.GB2699@open-mesh.com>
+References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
+ <20131017112857.GA11318@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Rhyland Klein <rklein@nvidia.com>, linux-acpi@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Mika Westerberg <mika.westerberg@linux.intel.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20131017074426.GG3521@intel.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="adJ1OR3c6QgCpb/j"
+Cc: Antonio Quartulli <antonio@meshcoding.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp03.online.nl ([194.134.41.33]:57797 "EHLO smtp03.online.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753373Ab3JQLiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 07:38:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20131017112857.GA11318@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, October 17, 2013 10:44:26 AM Mika Westerberg wrote:
-> On Wed, Oct 16, 2013 at 10:55:01PM +0200, Rafael J. Wysocki wrote:
-> > On Wednesday, October 16, 2013 01:53:43 PM Heikki Krogerus wrote:
-> > > Including ACPI ID for Broadcom GPS receiver BCM4752.
-> > > 
-> > > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> > > ---
-> > >  net/rfkill/rfkill-gpio.c | 31 ++++++++++++++++++++++++++++++-
-> > >  1 file changed, 30 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> > > index 2dd78c6..5620d3c 100644
-> > > --- a/net/rfkill/rfkill-gpio.c
-> > > +++ b/net/rfkill/rfkill-gpio.c
-> > > @@ -24,6 +24,8 @@
-> > >  #include <linux/platform_device.h>
-> > >  #include <linux/clk.h>
-> > >  #include <linux/slab.h>
-> > > +#include <linux/acpi.h>
-> > > +#include <linux/acpi_gpio.h>
-> > >  
-> > >  #include <linux/rfkill-gpio.h>
-> > >  
-> > > @@ -70,6 +72,23 @@ static const struct rfkill_ops rfkill_gpio_ops = {
-> > >  	.set_block = rfkill_gpio_set_power,
-> > >  };
-> > >  
-> > > +static int rfkill_gpio_acpi_probe(struct device *dev,
-> > > +				  struct rfkill_gpio_data *rfkill)
-> > > +{
-> > > +	const struct acpi_device_id *id;
-> > > +
-> > > +	id = acpi_match_device(dev->driver->acpi_match_table, dev);
-> > > +	if (!id)
-> > > +		return -ENODEV;
-> > > +
-> > > +	rfkill->name = dev_name(dev);
-> > > +	rfkill->type = (unsigned)id->driver_data;
-> > > +	rfkill->reset_gpio = acpi_get_gpio_by_index(dev, 0, NULL);
-> > > +	rfkill->shutdown_gpio = acpi_get_gpio_by_index(dev, 1, NULL);
-> > > +
-> > > +	return 0;
-> > > +}
-> > > +
-> > >  static int rfkill_gpio_probe(struct platform_device *pdev)
-> > >  {
-> > >  	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
-> > > @@ -82,7 +101,11 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
-> > >  	if (!rfkill)
-> > >  		return -ENOMEM;
-> > >  
-> > > -	if (pdata) {
-> > > +	if (ACPI_HANDLE(&pdev->dev)) {
-> > > +		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
-> > > +		if (ret)
-> > > +			return ret;
-> > > +	} else if (pdata) {
-> > >  		clk_name = pdata->power_clk_name;
-> > >  		rfkill->name = pdata->name;
-> > >  		rfkill->type = pdata->type;
-> > > @@ -170,12 +193,18 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
-> > >  	return 0;
-> > >  }
-> > >  
-> > > +static const struct acpi_device_id rfkill_acpi_match[] = {
-> > > +	{ "BCM4752", RFKILL_TYPE_GPS },
-> > > +	{ },
-> > > +};
-> > > +
-> > >  static struct platform_driver rfkill_gpio_driver = {
-> > >  	.probe = rfkill_gpio_probe,
-> > >  	.remove = rfkill_gpio_remove,
-> > >  	.driver = {
-> > >  		.name = "rfkill_gpio",
-> > >  		.owner = THIS_MODULE,
-> > > +		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
-> > >  	},
-> > >  };
-> > 
-> > Looks good to me.
-> > 
-> > Has Mika seen this?
-> 
-> Yes, saw it now and looks good to me as well.
-> 
-> Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> 
-> for the whole series, for what it's worth.
 
-OK, so
+--adJ1OR3c6QgCpb/j
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
+> Hi,
+> > +
+> > +/**
+> > + * br_netfilter_skb_free - clean the NF bridge data in an skb
+> > + * @skb: the skb which the data to free belongs to
+> > + */
+> > +void br_netfilter_skb_free(struct sk_buff *skb)
+> > +{
+> > +	nf_bridge_put(skb->nf_bridge);
+> > +	skb->nf_bridge =3D NULL;
+> > +}
+>=20
+> This should be nf_reset.
 
-for the ACPI-related changes.
+You think I should directly use nf_reset instead of this function?
 
-Thanks!
+I see that nf_reset() cleans up the conntrack part too: does it also become
+useless once the packet exits the bridge interface?
 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+
+Cheers,
+
+--=20
+Antonio Quartulli
+
+--adJ1OR3c6QgCpb/j
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSX8v/AAoJEADl0hg6qKeOM5IP/1uMmClPNi0SxlmN2Agin3/r
+Oa8ElHRwP6C0AxtdQickUVTai0y/LqEE0JHkUPBGGn8uWjpAay10cvCYvqbrAzpO
+Mkgbn4XfSHm8U8DWwZ0n+KsIBAjP4/9MCL9dqlN7LZ6rmB7ryZg3v1SqN5PobbNX
+PQx0nqYJrjmcqfi0eRQVESM8i+8uZigdbINrxVo6SYmVFb48rsqp9IG+vWdbqyNx
+7DQQ1QlTCF1w5oaGx8qv6bkrtpHUFim80ZwTQGby29ytv3LQSeTxvSryVuuQHDh9
+R5JXFESzx4CBVscMh571BUakMVOnacv4akzc5wOa/RQqfrETP7ynld8hua+VnhGB
+Cevtq40Sm+wR68O/lJabiNnz1GoITxDTGuy1tQpQhH5NDKB0KCmeXa+c3d8dO+5S
+4JN1Eiht3jXslfmGwPQpCD/2NhW0Y7RD+BGipomo+kl0tc3EFcySEd+9HWf/DDYU
+jo4C111V7bzXM4iBlC/l/0eYBTQh3cR2tjSZTNBj604foBTw77eYev8X6MYDjBt2
+UOyAUHmMIBjUJKfnssqw+OBwD2md0AHM1dSjHkIVF0eG6rxcpSIVbig8+Hr+2YG0
+IbGZGK1Ut6sEO9R62v9T8u8ZSNoiej9BD7EAH6mtopffQz8vs9P14XZldynuB8r7
+X1hxmVnUkXP1iwroIrXG
+=HGkD
+-----END PGP SIGNATURE-----
+
+--adJ1OR3c6QgCpb/j--
