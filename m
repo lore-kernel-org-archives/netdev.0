@@ -1,80 +1,32 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by
- IPVS
-Date: Fri, 18 Oct 2013 02:03:27 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310180153250.4554@ssi.bg>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: refactor sk_page_frag_refill()
+Date: Thu, 17 Oct 2013 16:13:29 -0700
+Message-ID: <1382051609.3284.0.camel@edumazet-glaptop.roam.corp.google.com>
+References: <CANJ5vPJpVfDjaC8JauGYu=Qe4ZshqmBMkCbB1cru-xAfa7K1+g@mail.gmail.com>
+	 <1381623952.3392.25.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1381639591.3392.31.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131017.154625.1687353288700164892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: =?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
-	Phil Oester <kernel@linuxace.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mwdalton@google.com, dborkman@redhat.com, netdev@vger.kernel.org,
+	ffusco@redhat.com, ycheng@google.com, ncardwell@google.com,
+	digitaleric@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:36410 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752444Ab3JQXEW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 19:04:22 -0400
-In-Reply-To: <1381881751-6719-1-git-send-email-horms@verge.net.au>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:48028 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752418Ab3JQXNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 19:13:32 -0400
+Received: by mail-pa0-f52.google.com with SMTP id kl14so3539181pab.39
+        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 16:13:31 -0700 (PDT)
+In-Reply-To: <20131017.154625.1687353288700164892.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2013-10-17 at 15:46 -0400, David Miller wrote:
 
-	Hello,
+> Please rename this to something like "skb_page_frag_refill" so that it
+> is clear that this is a networking interface.
 
-	Here is a solution that should work not only for IPVS.
-If the change looks correct I'll send it in a separate message.
-
-[PATCH net] ipv6: always prefer rt6i_gateway if present
-
-From: Julian Anastasov <ja@ssi.bg>
-
-In v3.9 6fd6ce2056de2709 ("ipv6: Do not depend on rt->n in
-ip6_finish_output2()." changed the behaviour of ip6_finish_output2()
-such that the recently introduced rt6_nexthop() is used
-instead of an assigned neighbor.
-
-As rt6_nexthop() prefers rt6i_gateway only for gatewayed
-routes this causes a problem for users like IPVS, xt_TEE and
-RAW(hdrincl) if they want to use different address for routing
-compared to the destination address.
-
-Fix it by considering the rt6i_gateway address in all
-cases, so that traffic routed to address on local subnet is
-not wrongly diverted to the destination address.
-
-Thanks to Simon Horman and Phil Oester for spotting the
-problematic commit.
-
-Reported-by: Phil Oester <kernel@linuxace.com>
-Reported-by: Mark Brooks <mark@loadbalancer.org>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
-
-Please review for possible side effects when using
-rt6i_gateway without RTF_GATEWAY!
-
- include/net/ip6_route.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index f525e70..481404a 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -196,7 +196,7 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
- 
- static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
- {
--	if (rt->rt6i_flags & RTF_GATEWAY)
-+	if (rt->rt6i_flags & RTF_GATEWAY || !ipv6_addr_any(&rt->rt6i_gateway))
- 		return &rt->rt6i_gateway;
- 	return dest;
- }
--- 
-1.8.3.1
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Sure will do, thanks !
