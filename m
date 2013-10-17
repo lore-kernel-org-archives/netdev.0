@@ -1,53 +1,48 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: Re: [PATCH] X.25: Fix address field length calculation
-Date: Thu, 17 Oct 2013 22:02:13 +1100
-Message-ID: <CADo0ohh7jZhc_WJFkrYYxoYza8ZeSEadzwgwabJWwQ1TucdCcg@mail.gmail.com>
-References: <525D5131.9070007@datus.com>
-	<1381858190.22110.25.camel@joe-AO722>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B738F@saturn3.aculab.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
+Date: Thu, 17 Oct 2013 19:04:20 +0800
+Message-ID: <20131017110420.GA21027@gondor.apana.org.au>
+References: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
+ <20131016123205.GA9982@gondor.apana.org.au>
+ <20131017110149.GA6747@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>,
-	=?ISO-8859-1?Q?Kelleter=2C_G=FCnther?= <GKelleter@datus.com>,
-	David Miller <davem@davemloft.net>, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B738F@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:49443 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752646Ab3JQLEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 07:04:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20131017110149.GA6747@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry for the previous html mail.
-This appears to be correct, what length addresses are you getting back
-in the call accept when this happens?
+On Thu, Oct 17, 2013 at 01:01:49PM +0200, Michal Kubecek wrote:
+>
+> When I was thinking about this, I came with two situations when this
+> might IMHO happen:
+> 
+> 1. We are sending a packet to ourselves; this could mean not only a
+> local loop but also e.g. a packets between an LXC container and the host
+> or between two LXC containers. While it doesn't make much sense to use
+> compression in such case, it might happen while testing a solution which
+> is going to be used in a normal setup later.
+> 
+> 2. The packet was passed to tun/tap device by a userspace application.
+> 
+> Am I wrong?
 
-On Wed, Oct 16, 2013 at 7:56 PM, David Laight <David.Laight@aculab.com>=
- wrote:
->> On Tue, 2013-10-15 at 14:29 +0000, Kelleter, G=FCnther wrote:
->> > Addresses are BCD encoded, not ASCII. x25_addr_ntoa got it right.
->> []
->> > Wrong length calculation leads to rejection of CALL ACCEPT packets=
-=2E
->> []
->> > diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
->> []
->> > @@ -98,7 +98,7 @@ int x25_parse_address_block(struct sk_buff *skb,
->> >     }
->> >     len =3D *skb->data;
->> > -   needed =3D 1 + (len >> 4) + (len & 0x0f);
->> > +   needed =3D 1 + ((len >> 4) + (len & 0x0f) + 1) / 2;
->>
->> This calculation looks odd.
->
-> Looks correct to me...
-> In X.25 the lengths (in digits) of the called and calling addresses
-> are encoded in the high and low nibbles of one byte and then
-> followed by both addresses with a digit in each nibble.
-> If the length of the first address is odd, the second one
-> isn't byte aligned.
->
->         David
->
->
->
+I hope so :) Because otherwise xfrm_input will surely dead-lock since
+it uses spin_lock.
+
+The cases you mentioned should all go through netif_rx which will
+then do the processing in BH context.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
