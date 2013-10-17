@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] netdev: inet_timewait_sock.h missing semi-colon
- when KMEMCHECK is enabled
-Date: Thu, 17 Oct 2013 15:57:24 -0400 (EDT)
-Message-ID: <20131017.155724.740238353182278175.davem@davemloft.net>
-References: <1381762088-18880-1-git-send-email-treding@nvidia.com>
-	<525C47C0.2000907@infradead.org>
+Subject: Re: [net-next REPOST] 8390 ei_debug : Reenable the use of
+ debugging in 8390 based chips
+Date: Thu, 17 Oct 2013 15:59:53 -0400 (EDT)
+Message-ID: <20131017.155953.174894765079484399.davem@davemloft.net>
+References: <1381805161-18833-1-git-send-email-tedheadster@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thierry.reding@gmail.com, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, broonie@kernel.org,
-	netdev@vger.kernel.org
-To: rdunlap@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <525C47C0.2000907@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tedheadster@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46737 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758649Ab3JQT7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 15:59:55 -0400
+In-Reply-To: <1381805161-18833-1-git-send-email-tedheadster@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Mon, 14 Oct 2013 12:36:32 -0700
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Mon, 14 Oct 2013 22:46:01 -0400
 
-> From: Randy Dunlap <rdunlap@infradead.org>
+> Ethernet boards based on the 8390 chip had an '#ifdef notdef' disabling the
+> use of the debug variable ei_debug. Reenable it for those of us who still
+> occasionally use it.
 > 
-> Fix (a few hundred) build errors due to missing semi-colon when
-> KMEMCHECK is enabled:
+> Also handle the case of the 'ne' driver which uses 8390p.o rather than
+> 8390.o. In that case ei_debug is aliased to eip_debug so it doesn't clash
+> with the previously exported ei_debug.
 > 
->   include/net/inet_timewait_sock.h:139:2: error: expected ',', ';' or '}' before 'int'
->   include/net/inet_timewait_sock.h:148:28: error: 'const struct inet_timewait_sock' has no member named 'tw_death_node'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 
-Applied, thanks Randy.
+I'd rather not encourage the use of things like this.
+
+We have a standard, run time, way to enable and disable debugging
+output on a per-netdevice basis.  And the "default" value of which can
+be controlled by a module parameter if need be.
+
+Please convert the driver to this method instead.
+
+Thank you.
