@@ -1,47 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Stmmac: fix a bug when clk_csr is euqal to 0x0
-Date: Thu, 17 Oct 2013 15:39:15 -0400 (EDT)
-Message-ID: <20131017.153915.2233536980001549266.davem@davemloft.net>
-References: <CAKT61h9Cv=g5stPBnp25XiUyfPy_NxBKxtAABUHm+GajCHMGWA@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usbnet: fix error return code in usbnet_probe()
+Date: Thu, 17 Oct 2013 15:40:11 -0400 (EDT)
+Message-ID: <20131017.154011.482777982551209327.davem@davemloft.net>
+References: <CAPgLHd9jQfT2Kzi5o+3KPy0hFrkHL135K2aYp7OXcbLX4Cmkcg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com
-To: mcuos.com@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46457 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762499Ab3JQTjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 15:39:19 -0400
-In-Reply-To: <CAKT61h9Cv=g5stPBnp25XiUyfPy_NxBKxtAABUHm+GajCHMGWA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: oneukum-l3A5Bk7waGM@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAPgLHd9jQfT2Kzi5o+3KPy0hFrkHL135K2aYp7OXcbLX4Cmkcg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wan ZongShun <mcuos.com@gmail.com>
-Date: Sat, 12 Oct 2013 10:04:20 +0800
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 12 Oct 2013 14:24:08 +0800
 
-> According to spec, if csr clock freq is 60-100Mhz, we have to set CR[5:2] = 0000
-> but when I set the 'plat_dat.clk_csr = 0',acctually, this value is not used
-> since the driver code judge 'if (!priv->plat->clk_csr)' then go to dynamic tune
-> the MDC clock. So this patch is to add other judge condition.
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 > 
-> Signed-off-by: Wan Zongshun <mcuos.com@gmail.com>
+> Fix to return -ENOMEM in the padding pkt alloc fail error handling
+> case instead of 0, as done elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-There are still many problems with this patch.
-
-Do not capitalize "Stmmac" in the subject prefix, use plain "stmmac: "
-
-There is a typo in "equal" in the subject line.
-
-> @@ -148,6 +149,8 @@ Where:
->         GMAC also enables the 4xPBL by default.
->     o fixed_burst/mixed_burst/burst_len
->   o clk_csr: fixed CSR Clock range selection.
-> + o dynamic_mdc_clk_en: If it is set to >=1 MDC clk will be selected
-> dynamically,
-> +               or else you must set a fixed CSR Clock range to clk_src.
->   o has_gmac: uses the GMAC core.
->   o enh_desc: if sets the MAC will use the enhanced descriptor structure.
->   o tx_coe: core is able to perform the tx csum in HW.
-
-The patch has been corrupted by your email client.
+Applied, thanks Wei.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
