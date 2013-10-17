@@ -1,93 +1,88 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes down
-Date: Thu, 17 Oct 2013 13:13:15 +0200
-Message-ID: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
+ the skb
+Date: Thu, 17 Oct 2013 13:28:57 +0200
+Message-ID: <20131017112857.GA11318@localhost>
+References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Antonio Quartulli <antonio@meshcoding.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:62940 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299Ab3JQLNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 07:13:30 -0400
-Received: by mail-lb0-f175.google.com with SMTP id y6so1764583lbh.34
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 04:13:28 -0700 (PDT)
+Received: from mail.us.es ([193.147.175.20]:33960 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752427Ab3JQL3D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 07:29:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
+Hi,
 
-When a link is set as down using for example "ip link set dev X down", routes
-are deleted, but RTM_DELROUTE messages are not sent to RTNLGRP_IPV4_ROUTE. This
-patch makes trie_flush_list() send a RTM_DELROUTE for each route that is
-removed, and makes rtnelink route deletion behavior consistent across commands.
-The parameter lists for trie_flush_list() and trie_flush_leaf() are expanded to
-include required information otherwise unavailable in trie_flush_list().
+On Tue, Oct 15, 2013 at 12:51:36AM +0200, Antonio Quartulli wrote:
+> From: Antonio Quartulli <antonio@open-mesh.com>
+> 
+> Even if it is forbidden to enslave a bridge interface into
+> another one, it is still possible to create a chain of
+> virtual interfaces including two distinct bridges.
+>
+> In this case, the skb entering the second bridge could have
+> the nf_bridge field already set due to a previous operation
+> and consequently lead to wrong a processing of the packet
+> itself.
+> 
+> To prevent this behaviour release and set to NULL the
+> nf_bridge field of the skb when forwarding the packet.
+> 
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+> ---
+> 
+> I know that not using "extern" when declaring the prototype is not consistent
+> with the surrounding code, but checkpatch complaints about using "extern" in .h
+> file and I prefer to not do something "wrong" even if stylistically ugly.
+> 
+> Cheers,
+> 
+> 
+>  net/bridge/br_forward.c   |  2 ++
+>  net/bridge/br_netfilter.c | 10 ++++++++++
+>  net/bridge/br_private.h   |  2 ++
+>  3 files changed, 14 insertions(+)
+> 
+> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+> index 4b81b14..62955f3 100644
+> --- a/net/bridge/br_forward.c
+> +++ b/net/bridge/br_forward.c
+> @@ -49,6 +49,8 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+>  	} else {
+>  		skb_push(skb, ETH_HLEN);
+>  		br_drop_fake_rtable(skb);
+> +		br_netfilter_skb_free(skb);
+> +
+>  		dev_queue_xmit(skb);
+>  	}
+>  
+> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+> index f877362..7cad3e2 100644
+> --- a/net/bridge/br_netfilter.c
+> +++ b/net/bridge/br_netfilter.c
+> @@ -1086,3 +1086,13 @@ void br_netfilter_fini(void)
+>  #endif
+>  	dst_entries_destroy(&fake_dst_ops);
+>  }
+> +
+> +/**
+> + * br_netfilter_skb_free - clean the NF bridge data in an skb
+> + * @skb: the skb which the data to free belongs to
+> + */
+> +void br_netfilter_skb_free(struct sk_buff *skb)
+> +{
+> +	nf_bridge_put(skb->nf_bridge);
+> +	skb->nf_bridge = NULL;
+> +}
 
-One use case that is simplified by this patch is IPv4 WAN connection monitoring.
-Instead of listening for and handling both RTM_*ROUTE and RTM_*LINK-messages, it
-is sufficient to handle RTM_*ROUTE.
-
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
-
----
- net/ipv4/fib_trie.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index ec9a9ef..acd5b3b 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1698,15 +1698,23 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 	return 0;
- }
- 
--static int trie_flush_list(struct list_head *head)
-+static int trie_flush_list(struct list_head *head, u32 tb_id, t_key key,
-+		int plen)
- {
- 	struct fib_alias *fa, *fa_node;
- 	int found = 0;
-+	struct nl_info cfg;
-+
-+	memset(&cfg, 0, sizeof(cfg));
- 
- 	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
- 
- 		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
-+			cfg.nl_net = fi->fib_net;
-+			rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb_id,
-+					&cfg, 0);
-+
- 			list_del_rcu(&fa->fa_list);
- 			fib_release_info(fa->fa_info);
- 			alias_free_mem_rcu(fa);
-@@ -1716,7 +1724,7 @@ static int trie_flush_list(struct list_head *head)
- 	return found;
- }
- 
--static int trie_flush_leaf(struct leaf *l)
-+static int trie_flush_leaf(struct leaf *l, u32 tb_id)
- {
- 	int found = 0;
- 	struct hlist_head *lih = &l->list;
-@@ -1724,7 +1732,7 @@ static int trie_flush_leaf(struct leaf *l)
- 	struct leaf_info *li = NULL;
- 
- 	hlist_for_each_entry_safe(li, tmp, lih, hlist) {
--		found += trie_flush_list(&li->falh);
-+		found += trie_flush_list(&li->falh, tb_id, l->key, li->plen);
- 
- 		if (list_empty(&li->falh)) {
- 			hlist_del_rcu(&li->hlist);
-@@ -1813,7 +1821,7 @@ int fib_table_flush(struct fib_table *tb)
- 	int found = 0;
- 
- 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
--		found += trie_flush_leaf(l);
-+		found += trie_flush_leaf(l, tb->tb_id);
- 
- 		if (ll && hlist_empty(&ll->list))
- 			trie_leaf_remove(t, ll);
--- 
-1.8.1.2
+This should be nf_reset.
