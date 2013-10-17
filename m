@@ -1,60 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
-	notifier if we're not ready
-Date: Thu, 17 Oct 2013 08:07:10 +0300
-Message-ID: <20131017050710.GA12141@redhat.com>
-References: <1381807139-3450-1-git-send-email-jasowang@redhat.com>
-	<8738o0aj9u.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <8738o0aj9u.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 0/9] Introduce support to lazy initialize mostly static keys
+Date: Thu, 17 Oct 2013 07:31:54 +0200
+Message-ID: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 17, 2013 at 09:57:41AM +1030, Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
-> > We're trying to re-configure the affinity unconditionally in cpu hotplug
-> > callback. This may lead the issue during resuming from s3/s4 since
-> >
-> > - virt queues haven't been allocated at that time.
-> > - it's unnecessary since thaw method will re-configure the affinity.
-> >
-> > Fix this issue by checking the config_enable and do nothing is we're not ready.
-> >
-> > The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
-> > (virtio-net: reset virtqueue affinity when doing cpu hotplug).
-> >
-> > Cc: Rusty Russell <rusty@rustcorp.com.au>
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> > Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> > The patch is need for 3.8 and above.
-> 
-> Please put 'CC: stable@kernel.org # 3.8+' in the commit.
+Hi!
 
-Not if this is going in through the net tree.
+This series implements support for delaying the initialization of secret
+keys, e.g. used for hashing, for as long as possible. This functionality
+is implemented by a new macro, net_get_random_bytes.
 
-> 
-> (The specification of the stable line is poor, but that seems to be one
-> common method).
-> 
-> Cheers,
-> Rusty.
+I already used it to protect the socket hashes, the syncookie secret
+(most important) and the tcp_fastopen secrets.
+
+Changelog:
+v2) Use static_keys in net_get_random_once to have as minimal impact to
+    the fast-path as possible.
+v3) added patch "static_key: WARN on usage before jump_label_init was called":
+    Patch "x86/jump_label: expect default_nop if static_key gets enabled
+    on boot-up" relaxes the checks for using static_key primitives before
+    jump_label_init. So tighten them first.
+
+Included patches:
+ ipv4: split inet_ehashfn to hash functions per compilation unit
+ ipv6: split inet6_ehashfn to hash functions per compilation unit
+ static_key: WARN on usage before jump_label_init was called
+ x86/jump_label: expect default_nop if static_key gets enabled on boot-up
+ net: introduce new macro net_get_random_once
+ inet: split syncookie keys for ipv4 and ipv6 and initialize with net_get_random_once
+ inet: convert inet_ehash_secret and ipv6_hash_secret to net_get_random_once
+ tcp: switch tcp_fastopen key generation to net_get_random_once
+ net: switch net_secret key generation to net_get_random_once
+
+Diffstat:
+ arch/x86/kernel/jump_label.c         | 25 ++++++++++++++++++-------
+ include/linux/jump_label.h           | 10 ++++++++++
+ include/linux/jump_label_ratelimit.h |  2 ++
+ include/linux/net.h                  | 25 +++++++++++++++++++++++++
+ include/net/inet6_hashtables.h       | 28 +++++++---------------------
+ include/net/inet_sock.h              | 26 ++++++--------------------
+ include/net/ipv6.h                   |  4 ++--
+ include/net/tcp.h                    |  3 +--
+ init/main.c                          |  7 +++++++
+ kernel/jump_label.c                  |  5 +++++
+ net/core/secure_seq.c                | 14 ++------------
+ net/core/utils.c                     | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/af_inet.c                   | 27 ---------------------------
+ net/ipv4/inet_hashtables.c           | 25 +++++++++++++++++++++++++
+ net/ipv4/syncookies.c                | 15 +++++----------
+ net/ipv4/sysctl_net_ipv4.c           |  5 +++++
+ net/ipv4/tcp_fastopen.c              | 27 ++++++++++++++++-----------
+ net/ipv4/udp.c                       | 20 ++++++++++++++++----
+ net/ipv6/af_inet6.c                  |  5 -----
+ net/ipv6/inet6_hashtables.c          | 33 +++++++++++++++++++++++++++++++++
+ net/ipv6/syncookies.c                | 12 +++++++++---
+ net/ipv6/udp.c                       | 31 +++++++++++++++++++++++++++----
+ net/rds/connection.c                 | 12 +++++++++---
+ 23 files changed, 278 insertions(+), 131 deletions(-)
+
+Greetings,
+
+  Hannes
