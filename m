@@ -1,48 +1,93 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
-Date: Thu, 17 Oct 2013 19:04:20 +0800
-Message-ID: <20131017110420.GA21027@gondor.apana.org.au>
-References: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
- <20131016123205.GA9982@gondor.apana.org.au>
- <20131017110149.GA6747@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes down
+Date: Thu, 17 Oct 2013 13:13:15 +0200
+Message-ID: <1382008395-9869-1-git-send-email-kristian.evensen@gmail.com>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:49443 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752646Ab3JQLEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 07:04:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20131017110149.GA6747@unicorn.suse.cz>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:62940 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299Ab3JQLNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 07:13:30 -0400
+Received: by mail-lb0-f175.google.com with SMTP id y6so1764583lbh.34
+        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 04:13:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 17, 2013 at 01:01:49PM +0200, Michal Kubecek wrote:
->
-> When I was thinking about this, I came with two situations when this
-> might IMHO happen:
-> 
-> 1. We are sending a packet to ourselves; this could mean not only a
-> local loop but also e.g. a packets between an LXC container and the host
-> or between two LXC containers. While it doesn't make much sense to use
-> compression in such case, it might happen while testing a solution which
-> is going to be used in a normal setup later.
-> 
-> 2. The packet was passed to tun/tap device by a userspace application.
-> 
-> Am I wrong?
+From: Kristian Evensen <kristian.evensen@gmail.com>
 
-I hope so :) Because otherwise xfrm_input will surely dead-lock since
-it uses spin_lock.
+When a link is set as down using for example "ip link set dev X down", routes
+are deleted, but RTM_DELROUTE messages are not sent to RTNLGRP_IPV4_ROUTE. This
+patch makes trie_flush_list() send a RTM_DELROUTE for each route that is
+removed, and makes rtnelink route deletion behavior consistent across commands.
+The parameter lists for trie_flush_list() and trie_flush_leaf() are expanded to
+include required information otherwise unavailable in trie_flush_list().
 
-The cases you mentioned should all go through netif_rx which will
-then do the processing in BH context.
+One use case that is simplified by this patch is IPv4 WAN connection monitoring.
+Instead of listening for and handling both RTM_*ROUTE and RTM_*LINK-messages, it
+is sufficient to handle RTM_*ROUTE.
 
-Cheers,
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+
+---
+ net/ipv4/fib_trie.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index ec9a9ef..acd5b3b 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1698,15 +1698,23 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	return 0;
+ }
+ 
+-static int trie_flush_list(struct list_head *head)
++static int trie_flush_list(struct list_head *head, u32 tb_id, t_key key,
++		int plen)
+ {
+ 	struct fib_alias *fa, *fa_node;
+ 	int found = 0;
++	struct nl_info cfg;
++
++	memset(&cfg, 0, sizeof(cfg));
+ 
+ 	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+ 		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
++			cfg.nl_net = fi->fib_net;
++			rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb_id,
++					&cfg, 0);
++
+ 			list_del_rcu(&fa->fa_list);
+ 			fib_release_info(fa->fa_info);
+ 			alias_free_mem_rcu(fa);
+@@ -1716,7 +1724,7 @@ static int trie_flush_list(struct list_head *head)
+ 	return found;
+ }
+ 
+-static int trie_flush_leaf(struct leaf *l)
++static int trie_flush_leaf(struct leaf *l, u32 tb_id)
+ {
+ 	int found = 0;
+ 	struct hlist_head *lih = &l->list;
+@@ -1724,7 +1732,7 @@ static int trie_flush_leaf(struct leaf *l)
+ 	struct leaf_info *li = NULL;
+ 
+ 	hlist_for_each_entry_safe(li, tmp, lih, hlist) {
+-		found += trie_flush_list(&li->falh);
++		found += trie_flush_list(&li->falh, tb_id, l->key, li->plen);
+ 
+ 		if (list_empty(&li->falh)) {
+ 			hlist_del_rcu(&li->hlist);
+@@ -1813,7 +1821,7 @@ int fib_table_flush(struct fib_table *tb)
+ 	int found = 0;
+ 
+ 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+-		found += trie_flush_leaf(l);
++		found += trie_flush_leaf(l, tb->tb_id);
+ 
+ 		if (ll && hlist_empty(&ll->list))
+ 			trie_leaf_remove(t, ll);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.1.2
