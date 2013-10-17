@@ -1,135 +1,82 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH v2 net 2/4] bridge: Apply the PVID to priority-tagged
- frames
-Date: Thu, 17 Oct 2013 21:14:02 +0900
-Message-ID: <1382012042.3746.67.camel@ubuntu-vm-makita>
-References: <1381910836-718-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1381910836-718-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <20131016085537.1cbe9c37@nehalam.linuxnetplumber.net>
-	 <525EBBC9.8050809@redhat.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: sun4i_handle_irq: WARNING at net/ipv4/tcp_input.c:2711
+ tcp_fastretrans_alert
+Date: Thu, 17 Oct 2013 14:32:03 +0200
+Message-ID: <20131017123203.GM3041@lukather>
+References: <20130821094432.GA28249@lnx-rg>
+ <20130823182116.GE1230@lukather>
+ <CACQ1gAinSoTCTtf9Y6TL=vtEm1jnJgis0n=y=frNtuPxue9-ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:60965 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755186Ab3JQMO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 08:14:28 -0400
-In-Reply-To: <525EBBC9.8050809@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="z7bbLlDR+qKEHzO8"
+Cc: Stefan Roese <sr@denx.de>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Genoud <richard.genoud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACQ1gAinSoTCTtf9Y6TL=vtEm1jnJgis0n=y=frNtuPxue9-ng@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-16 at 12:16 -0400, Vlad Yasevich wrote:
-> On 10/16/2013 11:55 AM, Stephen Hemminger wrote:
-> > On Wed, 16 Oct 2013 17:07:14 +0900
-> > Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+
+--z7bbLlDR+qKEHzO8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Richard
+
+On Thu, Oct 17, 2013 at 01:46:49PM +0200, Richard Genoud wrote:
+> > Hmmm, that seems pretty far from the network/interrupt drivers, and it
+> > looks like other users have seen this on !ARM machines:
+> > http://forums.gentoo.org/viewtopic-p-7379928.html
+> > https://bugzilla.redhat.com/show_bug.cgi?id=3D989251
 > >
-> >> IEEE 802.1Q says that when we receive priority-tagged (VID 0) frames
-> >> use the PVID for the port as its VID.
-> >> (See IEEE 802.1Q-2011 6.9.1 and Table 9-2)
-> >>
-> >> Apply the PVID to not only untagged frames but also priority-tagged frames.
-> >>
-> >> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> >> ---
-> >>   net/bridge/br_vlan.c | 27 ++++++++++++++++++++-------
-> >>   1 file changed, 20 insertions(+), 7 deletions(-)
-> >>
-> >> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> >> index 21b6d21..5a9c44a 100644
-> >> --- a/net/bridge/br_vlan.c
-> >> +++ b/net/bridge/br_vlan.c
-> >> @@ -189,6 +189,8 @@ out:
-> >>   bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >>   			struct sk_buff *skb, u16 *vid)
-> >>   {
-> >> +	int err;
-> >> +
-> >>   	/* If VLAN filtering is disabled on the bridge, all packets are
-> >>   	 * permitted.
-> >>   	 */
-> >> @@ -201,20 +203,31 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >>   	if (!v)
-> >>   		return false;
-> >>
-> >> -	if (br_vlan_get_tag(skb, vid)) {
-> >> +	err = br_vlan_get_tag(skb, vid);
-> >> +	if (!*vid) {
-> >>   		u16 pvid = br_get_pvid(v);
+> > There's a patch in the redhat's bugzilla, could you try to apply it and
+> > see if it solves your problem?
 > >
-> > Ok, but it looks like br_vlan_get_tag() could be cleaner if it just returned
-> > the tag, and there was another br_vlan_tag_present() function.
+> > Maybe the netdev guys will have other ideas as well.
+> For the record, I set:
+> net.ipv4.tcp_early_retrans =3D 2
+> net.ipv4.tcp_frto =3D 0
+> And I didn't see the warning any more.
+> It's seems that a patch is on it's way. I'll try it instead of setting
+> the sysctl.
+> http://thread.gmane.org/gmane.linux.network/286793
 
-Thank you for reviewing.
-I agree with you.
-I had been afraid that if it affects other codes because
-br_vlan_get_tag() is used in many places else, but now I have decided
-not to hesitate to change its signature and behavior.
+Ah, I wanted to ask you about the status of this.
 
-> 
-> I was just thinking about that as well.  If we make br_vlan_get_tag()
-> return either the actual tag (if the packet is tagged), or the pvid
-> if (untagged/prio_tagged), then we can skp most of this.
+Thanks for the follow-up,
+Maxime
 
-Hmm... maybe I don't fully understand you.
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
 
-Is what you intend something like
-	br_allowed_ingress(...) {
-		...
-		vid = br_vlan_get_tag(skb, v);
-		if (!tagged(skb)) put_tag(skb, vid); /* untagged */
-		else if (!get_vid(skb)) update_vid(skb, vid); /* prio_tagged */
-		...
-	}
+--z7bbLlDR+qKEHzO8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-	br_vlan_get_tag(skb, v) {
-		if (tagged(skb)) {
-			vid = get_vid(skb);
-			if (!vid) return get_pvid(v); /* prio_tagged */
-			return vid;
-		}
-		return get_pvid(v); /* untagged */
-	}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-This needs double check for prio_tagged at br_allowed_ingress() and
-br_vlan_get_tag().
+iQIcBAEBAgAGBQJSX9jCAAoJEBx+YmzsjxAgEkMQALfSDDLIIZazDHaeKV+TqxqW
++xvXAyJiolm7rRYCncBzzRDG4AKGbTTQXpXltw+cSoW4BVaRJ2vAdHl8atS/7m1M
+e+HegI+l+DUGSwcld/kvocUoWlI089dYF2AlG0qZxQnbmIyX79RVWiADxmKKkx33
+U2SN13WSjt27VnNa+RzC/xyV6l7vqfJyMoWbwSQwa00A4s4AflcPVTRUPLXZKfUs
+vsrPJTqIHag+3KSBtuqDg/ulPxuZ3nHHLRX47wiDADqhmNi6c/2GxtJoU0f1CBfF
+P1Zn1oxa9wzHuYI09XhDORpRZQ02OGlQHJEcxQinOzT8fDD16YS6aeyTEe89//03
+t6ZGuwPvrlmO4mjaMhlE2SfnYdlPrmC0lp0DoLmSvVag6CoV+WfXh5SAA8+locAR
+cOktyQaov5KjZBDhNvCPg1ekNheKJVoL5YQbhWmC3PYcYloCF1uxOJoNRQ/NufBG
+0HXjxFtCrR4ZyP2Mm6xWHuQdQ9Vy4ruS1Q/ReT5+PKqKFLwd6fr0+3RzDia2+6P6
+5Ljhk1SJgAeNXOj50UA5+jpeqBoyz0xhhvHJoHK8k/m0kuuR7msT1TIGzTILiJnz
+oV8qRsU20iJ3bz+yshGlE72eSEPydyLOR9POh9k6UFmAqjOx8TIwks8NKwHT3ZHC
+5oXiVRxhzq5AY5TC4M9D
+=n0z3
+-----END PGP SIGNATURE-----
 
-Or if we modify skb->vlan_tci at br_vlan_get_tag(), isn't it a little
-dangerous to other codes that use this function in order to just get
-vid?
-
-I am thinking it makes things simple that br_vlan_get_tag() returns 0 if
-(untagged/prio_tagged).
-
-	br_allowed_ingress(...) {
-		...
-		vid = br_vlan_get_tag(skb);
-		if (!vid) {
-			vid = get_pvid(v);
-			if (!tagged(skb)) put_tag(skb, vid);/* untagged */
-			else update_vid(skb, vid); /* prio_tagged */
-		}
-		...
-	}
-
-	br_vlan_get_tag(skb) {
-		if (tagged(skb)) return get_vid(skb);
-		return 0;
-	}
-
-Thanks,
-
-Toshiaki Makita
-
-> 
-> >
-> > Also, does this still work if CONFIG_BRIDGE_VLAN_FILTERING is disabled?
-> 
-> Yes.  br_allowed_ingress becomes an inline if the config option is disabled.
-> 
-> -vlad
+--z7bbLlDR+qKEHzO8--
