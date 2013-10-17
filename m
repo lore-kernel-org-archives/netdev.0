@@ -1,70 +1,69 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Do not trigger BUG_ON when deleting assoc without
- primary path
-Date: Thu, 17 Oct 2013 14:35:56 -0400
-Message-ID: <52602E0C.6000300@gmail.com>
-References: <1382031042-27339-1-git-send-email-vyasevich@gmail.com> <526025F2.2040304@redhat.com> <52602BA3.5020405@redhat.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH net 2/9] bnx2x: Prevent an illegal pointer
+ dereference during panic
+Date: Thu, 17 Oct 2013 21:47:27 +0300
+Message-ID: <1382035647.20308.3.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+ <1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
+ <20131017.142134.1058688642083607743.davem@davemloft.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Mark Thomas <Mark.Thomas@metaswitch.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, ariele@broadcom.com,
+	dmitry@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f171.google.com ([209.85.161.171]:42114 "EHLO
-	mail-gg0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759117Ab3JQSml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 14:42:41 -0400
-In-Reply-To: <52602BA3.5020405@redhat.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1403 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758121Ab3JQSrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 14:47:40 -0400
+In-Reply-To: <20131017.142134.1058688642083607743.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2013 02:25 PM, Daniel Borkmann wrote:
-> On 10/17/2013 08:01 PM, Daniel Borkmann wrote:
->> On 10/17/2013 07:30 PM, Vlad Yasevich wrote:
->>> It is possible to enter sctp_cmd_delete_tcb() without having a
->>> primary path.  The situations this most often happens in is
->>> when duplication cookie processing is triggered.  In this
->>> case, we are deleting a temporarily created association that
->>> is not fully populated.   Additially, at the time we
->>> are deleting the offending association, it is really too
->>> late to issue a BUG!
->>>
->>> This was introduced by:
->>> commit f9e42b853523cda0732022c2e0473c183f7aec65
->>>     net: sctp: sideeffect: throw BUG if primary_path is NULL
->>
->> Sure, lets remove it, but then we could still get a WARN() [sure,
->> better than BUG], if the user at the very same time checks procfs
->> through sctp_seq_dump_local_addrs(), see discussion we had here [1]:
->>
->>   It may trigger the crash later if the user performs some action on the
->>   association that touches the primary. That's the reason why I was
->>   proposing the checks below.
->>
->>   With the checks in command interpreter, we are only left with the
->>   possibility that primary_path changes to NULL during the association
->>   lifetime, which code audit doesn't support right now.  If that ever
->>   changes we would at least have a bit more information to go on.
->>
->>   [1] http://patchwork.ozlabs.org/patch/251099/
->
-> Meaning, all I'm saying is that with f9e42b853 we wanted to find exactly
-> such a case we have right now, that is, that an assoc could enter the
-> hashtable w/o primary path, no?
+On Thu, 2013-10-17 at 14:21 -0400, David Miller wrote:
+> From: "Yuval Mintz" <yuvalmin@broadcom.com>
+> Date: Tue, 15 Oct 2013 16:28:48 +0200
+> 
+> > @@ -775,6 +775,15 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
+> >  		trace_shmem_base = bp->common.shmem_base;
+> >  	else
+> >  		trace_shmem_base = SHMEM2_RD(bp, other_shmem_base_addr);
+> > +
+> > +	/* sanity */
+> > +	if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) ||
+> > +	    trace_shmem_base > MCPR_SCRATCH_BASE(bp) + 0x28000) {
+> 
+> I would say that this second test should be ">=" rather than ">".
+> 
+> Actually, there are a lot of holes still remaining here.
+> 
+> trace_shmem_base is validated, but then you access the signature at
+> 0x800 bytes before trace_shmem_base value.  That should be accounted
+> for in the test above too.
+> 
+> And what about that 'mark' value you read?  Any validations needed on
+> that?
+> 
+> And then you read from "addr" to "mark", and I see no checks that this
+> range makes any sense either.
 
-But it didn't enter a hash table in this case.  SCTP_CMD_NEW_ASOC
-was never issued.  The sequence was:
-	SCTP_CMD_SET_ASOC
-	SCTP_CMD_DELETE_TCB
+The failure that we saw was due to PCI read failure, so we could have
+checked that we did not read all 1's, but then we thought about a
+stronger validation to make sure this address is not being overrun for
+some unknown reason (maybe stack overflow of the FW, after all, we are
+at a FW bug handling routine) so this added condition validate that the
+address is within the scratchpad limitation. To make it more precious,
+we should account for the differences between the different silicon
+revisions, but we did not really see such a failure - the failure we saw
+was reading all 1's, the extra sanity will catch some more failure, but
+obviously not all.
 
-Such association would never be found through /proc since it was never
-hashed.  Such association would never be found the user since it
-is only really alive while the packet is processed.  By all rights
-it should be marked as 'temp', but it isn't due to cookie processing.
+I guess we should really re-spin and check for all 1's, or add some more
+code to make it really accurate, or at least fix the ">" to ">=". We
+will send a revised series with a fix.
 
-May be we should update cookie processing function to allow it
-to create temp associations if so desired.
-
--vlad
+Thanks,
+Eilon
