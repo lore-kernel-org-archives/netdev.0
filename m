@@ -1,53 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] em_ipset: use dev_net() accessor
-Date: Wed, 16 Oct 2013 17:29:34 -0700
-Message-ID: <20131016172934.7913a297@nehalam.linuxnetplumber.net>
-References: <1381949500-501-1-git-send-email-treding@nvidia.com>
-	<525F09B0.4080802@infradead.org>
-	<20131016153949.5f2257b4@nehalam.linuxnetplumber.net>
-	<525F2D7D.7010708@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vitaly Lavrov <lve@guap.ru>,
-	Thierry Reding <thierry.reding@gmail.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <525F2D7D.7010708@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Felipe Pena <felipensp@gmail.com>
+Subject: [PATCH] drivers: net: wireless: b43: Fix possible NULL ptr dereference
+Date: Wed, 16 Oct 2013 21:40:24 -0300
+Message-ID: <1381970424-4709-1-git-send-email-felipensp@gmail.com>
+Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Felipe Pena <felipensp@gmail.com>
+To: Stefano Brivio <stefano.brivio@polimi.it>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy found that if network namespace not enabled then
-nd_net does not exist and would cause compilation failure.
+On the ternary expression the 'e' variable could be NULL dereferenced,
+when b43_nphy_get_rf_ctl_over_rev7 function returns NULL.
 
-This is handled correctly by using the dev_net() macro.
+Signed-off-by: Felipe Pena <felipensp@gmail.com>
+---
+ drivers/net/wireless/b43/phy_n.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/phy_n.c
+index 7c970d3..05ee7f1 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -164,7 +164,8 @@ static void b43_nphy_rf_ctl_override_rev7(struct b43_wldev *dev, u16 field,
+ 		}
+ 		en_addr = en_addrs[override][i];
 
+-		val_addr = (i == 0) ? e->val_addr_core0 : e->val_addr_core1;
++		if (e)
++			val_addr = (i == 0) ? e->val_addr_core0 : e->val_addr_core1;
 
---- a/net/sched/em_ipset.c	2013-10-06 14:48:25.030449222 -0700
-+++ b/net/sched/em_ipset.c	2013-10-16 15:38:05.030278287 -0700
-@@ -24,7 +24,7 @@ static int em_ipset_change(struct tcf_pr
- {
- 	struct xt_set_info *set = data;
- 	ip_set_id_t index;
--	struct net *net = qdisc_dev(tp->q)->nd_net;
-+	struct net *net = dev_net(qdisc_dev(tp->q));
- 
- 	if (data_len != sizeof(*set))
- 		return -EINVAL;
-@@ -46,7 +46,7 @@ static void em_ipset_destroy(struct tcf_
- {
- 	const struct xt_set_info *set = (const void *) em->data;
- 	if (set) {
--		ip_set_nfnl_put(qdisc_dev(p->q)->nd_net, set->index);
-+		ip_set_nfnl_put(dev_net(qdisc_dev(p->q)), set->index);
- 		kfree((void *) em->data);
- 	}
- }
+ 		if (off) {
+ 			b43_phy_mask(dev, en_addr, ~en_mask);
+--
+1.7.10.4
