@@ -1,49 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2013-10-15
-Date: Thu, 17 Oct 2013 16:06:20 -0400 (EDT)
-Message-ID: <20131017.160620.433147354971362075.davem@davemloft.net>
-References: <20131015175611.GA15706@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] tcp: must unclone packets before mangling them
+Date: Thu, 17 Oct 2013 16:08:53 -0400 (EDT)
+Message-ID: <20131017.160853.1730185223687230325.davem@davemloft.net>
+References: <1381863270.2045.62.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131015175611.GA15706-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46827 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759409Ab3JQUIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 16:08:55 -0400
+In-Reply-To: <1381863270.2045.62.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 15 Oct 2013 13:56:12 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Oct 2013 11:54:30 -0700
 
-> Please pull this batch of fixes intended for the 3.12 stream!
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> For the mac80211 bits, Johannes says:
+> TCP stack should make sure it owns skbs before mangling them.
 > 
-> "Jouni fixes a remain-on-channel vs. scan bug, and Felix fixes client TX
-> probing on VLANs."
+> We had various crashes using bnx2x, and it turned out gso_size
+> was cleared right before bnx2x driver was populating TC descriptor
+> of the _previous_ packet send. TCP stack can sometime retransmit
+> packets that are still in Qdisc.
 > 
-> And also:
+> Of course we could make bnx2x driver more robust (using
+> ACCESS_ONCE(shinfo->gso_size) for example), but the bug is TCP stack.
 > 
-> "This time I have two fixes from Emmanuel for RF-kill issues, and fixed
-> two issues reported by Evan Huus and Thomas Lindroth respectively."
+> We have identified two points where skb_unclone() was needed.
 > 
-> On top of those...
+> This patch adds a WARN_ON_ONCE() to warn us if we missed another
+> fix of this kind.
 > 
-> Avinash Patil adds a couple of mwifiex fixes to properly inform cfg80211
-> about some different types of disconnects, avoiding WARNINGs.
+> Kudos to Neal for finding the root cause of this bug. Its visible
+> using small MSS.
 > 
-> Mark Cave-Ayland corrects a pointer arithmetic problem in rtlwifi,
-> avoiding incorrect automatic gain calculations.
-> 
-> Solomon Peachy sends a cw1200 fix for locking around calls to
-> cw1200_irq_handler, addressing "lost interrupt" problems.
-> 
-> Please let me know if there are problems!
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable.
