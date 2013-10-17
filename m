@@ -1,46 +1,47 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Thu, 17 Oct 2013 11:19:21 -0700
-Message-ID: <52602A29.506@zytor.com>
-References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com> <20131012172124.GA18241@gmail.com> <20131014202854.GH26880@hmsreliant.think-freely.org> <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com> <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com> <20131017003421.GA31470@hmsreliant.think-freely.org> <20131017084121.GC22705@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/9] bnx2x: Prevent an illegal pointer dereference
+ during panic
+Date: Thu, 17 Oct 2013 14:21:34 -0400 (EDT)
+Message-ID: <20131017.142134.1058688642083607743.davem@davemloft.net>
+References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
+	<1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, x86@kernel.org,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>, Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131017084121.GC22705@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com,
+	dmitry@broadcom.com
+To: yuvalmin@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45776 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762509Ab3JQSVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 14:21:39 -0400
+In-Reply-To: <1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2013 01:41 AM, Ingo Molnar wrote:
-> 
-> To correctly simulate the workload you'd have to:
-> 
->  - allocate a buffer larger than your L2 cache.
-> 
->  - to measure the effects of the prefetches you'd also have to randomize
->    the individual buffer positions. See how 'perf bench numa' implements a
->    random walk via --data_rand_walk, in tools/perf/bench/numa.c.
->    Otherwise the CPU might learn your simplistic stream direction and the
->    L2 cache might hw-prefetch your data, interfering with any explicit 
->    prefetches the code does. In many real-life usecases packet buffers are
->    scattered.
-> 
-> Also, it would be nice to see standard deviation noise numbers when two 
-> averages are close to each other, to be able to tell whether differences 
-> are statistically significant or not.
-> 
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Tue, 15 Oct 2013 16:28:48 +0200
 
-Seriously, though, how much does it matter?  All the above seems likely
-to do is to drown the signal by adding noise.
+> @@ -775,6 +775,15 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
+>  		trace_shmem_base = bp->common.shmem_base;
+>  	else
+>  		trace_shmem_base = SHMEM2_RD(bp, other_shmem_base_addr);
+> +
+> +	/* sanity */
+> +	if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) ||
+> +	    trace_shmem_base > MCPR_SCRATCH_BASE(bp) + 0x28000) {
 
-If the parallel (threaded) checksumming is faster, which theory says it
-should and microbenchmarking confirms, how important are the
-macrobenchmarks?
+I would say that this second test should be ">=" rather than ">".
 
-	-hpa
+Actually, there are a lot of holes still remaining here.
+
+trace_shmem_base is validated, but then you access the signature at
+0x800 bytes before trace_shmem_base value.  That should be accounted
+for in the test above too.
+
+And what about that 'mark' value you read?  Any validations needed on
+that?
+
+And then you read from "addr" to "mark", and I see no checks that this
+range makes any sense either.
