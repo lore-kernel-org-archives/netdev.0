@@ -1,45 +1,45 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH ipsec] xfrm: prevent ipcomp scratch buffer race condition
-Date: Thu, 17 Oct 2013 13:01:49 +0200
-Message-ID: <20131017110149.GA6747@unicorn.suse.cz>
-References: <20131014160334.BCCDDE8A31@unicorn.suse.cz>
- <20131016123205.GA9982@gondor.apana.org.au>
+From: Peter Schmitt <peter.schmitt82@yahoo.de>
+Subject: Re: PROBLEM: GRE forwarding not working with 3.10.x, WCCPv2 and Cisco 7200 Router showing IP0 bad-hlen 4 in tcpdump
+Date: Thu, 17 Oct 2013 11:53:10 +0100 (BST)
+Message-ID: <1382007190.35868.YahooMailNeo@web172006.mail.ir2.yahoo.com>
+References: <1381912513.57737.YahooMailNeo@web172002.mail.ir2.yahoo.com> <1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
+Reply-To: Peter Schmitt <peter.schmitt82@yahoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49861 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753464Ab3JQLBw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 07:01:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20131016123205.GA9982@gondor.apana.org.au>
+Received: from nm31.bullet.mail.ne1.yahoo.com ([98.138.229.24]:48162 "HELO
+	nm31.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753343Ab3JQLCE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 07:02:04 -0400
+In-Reply-To: <1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 08:32:05PM +0800, Herbert Xu wrote:
-> On Mon, Oct 14, 2013 at 06:03:34PM +0200, Michal Kubecek wrote:
+Hi,
+
+
 > 
-> > Add similar protection into ipcomp_decompress() as it can be
-> > called from process context as well (even if such scenario seems
-> > a bit artificial).
+> 3.10 is buggy (for ETH_P_WCCP support I mean), 3.11 has the probable
+> fix :
 > 
-> I don't think this is possible or otherwise xfrm_input will
-> dead-lock.
+> commit 3d7b46cd20e300bd6989fb1f43d46f1b9645816e
+> ("ip_tunnel: push generic protocol handling to ip_tunnel module.")
+> 
+> The problem is 3.10 do not pull the extra 4 bytes of WCCP
+> 
+> This is now properly done in iptunnel_pull_header()
+> 
 
-When I was thinking about this, I came with two situations when this
-might IMHO happen:
+First of all, many thanks for your help on this.
 
-1. We are sending a packet to ourselves; this could mean not only a
-local loop but also e.g. a packets between an LXC container and the host
-or between two LXC containers. While it doesn't make much sense to use
-compression in such case, it might happen while testing a solution which
-is going to be used in a normal setup later.
+I tried to apply the fix to the 3.10.16 sources, as I would like to stay with the long-term line. Unfortunately it does not apply, as there are a lot of dependencies on other patches.
 
-2. The packet was passed to tun/tap device by a userspace application.
+Do you think there will be a fix for the long-time 3.10 kernel line? Or can you guide me on how to apply this fix to the long-term kernel?
 
-Am I wrong?
-
-                                                        Michal Kubecek
+Best regards,
+Peter
