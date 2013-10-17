@@ -1,45 +1,26 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] fib_trie: Send RTM_DELROUTE when link goes
- down
-Date: Thu, 17 Oct 2013 22:52:43 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310172245440.2016@ssi.bg>
-References: <CAKfDRXizw1TaK-oHrAQv8Hi80gKiUHjQ6d21o3MOQpuVkcXSow@mail.gmail.com> <1382028894-14236-1-git-send-email-kristian.evensen@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] yam: integer underflow in yam_ioctl()
+Date: Thu, 17 Oct 2013 15:54:22 -0400 (EDT)
+Message-ID: <20131017.155422.1244517906591812199.davem@davemloft.net>
+References: <20131014121931.GI6247@mwanda>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:59666 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756787Ab3JQTw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Oct 2013 15:52:58 -0400
-In-Reply-To: <1382028894-14236-1-git-send-email-kristian.evensen@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jpr@f6fbb.org, linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20131014121931.GI6247@mwanda>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 14 Oct 2013 15:28:38 +0300
 
-	Hello,
-
-On Thu, 17 Oct 2013, Kristian Evensen wrote:
-
-> From: Kristian Evensen <kristian.evensen@gmail.com>
+> We cap bitrate at YAM_MAXBITRATE in yam_ioctl(), but it could also be
+> negative.  I don't know the impact of using a negative bitrate but let's
+> prevent it.
 > 
-> When a link is set as down using for example "ip link set dev X down", routes
-> are deleted, but RTM_DELROUTE messages are not sent to RTNLGRP_IPV4_ROUTE. This
-> patch makes trie_flush_list() send a RTM_DELROUTE for each route that is
-> removed, and makes rtnelink route deletion behavior consistent across commands.
-> The parameter lists for trie_flush_list() and trie_flush_leaf() are expanded to
-> include required information otherwise unavailable in trie_flush_list().
-> 
-> One use case that is simplified by this patch is IPv4 WAN connection monitoring.
-> Instead of listening for and handling both RTM_*ROUTE and RTM_*LINK-messages, it
-> is sufficient to handle RTM_*ROUTE.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-	IIRC, such notifications were not implemented
-to avoid storms to routing daemons. Not sure if this is
-still true.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Applied.
