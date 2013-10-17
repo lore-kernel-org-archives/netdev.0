@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net/mlx4: Mellanox driver update
- 15-10-2013
-Date: Thu, 17 Oct 2013 15:13:05 -0400 (EDT)
-Message-ID: <20131017.151305.648362128512487002.davem@davemloft.net>
-References: <1381848924-18992-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH] isdn: remove deprecated IRQF_DISABLED
+Date: Thu, 17 Oct 2013 15:14:54 -0400 (EDT)
+Message-ID: <20131017.151454.701894564686762206.davem@davemloft.net>
+References: <1381641869-7709-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eyalpe@mellanox.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46176 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759117Ab3JQTNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 15:13:10 -0400
-In-Reply-To: <1381848924-18992-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: michael.opdenacker@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1381641869-7709-1-git-send-email-michael.opdenacker@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 15 Oct 2013 16:55:20 +0200
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Date: Sun, 13 Oct 2013 07:24:29 +0200
 
-> This patchset contains small code cleaning patches, and a patch to make
-> mlx4_core use module_request() in order to load the relevant link layer module
-> (mlx4_en or mlx4_ib) according to the port type.
+> This patch proposes to remove the use of the IRQF_DISABLED flag
+> 
+> It's a NOOP since 2.6.35 and it will be removed one day.
+> 
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 
-Series applied, thanks.
+Applied to net-next.
