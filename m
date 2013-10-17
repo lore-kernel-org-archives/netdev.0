@@ -1,47 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/9] bnx2x: Prevent an illegal pointer dereference
- during panic
-Date: Thu, 17 Oct 2013 14:21:34 -0400 (EDT)
-Message-ID: <20131017.142134.1058688642083607743.davem@davemloft.net>
-References: <1381847335-32662-1-git-send-email-yuvalmin@broadcom.com>
-	<1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] sctp: Do not trigger BUG_ON when deleting assoc without
+ primary path
+Date: Thu, 17 Oct 2013 20:25:39 +0200
+Message-ID: <52602BA3.5020405@redhat.com>
+References: <1382031042-27339-1-git-send-email-vyasevich@gmail.com> <526025F2.2040304@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com,
-	dmitry@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Mark Thomas <Mark.Thomas@metaswitch.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45776 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762509Ab3JQSVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 14:21:39 -0400
-In-Reply-To: <1381847335-32662-3-git-send-email-yuvalmin@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27522 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762426Ab3JQS0a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Oct 2013 14:26:30 -0400
+In-Reply-To: <526025F2.2040304@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Tue, 15 Oct 2013 16:28:48 +0200
+On 10/17/2013 08:01 PM, Daniel Borkmann wrote:
+> On 10/17/2013 07:30 PM, Vlad Yasevich wrote:
+>> It is possible to enter sctp_cmd_delete_tcb() without having a
+>> primary path.  The situations this most often happens in is
+>> when duplication cookie processing is triggered.  In this
+>> case, we are deleting a temporarily created association that
+>> is not fully populated.   Additially, at the time we
+>> are deleting the offending association, it is really too
+>> late to issue a BUG!
+>>
+>> This was introduced by:
+>> commit f9e42b853523cda0732022c2e0473c183f7aec65
+>>     net: sctp: sideeffect: throw BUG if primary_path is NULL
+>
+> Sure, lets remove it, but then we could still get a WARN() [sure,
+> better than BUG], if the user at the very same time checks procfs
+> through sctp_seq_dump_local_addrs(), see discussion we had here [1]:
+>
+>   It may trigger the crash later if the user performs some action on the
+>   association that touches the primary. That's the reason why I was
+>   proposing the checks below.
+>
+>   With the checks in command interpreter, we are only left with the
+>   possibility that primary_path changes to NULL during the association
+>   lifetime, which code audit doesn't support right now.  If that ever
+>   changes we would at least have a bit more information to go on.
+>
+>   [1] http://patchwork.ozlabs.org/patch/251099/
 
-> @@ -775,6 +775,15 @@ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
->  		trace_shmem_base = bp->common.shmem_base;
->  	else
->  		trace_shmem_base = SHMEM2_RD(bp, other_shmem_base_addr);
-> +
-> +	/* sanity */
-> +	if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) ||
-> +	    trace_shmem_base > MCPR_SCRATCH_BASE(bp) + 0x28000) {
-
-I would say that this second test should be ">=" rather than ">".
-
-Actually, there are a lot of holes still remaining here.
-
-trace_shmem_base is validated, but then you access the signature at
-0x800 bytes before trace_shmem_base value.  That should be accounted
-for in the test above too.
-
-And what about that 'mark' value you read?  Any validations needed on
-that?
-
-And then you read from "addr" to "mark", and I see no checks that this
-range makes any sense either.
+Meaning, all I'm saying is that with f9e42b853 we wanted to find exactly
+such a case we have right now, that is, that an assoc could enter the
+hashtable w/o primary path, no?
