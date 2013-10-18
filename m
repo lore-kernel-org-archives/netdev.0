@@ -1,7 +1,8 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/9 RESENT] staging: r8188eu: Set device type to wlan
-Date: Fri, 18 Oct 2013 16:32:52 -0500
-Message-ID: <5261A904.9030908@lwfinger.net>
+Subject: [PATCH 2/9 RESENT] staging: r8188eu: Fix Sparse warnings in
+ rtw_wlan_util
+Date: Fri, 18 Oct 2013 16:33:28 -0500
+Message-ID: <5261A928.3020007@lwfinger.net>
 References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; Format="flowed"
@@ -22,36 +23,30 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-The latest version of NetworkManager does not recognize the device as wireless
-without this change.
+Sparse shows the following warning:
+
+   CHECK   drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+drivers/staging/rtl8188eu/core/rtw_wlan_util.c:1635:25: warning: cast to 
+restricted __le16
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
-  drivers/staging/rtl8188eu/os_dep/os_intfs.c | 5 +++++
-  1 file changed, 5 insertions(+)
+  drivers/staging/rtl8188eu/core/rtw_wlan_util.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c 
-b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-index da9f0d5..17659bb 100644
---- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-+++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-@@ -707,6 +707,10 @@ int rtw_init_netdev_name(struct net_device *pnetdev, const 
-char *ifname)
-  	return 0;
-  }
-  +static const struct device_type wlan_type = {
-+	.name = "wlan",
-+};
-+
-  struct net_device *rtw_init_netdev(struct adapter *old_padapter)
-  {
-  	struct adapter *padapter;
-@@ -722,6 +726,7 @@ struct net_device *rtw_init_netdev(struct adapter *old_padapter)
-  	if (!pnetdev)
-  		return NULL;
-  +	pnetdev->dev.type = &wlan_type;
-  	padapter = rtw_netdev_priv(pnetdev);
-  	padapter->pnetdev = pnetdev;
-  	DBG_88E("register rtw_netdev_ops to netdev_ops\n");
+diff --git a/drivers/staging/rtl8188eu/core/rtw_wlan_util.c 
+b/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+index 153ec61..30ba18c 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
++++ b/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+@@ -1632,7 +1632,7 @@ void process_addba_req(struct adapter *padapter, u8 
+*paddba_req, u8 *addr)
+  	psta = rtw_get_stainfo(pstapriv, addr);
+   	if (psta) {
+-		param = le16_to_cpu(preq->BA_para_set);
++		param = preq->BA_para_set;
+  		tid = (param>>2)&0x0f;
+  		preorder_ctrl = &psta->recvreorder_ctrl[tid];
+  		preorder_ctrl->indicate_seq = 0xffff;
 -- 
 1.8.4
