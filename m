@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  02/14] i40e: don't free nonexistent rings
-Date: Fri, 18 Oct 2013 06:23:06 -0700
-Message-ID: <1382102598-11343-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  14/14] i40e: Bump version
+Date: Fri, 18 Oct 2013 06:23:18 -0700
+Message-ID: <1382102598-11343-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,48 +11,36 @@ To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:41785 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754379Ab3JRNXk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 09:23:40 -0400
+	id S1754585Ab3JRNXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 09:23:43 -0400
 In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Not all VSIs have rings! Check to see if rings were actually allocated before
-freeing them.
+Update the driver version.
 
-This prevents a panic when tx_rings[0] is not allocated.
-
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 69ed801..a8c18fa 100644
+index d889342..41a79df 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5160,11 +5160,12 @@ static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
- {
- 	int i;
+@@ -36,7 +36,7 @@ static const char i40e_driver_string[] =
  
--	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
--		kfree_rcu(vsi->tx_rings[i], rcu);
--		vsi->tx_rings[i] = NULL;
--		vsi->rx_rings[i] = NULL;
--	}
-+	if (vsi->tx_rings[0])
-+		for (i = 0; i < vsi->alloc_queue_pairs; i++) {
-+			kfree_rcu(vsi->tx_rings[i], rcu);
-+			vsi->tx_rings[i] = NULL;
-+			vsi->rx_rings[i] = NULL;
-+		}
- 
- 	return 0;
- }
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 10
++#define DRV_VERSION_BUILD 11
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
 -- 
 1.8.3.1
