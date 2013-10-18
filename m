@@ -1,47 +1,61 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH net] tcp: fix incorrect ca_state in tail loss probe
-Date: Fri, 18 Oct 2013 10:29:00 -0700
-Message-ID: <CAB_+Fg5k5qKG=1T30=+BXZaWGoLsREGMg2ZuEJwky_OBm_AJ5w@mail.gmail.com>
-References: <1381598187-9681-1-git-send-email-ycheng@google.com>
-	<CADVnQymADSKHr6oxr6dN8gdjxf-vtCXOd6xm3neRcWLp7nh9Qg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: for 3.0 : please add "c16a98e ipv6: tcp: fix panic in SYN
+ processing"
+Date: Fri, 18 Oct 2013 13:31:19 -0400 (EDT)
+Message-ID: <20131018.133119.2049409060286197552.davem@davemloft.net>
+References: <20131018140442.GA16883@1wt.eu>
+	<20131018143433.GA27502@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, michael@sterretts.net,
-	jwboyer@fedoraproject.org,
-	"Steinar H. Gunderson" <sesse@google.com>,
-	dormando <dormando@rydia.net>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:64380 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756445Ab3JRR3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:29:01 -0400
-Received: by mail-ie0-f171.google.com with SMTP id tp5so6924682ieb.2
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 10:29:01 -0700 (PDT)
-In-Reply-To: <CADVnQymADSKHr6oxr6dN8gdjxf-vtCXOd6xm3neRcWLp7nh9Qg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131018143433.GA27502@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 13, 2013 at 10:55 PM, Neal Cardwell <ncardwell@google.com> wrote:
->
-> On Sat, Oct 12, 2013 at 1:16 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> > On receiving an ACK that covers the loss probe sequence, TLP
-> > immediately sets the congestion state to Open, even though some packets
-> > are not recovered and retransmisssion are on the way.  The later ACks
-> > may trigger a WARN_ON check in step D of tcp_fastretrans_alert(), e.g.,
-> > https://bugzilla.redhat.com/show_bug.cgi?id=989251
-> >
-> > The fix is to follow the similar procedure in recovery by calling
-> > tcp_try_keep_open(). The sender switches to Open state if no packets
-> > are retransmissted. Otherwise it goes to Disorder and let subsequent
-> > ACKs move the state to Recovery or Open.
-> >
-> > Reported-By: Michael Sterrett <michael@sterretts.net>
-> > Tested-By: Dormando <dormando@rydia.net>
-> > Signed-off-by: Yuchung Cheng <ycheng@google.com>
->
-> Acked-by: Neal Cardwell <ncardwell@google.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Fri, 18 Oct 2013 07:34:33 -0700
 
-Acked-by: Nandita Dukkipati <nanditad@google.com>
+> On Fri, Oct 18, 2013 at 04:04:42PM +0200, Willy Tarreau wrote:
+>> Greg, David,
+>> 
+>> one of our customers faced a panic in latest 2.6.32 when both somaxconn
+>> and the listen backlog are large on an IPv6 socket. It was also reported
+>> by one haproxy user on the latest RHEL6 kernel a few months ago. We found
+>> that the same bug affects 3.0 up to and including 3.0.100.
+>> 
+>> Eric had already spotted that bug and fixed it in 3.2 with the following
+>> patch :
+>> 
+>>   commit c16a98ed91597b40b22b540c6517103497ef8e74
+>>   Author: Eric Dumazet <eric.dumazet@gmail.com>
+>>   Date:   Wed Nov 23 15:49:31 2011 -0500
+>> 
+>>     ipv6: tcp: fix panic in SYN processing
+>>     
+>>     commit 72a3effaf633bc ([NET]: Size listen hash tables using backlog
+>>     hint) added a bug allowing inet6_synq_hash() to return an out of bound
+>>     array index, because of u16 overflow.
+>>     
+>>     Bug can happen if system admins set net.core.somaxconn &
+>>     net.ipv4.tcp_max_syn_backlog sysctls to values greater than 65536
+>>     
+>>     Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>> 
+>> In practice, the bug extends to lower values as well (32768 and above),
+>> because reqsk_queue_alloc() can round the number of entries to double of
+>> the backlog by doing roundup_pow_of_two(backlog+1), resulting in
+>> inet6_csk_search_req() calling inet6_synq_hash() with too large an integer.
+>> 
+>> Could we please apply it to 3.0 before it finishes its life ?
+> 
+> Unless David objects, I can queue this up just in time for the last
+> 3.0.stable.
+> 
+> David?
+
+No objections.
