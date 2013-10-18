@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  12/14] i40e: check vsi ptrs before dumping them
-Date: Fri, 18 Oct 2013 06:23:16 -0700
-Message-ID: <1382102598-11343-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  13/14] i40e: use pf_id for pf function id in qtx_ctl
+Date: Fri, 18 Oct 2013 06:23:17 -0700
+Message-ID: <1382102598-11343-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60483 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:41263 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754561Ab3JRNXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754343Ab3JRNXm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 18 Oct 2013 09:23:42 -0400
 In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,70 +19,44 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Make sure there really are rings and queues before trying to dump
-information in them.
+Simplify code by using an already existing variable.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 39 +++++++++++++++-----------
- 1 file changed, 23 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 246b177..ef4cb1c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -234,26 +234,33 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
- 			memcpy(p, vsi, len);
- 			p += len;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 727d14d..d889342 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2174,8 +2174,8 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
  
--			len = (sizeof(struct i40e_q_vector)
--				* vsi->num_q_vectors);
--			memcpy(p, vsi->q_vectors, len);
--			p += len;
--
--			len = (sizeof(struct i40e_ring) * vsi->num_queue_pairs);
--			memcpy(p, vsi->tx_rings, len);
--			p += len;
--			memcpy(p, vsi->rx_rings, len);
--			p += len;
-+			if (vsi->num_q_vectors) {
-+				len = (sizeof(struct i40e_q_vector)
-+					* vsi->num_q_vectors);
-+				memcpy(p, vsi->q_vectors, len);
-+				p += len;
-+			}
+ 	/* Now associate this queue with this PCI function */
+ 	qtx_ctl = I40E_QTX_CTL_PF_QUEUE;
+-	qtx_ctl |= ((hw->hmc.hmc_fn_id << I40E_QTX_CTL_PF_INDX_SHIFT)
+-						& I40E_QTX_CTL_PF_INDX_MASK);
++	qtx_ctl |= ((hw->pf_id << I40E_QTX_CTL_PF_INDX_SHIFT) &
++		    I40E_QTX_CTL_PF_INDX_MASK);
+ 	wr32(hw, I40E_QTX_CTL(pf_q), qtx_ctl);
+ 	i40e_flush(hw);
  
--			for (i = 0; i < vsi->num_queue_pairs; i++) {
--				len = sizeof(struct i40e_tx_buffer);
--				memcpy(p, vsi->tx_rings[i]->tx_bi, len);
-+			if (vsi->num_queue_pairs) {
-+				len = (sizeof(struct i40e_ring) *
-+				      vsi->num_queue_pairs);
-+				memcpy(p, vsi->tx_rings, len);
-+				p += len;
-+				memcpy(p, vsi->rx_rings, len);
- 				p += len;
- 			}
--			for (i = 0; i < vsi->num_queue_pairs; i++) {
-+
-+			if (vsi->tx_rings[0]) {
-+				len = sizeof(struct i40e_tx_buffer);
-+				for (i = 0; i < vsi->num_queue_pairs; i++) {
-+					memcpy(p, vsi->tx_rings[i]->tx_bi, len);
-+					p += len;
-+				}
- 				len = sizeof(struct i40e_rx_buffer);
--				memcpy(p, vsi->rx_rings[i]->rx_bi, len);
--				p += len;
-+				for (i = 0; i < vsi->num_queue_pairs; i++) {
-+					memcpy(p, vsi->rx_rings[i]->rx_bi, len);
-+					p += len;
-+				}
- 			}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 202139f..4ee6d6a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -383,7 +383,7 @@ static int i40e_config_vsi_tx_queue(struct i40e_vf *vf, u16 vsi_idx,
  
- 			/* macvlan filter list */
+ 	/* associate this queue with the PCI VF function */
+ 	qtx_ctl = I40E_QTX_CTL_VF_QUEUE;
+-	qtx_ctl |= ((hw->hmc.hmc_fn_id << I40E_QTX_CTL_PF_INDX_SHIFT)
++	qtx_ctl |= ((hw->pf_id << I40E_QTX_CTL_PF_INDX_SHIFT)
+ 		    & I40E_QTX_CTL_PF_INDX_MASK);
+ 	qtx_ctl |= (((vf->vf_id + hw->func_caps.vf_base_id)
+ 		     << I40E_QTX_CTL_VFVM_INDX_SHIFT)
 -- 
 1.8.3.1
