@@ -1,94 +1,56 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
- the skb
-Date: Fri, 18 Oct 2013 10:32:09 -0400
-Message-ID: <52614669.5040301@redhat.com>
-References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com> <20131017112857.GA11318@localhost> <20131017113735.GB2699@open-mesh.com> <20131018111041.GA10964@localhost> <20131018113555.GK2596@neomailbox.net>
-Reply-To: vyasevic@redhat.com
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: for 3.0 : please add "c16a98e ipv6: tcp: fix panic in SYN
+ processing"
+Date: Fri, 18 Oct 2013 07:34:33 -0700
+Message-ID: <20131018143433.GA27502@kroah.com>
+References: <20131018140442.GA16883@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Antonio Quartulli <antonio@open-mesh.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Antonio Quartulli <antonio@meshcoding.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17808 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754829Ab3JROcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 10:32:21 -0400
-In-Reply-To: <20131018113555.GK2596@neomailbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131018140442.GA16883@1wt.eu>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/18/2013 07:35 AM, Antonio Quartulli wrote:
-> On Fri, Oct 18, 2013 at 01:10:41PM +0200, Pablo Neira Ayuso wrote:
->> On Thu, Oct 17, 2013 at 01:37:35PM +0200, Antonio Quartulli wrote:
->>> On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
->>>> Hi,
->>>>> +
->>>>> +/**
->>>>> + * br_netfilter_skb_free - clean the NF bridge data in an skb
->>>>> + * @skb: the skb which the data to free belongs to
->>>>> + */
->>>>> +void br_netfilter_skb_free(struct sk_buff *skb)
->>>>> +{
->>>>> +	nf_bridge_put(skb->nf_bridge);
->>>>> +	skb->nf_bridge = NULL;
->>>>> +}
->>>>
->>>> This should be nf_reset.
->>>
->>> You think I should directly use nf_reset instead of this function?
->>>
->>> I see that nf_reset() cleans up the conntrack part too: does it also become
->>> useless once the packet exits the bridge interface?
->>
->> The conntrack should not attached if it's forwarded to another netif,
->> see dev_forward_skb.
->>
->> But I'm not sure what scenario you're trying to handle with this
->> change, if you could please elaborate.
->
->
-> This is a sample scenario (nf bridge is on):
->
-> [eth0] ---> [br0] ---> [bat0] ---> [br1]
->
+On Fri, Oct 18, 2013 at 04:04:42PM +0200, Willy Tarreau wrote:
+> Greg, David,
+> 
+> one of our customers faced a panic in latest 2.6.32 when both somaxconn
+> and the listen backlog are large on an IPv6 socket. It was also reported
+> by one haproxy user on the latest RHEL6 kernel a few months ago. We found
+> that the same bug affects 3.0 up to and including 3.0.100.
+> 
+> Eric had already spotted that bug and fixed it in 3.2 with the following
+> patch :
+> 
+>   commit c16a98ed91597b40b22b540c6517103497ef8e74
+>   Author: Eric Dumazet <eric.dumazet@gmail.com>
+>   Date:   Wed Nov 23 15:49:31 2011 -0500
+> 
+>     ipv6: tcp: fix panic in SYN processing
+>     
+>     commit 72a3effaf633bc ([NET]: Size listen hash tables using backlog
+>     hint) added a bug allowing inet6_synq_hash() to return an out of bound
+>     array index, because of u16 overflow.
+>     
+>     Bug can happen if system admins set net.core.somaxconn &
+>     net.ipv4.tcp_max_syn_backlog sysctls to values greater than 65536
+>     
+>     Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> In practice, the bug extends to lower values as well (32768 and above),
+> because reqsk_queue_alloc() can round the number of entries to double of
+> the backlog by doing roundup_pow_of_two(backlog+1), resulting in
+> inet6_csk_search_req() calling inet6_synq_hash() with too large an integer.
+> 
+> Could we please apply it to 3.0 before it finishes its life ?
 
-Another possible config that is out in the wild is
+Unless David objects, I can queue this up just in time for the last
+3.0.stable.
 
-[eth0] ---> [br0] ---> [vlanX] ----> [br1]
-
-
-> where the relation '[a] ---> [b]' means 'a is enslaved in b' (bat0 is a
-> batman-adv virtual interface..in this situation it should not matter: it
-> just removs an header from an incoming skb and delivers it).
->
-> The problem I was having was due to an skb entering br0 first and br1 later.
-> When reaching br1 skb->nf_bridge was != NULL because of the previous processing
-> in br0.
->
-
-Doesn't br_nf_pre_routing already take care of this for you?  It will 
-drop the ref on the current nf_bridge and allocate a new one.  Is that
-not sufficient?
-
--vlad
-
-> To clarify, the packet arriving on eth0 is 'delivered' to br0. It is not
-> forwarded to another port of the bridge. Therefore I am not sure that we should
-> clean the conntrack part too.
->
->>
->> Perhaps your fix is more conservative to avoid breaking strange setups
->> that have been relying on this behaviour. I know of people deploying
->> strange configurations using netfilter bridge.
->>
->
-> could be.
->
-> Cheers,
->
+David?
