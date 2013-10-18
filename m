@@ -1,55 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
- the skb
-Date: Fri, 18 Oct 2013 13:10:41 +0200
-Message-ID: <20131018111041.GA10964@localhost>
-References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
- <20131017112857.GA11318@localhost>
- <20131017113735.GB2699@open-mesh.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
+ beyond the range time_after_eq().
+Date: Fri, 18 Oct 2013 12:24:17 +0100
+Message-ID: <20131018112417.GA20185@zion.uk.xensource.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com>
+ <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
+ <525FA79F.8060601@oracle.com>
+ <525FC98002000078000FBBB5@nat28.tlf.novell.com>
+ <52601274.5010008@oracle.com>
+ <526102DE02000078000FBFBB@nat28.tlf.novell.com>
+ <5260EDD8.4020608@oracle.com>
+ <52610CD202000078000FC00B@nat28.tlf.novell.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7396@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antonio Quartulli <antonio@meshcoding.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Antonio Quartulli <antonio@open-mesh.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jan Beulich <JBeulich@suse.com>, annie li <annie.li@oracle.com>,
+	<david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	jianhai luan <jianhai.luan@oracle.com>,
+	<netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45508 "EHLO mail.us.es"
+Received: from smtp02.citrix.com ([66.165.176.63]:9186 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753070Ab3JRLKt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 07:10:49 -0400
+	id S1753202Ab3JRLYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 07:24:19 -0400
 Content-Disposition: inline
-In-Reply-To: <20131017113735.GB2699@open-mesh.com>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7396@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 17, 2013 at 01:37:35PM +0200, Antonio Quartulli wrote:
-> On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
-> > Hi,
-> > > +
-> > > +/**
-> > > + * br_netfilter_skb_free - clean the NF bridge data in an skb
-> > > + * @skb: the skb which the data to free belongs to
-> > > + */
-> > > +void br_netfilter_skb_free(struct sk_buff *skb)
-> > > +{
-> > > +	nf_bridge_put(skb->nf_bridge);
-> > > +	skb->nf_bridge = NULL;
-> > > +}
+On Fri, Oct 18, 2013 at 09:40:33AM +0100, David Laight wrote:
+> > > My understanding is this patch does not simply double the span, it is
+> > > just stricter than the original one. Please check my previous comments,
+> > > I paste it here.
 > > 
-> > This should be nf_reset.
+> > No, the code (on a 32-bit arch) just _can't_ handle jiffies differences
+> > beyond 2^32, no matter how cleverly you use the respective macros.
+> > All arithmetic there is done modulo 2^32.
 > 
-> You think I should directly use nf_reset instead of this function?
+> I haven't followed this discussion very closely but it might be possible
+> to arrange that the 'incorrect lack of credit' only occurs for a few
+> seconds every time 'jiffies' wraps - instead of half of the time.
+> Then you'd have to be extremely unlucky to hit the timing window.
 > 
-> I see that nf_reset() cleans up the conntrack part too: does it also become
-> useless once the packet exits the bridge interface?
 
-The conntrack should not attached if it's forwarded to another netif,
-see dev_forward_skb.
+As I understand it, this is the idea of this patch -- to narrow down the
+timing window.
 
-But I'm not sure what scenario you're trying to handle with this
-change, if you could please elaborate.
+Wei.
 
-Perhaps your fix is more conservative to avoid breaking strange setups
-that have been relying on this behaviour. I know of people deploying
-strange configurations using netfilter bridge.
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
