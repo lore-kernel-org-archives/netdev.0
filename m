@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net REPOST 2/3] ip6_output: do skb ufo init for peeked non ufo skb as well
-Date: Fri, 18 Oct 2013 19:13:50 +0200
-Message-ID: <1382116431-28758-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net REPOST 1/3] udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
+Date: Fri, 18 Oct 2013 19:13:49 +0200
+Message-ID: <1382116431-28758-2-git-send-email-jiri@resnulli.us>
 References: <1382116431-28758-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	hannes@stressinduktion.or, jdmason@kudzu.us,
@@ -9,84 +9,54 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	kaber@trash.net, herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:41816 "EHLO
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:61803 "EHLO
 	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756533Ab3JRRN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:13:56 -0400
-Received: by mail-ea0-f175.google.com with SMTP id m14so2192221eaj.34
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 10:13:55 -0700 (PDT)
+	with ESMTP id S1756640Ab3JRRNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:13:55 -0400
+Received: by mail-ea0-f175.google.com with SMTP id m14so2139502eaj.6
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 10:13:54 -0700 (PDT)
 In-Reply-To: <1382116431-28758-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now, if user application does:
-sendto len<mtu flag MSG_MORE
+if up->pending != 0 dontfrag is left with default value -1. That
+causes that application that do:
+sendto len>mtu flag MSG_MORE
 sendto len>mtu flag 0
-The skb is not treated as fragmented one because it is not initialized
-that way. So move the initialization to fix this.
+will receive EMSGSIZE errno as the result of the second sendto.
+
+This patch fixes it by respecting IPV6_DONTFRAG socket option.
 
 introduced by:
-commit e89e9cf539a28df7d0eb1d0a545368e9920b34ac "[IPv4/IPv6]: UFO Scatter-gather approach"
+commit 4b340ae20d0e2366792abe70f46629e576adaf5e "IPv6: Complete IPV6_DONTFRAG support"
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/ipv6/ip6_output.c | 26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
+ net/ipv6/udp.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index a54c45c..c6cfa2f 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1008,6 +1008,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 72b7eaa..1878609 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1225,9 +1225,6 @@ do_udp_sendmsg:
+ 	if (tclass < 0)
+ 		tclass = np->tclass;
  
- {
- 	struct sk_buff *skb;
-+	struct frag_hdr fhdr;
- 	int err;
- 
- 	/* There is support for UDP large send offload by network
-@@ -1015,8 +1016,6 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	 * udp datagram
- 	 */
- 	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL) {
--		struct frag_hdr fhdr;
+-	if (dontfrag < 0)
+-		dontfrag = np->dontfrag;
 -
- 		skb = sock_alloc_send_skb(sk,
- 			hh_len + fragheaderlen + transhdrlen + 20,
- 			(flags & MSG_DONTWAIT), &err);
-@@ -1036,20 +1035,23 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 		skb->transport_header = skb->network_header + fragheaderlen;
+ 	if (msg->msg_flags&MSG_CONFIRM)
+ 		goto do_confirm;
+ back_from_confirm:
+@@ -1246,6 +1243,8 @@ back_from_confirm:
+ 	up->pending = AF_INET6;
  
- 		skb->protocol = htons(ETH_P_IPV6);
--		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum = 0;
- 
--		/* Specify the length of each IPv6 datagram fragment.
--		 * It has to be a multiple of 8.
--		 */
--		skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
--					     sizeof(struct frag_hdr)) & ~7;
--		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--		ipv6_select_ident(&fhdr, rt);
--		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 		__skb_queue_tail(&sk->sk_write_queue, skb);
--	}
-+	} else if (skb_is_gso(skb))
-+		goto append;
-+
-+	skb->ip_summed = CHECKSUM_PARTIAL;
-+	/* Specify the length of each IPv6 datagram fragment.
-+	 * It has to be a multiple of 8.
-+	 */
-+	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
-+				     sizeof(struct frag_hdr)) & ~7;
-+	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-+	ipv6_select_ident(&fhdr, rt);
-+	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 
-+append:
- 	return skb_append_datato_frags(sk, skb, getfrag, from,
- 				       (length - transhdrlen));
- }
+ do_append_data:
++	if (dontfrag < 0)
++		dontfrag = np->dontfrag;
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+ 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
 -- 
 1.8.3.1
