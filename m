@@ -1,177 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  09/14] i40e: refactor fdir setup function
-Date: Fri, 18 Oct 2013 06:23:13 -0700
-Message-ID: <1382102598-11343-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  00/14][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 18 Oct 2013 06:23:04 -0700
+Message-ID: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:60483 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754436Ab3JRNXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 09:23:42 -0400
-In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1754292Ab3JRNXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 09:23:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This series contains updates to i40e only.
 
-This function did a lot of unnecessary cpu_to_xxx(foo) and making it
-worse, each of these calls caused a lot of line wrapping.
+Jesse provides 6 patches against i40e.  First is a patch to reduce
+CPU utilization by reducing read-flush to read in the hot path.  Next
+couple of patches resolve coverity issues reported by Hannes Frederic
+Sowa <hannes@stressinduktion.org>.  Then Jesse refactored i40e to cleanup
+functions which used cpu_to_xxx(foo) which caused a lot of line wrapping.
 
-Fix look and feel via a refactor of this function.  No functional
-changes.
+Mitch provides 2 i40e patches.  First fixes a panic when tx_rings[0]
+are not allocated, his second patch corrects a math error when
+assigning MSI-X vectors to VFs.  The vectors-per-vf value reported
+by the hardware already conveniently reports one less than the actual
+value.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 78 ++++++++++++-----------------
- 1 file changed, 33 insertions(+), 45 deletions(-)
+Shannon provides 5 patches against i40e.  His first patch corrects a
+number of little bugs in the error handling of irq setup, most of
+which ended up panicing the kernel.  Next he fixes the overactive
+IRQ issue seen in testing and allows the use of the legacy interrupt.
+Shannon then provides a cleanup of the arguments declared at the
+beginning of each function.  Then he provides a patch to make sure
+that there are really rings and queues before trying to dump
+information in them.  Lastly he simplifies the code by using an
+already existing variable.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 8fc313c..41be7a7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -37,6 +37,7 @@ static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
- 			   ((u64)td_tag  << I40E_TXD_QW1_L2TAG1_SHIFT));
- }
- 
-+#define I40E_TXD_CMD (I40E_TX_DESC_CMD_EOP | I40E_TX_DESC_CMD_RS)
- /**
-  * i40e_program_fdir_filter - Program a Flow Director filter
-  * @fdir_input: Packet data that will be filter parameters
-@@ -50,6 +51,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
- 	struct i40e_tx_buffer *tx_buf;
- 	struct i40e_tx_desc *tx_desc;
- 	struct i40e_ring *tx_ring;
-+	unsigned int fpt, dcc;
- 	struct i40e_vsi *vsi;
- 	struct device *dev;
- 	dma_addr_t dma;
-@@ -68,7 +70,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
- 	dev = tx_ring->dev;
- 
- 	dma = dma_map_single(dev, fdir_data->raw_packet,
--				I40E_FDIR_MAX_RAW_PACKET_LOOKUP, DMA_TO_DEVICE);
-+			     I40E_FDIR_MAX_RAW_PACKET_LOOKUP, DMA_TO_DEVICE);
- 	if (dma_mapping_error(dev, dma))
- 		goto dma_fail;
- 
-@@ -77,74 +79,61 @@ int i40e_program_fdir_filter(struct i40e_fdir_data *fdir_data,
- 	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
- 	tx_buf = &tx_ring->tx_bi[i];
- 
--	i++;
--	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
-+	tx_ring->next_to_use = (i + 1 < tx_ring->count) ? i + 1 : 0;
- 
--	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32((fdir_data->q_index
--					     << I40E_TXD_FLTR_QW0_QINDEX_SHIFT)
--					     & I40E_TXD_FLTR_QW0_QINDEX_MASK);
-+	fpt = (fdir_data->q_index << I40E_TXD_FLTR_QW0_QINDEX_SHIFT) &
-+	      I40E_TXD_FLTR_QW0_QINDEX_MASK;
- 
--	fdir_desc->qindex_flex_ptype_vsi |= cpu_to_le32((fdir_data->flex_off
--					    << I40E_TXD_FLTR_QW0_FLEXOFF_SHIFT)
--					    & I40E_TXD_FLTR_QW0_FLEXOFF_MASK);
-+	fpt |= (fdir_data->flex_off << I40E_TXD_FLTR_QW0_FLEXOFF_SHIFT) &
-+	       I40E_TXD_FLTR_QW0_FLEXOFF_MASK;
- 
--	fdir_desc->qindex_flex_ptype_vsi |= cpu_to_le32((fdir_data->pctype
--					     << I40E_TXD_FLTR_QW0_PCTYPE_SHIFT)
--					     & I40E_TXD_FLTR_QW0_PCTYPE_MASK);
-+	fpt |= (fdir_data->pctype << I40E_TXD_FLTR_QW0_PCTYPE_SHIFT) &
-+	       I40E_TXD_FLTR_QW0_PCTYPE_MASK;
- 
- 	/* Use LAN VSI Id if not programmed by user */
- 	if (fdir_data->dest_vsi == 0)
--		fdir_desc->qindex_flex_ptype_vsi |=
--					  cpu_to_le32((pf->vsi[pf->lan_vsi]->id)
--					   << I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT);
-+		fpt |= (pf->vsi[pf->lan_vsi]->id) <<
-+		       I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT;
- 	else
--		fdir_desc->qindex_flex_ptype_vsi |=
--			cpu_to_le32((((u32)fdir_data->dest_vsi) <<
--					  I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT) &
--				    I40E_TXD_FLTR_QW0_DEST_VSI_MASK);
-+		fpt |= ((u32)fdir_data->dest_vsi <<
-+			I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT) &
-+		       I40E_TXD_FLTR_QW0_DEST_VSI_MASK;
-+
-+	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
- 
--	fdir_desc->dtype_cmd_cntindex =
--				    cpu_to_le32(I40E_TX_DESC_DTYPE_FILTER_PROG);
-+	dcc = I40E_TX_DESC_DTYPE_FILTER_PROG;
- 
- 	if (add)
--		fdir_desc->dtype_cmd_cntindex |= cpu_to_le32(
--				       I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE
--					<< I40E_TXD_FLTR_QW1_PCMD_SHIFT);
-+		dcc |= I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE <<
-+		       I40E_TXD_FLTR_QW1_PCMD_SHIFT;
- 	else
--		fdir_desc->dtype_cmd_cntindex |= cpu_to_le32(
--					   I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE
--					   << I40E_TXD_FLTR_QW1_PCMD_SHIFT);
-+		dcc |= I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE <<
-+		       I40E_TXD_FLTR_QW1_PCMD_SHIFT;
- 
--	fdir_desc->dtype_cmd_cntindex |= cpu_to_le32((fdir_data->dest_ctl
--					  << I40E_TXD_FLTR_QW1_DEST_SHIFT)
--					  & I40E_TXD_FLTR_QW1_DEST_MASK);
-+	dcc |= (fdir_data->dest_ctl << I40E_TXD_FLTR_QW1_DEST_SHIFT) &
-+	       I40E_TXD_FLTR_QW1_DEST_MASK;
- 
--	fdir_desc->dtype_cmd_cntindex |= cpu_to_le32(
--		     (fdir_data->fd_status << I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT)
--		      & I40E_TXD_FLTR_QW1_FD_STATUS_MASK);
-+	dcc |= (fdir_data->fd_status << I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT) &
-+	       I40E_TXD_FLTR_QW1_FD_STATUS_MASK;
- 
- 	if (fdir_data->cnt_index != 0) {
--		fdir_desc->dtype_cmd_cntindex |=
--				    cpu_to_le32(I40E_TXD_FLTR_QW1_CNT_ENA_MASK);
--		fdir_desc->dtype_cmd_cntindex |=
--			cpu_to_le32((((u32)fdir_data->cnt_index) <<
--					   I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
--				    I40E_TXD_FLTR_QW1_CNTINDEX_MASK);
-+		dcc |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
-+		dcc |= ((u32)fdir_data->cnt_index <<
-+			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
-+		       I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
- 	}
- 
-+	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
- 	fdir_desc->fd_id = cpu_to_le32(fdir_data->fd_id);
- 
- 	/* Now program a dummy descriptor */
- 	i = tx_ring->next_to_use;
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 
--	i++;
--	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
-+	tx_ring->next_to_use = (i + 1 < tx_ring->count) ? i + 1 : 0;
- 
- 	tx_desc->buffer_addr = cpu_to_le64(dma);
--	td_cmd = I40E_TX_DESC_CMD_EOP |
--		 I40E_TX_DESC_CMD_RS  |
--		 I40E_TX_DESC_CMD_DUMMY;
-+	td_cmd = I40E_TXD_CMD | I40E_TX_DESC_CMD_DUMMY;
- 
- 	tx_desc->cmd_type_offset_bsz =
- 		build_ctob(td_cmd, 0, I40E_FDIR_MAX_RAW_PACKET_LOOKUP, 0);
-@@ -1254,7 +1243,6 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
- }
- 
--#define I40E_TXD_CMD (I40E_TX_DESC_CMD_EOP | I40E_TX_DESC_CMD_RS)
- /**
-  * i40e_tx_prepare_vlan_flags - prepare generic TX VLAN tagging flags for HW
-  * @skb:     send buffer
+Catherine provides an i40e patch to bump the version.
+
+The following are changes since commit 7cc7c5e54b7128195a1403747a63971c3c3f8e25:
+  net: Delete trailing semi-colon from definition of netdev_WARN()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Catherine Sullivan (1):
+  i40e: Bump version
+
+Jesse Brandeburg (6):
+  i40e: do not flush after re-enabling interrupts
+  i40e: debugfs fixups
+  i40e: clamp debugfs nvm read command
+  i40e: fix use of untrusted scalar value warning
+  i40e: fix sign extension issue
+  i40e: refactor fdir setup function
+
+Mitch Williams (2):
+  i40e: don't free nonexistent rings
+  i40e: assign correct vector to VF
+
+Shannon Nelson (5):
+  i40e: fixup legacy interrupt handling
+  i40e: tweaking icr0 handling for legacy irq
+  i40e: reorder block declarations in debugfs
+  i40e: check vsi ptrs before dumping them
+  i40e: use pf_id for pf function id in qtx_ctl
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 135 ++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  50 ++++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  83 ++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   4 +-
+ 5 files changed, 146 insertions(+), 127 deletions(-)
+
 -- 
 1.8.3.1
