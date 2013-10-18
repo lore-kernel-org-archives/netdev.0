@@ -1,46 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] net bridge: remove unused field
-Date: Fri, 18 Oct 2013 06:46:33 -0400
-Message-ID: <52611189.7040807@mojatatu.com>
-References: <525C5DED.1080406@mojatatu.com> <20131017.161037.310607928835493105.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH ipsec-next] xfrm: use vmalloc_node() for percpu scratches
+Date: Fri, 18 Oct 2013 03:54:16 -0700
+Message-ID: <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131017095502.GD7660@secunet.com>
+	 <20131017130740.D8741E8A5E@unicorn.suse.cz>
+	 <20131018092512.GA31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:36024 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752744Ab3JRKqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 06:46:36 -0400
-Received: by mail-ie0-f173.google.com with SMTP id u16so6036244iet.4
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 03:46:35 -0700 (PDT)
-In-Reply-To: <20131017.161037.310607928835493105.davem@davemloft.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:52760 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930Ab3JRKyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 06:54:18 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so2239290pdi.32
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 03:54:17 -0700 (PDT)
+In-Reply-To: <20131018092512.GA31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-The only reason i made an exception of this one is because:
-a) nothing in the kernel touches it
-b) nothing in iproute2 touches it
-c) the intended logic to transport the hairpin knob is now
-in IFLA_BRPORT_MODE
+scratches are per cpu, we can use vmalloc_node() for proper
+NUMA affinity.
 
-But: I empathize;-> Your call
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/xfrm/xfrm_ipcomp.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-cheers,
-jamal
-
-On 10/17/13 16:10, David Miller wrote:
->
->
-> I know it seems rediculous, but anything we export to userspace, as we
-> do in this UAPI header, could be potentially be used by some piece of
-> source out there.
->
-> I'd rather just leave it be, you can add a comment saying it's unused
-> if you wish, but I'd really rather not remove it and run the risk of
-> breaking someone's build out there.
->
-> Thanks.
->
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index 2906d52..b943c7f 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -220,8 +220,8 @@ static void ipcomp_free_scratches(void)
+ 
+ static void * __percpu *ipcomp_alloc_scratches(void)
+ {
+-	int i;
+ 	void * __percpu *scratches;
++	int i;
+ 
+ 	if (ipcomp_scratch_users++)
+ 		return ipcomp_scratches;
+@@ -233,7 +233,9 @@ static void * __percpu *ipcomp_alloc_scratches(void)
+ 	ipcomp_scratches = scratches;
+ 
+ 	for_each_possible_cpu(i) {
+-		void *scratch = vmalloc(IPCOMP_SCRATCH_SIZE);
++		void *scratch;
++
++		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_node(i));
+ 		if (!scratch)
+ 			return NULL;
+ 		*per_cpu_ptr(scratches, i) = scratch;
