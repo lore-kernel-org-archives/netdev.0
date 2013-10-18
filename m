@@ -1,47 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/4] xfrm: Force SA to be lookup again if SA in acquire state
-Date: Fri, 18 Oct 2013 10:42:07 +0200
-Message-ID: <1382085730-3415-2-git-send-email-steffen.klassert@secunet.com>
-References: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: unix: inherit SOCK_PASS{CRED,SEC} flags from
+ socket to fix race
+Date: Fri, 18 Oct 2013 10:42:17 +0200
+Message-ID: <5260F469.5060601@redhat.com>
+References: <cover.1382042286.git.dborkman@redhat.com> <5c4eda258a6d7397a180ca72562b0ce5d87beda1.1382042286.git.dborkman@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7395@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51701 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46249 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753192Ab3JRImU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 04:42:20 -0400
-In-Reply-To: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
+	id S1753213Ab3JRIm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 04:42:26 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7395@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
+On 10/18/2013 10:26 AM, David Laight wrote:
+>> Subject: [PATCH net] net: unix: inherit SOCK_PASS{CRED,SEC} flags from socket to fix race
+>>
+>> In the case of credentials passing in unix stream sockets (dgram
+>> sockets seem not affected), we get a rather sparse race after
+>> commit 16e5726 ("af_unix: dont send SCM_CREDENTIALS by default").
+> ...
+>> +static void unix_sock_inherit_flags(const struct socket *old,
+>> +				    struct socket *new)
+>> +{
+>> +	if (test_bit(SOCK_PASSCRED, &old->flags))
+>> +		set_bit(SOCK_PASSCRED, &new->flags);
+>> +	if (test_bit(SOCK_PASSSEC, &old->flags))
+>> +		set_bit(SOCK_PASSSEC, &new->flags);
+>> +}
+>> +
+>
+> Isn't that just:
+> 	new->flags |= old->flags & (PASSCRED | SOCK_PASSSEC);
 
-If SA is in the process of acquiring, which indicates this SA is more
-promising and precise than the fall back option, i.e. using wild card
-source address for searching less suitable SA.
+Nope, please have a look at the individual test_bit() etc
+implementations under arch/, and the definitions of
+SOCK_PASSCRED and SOCK_PASSSEC.
 
-So, here bail out, and try again.
+I though about just setting new->flags = old->flags, but that
+would probably be _not_ a good idea, as we actually do not want
+to pass other flags than these two relevant ones onwards.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_state.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index d6e7f98..b2117a1 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -815,7 +815,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 			xfrm_state_look_at(pol, x, fl, encap_family,
- 					   &best, &acquire_in_progress, &error);
- 	}
--	if (best)
-+	if (best || acquire_in_progress)
- 		goto found;
- 
- 	h_wildcard = xfrm_dst_hash(net, daddr, &saddr_wildcard, tmpl->reqid, encap_family);
--- 
-1.7.9.5
+> 	David
