@@ -1,64 +1,61 @@
-From: "Neel Patel (neepatel)" <neepatel@cisco.com>
-Subject: RE: [PATCH 15/15] net: enic: remove unnecessary pci_set_drvdata()
-Date: Fri, 18 Oct 2013 16:00:06 +0000
-Message-ID: <644DFB2E795E0348A1614A34EE0D357118496461@xmb-rcd-x05.cisco.com>
-References: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
- <00be01cecb98$8cabcd20$a6036760$%han@samsung.com>
+From: Jimmy PERCHET <jimmy.perchet@parrot.com>
+Subject: Re: [PATCH RFC 0/5] net:stmmac: fix jumbo frames handling and optimisation
+Date: Fri, 18 Oct 2013 18:24:04 +0200
+Message-ID: <526160A4.7030507@parrot.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <525EF8FF.2010206@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Christian Benvenuti (benve)" <benve@cisco.com>,
-	"Sujith Sankar (ssujith)" <ssujith@cisco.com>,
-	"'Govindarajulu Varadarajan'" <govindarajulu90@gmail.com>,
-	"Nishank Trivedi (nistrive)" <nistrive@cisco.com>
-To: Jingoo Han <jg1.han@samsung.com>,
-	"'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Jimmy Perchet <jimmy.perchet@parrot.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-2.cisco.com ([173.37.86.73]:40883 "EHLO
-	rcdn-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756369Ab3JRQAK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:00:10 -0400
-In-Reply-To: <00be01cecb98$8cabcd20$a6036760$%han@samsung.com>
-Content-Language: en-US
+Received: from co202.xi-lite.net ([149.6.83.202]:32957 "EHLO co202.xi-lite.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752525Ab3JRQYF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 12:24:05 -0400
+In-Reply-To: <525EF8FF.2010206@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks good.
+Hello Peppe,
 
------Original Message-----
-From: Jingoo Han [mailto:jg1.han@samsung.com] 
-Sent: Thursday, October 17, 2013 5:25 PM
-To: 'David S. Miller'
-Cc: netdev@vger.kernel.org; 'Jingoo Han'; Christian Benvenuti (benve); Sujith Sankar (ssujith); 'Govindarajulu Varadarajan'; Neel Patel (neepatel); Nishank Trivedi (nistrive)
-Subject: [PATCH 15/15] net: enic: remove unnecessary pci_set_drvdata()
+Thanks for your concern,
 
-The driver core clears the driver data to NULL after device_release or on probe failure. Thus, it is not needed to manually clear the device driver data to NULL.
+I add some details :
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |    2 --
- 1 file changed, 2 deletions(-)
+> I tested jumbo on chips w/o enhanced some time ago, so welcome further
+> tests as you did (maybe on new chips).
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 7b756cf9..ff78dfa 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2309,7 +2309,6 @@ err_out_release_regions:
- err_out_disable_device:
- 	pci_disable_device(pdev);
- err_out_free_netdev:
--	pci_set_drvdata(pdev, NULL);
- 	free_netdev(netdev);
- 
- 	return err;
-@@ -2338,7 +2337,6 @@ static void enic_remove(struct pci_dev *pdev)
- 		enic_iounmap(enic);
- 		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
--		pci_set_drvdata(pdev, NULL);
- 		free_netdev(netdev);
- 	}
- }
---
-1.7.10.4
+I'm working with 3.71a version, in 2KiB + 2KiB configuration.
+
+>> *(1/5) Threshold dma mode is needed on rx path if jumbo frames are expected.
+> 
+> hmm, this depends on the HW. In the past I used HW with a Fifo that is
+> 16KiB for rx buffers and 8KiB for tx.
+
+I used rxfifo_over_2048 flag in order to guess if threshold mode is necessary.
+
+
+>> *(3/5) On low speed link (10MBit/s), some TX descriptors can remain dirty
+>> if the tx coalescence timer expires before they were treated. Re-arm timer
+>> in this case.
+> 
+> hmm not clear to me, let me look at the patch. I hope the link should
+> not impact... never seen on my side.
+> 
+Tx coalescence default parameters are : one interrupt every 64 descriptors
+and 40ms timer.
+Let say, one is transferring 63 jumbo frames(9KiB) over 10Mb/s link:
+* 63<64 there is no interrupt.
+* when the timer expires, only 5 descriptors have to be cleaned.(40ms@10Mb/s)
+* at the end, 58 dirty descriptors remain.
+Normally, they will be cleaned at the next transfer. The real problem appears
+if the socket's "wmem" is too small. The transfer stall :
+*Socket is waiting for buffer's cleanup before performing a new transfer.
+*Driver is waiting for new transfer before performing cleanup.
+Re-arming the timer allows to continue cleanup, thus the socket's
+wake-up threshold will be reach.
+
+
+Best Regards,
+Jimmy
