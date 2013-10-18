@@ -1,132 +1,155 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v4 1/8] qlcnic: Print informational messages only once during driver load.
-Date: Fri, 18 Oct 2013 12:22:28 -0400
-Message-ID: <63543875164c1f86cd1390e17a33c78b9c549522.1382090311.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v4 2/8] qlcnic: Enhance ethtool to display ring indices and interrupt mask
+Date: Fri, 18 Oct 2013 12:22:29 -0400
+Message-ID: <2ade3eacb60585e321f2fe6c9e1bab46e5984784.1382090311.git.himanshu.madhani@qlogic.com>
 References: <cover.1382090311.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Pratik Pujar <pratik.pujar@qlogic.com>,
 	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:23379 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756519Ab3JRQxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:53:13 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:38547 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756556Ab3JRQxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:53:15 -0400
 In-Reply-To: <cover.1382090311.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+o Updated ethtool -d <ethX> option to display ring indices for Transmit(Tx),
+  Receive(Rx), and Status(St) rings.
+o Updated ethtool -d <ethX> option to display ring interrupt mask for Transmit(Tx),
+  and Status(St) rings.
+
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 12 -----------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  | 24 ++++++++++++++++++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  1 +
- 4 files changed, 22 insertions(+), 16 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  8 ++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 54 ++++++++++++++++------
+ 2 files changed, 44 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 81bf836..a3c4379 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1199,6 +1199,7 @@ struct qlcnic_npar_info {
- 	u8	promisc_mode;
- 	u8	offload_flags;
- 	u8      pci_func;
-+	u8      mac[ETH_ALEN];
- };
- 
- struct qlcnic_eswitch {
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3ca00e0..66e94dc 100644
+index 66e94dc..c2df4ce 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -2321,19 +2321,7 @@ int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 			i++;
- 			memcpy(pci_info->mac + sizeof(u32), &cmd.rsp.arg[i], 2);
- 			i = i + 3;
--			if (ahw->op_mode == QLCNIC_MGMT_FUNC)
--				dev_info(dev, "id = %d active = %d type = %d\n"
--					 "\tport = %d min bw = %d max bw = %d\n"
--					 "\tmac_addr =  %pM\n", pci_info->id,
--					 pci_info->active, pci_info->type,
--					 pci_info->default_port,
--					 pci_info->tx_min_bw,
--					 pci_info->tx_max_bw, pci_info->mac);
- 		}
--		if (ahw->op_mode == QLCNIC_MGMT_FUNC)
--			dev_info(dev, "Max functions = %d, active functions = %d\n",
--				 ahw->max_pci_func, ahw->act_pci_func);
--
- 	} else {
- 		dev_err(dev, "Failed to get PCI Info, error = %d\n", err);
- 		err = -EIO;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index 0248a4c..60a477f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -94,13 +94,29 @@ qlcnic_83xx_config_vnic_buff_descriptors(struct qlcnic_adapter *adapter)
-  **/
- static int qlcnic_83xx_init_mgmt_vnic(struct qlcnic_adapter *adapter)
- {
--	int err = -EIO;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct device *dev = &adapter->pdev->dev;
-+	struct qlcnic_npar_info *npar;
-+	int i, err = -EIO;
- 
- 	qlcnic_83xx_get_minidump_template(adapter);
-+
- 	if (!(adapter->flags & QLCNIC_ADAPTER_INITIALIZED)) {
- 		if (qlcnic_init_pci_info(adapter))
- 			return err;
- 
-+		npar = adapter->npars;
-+
-+		for (i = 0; i < ahw->act_pci_func; i++, npar++) {
-+			dev_info(dev, "id:%d active:%d type:%d port:%d min_bw:%d max_bw:%d mac_addr:%pM\n",
-+				 npar->pci_func, npar->active, npar->type,
-+				 npar->phy_port, npar->min_bw, npar->max_bw,
-+				 npar->mac);
-+		}
-+
-+		dev_info(dev, "Max functions = %d, active functions = %d\n",
-+			 ahw->max_pci_func, ahw->act_pci_func);
-+
- 		if (qlcnic_83xx_set_vnic_opmode(adapter))
- 			return err;
- 
-@@ -115,12 +131,12 @@ static int qlcnic_83xx_init_mgmt_vnic(struct qlcnic_adapter *adapter)
- 		return err;
- 
- 	qlcnic_83xx_config_vnic_buff_descriptors(adapter);
--	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
-+	ahw->msix_supported = qlcnic_use_msi_x ? 1 : 0;
- 	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
- 	qlcnic_83xx_enable_vnic_mode(adapter, 1);
- 
--	dev_info(&adapter->pdev->dev, "HAL Version: %d, Management function\n",
--		 adapter->ahw->fw_hal_version);
-+	dev_info(dev, "HAL Version: %d, Management function\n",
-+		 ahw->fw_hal_version);
- 
+@@ -3267,12 +3267,12 @@ int qlcnic_83xx_reg_test(struct qlcnic_adapter *adapter)
  	return 0;
  }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index f07f2b0..55e8b23 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -875,6 +875,7 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 		adapter->npars[j].min_bw = pci_info[i].tx_min_bw;
- 		adapter->npars[j].max_bw = pci_info[i].tx_max_bw;
  
-+		memcpy(&adapter->npars[j].mac, &pci_info[i].mac, ETH_ALEN);
- 		j++;
+-int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
++inline int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
+ {
+ 	return (ARRAY_SIZE(qlcnic_83xx_ext_reg_tbl) *
+-		sizeof(adapter->ahw->ext_reg_tbl)) +
+-		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) +
+-		sizeof(adapter->ahw->reg_tbl));
++		sizeof(*adapter->ahw->ext_reg_tbl)) +
++		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) *
++		sizeof(*adapter->ahw->reg_tbl));
+ }
+ 
+ int qlcnic_83xx_get_registers(struct qlcnic_adapter *adapter, u32 *regs_buff)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index ebe4c86..66355b7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -187,8 +187,8 @@ static int qlcnic_dev_statistics_len(struct qlcnic_adapter *adapter)
+ 		return -1;
+ }
+ 
+-#define QLCNIC_RING_REGS_COUNT	20
+-#define QLCNIC_RING_REGS_LEN	(QLCNIC_RING_REGS_COUNT * sizeof(u32))
++#define	QLCNIC_TX_INTR_NOT_CONFIGURED	0X78563412
++
+ #define QLCNIC_MAX_EEPROM_LEN   1024
+ 
+ static const u32 diag_registers[] = {
+@@ -219,7 +219,15 @@ static const u32 ext_diag_registers[] = {
+ };
+ 
+ #define QLCNIC_MGMT_API_VERSION	2
+-#define QLCNIC_ETHTOOL_REGS_VER	3
++#define QLCNIC_ETHTOOL_REGS_VER	4
++
++static inline int qlcnic_get_ring_regs_len(struct qlcnic_adapter *adapter)
++{
++	int ring_regs_cnt = (adapter->max_drv_tx_rings * 5) +
++			    (adapter->max_rds_rings * 2) +
++			    (adapter->max_sds_rings * 3) + 5;
++	return ring_regs_cnt * sizeof(u32);
++}
+ 
+ static int qlcnic_get_regs_len(struct net_device *dev)
+ {
+@@ -231,7 +239,9 @@ static int qlcnic_get_regs_len(struct net_device *dev)
+ 	else
+ 		len = sizeof(ext_diag_registers) + sizeof(diag_registers);
+ 
+-	return QLCNIC_RING_REGS_LEN + len + QLCNIC_DEV_INFO_SIZE + 1;
++	len += ((QLCNIC_DEV_INFO_SIZE + 2) * sizeof(u32));
++	len += qlcnic_get_ring_regs_len(adapter);
++	return len;
+ }
+ 
+ static int qlcnic_get_eeprom_len(struct net_device *dev)
+@@ -493,6 +503,8 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
+ 	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_host_rds_ring *rds_rings;
++	struct qlcnic_host_tx_ring *tx_ring;
+ 	u32 *regs_buff = p;
+ 	int ring, i = 0;
+ 
+@@ -512,21 +524,35 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
+ 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
+ 		return;
+ 
+-	regs_buff[i++] = 0xFFEFCDAB; /* Marker btw regs and ring count*/
+-
+-	regs_buff[i++] = 1; /* No. of tx ring */
+-	regs_buff[i++] = le32_to_cpu(*(adapter->tx_ring->hw_consumer));
+-	regs_buff[i++] = readl(adapter->tx_ring->crb_cmd_producer);
+-
+-	regs_buff[i++] = 2; /* No. of rx ring */
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[0].crb_rcv_producer);
+-	regs_buff[i++] = readl(recv_ctx->rds_rings[1].crb_rcv_producer);
++	/* Marker btw regs and TX ring count */
++	regs_buff[i++] = 0xFFEFCDAB;
++
++	regs_buff[i++] = adapter->max_drv_tx_rings; /* No. of TX ring */
++	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
++		tx_ring = &adapter->tx_ring[ring];
++		regs_buff[i++] = le32_to_cpu(*(tx_ring->hw_consumer));
++		regs_buff[i++] = tx_ring->sw_consumer;
++		regs_buff[i++] = readl(tx_ring->crb_cmd_producer);
++		regs_buff[i++] = tx_ring->producer;
++		if (tx_ring->crb_intr_mask)
++			regs_buff[i++] = readl(tx_ring->crb_intr_mask);
++		else
++			regs_buff[i++] = QLCNIC_TX_INTR_NOT_CONFIGURED;
++	}
+ 
+-	regs_buff[i++] = adapter->max_sds_rings;
++	regs_buff[i++] = adapter->max_rds_rings; /* No. of RX ring */
++	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
++		rds_rings = &recv_ctx->rds_rings[ring];
++		regs_buff[i++] = readl(rds_rings->crb_rcv_producer);
++		regs_buff[i++] = rds_rings->producer;
++	}
+ 
++	regs_buff[i++] = adapter->max_sds_rings; /* No. of SDS ring */
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &(recv_ctx->sds_rings[ring]);
+ 		regs_buff[i++] = readl(sds_ring->crb_sts_consumer);
++		regs_buff[i++] = sds_ring->consumer;
++		regs_buff[i++] = readl(sds_ring->crb_intr_mask);
  	}
+ }
  
 -- 
 1.8.1.4
