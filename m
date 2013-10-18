@@ -1,30 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/15] net: ethernet: remove unnecessary
- pci_set_drvdata() part 1
-Date: Fri, 18 Oct 2013 00:04:30 -0400 (EDT)
-Message-ID: <20131018.000430.982140151062639781.davem@davemloft.net>
-References: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
+Subject: Re: [PATCH v3 net-next] net: refactor sk_page_frag_refill()
+Date: Fri, 18 Oct 2013 00:09:14 -0400 (EDT)
+Message-ID: <20131018.000914.512438003196100861.davem@davemloft.net>
+References: <1381623952.3392.25.camel@edumazet-glaptop.roam.corp.google.com>
+	<1381639591.3392.31.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382052427.3284.3.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jg1.han@samsung.com
+Cc: mwdalton@google.com, dborkman@redhat.com, netdev@vger.kernel.org,
+	ffusco@redhat.com, ycheng@google.com, ncardwell@google.com,
+	digitaleric@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50270 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50312 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750774Ab3JREEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 00:04:31 -0400
-In-Reply-To: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
+	with ESMTP id S1750774Ab3JREJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 00:09:16 -0400
+In-Reply-To: <1382052427.3284.3.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Fri, 18 Oct 2013 09:16:19 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 17 Oct 2013 16:27:07 -0700
 
-> Since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-> (device-core: Ensure drvdata = NULL when no driver is bound),
-> the driver core clears the driver data to NULL after device_release
-> or on probe failure. Thus, it is not needed to manually clear the
-> device driver data to NULL.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> While working on virtio_net new allocation strategy to increase
+> payload/truesize ratio, we found that refactoring sk_page_frag_refill()
+> was needed.
+> 
+> This patch splits sk_page_frag_refill() into two parts, adding
+> skb_page_frag_refill() which can be used without a socket.
+> 
+> While we are at it, add a minimum frag size of 32 for
+> sk_page_frag_refill()
+> 
+> Michael will either use netdev_alloc_frag() from softirq context,
+> or skb_page_frag_refill() from process context in refill_work()
+>  (GFP_KERNEL allocations)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Applied, thanks Eric.
