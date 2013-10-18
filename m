@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  10/14] i40e: tweaking icr0 handling for legacy irq
-Date: Fri, 18 Oct 2013 06:23:14 -0700
-Message-ID: <1382102598-11343-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  12/14] i40e: check vsi ptrs before dumping them
+Date: Fri, 18 Oct 2013 06:23:16 -0700
+Message-ID: <1382102598-11343-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41263 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:60483 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754518Ab3JRNXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754561Ab3JRNXm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 18 Oct 2013 09:23:42 -0400
 In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,92 +19,70 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Fix the overactive irq issue seen in testing and allow use of
-the legacy interrupt.
+Make sure there really are rings and queues before trying to dump
+information in them.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 +++++-------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |  3 ++-
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 39 +++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index c06a76c..49572dc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -545,6 +545,7 @@ static inline void i40e_dbg_init(void) {}
- static inline void i40e_dbg_exit(void) {}
- #endif /* CONFIG_DEBUG_FS*/
- void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
-+void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
- int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 270190a..727d14d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2532,7 +2532,7 @@ static void i40e_configure_msi_and_legacy(struct i40e_vsi *vsi)
-  * i40e_irq_dynamic_enable_icr0 - Enable default interrupt generation for icr0
-  * @pf: board private structure
-  **/
--static void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf)
-+void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf)
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	u32 val;
-@@ -2742,14 +2742,14 @@ static irqreturn_t i40e_intr(int irq, void *data)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 246b177..ef4cb1c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -234,26 +234,33 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
+ 			memcpy(p, vsi, len);
+ 			p += len;
  
- 	icr0 = rd32(hw, I40E_PFINT_ICR0);
- 
--	/* if sharing a legacy IRQ, we might get called w/o an intr pending */
--	if ((icr0 & I40E_PFINT_ICR0_INTEVENT_MASK) == 0)
--		return IRQ_NONE;
+-			len = (sizeof(struct i40e_q_vector)
+-				* vsi->num_q_vectors);
+-			memcpy(p, vsi->q_vectors, len);
+-			p += len;
 -
- 	val = rd32(hw, I40E_PFINT_DYN_CTL0);
- 	val = val | I40E_PFINT_DYN_CTL0_CLEARPBA_MASK;
- 	wr32(hw, I40E_PFINT_DYN_CTL0, val);
+-			len = (sizeof(struct i40e_ring) * vsi->num_queue_pairs);
+-			memcpy(p, vsi->tx_rings, len);
+-			p += len;
+-			memcpy(p, vsi->rx_rings, len);
+-			p += len;
++			if (vsi->num_q_vectors) {
++				len = (sizeof(struct i40e_q_vector)
++					* vsi->num_q_vectors);
++				memcpy(p, vsi->q_vectors, len);
++				p += len;
++			}
  
-+	/* if sharing a legacy IRQ, we might get called w/o an intr pending */
-+	if ((icr0 & I40E_PFINT_ICR0_INTEVENT_MASK) == 0)
-+		return IRQ_NONE;
+-			for (i = 0; i < vsi->num_queue_pairs; i++) {
+-				len = sizeof(struct i40e_tx_buffer);
+-				memcpy(p, vsi->tx_rings[i]->tx_bi, len);
++			if (vsi->num_queue_pairs) {
++				len = (sizeof(struct i40e_ring) *
++				      vsi->num_queue_pairs);
++				memcpy(p, vsi->tx_rings, len);
++				p += len;
++				memcpy(p, vsi->rx_rings, len);
+ 				p += len;
+ 			}
+-			for (i = 0; i < vsi->num_queue_pairs; i++) {
 +
- 	ena_mask = rd32(hw, I40E_PFINT_ICR0_ENA);
++			if (vsi->tx_rings[0]) {
++				len = sizeof(struct i40e_tx_buffer);
++				for (i = 0; i < vsi->num_queue_pairs; i++) {
++					memcpy(p, vsi->tx_rings[i]->tx_bi, len);
++					p += len;
++				}
+ 				len = sizeof(struct i40e_rx_buffer);
+-				memcpy(p, vsi->rx_rings[i]->rx_bi, len);
+-				p += len;
++				for (i = 0; i < vsi->num_queue_pairs; i++) {
++					memcpy(p, vsi->rx_rings[i]->rx_bi, len);
++					p += len;
++				}
+ 			}
  
- 	/* only q0 is used in MSI/Legacy mode, and none are used in MSIX */
-@@ -2763,7 +2763,6 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 		qval = rd32(hw, I40E_QINT_TQCTL(0));
- 		qval &= ~I40E_QINT_TQCTL_CAUSE_ENA_MASK;
- 		wr32(hw, I40E_QINT_TQCTL(0), qval);
--		i40e_flush(hw);
- 
- 		if (!test_bit(__I40E_DOWN, &pf->state))
- 			napi_schedule(&pf->vsi[pf->lan_vsi]->q_vectors[0]->napi);
-@@ -2825,7 +2824,6 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 
- 	/* re-enable interrupt causes */
- 	wr32(hw, I40E_PFINT_ICR0_ENA, ena_mask);
--	i40e_flush(hw);
- 	if (!test_bit(__I40E_DOWN, &pf->state)) {
- 		i40e_service_event_schedule(pf);
- 		i40e_irq_dynamic_enable_icr0(pf);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 41be7a7..f1f03bc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1142,7 +1142,8 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 			qval = rd32(hw, I40E_QINT_TQCTL(0));
- 			qval |= I40E_QINT_TQCTL_CAUSE_ENA_MASK;
- 			wr32(hw, I40E_QINT_TQCTL(0), qval);
--			i40e_flush(hw);
-+
-+			i40e_irq_dynamic_enable_icr0(vsi->back);
- 		}
- 	}
- 
+ 			/* macvlan filter list */
 -- 
 1.8.3.1
