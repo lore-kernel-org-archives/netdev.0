@@ -1,143 +1,43 @@
-From: Mathias Krause <mathias.krause@secunet.com>
-Subject: [PATCH net-next 1/2] net: esp{4,6}: remove padlen from struct esp_data
-Date: Fri, 18 Oct 2013 12:09:04 +0200
-Message-ID: <1382090945-20860-2-git-send-email-mathias.krause@secunet.com>
-References: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
-Cc: Mathias Krause <mathias.krause@secunet.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC] bridge and friends: reduce TheLinuxWay(tm)
+Date: Fri, 18 Oct 2013 06:42:37 -0400
+Message-ID: <5261109D.5030501@mojatatu.com>
+References: <525C62D5.3090004@mojatatu.com>	 <20131014144156.6dc52a78@nehalam.linuxnetplumber.net>	 <525E9AB1.6090502@mojatatu.com> <525EC8AF.6000902@redhat.com>	 <525ED1AE.7050101@mojatatu.com> <1381948550.2045.136.camel@edumazet-glaptop.roam.corp.google.com> <525EE00A.20209@redhat.com> <525EE2AC.50002@mojatatu.com> <525EF4E7.1030003@mojatatu.com> <525EF570.3050105@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: vyasevic@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54006 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752550Ab3JRKJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 06:09:18 -0400
-In-Reply-To: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:61683 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752476Ab3JRKms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 06:42:48 -0400
+Received: by mail-ie0-f182.google.com with SMTP id as1so6269826iec.13
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 03:42:47 -0700 (PDT)
+In-Reply-To: <525EF570.3050105@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The padlen member of struct esp_data is always zero. Get rid of it.
+On 10/16/13 16:22, Vlad Yasevich wrote:
 
-Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
----
- include/net/esp.h |    3 ---
- net/ipv4/esp4.c   |    9 +--------
- net/ipv6/esp6.c   |    9 +--------
- 3 files changed, 2 insertions(+), 19 deletions(-)
+> Yes, I know about that one.  BRIDGE_FLAGS started the polution and then
+> we continued it with the other attributes....
+>
 
-diff --git a/include/net/esp.h b/include/net/esp.h
-index 1356dda..706b740 100644
---- a/include/net/esp.h
-+++ b/include/net/esp.h
-@@ -6,9 +6,6 @@
- struct crypto_aead;
- 
- struct esp_data {
--	/* 0..255 */
--	int padlen;
--
- 	/* Confidentiality & Integrity */
- 	struct crypto_aead *aead;
- };
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 109ee89..8b5386a 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -154,8 +154,6 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	}
- 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
- 	clen = ALIGN(skb->len + 2 + tfclen, blksize);
--	if (esp->padlen)
--		clen = ALIGN(clen, esp->padlen);
- 	plen = clen - skb->len - tfclen;
- 
- 	err = skb_cow_data(skb, tfclen + plen + alen, &trailer);
-@@ -461,7 +459,6 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
--	u32 align = max_t(u32, blksize, esp->padlen);
- 	unsigned int net_adj;
- 
- 	switch (x->props.mode) {
-@@ -477,7 +474,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
- 	}
- 
- 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
--		 net_adj) & ~(align - 1)) + net_adj - 2;
-+		 net_adj) & ~(blksize - 1)) + net_adj - 2;
- }
- 
- static void esp4_err(struct sk_buff *skb, u32 info)
-@@ -659,8 +656,6 @@ static int esp_init_state(struct xfrm_state *x)
- 
- 	aead = esp->aead;
- 
--	esp->padlen = 0;
--
- 	x->props.header_len = sizeof(struct ip_esp_hdr) +
- 			      crypto_aead_ivsize(aead);
- 	if (x->props.mode == XFRM_MODE_TUNNEL)
-@@ -683,8 +678,6 @@ static int esp_init_state(struct xfrm_state *x)
- 	}
- 
- 	align = ALIGN(crypto_aead_blocksize(aead), 4);
--	if (esp->padlen)
--		align = max_t(u32, align, esp->padlen);
- 	x->props.trailer_len = align + 1 + crypto_aead_authsize(esp->aead);
- 
- error:
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index d3618a7..0073cd0 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -181,8 +181,6 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	}
- 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
- 	clen = ALIGN(skb->len + 2 + tfclen, blksize);
--	if (esp->padlen)
--		clen = ALIGN(clen, esp->padlen);
- 	plen = clen - skb->len - tfclen;
- 
- 	err = skb_cow_data(skb, tfclen + plen + alen, &trailer);
-@@ -416,7 +414,6 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
--	u32 align = max_t(u32, blksize, esp->padlen);
- 	unsigned int net_adj;
- 
- 	if (x->props.mode != XFRM_MODE_TUNNEL)
-@@ -425,7 +422,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
- 		net_adj = 0;
- 
- 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
--		 net_adj) & ~(align - 1)) + net_adj - 2;
-+		 net_adj) & ~(blksize - 1)) + net_adj - 2;
- }
- 
- static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-@@ -606,8 +603,6 @@ static int esp6_init_state(struct xfrm_state *x)
- 
- 	aead = esp->aead;
- 
--	esp->padlen = 0;
--
- 	x->props.header_len = sizeof(struct ip_esp_hdr) +
- 			      crypto_aead_ivsize(aead);
- 	switch (x->props.mode) {
-@@ -626,8 +621,6 @@ static int esp6_init_state(struct xfrm_state *x)
- 	}
- 
- 	align = ALIGN(crypto_aead_blocksize(aead), 4);
--	if (esp->padlen)
--		align = max_t(u32, align, esp->padlen);
- 	x->props.trailer_len = align + 1 + crypto_aead_authsize(esp->aead);
- 
- error:
--- 
-1.7.10.4
+Understood - note the email has subject TheLinuxWay ;->
+So i fear this one also falls under "it is already in the wild, cant do
+anything about it".
+
+BTW: the flooding and learning knobs are still not exposed to iproute2.
+
+In regards to a GET always being translated to DUMP forcing user space
+to filter:
+If neither you nor Stephen planning to take of it, I will because it
+is a scaling problem.  Please let me know.
+
+
+cheers,
+jamal
