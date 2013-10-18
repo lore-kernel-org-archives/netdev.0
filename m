@@ -1,33 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net REPOST 0/3] UFO fixes
-Date: Fri, 18 Oct 2013 19:20:47 +0200
-Message-ID: <20131018172047.GL18135@order.stressinduktion.org>
-References: <1382116431-28758-1-git-send-email-jiri@resnulli.us> <20131018171524.GC1491@minipsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/8] tipc: some small patches
+Date: Fri, 18 Oct 2013 13:22:54 -0400 (EDT)
+Message-ID: <20131018.132254.169905354661027944.davem@davemloft.net>
+References: <1382073801-22128-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, jdmason@kudzu.us, yoshfuji@linux-ipv6.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	herbert@gondor.apana.org.au
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43532 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756589Ab3JRRUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:20:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20131018171524.GC1491@minipsycho.orion>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56783 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756270Ab3JRRW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:22:58 -0400
+In-Reply-To: <1382073801-22128-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 18, 2013 at 07:15:24PM +0200, Jiri Pirko wrote:
-> Hannes, sorry for messed up email address :/
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 18 Oct 2013 07:23:13 +0200
 
-No problem, I got them. ;)
+> Some small and relatively straightforward patches. With exception of
+> the two first ones they are all unrelated and address minor issues.
+> 
+> v2: update of v1 (http://patchwork.ozlabs.org/patch/277404/)
+> 
+> -added commit to use memcpy_fromiovec on user data as per v1 feedback
+> -updated sparse fix commit to drop chunks covered by above commit
+> -added new commit that greatly simplifies the link lookup routine
 
-I'll review them again this weekend. Also Jon mailed me that he will
-look at the neterion driver this weekend, so this gets finally sorted out.
-
-Thanks,
-
-  Hannes
+Series applied, thanks Jon.
