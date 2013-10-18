@@ -1,201 +1,223 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/7] bonding: move mode setting into separate function
-Date: Fri, 18 Oct 2013 17:43:34 +0200
-Message-ID: <1382111019-1102-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/7] bonding: move active_slave setting into separate function
+Date: Fri, 18 Oct 2013 17:43:35 +0200
+Message-ID: <1382111019-1102-4-git-send-email-jiri@resnulli.us>
 References: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, fubar@us.ibm.com, vfalico@redhat.com,
 	andy@greyhouse.net, stephen@networkplumber.org, vyasevic@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:42233 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756472Ab3JRPnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 11:43:47 -0400
-Received: by mail-ee0-f48.google.com with SMTP id e50so989402eek.7
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 08:43:44 -0700 (PDT)
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:45707 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756464Ab3JRPnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 11:43:46 -0400
+Received: by mail-ea0-f169.google.com with SMTP id k11so2103107eaj.14
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 08:43:45 -0700 (PDT)
 In-Reply-To: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Do a bit of refactoring on the way.
+
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/Makefile       |  2 +-
- drivers/net/bonding/bond_options.c | 55 ++++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_sysfs.c   | 45 ++++++++-----------------------
- drivers/net/bonding/bonding.h      |  9 +++++--
- 4 files changed, 74 insertions(+), 37 deletions(-)
- create mode 100644 drivers/net/bonding/bond_options.c
+ drivers/net/bonding/bond_options.c | 69 +++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   | 74 +++++++-------------------------------
+ drivers/net/bonding/bonding.h      |  1 +
+ 3 files changed, 83 insertions(+), 61 deletions(-)
 
-diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefile
-index 09e8b2c..5a5d720 100644
---- a/drivers/net/bonding/Makefile
-+++ b/drivers/net/bonding/Makefile
-@@ -4,7 +4,7 @@
- 
- obj-$(CONFIG_BONDING) += bonding.o
- 
--bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_debugfs.o bond_netlink.o
-+bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_debugfs.o bond_netlink.o bond_options.o
- 
- proc-$(CONFIG_PROC_FS) += bond_procfs.o
- bonding-objs += $(proc-y)
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-new file mode 100644
-index 0000000..294b766
---- /dev/null
+index 294b766..09af5d1 100644
+--- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -0,0 +1,55 @@
-+/*
-+ * drivers/net/bond/bond_options.c - bonding options
-+ * Copyright (c) 2013 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
+@@ -12,6 +12,9 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/if.h>
++#include <linux/netdevice.h>
++#include <linux/rwlock.h>
++#include <linux/rcupdate.h>
+ #include "bonding.h"
+ 
+ static bool bond_mode_is_valid(int mode)
+@@ -53,3 +56,69 @@ int bond_option_mode_set(struct bonding *bond, int mode)
+ 	bond->params.mode = mode;
+ 	return 0;
+ }
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/errno.h>
-+#include <linux/if.h>
-+#include "bonding.h"
-+
-+static bool bond_mode_is_valid(int mode)
++int bond_option_active_slave_set(struct bonding *bond,
++				 struct net_device *slave_dev)
 +{
-+	int i;
++	int ret = 0;
 +
-+	for (i = 0; bond_mode_tbl[i].modename; i++);
++	if (slave_dev) {
++		if (!netif_is_bond_slave(slave_dev)) {
++			pr_err("Device %s is not bonding slave.\n",
++			       slave_dev->name);
++			return -EINVAL;
++		}
 +
-+	return mode >= 0 && mode < i;
-+}
++		if (bond->dev != netdev_master_upper_dev_get(slave_dev)) {
++			pr_err("%s: Device %s is not our slave.\n",
++			       bond->dev->name, slave_dev->name);
++			return -EINVAL;
++		}
++	}
 +
-+int bond_option_mode_set(struct bonding *bond, int mode)
-+{
-+	if (!bond_mode_is_valid(mode)) {
-+		pr_err("invalid mode value %d.\n", mode);
++	if (!USES_PRIMARY(bond->params.mode)) {
++		pr_err("%s: Unable to change active slave; %s is in mode %d\n",
++		       bond->dev->name, bond->dev->name, bond->params.mode);
 +		return -EINVAL;
 +	}
 +
-+	if (bond->dev->flags & IFF_UP) {
-+		pr_err("%s: unable to update mode because interface is up.\n",
-+		       bond->dev->name);
-+		return -EPERM;
++	block_netpoll_tx();
++	read_lock(&bond->lock);
++	write_lock_bh(&bond->curr_slave_lock);
++
++	/* check to see if we are clearing active */
++	if (!slave_dev) {
++		pr_info("%s: Clearing current active slave.\n",
++		bond->dev->name);
++		rcu_assign_pointer(bond->curr_active_slave, NULL);
++		bond_select_active_slave(bond);
++	} else {
++		struct slave *old_active = bond->curr_active_slave;
++		struct slave *new_active = bond_slave_get_rtnl(slave_dev);
++
++		BUG_ON(!new_active);
++
++		if (new_active == old_active) {
++			/* do nothing */
++			pr_info("%s: %s is already the current active slave.\n",
++				bond->dev->name, new_active->dev->name);
++		} else {
++			if (old_active && (new_active->link == BOND_LINK_UP) &&
++			    IS_UP(new_active->dev)) {
++				pr_info("%s: Setting %s as active slave.\n",
++					bond->dev->name, new_active->dev->name);
++				bond_change_active_slave(bond, new_active);
++			} else {
++				pr_err("%s: Could not set %s as active slave; either %s is down or the link is down.\n",
++				       bond->dev->name, new_active->dev->name,
++				       new_active->dev->name);
++				ret = -EINVAL;
++			}
++		}
 +	}
 +
-+	if (bond_has_slaves(bond)) {
-+		pr_err("%s: unable to update mode because bond has slaves.\n",
-+			bond->dev->name);
-+		return -EPERM;
-+	}
-+
-+	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
-+		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
-+		       bond->dev->name, bond_mode_tbl[mode].modename);
-+		return -EINVAL;
-+	}
-+
-+	/* don't cache arp_validate between modes */
-+	bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
-+	bond->params.mode = mode;
-+	return 0;
++	write_unlock_bh(&bond->curr_slave_lock);
++	read_unlock(&bond->lock);
++	unblock_netpoll_tx();
++	return ret;
 +}
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 03bed0c..c234cec 100644
+index c234cec..abd2600 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -283,49 +283,26 @@ static ssize_t bonding_store_mode(struct device *d,
- 				  struct device_attribute *attr,
- 				  const char *buf, size_t count)
+@@ -1235,81 +1235,33 @@ static ssize_t bonding_store_active_slave(struct device *d,
+ 					  struct device_attribute *attr,
+ 					  const char *buf, size_t count)
  {
--	int new_value, ret = count;
-+	int new_value, ret;
+-	struct slave *slave, *old_active, *new_active;
++	int ret;
  	struct bonding *bond = to_bond(d);
+-	struct list_head *iter;
+ 	char ifname[IFNAMSIZ];
++	struct net_device *dev;
  
--	if (!rtnl_trylock())
--		return restart_syscall();
+ 	if (!rtnl_trylock())
+ 		return restart_syscall();
+ 
+-	old_active = new_active = NULL;
+-	block_netpoll_tx();
+-	read_lock(&bond->lock);
+-	write_lock_bh(&bond->curr_slave_lock);
 -
--	if (bond->dev->flags & IFF_UP) {
--		pr_err("unable to update mode of %s because interface is up.\n",
--		       bond->dev->name);
--		ret = -EPERM;
+-	if (!USES_PRIMARY(bond->params.mode)) {
+-		pr_info("%s: Unable to change active slave; %s is in mode %d\n",
+-			bond->dev->name, bond->dev->name, bond->params.mode);
 -		goto out;
 -	}
 -
--	if (bond_has_slaves(bond)) {
--		pr_err("unable to update mode of %s because it has slaves.\n",
+ 	sscanf(buf, "%15s", ifname); /* IFNAMSIZ */
+-
+-	/* check to see if we are clearing active */
+ 	if (!strlen(ifname) || buf[0] == '\n') {
+-		pr_info("%s: Clearing current active slave.\n",
 -			bond->dev->name);
--		ret = -EPERM;
+-		rcu_assign_pointer(bond->curr_active_slave, NULL);
+-		bond_select_active_slave(bond);
 -		goto out;
 -	}
 -
- 	new_value = bond_parse_parm(buf, bond_mode_tbl);
- 	if (new_value < 0)  {
- 		pr_err("%s: Ignoring invalid mode value %.*s.\n",
- 		       bond->dev->name, (int)strlen(buf) - 1, buf);
--		ret = -EINVAL;
--		goto out;
-+		return -EINVAL;
- 	}
--	if ((new_value == BOND_MODE_ALB ||
--	     new_value == BOND_MODE_TLB) &&
--	    bond->params.arp_interval) {
--		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
--		       bond->dev->name, bond_mode_tbl[new_value].modename);
--		ret = -EINVAL;
--		goto out;
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	ret = bond_option_mode_set(bond, new_value);
-+	if (!ret) {
-+		pr_info("%s: setting mode to %s (%d).\n",
-+			bond->dev->name, bond_mode_tbl[new_value].modename,
-+			new_value);
-+		ret = count;
+-	bond_for_each_slave(bond, slave, iter) {
+-		if (strncmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
+-			old_active = bond->curr_active_slave;
+-			new_active = slave;
+-			if (new_active == old_active) {
+-				/* do nothing */
+-				pr_info("%s: %s is already the current"
+-					" active slave.\n",
+-					bond->dev->name,
+-					slave->dev->name);
+-				goto out;
+-			} else {
+-				if ((new_active) &&
+-				    (old_active) &&
+-				    (new_active->link == BOND_LINK_UP) &&
+-				    IS_UP(new_active->dev)) {
+-					pr_info("%s: Setting %s as active"
+-						" slave.\n",
+-						bond->dev->name,
+-						slave->dev->name);
+-					bond_change_active_slave(bond,
+-								 new_active);
+-				} else {
+-					pr_info("%s: Could not set %s as"
+-						" active slave; either %s is"
+-						" down or the link is down.\n",
+-						bond->dev->name,
+-						slave->dev->name,
+-						slave->dev->name);
+-				}
+-				goto out;
+-			}
++		dev = NULL;
++	} else {
++		dev = __dev_get_by_name(dev_net(bond->dev), ifname);
++		if (!dev) {
++			ret = -ENODEV;
++			goto out;
+ 		}
  	}
  
--	/* don't cache arp_validate between modes */
--	bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
--	bond->params.mode = new_value;
--	pr_info("%s: setting mode to %s (%d).\n",
--		bond->dev->name, bond_mode_tbl[new_value].modename,
--		new_value);
--out:
+-	pr_info("%s: Unable to set %.*s as active slave.\n",
+-		bond->dev->name, (int)strlen(buf) - 1, buf);
+- out:
+-	write_unlock_bh(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+-	unblock_netpoll_tx();
++	ret = bond_option_active_slave_set(bond, dev);
++	if (!ret)
++		ret = count;
+ 
++ out:
  	rtnl_unlock();
- 	return ret;
+ 
+-	return count;
++	return ret;
+ 
  }
+ static DEVICE_ATTR(active_slave, S_IRUGO | S_IWUSR,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index a2a353b..7446849 100644
+index 7446849..686759d 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -58,6 +58,11 @@
- #define TX_QUEUE_OVERRIDE(mode)				\
- 			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
- 			 ((mode) == BOND_MODE_ROUNDROBIN))
-+
-+#define BOND_MODE_IS_LB(mode)			\
-+		(((mode) == BOND_MODE_TLB) ||	\
-+		 ((mode) == BOND_MODE_ALB))
-+
- /*
-  * Less bad way to call ioctl from within the kernel; this needs to be
-  * done some other way to get the call out of interrupt context.
-@@ -259,8 +264,7 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- 
- static inline bool bond_is_lb(const struct bonding *bond)
- {
--	return (bond->params.mode == BOND_MODE_TLB ||
--		bond->params.mode == BOND_MODE_ALB);
-+	return BOND_MODE_IS_LB(bond->params.mode);
- }
- 
- static inline void bond_set_active_slave(struct slave *slave)
-@@ -422,6 +426,7 @@ void bond_setup(struct net_device *bond_dev);
- unsigned int bond_get_num_tx_queues(void);
+@@ -427,6 +427,7 @@ unsigned int bond_get_num_tx_queues(void);
  int bond_netlink_init(void);
  void bond_netlink_fini(void);
-+int bond_option_mode_set(struct bonding *bond, int mode);
+ int bond_option_mode_set(struct bonding *bond, int mode);
++int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
  
  struct bond_net {
  	struct net *		net;	/* Associated network namespace */
