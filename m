@@ -1,50 +1,60 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/4] xfrm: Simplify SA looking up when using wildcard source
-Date: Fri, 18 Oct 2013 10:42:08 +0200
-Message-ID: <1382085730-3415-3-git-send-email-steffen.klassert@secunet.com>
-References: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2013-10-18
+Date: Fri, 18 Oct 2013 10:42:06 +0200
+Message-ID: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51709 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:51699 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752011Ab3JRImV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 04:42:21 -0400
-In-Reply-To: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
+	id S1753191Ab3JRImU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 04:42:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
+1) Don't use a wildcard SA if a more precise one is in acquire state,
+   from Fan Du.
 
-__xfrm4/6_state_addr_check is a four steps check, all we need to do
-is checking whether the destination address match when looking SA
-using wildcard source address. Passing saddr from flow is worst option,
-as the checking needs to reach the fourth step while actually only
-one time checking will do the work.
+2) Simplify the SA lookup when using wildcard source. We need to check
+   only the destination in this case, from Fan Du.
 
-So, simplify this process by only checking destination address when
-using wildcard source address for looking up SAs.
+3) Add a receive path hook for IPsec virtual tunnel interfaces
+   to xfrm6_mode_tunnel.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_state.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+4) Add support for IPsec virtual tunnel interfaces to ipv6.
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index b2117a1..68c2f35 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -824,7 +824,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 		    x->props.reqid == tmpl->reqid &&
- 		    (mark & x->mark.m) == x->mark.v &&
- 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
--		    xfrm_state_addr_check(x, daddr, saddr, encap_family) &&
-+		    xfrm_addr_equal(&x->id.daddr, daddr, encap_family) &&
- 		    tmpl->mode == x->props.mode &&
- 		    tmpl->id.proto == x->id.proto &&
- 		    (tmpl->id.spi == x->id.spi || !tmpl->id.spi))
--- 
-1.7.9.5
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit b32418705107265dfca5edfe2b547643e53a732e:
+
+  bonding: RCUify bond_set_rx_mode() (2013-09-30 22:26:41 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to ed1efb2aefbbc6f5a3da5b42158bfb753ba6fe82:
+
+  ipv6: Add support for IPsec virtual tunnel interfaces (2013-10-10 12:00:01 +0200)
+
+----------------------------------------------------------------
+Fan Du (2):
+      xfrm: Force SA to be lookup again if SA in acquire state
+      xfrm: Simplify SA looking up when using wildcard source
+
+Steffen Klassert (2):
+      ipv6: Add a receive path hook for vti6 in xfrm6_mode_tunnel.
+      ipv6: Add support for IPsec virtual tunnel interfaces
+
+ include/net/xfrm.h           |    2 +
+ net/ipv6/Kconfig             |   11 +
+ net/ipv6/Makefile            |    1 +
+ net/ipv6/ip6_vti.c           | 1056 ++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/xfrm6_mode_tunnel.c |   69 +++
+ net/xfrm/xfrm_state.c        |    4 +-
+ 6 files changed, 1141 insertions(+), 2 deletions(-)
+ create mode 100644 net/ipv6/ip6_vti.c
