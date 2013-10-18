@@ -1,43 +1,80 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Fri, 18 Oct 2013 18:33:53 +0200
-Message-ID: <20131018163353.GK18135@order.stressinduktion.org>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310180921200.1581@ssi.bg>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v4 0/8] qlcnic: ethtool enhancements and code cleanup.
+Date: Fri, 18 Oct 2013 12:22:27 -0400
+Message-ID: <cover.1382090311.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Simon Horman <horms@verge.net.au>,
-	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
-	Phil Oester <kernel@linuxace.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.03.1310180921200.1581@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:28179 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756521Ab3JRQxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:53:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 18, 2013 at 09:33:13AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
-> 
-> > I played around with your patch and tested xt_TEE. I added a TEE rule to
-> > mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
-> 
-> 	May be a side effect of using some multicast address?
-> Can you test it with such address check?:
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-I don't think that is the reason.
+This patch series contains
 
-> 
-> 	if (rt->rt6i_flags & RTF_GATEWAY ||
-> 	    ipv6_addr_type(&rt->rt6i_gateway) & IPV6_ADDR_UNICAST)
+o updates to ethtool for pause settings and enhance
+  register dump to display mask and ring indices.
+o cleanup in DCB code and remove redundant eSwitch enablement command.
+o fixed firmware dump collection logic to skip unknown entries.
 
-Just checked, I had the same panic.
+Changes from v3 -> v4
+o Dropped patch for Tx queue validation to be submitted in net.
 
-Greetings,
+Changes from v2 -> v3
 
-  Hannes
+o Updated patch to print informational messages as per Joe Perches's comment.
 
+Changes from v1 -> v2
+
+o Dropped patch to register device if adapter is in FAILED state for more rework.
+o Updated patch to display ring indices via ethtool per Ben Hutchings's comment.
+o Update patch for DCB cleanup per Stephen Hemminger's comment.
+
+Please apply to net-next.
+
+Thanks,
+Himanshu
+
+Himanshu Madhani (1):
+  qlcnic: update version to 5.3.51
+
+Jitendra Kalsaria (1):
+  qlcnic: Update ethtool standard pause settings.
+
+Pratik Pujar (2):
+  qlcnic: Enhance ethtool to display ring indices and interrupt mask
+  qlcnic: Firmware dump collection when auto recovery is disabled.
+
+Shahed Shaikh (1):
+  qlcnic: Skip unknown entry type while collecting firmware dump
+
+Sony Chacko (1):
+  qlcnic: Remove redundant eSwitch enable commands
+
+Sucheta Chakraborty (2):
+  qlcnic: Print informational messages only once during driver load.
+  qlcnic: dcb code cleanup and refactoring.
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 101 +----------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  40 ++---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   5 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |  20 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |  47 +++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    | 184 ++++++++++-----------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h    | 109 ++++++++++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  54 ++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  45 +++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  41 +++--
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   9 +-
+ 12 files changed, 341 insertions(+), 316 deletions(-)
+
+-- 
+1.8.1.4
