@@ -1,59 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH ipsec-next] xfrm: use vmalloc_node() for percpu scratches
-Date: Fri, 18 Oct 2013 03:54:16 -0700
-Message-ID: <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20131017095502.GD7660@secunet.com>
-	 <20131017130740.D8741E8A5E@unicorn.suse.cz>
-	 <20131018092512.GA31491@secunet.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
+ the skb
+Date: Fri, 18 Oct 2013 13:10:41 +0200
+Message-ID: <20131018111041.GA10964@localhost>
+References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com>
+ <20131017112857.GA11318@localhost>
+ <20131017113735.GB2699@open-mesh.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Quartulli <antonio@meshcoding.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Antonio Quartulli <antonio@open-mesh.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:52760 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930Ab3JRKyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 06:54:18 -0400
-Received: by mail-pd0-f173.google.com with SMTP id r10so2239290pdi.32
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 03:54:17 -0700 (PDT)
-In-Reply-To: <20131018092512.GA31491@secunet.com>
+Received: from mail.us.es ([193.147.175.20]:45508 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753070Ab3JRLKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 07:10:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20131017113735.GB2699@open-mesh.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Oct 17, 2013 at 01:37:35PM +0200, Antonio Quartulli wrote:
+> On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
+> > Hi,
+> > > +
+> > > +/**
+> > > + * br_netfilter_skb_free - clean the NF bridge data in an skb
+> > > + * @skb: the skb which the data to free belongs to
+> > > + */
+> > > +void br_netfilter_skb_free(struct sk_buff *skb)
+> > > +{
+> > > +	nf_bridge_put(skb->nf_bridge);
+> > > +	skb->nf_bridge = NULL;
+> > > +}
+> > 
+> > This should be nf_reset.
+> 
+> You think I should directly use nf_reset instead of this function?
+> 
+> I see that nf_reset() cleans up the conntrack part too: does it also become
+> useless once the packet exits the bridge interface?
 
-scratches are per cpu, we can use vmalloc_node() for proper
-NUMA affinity.
+The conntrack should not attached if it's forwarded to another netif,
+see dev_forward_skb.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/xfrm/xfrm_ipcomp.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+But I'm not sure what scenario you're trying to handle with this
+change, if you could please elaborate.
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index 2906d52..b943c7f 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -220,8 +220,8 @@ static void ipcomp_free_scratches(void)
- 
- static void * __percpu *ipcomp_alloc_scratches(void)
- {
--	int i;
- 	void * __percpu *scratches;
-+	int i;
- 
- 	if (ipcomp_scratch_users++)
- 		return ipcomp_scratches;
-@@ -233,7 +233,9 @@ static void * __percpu *ipcomp_alloc_scratches(void)
- 	ipcomp_scratches = scratches;
- 
- 	for_each_possible_cpu(i) {
--		void *scratch = vmalloc(IPCOMP_SCRATCH_SIZE);
-+		void *scratch;
-+
-+		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_node(i));
- 		if (!scratch)
- 			return NULL;
- 		*per_cpu_ptr(scratches, i) = scratch;
+Perhaps your fix is more conservative to avoid breaking strange setups
+that have been relying on this behaviour. I know of people deploying
+strange configurations using netfilter bridge.
