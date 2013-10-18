@@ -1,65 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: gso: remove redundant locking
-Date: Fri, 18 Oct 2013 14:43:55 -0700
-Message-ID: <1382132635.3284.45.camel@edumazet-glaptop.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/9 RESENT] staging: r8188eu: Set device type to wlan
+Date: Sat, 19 Oct 2013 01:58:41 +0400
+Message-ID: <5261AF11.2090004@cogentembedded.com>
+References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net> <5261A904.9030908@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:49736 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884Ab3JRVn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:43:56 -0400
-Received: by mail-pb0-f53.google.com with SMTP id up15so4355398pbc.40
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 14:43:56 -0700 (PDT)
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:48696 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754406Ab3JRV7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:59:39 -0400
+Received: by mail-lb0-f177.google.com with SMTP id u14so920757lbd.36
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 14:59:38 -0700 (PDT)
+In-Reply-To: <5261A904.9030908@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hello.
 
-ipv6_gso_send_check() and ipv6_gso_segment() are called by
-skb_mac_gso_segment() under rcu lock, no need to use
-rcu_read_lock() / rcu_read_unlock()
+On 10/19/2013 01:32 AM, Larry Finger wrote:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/ip6_offload.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> The latest version of NetworkManager does not recognize the device as wireless
+> without this change.
 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index d82de72..b405fba 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -66,7 +66,6 @@ static int ipv6_gso_send_check(struct sk_buff *skb)
- 	__skb_pull(skb, sizeof(*ipv6h));
- 	err = -EPROTONOSUPPORT;
- 
--	rcu_read_lock();
- 	ops = rcu_dereference(inet6_offloads[
- 		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
- 
-@@ -74,7 +73,6 @@ static int ipv6_gso_send_check(struct sk_buff *skb)
- 		skb_reset_transport_header(skb);
- 		err = ops->callbacks.gso_send_check(skb);
- 	}
--	rcu_read_unlock();
- 
- out:
- 	return err;
-@@ -113,13 +111,12 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	segs = ERR_PTR(-EPROTONOSUPPORT);
- 
- 	proto = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
--	rcu_read_lock();
-+
- 	ops = rcu_dereference(inet6_offloads[proto]);
- 	if (likely(ops && ops->callbacks.gso_segment)) {
- 		skb_reset_transport_header(skb);
- 		segs = ops->callbacks.gso_segment(skb, features);
- 	}
--	rcu_read_unlock();
- 
- 	if (IS_ERR(segs))
- 		goto out;
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>   drivers/staging/rtl8188eu/os_dep/os_intfs.c | 5 +++++
+>   1 file changed, 5 insertions(+)
+
+> diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+> b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+> index da9f0d5..17659bb 100644
+> --- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+> +++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+> @@ -707,6 +707,10 @@ int rtw_init_netdev_name(struct net_device *pnetdev,
+> const char *ifname)
+>       return 0;
+>   }
+>   +static const struct device_type wlan_type = {
+
+    Hm, a space got added before +, so the patch was somehow broken.
+
+> +    .name = "wlan",
+> +};
+> +
+>   struct net_device *rtw_init_netdev(struct adapter *old_padapter)
+>   {
+>       struct adapter *padapter;
+> @@ -722,6 +726,7 @@ struct net_device *rtw_init_netdev(struct adapter
+> *old_padapter)
+>       if (!pnetdev)
+>           return NULL;
+>   +    pnetdev->dev.type = &wlan_type;
+
+    Here too.
+
+WBR, Sergei
