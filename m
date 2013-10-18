@@ -1,47 +1,53 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH next] be2net: Rework PCIe error report log messaging
-Date: Fri, 18 Oct 2013 16:06:24 -0500
-Message-ID: <20131018210624.GA3944@emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/9 RESENT] Various patches for r8188eu
+Date: Fri, 18 Oct 2013 16:31:49 -0500
+Message-ID: <5261A8C5.5010606@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	devel@driverdev.osuosl.org
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [138.239.224.100] ([138.239.224.100]:55378 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752956Ab3JRVGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:06:52 -0400
-Content-Disposition: inline
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:49710 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755519Ab3JRVbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:31:51 -0400
+Received: by mail-ob0-f178.google.com with SMTP id uz6so3607122obc.9
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 14:31:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we log a message whenever pcie_enable_error_reporting fails.
-The message clutters up logs, especially when we don't support it for VFs.
-Instead enable this only for PFs and log a message when the call succeeds.
+The first of these patches fixes a problem noted for the latest version of
+NetworkManager. Without it, the device is not recognized as a wireless unit.
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+The remainder fix various sparse warnings. All such warnings are cleared
+except for a false positive regarging locking. The code is OK there.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2d6115c..f0866e2 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4459,9 +4459,11 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 		}
- 	}
- 
--	status = pci_enable_pcie_error_reporting(pdev);
--	if (status)
--		dev_info(&pdev->dev, "Could not use PCIe error reporting\n");
-+	if (be_physfn(adapter)) {
-+		status = pci_enable_pcie_error_reporting(pdev);
-+		if (!status)
-+			dev_info(&pdev->dev, "PCIe error reporting enabled\n");
-+	}
- 
- 	status = be_ctrl_init(adapter);
- 	if (status)
+Larry Finger (9):
+   staging: r8188eu: Set device type to wlan
+   staging: r8188eu: Fix Sparse warnings in rtw_wlan_util
+   staging: r8188eu: Fix sparse warnings in ioctl_linux.c
+   staging: r8188eu: Fix sparse warnings in rtw_ieee80211.c
+   staging: r8188eu: Fix sparse warnings in rtl8188e.cmd.c
+   staging: r8188eu: Fix sparse warnings in rtw_mlme_ext.c
+   staging: r8188eu: Fix sparse warnings in rtl_p2p.c
+   staging: r8188eu: Fix sparse warnings in rtw_xmit.c
+   staging: r8188eu: Fix sparse warnings in rtw_br_ext.c
+
+  drivers/staging/rtl8188eu/core/rtw_br_ext.c    | 52 +++++++++++++++-----------
+  drivers/staging/rtl8188eu/core/rtw_mlme_ext.c  | 41 ++++++++++----------
+  drivers/staging/rtl8188eu/core/rtw_p2p.c       |  8 ++--
+  drivers/staging/rtl8188eu/core/rtw_wlan_util.c |  2 +-
+  drivers/staging/rtl8188eu/core/rtw_xmit.c      |  2 +-
+  drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c   |  8 ++--
+  drivers/staging/rtl8188eu/include/ieee80211.h  | 16 ++++----
+  drivers/staging/rtl8188eu/os_dep/ioctl_linux.c | 20 +++++-----
+  drivers/staging/rtl8188eu/os_dep/os_intfs.c    |  5 +++
+  9 files changed, 85 insertions(+), 69 deletions(-)
+
 -- 
-1.8.1.2
+1.8.4
