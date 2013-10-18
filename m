@@ -1,57 +1,56 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 0/8] tipc: some small patches
-Date: Fri, 18 Oct 2013 07:23:13 +0200
-Message-ID: <1382073801-22128-1-git-send-email-jon.maloy@ericsson.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
+	notifier if we're not ready
+Date: Fri, 18 Oct 2013 16:47:14 +1030
+Message-ID: <87iowvje6t.fsf@rustcorp.com.au>
+References: <8738o0aj9u.fsf@rustcorp.com.au>
+	<20131017050710.GA12141@redhat.com>
+	<87d2n3s89s.fsf@rustcorp.com.au>
+	<20131017.234816.1960399038382112445.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:46698 "HELO
-	smtp104.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750797Ab3JRFaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 01:30:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131017.234816.1960399038382112445.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Some small and relatively straightforward patches. With exception of
-the two first ones they are all unrelated and address minor issues.
+David Miller <davem@davemloft.net> writes:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Fri, 18 Oct 2013 11:30:15 +1030
+>
+>> Asking people to express 'CC: stable' in words is error-prone; if Dave
+>> wants to filter it, he's quite capable.
+>
+> Filtering it one time is one thing.
+>
+> Potentially acting on that filter 100 or so times a day...
+>
+> That's completely another.
 
-v2: update of v1 (http://patchwork.ozlabs.org/patch/277404/)
+I don't see the difference between reacting to:
 
--added commit to use memcpy_fromiovec on user data as per v1 feedback
--updated sparse fix commit to drop chunks covered by above commit
--added new commit that greatly simplifies the link lookup routine
+> The patch were need for 3.10 and above.
 
-Erik Hugne (1):
-  tipc: simplify the link lookup routine
+And:
 
-Ying Xue (7):
-  tipc: don't use memcpy to copy from user space
-  tipc: remove iovec length parameter from all sending functions
-  tipc: silence sparse warnings
-  tipc: make bearer and media naming consistent
-  tipc: avoid unnecessary lookup for tipc bearer instance
-  tipc: correct return value of recv_msg routine
-  tipc: correct return value of link_cmd_set_value routine
+CC: stable@kernel.org # 3.10+
 
- net/tipc/bearer.c    |   18 ++----
- net/tipc/bearer.h    |   10 +--
- net/tipc/eth_media.c |   68 ++++++++++----------
- net/tipc/ib_media.c  |   58 +++++++++---------
- net/tipc/link.c      |  167 +++++++++++++-------------------------------------
- net/tipc/link.h      |    4 +-
- net/tipc/msg.c       |   27 ++++----
- net/tipc/msg.h       |    3 +-
- net/tipc/port.c      |   66 ++++++++------------
- net/tipc/port.h      |   16 ++---
- net/tipc/socket.c    |   12 ++--
- 11 files changed, 167 insertions(+), 282 deletions(-)
+Except the latter is the standard form which everyone else uses.
 
--- 
-1.7.9.5
+Do you want awk script to turn the latter into the former?  Would that
+really help?
+
+Confused,
+Rusty.
