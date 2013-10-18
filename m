@@ -1,53 +1,57 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 0/9 RESENT] Various patches for r8188eu
-Date: Fri, 18 Oct 2013 16:31:49 -0500
-Message-ID: <5261A8C5.5010606@lwfinger.net>
+Subject: [PATCH 1/9 RESENT] staging: r8188eu: Set device type to wlan
+Date: Fri, 18 Oct 2013 16:32:52 -0500
+Message-ID: <5261A904.9030908@lwfinger.net>
+References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
-	devel@driverdev.osuosl.org
+Cc: devel@driverdev.osuosl.org, netdev <netdev@vger.kernel.org>,
+ Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:49710 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755519Ab3JRVbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:31:51 -0400
-Received: by mail-ob0-f178.google.com with SMTP id uz6so3607122obc.9
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 14:31:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-The first of these patches fixes a problem noted for the latest version of
-NetworkManager. Without it, the device is not recognized as a wireless unit.
-
-The remainder fix various sparse warnings. All such warnings are cleared
-except for a false positive regarging locking. The code is OK there.
+The latest version of NetworkManager does not recognize the device as wireless
+without this change.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
+  drivers/staging/rtl8188eu/os_dep/os_intfs.c | 5 +++++
+  1 file changed, 5 insertions(+)
 
-Larry Finger (9):
-   staging: r8188eu: Set device type to wlan
-   staging: r8188eu: Fix Sparse warnings in rtw_wlan_util
-   staging: r8188eu: Fix sparse warnings in ioctl_linux.c
-   staging: r8188eu: Fix sparse warnings in rtw_ieee80211.c
-   staging: r8188eu: Fix sparse warnings in rtl8188e.cmd.c
-   staging: r8188eu: Fix sparse warnings in rtw_mlme_ext.c
-   staging: r8188eu: Fix sparse warnings in rtl_p2p.c
-   staging: r8188eu: Fix sparse warnings in rtw_xmit.c
-   staging: r8188eu: Fix sparse warnings in rtw_br_ext.c
-
-  drivers/staging/rtl8188eu/core/rtw_br_ext.c    | 52 +++++++++++++++-----------
-  drivers/staging/rtl8188eu/core/rtw_mlme_ext.c  | 41 ++++++++++----------
-  drivers/staging/rtl8188eu/core/rtw_p2p.c       |  8 ++--
-  drivers/staging/rtl8188eu/core/rtw_wlan_util.c |  2 +-
-  drivers/staging/rtl8188eu/core/rtw_xmit.c      |  2 +-
-  drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c   |  8 ++--
-  drivers/staging/rtl8188eu/include/ieee80211.h  | 16 ++++----
-  drivers/staging/rtl8188eu/os_dep/ioctl_linux.c | 20 +++++-----
-  drivers/staging/rtl8188eu/os_dep/os_intfs.c    |  5 +++
-  9 files changed, 85 insertions(+), 69 deletions(-)
-
+diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c 
+b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+index da9f0d5..17659bb 100644
+--- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
++++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
+@@ -707,6 +707,10 @@ int rtw_init_netdev_name(struct net_device *pnetdev, const 
+char *ifname)
+  	return 0;
+  }
+  +static const struct device_type wlan_type = {
++	.name = "wlan",
++};
++
+  struct net_device *rtw_init_netdev(struct adapter *old_padapter)
+  {
+  	struct adapter *padapter;
+@@ -722,6 +726,7 @@ struct net_device *rtw_init_netdev(struct adapter *old_padapter)
+  	if (!pnetdev)
+  		return NULL;
+  +	pnetdev->dev.type = &wlan_type;
+  	padapter = rtw_netdev_priv(pnetdev);
+  	padapter->pnetdev = pnetdev;
+  	DBG_88E("register rtw_netdev_ops to netdev_ops\n");
 -- 
 1.8.4
