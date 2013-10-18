@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/9] Introduce support to lazy initialize
- mostly static keys
-Date: Fri, 18 Oct 2013 16:32:01 -0400 (EDT)
-Message-ID: <20131018.163201.1946075086732460816.davem@davemloft.net>
-References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH] be2net: pass if_id for v1 and V2 versions of TX_CREATE
+ cmd
+Date: Fri, 18 Oct 2013 16:33:08 -0400 (EDT)
+Message-ID: <20131018.163308.1370734173997195267.davem@davemloft.net>
+References: <1381990634-6847-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58221 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712Ab3JRUdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:33:10 -0400
+In-Reply-To: <1381990634-6847-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 17 Oct 2013 07:31:54 +0200
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Thu, 17 Oct 2013 11:47:14 +0530
 
-> This series implements support for delaying the initialization of secret
-> keys, e.g. used for hashing, for as long as possible. This functionality
-> is implemented by a new macro, net_get_random_bytes.
+> From: Vasundhara Volam <vasundhara.volam@emulex.com>
 > 
-> I already used it to protect the socket hashes, the syncookie secret
-> (most important) and the tcp_fastopen secrets.
+> It is a required field for all TX_CREATE cmd versions > 0.
+> This fixes a driver initialization failure, caused by recent SH-R Firmwares
+> (versions > 10.0.639.0) failing the TX_CREATE cmd when if_id field is
+> not passed.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+> 
+> Dave, pls consider queuing this patch for -stable tree as it fixes
+> a driver load failure. Thanks.
 
-I generally have no problem with this series and like how it improves the
-secret being input on the ipv6 side.
-
-Please address the commit message feedback and respin this series.
-
-Thanks.
+Applied and queued up for -stable, thanks.
