@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  06/14] i40e: clamp debugfs nvm read command
-Date: Fri, 18 Oct 2013 06:23:10 -0700
-Message-ID: <1382102598-11343-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  05/14] i40e: debugfs fixups
+Date: Fri, 18 Oct 2013 06:23:09 -0700
+Message-ID: <1382102598-11343-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41785 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:60483 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754496Ab3JRNXl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754506Ab3JRNXl (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 18 Oct 2013 09:23:41 -0400
 In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,40 +19,70 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This issue was identified by the coverity checker where we were
-not checking the upper limit on reads, reported by Hannes
-Frederic Sowa.
+debugfs fixes for issues found by coverity.
 
-Implement more specific limits on reads (min 1k, max 4k)
+This issue was identified by the coverity checker, reported by Hannes Frederic
+Sowa.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 38 ++++++++++++++++++--------
+ 1 file changed, 26 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 304f39d..c80fcb4 100644
+index 19e248f..304f39d 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1742,11 +1742,13 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			goto command_write_done;
- 		}
+@@ -2019,21 +2019,35 @@ static const struct file_operations i40e_dbg_netdev_ops_fops = {
+  **/
+ void i40e_dbg_pf_init(struct i40e_pf *pf)
+ {
+-	struct dentry *pfile __attribute__((unused));
++	struct dentry *pfile;
+ 	const char *name = pci_name(pf->pdev);
++	const struct device *dev = &pf->pdev->dev;
  
--		/* Read at least 512 words */
--		if (buffer_len == 0)
--			buffer_len = 512;
-+		/* set the max length */
-+		buffer_len = min_t(u16, buffer_len, I40E_MAX_AQ_BUF_SIZE/2);
- 
- 		bytes = 2 * buffer_len;
+ 	pf->i40e_dbg_pf = debugfs_create_dir(name, i40e_dbg_root);
+-	if (pf->i40e_dbg_pf) {
+-		pfile = debugfs_create_file("command", 0600, pf->i40e_dbg_pf,
+-					    pf, &i40e_dbg_command_fops);
+-		pfile = debugfs_create_file("dump", 0600, pf->i40e_dbg_pf, pf,
+-					    &i40e_dbg_dump_fops);
+-		pfile = debugfs_create_file("netdev_ops", 0600, pf->i40e_dbg_pf,
+-					    pf, &i40e_dbg_netdev_ops_fops);
+-	} else {
+-		dev_info(&pf->pdev->dev,
+-			 "debugfs entry for %s failed\n", name);
+-	}
++	if (!pf->i40e_dbg_pf)
++		return;
 +
-+		/* read at least 1k bytes, no more than 4kB */
-+		bytes = clamp(bytes, (u16)1024, (u16)I40E_MAX_AQ_BUF_SIZE);
- 		buff = kzalloc(bytes, GFP_KERNEL);
- 		if (!buff)
- 			goto command_write_done;
++	pfile = debugfs_create_file("command", 0600, pf->i40e_dbg_pf, pf,
++				    &i40e_dbg_command_fops);
++	if (!pfile)
++		goto create_failed;
++
++	pfile = debugfs_create_file("dump", 0600, pf->i40e_dbg_pf, pf,
++				    &i40e_dbg_dump_fops);
++	if (!pfile)
++		goto create_failed;
++
++	pfile = debugfs_create_file("netdev_ops", 0600, pf->i40e_dbg_pf, pf,
++				    &i40e_dbg_netdev_ops_fops);
++	if (!pfile)
++		goto create_failed;
++
++	return;
++
++create_failed:
++	dev_info(dev, "debugfs dir/file for %s failed\n", name);
++	debugfs_remove_recursive(pf->i40e_dbg_pf);
++	return;
+ }
+ 
+ /**
 -- 
 1.8.3.1
