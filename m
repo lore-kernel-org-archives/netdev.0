@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] fib_trie: remove duplicated rcu lock
-Date: Fri, 18 Oct 2013 13:54:27 -0400 (EDT)
-Message-ID: <20131018.135427.1167985246850003150.davem@davemloft.net>
-References: <1381636737.3392.29.camel@edumazet-glaptop.roam.corp.google.com>
-	<1381665009-4436-1-git-send-email-baker.kernel@gmail.com>
+Subject: Re: [PATCH net-next 0/2] Removal of struct esp_data
+Date: Fri, 18 Oct 2013 13:55:36 -0400 (EDT)
+Message-ID: <20131018.135536.686066381481925652.davem@davemloft.net>
+References: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: baker.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1381665009-4436-1-git-send-email-baker.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au
+To: mathias.krause@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57084 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756515Ab3JRRzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:55:39 -0400
+In-Reply-To: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: baker.kernel@gmail.com
-Date: Sun, 13 Oct 2013 19:50:09 +0800
+From: Mathias Krause <mathias.krause@secunet.com>
+Date: Fri, 18 Oct 2013 12:09:03 +0200
 
-> From: "baker.zhang" <baker.kernel@gmail.com>
+> This series removes one level of indirection when accessing the aead
+> crypto algorithm in ESP transforms by simply removing struct esp_data.
+> This results in smaller code and less memory usage per xfrm state.
 > 
-> fib_table_lookup has included the rcu lock protection.
-> 
-> Signed-off-by: baker.zhang <baker.kernel@gmail.com>
+> Please apply!
 
-Applied, thanks.
+No objections from me, I'll let Steffen pick this up.
