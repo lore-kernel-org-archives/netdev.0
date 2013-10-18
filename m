@@ -1,94 +1,92 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 7/7] bonding: add Netlink support active_slave option
-Date: Fri, 18 Oct 2013 17:43:39 +0200
-Message-ID: <1382111019-1102-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 5/7] bonding: move active_slave getting into separate function
+Date: Fri, 18 Oct 2013 17:43:37 +0200
+Message-ID: <1382111019-1102-6-git-send-email-jiri@resnulli.us>
 References: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, fubar@us.ibm.com, vfalico@redhat.com,
 	andy@greyhouse.net, stephen@networkplumber.org, vyasevic@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:33629 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756481Ab3JRPnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 11:43:52 -0400
-Received: by mail-ee0-f54.google.com with SMTP id e53so2126380eek.41
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 08:43:51 -0700 (PDT)
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:36139 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756487Ab3JRPnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 11:43:49 -0400
+Received: by mail-ee0-f52.google.com with SMTP id d51so255999eek.39
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 08:43:48 -0700 (PDT)
 In-Reply-To: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/bond_netlink.c | 23 ++++++++++++++++++++++-
- include/uapi/linux/if_link.h       |  1 +
- 2 files changed, 23 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_options.c | 18 ++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   |  8 ++++----
+ drivers/net/bonding/bonding.h      |  2 ++
+ 3 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index a94f870..fe3500b 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -22,6 +22,7 @@
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 09af5d1..9a5223c 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -57,6 +57,24 @@ int bond_option_mode_set(struct bonding *bond, int mode)
+ 	return 0;
+ }
  
- static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
- 	[IFLA_BOND_MODE]		= { .type = NLA_U8 },
-+	[IFLA_BOND_ACTIVE_SLAVE]	= { .type = NLA_U32 },
- };
- 
- static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -48,6 +49,22 @@ static int bond_changelink(struct net_device *bond_dev,
- 		if (err)
- 			return err;
- 	}
-+	if (data && data[IFLA_BOND_ACTIVE_SLAVE]) {
-+		int ifindex = nla_get_u32(data[IFLA_BOND_ACTIVE_SLAVE]);
-+		struct net_device *slave_dev;
++static struct net_device *__bond_option_active_slave_get(struct bonding *bond,
++							 struct slave *slave)
++{
++	return USES_PRIMARY(bond->params.mode) && slave ? slave->dev : NULL;
++}
 +
-+		if (ifindex == 0) {
-+			slave_dev = NULL;
-+		} else {
-+			slave_dev = __dev_get_by_index(dev_net(bond_dev),
-+						       ifindex);
-+			if (!slave_dev)
-+				return -ENODEV;
-+		}
-+		err = bond_option_active_slave_set(bond, slave_dev);
-+		if (err)
-+			return err;
-+	}
- 	return 0;
- }
- 
-@@ -66,14 +83,18 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
- static size_t bond_get_size(const struct net_device *bond_dev)
++struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond)
++{
++	struct slave *slave = rcu_dereference(bond->curr_active_slave);
++
++	return __bond_option_active_slave_get(bond, slave);
++}
++
++struct net_device *bond_option_active_slave_get(struct bonding *bond)
++{
++	return __bond_option_active_slave_get(bond, bond->curr_active_slave);
++}
++
+ int bond_option_active_slave_set(struct bonding *bond,
+ 				 struct net_device *slave_dev)
  {
- 	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
-+		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
- }
- 
- static int bond_fill_info(struct sk_buff *skb,
- 			  const struct net_device *bond_dev)
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index abd2600..47749c9 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1219,13 +1219,13 @@ static ssize_t bonding_show_active_slave(struct device *d,
+ 					 char *buf)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct net_device *slave_dev = bond_option_active_slave_get(bond);
+ 	struct bonding *bond = to_bond(d);
+-	struct slave *curr;
++	struct net_device *slave_dev;
+ 	int count = 0;
  
--	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode))
-+	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode) ||
-+	    (slave_dev &&
-+	     nla_put_u32(skb, IFLA_BOND_ACTIVE_SLAVE, slave_dev->ifindex)))
- 		goto nla_put_failure;
- 	return 0;
+ 	rcu_read_lock();
+-	curr = rcu_dereference(bond->curr_active_slave);
+-	if (USES_PRIMARY(bond->params.mode) && curr)
+-		count = sprintf(buf, "%s\n", curr->dev->name);
++	slave_dev = bond_option_active_slave_get_rcu(bond);
++	if (slave_dev)
++		count = sprintf(buf, "%s\n", slave_dev->name);
+ 	rcu_read_unlock();
  
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 06fd3fe..8a1e346 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -330,6 +330,7 @@ struct ifla_vxlan_port_range {
- enum {
- 	IFLA_BOND_UNSPEC,
- 	IFLA_BOND_MODE,
-+	IFLA_BOND_ACTIVE_SLAVE,
- 	__IFLA_BOND_MAX,
- };
+ 	return count;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 686759d..046a605 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -428,6 +428,8 @@ int bond_netlink_init(void);
+ void bond_netlink_fini(void);
+ int bond_option_mode_set(struct bonding *bond, int mode);
+ int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
++struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
++struct net_device *bond_option_active_slave_get(struct bonding *bond);
  
+ struct bond_net {
+ 	struct net *		net;	/* Associated network namespace */
 -- 
 1.8.3.1
