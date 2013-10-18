@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
-	notifier if we're not ready
-Date: Fri, 18 Oct 2013 03:13:17 -0400 (EDT)
-Message-ID: <20131018.031317.1551678106943004158.davem@davemloft.net>
-References: <87d2n3s89s.fsf@rustcorp.com.au>
-	<20131017.234816.1960399038382112445.davem@davemloft.net>
-	<87iowvje6t.fsf@rustcorp.com.au>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario
+ which now beyond the range time_after_eq().
+Date: Fri, 18 Oct 2013 08:41:41 +0100
+Message-ID: <5261025502000078000FBFA9@nat28.tlf.novell.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com>
+ <525FBB4F02000078000FBB30@nat28.tlf.novell.com>
+ <52600E82.1060604@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
-To: rusty@rustcorp.com.au
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87iowvje6t.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	"Jason Luan" <jianhai.luan@oracle.com>, <netdev@vger.kernel.org>
+To: "annie li" <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:49808 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751943Ab3JRHlo convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Fri, 18 Oct 2013 03:41:44 -0400
+In-Reply-To: <52600E82.1060604@oracle.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 18 Oct 2013 16:47:14 +1030
+>>> On 17.10.13 at 18:21, annie li <annie.li@oracle.com> wrote:
+> On 2013-10-17 16:26, Jan Beulich wrote:
+>> So first of all this must be with a 32-bit netback. And the not
+>> coverable gap between activity is well over 240 days long. _If_
+>> this really needs dealing with, then why is extending this from
+>> 240+ to 480+ days sufficient?
+> 
+> I am not so sure your mean about extending from 240+ to 480+. Do you 
+> mean "now" wrapped case happens and falls into the range of from expires 
+> to next_credit? If this happens, the timer would be set with value based 
+> on next_credit, which is actually implements the rate control.
 
-> Do you want awk script to turn the latter into the former?  Would that
-> really help?
+My point was simply that doubling the span the code can cover
+is pointless - either 240 days is long enough, of 480 days isn't
+either.
 
-Rusty in the several years I've been operating this way, you're
-the first person who seems to mind it.
-
-To be honest I sometimes just silently deal with the stable CC:,
-but it's much easier if things operate as they do now, and the
-burdon is on the submitter instead of me.
+Jan
