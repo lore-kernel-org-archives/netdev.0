@@ -1,62 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/9 RESENT] staging: r8188eu: Set device type to wlan
-Date: Sat, 19 Oct 2013 01:58:41 +0400
-Message-ID: <5261AF11.2090004@cogentembedded.com>
-References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net> <5261A904.9030908@lwfinger.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/9 RESENT] staging: r8188eu: Fix Sparse warnings in
+ rtw_wlan_util
+Date: Fri, 18 Oct 2013 23:05:02 +0100
+Message-ID: <1382133902.3381.23.camel@bwh-desktop.uk.level5networks.com>
+References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net>
+	 <5261A928.3020007@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	gregkh@linuxfoundation.org
+Cc: <gregkh@linuxfoundation.org>, netdev <netdev@vger.kernel.org>,
+	<devel@driverdev.osuosl.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:48696 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754406Ab3JRV7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 17:59:39 -0400
-Received: by mail-lb0-f177.google.com with SMTP id u14so920757lbd.36
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 14:59:38 -0700 (PDT)
-In-Reply-To: <5261A904.9030908@lwfinger.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:57221 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755401Ab3JRWFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 18:05:07 -0400
+In-Reply-To: <5261A928.3020007@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/19/2013 01:32 AM, Larry Finger wrote:
-
-> The latest version of NetworkManager does not recognize the device as wireless
-> without this change.
-
+On Fri, 2013-10-18 at 16:33 -0500, Larry Finger wrote:
+> Sparse shows the following warning:
+> 
+>    CHECK   drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+> drivers/staging/rtl8188eu/core/rtw_wlan_util.c:1635:25: warning: cast to 
+> restricted __le16
+> 
 > Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 > ---
->   drivers/staging/rtl8188eu/os_dep/os_intfs.c | 5 +++++
->   1 file changed, 5 insertions(+)
+>   drivers/staging/rtl8188eu/core/rtw_wlan_util.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/staging/rtl8188eu/core/rtw_wlan_util.c 
+> b/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+> index 153ec61..30ba18c 100644
+> --- a/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+> +++ b/drivers/staging/rtl8188eu/core/rtw_wlan_util.c
+> @@ -1632,7 +1632,7 @@ void process_addba_req(struct adapter *padapter, u8 
+> *paddba_req, u8 *addr)
+>   	psta = rtw_get_stainfo(pstapriv, addr);
+>    	if (psta) {
+> -		param = le16_to_cpu(preq->BA_para_set);
+> +		param = preq->BA_para_set;
 
-> diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-> b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-> index da9f0d5..17659bb 100644
-> --- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-> +++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-> @@ -707,6 +707,10 @@ int rtw_init_netdev_name(struct net_device *pnetdev,
-> const char *ifname)
->       return 0;
->   }
->   +static const struct device_type wlan_type = {
+preq is pointing to a header which has fixed byte order on the wire, so
+this field presumably really is little-endian and the struct definition
+should be changed.
 
-    Hm, a space got added before +, so the patch was somehow broken.
+Comapre the various headers in drivers/staging/rtl8188eu/include/wifi.h
+with struct ieee80211_mgmt in include/linux/ieee80211.h.
 
-> +    .name = "wlan",
-> +};
-> +
->   struct net_device *rtw_init_netdev(struct adapter *old_padapter)
->   {
->       struct adapter *padapter;
-> @@ -722,6 +726,7 @@ struct net_device *rtw_init_netdev(struct adapter
-> *old_padapter)
->       if (!pnetdev)
->           return NULL;
->   +    pnetdev->dev.type = &wlan_type;
+Ben.
 
-    Here too.
+>   		tid = (param>>2)&0x0f;
+>   		preorder_ctrl = &psta->recvreorder_ctrl[tid];
+>   		preorder_ctrl->indicate_seq = 0xffff;
 
-WBR, Sergei
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
