@@ -1,56 +1,46 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
-	notifier if we're not ready
-Date: Fri, 18 Oct 2013 16:47:14 +1030
-Message-ID: <87iowvje6t.fsf@rustcorp.com.au>
-References: <8738o0aj9u.fsf@rustcorp.com.au>
-	<20131017050710.GA12141@redhat.com>
-	<87d2n3s89s.fsf@rustcorp.com.au>
-	<20131017.234816.1960399038382112445.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Fri, 18 Oct 2013 09:33:13 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310180921200.1581@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131017.234816.1960399038382112445.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131018021008.GH18135@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Fri, 18 Oct 2013 11:30:15 +1030
->
->> Asking people to express 'CC: stable' in words is error-prone; if Dave
->> wants to filter it, he's quite capable.
->
-> Filtering it one time is one thing.
->
-> Potentially acting on that filter 100 or so times a day...
->
-> That's completely another.
 
-I don't see the difference between reacting to:
+	Hello,
 
-> The patch were need for 3.10 and above.
+On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
 
-And:
+> I played around with your patch and tested xt_TEE. I added a TEE rule to
+> mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
 
-CC: stable@kernel.org # 3.10+
+	May be a side effect of using some multicast address?
+Can you test it with such address check?:
 
-Except the latter is the standard form which everyone else uses.
+	if (rt->rt6i_flags & RTF_GATEWAY ||
+	    ipv6_addr_type(&rt->rt6i_gateway) & IPV6_ADDR_UNICAST)
 
-Do you want awk script to turn the latter into the former?  Would that
-really help?
+> [  101.129421]  [<ffffffff816d4e47>] icmp6_dst_alloc+0xf7/0x430
+> [  101.129421]  [<ffffffff816d4d55>] ? icmp6_dst_alloc+0x5/0x430
+> [  101.129421]  [<ffffffff816dde26>] ndisc_send_skb+0x3e6/0x540
+> [  101.129421]  [<ffffffff816df81c>] ndisc_send_ns+0xdc/0x140
+> [  101.129421]  [<ffffffff816d394b>] rt6_probe+0x31b/0x380
+> [  101.129421]  [<ffffffff816d3690>] ? rt6_probe+0x60/0x380
+> [  101.129421]  [<ffffffff816d1b93>] ? rt6_score_route+0xa3/0x380
+> [  101.129421]  [<ffffffff816d471c>] ip6_pol_route.isra.47+0x2fc/0x4f0
 
-Confused,
-Rusty.
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
