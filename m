@@ -1,15 +1,19 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 3/4] net: ipv4/ipv6: Remove extern from function prototypes
-Date: Fri, 18 Oct 2013 13:48:24 -0700
-Message-ID: <aba4218f77bc1a69d5483f6294d18f074d5eae3b.1382129045.git.joe@perches.com>
+Subject: [PATCH 4/4] net: misc: Remove extern from function prototypes
+Date: Fri, 18 Oct 2013 13:48:25 -0700
+Message-ID: <b03139ad9a2cf94a6ad8834f70d7ba592fcf5fa4.1382129045.git.joe@perches.com>
 References: <cover.1382129045.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0093.hostedemail.com ([216.40.44.93]:51552 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755330Ab3JRUsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:48:37 -0400
 In-Reply-To: <cover.1382129045.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 There are a mix of function prototypes with and without extern
 in the kernel sources.  Standardize on not using extern for
@@ -21,179 +25,575 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/ipv4/fib_lookup.h | 26 +++++++++++---------------
- net/ipv4/tcp_vegas.h  | 10 +++++-----
- net/ipv4/udp_impl.h   | 36 ++++++++++++++++++------------------
- net/ipv6/udp_impl.h   | 41 ++++++++++++++++++++---------------------
- 4 files changed, 54 insertions(+), 59 deletions(-)
+ net/irda/irnet/irnet.h       |  15 ++---
+ net/l2tp/l2tp_core.h         |  57 +++++++++-------
+ net/mac80211/rate.h          |  12 ++--
+ net/netfilter/nf_internals.h |  28 ++++----
+ net/rds/rds.h                |   2 +-
+ net/rxrpc/ar-internal.h      | 150 ++++++++++++++++++++-----------------------
+ net/tipc/core.h              |  28 ++++----
+ net/wimax/wimax-internal.h   |  18 +++---
+ net/wireless/core.h          |   6 +-
+ net/wireless/sysfs.h         |   4 +-
+ net/xfrm/xfrm_hash.h         |   4 +-
+ 11 files changed, 157 insertions(+), 167 deletions(-)
 
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index 50cfb3e..388d113 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -24,21 +24,17 @@ static inline void fib_alias_accessed(struct fib_alias *fa)
+diff --git a/net/irda/irnet/irnet.h b/net/irda/irnet/irnet.h
+index 564eb0b..8d65bb9 100644
+--- a/net/irda/irnet/irnet.h
++++ b/net/irda/irnet/irnet.h
+@@ -509,16 +509,11 @@ typedef struct irnet_ctrl_channel
+  */
+ 
+ /* -------------------------- IRDA PART -------------------------- */
+-extern int
+-	irda_irnet_create(irnet_socket *);	/* Initialise a IrNET socket */
+-extern int
+-	irda_irnet_connect(irnet_socket *);	/* Try to connect over IrDA */
+-extern void
+-	irda_irnet_destroy(irnet_socket *);	/* Teardown  a IrNET socket */
+-extern int
+-	irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
+-extern void
+-	irda_irnet_cleanup(void);	/* Teardown IrDA part of IrNET */
++int irda_irnet_create(irnet_socket *);	/* Initialise an IrNET socket */
++int irda_irnet_connect(irnet_socket *);	/* Try to connect over IrDA */
++void irda_irnet_destroy(irnet_socket *);	/* Teardown an IrNET socket */
++int irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
++void irda_irnet_cleanup(void);		/* Teardown IrDA part of IrNET */
+ 
+ /**************************** VARIABLES ****************************/
+ 
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 6f251cb..1ee9f69 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -238,29 +238,40 @@ out:
+ 	return tunnel;
  }
  
- /* Exported by fib_semantics.c */
--extern void fib_release_info(struct fib_info *);
--extern struct fib_info *fib_create_info(struct fib_config *cfg);
--extern int fib_nh_match(struct fib_config *cfg, struct fib_info *fi);
--extern int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
--			 u32 tb_id, u8 type, __be32 dst,
--			 int dst_len, u8 tos, struct fib_info *fi,
--			 unsigned int);
--extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--		      int dst_len, u32 tb_id, const struct nl_info *info,
--		      unsigned int nlm_flags);
--extern struct fib_alias *fib_find_alias(struct list_head *fah,
--					u8 tos, u32 prio);
--extern int fib_detect_death(struct fib_info *fi, int order,
--			    struct fib_info **last_resort,
--			    int *last_idx, int dflt);
-+void fib_release_info(struct fib_info *);
-+struct fib_info *fib_create_info(struct fib_config *cfg);
-+int fib_nh_match(struct fib_config *cfg, struct fib_info *fi);
-+int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event, u32 tb_id,
-+		  u8 type, __be32 dst, int dst_len, u8 tos, struct fib_info *fi,
-+		  unsigned int);
-+void rtmsg_fib(int event, __be32 key, struct fib_alias *fa, int dst_len,
-+	       u32 tb_id, const struct nl_info *info, unsigned int nlm_flags);
-+struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio);
-+int fib_detect_death(struct fib_info *fi, int order,
-+		     struct fib_info **last_resort, int *last_idx, int dflt);
+-extern struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel);
+-extern void l2tp_tunnel_sock_put(struct sock *sk);
+-extern struct l2tp_session *l2tp_session_find(struct net *net, struct l2tp_tunnel *tunnel, u32 session_id);
+-extern struct l2tp_session *l2tp_session_find_nth(struct l2tp_tunnel *tunnel, int nth);
+-extern struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname);
+-extern struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
+-extern struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
+-
+-extern int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp);
+-extern void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
+-extern int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
+-extern struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg);
+-extern void __l2tp_session_unhash(struct l2tp_session *session);
+-extern int l2tp_session_delete(struct l2tp_session *session);
+-extern void l2tp_session_free(struct l2tp_session *session);
+-extern void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb, unsigned char *ptr, unsigned char *optr, u16 hdrflags, int length, int (*payload_hook)(struct sk_buff *skb));
+-extern int l2tp_session_queue_purge(struct l2tp_session *session);
+-extern int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
+-
+-extern int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len);
+-
+-extern int l2tp_nl_register_ops(enum l2tp_pwtype pw_type, const struct l2tp_nl_cmd_ops *ops);
+-extern void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
++struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel);
++void l2tp_tunnel_sock_put(struct sock *sk);
++struct l2tp_session *l2tp_session_find(struct net *net,
++				       struct l2tp_tunnel *tunnel,
++				       u32 session_id);
++struct l2tp_session *l2tp_session_find_nth(struct l2tp_tunnel *tunnel, int nth);
++struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname);
++struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
++struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
++
++int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
++		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
++		       struct l2tp_tunnel **tunnelp);
++void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
++int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
++struct l2tp_session *l2tp_session_create(int priv_size,
++					 struct l2tp_tunnel *tunnel,
++					 u32 session_id, u32 peer_session_id,
++					 struct l2tp_session_cfg *cfg);
++void __l2tp_session_unhash(struct l2tp_session *session);
++int l2tp_session_delete(struct l2tp_session *session);
++void l2tp_session_free(struct l2tp_session *session);
++void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
++		      unsigned char *ptr, unsigned char *optr, u16 hdrflags,
++		      int length, int (*payload_hook)(struct sk_buff *skb));
++int l2tp_session_queue_purge(struct l2tp_session *session);
++int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
++
++int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
++		  int hdr_len);
++
++int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
++			 const struct l2tp_nl_cmd_ops *ops);
++void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
  
- static inline void fib_result_assign(struct fib_result *res,
- 				     struct fib_info *fi)
-diff --git a/net/ipv4/tcp_vegas.h b/net/ipv4/tcp_vegas.h
-index 6c0eea2..0531b99 100644
---- a/net/ipv4/tcp_vegas.h
-+++ b/net/ipv4/tcp_vegas.h
-@@ -15,10 +15,10 @@ struct vegas {
- 	u32	baseRTT;	/* the min of all Vegas RTT measurements seen (in usec) */
+ /* Session reference counts. Incremented when code obtains a reference
+  * to a session.
+diff --git a/net/mac80211/rate.h b/net/mac80211/rate.h
+index 5dedc56..505bc0d 100644
+--- a/net/mac80211/rate.h
++++ b/net/mac80211/rate.h
+@@ -144,8 +144,8 @@ void rate_control_deinitialize(struct ieee80211_local *local);
+ 
+ /* Rate control algorithms */
+ #ifdef CONFIG_MAC80211_RC_PID
+-extern int rc80211_pid_init(void);
+-extern void rc80211_pid_exit(void);
++int rc80211_pid_init(void);
++void rc80211_pid_exit(void);
+ #else
+ static inline int rc80211_pid_init(void)
+ {
+@@ -157,8 +157,8 @@ static inline void rc80211_pid_exit(void)
+ #endif
+ 
+ #ifdef CONFIG_MAC80211_RC_MINSTREL
+-extern int rc80211_minstrel_init(void);
+-extern void rc80211_minstrel_exit(void);
++int rc80211_minstrel_init(void);
++void rc80211_minstrel_exit(void);
+ #else
+ static inline int rc80211_minstrel_init(void)
+ {
+@@ -170,8 +170,8 @@ static inline void rc80211_minstrel_exit(void)
+ #endif
+ 
+ #ifdef CONFIG_MAC80211_RC_MINSTREL_HT
+-extern int rc80211_minstrel_ht_init(void);
+-extern void rc80211_minstrel_ht_exit(void);
++int rc80211_minstrel_ht_init(void);
++void rc80211_minstrel_ht_exit(void);
+ #else
+ static inline int rc80211_minstrel_ht_init(void)
+ {
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index 3deec99..61a3c92 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -13,26 +13,20 @@
+ 
+ 
+ /* core.c */
+-extern unsigned int nf_iterate(struct list_head *head,
+-				struct sk_buff *skb,
+-				unsigned int hook,
+-				const struct net_device *indev,
+-				const struct net_device *outdev,
+-				struct nf_hook_ops **elemp,
+-				int (*okfn)(struct sk_buff *),
+-				int hook_thresh);
++unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
++			unsigned int hook, const struct net_device *indev,
++			const struct net_device *outdev,
++			struct nf_hook_ops **elemp,
++			int (*okfn)(struct sk_buff *), int hook_thresh);
+ 
+ /* nf_queue.c */
+-extern int nf_queue(struct sk_buff *skb,
+-		    struct nf_hook_ops *elem,
+-		    u_int8_t pf, unsigned int hook,
+-		    struct net_device *indev,
+-		    struct net_device *outdev,
+-		    int (*okfn)(struct sk_buff *),
+-		    unsigned int queuenum);
+-extern int __init netfilter_queue_init(void);
++int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem, u_int8_t pf,
++	     unsigned int hook, struct net_device *indev,
++	     struct net_device *outdev, int (*okfn)(struct sk_buff *),
++	     unsigned int queuenum);
++int __init netfilter_queue_init(void);
+ 
+ /* nf_log.c */
+-extern int __init netfilter_log_init(void);
++int __init netfilter_log_init(void);
+ 
+ #endif
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index ec1d731..48f8ffc 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -749,7 +749,7 @@ void rds_atomic_send_complete(struct rds_message *rm, int wc_status);
+ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
+ 		    struct cmsghdr *cmsg);
+ 
+-extern void __rds_put_mr_final(struct rds_mr *mr);
++void __rds_put_mr_final(struct rds_mr *mr);
+ static inline void rds_mr_put(struct rds_mr *mr)
+ {
+ 	if (atomic_dec_and_test(&mr->r_refcount))
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index a693aca..5f43675 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -426,17 +426,16 @@ extern struct workqueue_struct *rxrpc_workqueue;
+ /*
+  * ar-accept.c
+  */
+-extern void rxrpc_accept_incoming_calls(struct work_struct *);
+-extern struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *,
+-					    unsigned long);
+-extern int rxrpc_reject_call(struct rxrpc_sock *);
++void rxrpc_accept_incoming_calls(struct work_struct *);
++struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *, unsigned long);
++int rxrpc_reject_call(struct rxrpc_sock *);
+ 
+ /*
+  * ar-ack.c
+  */
+-extern void __rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
+-extern void rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
+-extern void rxrpc_process_call(struct work_struct *);
++void __rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
++void rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
++void rxrpc_process_call(struct work_struct *);
+ 
+ /*
+  * ar-call.c
+@@ -445,19 +444,18 @@ extern struct kmem_cache *rxrpc_call_jar;
+ extern struct list_head rxrpc_calls;
+ extern rwlock_t rxrpc_call_lock;
+ 
+-extern struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *,
+-						struct rxrpc_transport *,
+-						struct rxrpc_conn_bundle *,
+-						unsigned long, int, gfp_t);
+-extern struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
+-					      struct rxrpc_connection *,
+-					      struct rxrpc_header *, gfp_t);
+-extern struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *,
+-						 unsigned long);
+-extern void rxrpc_release_call(struct rxrpc_call *);
+-extern void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
+-extern void __rxrpc_put_call(struct rxrpc_call *);
+-extern void __exit rxrpc_destroy_all_calls(void);
++struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *,
++					 struct rxrpc_transport *,
++					 struct rxrpc_conn_bundle *,
++					 unsigned long, int, gfp_t);
++struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
++				       struct rxrpc_connection *,
++				       struct rxrpc_header *, gfp_t);
++struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *, unsigned long);
++void rxrpc_release_call(struct rxrpc_call *);
++void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
++void __rxrpc_put_call(struct rxrpc_call *);
++void __exit rxrpc_destroy_all_calls(void);
+ 
+ /*
+  * ar-connection.c
+@@ -465,19 +463,16 @@ extern void __exit rxrpc_destroy_all_calls(void);
+ extern struct list_head rxrpc_connections;
+ extern rwlock_t rxrpc_connection_lock;
+ 
+-extern struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *,
+-						  struct rxrpc_transport *,
+-						  struct key *,
+-						  __be16, gfp_t);
+-extern void rxrpc_put_bundle(struct rxrpc_transport *,
+-			     struct rxrpc_conn_bundle *);
+-extern int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_transport *,
+-			      struct rxrpc_conn_bundle *, struct rxrpc_call *,
+-			      gfp_t);
+-extern void rxrpc_put_connection(struct rxrpc_connection *);
+-extern void __exit rxrpc_destroy_all_connections(void);
+-extern struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
+-						      struct rxrpc_header *);
++struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *,
++					   struct rxrpc_transport *,
++					   struct key *, __be16, gfp_t);
++void rxrpc_put_bundle(struct rxrpc_transport *, struct rxrpc_conn_bundle *);
++int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_transport *,
++		       struct rxrpc_conn_bundle *, struct rxrpc_call *, gfp_t);
++void rxrpc_put_connection(struct rxrpc_connection *);
++void __exit rxrpc_destroy_all_connections(void);
++struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
++					       struct rxrpc_header *);
+ extern struct rxrpc_connection *
+ rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_header *,
+ 			  gfp_t);
+@@ -485,15 +480,15 @@ rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_header *,
+ /*
+  * ar-connevent.c
+  */
+-extern void rxrpc_process_connection(struct work_struct *);
+-extern void rxrpc_reject_packet(struct rxrpc_local *, struct sk_buff *);
+-extern void rxrpc_reject_packets(struct work_struct *);
++void rxrpc_process_connection(struct work_struct *);
++void rxrpc_reject_packet(struct rxrpc_local *, struct sk_buff *);
++void rxrpc_reject_packets(struct work_struct *);
+ 
+ /*
+  * ar-error.c
+  */
+-extern void rxrpc_UDP_error_report(struct sock *);
+-extern void rxrpc_UDP_error_handler(struct work_struct *);
++void rxrpc_UDP_error_report(struct sock *);
++void rxrpc_UDP_error_handler(struct work_struct *);
+ 
+ /*
+  * ar-input.c
+@@ -501,18 +496,17 @@ extern void rxrpc_UDP_error_handler(struct work_struct *);
+ extern unsigned long rxrpc_ack_timeout;
+ extern const char *rxrpc_pkts[];
+ 
+-extern void rxrpc_data_ready(struct sock *, int);
+-extern int rxrpc_queue_rcv_skb(struct rxrpc_call *, struct sk_buff *, bool,
+-			       bool);
+-extern void rxrpc_fast_process_packet(struct rxrpc_call *, struct sk_buff *);
++void rxrpc_data_ready(struct sock *, int);
++int rxrpc_queue_rcv_skb(struct rxrpc_call *, struct sk_buff *, bool, bool);
++void rxrpc_fast_process_packet(struct rxrpc_call *, struct sk_buff *);
+ 
+ /*
+  * ar-local.c
+  */
+ extern rwlock_t rxrpc_local_lock;
+-extern struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *);
+-extern void rxrpc_put_local(struct rxrpc_local *);
+-extern void __exit rxrpc_destroy_all_locals(void);
++struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *);
++void rxrpc_put_local(struct rxrpc_local *);
++void __exit rxrpc_destroy_all_locals(void);
+ 
+ /*
+  * ar-key.c
+@@ -520,31 +514,29 @@ extern void __exit rxrpc_destroy_all_locals(void);
+ extern struct key_type key_type_rxrpc;
+ extern struct key_type key_type_rxrpc_s;
+ 
+-extern int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
+-extern int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
+-extern int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *,
+-				     time_t, u32);
++int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
++int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
++int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *, time_t,
++			      u32);
+ 
+ /*
+  * ar-output.c
+  */
+ extern int rxrpc_resend_timeout;
+ 
+-extern int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
+-extern int rxrpc_client_sendmsg(struct kiocb *, struct rxrpc_sock *,
+-				struct rxrpc_transport *, struct msghdr *,
+-				size_t);
+-extern int rxrpc_server_sendmsg(struct kiocb *, struct rxrpc_sock *,
+-				struct msghdr *, size_t);
++int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
++int rxrpc_client_sendmsg(struct kiocb *, struct rxrpc_sock *,
++			 struct rxrpc_transport *, struct msghdr *, size_t);
++int rxrpc_server_sendmsg(struct kiocb *, struct rxrpc_sock *, struct msghdr *,
++			 size_t);
+ 
+ /*
+  * ar-peer.c
+  */
+-extern struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *, gfp_t);
+-extern void rxrpc_put_peer(struct rxrpc_peer *);
+-extern struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *,
+-					  __be32, __be16);
+-extern void __exit rxrpc_destroy_all_peers(void);
++struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *, gfp_t);
++void rxrpc_put_peer(struct rxrpc_peer *);
++struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *, __be32, __be16);
++void __exit rxrpc_destroy_all_peers(void);
+ 
+ /*
+  * ar-proc.c
+@@ -556,38 +548,36 @@ extern const struct file_operations rxrpc_connection_seq_fops;
+ /*
+  * ar-recvmsg.c
+  */
+-extern void rxrpc_remove_user_ID(struct rxrpc_sock *, struct rxrpc_call *);
+-extern int rxrpc_recvmsg(struct kiocb *, struct socket *, struct msghdr *,
+-			 size_t, int);
++void rxrpc_remove_user_ID(struct rxrpc_sock *, struct rxrpc_call *);
++int rxrpc_recvmsg(struct kiocb *, struct socket *, struct msghdr *, size_t,
++		  int);
+ 
+ /*
+  * ar-security.c
+  */
+-extern int rxrpc_register_security(struct rxrpc_security *);
+-extern void rxrpc_unregister_security(struct rxrpc_security *);
+-extern int rxrpc_init_client_conn_security(struct rxrpc_connection *);
+-extern int rxrpc_init_server_conn_security(struct rxrpc_connection *);
+-extern int rxrpc_secure_packet(const struct rxrpc_call *, struct sk_buff *,
+-			       size_t, void *);
+-extern int rxrpc_verify_packet(const struct rxrpc_call *, struct sk_buff *,
+-			       u32 *);
+-extern void rxrpc_clear_conn_security(struct rxrpc_connection *);
++int rxrpc_register_security(struct rxrpc_security *);
++void rxrpc_unregister_security(struct rxrpc_security *);
++int rxrpc_init_client_conn_security(struct rxrpc_connection *);
++int rxrpc_init_server_conn_security(struct rxrpc_connection *);
++int rxrpc_secure_packet(const struct rxrpc_call *, struct sk_buff *, size_t,
++			void *);
++int rxrpc_verify_packet(const struct rxrpc_call *, struct sk_buff *, u32 *);
++void rxrpc_clear_conn_security(struct rxrpc_connection *);
+ 
+ /*
+  * ar-skbuff.c
+  */
+-extern void rxrpc_packet_destructor(struct sk_buff *);
++void rxrpc_packet_destructor(struct sk_buff *);
+ 
+ /*
+  * ar-transport.c
+  */
+-extern struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
+-						   struct rxrpc_peer *,
+-						   gfp_t);
+-extern void rxrpc_put_transport(struct rxrpc_transport *);
+-extern void __exit rxrpc_destroy_all_transports(void);
+-extern struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
+-						    struct rxrpc_peer *);
++struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
++					    struct rxrpc_peer *, gfp_t);
++void rxrpc_put_transport(struct rxrpc_transport *);
++void __exit rxrpc_destroy_all_transports(void);
++struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
++					     struct rxrpc_peer *);
+ 
+ /*
+  * debug tracing
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index be72f8c..94895d4 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -90,21 +90,21 @@ extern int tipc_random __read_mostly;
+ /*
+  * Routines available to privileged subsystems
+  */
+-extern int tipc_core_start_net(unsigned long);
+-extern int  tipc_handler_start(void);
+-extern void tipc_handler_stop(void);
+-extern int  tipc_netlink_start(void);
+-extern void tipc_netlink_stop(void);
+-extern int  tipc_socket_init(void);
+-extern void tipc_socket_stop(void);
+-extern int tipc_sock_create_local(int type, struct socket **res);
+-extern void tipc_sock_release_local(struct socket *sock);
+-extern int tipc_sock_accept_local(struct socket *sock,
+-				  struct socket **newsock, int flags);
++int tipc_core_start_net(unsigned long);
++int tipc_handler_start(void);
++void tipc_handler_stop(void);
++int tipc_netlink_start(void);
++void tipc_netlink_stop(void);
++int tipc_socket_init(void);
++void tipc_socket_stop(void);
++int tipc_sock_create_local(int type, struct socket **res);
++void tipc_sock_release_local(struct socket *sock);
++int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
++			   int flags);
+ 
+ #ifdef CONFIG_SYSCTL
+-extern int tipc_register_sysctl(void);
+-extern void tipc_unregister_sysctl(void);
++int tipc_register_sysctl(void);
++void tipc_unregister_sysctl(void);
+ #else
+ #define tipc_register_sysctl() 0
+ #define tipc_unregister_sysctl()
+@@ -201,6 +201,6 @@ static inline struct tipc_msg *buf_msg(struct sk_buff *skb)
+ 	return (struct tipc_msg *)skb->data;
+ }
+ 
+-extern struct sk_buff *tipc_buf_acquire(u32 size);
++struct sk_buff *tipc_buf_acquire(u32 size);
+ 
+ #endif
+diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
+index 1e743d2..5dcd9c0 100644
+--- a/net/wimax/wimax-internal.h
++++ b/net/wimax/wimax-internal.h
+@@ -63,11 +63,11 @@ void __wimax_state_set(struct wimax_dev *wimax_dev, enum wimax_st state)
+ {
+ 	wimax_dev->state = state;
+ }
+-extern void __wimax_state_change(struct wimax_dev *, enum wimax_st);
++void __wimax_state_change(struct wimax_dev *, enum wimax_st);
+ 
+ #ifdef CONFIG_DEBUG_FS
+-extern int wimax_debugfs_add(struct wimax_dev *);
+-extern void wimax_debugfs_rm(struct wimax_dev *);
++int wimax_debugfs_add(struct wimax_dev *);
++void wimax_debugfs_rm(struct wimax_dev *);
+ #else
+ static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
+ {
+@@ -76,13 +76,13 @@ static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
+ static inline void wimax_debugfs_rm(struct wimax_dev *wimax_dev) {}
+ #endif
+ 
+-extern void wimax_id_table_add(struct wimax_dev *);
+-extern struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *, int);
+-extern void wimax_id_table_rm(struct wimax_dev *);
+-extern void wimax_id_table_release(void);
++void wimax_id_table_add(struct wimax_dev *);
++struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *, int);
++void wimax_id_table_rm(struct wimax_dev *);
++void wimax_id_table_release(void);
+ 
+-extern int wimax_rfkill_add(struct wimax_dev *);
+-extern void wimax_rfkill_rm(struct wimax_dev *);
++int wimax_rfkill_add(struct wimax_dev *);
++void wimax_rfkill_rm(struct wimax_dev *);
+ 
+ extern struct genl_family wimax_gnl_family;
+ extern struct genl_multicast_group wimax_gnl_mcg;
+diff --git a/net/wireless/core.h b/net/wireless/core.h
+index b43efac..74beff1 100644
+--- a/net/wireless/core.h
++++ b/net/wireless/core.h
+@@ -234,10 +234,10 @@ struct cfg80211_beacon_registration {
  };
  
--extern void tcp_vegas_init(struct sock *sk);
--extern void tcp_vegas_state(struct sock *sk, u8 ca_state);
--extern void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
--extern void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
--extern void tcp_vegas_get_info(struct sock *sk, u32 ext, struct sk_buff *skb);
-+void tcp_vegas_init(struct sock *sk);
-+void tcp_vegas_state(struct sock *sk, u8 ca_state);
-+void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
-+void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
-+void tcp_vegas_get_info(struct sock *sk, u32 ext, struct sk_buff *skb);
+ /* free object */
+-extern void cfg80211_dev_free(struct cfg80211_registered_device *rdev);
++void cfg80211_dev_free(struct cfg80211_registered_device *rdev);
  
- #endif	/* __TCP_VEGAS_H */
-diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
-index 5a681e2..f3c2789 100644
---- a/net/ipv4/udp_impl.h
-+++ b/net/ipv4/udp_impl.h
-@@ -5,30 +5,30 @@
- #include <net/protocol.h>
- #include <net/inet_common.h>
+-extern int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
+-			       char *newname);
++int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
++			char *newname);
  
--extern int  	__udp4_lib_rcv(struct sk_buff *, struct udp_table *, int );
--extern void 	__udp4_lib_err(struct sk_buff *, u32, struct udp_table *);
-+int __udp4_lib_rcv(struct sk_buff *, struct udp_table *, int);
-+void __udp4_lib_err(struct sk_buff *, u32, struct udp_table *);
+ void ieee80211_set_bitrate_flags(struct wiphy *wiphy);
  
--extern int	udp_v4_get_port(struct sock *sk, unsigned short snum);
-+int udp_v4_get_port(struct sock *sk, unsigned short snum);
+diff --git a/net/wireless/sysfs.h b/net/wireless/sysfs.h
+index 65acbeb..b533ed7 100644
+--- a/net/wireless/sysfs.h
++++ b/net/wireless/sysfs.h
+@@ -1,8 +1,8 @@
+ #ifndef __WIRELESS_SYSFS_H
+ #define __WIRELESS_SYSFS_H
  
--extern int	udp_setsockopt(struct sock *sk, int level, int optname,
--			       char __user *optval, unsigned int optlen);
--extern int	udp_getsockopt(struct sock *sk, int level, int optname,
--			       char __user *optval, int __user *optlen);
-+int udp_setsockopt(struct sock *sk, int level, int optname,
-+		   char __user *optval, unsigned int optlen);
-+int udp_getsockopt(struct sock *sk, int level, int optname,
-+		   char __user *optval, int __user *optlen);
+-extern int wiphy_sysfs_init(void);
+-extern void wiphy_sysfs_exit(void);
++int wiphy_sysfs_init(void);
++void wiphy_sysfs_exit(void);
  
- #ifdef CONFIG_COMPAT
--extern int	compat_udp_setsockopt(struct sock *sk, int level, int optname,
--				      char __user *optval, unsigned int optlen);
--extern int	compat_udp_getsockopt(struct sock *sk, int level, int optname,
--				      char __user *optval, int __user *optlen);
-+int compat_udp_setsockopt(struct sock *sk, int level, int optname,
-+			  char __user *optval, unsigned int optlen);
-+int compat_udp_getsockopt(struct sock *sk, int level, int optname,
-+			  char __user *optval, int __user *optlen);
- #endif
--extern int	udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
--			    size_t len, int noblock, int flags, int *addr_len);
--extern int	udp_sendpage(struct sock *sk, struct page *page, int offset,
--			     size_t size, int flags);
--extern int	udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
--extern void	udp_destroy_sock(struct sock *sk);
-+int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		size_t len, int noblock, int flags, int *addr_len);
-+int udp_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
-+		 int flags);
-+int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
-+void udp_destroy_sock(struct sock *sk);
+ extern struct class ieee80211_class;
  
- #ifdef CONFIG_PROC_FS
--extern int	udp4_seq_show(struct seq_file *seq, void *v);
-+int udp4_seq_show(struct seq_file *seq, void *v);
- #endif
- #endif	/* _UDP4_IMPL_H */
-diff --git a/net/ipv6/udp_impl.h b/net/ipv6/udp_impl.h
-index 4691ed5..c779c3c 100644
---- a/net/ipv6/udp_impl.h
-+++ b/net/ipv6/udp_impl.h
-@@ -7,33 +7,32 @@
- #include <net/inet_common.h>
- #include <net/transp_v6.h>
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index 716502a..0622d31 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -130,7 +130,7 @@ static inline unsigned int __addr_hash(const xfrm_address_t *daddr,
+ 	return h & hmask;
+ }
  
--extern int  	__udp6_lib_rcv(struct sk_buff *, struct udp_table *, int );
--extern void 	__udp6_lib_err(struct sk_buff *, struct inet6_skb_parm *,
--			       u8 , u8 , int , __be32 , struct udp_table *);
-+int __udp6_lib_rcv(struct sk_buff *, struct udp_table *, int);
-+void __udp6_lib_err(struct sk_buff *, struct inet6_skb_parm *, u8, u8, int,
-+		    __be32, struct udp_table *);
+-extern struct hlist_head *xfrm_hash_alloc(unsigned int sz);
+-extern void xfrm_hash_free(struct hlist_head *n, unsigned int sz);
++struct hlist_head *xfrm_hash_alloc(unsigned int sz);
++void xfrm_hash_free(struct hlist_head *n, unsigned int sz);
  
--extern int	udp_v6_get_port(struct sock *sk, unsigned short snum);
-+int udp_v6_get_port(struct sock *sk, unsigned short snum);
- 
--extern int	udpv6_getsockopt(struct sock *sk, int level, int optname,
--				 char __user *optval, int __user *optlen);
--extern int	udpv6_setsockopt(struct sock *sk, int level, int optname,
--				 char __user *optval, unsigned int optlen);
-+int udpv6_getsockopt(struct sock *sk, int level, int optname,
-+		     char __user *optval, int __user *optlen);
-+int udpv6_setsockopt(struct sock *sk, int level, int optname,
-+		     char __user *optval, unsigned int optlen);
- #ifdef CONFIG_COMPAT
--extern int	compat_udpv6_setsockopt(struct sock *sk, int level, int optname,
--					char __user *optval, unsigned int optlen);
--extern int	compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
--				       char __user *optval, int __user *optlen);
-+int compat_udpv6_setsockopt(struct sock *sk, int level, int optname,
-+			    char __user *optval, unsigned int optlen);
-+int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
-+			    char __user *optval, int __user *optlen);
- #endif
--extern int	udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
--			      struct msghdr *msg, size_t len);
--extern int	udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
--			      struct msghdr *msg, size_t len,
--			      int noblock, int flags, int *addr_len);
--extern int	udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb);
--extern void	udpv6_destroy_sock(struct sock *sk);
-+int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		  size_t len);
-+int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		  size_t len, int noblock, int flags, int *addr_len);
-+int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
-+void udpv6_destroy_sock(struct sock *sk);
- 
--extern void udp_v6_clear_sk(struct sock *sk, int size);
-+void udp_v6_clear_sk(struct sock *sk, int size);
- 
- #ifdef CONFIG_PROC_FS
--extern int	udp6_seq_show(struct seq_file *seq, void *v);
-+int udp6_seq_show(struct seq_file *seq, void *v);
- #endif
- #endif	/* _UDP6_IMPL_H */
+ #endif /* _XFRM_HASH_H */
 -- 
 1.8.1.2.459.gbcd45b4.dirty
