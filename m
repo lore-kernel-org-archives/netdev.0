@@ -1,40 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH ipsec-next] xfrm: use vmalloc_node() for percpu scratches
-Date: Fri, 18 Oct 2013 20:46:59 +0800
-Message-ID: <20131018124659.GA972@gondor.apana.org.au>
-References: <20131017095502.GD7660@secunet.com>
- <20131017130740.D8741E8A5E@unicorn.suse.cz>
- <20131018092512.GA31491@secunet.com>
- <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next  02/14] i40e: don't free nonexistent rings
+Date: Fri, 18 Oct 2013 06:23:06 -0700
+Message-ID: <1382102598-11343-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: a@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:36464 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750962Ab3JRMrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 08:47:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:41785 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754379Ab3JRNXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 09:23:40 -0400
+In-Reply-To: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 18, 2013 at 03:54:16AM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> scratches are per cpu, we can use vmalloc_node() for proper
-> NUMA affinity.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Not all VSIs have rings! Check to see if rings were actually allocated before
+freeing them.
 
-I agree completely.
+This prevents a panic when tx_rings[0] is not allocated.
 
-Thanks!
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 69ed801..a8c18fa 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5160,11 +5160,12 @@ static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
+-		kfree_rcu(vsi->tx_rings[i], rcu);
+-		vsi->tx_rings[i] = NULL;
+-		vsi->rx_rings[i] = NULL;
+-	}
++	if (vsi->tx_rings[0])
++		for (i = 0; i < vsi->alloc_queue_pairs; i++) {
++			kfree_rcu(vsi->tx_rings[i], rcu);
++			vsi->tx_rings[i] = NULL;
++			vsi->rx_rings[i] = NULL;
++		}
+ 
+ 	return 0;
+ }
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.3.1
