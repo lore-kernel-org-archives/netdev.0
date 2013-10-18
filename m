@@ -1,34 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] qlcnic: Validate Tx queue only for 82xx adapters.
-Date: Fri, 18 Oct 2013 16:39:55 -0400 (EDT)
-Message-ID: <20131018.163955.575448416725967173.davem@davemloft.net>
-References: <ee136cd9c8e22123662b55a614e509277cfeba40.1382067199.git.himanshu.madhani@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: himanshu.madhani@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753193Ab3JRUj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:39:56 -0400
-In-Reply-To: <ee136cd9c8e22123662b55a614e509277cfeba40.1382067199.git.himanshu.madhani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/4] net: Remove extern from function prototypes
+Date: Fri, 18 Oct 2013 13:48:21 -0700
+Message-ID: <cover.1382129045.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Date: Thu, 17 Oct 2013 18:26:38 -0400
+Remove the remainder of extern function prototypes from net/.../*.h files.
 
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> 
-> o validate Tx queue only in case of adapters which supports
->   multi Tx queue.
-> 
->   This patch is to fix regression introduced in commit
->   aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
->   "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
-> 
-> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Joe Perches (4):
+  net: 8021q/bluetooth/bridge/can/ceph: Remove extern from function prototypes
+  net: dccp: Remove extern from function prototypes
+  net: ipv4/ipv6: Remove extern from function prototypes
+  net: misc: Remove extern from function prototypes
 
-Applied, thanks.
+ net/8021q/vlan.h                    |  28 ++--
+ net/bluetooth/hidp/hidp.h           |   4 +-
+ net/bridge/br_private.h             | 299 +++++++++++++++++-------------------
+ net/bridge/br_private_stp.h         |  24 +--
+ net/can/af_can.h                    |   6 +-
+ net/ceph/auth_none.h                |   2 +-
+ net/ceph/auth_x.h                   |   2 +-
+ net/ceph/crypto.h                   |  48 +++---
+ net/dccp/ackvec.h                   |  21 ++-
+ net/dccp/ccid.h                     |  18 +--
+ net/dccp/ccids/lib/loss_interval.h  |   8 +-
+ net/dccp/ccids/lib/packet_history.h |  25 ++-
+ net/dccp/ccids/lib/tfrc.h           |  22 +--
+ net/dccp/dccp.h                     | 186 +++++++++++-----------
+ net/dccp/feat.h                     |  26 ++--
+ net/ipv4/fib_lookup.h               |  26 ++--
+ net/ipv4/tcp_vegas.h                |  10 +-
+ net/ipv4/udp_impl.h                 |  36 ++---
+ net/ipv6/udp_impl.h                 |  41 +++--
+ net/irda/irnet/irnet.h              |  15 +-
+ net/l2tp/l2tp_core.h                |  57 ++++---
+ net/mac80211/rate.h                 |  12 +-
+ net/netfilter/nf_internals.h        |  28 ++--
+ net/rds/rds.h                       |   2 +-
+ net/rxrpc/ar-internal.h             | 150 +++++++++---------
+ net/tipc/core.h                     |  28 ++--
+ net/wimax/wimax-internal.h          |  18 +--
+ net/wireless/core.h                 |   6 +-
+ net/wireless/sysfs.h                |   4 +-
+ net/xfrm/xfrm_hash.h                |   4 +-
+ 30 files changed, 553 insertions(+), 603 deletions(-)
+
+-- 
+1.8.1.2.459.gbcd45b4.dirty
