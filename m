@@ -1,38 +1,35 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH net-next v3 3/9] static_key: WARN on usage before
- jump_label_init was called
-Date: Fri, 18 Oct 2013 02:50:57 +0200
-Message-ID: <20131018005057.GL2592@two.firstfloor.org>
-References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org>
- <1381987923-1524-4-git-send-email-hannes@stressinduktion.org>
- <20131017171940.173bab09@gandalf.local.home>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: Any suggestions for a 40G Ethernet NIC?
+Date: Fri, 18 Oct 2013 09:02:46 +0800
+Message-ID: <526088B6.7070503@huawei.com>
+References: <5260248B.3090400@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andi Kleen <andi@firstfloor.org>
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([193.170.194.197]:55016 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810Ab3JRAvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 20:51:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20131017171940.173bab09@gandalf.local.home>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:52367 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085Ab3JRBC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 21:02:57 -0400
+In-Reply-To: <5260248B.3090400@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 17, 2013 at 05:19:40PM -0400, Steven Rostedt wrote:
-> On Thu, 17 Oct 2013 07:31:57 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On 2013/10/18 1:55, Ben Greear wrote:
+> I'd like to start playing around with 40G, but doesn't seem to be too
+> many such NICs available.  Does anyone have any suggestions for 40G NICs
+> that work well with Linux?
 > 
-> > Based on a patch from Andi Kleen.
+> Thanks,
+> Ben
 > 
-> I'm fine with the patch, but the change log needs a lot more work.
-> Like, why is this needed?  I know, but does anyone else?
 
-Or just merge the orininal patch. While being less verbose
-in the warning it had a full changelog.
+I have the situation for test 40G for Linux, which consist of 4 82599 NICs,
+and I use bonding LACP mode to test the performance, when turn on the iommu for
+kernel, the performance is up to 30G, when close it, the performance is up to 38G,
+what do you think about it?
 
--Andi
+Thanks.
+Ding
