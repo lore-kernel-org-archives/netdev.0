@@ -1,38 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 3/9] static_key: WARN on usage before jump_label_init was called
-Date: Fri, 18 Oct 2013 02:01:18 +0200
-Message-ID: <20131018000118.GF18135@order.stressinduktion.org>
-References: <1381987923-1524-1-git-send-email-hannes@stressinduktion.org> <1381987923-1524-4-git-send-email-hannes@stressinduktion.org> <20131017171940.173bab09@gandalf.local.home>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 00/15] net: ethernet: remove unnecessary pci_set_drvdata() part
+ 1
+Date: Fri, 18 Oct 2013 09:16:19 +0900
+Message-ID: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andi Kleen <andi@firstfloor.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131017171940.173bab09@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:57358 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337Ab3JRAQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 20:16:21 -0400
+Received: from epcpsbgr2.samsung.com
+ (u142.gpu120.samsung.co.kr [203.254.230.142])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MUU00JXS8P1OPC0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Fri, 18 Oct 2013 09:16:20 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 17, 2013 at 05:19:40PM -0400, Steven Rostedt wrote:
-> On Thu, 17 Oct 2013 07:31:57 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
-> > Based on a patch from Andi Kleen.
-> 
-> I'm fine with the patch, but the change log needs a lot more work.
-> Like, why is this needed?  I know, but does anyone else?
+Since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+(device-core: Ensure drvdata = NULL when no driver is bound),
+the driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
-Ok. :)
-
-I'll move the description from the changelog here and write something
-in a few days (hope to get more feedback on the other parts, especially
-net_get_random_once).
-
-Does that also mean you are in principle ok with the patch weakening
-the check in arch/x86/jump_label.c?
-
-Thanks for the review,
-
-  Hannes
+---
+ drivers/net/ethernet/3com/typhoon.c                 |    1 -
+ drivers/net/ethernet/8390/ne2k-pci.c                |    3 ---
+ drivers/net/ethernet/adaptec/starfire.c             |    2 --
+ drivers/net/ethernet/amd/amd8111e.c                 |    2 --
+ drivers/net/ethernet/amd/pcnet32.c                  |    1 -
+ drivers/net/ethernet/atheros/alx/main.c             |    1 -
+ drivers/net/ethernet/broadcom/bnx2.c                |    3 ---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c    |    3 ---
+ drivers/net/ethernet/broadcom/tg3.c                 |    2 --
+ drivers/net/ethernet/brocade/bna/bnad.c             |    1 -
+ drivers/net/ethernet/chelsio/cxgb/cxgb2.c           |    2 --
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c     |    2 --
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     |    2 --
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c |    3 ---
+ drivers/net/ethernet/cisco/enic/enic_main.c         |    2 --
+ 15 files changed, 30 deletions(-)
